@@ -40,6 +40,7 @@ try:
     from sqlalchemy.engine import make_url
     from sqlalchemy import (
         Boolean,
+        BigInteger,
         Column,
         DateTime,
         Enum,
@@ -143,7 +144,7 @@ if repconf.elasticsearchdb.enabled:
 
     es = elastic_handler
 
-SCHEMA_VERSION = "4e000e02a409"
+SCHEMA_VERSION = "2b3c4d5e6f7g"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -193,6 +194,13 @@ tasks_tags = Table(
     Base.metadata,
     Column("task_id", Integer, ForeignKey("tasks.id", ondelete="cascade")),
     Column("tag_id", Integer, ForeignKey("tags.id", ondelete="cascade")),
+)
+
+sample_associations = Table(
+    "sample_associations",
+    Base.metadata,
+    Column("parent_id", Integer, ForeignKey("samples.id"), primary_key=True),
+    Column("child_id", Integer, ForeignKey("samples.id"), primary_key=True),
 )
 
 
@@ -269,7 +277,6 @@ class Tag(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(nullable=False, unique=True)
-    machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags)  # , back_populates="tags")
     machines: Mapped[List["Machine"]] = relationship(secondary=machines_tags, back_populates="tags")
     tasks: Mapped[List["Task"]] = relationship(secondary=tasks_tags, back_populates="tags")
 
@@ -333,7 +340,7 @@ class Sample(Base):
     __tablename__ = "samples"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    file_size: Mapped[int] = mapped_column(nullable=False)
+    file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
     file_type: Mapped[str] = mapped_column(Text(), nullable=False)
     md5: Mapped[str] = mapped_column(String(32), nullable=False)
     crc32: Mapped[str] = mapped_column(String(8), nullable=False)
@@ -341,10 +348,26 @@ class Sample(Base):
     sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     sha512: Mapped[str] = mapped_column(String(128), nullable=False)
     ssdeep: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
-    parent: Mapped[Optional[int]] = mapped_column(nullable=True)
     source_url: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
-
     tasks: Mapped[List["Task"]] = relationship(back_populates="sample", cascade="all, delete-orphan")
+
+    # This relationship gets the list of parent archives for a given child sample
+    parents: Mapped[List["Sample"]] = relationship(
+        "Sample",
+        secondary=sample_associations,
+        primaryjoin=id == sample_associations.c.child_id,
+        secondaryjoin=id == sample_associations.c.parent_id,
+        back_populates="children"
+    )
+
+    # This relationship gets the list of child samples for a given parent archive
+    children: Mapped[List["Sample"]] = relationship(
+        "Sample",
+        secondary=sample_associations,
+        primaryjoin=id == sample_associations.c.parent_id,
+        secondaryjoin=id == sample_associations.c.child_id,
+        back_populates="parents"
+    )
 
     # ToDo replace with index=True
     __table_args__ = (
@@ -371,7 +394,7 @@ class Sample(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, md5, crc32, sha1, sha256, sha512, file_size, file_type=None, ssdeep=None, parent=None, source_url=None):
+    def __init__(self, md5, crc32, sha1, sha256, sha512, file_size, file_type=None, ssdeep=None, parent_sample=None, source_url=None):
         self.md5 = md5
         self.sha1 = sha1
         self.crc32 = crc32
@@ -382,8 +405,8 @@ class Sample(Base):
             self.file_type = file_type
         if ssdeep:
             self.ssdeep = ssdeep
-        if parent:
-            self.parent = parent
+        if parent_sample:
+            self.parent_sample = parent_sample
         if source_url:
             self.source_url = source_url
 
@@ -504,12 +527,6 @@ class Task(Base):
     errors: Mapped[List["Error"]] = relationship(
         back_populates="task", cascade="all, delete-orphan"  # This MUST match the attribute name on the Error model
     )
-    # ToDo drop shrike
-    shrike_url: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
-    shrike_refer: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
-    shrike_msg: Mapped[Optional[str]] = mapped_column(String(4096), nullable=True)
-    shrike_sid: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
-    parent_id: Mapped[Optional[int]] = mapped_column(Integer(), nullable=True)
     username: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
@@ -634,7 +651,7 @@ class _Database:
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )
-                    print(red("cd utils/db_migration/ && poetry run alembic upgrade head"))
+                    print(red("Please backup your data before migration!\ncd utils/db_migration/ && poetry run alembic upgrade head"))
                     sys.exit()
 
     def __del__(self):
@@ -1115,26 +1132,25 @@ class _Database:
             sample = None
             # check if hash is known already
             try:
-                with self.session.begin_nested():
-                    sample = Sample(
-                        md5=file_md5,
-                        crc32=fileobj.get_crc32(),
-                        sha1=fileobj.get_sha1(),
-                        sha256=fileobj.get_sha256(),
-                        sha512=fileobj.get_sha512(),
-                        file_size=fileobj.get_size(),
-                        file_type=file_type,
-                        ssdeep=fileobj.get_ssdeep(),
-                        # parent=sample_parent_id,
-                        source_url=source_url,
-                    )
-                    self.session.add(sample)
-            except IntegrityError:
-                stmt = select(Sample).where(Sample.md5 == file_md5)
-                sample = self.session.scalar(stmt)
-
-            return sample.id
-        return None
+                # get or create
+                sample = self.session.scalar(select(Sample).where(Sample.md5 == file_md5))
+                if sample is None:
+                    with self.session.begin_nested():
+                        sample = Sample(
+                            md5=file_md5,
+                            crc32=fileobj.get_crc32(),
+                            sha1=fileobj.get_sha1(),
+                            sha256=fileobj.get_sha256(),
+                            sha512=fileobj.get_sha512(),
+                            file_size=fileobj.get_size(),
+                            file_type=file_type,
+                            ssdeep=fileobj.get_ssdeep(),
+                            source_url=source_url,
+                        )
+                        self.session.add(sample)
+            except IntegrityError as e:
+                log.exception(e)
+        return sample
 
     def add(
         self,
@@ -1151,12 +1167,7 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
-        sample_parent_id=None,
+        parent_sample=None,
         tlp=None,
         static=False,
         source_url=False,
@@ -1179,7 +1190,7 @@ class _Database:
         @param enforce_timeout: toggle full timeout execution.
         @param clock: virtual machine clock time
         @param parent_id: parent task id
-        @param sample_parent_id: original sample in case of archive
+        @param parent_sample: original sample in case of archive
         @param static: try static extraction first
         @param tlp: TLP sharing designation
         @param source_url: url from where it was downloaded
@@ -1191,34 +1202,34 @@ class _Database:
         @return: cursor or None.
         """
         # Convert empty strings and None values to a valid int
-        if not timeout:
-            timeout = 0
-        if not priority:
-            priority = 1
 
         if isinstance(obj, (File, PCAP, Static)):
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
             # check if hash is known already
-            try:
-                with self.session.begin_nested():
-                    sample = Sample(
-                        md5=file_md5,
-                        crc32=fileobj.get_crc32(),
-                        sha1=fileobj.get_sha1(),
-                        sha256=fileobj.get_sha256(),
-                        sha512=fileobj.get_sha512(),
-                        file_size=fileobj.get_size(),
-                        file_type=file_type,
-                        ssdeep=fileobj.get_ssdeep(),
-                        parent=sample_parent_id,
-                        source_url=source_url,
-                    )
-                    self.session.add(sample)
-            except IntegrityError:
-                stmt = select(Sample).where(Sample.md5 == file_md5)
-                sample = self.session.scalar(stmt)
+            # ToDo consider migrate to _get_or_create?
+            sample = self.session.scalar(select(Sample).where(Sample.md5 == file_md5))
+            if not sample:
+                try:
+                    with self.session.begin_nested():
+                        sample = Sample(
+                            md5=file_md5,
+                            crc32=fileobj.get_crc32(),
+                            sha1=fileobj.get_sha1(),
+                            sha256=fileobj.get_sha256(),
+                            sha512=fileobj.get_sha512(),
+                            file_size=fileobj.get_size(),
+                            file_type=file_type,
+                            ssdeep=fileobj.get_ssdeep(),
+                            source_url=source_url,
+                        )
+                        self.session.add(sample)
+                except Exception as e:
+                    log.exception(e)
+
+            if parent_sample:
+                sample.parents.append(parent_sample)
 
             if DYNAMIC_ARCH_DETERMINATION:
                 # Assign architecture to task to fetch correct VM type
@@ -1258,11 +1269,6 @@ class _Database:
         task.platform = platform
         task.memory = bool(memory)
         task.enforce_timeout = enforce_timeout
-        task.shrike_url = shrike_url
-        task.shrike_msg = shrike_msg
-        task.shrike_sid = shrike_sid
-        task.shrike_refer = shrike_refer
-        task.parent_id = parent_id
         task.tlp = tlp
         task.route = route
         task.cape = cape
@@ -1313,11 +1319,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         sample_parent_id=None,
         tlp=None,
         static=False,
@@ -1327,6 +1328,7 @@ class _Database:
         tags_tasks=False,
         user_id=0,
         username=False,
+        parent_sample = None,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1349,6 +1351,7 @@ class _Database:
         @param tags_tasks: Task tags so users can tag their jobs
         @user_id: Allow link task to user if auth enabled
         @username: username from custom auth
+        @parent_sample: Sample object, if archive
         @return: cursor or None.
         """
         if not file_path or not path_exists(file_path):
@@ -1376,12 +1379,6 @@ class _Database:
             memory=memory,
             enforce_timeout=enforce_timeout,
             clock=clock,
-            shrike_url=shrike_url,
-            shrike_msg=shrike_msg,
-            shrike_sid=shrike_sid,
-            shrike_refer=shrike_refer,
-            parent_id=parent_id,
-            sample_parent_id=sample_parent_id,
             tlp=tlp,
             source_url=source_url,
             route=route,
@@ -1389,6 +1386,7 @@ class _Database:
             tags_tasks=tags_tasks,
             user_id=user_id,
             username=username,
+            parent_sample=parent_sample,
         )
 
     def _identify_aux_func(self, file: bytes, package: str, check_shellcode: bool = True) -> tuple:
@@ -1515,11 +1513,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         tlp=None,
         static=False,
         source_url=False,
@@ -1610,11 +1603,12 @@ class _Database:
                 # Checking original file as some filetypes doesn't require demux
                 package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)
 
+        parent_sample = None
         # extract files from the (potential) archive
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
         if extracted_files and (file_path, platform) not in extracted_files:
-            sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
+            parent_sample = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
 
@@ -1633,6 +1627,7 @@ class _Database:
                     username=username,
                     options=options,
                     package=package,
+                    parent_sample=parent_sample,
                 )
                 continue
             if static:
@@ -1646,7 +1641,7 @@ class _Database:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options, parent_sample=parent_sample,
                     )
 
             if not config and not only_extraction:
@@ -1689,11 +1684,6 @@ class _Database:
                     enforce_timeout=enforce_timeout,
                     tags=tags,
                     clock=clock,
-                    shrike_url=shrike_url,
-                    shrike_msg=shrike_msg,
-                    shrike_sid=shrike_sid,
-                    shrike_refer=shrike_refer,
-                    parent_id=parent_id,
                     sample_parent_id=sample_parent_id,
                     tlp=tlp,
                     source_url=source_url,
@@ -1702,6 +1692,7 @@ class _Database:
                     cape=cape,
                     user_id=user_id,
                     username=username,
+                    parent_sample=parent_sample,
                 )
                 package = None
             if task_id:
@@ -1728,11 +1719,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         tlp=None,
         user_id=0,
         username=False,
@@ -1750,11 +1736,6 @@ class _Database:
             memory=memory,
             enforce_timeout=enforce_timeout,
             clock=clock,
-            shrike_url=shrike_url,
-            shrike_msg=shrike_msg,
-            shrike_sid=shrike_sid,
-            shrike_refer=shrike_refer,
-            parent_id=parent_id,
             tlp=tlp,
             user_id=user_id,
             username=username,
@@ -1774,24 +1755,22 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         tlp=None,
         static=True,
         user_id=0,
         username=False,
+        parent_sample=None,
     ):
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
-        sample_parent_id = None
+
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
 
+        # ToDo callback maybe or inside of the self.add
         if extracted_files and ((file_path, platform) not in extracted_files and (file_path, "") not in extracted_files):
-            sample_parent_id = self.register_sample(File(file_path))
+            if not parent_sample:
+                parent_sample = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
                 # ToDo keep as info for now
                 log.info("Deleting archive: %s. conf.cuckoo.delete_archive is enabled. %s", file_path, str(extracted_files))
@@ -1813,13 +1792,9 @@ class _Database:
                 memory=memory,
                 enforce_timeout=enforce_timeout,
                 clock=clock,
-                shrike_url=shrike_url,
-                shrike_msg=shrike_msg,
-                shrike_sid=shrike_sid,
-                shrike_refer=shrike_refer,
                 tlp=tlp,
                 static=static,
-                sample_parent_id=sample_parent_id,
+                parent_sample=parent_sample,
                 user_id=user_id,
                 username=username,
             )
@@ -1842,11 +1817,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        shrike_url=None,
-        shrike_msg=None,
-        shrike_sid=None,
-        shrike_refer=None,
-        parent_id=None,
         tlp=None,
         route=None,
         cape=False,
@@ -1896,11 +1866,6 @@ class _Database:
             memory=memory,
             enforce_timeout=enforce_timeout,
             clock=clock,
-            shrike_url=shrike_url,
-            shrike_msg=shrike_msg,
-            shrike_sid=shrike_sid,
-            shrike_refer=shrike_refer,
-            parent_id=parent_id,
             tlp=tlp,
             route=route,
             cape=cape,
@@ -2040,9 +2005,35 @@ class _Database:
 
         return uniq
 
-    # ToDO drop?
+
+    def get_parent_sample_from_task(self, task_id: int) -> Optional[Sample]:
+        """
+        Finds the Parent Sample (the archive) given the ID of a child's Task.
+        """
+        # Aliases to distinguish Parent (archive) from Child (extracted file).
+        ParentSample = aliased(Sample, name="parent")
+        ChildSample = aliased(Sample, name="child")
+
+        # This query follows the path:
+        # Child Task -> Child Sample -> Association Table -> Parent Sample
+        stmt = (
+            select(ParentSample)
+            .select_from(Task)
+            # 1. Join the Task to its Sample (which is the ChildSample)
+            .join(ChildSample, Task.sample_id == ChildSample.id)
+            # 2. Join the ChildSample to the association table to find its parent link
+            .join(sample_associations, ChildSample.id == sample_associations.c.child_id)
+            # 3. Join the association table to the ParentSample
+            .join(ParentSample, ParentSample.id == sample_associations.c.parent_id)
+            # 4. Filter by the specific ChildTask's ID that we started with
+            .where(Task.id == task_id)
+        )
+
+        # Use .scalar() to get the single ParentSample object, or None
+        return self.session.scalar(stmt)
+
     # ToDo review this function maybe can be simplified
-    def get_parent_sample_by_task(self, sample_id=False, task_id=False):
+    def get_parent_sample_from_child_task(self, sample_id=False, task_id=False):
         """
         Retrieves the parent of a task's sample by joining through the task.
         @param task_id: The ID of the task whose parent sample is to be found.
@@ -2056,7 +2047,7 @@ class _Database:
             select(ParentSample)
             .select_from(Task)
             .join(Sample, Task.sample_id == Sample.id)
-            .join(ParentSample, Sample.parent == ParentSample.id)
+            .join(ParentSample, Sample.parent_id == ParentSample.id)
             .where(Task.id == task_id)
         )
         parent_obj = self.session.scalar(stmt)
@@ -2384,19 +2375,19 @@ class _Database:
         """Searches for samples or tasks based on different criteria."""
 
         if md5:
-            stmt = select(Sample).where(Sample.md5 == md5)
-            return self.session.scalar(stmt)
+            return self.session.scalar(select(Sample).where(Sample.md5 == md5))
 
         if sha1:
-            stmt = select(Sample).where(Sample.sha1 == sha1)
-            return self.session.scalar(stmt)
+            return self.session.scalar(select(Sample).where(Sample.sha1 == sha1))
 
         if sha256:
-            stmt = select(Sample).where(Sample.sha256 == sha256)
-            return self.session.scalar(stmt)
+            return self.session.scalar(select(Sample).where(Sample.sha256 == sha256))
 
         if parent is not None:
-            stmt = select(Sample).where(Sample.parent == parent)
+            stmt = (
+                select(sample_associations.c.child_id)
+                .where(sample_associations.c.parent_id == parent)
+            )
             return self.session.scalars(stmt).all()
 
         if sample_id is not None:

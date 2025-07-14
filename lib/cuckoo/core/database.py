@@ -2018,6 +2018,7 @@ class _Database:
         # Child Task -> Child Sample -> Association Table -> Parent Sample
         stmt = (
             select(ParentSample)
+            .select_from(Task)
             # 1. Join the Task to its Sample (which is the ChildSample)
             .join(ChildSample, Task.sample_id == ChildSample.id)
             # 2. Join the ChildSample to the association table to find its parent link

@@ -2374,19 +2374,19 @@ class _Database:
         """Searches for samples or tasks based on different criteria."""
 
         if md5:
-            stmt = select(Sample).where(Sample.md5 == md5)
-            return self.session.scalar(stmt)
+            return self.session.scalar(select(Sample).where(Sample.md5 == md5))
 
         if sha1:
-            stmt = select(Sample).where(Sample.sha1 == sha1)
-            return self.session.scalar(stmt)
+            return self.session.scalar(select(Sample).where(Sample.sha1 == sha1))
 
         if sha256:
-            stmt = select(Sample).where(Sample.sha256 == sha256)
-            return self.session.scalar(stmt)
+            return self.session.scalar(select(Sample).where(Sample.sha256 == sha256))
 
         if parent is not None:
-            stmt = select(Sample).where(Sample.parent == parent)
+            stmt = (
+                select(sample_associations.c.child_id)
+                .where(sample_associations.c.parent_id == parent)
+            )
             return self.session.scalars(stmt).all()
 
         if sample_id is not None:

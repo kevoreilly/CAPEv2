@@ -2006,7 +2006,7 @@ class _Database:
         return uniq
 
 
-    def get_parent_sample_from_task(session, task_id: int) -> Optional[Sample]:
+    def get_parent_sample_from_task(self, task_id: int) -> Optional[Sample]:
         """
         Finds the Parent Sample (the archive) given the ID of a child's Task.
         """
@@ -2029,7 +2029,7 @@ class _Database:
         )
 
         # Use .scalar() to get the single ParentSample object, or None
-        return session.scalar(stmt)
+        return self.session.scalar(stmt)
 
     # ToDo review this function maybe can be simplified
     def get_parent_sample_from_child_task(self, sample_id=False, task_id=False):

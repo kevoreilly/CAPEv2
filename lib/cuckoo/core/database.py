@@ -2006,7 +2006,7 @@ class _Database:
         return uniq
 
 
-    def get_parent_sample_from_task(session, child_task_id: int) -> Optional[Sample]:
+    def get_parent_sample_from_task(session, task_id: int) -> Optional[Sample]:
         """
         Finds the Parent Sample (the archive) given the ID of a child's Task.
         """
@@ -2025,7 +2025,7 @@ class _Database:
             # 3. Join the association table to the ParentSample
             .join(ParentSample, ParentSample.id == sample_associations.c.parent_id)
             # 4. Filter by the specific ChildTask's ID that we started with
-            .where(Task.id == child_task_id)
+            .where(Task.id == task_id)
         )
 
         # Use .scalar() to get the single ParentSample object, or None

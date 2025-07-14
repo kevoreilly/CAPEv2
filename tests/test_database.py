@@ -768,7 +768,7 @@ class TestDatabaseEngine:
 
         with db.session.begin():
             exp_val = dict(**dct, parent=None, id=sample_id)
-            assert db.get_parent_sample_from_task(task_id=task_id) == exp_val
+            assert db.get_parent_sample_from_task(task_id=task_id).to_dict() == exp_val
             assert db.get_parent_sample_from_task(task_id=task_id + 1) == {}
 
     def test_list_tasks(self, db: _Database, temp_filename, freezer):

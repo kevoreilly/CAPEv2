@@ -5,14 +5,14 @@
 """add_platform_column_for_guests
 
 Revision ID: 3a1c6c03844b
-Revises: a8441ab0fd0f
+Revises: None
 Create Date: 2024-03-07 16:11:55.712298
 
 """
 
 # revision identifiers, used by Alembic.
 revision = "3a1c6c03844b"
-down_revision = "a8441ab0fd0f"
+down_revision = None
 
 import sqlalchemy as sa
 from alembic import op

@@ -144,7 +144,7 @@ if repconf.elasticsearchdb.enabled:
 
     es = elastic_handler
 
-SCHEMA_VERSION = "4e000e02a409"
+SCHEMA_VERSION = "2b3c4d5e6f7g"
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
 TASK_RUNNING = "running"
@@ -194,6 +194,13 @@ tasks_tags = Table(
     Base.metadata,
     Column("task_id", Integer, ForeignKey("tasks.id", ondelete="cascade")),
     Column("tag_id", Integer, ForeignKey("tags.id", ondelete="cascade")),
+)
+
+sample_associations = Table(
+    "sample_associations",
+    Base.metadata,
+    Column("parent_id", Integer, ForeignKey("samples.id"), primary_key=True),
+    Column("child_id", Integer, ForeignKey("samples.id"), primary_key=True),
 )
 
 
@@ -344,34 +351,23 @@ class Sample(Base):
     source_url: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
     tasks: Mapped[List["Task"]] = relationship(back_populates="sample", cascade="all, delete-orphan")
 
-    # 1. The `parent` column is now a ForeignKey pointing to its own table's id.
-    #    Renaming to `parent_id` is a common and clear convention.
-    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("samples.id"), nullable=True)
-    # 2. This relationship allows a parent (archive) to access its list of children.
-    child_samples: Mapped[List["Sample"]] = relationship(
-        back_populates="parent_sample", cascade="all, delete-orphan"
+    # This relationship gets the list of parent archives for a given child sample
+    parents: Mapped[List["Sample"]] = relationship(
+        "Sample",
+        secondary=sample_associations,
+        primaryjoin=id == sample_associations.c.child_id,
+        secondaryjoin=id == sample_associations.c.parent_id,
+        back_populates="children"
     )
 
-    # 3. This relationship allows a child to access its parent.
-    #    `remote_side` is needed to help SQLAlchemy understand the self-referential join.
-    parent_sample: Mapped[Optional["Sample"]] = relationship(
-        back_populates="child_samples", remote_side=[id]
+    # This relationship gets the list of child samples for a given parent archive
+    children: Mapped[List["Sample"]] = relationship(
+        "Sample",
+        secondary=sample_associations,
+        primaryjoin=id == sample_associations.c.parent_id,
+        secondaryjoin=id == sample_associations.c.child_id,
+        back_populates="parents"
     )
-
-    """ ToDo move to tests
-    # Create an archive sample and two child samples
-    archive = Sample(file_size=1000, file_type="zip", ...)
-    file1 = Sample(file_size=100, file_type="txt", parent_sample=archive, ...)
-    file2 = Sample(file_size=200, file_type="pdf", parent_sample=archive, ...)
-
-    with session.begin():
-        session.add_all([archive, file1, file2])
-
-    # You can now access the relationships
-    print(len(archive.child_samples))  # Output: 2
-    print(archive.child_samples[0].file_type) # Output: 'txt'
-    print(file1.parent_sample.id == archive.id) # Output: True
-    """
 
     # ToDo replace with index=True
     __table_args__ = (
@@ -655,7 +651,7 @@ class _Database:
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )
-                    print(red("cd utils/db_migration/ && poetry run alembic upgrade head"))
+                    print(red("Please backup your data before migration!\ncd utils/db_migration/ && poetry run alembic upgrade head"))
                     sys.exit()
 
     def __del__(self):
@@ -1136,26 +1132,25 @@ class _Database:
             sample = None
             # check if hash is known already
             try:
-                with self.session.begin_nested():
-                    sample = Sample(
-                        md5=file_md5,
-                        crc32=fileobj.get_crc32(),
-                        sha1=fileobj.get_sha1(),
-                        sha256=fileobj.get_sha256(),
-                        sha512=fileobj.get_sha512(),
-                        file_size=fileobj.get_size(),
-                        file_type=file_type,
-                        ssdeep=fileobj.get_ssdeep(),
-                        # parent=sample_parent_id,
-                        source_url=source_url,
-                    )
-                    self.session.add(sample)
-            except IntegrityError:
-                stmt = select(Sample).where(Sample.md5 == file_md5)
-                sample = self.session.scalar(stmt)
-
-            return sample.id
-        return None
+                # get or create
+                sample = self.session.scalar(select(Sample).where(Sample.md5 == file_md5))
+                if sample is None:
+                    with self.session.begin_nested():
+                        sample = Sample(
+                            md5=file_md5,
+                            crc32=fileobj.get_crc32(),
+                            sha1=fileobj.get_sha1(),
+                            sha256=fileobj.get_sha256(),
+                            sha512=fileobj.get_sha512(),
+                            file_size=fileobj.get_size(),
+                            file_type=file_type,
+                            ssdeep=fileobj.get_ssdeep(),
+                            source_url=source_url,
+                        )
+                        self.session.add(sample)
+            except IntegrityError as e:
+                log.exception(e)
+        return sample
 
     def add(
         self,
@@ -1172,7 +1167,7 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        sample_parent_id=None,
+        parent_sample=None,
         tlp=None,
         static=False,
         source_url=False,
@@ -1195,7 +1190,7 @@ class _Database:
         @param enforce_timeout: toggle full timeout execution.
         @param clock: virtual machine clock time
         @param parent_id: parent task id
-        @param sample_parent_id: original sample in case of archive
+        @param parent_sample: original sample in case of archive
         @param static: try static extraction first
         @param tlp: TLP sharing designation
         @param source_url: url from where it was downloaded
@@ -1228,7 +1223,7 @@ class _Database:
                         file_size=fileobj.get_size(),
                         file_type=file_type,
                         ssdeep=fileobj.get_ssdeep(),
-                        parent=sample_parent_id,
+                        parent_sample=parent_sample,
                         source_url=source_url,
                     )
                     self.session.add(sample)
@@ -1610,7 +1605,7 @@ class _Database:
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
         if extracted_files and (file_path, platform) not in extracted_files:
-            sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
+            parent_sample = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
 
@@ -1629,6 +1624,7 @@ class _Database:
                     username=username,
                     options=options,
                     package=package,
+                    # ToDo add parent
                 )
                 continue
             if static:
@@ -1761,13 +1757,14 @@ class _Database:
         username=False,
     ):
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
-        sample_parent_id = None
+        parent_sample = None
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
 
+        # ToDo callback maybe or inside of the self.add
         if extracted_files and ((file_path, platform) not in extracted_files and (file_path, "") not in extracted_files):
-            sample_parent_id = self.register_sample(File(file_path))
+            parent_sample = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
                 # ToDo keep as info for now
                 log.info("Deleting archive: %s. conf.cuckoo.delete_archive is enabled. %s", file_path, str(extracted_files))
@@ -1791,7 +1788,7 @@ class _Database:
                 clock=clock,
                 tlp=tlp,
                 static=static,
-                sample_parent_id=sample_parent_id,
+                parent_sample=parent_sample,
                 user_id=user_id,
                 username=username,
             )
@@ -2002,9 +1999,34 @@ class _Database:
 
         return uniq
 
-    # ToDO drop?
+
+    def get_parent_sample_from_task(session, child_task_id: int) -> Optional[Sample]:
+        """
+        Finds the Parent Sample (the archive) given the ID of a child's Task.
+        """
+        # Aliases to distinguish Parent (archive) from Child (extracted file).
+        ParentSample = aliased(Sample, name="parent")
+        ChildSample = aliased(Sample, name="child")
+
+        # This query follows the path:
+        # Child Task -> Child Sample -> Association Table -> Parent Sample
+        stmt = (
+            select(ParentSample)
+            # 1. Join the Task to its Sample (which is the ChildSample)
+            .join(ChildSample, Task.sample_id == ChildSample.id)
+            # 2. Join the ChildSample to the association table to find its parent link
+            .join(sample_associations, ChildSample.id == sample_associations.c.child_id)
+            # 3. Join the association table to the ParentSample
+            .join(ParentSample, ParentSample.id == sample_associations.c.parent_id)
+            # 4. Filter by the specific ChildTask's ID that we started with
+            .where(Task.id == child_task_id)
+        )
+
+        # Use .scalar() to get the single ParentSample object, or None
+        return session.scalar(stmt)
+
     # ToDo review this function maybe can be simplified
-    def get_parent_sample_by_task(self, sample_id=False, task_id=False):
+    def get_parent_sample_from_child_task(self, sample_id=False, task_id=False):
         """
         Retrieves the parent of a task's sample by joining through the task.
         @param task_id: The ID of the task whose parent sample is to be found.

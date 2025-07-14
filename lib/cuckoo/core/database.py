@@ -1328,6 +1328,7 @@ class _Database:
         tags_tasks=False,
         user_id=0,
         username=False,
+        parent_sample = None,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1350,6 +1351,7 @@ class _Database:
         @param tags_tasks: Task tags so users can tag their jobs
         @user_id: Allow link task to user if auth enabled
         @username: username from custom auth
+        @parent_sample: Sample object, if archive
         @return: cursor or None.
         """
         if not file_path or not path_exists(file_path):
@@ -1377,7 +1379,6 @@ class _Database:
             memory=memory,
             enforce_timeout=enforce_timeout,
             clock=clock,
-            sample_parent_id=sample_parent_id,
             tlp=tlp,
             source_url=source_url,
             route=route,
@@ -1385,6 +1386,7 @@ class _Database:
             tags_tasks=tags_tasks,
             user_id=user_id,
             username=username,
+            parent_sample=parent_sample,
         )
 
     def _identify_aux_func(self, file: bytes, package: str, check_shellcode: bool = True) -> tuple:
@@ -1601,6 +1603,7 @@ class _Database:
                 # Checking original file as some filetypes doesn't require demux
                 package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)
 
+        parent_sample = None
         # extract files from the (potential) archive
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
@@ -1624,7 +1627,7 @@ class _Database:
                     username=username,
                     options=options,
                     package=package,
-                    # ToDo add parent
+                    parent_sample=parent_sample,
                 )
                 continue
             if static:
@@ -1638,7 +1641,7 @@ class _Database:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options, parent_sample=parent_sample,
                     )
 
             if not config and not only_extraction:
@@ -1689,6 +1692,7 @@ class _Database:
                     cape=cape,
                     user_id=user_id,
                     username=username,
+                    parent_sample=parent_sample,
                 )
                 package = None
             if task_id:
@@ -1755,16 +1759,18 @@ class _Database:
         static=True,
         user_id=0,
         username=False,
+        parent_sample=None,
     ):
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
-        parent_sample = None
+
         # check if len is 1 and the same file, if diff register file, and set parent
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
 
         # ToDo callback maybe or inside of the self.add
         if extracted_files and ((file_path, platform) not in extracted_files and (file_path, "") not in extracted_files):
-            parent_sample = self.register_sample(File(file_path))
+            if not parent_sample:
+                parent_sample = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
                 # ToDo keep as info for now
                 log.info("Deleting archive: %s. conf.cuckoo.delete_archive is enabled. %s", file_path, str(extracted_files))

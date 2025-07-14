@@ -394,7 +394,7 @@ class Sample(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, md5, crc32, sha1, sha256, sha512, file_size, file_type=None, ssdeep=None, parent=None, source_url=None):
+    def __init__(self, md5, crc32, sha1, sha256, sha512, file_size, file_type=None, ssdeep=None, parent_sample=None, source_url=None):
         self.md5 = md5
         self.sha1 = sha1
         self.crc32 = crc32
@@ -405,8 +405,8 @@ class Sample(Base):
             self.file_type = file_type
         if ssdeep:
             self.ssdeep = ssdeep
-        if parent:
-            self.parent = parent
+        if parent_sample:
+            self.parent_sample = parent_sample
         if source_url:
             self.source_url = source_url
 

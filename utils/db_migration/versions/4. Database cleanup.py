@@ -14,12 +14,15 @@ depends_on = None
 
 def upgrade() -> None:
 
+    # 1. Create the new association table with all its columns and constraints.
     op.create_table('sample_associations',
         sa.Column('parent_id', sa.Integer(), nullable=False),
         sa.Column('child_id', sa.Integer(), nullable=False),
+        sa.Column('task_id', sa.Integer(), nullable=False),
         sa.ForeignKeyConstraint(['child_id'], ['samples.id'], ),
         sa.ForeignKeyConstraint(['parent_id'], ['samples.id'], ),
-        sa.PrimaryKeyConstraint('parent_id', 'child_id')
+        sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
+        sa.PrimaryKeyConstraint('parent_id', 'child_id', 'task_id')
     )
 
     # 2. Drop the old, now-unused parent_id column from the samples table

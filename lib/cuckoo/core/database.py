@@ -196,19 +196,26 @@ tasks_tags = Table(
     Column("tag_id", Integer, ForeignKey("tags.id", ondelete="cascade")),
 )
 
-sample_associations = Table(
-    "sample_associations",
-    Base.metadata,
-    Column("parent_id", Integer, ForeignKey("samples.id"), primary_key=True),
-    Column("child_id", Integer, ForeignKey("samples.id"), primary_key=True),
-)
-
-
 def get_count(q, property):
     count_q = q.statement.with_only_columns(func.count(property)).order_by(None)
     count = q.session.execute(count_q).scalar()
     return count
 
+
+class SampleAssociation(Base):
+    __tablename__ = "sample_associations"
+
+    # Each column is part of a composite primary key
+    parent_id: Mapped[int] = mapped_column(ForeignKey("samples.id"), primary_key=True)
+    child_id: Mapped[int] = mapped_column(ForeignKey("samples.id"), primary_key=True)
+
+    # This is the crucial column that links to the specific child's task
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+
+    # Relationships from the association object itself
+    parent: Mapped["Sample"] = relationship(foreign_keys=[parent_id], back_populates="child_links")
+    child: Mapped["Sample"] = relationship(foreign_keys=[child_id], back_populates="parent_links")
+    task: Mapped["Task"] = relationship(back_populates="association")
 
 class Machine(Base):
     """Configured virtual machines to be used as guests."""
@@ -349,24 +356,14 @@ class Sample(Base):
     sha512: Mapped[str] = mapped_column(String(128), nullable=False)
     ssdeep: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     source_url: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
-    tasks: Mapped[List["Task"]] = relationship(back_populates="sample", cascade="all, delete-orphan")
+    tasks: Mapped[List["Task"]] = relationship(back_populates="sample")
 
-    # This relationship gets the list of parent archives for a given child sample
-    parents: Mapped[List["Sample"]] = relationship(
-        "Sample",
-        secondary=sample_associations,
-        primaryjoin=id == sample_associations.c.child_id,
-        secondaryjoin=id == sample_associations.c.parent_id,
-        back_populates="children"
+    child_links: Mapped[List["SampleAssociation"]] = relationship(
+        foreign_keys=[SampleAssociation.parent_id], back_populates="parent"
     )
-
-    # This relationship gets the list of child samples for a given parent archive
-    children: Mapped[List["Sample"]] = relationship(
-        "Sample",
-        secondary=sample_associations,
-        primaryjoin=id == sample_associations.c.parent_id,
-        secondaryjoin=id == sample_associations.c.child_id,
-        back_populates="parents"
+    # When this Sample is a child, this gives you its association links
+    parent_links: Mapped[List["SampleAssociation"]] = relationship(
+        foreign_keys=[SampleAssociation.child_id], back_populates="child"
     )
 
     # ToDo replace with index=True
@@ -405,8 +402,8 @@ class Sample(Base):
             self.file_type = file_type
         if ssdeep:
             self.ssdeep = ssdeep
-        if parent_sample:
-            self.parent_sample = parent_sample
+        # if parent_sample:
+        #    self.parent_sample = parent_sample
         if source_url:
             self.source_url = source_url
 
@@ -531,6 +528,9 @@ class Task(Base):
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+
+    # The Task is linked to one specific parent/child association event
+    association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task")
 
     __table_args__ = (
         Index("category_index", "category"),
@@ -1228,9 +1228,6 @@ class _Database:
                 except Exception as e:
                     log.exception(e)
 
-            if parent_sample:
-                sample.parents.append(parent_sample)
-
             if DYNAMIC_ARCH_DETERMINATION:
                 # Assign architecture to task to fetch correct VM type
 
@@ -1298,6 +1295,16 @@ class _Database:
 
         task.user_id = user_id
         task.username = username
+
+        if parent_sample:
+            # sample.parents.append(parent_sample)
+            association = SampleAssociation(
+                parent=parent_sample,
+                child=sample,
+                task=task,
+            )
+            with self.session.begin_nested():
+                self.session.add(association)
 
         # Use a nested transaction so that we can return an ID.
         with self.session.begin_nested():
@@ -2007,29 +2014,15 @@ class _Database:
 
 
     def get_parent_sample_from_task(self, task_id: int) -> Optional[Sample]:
-        """
-        Finds the Parent Sample (the archive) given the ID of a child's Task.
-        """
-        # Aliases to distinguish Parent (archive) from Child (extracted file).
-        ParentSample = aliased(Sample, name="parent")
-        ChildSample = aliased(Sample, name="child")
+        """Finds the Parent Sample using the ID of the child's Task."""
 
-        # This query follows the path:
-        # Child Task -> Child Sample -> Association Table -> Parent Sample
+        # This query joins the Sample table (as the parent) to the
+        # association object and filters by the task_id.
         stmt = (
-            select(ParentSample)
-            .select_from(Task)
-            # 1. Join the Task to its Sample (which is the ChildSample)
-            .join(ChildSample, Task.sample_id == ChildSample.id)
-            # 2. Join the ChildSample to the association table to find its parent link
-            .join(sample_associations, ChildSample.id == sample_associations.c.child_id)
-            # 3. Join the association table to the ParentSample
-            .join(ParentSample, ParentSample.id == sample_associations.c.parent_id)
-            # 4. Filter by the specific ChildTask's ID that we started with
-            .where(Task.id == task_id)
+            select(Sample)
+            .join(SampleAssociation, Sample.id == SampleAssociation.parent_id)
+            .where(SampleAssociation.task_id == task_id)
         )
-
-        # Use .scalar() to get the single ParentSample object, or None
         return self.session.scalar(stmt)
 
     # ToDo review this function maybe can be simplified

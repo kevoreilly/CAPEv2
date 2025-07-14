@@ -992,7 +992,7 @@ class TestDatabaseEngine:
             # assert [s.id for s in db.find_sample(parent=samples[0].id)] == samples[1:]
             # assert [s.id for s in db.find_sample(parent=samples[1].id)] == []
             # When a task_id is passed, find_sample returns Task objects instead of Sample objects.
-            assert [t.sample.id for t in db.find_sample(task_id=t1)] == [task_sample.id]
+            assert [t.sample.id for t in db.find_sample(task_id=t1)] == [task_sample]
             assert [s.id for s in db.find_sample(sample_id=samples[1].id)] == [samples[1].id]
 
     def test_sample_still_used(self, db: _Database, temp_filename):

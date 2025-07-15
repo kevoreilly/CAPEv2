@@ -797,8 +797,8 @@ class TestDatabaseEngine:
 
         child = db.find_sample(task_id=task_id)
         child_by_parent = db.find_sample(parent=parent_archive.id)
-        assert child[0].id == child_by_parent[0].id
-        assert db.get_children_by_parent_id(parent_archive.id)[0].id == child[0].id
+        assert child[0].sample.id == child_by_parent[0].id
+        assert db.get_children_by_parent_id(parent_archive.id)[0].id == child[0].sample.id
 
     def test_list_tasks(self, db: _Database, temp_filename, freezer):
         with db.session.begin():

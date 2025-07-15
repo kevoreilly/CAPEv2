@@ -772,6 +772,33 @@ class TestDatabaseEngine:
             assert db.get_parent_sample_from_task(task_id=task_id) is None
             assert db.get_parent_sample_from_task(task_id=task_id + 1) is None
 
+    def test_create_parent_child_link(self, db: _Database, temp_filename):
+        """
+        Tests that creating a parent, child, task, and the association
+        link between them works correctly.
+        """
+        # 1. Create the objects in Python
+        parent_dct = dict(
+            md5="md5",
+            crc32="crc32",
+            sha1="sha1",
+            sha256="sha256",
+            sha512="sha512",
+            file_size=100,
+            file_type="file_type",
+            ssdeep="ssdeep",
+            source_url="source_url",
+        )
+
+        with db.session.begin():
+            parent_archive = Sample(**parent_dct)
+        task_id = db.add_path(temp_filename, parent_sample=parent_archive)
+
+        child = db.find_sample(task_id=task_id)
+        child_by_parent = db.find_sample(parent=parent_archive.id)
+        assert child[0].sample.id == child_by_parent[0].id
+        assert db.get_children_by_parent_id(parent_archive.id)[0].id == child[0].sample.id
+
     def test_list_tasks(self, db: _Database, temp_filename, freezer):
         with db.session.begin():
             t1 = db.add_path(temp_filename, options="minhook=1")

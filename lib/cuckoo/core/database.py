@@ -2345,7 +2345,7 @@ class _Database:
             return self.session.scalar(select(Sample).where(Sample.sha256 == sha256))
 
         if parent is not None:
-            return [child.to_dict() for child in self.get_children_by_parent_id(parent) if child]
+            return self.get_children_by_parent_id(parent)
 
         if sample_id is not None:
             # Using session.get() is much more efficient than a select query.

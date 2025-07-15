@@ -524,7 +524,6 @@ class Task(Base):
     errors: Mapped[List["Error"]] = relationship(
         back_populates="task", cascade="all, delete-orphan"  # This MUST match the attribute name on the Error model
     )
-    username: Mapped[Optional[str]] = mapped_column(String(256), nullable=True)
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)

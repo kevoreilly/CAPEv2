@@ -113,7 +113,7 @@ class Task(Base):
     enforce_timeout: Mapped[Optional[str]] = mapped_column(Text)
     tlp: Mapped[Optional[str]] = mapped_column(Text)
 
-    node_id: Mapped[Optional[int]] = mapped_column(ForeignKey("node.id"))
+    node_id: Mapped[Optional[int]] = mapped_column(ForeignKey("node.id"), index=True)
     task_id: Mapped[Optional[int]] = mapped_column(index=True)
     main_task_id: Mapped[Optional[int]] = mapped_column(index=True)
 

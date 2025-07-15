@@ -356,7 +356,7 @@ class Sample(Base):
     sha512: Mapped[str] = mapped_column(String(128), nullable=False)
     ssdeep: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     source_url: Mapped[Optional[str]] = mapped_column(String(2000), nullable=True)
-    tasks: Mapped[List["Task"]] = relationship(back_populates="sample")
+    tasks: Mapped[List["Task"]] = relationship(back_populates="sample", cascade="all, delete-orphan")
 
     child_links: Mapped[List["SampleAssociation"]] = relationship(
         foreign_keys=[SampleAssociation.parent_id], back_populates="parent"

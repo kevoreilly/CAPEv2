@@ -13,21 +13,6 @@ depends_on = None
 
 
 def upgrade() -> None:
-    """
-    try:
-        # 1. Create the new association table with all its columns and constraints.
-        op.create_table('sample_associations',
-            sa.Column('parent_id', sa.Integer(), nullable=False),
-            sa.Column('child_id', sa.Integer(), nullable=False),
-            sa.Column('task_id', sa.Integer(), nullable=False),
-            sa.ForeignKeyConstraint(['child_id'], ['samples.id'], ),
-            sa.ForeignKeyConstraint(['parent_id'], ['samples.id'], ),
-            sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
-            sa.PrimaryKeyConstraint('parent_id', 'child_id', 'task_id')
-        )
-    except sa.exc.ProgrammingError as e:
-        print("Migration 2 error", e)
-    """
 
     op.alter_column('samples', 'file_size',
         existing_type=sa.INTEGER(),

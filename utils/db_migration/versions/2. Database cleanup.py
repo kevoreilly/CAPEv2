@@ -13,20 +13,21 @@ depends_on = None
 
 
 def upgrade() -> None:
-
-    # 1. Create the new association table with all its columns and constraints.
-    op.create_table('sample_associations',
-        sa.Column('parent_id', sa.Integer(), nullable=False),
-        sa.Column('child_id', sa.Integer(), nullable=False),
-        sa.Column('task_id', sa.Integer(), nullable=False),
-        sa.ForeignKeyConstraint(['child_id'], ['samples.id'], ),
-        sa.ForeignKeyConstraint(['parent_id'], ['samples.id'], ),
-        sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
-        sa.PrimaryKeyConstraint('parent_id', 'child_id', 'task_id')
-    )
-
-    # 2. Drop the old, now-unused parent_id column from the samples table
-    op.drop_column('samples', 'parent_id')
+    """
+    try:
+        # 1. Create the new association table with all its columns and constraints.
+        op.create_table('sample_associations',
+            sa.Column('parent_id', sa.Integer(), nullable=False),
+            sa.Column('child_id', sa.Integer(), nullable=False),
+            sa.Column('task_id', sa.Integer(), nullable=False),
+            sa.ForeignKeyConstraint(['child_id'], ['samples.id'], ),
+            sa.ForeignKeyConstraint(['parent_id'], ['samples.id'], ),
+            sa.ForeignKeyConstraint(['task_id'], ['tasks.id'], ),
+            sa.PrimaryKeyConstraint('parent_id', 'child_id', 'task_id')
+        )
+    except sa.exc.ProgrammingError as e:
+        print("Migration 2 error", e)
+    """
 
     op.alter_column('samples', 'file_size',
         existing_type=sa.INTEGER(),
@@ -34,6 +35,7 @@ def upgrade() -> None:
         existing_nullable=False
     )
 
+    op.drop_column('samples', 'parent')
     op.drop_column('tasks', 'parent_id')
     op.drop_column('tasks', 'shrike_sid')
     op.drop_column('tasks', 'shrike_msg')

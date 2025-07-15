@@ -31,7 +31,6 @@ from lib.cuckoo.core.database import (
     Sample,
     Tag,
     Task,
-    SampleAssociation,
     _Database,
     machines_tags,
 )

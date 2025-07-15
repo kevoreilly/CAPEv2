@@ -2002,31 +2002,6 @@ class _Database:
         )
         return self.session.scalar(stmt)
 
-    # ToDo review this function maybe can be simplified
-    def get_parent_sample_from_child_task(self, sample_id=False, task_id=False):
-        """
-        Retrieves the parent of a task's sample by joining through the task.
-        @param task_id: The ID of the task whose parent sample is to be found.
-        @return: A dictionary of the parent sample's data, or an empty dictionary.
-        """
-        # Create an alias to distinguish the parent Sample from the child Sample.
-        ParentSample = aliased(Sample, name="parent_sample")
-
-        # This single query joins from Task -> child Sample -> parent Sample.
-        stmt = (
-            select(ParentSample)
-            .select_from(Task)
-            .join(Sample, Task.sample_id == Sample.id)
-            .join(ParentSample, Sample.parent_id == ParentSample.id)
-            .where(Task.id == task_id)
-        )
-        parent_obj = self.session.scalar(stmt)
-
-        if parent_obj:
-            return parent_obj.to_dict()
-
-        return {}
-
     def list_tasks(
         self,
         limit=None,
@@ -2339,6 +2314,22 @@ class _Database:
         """
         return self.session.get(Sample, sample_id)
 
+    def get_children_by_parent_id(self, parent_id: int) -> List[Sample]:
+        """
+        Finds all child Samples using an explicit join.
+        """
+        # Create an alias to represent the Child Sample in the query
+        ChildSample = aliased(Sample, name="child")
+
+        # This query selects child samples by joining through the association table
+        stmt = (
+            select(ChildSample)
+            .join(SampleAssociation, ChildSample.id == SampleAssociation.child_id)
+            .where(SampleAssociation.parent_id == parent_id)
+        )
+
+        return self.session.scalars(stmt).all()
+
     def find_sample(
         self, md5: str = None, sha1: str = None, sha256: str = None, parent: int = None, task_id: int = None, sample_id: int = None
     ) -> Union[Optional[Sample], List[Sample], List[Task]]:
@@ -2352,15 +2343,10 @@ class _Database:
 
         if sha256:
             return self.session.scalar(select(Sample).where(Sample.sha256 == sha256))
-        """
-        # ToDo rewrite/fix
+
         if parent is not None:
-            stmt = (
-                select(sample_associations.c.child_id)
-                .where(sample_associations.c.parent_id == parent)
-            )
-            return self.session.scalars(stmt).all()
-        """
+            return [child.to_dict() for child in self.get_children_by_parent_id(parent) if child]
+
         if sample_id is not None:
             # Using session.get() is much more efficient than a select query.
             # We wrap the result in a list to match the original function's behavior.

@@ -1174,7 +1174,6 @@ class _Database:
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username=False,
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -1197,7 +1196,6 @@ class _Database:
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @param user_id: Link task to user if auth enabled
-        @param username: username for custom auth
         @return: cursor or None.
         """
         # Convert empty strings and None values to a valid int
@@ -1293,17 +1291,14 @@ class _Database:
             task.clock = datetime.utcfromtimestamp(0)
 
         task.user_id = user_id
-        task.username = username
 
         if parent_sample:
-            # sample.parents.append(parent_sample)
             association = SampleAssociation(
                 parent=parent_sample,
                 child=sample,
                 task=task,
             )
-            with self.session.begin_nested():
-                self.session.add(association)
+            self.session.add(association)
 
         # Use a nested transaction so that we can return an ID.
         with self.session.begin_nested():
@@ -1325,7 +1320,6 @@ class _Database:
         memory=False,
         enforce_timeout=False,
         clock=None,
-        sample_parent_id=None,
         tlp=None,
         static=False,
         source_url=False,
@@ -1333,7 +1327,6 @@ class _Database:
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username=False,
         parent_sample = None,
     ):
         """Add a task to database from file path.
@@ -1349,14 +1342,13 @@ class _Database:
         @param enforce_timeout: toggle full timeout execution.
         @param clock: virtual machine clock time
         @param parent_id: parent analysis id
-        @param sample_parent_id: sample parent id, if archive
+        @param parent_sample: sample object if archive
         @param static: try static extraction first
         @param tlp: TLP sharing designation
         @param route: Routing route
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @user_id: Allow link task to user if auth enabled
-        @username: username from custom auth
         @parent_sample: Sample object, if archive
         @return: cursor or None.
         """
@@ -1391,7 +1383,6 @@ class _Database:
             cape=cape,
             tags_tasks=tags_tasks,
             user_id=user_id,
-            username=username,
             parent_sample=parent_sample,
         )
 
@@ -1527,7 +1518,6 @@ class _Database:
         route=None,
         cape=False,
         user_id=0,
-        username=False,
         category=None,
     ):
         """
@@ -1538,7 +1528,6 @@ class _Database:
         task_ids = []
         config = {}
         details = {}
-        sample_parent_id = None
 
         if not isinstance(file_path, bytes):
             file_path = file_path.encode()
@@ -1591,7 +1580,6 @@ class _Database:
                 priority=priority,
                 tlp=tlp,
                 user_id=user_id,
-                username=username,
                 options=options,
                 package=package,
             )
@@ -1630,7 +1618,6 @@ class _Database:
                     priority=priority,
                     tlp=tlp,
                     user_id=user_id,
-                    username=username,
                     options=options,
                     package=package,
                     parent_sample=parent_sample,
@@ -1647,7 +1634,7 @@ class _Database:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, username=username, options=options, parent_sample=parent_sample,
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, options=options, parent_sample=parent_sample,
                     )
 
             if not config and not only_extraction:
@@ -1690,14 +1677,12 @@ class _Database:
                     enforce_timeout=enforce_timeout,
                     tags=tags,
                     clock=clock,
-                    sample_parent_id=sample_parent_id,
                     tlp=tlp,
                     source_url=source_url,
                     route=route,
                     tags_tasks=tags_tasks,
                     cape=cape,
                     user_id=user_id,
-                    username=username,
                     parent_sample=parent_sample,
                 )
                 package = None
@@ -1727,7 +1712,6 @@ class _Database:
         clock=None,
         tlp=None,
         user_id=0,
-        username=False,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -1744,7 +1728,6 @@ class _Database:
             clock=clock,
             tlp=tlp,
             user_id=user_id,
-            username=username,
         )
 
     def add_static(
@@ -1764,7 +1747,6 @@ class _Database:
         tlp=None,
         static=True,
         user_id=0,
-        username=False,
         parent_sample=None,
     ):
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
@@ -1802,7 +1784,6 @@ class _Database:
                 static=static,
                 parent_sample=parent_sample,
                 user_id=user_id,
-                username=username,
             )
             if task_id:
                 task_ids.append(task_id)
@@ -1828,7 +1809,6 @@ class _Database:
         cape=False,
         tags_tasks=False,
         user_id=0,
-        username=False,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -1847,7 +1827,6 @@ class _Database:
         @param cape: CAPE options
         @param tags_tasks: Task tags so users can tag their jobs
         @param user_id: Link task to user
-        @param username: username for custom auth
         @return: cursor or None.
         """
 
@@ -1877,7 +1856,6 @@ class _Database:
             cape=cape,
             tags_tasks=tags_tasks,
             user_id=user_id,
-            username=username,
         )
 
     def reschedule(self, task_id):
@@ -2374,14 +2352,15 @@ class _Database:
 
         if sha256:
             return self.session.scalar(select(Sample).where(Sample.sha256 == sha256))
-
+        """
+        # ToDo rewrite/fix
         if parent is not None:
             stmt = (
                 select(sample_associations.c.child_id)
                 .where(sample_associations.c.parent_id == parent)
             )
             return self.session.scalars(stmt).all()
-
+        """
         if sample_id is not None:
             # Using session.get() is much more efficient than a select query.
             # We wrap the result in a list to match the original function's behavior.

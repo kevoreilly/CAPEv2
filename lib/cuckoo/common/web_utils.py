@@ -808,14 +808,6 @@ def download_file(**kwargs):
     ) = parse_request_arguments(kwargs["request"])
     onesuccess = False
 
-    username = False
-    """
-    put here your custom username assignation from your custom auth, Ex:
-    request_url = kwargs["request"].build_absolute_uri()
-    if "yourdomain.com/submit/" in request_url:
-        username = kwargs["request"].COOKIES.get("X-user")
-    """
-
     # in case if user didn't specify routing, and we have enabled random route
     if not route:
         socks5s = _load_socks5_operational()

@@ -35,6 +35,7 @@ requests.packages.urllib3.disable_warnings()
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
+from lib.cuckoo.common.iocs import dump_iocs, load_iocs
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
@@ -54,6 +55,7 @@ from lib.cuckoo.core.database import (
     init_database,
 )
 from lib.cuckoo.core.database import Task as MD_Task
+from dev_utils.mongodb import mongo_update_one
 
 dist_conf = Config("distributed")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")
@@ -369,7 +371,7 @@ def node_submit_task(task_id, node_id, main_task_id):
     7. Logs relevant information and errors during the process.
     """
     db = session()
-    node = db.scalar(select(Node.id, Node.name, Node.url, Node.apikey).where(Node.id == node_id))
+    node = db.scalar(select(Node).where(Node.id == node_id))
     task = db.get(Task, task_id)
     check = False
     try:
@@ -939,6 +941,11 @@ class Retriever(threading.Thread):
 
                     start_copy = timeit.default_timer()
                     copied = node_get_report_nfs(t.task_id, node.name, t.main_task_id)
+
+                    if not copied:
+                        log.error("Can't copy report %d from node: %s for task: %d", t.task_id, node.name, t.main_task_id)
+                        continue
+
                     timediff = timeit.default_timer() - start_copy
                     log.info(
                         "It took %s seconds to copy report %d from node: %s for task: %d",
@@ -948,17 +955,20 @@ class Retriever(threading.Thread):
                         t.main_task_id,
                     )
 
-                    if not copied:
-                        log.error("Can't copy report %d from node: %s for task: %d", t.task_id, node.name, t.main_task_id)
-                        continue
-
                     # this doesn't exist for some reason
                     if path_exists(t.path):
                         sample_sha256 = None
+                        sample_parent = None
                         with main_db.session.begin():
                             samples = main_db.find_sample(task_id=t.main_task_id)
                             if samples:
                                 sample_sha256 = samples[0].sample.sha256
+                                if hasattr(samples[0].sample, "parent_links"):
+                                    for parent in samples[0].sample.parent_links:
+                                        if parent.task_id == t.main_task_id:
+                                            sample_parent = parent.parent.to_dict()
+                                            break
+
                         if sample_sha256 is None:
                             # keep fallback for now
                             sample = open(t.path, "rb").read()
@@ -979,6 +989,18 @@ class Retriever(threading.Thread):
                                 pass
 
                         self.delete_target_file(t.main_task_id, sample_sha256, t.path)
+
+                    if sample_parent:
+                        try:
+                            report = load_iocs(t.main_task_id, detail=True)
+                            report["info"].update({"parent_sample": sample_parent})
+                            dump_iocs(report, t.main_task_id)
+                            # ToDo insert into mongo
+                            mongo_update_one(
+                                "analysis", {"info.id": int(t.main_task_id)}, {"$set": {"info.parent_sample": sample_parent}}
+                            )
+                        except Exception as e:
+                            log.exception("Failed to save iocs for parent sample: %s", str(e))
 
                     t.retrieved = True
                     t.finished = True
@@ -1059,7 +1081,7 @@ class Retriever(threading.Thread):
                     main_db.set_status(t.main_task_id, TASK_REPORTED)
 
                 # Fetch each requested report.
-                node = db.scalar(select(Node.id, Node.name, Node.url, Node.apikey).where(Node.id == node_id))
+                node = db.scalar(select(Node).where(Node.id == node_id))
                 report = node_get_report(t.task_id, "dist/", node.url, node.apikey, stream=True)
 
                 if report is None:
@@ -1217,12 +1239,12 @@ class StatusThread(threading.Thread):
         The main loop that continuously checks the status of nodes and submits tasks.
     """
 
-    def submit_tasks(self, node_id, pend_tasks_num, options_like=False, force_push_push=False, db=None):
+    def submit_tasks(self, node_name, pend_tasks_num, options_like=False, force_push_push=False, db=None):
         """
         Submits tasks to a specified node.
 
         Args:
-            node_id (str): The identifier of the node to which tasks will be submitted.
+            node_name (str): The identifier of the node to which tasks will be submitted.
             pend_tasks_num (int): The number of pending tasks to be submitted.
             options_like (bool, optional): Flag to filter tasks based on options. Defaults to False.
             force_push_push (bool, optional): Flag to forcefully push tasks to the node. Defaults to False.
@@ -1238,7 +1260,7 @@ class StatusThread(threading.Thread):
         # HACK do not create a new session if the current one (passed as parameter) is still valid.
         try:
             # ToDo name should be id?
-            node = db.scalar(select(Node).where(Node.name == node_id))
+            node = db.scalar(select(Node).where(Node.name == node_name))
         except (OperationalError, SQLAlchemyError) as e:
             log.warning("Got an operational Exception when trying to submit tasks: %s", str(e))
             return False
@@ -1291,7 +1313,6 @@ class StatusThread(threading.Thread):
                                     )
                                     main_db.set_status(t.id, TASK_BANNED)
                                     continue
-
                         force_push = False
                         try:
                             # check if node exist and its correct
@@ -1308,10 +1329,10 @@ class StatusThread(threading.Thread):
                         except Exception as e:
                             log.exception(e)
                         # wtf are you doing in pendings?
-                        tasks = db.scalars(select(Task).where(Task.main_task_id == t.id))
+                        tasks = db.scalars(select(Task).where(Task.main_task_id == t.id)).all()
                         if tasks:
                             for task in tasks:
-                                # log.info("Deleting incorrectly uploaded file from dist db, main_task_id: %s", t.id)
+                                log.info("Deleting incorrectly uploaded file from dist db, main_task_id: %s", t.id)
                                 if node.name == main_server_name:
                                     main_db.set_status(t.id, TASK_RUNNING)
                                 else:
@@ -1319,7 +1340,6 @@ class StatusThread(threading.Thread):
                                 # db.delete(task)
                             db.commit()
                             continue
-
                         # Convert array of tags into comma separated list
                         tags = ",".join([tag.name for tag in t.tags])
                         # Append a comma, to make LIKE searches more precise
@@ -1340,7 +1360,6 @@ class StatusThread(threading.Thread):
                         t.options = ",".join([f"{k}={v}" for k, v in options.items()])
                         if t.options:
                             t.options += ","
-
                         t.options += f"main_task_id={t.id}"
                         args = dict(
                             package=t.package,
@@ -1360,7 +1379,6 @@ class StatusThread(threading.Thread):
                             tlp=t.tlp,
                         )
                         task = Task(path=t.target, **args)
-
                         db.add(task)
                         try:
                             db.commit()
@@ -1370,7 +1388,6 @@ class StatusThread(threading.Thread):
                             db.rollback()
                             log.info(e)
                             continue
-
                         if force_push or force_push_push:
                             # Submit appropriate tasks to node
                             submitted = node_submit_task(task.id, node.id, t.id)
@@ -1392,9 +1409,11 @@ class StatusThread(threading.Thread):
                     if q is None:
                         db.commit()
                         return True
+
                     # Order by task priority and task id.
                     q = q.order_by(-Task.priority, Task.main_task_id)
                     # if we have node set in options push
+
                     if dist_conf.distributed.enable_tags:
                         # Create filter query from tasks in ta
                         tags = [getattr(Task, "tags") == ""]
@@ -1410,14 +1429,18 @@ class StatusThread(threading.Thread):
                                 tags.append(and_(*t_combined))
                         # Filter by available tags
                         q = q.filter(or_(*tags))
+
                     to_upload = q.limit(pend_tasks_num).all()
                     """
                     # 1. Start with a select() statement and initial filters.
-                    stmt = select(Task).where(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
-
-                    # 2. Apply ordering with modern syntax.
-                    stmt = stmt.order_by(Task.priority.desc(), Task.main_task_id)
-
+                    stmt = (
+                        select(Task)
+                        .where(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
+                        .order_by(Task.priority.desc(), Task.main_task_id)
+                    )
+                    # print(stmt, "stmt")
+                    # ToDo broken
+                    """
                     # 3. Apply the dynamic tag filter.
                     if dist_conf.distributed.enable_tags:
                         tags_conditions = [Task.tags == ""]
@@ -1432,9 +1455,10 @@ class StatusThread(threading.Thread):
                                 tags_conditions.append(and_(*t_combined))
 
                         stmt = stmt.where(or_(*tags_conditions))
-
+                    """
                     # 4. Apply the limit and execute the query.
                     to_upload = db.scalars(stmt.limit(pend_tasks_num)).all()
+                    print(to_upload, node.name, pend_tasks_num)
 
                     if not to_upload:
                         db.commit()

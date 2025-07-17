@@ -1148,12 +1148,8 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
 
-    ALLOW_DL = False
-    if hasattr(request.user, "userprofile") and request.user.userprofile.reports:
-        ALLOW_DL = True
-
     # check if allowed to download to all + if no if user has permissions
-    if not settings.ALLOW_DL_REPORTS_TO_ALL and ALLOW_DL is False:
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and not request.user.userprofile.reports:
         return render(
             request,
             "error.html",
@@ -1790,6 +1786,39 @@ def tasks_surifile(request, task_id):
     else:
         resp = {"error": True, "error_value": "No suricata files captured for task %s" % task_id}
         return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_rollingsuri(request, window=60):
+    window = int(window)
+
+    if not apiconf.rollingsuri.get("enabled"):
+        resp = {"error": True, "error_value": "Suricata Rolling Alerts API is disabled"}
+        return Response(resp)
+    maxwindow = apiconf.rollingsuri.get("maxwindow")
+    if maxwindow > 0:
+        if window > maxwindow:
+            resp = {"error": True, "error_value": "The Window You Specified is greater than the configured maximum"}
+            return Response(resp)
+
+    gen_time = datetime.now() - timedelta(minutes=window)
+    dummy_id = ObjectId.from_datetime(gen_time)
+    result = list(
+        mongo_find(
+            "analysis",
+            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}},
+            {"suricata.alerts": 1, "info.id": 1},
+        )
+    )
+    resp = []
+    for e in result:
+        for alert in e["suricata"]["alerts"]:
+            alert["id"] = e["info"]["id"]
+            resp.append(alert)
+
+    return Response(resp)
+
 
 @csrf_exempt
 @api_view(["GET"])

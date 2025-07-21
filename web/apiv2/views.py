@@ -1663,6 +1663,36 @@ def tasks_pcap(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_tlspcap(request, task_id):
+    if not apiconf.tasktlspcap.get("enabled"):
+        resp = {"error": True, "error_value": "TLS PCAP download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
+    if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
+    if path_exists(srcfile):
+        fname = "%s_tls.pcap" % task_id
+        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
+        resp["Content-Length"] = os.path.getsize(srcfile)
+        resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
+    else:
+        resp = {"error": True, "error_value": "TLS PCAP does not exist"}
+        return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_evtx(request, task_id):
     if not apiconf.taskevtx.get("enabled"):
         resp = {"error": True, "error_value": "EVTX download API is disabled"}

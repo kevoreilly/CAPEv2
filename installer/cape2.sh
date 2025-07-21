@@ -1251,7 +1251,7 @@ function install_CAPE() {
     cd /opt || return
     # if folder CAPEv2 dosn't exist, clone it
     if [ ! -d CAPEv2 ]; then
-        git clone https://github.com/kevoreilly/CAPEv2/
+        git clone https://gitlab.com/aaron-boyd/CAPEv2/
     fi
     chown ${USER}:${USER} -R /opt/CAPEv2/
     #chown -R root:${USER} /usr/var/malheur/
@@ -1501,6 +1501,56 @@ function install_postgres_pg_activity() {
     sudo apt-get install -y pg-activity
 }
 
+function install_polarproxy() {
+    echo "[+] Installing PolarProxy"
+
+    cd "/opt/" || return
+
+    if [ ! -d PolarProxy ]; then
+        mkdir PolarProxy
+    fi
+
+    cd PolarProxy
+    curl -o PolarProxy.tar.gz https://www.netresec.com/?download=PolarProxy
+    tar xf PolarProxy.tar.gz
+    chmod a+x PolarProxy
+
+    local KEY_PEM=PolarProxy-key.pem
+    local CRT_PEM=PolarProxy-crt.pem
+    local CRT_P12=PolarProxy-key-crt.p12
+    local CRT_CRT=PolarProxy-crt.crt
+
+    # Generate key
+    openssl req -x509 \
+        -newkey rsa:4096 \
+        -passin pass:$PASSWD \
+        -keyout $KEY_PEM \
+        -subj "/C=US/ST=California/L=San Diego/O=Development/OU=Dev/CN=CAPEv2 PolarProxy" \
+        -out $CRT_PEM \
+        -nodes \
+        -days 365
+
+    # Generate certificate
+    openssl x509 \
+        -inform PEM \
+        -passin pass:$PASSWD \
+        -in $CRT_PEM \
+        -out $CRT_CRT
+
+    # Bundle key and cert for PolarProxy
+    openssl pkcs12 \
+        -in $CRT_PEM \
+        -inkey $KEY_PEM \
+        -out $CRT_P12 \
+        -export \
+        -password pass:$PASSWD \
+        -name PolarProxy
+
+    chown -R $USER:$USER /opt/PolarProxy
+    # Figure out why this can't be 600 since cape is running polarproxy
+    chmod 644 $CRT_P12
+}
+
 function install_passivedns() {
     sudo apt-get install -y git binutils-dev libldns-dev libpcap-dev libdate-simple-perl libdatetime-perl libdbd-mysql-perl
     cd /tmp || return
@@ -1653,6 +1703,8 @@ case "$COMMAND" in
     librenms_sneck_config;;
 'mitmproxy')
     install_mitmproxy;;
+'polarproxy')
+    install_polarproxy;;
 'issues')
     issues;;
 'nginx')

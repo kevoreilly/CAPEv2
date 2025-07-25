@@ -691,7 +691,7 @@ EOL
 function install_suricata() {
     echo '[+] Installing Suricata'
     sudo add-apt-repository -y ppa:oisf/suricata-stable
-    sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata suricata-update
+    sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata
     touch /etc/suricata/threshold.config
 
     # Download etupdate to update Emerging Threats Open IDS rules:
@@ -739,15 +739,15 @@ EOF
     sed -i '$a include:\n  - cape.yaml\n' /etc/suricata/suricata.yaml
     usermod -aG pcap suricata
     usermod -aG suricata "${USER}"
-    sudo chmod -R g+w /var/log/suricata/
-    sudo chmod -R g+w /var/run/suricata/
-    sudo chmod -R g+w /etc/suricata
+    # sudo chmod -R g+w /var/log/suricata/
+    # sudo chmod -R g+w /var/run/suricata/
+    # sudo chmod -R g+w /etc/suricata
     systemctl restart suricata
 
     # How to verify config options
     # suricata --dump-config
     # sudo suricata -T -c /etc/suricata/suricata.yaml
-    echo "Important: For this change to take effect, you must log out and then log back in, or open a new shell with newgrp suricata."
+    # echo "Important: For this change to take effect, you must log out and then log back in, or open a new shell with newgrp suricata."
 
 }
 

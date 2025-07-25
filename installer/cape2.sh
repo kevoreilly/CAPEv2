@@ -697,7 +697,7 @@ function install_suricata() {
     # Download etupdate to update Emerging Threats Open IDS rules:
     mkdir -p "/etc/suricata/rules"
     if ! crontab -l | grep -q -F '15 * * * * /usr/bin/suricata-update'; then
-        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/ls -l /tmp/suricata-command.socket /tmp/suricata-command.socket &>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ &>/dev/null"; } | crontab -
     fi
     if [ -d /usr/share/suricata/rules/ ]; then
         # copy files if rules folder contains files
@@ -712,7 +712,7 @@ function install_suricata() {
         fi
     fi
 
-    cat >> /etc/suricata/cape.yaml <<EOF
+    cat > /etc/suricata/cape.yaml <<EOF
 %YAML 1.1
 ---
 
@@ -736,10 +736,7 @@ outputs.1.eve-log.enabled: yes
 file-store.enabled: yes
 EOF
 
-    sed -i '$a include:\n  - cape.yaml\n' suricata.yaml
-    sed -i 's|#default-rule-path: /etc/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/default/suricata
-    sed -i 's/RUN=yes/RUN=no/g' /etc/default/suricata
-
+    sed -i '$a include:\n  - cape.yaml\n' /etc/suricata/suricata.yaml
     usermod -aG pcap suricata
     usermod -aG suricata "${USER}"
     sudo chmod -R g+w /var/log/suricata/

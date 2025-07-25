@@ -712,12 +712,6 @@ function install_suricata() {
         fi
     fi
 
-    # ToDo this is not the best solution but i don't have time now to investigate proper one
-    sed -i 's|CapabilityBoundingSet=CAP_NET_ADMIN|#CapabilityBoundingSet=CAP_NET_ADMIN|g' /lib/systemd/system/suricata.service
-    systemctl daemon-reload
-
-    IFACE=$(ip route get 8.8.8.8 | awk '{print $5}')
-
     cat >> /etc/suricata/cape.yaml <<EOF
 %YAML 1.1
 ---
@@ -725,8 +719,6 @@ function install_suricata() {
 default-rule-path: /etc/suricata/rules
 rule-files: suricata.rules
 mpm-algo: hs
-run-as.user: cape
-run-as.group: suricata
 stream.reassembly.depth: 0
 stream.checksum-validation:  none
 netmap.checksum-checks: no
@@ -735,37 +727,23 @@ app-layer.protocols.http.libhtp.default-config.request-body-limit: 0
 app-layer.protocols.http.libhtp.default-config.response-body-limit: 0
 app-layer.protocols.tls.ja3-fingerprints: yes
 
-pcap.0.interface = ${IFACE}
 vars.address-groups.EXTERNAL_NET: "ANY"
-pid-file: /tmp/suricata.pid
+# pid-file: /run/suricata.pid
 # https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
 security.limit-noproc: false
 
 outputs.1.eve-log.enabled: yes
-
-unix-command.enabled: yes
-uniq-command.filename: /tmp/suricata-command.socket
-uniq-command.mode: "0660"
 file-store.enabled: yes
-
-# ToDo pick iface
-af-packet.interface: eno1
 EOF
 
-    echo "d /run/suricata 0755 suricata suricata -" > /etc/tmpfiles.d/suricata.conf
-    sudo systemd-tmpfiles --create
-
     sed -i '$a include:\n  - cape.yaml\n' suricata.yaml
-    :"
     sed -i 's|#default-rule-path: /etc/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/default/suricata
     sed -i 's/RUN=yes/RUN=no/g' /etc/default/suricata
-    "
 
     usermod -aG pcap suricata
     usermod -aG suricata "${USER}"
     sudo chmod -R g+w /var/log/suricata/
     sudo chmod -R g+w /var/run/suricata/
-    sudo chmod g+w /tmp/suricata-command.socket
     sudo chmod -R g+w /etc/suricata
     systemctl restart suricata
 

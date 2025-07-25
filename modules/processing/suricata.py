@@ -8,7 +8,6 @@ import logging
 import os
 import shutil
 import subprocess
-import time
 from contextlib import suppress
 
 from data.safelist.domains import domain_passlist_re
@@ -75,7 +74,7 @@ class Suricata(Processing):
         FILES_ZIP_PASS = self.options.get("zippass")
 
         # Socket
-        SURICATA_SOCKET_PATH = self.options.get("socket_file")
+        # SURICATA_SOCKET_PATH = self.options.get("socket_file")
 
         # Command Line
         SURICATA_BIN = self.options.get("bin")
@@ -150,6 +149,8 @@ class Suricata(Processing):
             2019416,
         )
 
+        # deprecated since Suricata 8
+        """
         if SURICATA_RUNMODE == "socket":
             try:
                 # from suricatasc import SuricataSC
@@ -195,7 +196,8 @@ class Suricata(Processing):
                     "Loop timeout of %d sec occurred waiting for file %s to finish processing", maxloops * loopsleep, current_pcap
                 )
                 return suricata
-        elif SURICATA_RUNMODE == "cli":
+        """
+        if SURICATA_RUNMODE == "cli":
             if not path_exists(SURICATA_BIN):
                 log.warning("Unable to Run Suricata: Bin File %s does not exist", SURICATA_CONF)
                 return suricata["alerts"]

@@ -154,13 +154,9 @@ do_url_lookup = yes
 urlscrub = (^http:\/\/serw\.clicksor\.com\/redir\.php\?url=|&InjectedParam=.+$)
 
 [suricata]
-# Notes on getting this to work check install_suricata function:
-# https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh
-
-enabled = yes
-#Runmode "cli" or "socket"
-runmode = socket
-#Outputfiles
+enabled = no
+runmode = cli
+ #Outputfiles
 # if evelog is specified, it will be used instead of the per-protocol log files
 evelog = eve.json
 
@@ -179,11 +175,8 @@ buffer = 8192
 #Used for creating an archive of extracted files
 7zbin = /usr/bin/7z
 zippass = infected
-##Runmode "cli" options
 bin = /usr/bin/suricata
 conf = /etc/suricata/suricata.yaml
-##Runmode "socket" Options
-socket_file = /tmp/suricata-command.socket
 
 # Community
 [cif]

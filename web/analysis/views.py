@@ -299,11 +299,6 @@ def get_analysis_info(db, id=-1, task=None):
                 if rtmp["info"].get(keyword, False):
                     new[keyword] = rtmp["info"][keyword]
 
-            if enabledconf.get("display_shrike", False) and rtmp["info"].get("shrike_msg", False):
-                new["shrike_msg"] = rtmp["info"]["shrike_msg"]
-            if enabledconf.get("display_shrike", False) and rtmp["info"].get("shrike_msg", False):
-                new["shrike_msg"] = rtmp["info"]["shrike_msg"]
-
         if "network" in rtmp and "pcap_sha256" in rtmp["network"]:
             new["pcap_sha256"] = rtmp["network"]["pcap_sha256"]
 
@@ -1257,36 +1252,6 @@ def surialert(request, task_id):
         suricata = gen_moloch_from_suri_alerts(suricata)
 
     return render(request, "analysis/surialert.html", {"suricata": report["suricata"], "config": enabledconf})
-
-
-@require_safe
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def shrike(request, task_id):
-    if enabledconf["mongodb"]:
-        shrike = mongo_find_one(
-            "analysis",
-            {"info.id": int(task_id)},
-            {"info.shrike_url": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_refer": 1, "_id": 0},
-            sort=[("_id", -1)],
-        )
-    elif es_as_db:
-        shrike = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["info.shrike_url", "info.shrike_msg", "info.shrike_sid", "info.shrike_refer"],
-        )["hits"]["hits"]
-        if len(shrike) == 0:
-            shrike = None
-        else:
-            shrike = shrike[0]["_source"]
-    else:
-        shrike = None
-
-    if not shrike:
-        return render(request, "error.html", {"error": "The specified analysis does not exist"})
-
-    return render(request, "analysis/shrike.html", {"shrike": shrike})
-
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

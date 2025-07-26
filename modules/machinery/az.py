@@ -1215,7 +1215,7 @@ class Azure(Machinery):
         """
         # The number of relevant machines are those from the list of locked and unlocked machines
         # that have the correct tag in their name
-        return self.db.list_machines(tags=[tag])
+        return [machine for machine in self.db.list_machines(tags=[tag])]
 
     @staticmethod
     def _wait_for_concurrent_operations_to_complete(timeout=AZURE_TIMEOUT):

@@ -692,6 +692,9 @@ function install_suricata() {
     # https://docs.suricata.io/en/latest/upgrade.html
     # https://github.com/OISF/suricata/blob/master/ChangeLog
 
+    # ToDo
+    # https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/3
+
     echo '[+] Installing Suricata'
     sudo add-apt-repository -y ppa:oisf/suricata-stable
     sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata

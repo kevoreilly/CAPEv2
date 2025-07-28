@@ -5,6 +5,7 @@ from lib.cuckoo.common.config import Config
 
 try:
     import libvirt
+
     LIBVIRT_AVAILABLE = True
 except ImportError:
     print("Missed python-libvirt. Use extra/libvirt_installer.sh")
@@ -14,6 +15,7 @@ machinery = Config().cuckoo.machinery
 machinery_available = ["kvm", "qemu"]
 machinery_dsn = getattr(Config(machinery), machinery).get("dsn", "qemu:///system")
 
+
 def index(request, task_id, session_data):
     if not LIBVIRT_AVAILABLE:
         return render(
@@ -21,18 +23,18 @@ def index(request, task_id, session_data):
             "guac/error.html",
             {"error_msg": "Libvirt not available", "error": "remote session", "task_id": task_id},
         )
-    
+
     if machinery not in machinery_available:
         return render(
             request,
             "guac/error.html",
             {"error_msg": f"Machinery type '{machinery}' is not supported", "error": "remote session", "task_id": task_id},
         )
-    
+
     conn = None
     state = None
     recording_name = ""
-    
+
     conn = libvirt.open(machinery_dsn)
     if conn:
         try:
@@ -47,7 +49,7 @@ def index(request, task_id, session_data):
                 "guac/error.html",
                 {"error_msg": f"{e}", "error": "remote session", "task_id": task_id},
             )
-    
+
     if state:
         if state[0] == 1:
             vmXml = dom.XMLDesc(0)

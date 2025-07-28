@@ -153,10 +153,9 @@ do_file_lookup = yes
 do_url_lookup = yes
 urlscrub = (^http:\/\/serw\.clicksor\.com\/redir\.php\?url=|&InjectedParam=.+$)
 
-# Since Suricata 8, socket mode is deprecated.
 [suricata]
 enabled = no
-runmode = cli
+runmode = socket
 # Outputfiles
 # if evelog is specified, it will be used instead of the per-protocol log files
 evelog = eve.json
@@ -180,7 +179,7 @@ zippass = infected
 bin = /usr/bin/suricata
 conf = /etc/suricata/suricata.yaml
 
-# Runmode "socket" Options. Deprecated since Suricata 8.
+# Runmode "socket"
 socket_file = /tmp/suricata-command.socket
 
 # Community

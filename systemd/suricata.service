@@ -11,7 +11,7 @@ Type=forking
 #Environment=CFG=/etc/suricata/suricata.yaml
 #CapabilityBoundingSet=CAP_NET_ADMIN
 ExecStartPre=/bin/rm -f /tmp/suricata.pid
-ExecStart=/usr/bin/suricata -D -c /etc/suricata/suricata.yaml --unix-socket
+ExecStart=/usr/bin/suricata -D -c /etc/suricata/suricata.yaml --include /etc/suricata/cape.yaml --unix-socket
 ExecReload=/bin/kill -HUP $MAINPID
 ExecStop=/bin/kill $MAINPID
 PrivateTmp=no

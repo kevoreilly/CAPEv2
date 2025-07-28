@@ -689,16 +689,23 @@ EOL
 }
 
 function install_suricata() {
+    # https://docs.suricata.io/en/latest/upgrade.html
+    # https://github.com/OISF/suricata/blob/master/ChangeLog
+
     echo '[+] Installing Suricata'
     sudo add-apt-repository -y ppa:oisf/suricata-stable
     sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata
     touch /etc/suricata/threshold.config
+
+    sed -i 's|#default-rule-path: /etc/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/default/suricata
+    sed -i 's/RUN=yes/RUN=no/g' /etc/default/suricata
 
     # Download etupdate to update Emerging Threats Open IDS rules:
     mkdir -p "/etc/suricata/rules"
     if ! crontab -l | grep -q -F '15 * * * * /usr/bin/suricata-update'; then
         crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ &>/dev/null"; } | crontab -
     fi
+    # ToDo deprecate this in favour of config entry
     if [ -d /usr/share/suricata/rules/ ]; then
         # copy files if rules folder contains files
         if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
@@ -718,7 +725,9 @@ function install_suricata() {
 
 default-rule-path: /etc/suricata/rules
 rule-files: suricata.rules
-mpm-algo: hs
+# mpm-algo: hs
+# run-as.user: cape
+run-as.group: suricata
 stream.reassembly.depth: 0
 stream.checksum-validation:  none
 netmap.checksum-checks: no
@@ -734,14 +743,45 @@ security.limit-noproc: false
 
 outputs.1.eve-log.enabled: yes
 file-store.enabled: yes
+
+unix-command.enabled: yes
+uniq-command.filename: /tmp/suricata-command.socket
+uniq-command.mode: "0660"
 EOF
 
-    sed -i '$a include:\n  - cape.yaml\n' /etc/suricata/suricata.yaml
+    # sed -i '$a include:\n  - cape.yaml\n' /etc/suricata/suricata.yaml
+    # systemd update
     usermod -aG pcap suricata
     usermod -aG suricata "${USER}"
     # sudo chmod -R g+w /var/log/suricata/
     # sudo chmod -R g+w /var/run/suricata/
     # sudo chmod -R g+w /etc/suricata
+
+cat > /lib/systemd/systemd/suricata.service << EOF
+[Unit]
+Description=Suricata IDS/IDP daemon
+After=network.target
+Requires=network.target
+Documentation=man:suricata(8) man:suricatasc(8)
+Documentation=https://redmine.openinfosecfoundation.org/projects/suricata/wiki
+
+[Service]
+Type=forking
+#Environment=LD_PREDLOAD=/usr/lib/libtcmalloc_minimal.so.4
+#Environment=CFG=/etc/suricata/suricata.yaml
+#CapabilityBoundingSet=CAP_NET_ADMIN
+ExecStartPre=/bin/rm -f /tmp/suricata.pid
+ExecStart=/usr/bin/suricata -D -c /etc/suricata/suricata.yaml --include /etc/suricata/cape.yaml --unix-socket
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill $MAINPID
+PrivateTmp=no
+InaccessibleDirectories=/home /root
+ReadOnlyDirectories=/boot /usr /etc
+User=root
+Group=root
+[Install]
+WantedBy=multi-user.target
+EOF
     systemctl restart suricata
 
     # How to verify config options

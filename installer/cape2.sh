@@ -691,64 +691,64 @@ EOL
 function install_suricata() {
     echo '[+] Installing Suricata'
     sudo add-apt-repository -y ppa:oisf/suricata-stable
-    sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata suricata-update
+    sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata
     touch /etc/suricata/threshold.config
 
     # Download etupdate to update Emerging Threats Open IDS rules:
     mkdir -p "/etc/suricata/rules"
     if ! crontab -l | grep -q -F '15 * * * * /usr/bin/suricata-update'; then
-        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/suricatasc -c reload-rules /tmp/suricata-command.socket &>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ &>/dev/null"; } | crontab -
     fi
     if [ -d /usr/share/suricata/rules/ ]; then
-        # copy files if rules folder contains files
+        # copy files if rules folder contains files
         if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
             cp "/usr/share/suricata/rules/"* "/etc/suricata/rules/"
         fi
     fi
     if [ -d /var/lib/suricata/rules/ ]; then
-        # copy files if rules folder contains files
+        # copy files if rules folder contains files
         if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
             cp "/var/lib/suricata/rules/"* "/etc/suricata/rules/"
         fi
     fi
 
-    # ToDo this is not the best solution but i don't have time now to investigate proper one
-    sed -i 's|CapabilityBoundingSet=CAP_NET_ADMIN|#CapabilityBoundingSet=CAP_NET_ADMIN|g' /lib/systemd/system/suricata.service
-    systemctl daemon-reload
+    cat > /etc/suricata/cape.yaml <<EOF
+%YAML 1.1
+---
 
-    #change suricata yaml
-    sed -i 's|#default-rule-path: /etc/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/default/suricata
-    sed -i 's|default-rule-path: /var/lib/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/suricata/suricata.yaml
-    sed -i 's/#rule-files:/rule-files:/g' /etc/suricata/suricata.yaml
-    sed -i 's/# - suricata.rules/ - suricata.rules/g' /etc/suricata/suricata.yaml
-    sed -i 's/RUN=yes/RUN=no/g' /etc/default/suricata
-    sed -i 's/mpm-algo: ac/mpm-algo: hs/g' /etc/suricata/suricata.yaml
-    sed -i 's/mpm-algo: auto/mpm-algo: hs/g' /etc/suricata/suricata.yaml
-    sed -i 's/#run-as:/run-as:/g' /etc/suricata/suricata.yaml
-    sed -i "s/#  user: suri/   user: ${USER}/g" /etc/suricata/suricata.yaml
-    sed -i "s/#  group: suri/   group: ${USER}/g" /etc/suricata/suricata.yaml
-    sed -i 's/    depth: 1mb/    depth: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/request-body-limit: 100kb/request-body-limit: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/response-body-limit: 100kb/response-body-limit: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/EXTERNAL_NET: "!$HOME_NET"/EXTERNAL_NET: "ANY"/g' /etc/suricata/suricata.yaml
-    sed -i 's|#pid-file: /var/run/suricata.pid|pid-file: /tmp/suricata.pid|g' /etc/suricata/suricata.yaml
-    sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml
-    #-k none
-    sed -i 's/#checksum-validation: none/checksum-validation: none/g' /etc/suricata/suricata.yaml
-    sed -i 's/checksum-checks: auto/checksum-checks: no/g' /etc/suricata/suricata.yaml
+default-rule-path: /etc/suricata/rules
+rule-files: suricata.rules
+mpm-algo: hs
+stream.reassembly.depth: 0
+stream.checksum-validation:  none
+netmap.checksum-checks: no
+pcap-file.checksum-checks: no
+app-layer.protocols.http.libhtp.default-config.request-body-limit: 0
+app-layer.protocols.http.libhtp.default-config.response-body-limit: 0
+app-layer.protocols.tls.ja3-fingerprints: yes
 
-    # https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
-    sed -i 's|limit-noproc: true|limit-noproc: false|g' /etc/suricata/suricata.yaml
+vars.address-groups.EXTERNAL_NET: "ANY"
+# pid-file: /run/suricata.pid
+# https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
+security.limit-noproc: false
 
-    # enable eve-log
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'eve-log:\n      enabled: no\n', b'eve-log:\n      enabled: yes\n');open(pa, 'wb').write(q);"
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'unix-command:\n  enabled: auto\n  #filename: custom.socket', b'unix-command:\n  enabled: yes\n  filename: /tmp/suricata-command.socket');open(pa, 'wb').write(q);"
-    # file-store
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'file-store:\n  version: 2\n  enabled: no', b'file-store:\n  version: 2\n  enabled: yes');open(pa, 'wb').write(q);"
+outputs.1.eve-log.enabled: yes
+file-store.enabled: yes
+EOF
 
-    chown ${USER}:${USER} -R /etc/suricata
-    chown ${USER}:${USER} -R /var/log/suricata
+    sed -i '$a include:\n  - cape.yaml\n' /etc/suricata/suricata.yaml
+    usermod -aG pcap suricata
+    usermod -aG suricata "${USER}"
+    # sudo chmod -R g+w /var/log/suricata/
+    # sudo chmod -R g+w /var/run/suricata/
+    # sudo chmod -R g+w /etc/suricata
     systemctl restart suricata
+
+    # How to verify config options
+    # suricata --dump-config
+    # sudo suricata -T -c /etc/suricata/suricata.yaml
+    # echo "Important: For this change to take effect, you must log out and then log back in, or open a new shell with newgrp suricata."
+
 }
 
 function install_yara_x() {
@@ -797,7 +797,7 @@ function install_yara() {
     ldconfig
 
     # Run yara installer script
-    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run /opt/CAPEv2/extra/yara_installer.sh
+    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run extra/yara_installer.sh
 
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
@@ -944,7 +944,7 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install .
+    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install /tmp/capa
     cd /opt/CAPEv2
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa

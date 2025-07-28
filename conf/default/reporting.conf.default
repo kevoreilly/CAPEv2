@@ -147,10 +147,6 @@ user = admin
 pass = admin
 realm = Moloch
 
-# Community
-[resubmitexe]
-enabled = no
-resublimit = 5
 
 # Community
 [compression]

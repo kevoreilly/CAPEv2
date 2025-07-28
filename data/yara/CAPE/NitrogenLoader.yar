@@ -31,5 +31,5 @@ rule NitrogenLoader
         $rc4decrypt_1 = {48 89 ?? 4? 89 ?? E8 [4] 4? 8B ?? 24 [1-4] 4? 89 ?? 4? 89 ?? 4? 89 C1 [0-1] 89 ?? E8 [4] 4? 89}
         $rc4decrypt_2 = {E8 [4] 8B ?? 24 [1-4] 4? 89 ?? 48 89 ?? 4? 89 C1 E8 [3] FF}
     condition:
-        (2 of ($string*) and any of ($syscall*)) or 4 of ($decrypt*) or (3 of ($taskman_*) or 3 of ($installers*) and all of ($rc4decrypt_*))
+        (2 of ($string*) and any of ($syscall*)) or 4 of ($decrypt*) or ((3 of ($taskman_*) or 3 of ($installers*)) and all of ($rc4decrypt_*))
 }

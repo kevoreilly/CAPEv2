@@ -66,13 +66,23 @@ class PolarProxyProcessor(Processing):
         temp_dir = tempfile.TemporaryDirectory()
 
         tmp_pcap = os.path.join(temp_dir.name, "tmp.pcap")
-        ret, stdout, stderr = run_subprocess([polarproxy_cfg.cfg.mergecap, "-s", "262144", "-F", "pcap", "-w", tmp_pcap, self.pcap_path, tls_pcap_path])
+
+        ret, stdout, stderr = run_subprocess([
+            polarproxy_cfg.cfg.mergecap,
+            # Make snaplen consistent across all packets so wireshark doesn't freak out
+            "-s", "262144",
+            # Use pcap format instead of pcapng for Snort
+            "-F", "pcap",
+            # Destination file
+            "-w", tmp_pcap,
+            # Input files
+            self.pcap_path,
+            tls_pcap_path
+        ])
+
         if ret == 0:
             log.info("Creating PCAP with decrypted TLS streams")
-            if ret == 0:
-                shutil.move(tmp_pcap, self.pcap_path)
-            else:
-                log.warning(f"Failed to merge pcaps: {stderr.decode()}")
+            shutil.move(tmp_pcap, self.pcap_path)
         else:
             log.warning(f"Failed to merge pcaps: {stderr.decode()}")
 

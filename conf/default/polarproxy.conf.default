@@ -12,12 +12,15 @@ interface = virbr0
 cert = /opt/PolarProxy/PolarProxy-key-crt.p12
 
 # Password to unlock PKCS#12 file
-password = SuperPuperSecret
+password = CHANGEME
 
-# JSON file containing any firewall rules for PolarProxy to use
-# https://www.netresec.com/?page=TlsFirewall
-ruleset =
+# See https://www.netresec.com/?page=TlsFirewall for details on PolarProxy TLS firewall
+# Newline separated file containing domain regexes for PolarProxy to not MITM
+bypass_list = /opt/PolarProxy/bypass-domains.txt
+# Newline separated file containing domain regexes for PolarProxy to block connections to
+block_list = /opt/PolarProxy/block-domains.txt
 
+# bin path to mergecap
 mergecap = /usr/bin/mergecap
 
 # Future options like custom ports, cert paths, etc

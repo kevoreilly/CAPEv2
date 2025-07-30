@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 import json
->>>>>>> 19c7595e1c0dfd521679bb7db28e75ecd8616a5b
 import logging
 import os
 import socket

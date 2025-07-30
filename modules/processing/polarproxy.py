@@ -82,10 +82,7 @@ class PolarProxyProcessor(Processing):
 
         if ret == 0:
             log.info("Creating PCAP with decrypted TLS streams")
-            if ret == 0:
-                shutil.move(tmp_pcap, self.pcap_path)
-            else:
-                log.warning(f"Failed to merge pcaps: {stderr.decode()}")
+            shutil.move(tmp_pcap, self.pcap_path)
         else:
             log.warning(f"Failed to merge pcaps: {stderr.decode()}")
 

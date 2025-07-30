@@ -64,7 +64,7 @@ class PolarProxyThread(Thread):
         self.tlsport = 443
         self.listen_port = self._get_unused_port()
 
-    def _get_unused_port(self) -> str | None:
+    def _get_unused_port(self) -> int | None:
         """Return the first unused TCP port from the set."""
         with closing(socket.socket(socket.AF_INET, socket.SOCK_STREAM)) as s:
             s.bind(("", 0))
@@ -126,7 +126,7 @@ class PolarProxyThread(Thread):
             json.dump(ruleset_json, fh, indent=2)
 
     def run(self):
-        if "polarproxy" not in self.task.options:
+        if "polarproxy=" not in self.task.options:
             log.info("Exiting polarproxy. No parameter received.")
             return
 
@@ -142,7 +142,7 @@ class PolarProxyThread(Thread):
                 if not match:
                     log.warning("Failed to parse 'tlsport' out of options (%s). Defaulting to %d.", self.task.options, self.tlsport)
                 else:
-                    self.tlsport = match.groups()[0]
+                    self.tlsport = int(match.groups()[0])
 
             try:
                 rooter("polarproxy_enable", self.host_iface, self.machine.ip, str(self.tlsport), str(self.listen_port))
@@ -224,18 +224,20 @@ class PolarProxyThread(Thread):
     def stop(self):
         """Set stop PolarProxy capture."""
         self.do_run = False
+
+        if self.log_file:
+            self.log_file.close()
+            self.log_file = None
+
         try:
             if self.proc and self.proc.poll() is None:
+                log.info("Stopping PolarProxy")
                 self.proc.terminate()
                 self.proc.wait()
-                log.info("Stopping PolarProxy")
 
-            if self.log_file:
-                self.log_file.close()
-                self.log_file = None
-
-        except Exception as e:
+        except subprocess.SubprocessError as e:
             log.error("Failed to shutdown PolarProxy module: %s", e)
         finally:
+            self.proc = None
             log.info("Cleaning up PolarProxy iptables rules")
             rooter("polarproxy_disable", self.host_iface, self.machine.ip, str(self.tlsport), str(self.listen_port))

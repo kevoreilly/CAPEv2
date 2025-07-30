@@ -12,7 +12,7 @@ interface = virbr0
 cert = /opt/PolarProxy/PolarProxy-key-crt.p12
 
 # Password to unlock PKCS#12 file
-password = SuperPuperSecret
+password = CHANGEME
 
 # See https://www.netresec.com/?page=TlsFirewall for details on PolarProxy TLS firewall
 # Newline separated file containing domain regexes for PolarProxy to not MITM

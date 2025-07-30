@@ -436,10 +436,6 @@ def polarproxy_disable(interface, client, tls_port, proxy_port):
         "nat",
         "-D",
         "PREROUTING",
-<<<<<<< HEAD
-        "1",
-=======
->>>>>>> 19c7595e1c0dfd521679bb7db28e75ecd8616a5b
         "-i",
         interface,
         "--source",
@@ -451,11 +447,7 @@ def polarproxy_disable(interface, client, tls_port, proxy_port):
         "-j",
         "REDIRECT",
         "--to",
-<<<<<<< HEAD
-        proxy_port,
-=======
         proxy_port
->>>>>>> 19c7595e1c0dfd521679bb7db28e75ecd8616a5b
     )
     run_iptables(
         "-D",

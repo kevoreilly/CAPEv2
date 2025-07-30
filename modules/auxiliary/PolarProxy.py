@@ -199,8 +199,6 @@ class PolarProxyThread(Thread):
             try:
                 self.proc = subprocess.Popen(polarproxy_args, stdout=self.log_file, stderr=self.log_file, shell=False)
             except (OSError, subprocess.SubprocessError) as e:
-                self.log_file.close()
-                self.log_file = None
                 log.info(
                     "Failed to start PolarProxy (host=%s, port=%s, dump_path=%s, log=%s)",
                     self.host_ip,
@@ -208,6 +206,8 @@ class PolarProxyThread(Thread):
                     self.pcap,
                     self.log_file,
                 )
+                self.log_file.close()
+                self.log_file = None
                 return
 
             log.info(

@@ -391,6 +391,80 @@ def disable_mitmdump(interface, client, port, netns):
             port,
         )
 
+def polarproxy_enable(interface, client, tls_port, proxy_port):
+    log.info("Enabling polarproxy route.")
+    run_iptables(
+        "-t",
+        "nat",
+        "-I",
+        "PREROUTING",
+        "1",
+        "-i",
+        interface,
+        "--source",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        tls_port,
+        "-j",
+        "REDIRECT",
+        "--to",
+        proxy_port
+    )
+    run_iptables(
+        "-A",
+        "INPUT",
+        "-i",
+        interface,
+        "-p",
+        "tcp",
+        "--dport",
+        proxy_port,
+        "-m",
+        "state",
+        "--state",
+        "NEW",
+        "-j",
+        "ACCEPT"
+    )
+
+def polarproxy_disable(interface, client, tls_port, proxy_port):
+    log.info("Disabling polarproxy route.")
+    run_iptables(
+        "-t",
+        "nat",
+        "-D",
+        "PREROUTING",
+        "-i",
+        interface,
+        "--source",
+        client,
+        "-p",
+        "tcp",
+        "--dport",
+        tls_port,
+        "-j",
+        "REDIRECT",
+        "--to",
+        proxy_port
+    )
+    run_iptables(
+        "-D",
+        "INPUT",
+        "-i",
+        interface,
+        "-p",
+        "tcp",
+        "--dport",
+        proxy_port,
+        "-m",
+        "state",
+        "--state",
+        "NEW",
+        "-j",
+        "ACCEPT"
+    )
 
 def init_rttable(rt_table, interface):
     """Initialise routing table for this interface using routes
@@ -926,6 +1000,8 @@ handlers = {
     "delete_dev_from_vrf": delete_dev_from_vrf,
     "enable_mitmdump": enable_mitmdump,
     "disable_mitmdump": disable_mitmdump,
+    "polarproxy_enable": polarproxy_enable,
+    "polarproxy_disable": polarproxy_disable,
 }
 
 if __name__ == "__main__":

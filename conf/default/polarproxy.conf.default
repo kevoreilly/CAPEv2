@@ -1,0 +1,26 @@
+[cfg]
+# bin path to PolarProxy
+bin = /opt/PolarProxy/PolarProxy
+
+# Host ip where PolarProxy is listening
+host = 192.168.122.1
+
+# Interface where PolarProxy is listening
+interface = virbr0
+
+# PKCS#12 certificate/private key file
+cert = /opt/PolarProxy/PolarProxy-key-crt.p12
+
+# Password to unlock PKCS#12 file
+password = CHANGEME
+
+# See https://www.netresec.com/?page=TlsFirewall for details on PolarProxy TLS firewall
+# Newline separated file containing domain regexes for PolarProxy to not MITM
+bypass_list = /opt/PolarProxy/bypass-domains.txt
+# Newline separated file containing domain regexes for PolarProxy to block connections to
+block_list = /opt/PolarProxy/block-domains.txt
+
+# bin path to mergecap
+mergecap = /usr/bin/mergecap
+
+# Future options like custom ports, cert paths, etc

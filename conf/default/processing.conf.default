@@ -314,3 +314,9 @@ enabled = yes
 
 [html_scraper]
 enabled = no
+
+# Community
+[polarproxy]
+# Enable when using the PolarProxy option during analysis. This will merge the tls.pcap containing
+# plain-text TLS streams into the task PCAP.
+enabled = no

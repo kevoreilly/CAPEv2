@@ -84,7 +84,7 @@ class PolarProxyProcessor(Processing):
             log.info("Creating PCAP with decrypted TLS streams")
             shutil.move(tmp_pcap, self.pcap_path)
         else:
-            log.warning(f"Failed to merge pcaps: {stderr.decode()}")
+            log.warning("Failed to merge pcaps: %s", stderr.decode())
 
         results = {"pcap_sha256": File(self.pcap_path).get_sha256()}
         return results

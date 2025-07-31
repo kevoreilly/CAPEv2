@@ -150,9 +150,6 @@ enabled = no
 [display_office_martians]
 enabled = no
 
-[display_shrike]
-enabled = no
-
 [display_task_tags]
 # displays custom tags, if set during sample submission
 enabled = no

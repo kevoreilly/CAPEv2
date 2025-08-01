@@ -367,7 +367,7 @@ def processing_finished(future):
 
 
 def autoprocess(
-    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False
+    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False, disable_memory_limit: bool = False
 ):
     """
     Automatically processes analysis data using a process pool.
@@ -392,7 +392,8 @@ def autoprocess(
     # pool = multiprocessing.Pool(parallel, init_worker)
     pool = False
     try:
-        memory_limit()
+        if not disable_memory_limit:
+            memory_limit()
         log.info("Processing analysis data")
         with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
             # CAUTION - big ugly loop ahead.
@@ -604,6 +605,7 @@ def main():
         default=False,
         required=False,
     )
+    parser.add_argument("--disable-memory-limit", help="Disable memory limit.", action="store_true", default=False, required=False)
     args = parser.parse_args()
 
     init_database()
@@ -617,6 +619,7 @@ def main():
             memory_debugging=args.memory_debugging,
             processing_timeout=args.processing_timeout,
             debug=args.debug,
+            disable_memory_limit= args.disable_memory_limit,
         )
     else:
         for start, end in args.id:

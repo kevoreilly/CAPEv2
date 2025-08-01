@@ -1543,7 +1543,7 @@ class _Database:
         # extract files from the (potential) archive
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
-        if extracted_files and (file_path, platform) not in extracted_files:
+        if extracted_files and not any(file_path == path for path, _ in extracted_files):
             sample_parent_id = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())

@@ -754,8 +754,10 @@ def ext_tasks_search(request):
 
         if term == "tags_tasks":
             value = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=int(search_limit))]
+            term = "ids"
         elif term == "options":
             value = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
+            term = "ids"
         elif term == "ids":
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]

@@ -198,7 +198,7 @@ class Azure(Machinery):
         self.subnet_limit = 0
         for subnet in subnets:
             if subnet.name == self.options.az.subnet:
-                match = re.match(IPV4_REGEX, subnet.address_prefix)
+                match = re.match(IPV4_REGEX, subnet.address_prefix or (subnet.address_prefixes[0] if subnet.address_prefixes else ''))
                 if match and len(match.regs) == 5:
                     self.subnet_limit = 2 ** (32 - int(match.group(4))) - (2 + 1 + 10)
 

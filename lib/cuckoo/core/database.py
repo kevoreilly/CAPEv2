@@ -210,7 +210,7 @@ class SampleAssociation(Base):
     child_id: Mapped[int] = mapped_column(ForeignKey("samples.id"), primary_key=True)
 
     # This is the crucial column that links to the specific child's task
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True)
 
     # Relationships from the association object itself
     parent: Mapped["Sample"] = relationship(foreign_keys=[parent_id], back_populates="child_links")
@@ -529,7 +529,7 @@ class Task(Base):
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
 
     # The Task is linked to one specific parent/child association event
-    association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task")
+    association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("category_index", "category"),

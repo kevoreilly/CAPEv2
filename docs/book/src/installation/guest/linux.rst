@@ -2,6 +2,7 @@
 Installing the Linux guest
 ==========================
 
+Linux guests doesn't have official CAPAE support!
 First, prepare the networking for your machinery platform on the host side.
 
 .. This has not been tested recently:
@@ -36,7 +37,7 @@ Preparing x32/x64 Linux guests
     .. warning::
 
         For Linux guests on an Azure hypervisor, installing Python3 32-bit breaks the way that the Azure agent starts: https://docs.microsoft.com/en-us/azure/virtual-machines/extensions/agent-linux#installation.
-        So the use of the monitor is limited to what can be run with the 64-bit version of Python3. You will have to comment out the architecture check in the CAPE `agent.py` for the CAPE agent to start. To 
+        So the use of the monitor is limited to what can be run with the 64-bit version of Python3. You will have to comment out the architecture check in the CAPE `agent.py` for the CAPE agent to start. To
         reiterate, this warning is only relevant if you are using an Azure hypervisor.
 
 x32 guests
@@ -45,10 +46,10 @@ Install support file dependencies::
 
     $ sudo apt update
     $ sudo apt install python3-pip systemtap-runtime
-    $ pip3 install pyinotify
-    $ pip3 install Pillow       # optional
-    $ pip3 install pyscreenshot # optional
-    $ pip3 install pyautogui    # optional
+    $ sudo pip3 install pyinotify
+    $ sudo pip3 install Pillow       # optional
+    $ sudo pip3 install pyscreenshot # optional
+    $ sudo pip3 install pyautogui    # optional
 
 x64 guests
 ----------
@@ -60,11 +61,11 @@ Install support file dependencies (we need Python3 32-bit)::
     $ sudo apt install python3-distutils -y
     $ sudo apt install systemtap-runtime -y
     $ curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-    $ python3 get-pip.py
-    $ python3 -m pip install pyinotify
-    $ python3 -m pip install Pillow       # optional
-    $ python3 -m pip install pyscreenshot # optional
-    $ python3 -m pip install pyautogui    # optional
+    $ sudo python3 get-pip.py
+    $ sudo python3 -m pip install pyinotify
+    $ sudo python3 -m pip install Pillow       # optional
+    $ sudo python3 -m pip install pyscreenshot # optional
+    $ sudo python3 -m pip install pyautogui    # optional
 
 Ensure the agent automatically starts. The easiest way is to add it to crontab::
 

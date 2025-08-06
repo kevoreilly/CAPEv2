@@ -84,6 +84,12 @@ enabled = no
 
 [Mitmdump]
 # Enable or disable the use of mitmdump (mitmproxy) to get dump.har [yes/no].
-# This module requires installed mitmproxy see install_mitmproxy
+# This module requires mitmproxy to be installed see install_mitmproxy
 # (https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh#L1320)
+enabled = no
+
+[PolarProxy]
+# Enable or disable the use of PolarProxy to get dump.pcap with decrypted TLS streams [yes/no].
+# This module requires PolarProxy to be installed see install_polarproxy.
+# Use add the options "polarproxy=1" when submitting a sample.
 enabled = no

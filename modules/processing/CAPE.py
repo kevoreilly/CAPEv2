@@ -391,18 +391,23 @@ class CAPE(Processing):
         # look for an existing config matching this cape_name; merge them if found
         for existing_config in self.cape["configs"]:
             if cape_name in existing_config:
-                log.debug("CAPE: data loss may occur, existing config found for: %s", cape_name)
+                log.debug("CAPE: existing config found for: %s, merging - data loss may occur", cape_name)
                 existing_config[cape_name].update(config[cape_name])
                 config = existing_config
-                break
-        else:
-            # first time a config for this cape_name was seen
-            log.debug("CAPE: new config found for: %s", cape_name)
-            self.cape["configs"].append(config)
+                self.link_configs_to_hashes(config, file_obj)
+                return
 
-        # Link the config to the hashes it was generated from.
-        # Store it in a list so that the keys of the dict are fixed and not dynamic, which, if
-        # storing the report in ElasticSearch, could otherwise create tons of keys in the index.
+        # first time a config for this cape_name was seen
+        log.debug("CAPE: new config found for: %s", cape_name)
+        self.cape["configs"].append(config)
+        self.link_configs_to_hashes(config, file_obj)
+
+
+    def link_configs_to_hashes(self, config, file_obj):
+        """Link the config to the hashes it was generated from.
+        Store it in a list so that the keys of the dict are fixed and not dynamic, which, if
+        storing the report in ElasticSearch, could otherwise create tons of keys in the index.
+        """
         sha256 = file_obj.get("sha256", "")
         current_hashes = config.setdefault("_associated_config_hashes", [])
         for hashes in current_hashes:

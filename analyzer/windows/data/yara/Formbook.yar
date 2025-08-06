@@ -26,7 +26,7 @@ rule FormhookB
         $new_remap = {8B (86 [2] 00 00|46 ??|06) 5F 5E 5B 8B E5 5D C3}
         $code = {8B 4E 18 50 6A 00 51 57 56 E8 9A 18 00 00 8B 55 10 8B 45 0C 8B 0F 83 C4 1C 52 50 FF D1 5F 5E 5D C3}
     condition:
-        any of them
+        2 of them
 }
 
 rule FormconfA

@@ -198,7 +198,7 @@ class Azure(Machinery):
         self.subnet_limit = 0
         for subnet in subnets:
             if subnet.name == self.options.az.subnet:
-                match = re.match(IPV4_REGEX, subnet.address_prefix)
+                match = re.match(IPV4_REGEX, subnet.address_prefix or (subnet.address_prefixes[0] if subnet.address_prefixes else ''))
                 if match and len(match.regs) == 5:
                     self.subnet_limit = 2 ** (32 - int(match.group(4))) - (2 + 1 + 10)
 
@@ -1215,7 +1215,7 @@ class Azure(Machinery):
         """
         # The number of relevant machines are those from the list of locked and unlocked machines
         # that have the correct tag in their name
-        return self.db.list_machines(tags=[tag])
+        return [machine for machine in self.db.list_machines(tags=[tag])]
 
     @staticmethod
     def _wait_for_concurrent_operations_to_complete(timeout=AZURE_TIMEOUT):

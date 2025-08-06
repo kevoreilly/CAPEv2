@@ -1,3 +1,12 @@
+### [05.08.2025]
+* Monitor updates:
+    * Enhance dynamic patching capability: new PatchBytes() function, submission/yara option patch=<address>:<bytes>
+    * Create DumpStrings debugger action for corresponding function
+    * Standalone mode improvements (thanks heck-gd)
+    * Improve NtGetContextThread & NtSetContextThread hooks to handle e.g. a2d4e1c831808d0a791608db40cd1e4df598e5fee4bac1b239d4f8194f8e2d4a
+    * Debugger: add flag changes to trace output
+* Stealc V2 detection, dynamic strings & config extraction (requires accompanying CAPE-parsers update)
+
 ### [11.06.2025]
 * __Action required!__ For users of Python 3.12+ in guest, update the agent to solve #2621 affecting e.g. MSI detonation
 * Agent update: Fix issue with analyzer directory creation lacking required ACLs for Python 3.12, remove predictable "tmp" prefix for directory name(s) (fixes #2621)

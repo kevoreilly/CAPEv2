@@ -825,13 +825,7 @@ function install_mongo(){
         sudo apt-get install -y libpcre3-dev numactl cron
         sudo apt-get install -y mongodb-org
 
-        # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
-        PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
-        if [ "$PIP_VERSION" -ge 23 ]; then
-            pip3 install pymongo -U --break-system-packages
-        else
-            pip3 install pymongo -U
-        fi
+        PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install pymongo -U --break-system-packages
 
         sudo apt-get install -y ntp
         systemctl start ntp.service && sudo systemctl enable ntp.service
@@ -905,14 +899,7 @@ function install_elastic() {
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
     sudo apt-get update && sudo apt-get install -y elasticsearch
-
-    # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
-    PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
-    if [ "$PIP_VERSION" -ge 23 ]; then
-        pip3 install elasticsearch --break-system-packages
-    else
-        pip3 install elasticsearch
-    fi
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install elasticsearch
 
     systemctl enable elasticsearch
 }

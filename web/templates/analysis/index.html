@@ -77,9 +77,6 @@
                     <th width="3%">PCAP</th>
                     <th width="5%">ClamAV</th>
                     {% endif %}
-                    {% if config.display_shrike %}
-                    <th width="5%">Shrike</th>
-                    {% endif %}
                     <th width="6%" style="text-align: right;">Status</th>
                 </tr>
                 </thead>
@@ -252,19 +249,6 @@
                             </span>
                         </td>
                         {% endif %}
-                        {% if config.display_shrike %}
-                        <td>
-                            {% if analysis.shrike_msg %}
-                                {% if analysis.status == "reported" %}
-                                    <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
-                                {% else %}
-                                    <span class="mono">{{analysis.shrike_msg}}</span>
-                                {% endif %}
-                            {% else %}
-                                <span class="mono">-</span>
-                            {% endif %}
-                        </td>
-                        {% endif %}
                         <td style="text-align: right;">
                             {% if analysis.status == "pending" %}
                                 <span class="text-muted">pending</span>
@@ -371,9 +355,6 @@
                     {% if config.expanded_dashboard %}
                     <th width="3%">PCAP</th>
                     <th width="5%">ClamAV</th>
-                    {% endif %}
-                    {% if config.display_shrike %}
-                    <th width="5%">Shrike</th>
                     {% endif %}
                     <th width="6%" style="text-align: right;">Status</th>
                 </tr>
@@ -501,19 +482,6 @@
                             </span>
                         </td>
                         {% endif %}
-                        {% if config.display_shrike %}
-                        <td>
-                            {% if analysis.shrike_msg %}
-                                 {% if analysis.status == "reported" %}
-                                     <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
-                                 {% else %}
-                                     <span class="mono">{{analysis.shrike_msg}}</span>
-                                 {% endif %}
-                            {% else %}
-                                 <span class="mono">-</span>
-                            {% endif %}
-                        </td>
-                       {% endif %}
                         <td style="text-align: right;">
                             {% if analysis.status == "pending" %}
                                 <span class="text-muted">pending</span>
@@ -615,11 +583,8 @@
                     {% endif %}
                     <th width="5%">PCAP</th>
                     <th width="10%">ClamAV</th>
-                    {% if config.display_shrike %}
-                    <th width="5%">Shrike</th>
-                    {% endif %}
                     <th width="5%" style="text-align: right;">Status</th>
-                  {% else %}
+                {% else %}
                     <th width="5%">ID</th>
                     <th width="12%">Timestamp</th>
                     <th width="61%">URL</th>
@@ -638,11 +603,8 @@
                     {% if config.malscore %}
                         <th width="5%">MalScore</th>
                     {% endif %}
-                    {% if config.display_shrike %}
-                    <th width="5%">Shrike</th>
-                    {% endif %}
                     <th width="7%" style="text-align: right;">Status</th>
-                  {% endif %}
+                {% endif %}
                 </tr>
                 </thead>
                 <tbody>
@@ -774,20 +736,6 @@
                             </span>
                         </td>
                         {% endif %}
-                        {% if config.display_shrike %}
-                        <td>
-                            {% if analysis.shrike_msg %}
-                                 {% if analysis.status == "reported" %}
-                                     <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
-                                 {% else %}
-                                     <span class="mono">{{analysis.shrike_msg}}</span>
-                                 {% endif %}
-                            {% else %}
-                                 <span class="mono">-</span>
-                            {% endif %}
-                        </td>
-                       {% endif %}
-
                         <td style="text-align: right;">
                             {% if analysis.status == "pending" %}
                                 <span class="text-muted">pending</span>
@@ -876,9 +824,6 @@
                     {% endif %}
 
                     <th width="5%">PCAP</th>
-                    {% if config.display_shrike %}
-                    <th width="5%">Shrike</th>
-                    {% endif %}
                     <th width="5%" style="text-align: right;">Status</th>
                 {% else %}
                     <th width="5%">ID</th>
@@ -893,9 +838,6 @@
                     {% endif %}
                     {% if config.malscore %}
                         <th width="5%">MalScore</th>
-                    {% endif %}
-                    {% if config.display_shrike %}
-                    <th width="5%">Shrike</th>
                     {% endif %}
                     <th width="6%" style="text-align: right;">Status</th>
                 {% endif %}
@@ -992,19 +934,6 @@
                         </span>
                     </td>
                     {% endif %}
-                    {% if config.display_shrike %}
-                    <td>
-                        {% if analysis.shrike_msg %}
-                        {% if analysis.status == "reported" %}
-                        <a href="{% url "shrike" analysis.id %}" target="_blank"><span class="mono">{{analysis.shrike_msg}}</span></a>
-                        {% else %}
-                        <span class="mono">{{analysis.shrike_msg}}</span>
-                        {% endif %}
-                        {% else %}
-                        <span class="mono">-</span>
-                        {% endif %}
-                    </td>
-                    {% endif %}
                     <td style="text-align: right;">
                         {% if analysis.status == "pending" %}
                         <span class="text-muted">pending</span>
@@ -1035,23 +964,23 @@
     </div>
     {% if paging.show_pcap_next == "show" or paging.show_pcap_prev == "show" %}
         <nav aria-label="Page navigation">
-           <ul class="pagination justify-content-center">
-           {% if paging.show_pcap_prev == "show" %}
-               <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
-           {% endif %}
-           {% if paging.pcap_page_range %}
-               {% for page in paging.pcap_page_range %}
-                   {% if page == paging.current_page %}
-                   <li class="nav-item active"><a class="nav-link">{{page}}</a></li>
-                   {% else %}
-                   <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
-                   {% endif %}
-               {% endfor %}
-           {% endif %}
-           {% if paging.show_pcap_next == "show" %}
-               <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
-           {% endif %}
-           </ul>
+            <ul class="pagination justify-content-center">
+            {% if paging.show_pcap_prev == "show" %}
+                <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+            {% endif %}
+            {% if paging.pcap_page_range %}
+                {% for page in paging.pcap_page_range %}
+                    {% if page == paging.current_page %}
+                    <li class="nav-item active"><a class="nav-link">{{page}}</a></li>
+                    {% else %}
+                    <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+            {% if paging.show_pcap_next == "show" %}
+                <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+            {% endif %}
+            </ul>
         </nav>
     {% endif %}
 </div>

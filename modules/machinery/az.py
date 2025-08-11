@@ -782,7 +782,7 @@ class Azure(Machinery):
             # For ClientRequestErrors, they do not have the attribute 'error'
             error = exc.error.error if getattr(exc, "error", False) else exc
             log.warning(
-                "Failed to 5s due to the Azure error '%s': '%s'.", str(api_call), str(error), f"{exc.message if hasattr(exc, 'message') else repr(exc)}"
+                "Failed to '%s' due to the Azure error '%s': '%s'.", str(api_call), str(error), f"{exc.message if hasattr(exc, 'message') else repr(exc)}"
             )
             if "NotFound" in repr(exc) or (hasattr(exc, "status_code") and exc.status_code == 404):
                 # Note that this exception is used to represent if an Azure resource

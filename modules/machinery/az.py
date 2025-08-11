@@ -482,7 +482,7 @@ class Azure(Machinery):
                     self._insert_placeholder_machine(vmss, vals)
                 # If the VMSS shows no VMs instantiated on Azure's side but we want to start with 1+
                 elif machine_pools[vmss]["size"] == 0:
-                    self._thr_scale_machine_pool(vals["tag"], True if vals["platform"] else False)
+                    self._thr_scale_machine_pool(vals["tag"], True)
                 else:
                     # Reimage VMSS!
                     thr = threading.Thread(
@@ -657,7 +657,7 @@ class Azure(Machinery):
         # VMSS able to run the task exists but has no relevant machines. Scale up from zero.
         threading.Thread(
             target=self._thr_scale_machine_pool,
-            args=(assignable_vmss["tag"], True if assignable_vmss["platform"] else False)
+            args=(assignable_vmss["tag"], True)
         ).start()
 
     def _add_machines_to_db(self, vmss_name):

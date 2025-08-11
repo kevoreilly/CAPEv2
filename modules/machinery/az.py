@@ -8,8 +8,22 @@ import socket
 import threading
 import time
 import timeit
+from typing import Optional, cast
 
+import sqlalchemy
+
+# Cuckoo-specific imports
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.abstracts import Machinery
+from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
+from lib.cuckoo.common.exceptions import (
+    CuckooCriticalError,
+    CuckooDependencyError,
+    CuckooGuestCriticalTimeout,
+    CuckooMachineError,
+    CuckooUnserviceableTaskError,
+)
+from lib.cuckoo.core.database import TASK_PENDING, Machine, Task
 
 HAVE_AZURE = False
 cfg = Config()
@@ -27,11 +41,6 @@ if cfg.cuckoo.machinery == "az":
         print("Missing machinery-required libraries.")
         print("poetry run pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
 
-# Cuckoo-specific imports
-from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError, CuckooGuestCriticalTimeout, CuckooMachineError
-from lib.cuckoo.core.database import TASK_PENDING, Machine
 
 # Only log INFO or higher from imported python packages
 logging.getLogger("adal-python").setLevel(logging.INFO)

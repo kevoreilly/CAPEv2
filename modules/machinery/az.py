@@ -634,22 +634,29 @@ class Azure(Machinery):
             machine = get_first_machine(filtered_machines)
 
         if machine is None:
-            self._scale_from_zero(task, task_tags)
+            self._scale_from_zero(task, os_version, task_tags)
         if machine and machine.locked:
             # There aren't any machines that can service the task NOW, but there is at least one in the pool
             # that could service it once it's available.
             return None
         return machine
 
-    def _scale_from_zero(self, task: Task, tags):
+    def _scale_from_zero(self, os_version: str, task: Task, tags):
         """
         Scale up VMSS with current size of 0 and able to run the task.
         """
         assignable_vmss = None
         # Get the first VMSS that can run this task on an instance
         for _, vals in self.required_vmsss.items():
-            if vals["tag"] in tags or vals["platform"] == task.platform:
+            if os_version and os_version == vals["tag"]:
                 assignable_vmss = vals
+                break
+            if tags and len(tags) == 1 and vals["tag"] == tags[0]:
+                assignable_vmss = vals
+                break
+            if vals["platform"] == task.platform:
+                assignable_vmss = vals
+                break
 
         if assignable_vmss is None:
             raise CuckooUnserviceableTaskError

@@ -264,6 +264,10 @@ class Machinery:
         )
 
     def find_machine_to_service_task(self, task):
+        """Find a machine that is able to service the given task.
+        This can be overridden by machinery modules for custom logic.
+        By default, it delegates to the database implementation.
+        """
         return self.db.find_machine_to_service_task(task)
 
     def scale_pool(self, machine: Machine) -> None:

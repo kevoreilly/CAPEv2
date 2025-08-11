@@ -1403,6 +1403,7 @@ class Azure(Machinery):
                             self.options.az.sandbox_resource_group,
                             vmss_to_delete_from,
                             models.VirtualMachineScaleSetVMInstanceIDs(instance_ids=instance_ids),
+                            force_deletion=True,
                             polling_interval=1,
                             operation=self.compute_client.virtual_machine_scale_sets.begin_delete_instances,
                         )

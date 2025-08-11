@@ -620,8 +620,14 @@ class Azure(Machinery):
 
                 private_ip = vmss_vm_nic.ip_configurations[0].private_ip_address
                 if private_ip in db_machine_ips:
-                    log.error("The IP '%s' is already associated with a machine in the DB. Moving on...", private_ip)
-                    continue
+                    existing_machines = [machine for machine in machines_in_db if machine.ip == private_ip]
+
+                    if not existing_machines:
+                        log.error("The IP '%s' is already associated with a machine in the DB. Moving on...", private_ip)
+                        continue
+
+                    vmss_name, _ = existing_machines[0].label.split("_")
+                    self._delete_machines_from_db_if_missing(vmss_name)
 
                 # Add machine to DB.
                 # TODO: What is the point of name vs label?

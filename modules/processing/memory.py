@@ -6,7 +6,7 @@
 #  https://github.com/Cisco-Talos/pyrebox/blob/python3migration/pyrebox/volatility_glue.py
 
 # Vol3 docs - https://volatility3.readthedocs.io/en/latest/index.html
-
+import json
 import logging
 import os
 from pathlib import Path
@@ -81,7 +81,7 @@ if HAVE_VOLATILITY:
                 return (acc_map, final_tree)
 
             error = grid.populate(visitor, final_output, fail_on_errors=True)
-            return final_output[1], error
+            return json.loads(json.dumps(final_output[1])), error
 
 
 class VolatilityAPI:

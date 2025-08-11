@@ -825,22 +825,26 @@ function install_mongo(){
         sudo apt-get install -y libpcre3-dev numactl cron
         sudo apt-get install -y mongodb-org
 
-        # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
-        PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
-        if [ "$PIP_VERSION" -ge 23 ]; then
-            pip3 install pymongo -U --break-system-packages
-        else
-            pip3 install pymongo -U
-        fi
+        PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install pymongo -U --break-system-packages
 
-        sudo apt-get install -y ntp
-        systemctl start ntp.service && sudo systemctl enable ntp.service
+        # sudo apt-get install -y ntp
+        # systemctl start ntp.service && sudo systemctl enable ntp.service
+cat >> /lib/systemd/system/enable-transparent-huge-pages.service <<EOF
+# https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/
+[Unit]
+Description=Enable Transparent Hugepages (THP)
+DefaultDependencies=no
+After=sysinit.target local-fs.target
+Before=mongod.service
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo always | tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null && echo defer+madvise | tee /sys/kernel/mm/transparent_hugepage/defrag > /dev/null && echo 0 | tee /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none > /dev/null && echo 1 | tee /proc/sys/vm/overcommit_memory > /dev/null'
+[Install]
+WantedBy=basic.target
+EOF
 
-        if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
-            sudo apt-get install -y sysfsutils
-            echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
-            echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
-        fi
+        systemctl daemon-reload
+        sudo systemctl enable enable-transparent-huge-pages
 
         if [ -f /lib/systemd/system/mongod.service ]; then
             systemctl stop mongod.service
@@ -852,13 +856,14 @@ function install_mongo(){
 
         if [ ! -f /lib/systemd/system/mongodb.service ]; then
             crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
-            cat >> /lib/systemd/system/mongodb.service <<EOF
+            cat >> /lib/systemd/system/mongodb.service << EOF
 [Unit]
 Description=High-performance, schema-free document-oriented database
 Wants=network.target
 After=network.target
 [Service]
 PermissionsStartOnly=true
+Environment="GLIBC_TUNABLES=glibc.pthread.rseq=0"
 #ExecStartPre=/bin/mkdir -p /data/{config,}db && /bin/chown mongodb:mongodb /data -R
 # https://www.tutorialspoint.com/mongodb/mongodb_replication.htm
 ExecStart=/usr/bin/numactl --interleave=all /usr/bin/mongod --setParameter "tcmallocReleaseRate=5.0"
@@ -883,11 +888,9 @@ EOF
         systemctl enable mongodb.service
         systemctl restart mongodb.service
 
-        if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
-            crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
-        fi
-
         echo "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
+        echo "net.ipv4.tcp_fastopen = 3" | sudo tee /etc/sysctl.d/30-tcp_fastopen.conf
+
     else
         echo "[+] Skipping MongoDB"
     fi
@@ -905,14 +908,7 @@ function install_elastic() {
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
     sudo apt-get update && sudo apt-get install -y elasticsearch
-
-    # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
-    PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
-    if [ "$PIP_VERSION" -ge 23 ]; then
-        pip3 install elasticsearch --break-system-packages
-    else
-        pip3 install elasticsearch
-    fi
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install elasticsearch
 
     systemctl enable elasticsearch
 }
@@ -1257,6 +1253,11 @@ function install_CAPE() {
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
+
+    if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
+        crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+    fi
+
     cd "/opt/CAPEv2/" || return
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 /etc/poetry/bin/poetry install'
 

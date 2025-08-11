@@ -352,7 +352,7 @@ class Machinery:
         if isinstance(state, str):
             state = [state]
         while current not in state:
-            log.debug("Waiting %d cuckooseconds for machine %s to switch to status %s", waitme, label, state)
+            log.debug("Waiting %d seconds for machine %s to switch to status %s", waitme, label, state)
             if waitme > int(cfg.timeouts.vm_state):
                 raise CuckooMachineError(f"Timeout hit while for machine {label} to change status")
             time.sleep(1)

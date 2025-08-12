@@ -157,7 +157,7 @@ zipprocdump = yes
 zipprocstrings = yes
 # pyzipper or 7zip
 compressiontool = pyzipper
-sevenzippath = /usr/bin/7z
+sevenzippath = data/7zz
 
 # Community
 [misp]

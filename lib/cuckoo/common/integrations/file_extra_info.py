@@ -119,6 +119,9 @@ if integration_conf.SevenZip_unpack.binary:
     tmp_sevenzip_binary = os.path.join(CUCKOO_ROOT, integration_conf.SevenZip_unpack.binary)
     if path_exists(tmp_sevenzip_binary):
         sevenzip_binary = tmp_sevenzip_binary
+# fallback
+if not path_exists(sevenzip_binary):
+    sevenzip_binary = "/usr/bin/7z"
 
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)

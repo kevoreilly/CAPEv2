@@ -71,7 +71,7 @@ class Suricata(Processing):
         SURICATA_FILES_DIR = self.options.get("filesdir")
         SURICATA_RUNMODE = self.options.get("runmode")
         SURICATA_FILE_BUFFER = self.options.get("buffer", 8192)
-        Z7_PATH = self.options.get("7zbin")
+        Z7_PATH = os.path.join(CUCKOO_ROOT, self.options.get("7zbin"))
         FILES_ZIP_PASS = self.options.get("zippass")
 
         # Socket

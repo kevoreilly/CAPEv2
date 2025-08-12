@@ -174,7 +174,7 @@ filesdir = files
 # Amount of text to carve from plaintext files (bytes)
 buffer = 8192
  #Used for creating an archive of extracted files
-7zbin = /usr/bin/7z
+7zbin = data/7zz
 zippass = infected
 # Runmode "cli" options
 bin = /usr/bin/suricata

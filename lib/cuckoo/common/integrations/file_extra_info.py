@@ -114,7 +114,7 @@ if integration_conf.UnAutoIt_extract.binary:
     unautoit_binary = os.path.join(CUCKOO_ROOT, integration_conf.UnAutoIt_extract.binary)
 if integration_conf.Inno_extract.binary:
     innoextact_binary = os.path.join(CUCKOO_ROOT, integration_conf.Inno_extract.binary)
-sevenzip_binary = "/usr/bin/7z"
+sevenzip_binary = os.path.join(CUCKOO_ROOT, "data/7zz")
 if integration_conf.SevenZip_unpack.binary:
     tmp_sevenzip_binary = os.path.join(CUCKOO_ROOT, integration_conf.SevenZip_unpack.binary)
     if path_exists(tmp_sevenzip_binary):
@@ -688,7 +688,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
         return
 
     extracted_files = []
-    # sudo apt install msitools or 7z
+    # sudo apt install msitools
     with extractor_ctx(file, "MsiExtract", prefix="msidump_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         output = False
@@ -707,7 +707,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
             ]
         else:
             output = run_tool(
-                ["7z", "e", f"-o{tempdir}", "-y", file],
+                [sevenzip_binary, "e", f"-o{tempdir}", "-y", file],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )

@@ -32,6 +32,12 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Setup 7zz binary
+        run: |
+          mkdir -p data/
+          wget -q https://github.com/CAPESandbox/community/raw/master/data/7zz -O data/7zz
+          chmod +x data/7zz
+
       - name: Install pyattck
         run: |
           poetry run pip install git+https://github.com/CAPESandbox/pyattck maco

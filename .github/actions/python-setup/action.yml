@@ -12,7 +12,7 @@ runs:
       if: ${{ runner.os == 'Linux' }}
       shell: bash
       run: |
-        sudo apt update && sudo apt-get install -y --no-install-recommends libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev 7zip innoextract unrar upx
+        sudo apt update && sudo apt-get install -y --no-install-recommends libxml2-dev libxslt-dev python3-dev libgeoip-dev ssdeep libfuzzy-dev innoextract unrar upx
 
     - name: Install poetry
       shell: bash

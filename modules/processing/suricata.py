@@ -71,7 +71,7 @@ class Suricata(Processing):
         SURICATA_FILES_DIR = self.options.get("filesdir")
         SURICATA_RUNMODE = self.options.get("runmode")
         SURICATA_FILE_BUFFER = self.options.get("buffer", 8192)
-        Z7_PATH = self.options.get("7zbin")
+        Z7_PATH = os.path.join(CUCKOO_ROOT, self.options.get("7zbin"))
         FILES_ZIP_PASS = self.options.get("zippass")
 
         # Socket
@@ -396,7 +396,7 @@ class Suricata(Processing):
                     log.warning("Unable to delete suricata file subdirectories: %s", e)
 
         if SURICATA_FILES_DIR_FULL_PATH and path_exists(SURICATA_FILES_DIR_FULL_PATH) and Z7_PATH and path_exists(Z7_PATH):
-            # /usr/bin/7z a -pinfected -y files.zip files-json.log files
+            # /opt/CAPEv2/data/7zz a -pinfected -y files.zip files-json.log files
             cmdstr = f"cd {self.logs_path} && {Z7_PATH} a -p{FILES_ZIP_PASS} -y files.zip {SURICATA_FILE_LOG} {SURICATA_FILES_DIR}"
             ret, _, stderr = self.cmd_wrapper(cmdstr)
             if ret > 1:

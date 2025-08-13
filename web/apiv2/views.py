@@ -1167,8 +1167,11 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
 
+    allow_dl = False
+    if hasattr(request.user, "userprofile") and request.user.userprofile.reports:
+        allow_dl = True
     # check if allowed to download to all + if no if user has permissions
-    if not settings.ALLOW_DL_REPORTS_TO_ALL and not request.user.userprofile.reports:
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and allow_dl is False:
         return render(
             request,
             "error.html",

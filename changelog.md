@@ -1,3 +1,6 @@
+### [13.08.2025]
+* Monitor update: Fix internal WMI_GetObjectAsync yara
+
 ### [05.08.2025]
 * Monitor updates:
     * Enhance dynamic patching capability: new PatchBytes() function, submission/yara option patch=<address>:<bytes>

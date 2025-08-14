@@ -59,10 +59,22 @@
                         {% endif %}
                         <tbody>
                             {% for key, value in config.items %}
-                                <tr>
-                                    <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
-                                    <td style="border-top: 0; word-wrap: break-word;">{% malware_config value %}</td>
-                                </tr>
+                                <!-- Filter raw key from web ui but display contents as normal -->
+                                {% if key == "raw" %}
+                                    {% for dict_item in value %}
+                                        {% for subkey, subvalue in dict_item.items %}
+                                            <tr>
+                                                <th style="border-top: 0;"><b>{{ subkey }}</b></th>
+                                                <td style="border-top: 0; word-wrap: break-word;"> {% malware_config subvalue %}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    {% endfor %}
+                                {% else %}
+                                    <tr>
+                                        <th style="border-top: 0; width: 15%;"><b>{{ key }}</b></th>
+                                        <td style="border-top: 0; word-wrap: break-word;">{% malware_config value %}</td>
+                                    </tr>
+                                {% endif %}
                             {% endfor %}
                         </tbody>
                     </table>

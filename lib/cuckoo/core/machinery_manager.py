@@ -206,7 +206,7 @@ class MachineryManager:
         return machinery
 
     def find_machine_to_service_task(self, task: Task) -> Optional[Machine]:
-        machine = self.db.find_machine_to_service_task(task)
+        machine = self.machinery.find_machine_to_service_task(task)
         if machine:
             log.info(
                 "Task #%s: found useable machine %s (arch=%s, platform=%s)",

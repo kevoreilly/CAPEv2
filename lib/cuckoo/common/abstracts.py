@@ -263,6 +263,13 @@ class Machinery:
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
+    def find_machine_to_service_task(self, task):
+        """Find a machine that is able to service the given task.
+        This can be overridden by machinery modules for custom logic.
+        By default, it delegates to the database implementation.
+        """
+        return self.db.find_machine_to_service_task(task)
+
     def scale_pool(self, machine: Machine) -> None:
         """This can be overridden in sub-classes to scale the pool of machines once one has been acquired."""
         return

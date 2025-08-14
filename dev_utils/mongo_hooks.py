@@ -2,6 +2,7 @@ import itertools
 import logging
 
 from pymongo import UpdateOne, errors
+from bson import BSON
 
 from dev_utils.mongodb import (
     mongo_bulk_write,
@@ -68,6 +69,11 @@ def normalize_file(file_dict, task_id):
 
     new_dict["_id"] = key
     file_dict[FILE_REF_KEY] = key
+    # 16MB limit handling
+    strings_val = new_dict.get("strings")
+    if strings_val and len(BSON.encode({"strings": strings_val})) > 15 * 1024 * 1024:
+        log.warning("strings field is too large (>15MB), truncating to avoid MongoDB document size error")
+        new_dict["strings"] = []
     return UpdateOne({"_id": key}, {"$set": new_dict, "$addToSet": {TASK_IDS_KEY: task_id}}, upsert=True, hint=[("_id", 1)])
 
 

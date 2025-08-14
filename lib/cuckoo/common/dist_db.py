@@ -1,112 +1,126 @@
 import sys
 from datetime import datetime
+from typing import List, Optional
 
 # http://pythoncentral.io/introductory-tutorial-python-sqlalchemy/
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, String, Table, Text, create_engine
+from sqlalchemy import (
+    Column,
+    create_engine,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+)
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 from sqlalchemy.types import TypeDecorator
 
-Base = declarative_base()
+
+# 1. Use DeclarativeBase as the modern starting point
+class Base(DeclarativeBase):
+    pass
+
 
 schema = "83fd58842164"
 
-
-class ExitNodes(Base):
-    """Exit nodes to route traffic."""
-
-    __tablename__ = "exitnodes"
-
-    id = Column(Integer(), primary_key=True)
-    name = Column(String(255), nullable=False, unique=True)
-
-    def __repr__(self):
-        return f"<Exit node('{self.id}','{self.name}')>"
-
-    def __init__(self, name):
-        self.name = name
-
-
-# Secondary table used in association Worker - Exit node.
+# This association table definition is correct and doesn't need changes
 worker_exitnodes = Table(
     "worker_exitnodes",
     Base.metadata,
-    Column("node_id", Integer, ForeignKey("node.id")),
-    Column("exit_id", Integer, ForeignKey("exitnodes.id")),
+    Column("node_id", Integer, ForeignKey("node.id"), primary_key=True),
+    Column("exit_id", Integer, ForeignKey("exitnodes.id"), primary_key=True),
 )
 
 
-class StringList(TypeDecorator):
-    """List of comma-separated strings as field."""
+# 2. Modernized all models with Mapped/mapped_column and explicit relationships
+class ExitNodes(Base):
+    __tablename__ = "exitnodes"
 
-    impl = Text
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(255), unique=True)
 
-    def process_bind_param(self, value, dialect):
-        return ", ".join(value)
+    # This relationship completes the link from the Node model
+    nodes: Mapped[List["Node"]] = relationship(secondary=worker_exitnodes, back_populates="exitnodes")
 
-    def process_result_value(self, value, dialect):
-        return value.split(", ")
-
-
-class Machine(Base):
-    """Machine database model related to a Cuckoo node."""
-
-    __tablename__ = "machine"
-    id = Column(Integer, primary_key=True)
-    name = Column(Text, nullable=False)
-    platform = Column(Text, nullable=False)
-    tags = Column(StringList)
-    node_id = Column(Integer, ForeignKey("node.id"))
+    def __repr__(self) -> str:
+        return f"<ExitNode(id={self.id}, name='{self.name}')>"
 
 
 class Node(Base):
-    """Cuckoo node database model."""
-
     __tablename__ = "node"
-    id = Column(Integer, primary_key=True)
-    name = Column(Text, nullable=False)
-    url = Column(Text, nullable=True)
-    enabled = Column(Boolean, default=False)
-    apikey = Column(String(255), nullable=False)
-    last_check = Column(DateTime(timezone=False))
-    machines = relationship(Machine, backref="node", lazy="dynamic")
-    exitnodes = relationship(ExitNodes, secondary=worker_exitnodes, backref="node", lazy="subquery")
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    url: Mapped[Optional[str]] = mapped_column(Text)
+    enabled: Mapped[bool] = mapped_column(default=False)
+    apikey: Mapped[str] = mapped_column(String(255))
+    last_check: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False))
+
+    # Replaced legacy `backref` with explicit `back_populates`
+    machines: Mapped[List["Machine"]] = relationship(back_populates="node")
+    exitnodes: Mapped[List["ExitNodes"]] = relationship(
+        secondary=worker_exitnodes, back_populates="nodes", lazy="subquery"
+    )  # really need lazy?
+
+
+# The TypeDecorator is a valid pattern; added type hints for clarity
+class StringList(TypeDecorator):
+    """Saves a Python list of strings as a single comma-separated string in the DB."""
+
+    impl = Text
+    cache_ok = True  # Indicates the type is safe to cache
+
+    def process_bind_param(self, value: Optional[List[str]], dialect) -> Optional[str]:
+        if value is None:
+            return None
+        return ", ".join(value)
+
+    def process_result_value(self, value: Optional[str], dialect) -> Optional[List[str]]:
+        if value is None:
+            return None
+        return [item.strip() for item in value.split(",")]
+
+
+class Machine(Base):
+    __tablename__ = "machine"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(Text)
+    platform: Mapped[str] = mapped_column(Text)
+    tags: Mapped[Optional[List[str]]] = mapped_column(StringList)
+    node_id: Mapped[Optional[int]] = mapped_column(ForeignKey("node.id"))
+
+    # This relationship completes the link from the Node model
+    node: Mapped["Node"] = relationship(back_populates="machines")
 
 
 class Task(Base):
-    """Analysis task database model."""
-
     __tablename__ = "task"
-    id = Column(Integer, primary_key=True)
-    path = Column(Text)
-    category = Column(Text)
-    package = Column(Text)
-    timeout = Column(Integer)
-    priority = Column(Integer)
-    options = Column(Text)
-    machine = Column(Text)
-    platform = Column(Text)
-    route = Column(Text)
-    tags = Column(Text)
-    custom = Column(Text)
-    memory = Column(Text)
-    clock = Column(DateTime(timezone=False), default=datetime.now(), nullable=False)
-    enforce_timeout = Column(Text)
-    tlp = Column(Text, nullable=True)
-    # Cuckoo node and Task ID this has been submitted to.
-    node_id = Column(Integer, ForeignKey("node.id"))
-    task_id = Column(Integer)
-    finished = Column(Boolean, nullable=False, default=False)
-    main_task_id = Column(Integer)
-    retrieved = Column(Boolean, nullable=False, default=False)
-    notificated = Column(Boolean, nullable=True, default=False)
-    deleted = Column(Boolean, nullable=False, default=False)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    path: Mapped[Optional[str]] = mapped_column(Text)
+    category: Mapped[Optional[str]] = mapped_column(Text)
+    package: Mapped[Optional[str]] = mapped_column(Text)
+    timeout: Mapped[Optional[int]] = mapped_column(Integer)
+    priority: Mapped[Optional[int]] = mapped_column(Integer)
+    options: Mapped[Optional[str]] = mapped_column(Text)
+    machine: Mapped[Optional[str]] = mapped_column(Text)
+    platform: Mapped[Optional[str]] = mapped_column(Text)
+    route: Mapped[Optional[str]] = mapped_column(Text)
+    tags: Mapped[Optional[str]] = mapped_column(Text)
+    custom: Mapped[Optional[str]] = mapped_column(Text)
+    memory: Mapped[Optional[str]] = mapped_column(Text)
+    clock: Mapped[datetime] = mapped_column(default=datetime.now)
+    enforce_timeout: Mapped[Optional[str]] = mapped_column(Text)
+    tlp: Mapped[Optional[str]] = mapped_column(Text)
 
-    __table_args__ = (
-        Index("node_id_index", "node_id"),
-        Index("task_id_index", "task_id"),
-        Index("main_task_id_index", "main_task_id", unique=False),
-    )
+    node_id: Mapped[Optional[int]] = mapped_column(ForeignKey("node.id"), index=True)
+    task_id: Mapped[Optional[int]] = mapped_column(index=True)
+    main_task_id: Mapped[Optional[int]] = mapped_column(index=True)
+
+    finished: Mapped[bool] = mapped_column(default=False)
+    retrieved: Mapped[bool] = mapped_column(default=False)
+    notificated: Mapped[bool] = mapped_column(default=False)
+    deleted: Mapped[bool] = mapped_column(default=False)
 
     def __init__(
         self,
@@ -150,11 +164,14 @@ class Task(Base):
         self.tlp = tlp
 
 
-def create_session(db_connectionn: str, echo=False) -> sessionmaker:
-    # ToDo add schema version check
+# 4. Modernized database initialization function
+def create_session(db_connection: str, echo: bool = False) -> sessionmaker:
+    """Initializes the database engine and creates tables."""
     try:
-        engine = create_engine(db_connectionn, echo=echo)  # pool_size=40, max_overflow=0,
+        engine = create_engine(db_connection, echo=echo)
         Base.metadata.create_all(engine)
-        return sessionmaker(autoflush=True, bind=engine)
+        # Return the session factory for use in the application
+        return sessionmaker(bind=engine, autoflush=False)
     except OperationalError as e:
-        sys.exit(e)
+        print(f"Database Error: {e}")
+        sys.exit(1)

@@ -1,3 +1,4 @@
+import "pe"
 rule Stealc
 {
     meta:
@@ -9,7 +10,9 @@ rule Stealc
         $nugget1 = {68 04 01 00 00 6A 00 FF 15 [4] 50 FF 15}
         $nugget2 = {64 A1 30 00 00 00 8B 40 0C 8B 40 0C 8B 00 8B 00 8B 40 18 89 45 FC}
     condition:
-        uint16(0) == 0x5A4D and any of them
+        uint16(0) == 0x5A4D 
+        and not (pe.imports("tier0.dll") or pe.imports("msdart.dll")) 
+        and any of them
 }
 
 rule StealcV2

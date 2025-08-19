@@ -1508,9 +1508,9 @@ pyopenssl==25.0.0 ; python_version >= "3.10" and python_version < "4.0" \
 pyparsing==3.2.1 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:506ff4f4386c4cec0590ec19e6302d3aedb992fdc02c761e90416f158dacf8e1 \
     --hash=sha256:61980854fd66de3a90028d679a954d5f2623e83144b5afe5ee86f43d762e5f0a
-pypdf==5.2.0 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:7c38e68420f038f2c4998fd9d6717b6db4f6cef1642e9cf384d519c9cf094663 \
-    --hash=sha256:d107962ec45e65e3bd10c1d9242bdbbedaa38193c9e3a6617bd6d996e5747b19
+pypdf==6.0.0 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:282a99d2cc94a84a3a3159f0d9358c0af53f85b4d28d76ea38b96e9e5ac2a08d \
+    --hash=sha256:56ea60100ce9f11fc3eec4f359da15e9aec3821b036c1f06d2b660d35683abb8
 pyre2-updated==0.3.8 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:2bda9bf4d59568152e085450ffc1c08fcf659000d06766861f7ff340ba601c3e \
     --hash=sha256:350be9580700b67af87f5227453d1123bc9f4513f0bcc60450574f1bc46cb24f \

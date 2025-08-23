@@ -8,6 +8,13 @@
 
 # Ensure non-interactive mode for apt commands globally to prevent prompts during automated installations
 export DEBIAN_FRONTEND=noninteractive
+CAPE_ROOT="/opt"
+APT_COMMAND="apt-get"
+if [ -f /usr/bin/apt-fast ]; then
+    APT_COMMAND="apt-fast"
+fi
+
+# ToDo add support to select poetry or uv
 
 # Static values
 # Where to place everything
@@ -594,7 +601,7 @@ function install_letsencrypt(){
     sudo apt-get install -y python3 python3-venv libaugeas0
     sudo pip install certbot certbot-nginx --break-system-packages
     echo "server_name $1 www.$1;" > /etc/nginx/sites-available/"$1"
-    sudo ln -s /opt/certbot/bin/certbot /usr/bin/certbot
+    sudo ln -s ${CAPE_ROOT}/certbot/bin/certbot /usr/bin/certbot
     sudo certbot --nginx -d "$1" -d www."$1"
 
 }
@@ -648,7 +655,7 @@ function distributed() {
     sudo apt-get install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
     sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run pip install flask flask-restful flask-sqlalchemy requests'
 
-    sudo cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
+    sudo cp ${CAPE_ROOT}/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
     sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
 
     sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}dist\"";
@@ -762,7 +769,7 @@ function install_yara_x() {
     sudo -u ${USER} git clone https://github.com/VirusTotal/yara-x
     cd yara-x || return
     sudo -u ${USER} bash -c 'source "$HOME/.cargo/env" ; cargo install --path cli'
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install yara-x
+    /etc/poetry/bin/poetry --directory ${CAPE_ROOT}/CAPEv2/ run pip install yara-x
 }
 
 function install_yara() {
@@ -797,7 +804,7 @@ function install_yara() {
     ldconfig
 
     # Run yara installer script
-    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run extra/yara_installer.sh
+    sudo -u ${USER} /etc/poetry/bin/poetry --directory ${CAPE_ROOT}/CAPEv2 run extra/yara_installer.sh
 
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
@@ -940,8 +947,8 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install /tmp/capa
-    cd /opt/CAPEv2
+    /etc/poetry/bin/poetry --directory ${CAPE_ROOT}/CAPEv2/ run pip install /tmp/capa
+    cd ${CAPE_ROOT}/CAPEv2
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa
     fi
@@ -1234,7 +1241,7 @@ EOF
     chown root:root /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
     chmod 644 /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
     usermod -a -G ${USER} clamav
-    echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
+    echo "${CAPE_ROOT}/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
     sudo apparmor_parser -r /etc/apparmor.d/usr.sbin.clamd
     sudo systemctl enable clamav-daemon
     sudo systemctl start clamav-daemon
@@ -1244,21 +1251,21 @@ EOF
 function install_CAPE() {
     echo "[+] Installing CAPEv2"
 
-    cd /opt || return
+    cd ${CAPE_ROOT} || return
     # if folder CAPEv2 dosn't exist, clone it
     if [ ! -d CAPEv2 ]; then
         git clone https://github.com/kevoreilly/CAPEv2/
     fi
-    chown ${USER}:${USER} -R /opt/CAPEv2/
+    chown ${USER}:${USER} -R ${CAPE_ROOT}/CAPEv2/
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
 
     if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
-        crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+        crontab -l | { cat; echo "30 1 * * 0 cd ${CAPE_ROOT}/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
     fi
 
-    cd "/opt/CAPEv2/" || return
+    cd "${CAPE_ROOT}/CAPEv2/" || return
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 /etc/poetry/bin/poetry install'
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
@@ -1269,7 +1276,7 @@ function install_CAPE() {
 
     #packages are needed for build options in extra/yara_installer.sh
     sudo apt-get install -y libjansson-dev libmagic1 libmagic-dev
-    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run /opt/CAPEv2/extra/yara_installer.sh'
+    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run ${CAPE_ROOT}/CAPEv2/extra/yara_installer.sh'
 
     if [ -d /tmp/yara-python ]; then
         sudo rm -rf /tmp/yara-python
@@ -1284,7 +1291,7 @@ function install_CAPE() {
     # sed -i "/machinery =/cmachinery = kvm" conf/cuckoo.conf
     sed -i "/interface =/cinterface = ${NETWORK_IFACE}" conf/auxiliary.conf
 
-    chown ${USER}:${USER} -R "/opt/CAPEv2/"
+    chown ${USER}:${USER} -R "${CAPE_ROOT}/CAPEv2/"
 
     if [ "$MONGO_ENABLE" -ge 1 ]; then
         crudini --set conf/reporting.conf mongodb enabled yes
@@ -1311,25 +1318,28 @@ if [ ! -f /etc/sudoers.d/ip_netns ]; then
 ${USER} ALL=NOPASSWD: /usr/sbin/ip netns exec * /usr/bin/sudo -u cape *
 EOF
 fi
-if [ ! -f /opt/mitmproxy/mitmdump_wrapper.sh ]; then
-    mkdir -p /opt/mitmproxy/
-    cat >> /opt/mitmproxy/mitmdump_wrapper.sh << EOF
+if [ ! -f ${CAPE_ROOT}/mitmproxy/mitmdump_wrapper.sh ]; then
+    mkdir -p ${CAPE_ROOT}/mitmproxy/
+    cat >> ${CAPE_ROOT}/mitmproxy/mitmdump_wrapper.sh << EOF
 #!/bin/bash
 echo $$ > mitmdump.pid
 # exec full args
 exec $@
 EOF
-    chmod +x /opt/mitmproxy/mitmdump_wrapper.sh
+    chmod +x ${CAPE_ROOT}/mitmproxy/mitmdump_wrapper.sh
 fi
 }
 
 function install_systemd() {
+    if [ "${CAPE_ROOT}" != "/opt/CAPEv2/" ]; then
+        sed -i "s|/opt|${CAPE_ROOT}|g" ${CAPE_ROOT}/CAPEv2/systemd/*.service
+    fi
     echo "[+] Installing systemd configuration"
-    cp /opt/CAPEv2/systemd/cape.service /lib/systemd/system/cape.service
-    cp /opt/CAPEv2/systemd/cape-processor.service /lib/systemd/system/cape-processor.service
-    cp /opt/CAPEv2/systemd/cape-web.service /lib/systemd/system/cape-web.service
-    cp /opt/CAPEv2/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
-    cp /opt/CAPEv2/systemd/suricata.service /lib/systemd/system/suricata.service
+    cp ${CAPE_ROOT}/CAPEv2/systemd/cape.service /lib/systemd/system/cape.service
+    cp ${CAPE_ROOT}/CAPEv2/systemd/cape-processor.service /lib/systemd/system/cape-processor.service
+    cp ${CAPE_ROOT}/CAPEv2/systemd/cape-web.service /lib/systemd/system/cape-web.service
+    cp ${CAPE_ROOT}/CAPEv2/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
+    cp ${CAPE_ROOT}/CAPEv2/systemd/suricata.service /lib/systemd/system/suricata.service
     systemctl daemon-reload
     cape_web_enable_string=''
     if [ "$MONGO_ENABLE" -ge 1 ]; then
@@ -1405,14 +1415,14 @@ function install_volatility3() {
 
 function install_mitmproxy() {
     echo "[+] Installing mitmproxy"
-    sudo mkdir /opt/mitmproxy
-    sudo chown ${USER}:${USER} /opt/mitmproxy
-    cd /opt/mitmproxy
+    sudo mkdir ${CAPE_ROOT}/mitmproxy
+    sudo chown ${USER}:${USER} ${CAPE_ROOT}/mitmproxy
+    cd ${CAPE_ROOT}/mitmproxy
     mitmproxy_version=$(curl -s https://api.github.com/repos/mitmproxy/mitmproxy/releases/latest | grep '"tag_name":' | cut -d '"' -f 4 | sed 's/^v//')
     wget https://downloads.mitmproxy.org/"$mitmproxy_version"/mitmproxy-"$mitmproxy_version"-linux-x86_64.tar.gz -O mitmproxy.tar.gz
     tar xvzf mitmproxy.tar.gz
     rm mitmproxy.tar.gz
-    chown "${USER}:${USER}" /opt/mitmproxy -R
+    chown "${USER}:${USER}" ${CAPE_ROOT}/mitmproxy -R
 }
 
 function install_guacamole() {
@@ -1455,9 +1465,9 @@ function install_guacamole() {
         sudo rm /etc/systemd/system/guacd.service
     fi
 
-    if [ ! -f "/opt/lib/systemd/system/guac-web.service" ] ; then
-        cp /opt/CAPEv2/systemd/guacd.service /lib/systemd/system/guacd.service
-        cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
+    if [ ! -f "${CAPE_ROOT}/lib/systemd/system/guac-web.service" ] ; then
+        cp ${CAPE_ROOT}/CAPEv2/systemd/guacd.service /lib/systemd/system/guacd.service
+        cp ${CAPE_ROOT}/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
     fi
 
     poetry_path="/etc/poetry/bin/poetry"
@@ -1465,14 +1475,14 @@ function install_guacamole() {
         sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
 
-    if [ ! -d "/opt/CAPEv2/storage/guacrecordings" ] ; then
+    if [ ! -d "${CAPE_ROOT}/CAPEv2/storage/guacrecordings" ] ; then
         sudo mkdir -p opt/CAPEv2/storage/guacrecordings && chown ${USER}:${USER} opt/CAPEv2/storage/guacrecordings
     fi
 
     # Add www-data to CAPE group to access guac recordings
     sudo usermod www-data -G ${USER}
 
-    cd /opt/CAPEv2
+    cd ${CAPE_ROOT}/CAPEv2
     sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; ${poetry_path} install"
     cd ..
 
@@ -1505,7 +1515,7 @@ function install_postgres_pg_activity() {
 function install_polarproxy() {
     echo "[+] Installing PolarProxy"
 
-    cd "/opt/" || return
+    cd "${CAPE_ROOT}/" || return
 
     if [ ! -d PolarProxy ]; then
         mkdir PolarProxy
@@ -1547,7 +1557,7 @@ function install_polarproxy() {
         -password pass:$PASSWD \
         -name PolarProxy
 
-    chown -R $USER:$USER /opt/PolarProxy
+    chown -R $USER:$USER ${CAPE_ROOT}/PolarProxy
 
     chmod 600 $CRT_P12
 }
@@ -1573,6 +1583,18 @@ function install_passivedns() {
         cd /tmp || return
         sudo rm -rf /tmp/passivedns
     fi
+}
+
+function install_aptfast() {
+    if [ ! -f /usr/bin/apt-fast ]; then
+        # https://github.com/ilikenwf/apt-fast
+        mkdir -p /etc/apt/keyrings
+        curl -fsSL "https:/f/keyserver.ubuntu.com/pks/lookup?op=get&search=0xBC5934FD3DEBD4DAEA544F791E2824A7F22B44BD" | gpg --dearmor -o /etc/apt/keyrings/apt-fast.gpg
+        apt-get update
+        apt-get install apt-fast
+    fi
+    echo debconf apt-fast/dlflag boolean true | debconf-set-selections
+    echo debconf apt-fast/aptmanager string apt-get | debconf-set-selections
 }
 
 # Doesn't work ${$1,,}
@@ -1616,6 +1638,7 @@ fi
 
 case "$COMMAND" in
 'base')
+    install_aptfast
     dependencies
     install_mongo
     install_CAPE
@@ -1624,12 +1647,12 @@ case "$COMMAND" in
     install_suricata
     install_jemalloc
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
-        crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "@reboot cd ${CAPE_ROOT}/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
     fi
     # Disabled due to frequent CAPA updates and it breaks it. Users should care about this subject
     # Update FLARE CAPA rules and community every X hours
     # if ! crontab -l | grep -q 'community.py -waf -cr'; then
-    #    crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    #    crontab -l | { cat; echo "5 0 */1 * * cd ${CAPE_ROOT}/CAPEv2/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     # fi
     if ! crontab -l | grep -q 'echo signal newnym'; then
         crontab -l | { cat; echo "00 */1 * * * (echo authenticate '""'; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null"; } | crontab -
@@ -1638,6 +1661,7 @@ case "$COMMAND" in
 
     ;;
 'all')
+    install_aptfast
     dependencies
     install_CAPE
     install_volatility3
@@ -1649,21 +1673,23 @@ case "$COMMAND" in
     install_logrotate
     install_mitmproxy
     #socksproxies is to start redsocks stuff
-    if [ -f /opt/CAPEv2/socksproxies.sh ]; then
-        crontab -l | { cat; echo "@reboot /opt/CAPEv2/socksproxies.sh"; } | crontab -
+    if [ -f ${CAPE_ROOT}/CAPEv2/socksproxies.sh ]; then
+        crontab -l | { cat; echo "@reboot ${CAPE_ROOT}/CAPEv2/socksproxies.sh"; } | crontab -
     fi
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
-        crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "@reboot cd ${CAPE_ROOT}/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
     fi
     # Update FLARE CAPA rules once per day
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
-        crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && poetry --directory /opt/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "5 0 */1 * * cd ${CAPE_ROOT}/CAPEv2/utils/ && sudo -u ${USER} /etc/poetry/bin/poetry --directory ${CAPE_ROOT}/CAPEv2/ run python3 community.py -waf -cr && poetry --directory ${CAPE_ROOT}/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
     install_librenms
     if [ "$clamav_enable" -ge 1 ]; then
         install_clamav
     fi
     ;;
+'aptfast')
+    install_aptfast;;
 'systemd')
     install_systemd;;
 'suricata')

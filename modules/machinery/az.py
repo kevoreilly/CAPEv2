@@ -641,7 +641,7 @@ class Azure(Machinery):
             return None
         return machine
 
-    def _scale_from_zero(self, os_version: str, task: Task, tags):
+    def _scale_from_zero(self, task: Task, os_version: str, tags):
         """
         Scale up VMSS with current size of 0 and able to run the task.
         """

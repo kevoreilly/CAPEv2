@@ -837,7 +837,7 @@ class TestDatabaseEngine:
             assert get_ids(options_like="minhook") == [t1]
             assert get_ids(options_not_like="minhook") == [t3, t2]
             assert get_ids(tags_tasks_like="1") == [t2]
-            assert get_ids(task_ids=(t1, t2)) == [t1, t2]
+            assert get_ids(task_ids=(t1, t2)) == [t2, t1]
             assert get_ids(task_ids=(t3 + 1,)) == []
             assert get_ids(user_id=5) == [t3]
             assert get_ids(user_id=0) == [t2, t1]

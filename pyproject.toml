@@ -5,7 +5,6 @@ description = "CAPE: Malware Configuration And Payload Extraction"
 authors = ["Kevin O'Reilly <kev@capesandbox.com>", "doomedraven <doomedraven@capesandbox.com>"]
 license = "MIT"
 package-mode = false
-requires-poetry = ">=2.0"
 
 [tool.poetry.dependencies]
 python = ">=3.10, <4.0"
@@ -139,6 +138,7 @@ asyncio_mode = "auto"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
+requires-poetry = ">=2.0"
 
 [tool.ruff]
 line-length = 132

@@ -796,7 +796,7 @@ def remote_session(request, task_id):
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine(task.machine)
+        machine = db.view_machine_by_label(task.machine)
         if not machine:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
         guest_ip = machine.ip

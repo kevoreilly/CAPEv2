@@ -5,14 +5,14 @@
 """Add ON DELETE CASCADE to tasks_tags foreign keys
 
 Revision ID: 4e000e02a409
-Revises: c2bd0eb5e69d
+Revises:
 Create Date: 2025-04-11 09:58:42.957359
 
 """
 
 # revision identifiers, used by Alembic.
 revision = '4e000e02a409'
-down_revision = 'c2bd0eb5e69d'
+down_revision = None
 
 from alembic import op
 

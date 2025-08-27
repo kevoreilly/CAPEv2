@@ -102,7 +102,9 @@ class AnalysisInfo(Processing):
         parsed_options = get_options(self.task["options"])
         parent_sample_details = False
         if "maint_task_id" not in parsed_options:
-            parent_sample_details = db.list_sample_parent(task_id=self.task["id"])
+            parent_sample_details = db.get_parent_sample_from_task(task_id=self.task["id"])
+            if parent_sample_details:
+                parent_sample_details = parent_sample_details.to_dict()
         source_url = db.get_source_url(sample_id=self.task["sample_id"])
 
         return {
@@ -116,11 +118,6 @@ class AnalysisInfo(Processing):
             "machine": self.task["machine"],
             "package": self.get_package(),
             "timeout": self.had_timeout(),
-            "shrike_url": self.task["shrike_url"],
-            "shrike_refer": self.task["shrike_refer"],
-            "shrike_msg": self.task["shrike_msg"],
-            "shrike_sid": self.task["shrike_sid"],
-            "parent_id": self.task["parent_id"],
             "tlp": self.task["tlp"],
             "parent_sample": parent_sample_details,
             "options": parsed_options,

@@ -799,10 +799,6 @@ def download_file(**kwargs):
         memory,
         clock,
         enforce_timeout,
-        shrike_url,
-        shrike_msg,
-        shrike_sid,
-        shrike_refer,
         unique,
         referrer,
         tlp,
@@ -811,14 +807,6 @@ def download_file(**kwargs):
         cape,
     ) = parse_request_arguments(kwargs["request"])
     onesuccess = False
-
-    username = False
-    """
-    put here your custom username assignation from your custom auth, Ex:
-    request_url = kwargs["request"].build_absolute_uri()
-    if "yourdomain.com/submit/" in request_url:
-        username = kwargs["request"].COOKIES.get("X-user")
-    """
 
     # in case if user didn't specify routing, and we have enabled random route
     if not route:
@@ -959,18 +947,12 @@ def download_file(**kwargs):
             enforce_timeout=enforce_timeout,
             clock=clock,
             static=static,
-            shrike_url=shrike_url,
-            shrike_msg=shrike_msg,
-            shrike_sid=shrike_sid,
-            shrike_refer=shrike_refer,
             tlp=tlp,
             tags_tasks=tags_tasks,
             route=route,
             cape=cape,
             user_id=kwargs.get("user_id"),
-            username=username,
             source_url=kwargs.get("source_url", False),
-            # parent_id=kwargs.get("parent_id"),
         )
 
         try:
@@ -1248,10 +1230,6 @@ search_term_map = {
     "machinename": "info.machine.name",
     "machinelabel": "info.machine.label",
     "comment": "info.comments.Data",
-    "shrikemsg": "info.shrike_msg",
-    "shrikeurl": "info.shrike_url",
-    "shrikerefer": "info.shrike_refer",
-    "shrikesid": "info.shrike_sid",
     "custom": "info.custom",
     # initial binary
     "target_sha256": f"target.file.{FILE_REF_KEY}",
@@ -1521,10 +1499,6 @@ def parse_request_arguments(request, keyword="POST"):
             - memory (bool): Memory argument.
             - clock (str): Clock argument.
             - enforce_timeout (bool): Enforce timeout argument.
-            - shrike_url (str): Shrike URL argument.
-            - shrike_msg (str): Shrike message argument.
-            - shrike_sid (str): Shrike SID argument.
-            - shrike_refer (str): Shrike refer argument.
             - unique (bool): Unique argument.
             - referrer (str): Referrer argument.
             - tlp (str): TLP argument.
@@ -1551,10 +1525,6 @@ def parse_request_arguments(request, keyword="POST"):
     if "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
     enforce_timeout = force_bool(getattr(request, keyword).get("enforce_timeout", False))
-    shrike_url = getattr(request, keyword).get("shrike_url")
-    shrike_msg = getattr(request, keyword).get("shrike_msg")
-    shrike_sid = getattr(request, keyword).get("shrike_sid")
-    shrike_refer = getattr(request, keyword).get("shrike_refer")
     unique = force_bool(getattr(request, keyword).get("unique", False))
     tlp = getattr(request, keyword).get("tlp")
     lin_options = getattr(request, keyword).get("lin_options", "")
@@ -1583,10 +1553,6 @@ def parse_request_arguments(request, keyword="POST"):
         memory,
         clock,
         enforce_timeout,
-        shrike_url,
-        shrike_msg,
-        shrike_sid,
-        shrike_refer,
         unique,
         referrer,
         tlp,

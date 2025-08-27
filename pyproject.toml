@@ -36,7 +36,7 @@ flare-capa = "9.1.0"
 
 Cython = "3.0.11"
 Django = ">=4.2.18"
-SQLAlchemy = "1.4.50"
+SQLAlchemy = "2.0.41"
 SQLAlchemy-Utils = "0.41.1"
 Jinja2 = "^3.1.6"
 chardet = "4.0.0"

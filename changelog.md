@@ -1,3 +1,7 @@
+### [1.09.2025]
+* Monitor update: CoCreateInstance hook: remove disable_sleep_skip() breaking e.g. 493b6a86546ac79b7647bd6f3c3523dd910e6a56e427c45197e957e268df8df2
+* Tweak StealcV2 date check bypass sig to improve coverage
+
 ### [27.08.2025]
 * Monitor updates:
     * FindFixAndRun hook: Internal cmd.exe hook targeting 'Exorcism' api FindFixAndRun for batch deobfuscation (thanks @KingKDot and @KillerInstinct)

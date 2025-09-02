@@ -13,7 +13,6 @@ rule AuraStealerBypass
         all of them
 }
 
-
 rule AuraStealerConfig
 {
     meta:

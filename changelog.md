@@ -1,3 +1,6 @@
+### [2.09.2025]
+* Loader update: set patched import directory size to allow RestoreHeaders() to work properly, and hence VMProtect binaries
+
 ### [1.09.2025]
 * Monitor update: CoCreateInstance hook: remove disable_sleep_skip() breaking e.g. 493b6a86546ac79b7647bd6f3c3523dd910e6a56e427c45197e957e268df8df2
 * Tweak StealcV2 date check bypass sig to improve coverage

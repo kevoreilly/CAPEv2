@@ -32,24 +32,26 @@ class ProcessMemory(Processing):
     def get_procmemory_pe(self, mem_pe):
         res = []
         with open(mem_pe.get("path"), "rb") as file_item:
-            for memmap in mem_pe.get("address_space") or []:
+            for memmap in mem_pe.get("address_space", []):
                 if not memmap.get("PE"):
                     continue
-                data = b""
-                for chunk in memmap["chunks"]:
+                
+                data = bytearray()
+                for chunk in memmap.get("chunks", []):
                     if int(chunk["start"], 16) >= int(memmap["start"], 16) and int(chunk["end"], 16) <= int(memmap["end"], 16):
                         file_item.seek(chunk["offset"])
-                        data += file_item.read(int(chunk["size"], 16))
+                        data.extend(file_item.read(int(chunk["size"], 16)))
 
-                # save pe to disk
-                path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}")
-                _ = path_write_file(path, data)
+                if not data:
+                    continue
 
-                data, pefile_object = File(path).get_all()
+                path = os.path.join(self.pmemory_path, f"{mem_pe['pid']}_{memmap['start']}.pe")
+                path_write_file(path, data)
+
+                file_data, pefile_object = File(path).get_all()
                 if pefile_object:
-                    self.results.setdefault("pefiles", {})
-                    self.results["pefiles"].setdefault(data["sha256"], pefile_object)
-                res.append(data)
+                    self.results.setdefault("pefiles", {})[file_data["sha256"]] = pefile_object
+                res.append(file_data)
         return res
 
     def get_yara_memblock(self, addr_space, yaraoffset):
@@ -119,25 +121,26 @@ class ProcessMemory(Processing):
                 # if self.options.get("extract_pe", False)
                 extracted_pes = self.get_procmemory_pe(proc)
 
-                endlimit = b"" if HAVE_RE2 else b"8192"
                 if do_strings:
-                    if nulltermonly:
-                        apat = b"([\x20-\x7e]{" + minchars + b"," + endlimit + b"})\x00"
-                        upat = b"((?:[\x20-\x7e][\x00]){" + minchars + b"," + endlimit + b"})\x00\x00"
-                    else:
-                        apat = b"[\x20-\x7e]{" + minchars + b"," + endlimit + b"}"
-                        upat = b"(?:[\x20-\x7e][\x00]){" + minchars + b"," + endlimit + b"}"
-
-                    matchdict = procdump.search(apat, all=True)
-                    strings = matchdict["matches"]
-                    matchdict = procdump.search(upat, all=True)
-                    ustrings = matchdict["matches"]
-                    for ws in ustrings:
-                        strings.append(ws.decode("utf-16le").encode())
-
                     proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
-                    _ = path_write_file(proc["strings_path"], b"\n".join(strings))
+                    
+                    strings = []
+                    with open(dmp_path, "rb") as f:
+                        data = f.read()
+                        
+                    # ASCII strings
+                    for match in re.finditer(b"[\x20-\x7e]{%d,}" % minchars, data):
+                        strings.append(match.group(0))
+
+                    # Unicode strings
+                    for match in re.finditer(b"(?:[\x20-\x7e]\x00){%d,}" % minchars, data):
+                        try:
+                            strings.append(match.group(0).decode("utf-16le").encode("utf-8"))
+                        except UnicodeError:
+                            pass
+                    
+                    path_write_file(proc["strings_path"], b"\n".join(strings))
                 procdump.close()
                 results.append(proc)
 

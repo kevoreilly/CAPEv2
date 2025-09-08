@@ -319,19 +319,19 @@ TYPECONVERTERS = {"h": lambda v: f"0x{default_converter(v):08x}", "p": lambda v:
 
 
 def check_names_for_typeinfo(arginfo):
-    argnames = [i[0] if isinstance(i, (list, tuple)) else i for i in arginfo]
-
+    argnames = []
     converters = []
     for i in arginfo:
         if isinstance(i, (list, tuple)):
+            argnames.append(i[0])
             r = TYPECONVERTERS.get(i[1])
             if not r:
                 log.debug("Analyzer sent unknown format specifier '%s'", i[1])
                 r = default_converter
             converters.append(r)
         else:
+            argnames.append(i)
             converters.append(default_converter)
-
     return argnames, converters
 
 
@@ -589,27 +589,19 @@ class ResultServer(metaclass=Singleton):
 
         try:
             sock.bind((ip, port))
-        except (OSError, socket.error) as e:
+        except socket.error as e:
             if e.errno == errno.EADDRINUSE:
                 raise CuckooCriticalError(
-                    f"Cannot bind ResultServer on port {port} because it was in use, bailing"
-                    "This might happen because CAPE is already running in the background as cape.service"
-                    "sudo systemctl stop cape.service"
-                    "to stop the background service. You can also run the just use the background service without starting it again here in the terminal."
+                    f"Cannot bind ResultServer on port {port} because it is already in use. This might happen because CAPE is already running. "
+                    "To fix this, you can stop the existing CAPE service by running 'sudo systemctl stop cape.service'."
                 )
             elif e.errno == errno.EADDRNOTAVAIL:
                 raise CuckooCriticalError(
-                    f"Unable to bind ResultServer on {ip}:{port} {e}. This "
-                    "usually happens when you start Cuckoo without "
-                    "bringing up the virtual interface associated with "
-                    "the ResultServer IP address. Please refer to "
-                    "https://cuckoo.sh/docs/faq/#troubles-problem "
-                    "for more information"
-                    "One more reason this might happen is if you don't correctly set the IP of the resultserver in cuckoo.conf."
-                    "Make sure the resultserver IP is set to the host IP"
+                    f"Unable to bind ResultServer on {ip}:{port}. This usually happens when the network interface is not configured correctly. "
+                    "Please ensure the resultserver IP in cuckoo.conf is set to the host IP and the interface is up."
                 )
             else:
-                raise CuckooCriticalError(f"Unable to bind ResultServer on {ip}:{port} {e}")
+                raise CuckooCriticalError(f"Unable to bind ResultServer on {ip}:{port}: {e}")
 
         # We allow user to specify port 0 to get a random port, report it back
         # here

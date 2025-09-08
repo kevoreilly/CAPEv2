@@ -33,7 +33,7 @@ SFlock2 = {version = ">=0.3.76", extras = ["shellcode","linux"]}
 # XLMMacroDeobfuscator = "0.2.7"
 pyzipper = "0.3.6"
 flare-capa = "9.1.0"
-
+django-compressor = "^4.4"
 Cython = "3.0.11"
 Django = ">=4.2.18"
 SQLAlchemy = "2.0.41"

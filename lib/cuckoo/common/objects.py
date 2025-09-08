@@ -240,8 +240,9 @@ class File:
 
         for chunk in self.get_chunks():
             hashes["crc32"] = binascii.crc32(chunk, hashes["crc32"])
-            for alg in ("md5", "sha1", "sha256", "sha512", "sha3_384"):
-                hashes[alg].update(chunk)
+            for alg, hash_obj in hashes.items():
+                if alg not in ('crc32', 'tlsh'):
+                    hash_obj.update(chunk)
             if HAVE_TLSH:
                 hashes["tlsh"].update(chunk)
 

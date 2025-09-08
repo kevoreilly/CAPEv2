@@ -1409,7 +1409,7 @@ def perform_search(
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         elif isinstance(search_term_map[term], list):
-            mongo_search_query = {search_term:query_val for search_term in search_term_map[term]}
+            mongo_search_query = {search_term: query_val for search_term in search_term_map[term]}
         else:
             print(f"Unknown search {term}:{value}")
             return []

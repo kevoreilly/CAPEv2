@@ -4,7 +4,7 @@
 
 import logging
 import os
-
+import re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara
 from lib.cuckoo.common.config import Config
@@ -35,7 +35,7 @@ class ProcessMemory(Processing):
             for memmap in mem_pe.get("address_space", []):
                 if not memmap.get("PE"):
                     continue
-                
+
                 data = bytearray()
                 for chunk in memmap.get("chunks", []):
                     if int(chunk["start"], 16) >= int(memmap["start"], 16) and int(chunk["end"], 16) <= int(memmap["end"], 16):
@@ -124,11 +124,11 @@ class ProcessMemory(Processing):
                 if do_strings:
                     proc["strings_path"] = f"{dmp_path}.strings"
                     proc["extracted_pe"] = extracted_pes
-                    
+
                     strings = []
                     with open(dmp_path, "rb") as f:
                         data = f.read()
-                        
+
                     # ASCII strings
                     for match in re.finditer(b"[\x20-\x7e]{%d,}" % minchars, data):
                         strings.append(match.group(0))
@@ -139,7 +139,7 @@ class ProcessMemory(Processing):
                             strings.append(match.group(0).decode("utf-16le").encode("utf-8"))
                         except UnicodeError:
                             pass
-                    
+
                     path_write_file(proc["strings_path"], b"\n".join(strings))
                 procdump.close()
                 results.append(proc)

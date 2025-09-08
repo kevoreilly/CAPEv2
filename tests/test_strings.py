@@ -73,5 +73,6 @@ class TestExtractStrings(unittest.TestCase):
         self.assertIn("string", result)
         self.assertIn("data", result)
 
+
 if __name__ == "__main__":
     unittest.main()

@@ -9,9 +9,8 @@
 import json
 import logging
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+from contextlib import suppress
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -28,7 +27,6 @@ JsonRenderer = ""
 
 try:
     import volatility3.plugins
-    import volatility3.symbols
     from volatility3 import framework
     from volatility3.cli.text_renderer import JsonRenderer
     from volatility3.framework import automagic, constants, contexts, interfaces, plugins
@@ -57,7 +55,9 @@ class MuteProgress:
     def __call__(self, progress: Union[int, float], description: str = None):
         pass
 
+
 if HAVE_VOLATILITY:
+
     class ReturnJsonRenderer(JsonRenderer):
         def render(self, grid: interfaces.renderers.TreeGrid):
             final_output = ({}, [])
@@ -130,7 +130,7 @@ class VolatilityAPI:
         framework.import_files(volatility3.plugins, True)
         self.automagics = automagic.available(self.ctx)
         self.plugin_list = framework.list_plugins()
-        
+
         self.ctx.config["automagic.LayerStacker.single_location"] = self.memdump
         if path_exists(yara_rules_path):
             self.ctx.config["plugins.YaraScan.yara_compiled_file"] = f"file:///{yara_rules_path}"
@@ -289,10 +289,10 @@ class VolatilityManager:
     def do_strings(self):
         if not self.options.basic.dostrings:
             return None
-        
+
         strings_path = f"{self.memfile}.strings"
         minchars = self.options.basic.get("strings_minchars", 5)
-        
+
         apat = re.compile(b"[\x20-\x7e]{%d,}" % minchars)
         upat = re.compile(b"(?:[\x20-\x7e]\x00){%d,}" % minchars)
 

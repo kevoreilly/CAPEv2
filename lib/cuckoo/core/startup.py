@@ -108,7 +108,7 @@ def check_webgui_mongo():
 
         if not connect_to_mongo():
             sys.exit(
-                "You have enabled webgui but mongo isn\'t working, see mongodb manual for correct installation and configuration\nrun `systemctl status mongodb` for more info"
+                "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration\nrun `systemctl status mongodb` for more info"
             )
 
         mongo_create_index("analysis", "info.id", name="info.id_1")
@@ -140,7 +140,6 @@ def check_configs():
     return True
 
 
-
 def create_structure():
     """Creates Cuckoo directories."""
     folders = [
@@ -156,7 +155,7 @@ def create_structure():
         create_folders(root=CUCKOO_ROOT, folders=folders)
     except CuckooOperationalError as e:
         raise CuckooStartupError(
-            "Can\'t create folders. Ensure that you executed CAPE with proper USER! Maybe should be cape user?. %s", str(e)
+            "Can't create folders. Ensure that you executed CAPE with proper USER! Maybe should be cape user?. %s", str(e)
         )
 
 
@@ -188,7 +187,10 @@ def check_linux_dist():
     with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
-            log.info("[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS %s", ubuntu_versions)
+            log.info(
+                "[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS %s",
+                ubuntu_versions,
+            )
 
 
 def init_logging(level: int):
@@ -261,11 +263,11 @@ def init_tasks():
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID %s status to failed_analysis", task.id)
 
-
     try:
         import_package(path)
     except ImportError as e:
         log.warning("Failed to import %s: %s", path, str(e))
+
 
 def init_modules():
     """Initializes plugins."""
@@ -294,7 +296,7 @@ def init_modules():
         lazy_import(package)
 
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
-        log.warning("Suggestion: looks like you didn\'t install community, execute: poetry run python utils/community.py -h")
+        log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
 
     import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
 
@@ -302,7 +304,6 @@ def init_modules():
         log.debug('Imported "%s" modules:', category)
         for entry in entries:
             log.debug("\t %s", entry.__name__)
-
 
 
 def init_rooter():
@@ -333,7 +334,7 @@ def init_rooter():
 
         if e.strerror == "Connection refused":
             raise CuckooStartupError(
-                "The rooter is required but we can\'t connect to it as the "
+                "The rooter is required but we can't connect to it as the "
                 "rooter is not actually running. "
                 "(In order to disable the use of rooter, please set route "
                 "and internet to none in routing.conf)"
@@ -346,7 +347,7 @@ def init_rooter():
 
             raise CuckooStartupError(
                 f"{extra_msg} "
-                "The rooter is required but we can\'t connect to it due to "
+                "The rooter is required but we can't connect to it due to "
                 "incorrect permissions. Did you assign it the correct group? "
                 "(In order to disable the use of rooter, please set route "
                 "and internet to none in routing.conf)"
@@ -554,6 +555,7 @@ def check_vms_n_resultserver_networking():
         if not resultserver_block.startswith(vm_ip) or (vm_rs and not vm_rs.startswith(vm_ip)):
             log.error("Your resultserver and VM: %s are in different nework ranges. This might give you: CuckooDeadMachine", vm)
 
+
 def check_network_settings():
     """Checks network settings for resultserver, VMs and firewall."""
     log.debug("Checking network settings...")
@@ -584,12 +586,14 @@ def check_network_settings():
 
     # Check firewall
     port = cuckoo.resultserver.port
-    with suppress(FileNotFoundError): # ufw not installed
+    with suppress(FileNotFoundError):  # ufw not installed
         # Check with ufw
         proc = subprocess.run(["ufw", "status"], capture_output=True, text=True, check=False)
         if proc.returncode == 0 and "Status: active" in proc.stdout:
             if f" {port} " not in proc.stdout and f" {port}/tcp " not in proc.stdout:
-                log.warning("UFW is active and port %d is not explicitly allowed. This might block communication from the guest.", port)
+                log.warning(
+                    "UFW is active and port %d is not explicitly allowed. This might block communication from the guest.", port
+                )
 
     try:
         # Check with firewalld
@@ -597,6 +601,9 @@ def check_network_settings():
         if proc.returncode == 0 and "running" in proc.stdout:
             proc = subprocess.run(["firewall-cmd", "--list-ports"], capture_output=True, text=True, check=False)
             if f"{port}/tcp" not in proc.stdout:
-                log.warning("firewalld is active and port %d/tcp is not in the list of allowed ports. This might block communication from the guest.", port)
+                log.warning(
+                    "firewalld is active and port %d/tcp is not in the list of allowed ports. This might block communication from the guest.",
+                    port,
+                )
     except FileNotFoundError:
         pass  # firewalld not installed

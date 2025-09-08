@@ -241,7 +241,7 @@ class File:
         for chunk in self.get_chunks():
             hashes["crc32"] = binascii.crc32(chunk, hashes["crc32"])
             for alg, hash_obj in hashes.items():
-                if alg not in ('crc32', 'tlsh'):
+                if alg not in ("crc32", "tlsh"):
                     hash_obj.update(chunk)
             if HAVE_TLSH:
                 hashes["tlsh"].update(chunk)
@@ -382,12 +382,19 @@ class File:
                         is_dll = self.pe.is_dll()
                         is_x64 = self.pe.FILE_HEADER.Machine == IMAGE_FILE_MACHINE_AMD64
                         gui_type = "GUI" if self.pe.OPTIONAL_HEADER.Subsystem != 3 else "console"
-                        dotnet = " Mono/.Net assembly" if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]].VirtualAddress != 0 else ""
-                        
+                        dotnet = (
+                            " Mono/.Net assembly"
+                            if self.pe.OPTIONAL_HEADER.DATA_DIRECTORY[
+                                pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
+                            ].VirtualAddress
+                            != 0
+                            else ""
+                        )
+
                         arch = "x86-64" if is_x64 else "Intel 80386"
                         pe_type = "PE32+" if is_x64 else "PE32"
                         dll_str = " (DLL)" if is_dll else ""
-                        
+
                         self.file_type = f"{pe_type} executable{dll_str} ({gui_type}) {arch}{dotnet}, for MS Windows"
                         return self.file_type
                 except pefile.PEFormatError:

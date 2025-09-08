@@ -11,6 +11,7 @@ from lib.common.abstracts import Package
 
 log = logging.getLogger(__name__)
 
+
 class Firefox_Ext(Package):
     """Firefox analysis package (with extension)."""
 
@@ -36,12 +37,12 @@ class Firefox_Ext(Package):
             log.error("Invalid base64 encoded user agent provided.")
             user_agent = None
         if user_agent and self.profile_path:
-            config = os.path.join(self.profile_path, 'prefs.js')
-            ua_decoded = base64.b64decode(user_agent).decode('utf-8')
+            config = os.path.join(self.profile_path, "prefs.js")
+            ua_decoded = base64.b64decode(user_agent).decode("utf-8")
             ua_config = f'user_pref("general.useragent.override", "{ua_decoded}");\n'
             try:
                 os.makedirs(os.path.dirname(config), exist_ok=True)
-                with open(config, 'a') as file:
+                with open(config, "a") as file:
                     file.write(ua_config)
                 log.info("Successfully appended user agent to prefs.js: %s", ua_decoded)
             except Exception as e:

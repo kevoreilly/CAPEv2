@@ -38,6 +38,7 @@ def email_confirmed_(request, email_address, **kwargs):
     user.is_active = not settings.MANUAL_APPROVE
     user.save()
 
+
 class MySocialAccountAdapter(DefaultSocialAccountAdapter):
     def pre_social_login(self, request, sociallogin):
         """

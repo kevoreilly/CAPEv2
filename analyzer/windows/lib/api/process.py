@@ -72,7 +72,7 @@ CSIDL_WINDOWS = 0x0024
 CSIDL_SYSTEM = 0x0025
 CSIDL_SYSTEMX86 = 0x0029
 CSIDL_PROGRAM_FILES = 0x0026
-CSIDL_PROGRAM_FILESX86 = 0x002a
+CSIDL_PROGRAM_FILESX86 = 0x002A
 
 IOCTL_PID = 0x222008
 IOCTL_CUCKOO_PATH = 0x22200C
@@ -116,6 +116,7 @@ def nt_path_to_dos_path_ansi(nt_path: str) -> str:
                 converted = nt_path_bytes.replace(device_path, drive.encode("ascii"), 1)
                 return converted.decode("utf-8", errors="ignore")
     return nt_path
+
 
 def NT_SUCCESS(val):
     return val >= 0
@@ -255,7 +256,7 @@ class Process:
         """Use SHGetFolderPathW to get the system folder path for a given CSIDL."""
         buf = create_string_buffer(MAX_PATH)
         windll.shell32.SHGetFolderPathA(None, csidl, None, 0, buf)
-        return buf.value.decode('utf-8', errors='ignore')
+        return buf.value.decode("utf-8", errors="ignore")
 
     def get_image_name(self):
         """Get the image name; returns an empty string on error."""
@@ -314,7 +315,7 @@ class Process:
             if not directory.is_dir():
                 return False
 
-            if (directory/"capemon.dll").exists():
+            if (directory / "capemon.dll").exists():
                 return False
 
             # Early exit if directory is a known system location
@@ -324,7 +325,7 @@ class Process:
                     Path(self.get_folder_path(CSIDL_SYSTEM)).resolve(),
                     Path(self.get_folder_path(CSIDL_SYSTEMX86)).resolve(),
                     Path(self.get_folder_path(CSIDL_PROGRAM_FILES)).resolve(),
-                    Path(self.get_folder_path(CSIDL_PROGRAM_FILESX86)).resolve()
+                    Path(self.get_folder_path(CSIDL_PROGRAM_FILESX86)).resolve(),
                 }
                 if directory.resolve() in system_dirs:
                     return False
@@ -860,11 +861,7 @@ class Process:
     def has_msimg32(self, directory_path: str) -> bool:
         """Check if msimg32.dll exists in directory"""
         try:
-            return any(
-                f.name.lower() == "msimg32.dll"
-                for f in Path(directory_path).glob("*")
-                if f.is_file()
-            )
+            return any(f.name.lower() == "msimg32.dll" for f in Path(directory_path).glob("*") if f.is_file())
         except (OSError, PermissionError):
             return False
 
@@ -892,5 +889,10 @@ class Process:
         except OSError as e:
             log.error("Failed to copy DLL: %s", e)
             return
-        log.info("%s DLL to sideload is %s, sideloader %s", bit_str, os.path.join(directory_path, "capemon.dll"), os.path.join(directory_path, "version.dll"))
+        log.info(
+            "%s DLL to sideload is %s, sideloader %s",
+            bit_str,
+            os.path.join(directory_path, "capemon.dll"),
+            os.path.join(directory_path, "version.dll"),
+        )
         return

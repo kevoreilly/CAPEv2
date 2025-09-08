@@ -30,7 +30,7 @@ rt_table = {rt}
 
             # rt_table
             rt = ""
-            rt = re.findall(fr"remote\s(.*)\s{port}", tmp)
+            rt = re.findall(rf"remote\s(.*)\s{port}", tmp)
             if rt:
                 # start from id idx_start
                 rt_table.setdefault(str(index + idx_start), rt[0])

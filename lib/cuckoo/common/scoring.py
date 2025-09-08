@@ -92,14 +92,39 @@ def calc_scoring(results: dict, matched: list):
         )
 
         maliciousCategories = [
-            "malware", "ransomware", "infostealer", "rat", "trojan", "rootkit", "bootkit", "wiper", "banker",
-            "bypass", "anti-sandbox", "keylogger",
+            "malware",
+            "ransomware",
+            "infostealer",
+            "rat",
+            "trojan",
+            "rootkit",
+            "bootkit",
+            "wiper",
+            "banker",
+            "bypass",
+            "anti-sandbox",
+            "keylogger",
         ]
 
         suspiciousCategories = [
-            "network", "encryption", "anti-vm", "anti-analysis", "anti-av", "anti-debug", "anti-emulation",
-            "persistence", "stealth", "discovery", "injection", "generic", "account", "bot", "browser",
-            "allocation", "command", "execution",
+            "network",
+            "encryption",
+            "anti-vm",
+            "anti-analysis",
+            "anti-av",
+            "anti-debug",
+            "anti-emulation",
+            "persistence",
+            "stealth",
+            "discovery",
+            "injection",
+            "generic",
+            "account",
+            "bot",
+            "browser",
+            "allocation",
+            "command",
+            "execution",
         ]
 
         for detection in results.get("detections", []):

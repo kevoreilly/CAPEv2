@@ -178,7 +178,7 @@ class MiniHTTPServer:
         self,
         host: ipaddress.IPv4Address = ipaddress.IPv4Address("0.0.0.0"),
         port: int = 8000,
-        event = None,
+        event=None,
     ):
         socketserver.ThreadingTCPServer.allow_reuse_address = True
         self.s = socketserver.ThreadingTCPServer((str(host), port), self.handler)

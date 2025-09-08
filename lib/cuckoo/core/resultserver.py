@@ -315,6 +315,7 @@ class LogHandler(ProtocolHandler):
         if self.fd:
             self.fd.close()
 
+
 TYPECONVERTERS = {"h": lambda v: f"0x{default_converter(v):08x}", "p": lambda v: f"0x{default_converter(v):08x}"}
 
 

@@ -712,6 +712,7 @@ class PathSetter:
         except CuckooOperationalError as e:
             raise CuckooReportError(e) from e
 
+
 class Processing(PathSetter):
     """Base abstract class for processing module."""
 
@@ -767,7 +768,7 @@ class SignatureChecker:
                 exp = re.compile(pattern, re.IGNORECASE if ignorecase else 0)
             except re.error:
                 return None
-            
+
             matches = set()
             items = subject if isinstance(subject, list) else [subject]
             for item in items:
@@ -776,10 +777,10 @@ class SignatureChecker:
                         return item
                     matches.add(item)
             return matches if all and matches else None
-        
+
         if ignorecase:
             pattern = pattern.lower()
-            
+
         items = subject if isinstance(subject, list) else [subject]
         for item in items:
             item_to_check = item.lower() if ignorecase else item
@@ -921,6 +922,7 @@ class SignatureChecker:
                     return item["uri"]
                 retset.update(ret)
         return retset if all and retset else None
+
 
 class Signature(PathSetter):
     """Base class for Cuckoo signatures."""
@@ -1589,7 +1591,7 @@ class Signature:
         try:
             response = requests.post(
                 "https://threatfox-api.abuse.ch/api/v1/",
-                json={"query": "search_ioc", "search_term": searchterm,  "exact_match": True},
+                json={"query": "search_ioc", "search_term": searchterm, "exact_match": True},
                 headers={"Auth-Key": integrations_conf.abusech.apikey, "User-Agent": "CAPE Sandbox"},
             )
             return response.json()

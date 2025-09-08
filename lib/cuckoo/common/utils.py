@@ -19,6 +19,7 @@ import zipfile
 from datetime import datetime
 from io import BytesIO
 from typing import Final, List, Tuple, Union
+from contextlib import suppress
 
 from data.family_detection_names import family_detection_names
 from lib.cuckoo.common import utils_dicts
@@ -282,7 +283,7 @@ def bytes2str(s):
 
     with suppress(UnicodeDecodeError):
         return s.decode("utf-8")
-    
+
     with suppress(UnicodeDecodeError):
         return s.decode("latin-1")
 
@@ -499,6 +500,7 @@ _pretty_print_map = {
     (None, "Show"): pp_funcs.arg_name_show,
     (None, "Registry"): pp_funcs.arg_name_registry,
 }
+
 
 def pretty_print_arg(category, api_name, arg_name, arg_val):
     """Creates pretty-printed versions of API arguments."""
@@ -792,6 +794,7 @@ def _yara_scan(block, name):
         for yara_block in block.get(sub_keyword, []):
             if re.findall(name, yara_block["name"], re.I):
                 yield sub_keyword, block.get("path", ""), yara_block, block
+
 
 def yara_detected(name, results):
     for result in results:

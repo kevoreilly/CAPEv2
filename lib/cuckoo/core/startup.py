@@ -262,12 +262,10 @@ def init_tasks():
             log.info("Updated running task ID %s status to failed_analysis", task.id)
 
 
-def lazy_import(path):
-    """Lazy import plugins."""
     try:
         import_package(path)
     except ImportError as e:
-        log.warning("Failed to import %s: %s", path, e)
+        log.warning("Failed to import %s: %s", path, str(e))
 
 def init_modules():
     """Initializes plugins."""

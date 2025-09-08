@@ -592,8 +592,8 @@ class ResultServer(metaclass=Singleton):
         except socket.error as e:
             if e.errno == errno.EADDRINUSE:
                 raise CuckooCriticalError(
-                    f"Cannot bind ResultServer on port {port} because it is already in use. This might happen because CAPE is already running. "
-                    "To fix this, you can stop the existing CAPE service by running 'sudo systemctl stop cape.service'."
+                    f"Cannot bind ResultServer on port {port} because it is already in use. Another process is likely using this port. "
+                    "To fix this, identify and terminate the conflicting process, or configure CAPE to use a different port."
                 )
             elif e.errno == errno.EADDRNOTAVAIL:
                 raise CuckooCriticalError(

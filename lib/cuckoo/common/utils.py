@@ -267,53 +267,26 @@ def is_printable(s):
     return True
 
 
-def bytes2str(convert):
-    """Converts bytes to string
-    @param convert: string as bytes.
-    @return: string.
-    """
-    if isinstance(convert, bytes):
-        try:
-            convert = convert.decode()
-        except UnicodeDecodeError:
-            convert = "".join(chr(_) for _ in convert)
+def bytes2str(s):
+    """Converts bytes to string."""
+    if isinstance(s, str):
+        return s
+    if not isinstance(s, (bytes, bytearray)):
+        return s
 
-        return convert
+    if HAVE_CHARDET:
+        encoding = chardet.detect(s)["encoding"]
+        if encoding:
+            with suppress(UnicodeDecodeError):
+                return s.decode(encoding)
 
-    if isinstance(convert, bytearray):
-        try:
-            convert = convert.decode()
-        except UnicodeDecodeError:
-            convert = "".join(chr(_) for _ in convert)
+    with suppress(UnicodeDecodeError):
+        return s.decode("utf-8")
+    
+    with suppress(UnicodeDecodeError):
+        return s.decode("latin-1")
 
-        return convert
-
-    items = []
-    if isinstance(convert, dict):
-        tmp_dict = {}
-        items = convert.items()
-        for k, v in items:
-            if isinstance(v, bytes):
-                try:
-                    tmp_dict[k] = v.decode()
-                except UnicodeDecodeError:
-                    tmp_dict[k] = "".join(str(ord(_)) for _ in v)
-            elif isinstance(v, str):
-                tmp_dict[k] = v
-        return tmp_dict
-    elif isinstance(convert, list):
-        converted_list = []
-        items = enumerate(convert)
-        for k, v in items:
-            if isinstance(v, bytes):
-                try:
-                    converted_list.append(v.decode())
-                except UnicodeDecodeError:
-                    converted_list.append("".join(str(ord(_)) for _ in v))
-
-        return converted_list
-
-    return convert
+    return s.decode("utf-8", "replace")
 
 
 def convert_to_printable(s: str, cache=None):
@@ -472,94 +445,71 @@ def pretty_print_retval(status, retval):
     }.get(val)
 
 
+_pretty_print_map = {
+    ("NtCreateSection", "DesiredAccess"): pp_funcs.api_name_ntcreatesection_arg_name_desiredaccess,
+    ("CreateToolhelp32Snapshot", "Flags"): pp_funcs.api_name_createtoolhelp32snapshot_arg_name_flags,
+    (None, "ClsContext"): arg_name_clscontext,
+    (None, "BlobType"): pp_funcs.blobtype,
+    (None, "Algid"): pp_funcs.algid,
+    ("SHGetFolderPathW", "Folder"): pp_funcs.api_name_shgetfolderpathw_arg_name_folder,
+    (None, "HookIdentifier"): pp_funcs.hookidentifer,
+    (None, "InfoLevel"): pp_funcs.infolevel,
+    (None, "Disposition"): pp_funcs.disposition,
+    (None, "CreateDisposition"): pp_funcs.createdisposition,
+    (None, "ShareAccess"): pp_funcs.shareaccess,
+    (None, "SystemInformationClass"): pp_funcs.systeminformationclass,
+    ("registry", "Type"): pp_funcs.category_registry_arg_name_type,
+    ("OpenSCManagerA", "DesiredAccess"): pp_funcs.api_name_opensc_arg_name_desiredaccess,
+    ("OpenSCManagerW", "DesiredAccess"): pp_funcs.api_name_opensc_arg_name_desiredaccess,
+    ("services", "ControlCode"): pp_funcs.category_services_arg_name_controlcode,
+    ("services", "ErrorControl"): pp_funcs.category_services_arg_name_errorcontrol,
+    ("services", "StartType"): pp_funcs.category_services_arg_name_starttype,
+    ("services", "ServiceType"): pp_funcs.category_services_arg_name_servicetype,
+    ("services", "DesiredAccess"): pp_funcs.category_services_arg_name_desiredaccess,
+    ("registry", "Access"): pp_funcs.category_registry_arg_name_access_desired_access,
+    ("registry", "DesiredAccess"): pp_funcs.category_registry_arg_name_access_desired_access,
+    (None, "IoControlCode"): pp_funcs.arg_name_iocontrolcode,
+    (None, "Protection"): pp_funcs.arg_name_protection_and_others,
+    (None, "Win32Protect"): pp_funcs.arg_name_protection_and_others,
+    (None, "NewAccessProtection"): pp_funcs.arg_name_protection_and_others,
+    (None, "OldAccessProtection"): pp_funcs.arg_name_protection_and_others,
+    (None, "OldProtection"): pp_funcs.arg_name_protection_and_others,
+    ("CreateProcessInternalW", "CreationFlags"): pp_funcs.api_name_in_creation,
+    ("CreateProcessWithTokenW", "CreationFlags"): pp_funcs.api_name_in_creation,
+    ("CreateProcessWithLogonW", "CreationFlags"): pp_funcs.api_name_in_creation,
+    ("MoveFileWithProgressW", "Flags"): pp_funcs.api_name_move_arg_name_flags,
+    ("MoveFileWithProgressTransactedW", "Flags"): pp_funcs.api_name_move_arg_name_flags,
+    (None, "FileAttributes"): pp_funcs.arg_name_fileattributes,
+    ("NtCreateFile", "DesiredAccess"): pp_funcs.api_name_nt_arg_name_desiredaccess,
+    ("NtOpenFile", "DesiredAccess"): pp_funcs.api_name_nt_arg_name_desiredaccess,
+    ("NtCreateDirectoryObject", "DesiredAccess"): pp_funcs.api_name_nt_arg_name_desiredaccess,
+    ("NtOpenDirectoryObject", "DesiredAccess"): pp_funcs.api_name_nt_arg_name_desiredaccess,
+    ("NtOpenProcess", "DesiredAccess"): pp_funcs.api_name_ntopenprocess_arg_name_desiredaccess,
+    ("NtOpenThread", "DesiredAccess"): pp_funcs.api_name_ntopenthread_arg_name_desiredaccess,
+    ("CoInternetSetFeatureEnabled", "FeatureEntry"): pp_funcs.api_name_cointernet_arg_name_featureentry,
+    ("CoInternetSetFeatureEnabled", "Flags"): pp_funcs.api_name_cointernet_arg_name_flags,
+    ("InternetSetOptionA", "Option"): pp_funcs.api_name_internetsetoptiona_arg_name_option,
+    ("socket", None): pp_funcs.api_name_socket,
+    ("WSASocketA", None): pp_funcs.api_name_socket,
+    ("WSASocketW", None): pp_funcs.api_name_socket,
+    (None, "FileInformationClass"): pp_funcs.arg_name_fileinformationclass,
+    (None, "ProcessInformationClass"): pp_funcs.arg_name_processinformationclass,
+    (None, "ThreadInformationClass"): pp_funcs.arg_name_threadinformationclass,
+    (None, "MemType"): pp_funcs.arg_name_memtype,
+    (None, "Show"): pp_funcs.arg_name_show,
+    (None, "Registry"): pp_funcs.arg_name_registry,
+}
+
 def pretty_print_arg(category, api_name, arg_name, arg_val):
-    """Creates pretty-printed versions of API arguments that convert raw values in common APIs to their named-enumeration forms
-    @return: pretty-printed version of the argument value provided, or None if no conversion exists
-    """
-    if api_name == "NtCreateSection" and arg_name == "DesiredAccess":
-        return pp_funcs.api_name_ntcreatesection_arg_name_desiredaccess(arg_val)
-    elif api_name == "CreateToolhelp32Snapshot" and arg_name == "Flags":
-        return pp_funcs.api_name_createtoolhelp32snapshot_arg_name_flags(arg_val)
-    elif arg_name == "ClsContext":
-        return arg_name_clscontext(arg_val)
-    elif arg_name == "BlobType":
-        return pp_funcs.blobtype(arg_val)
-    elif arg_name == "Algid":
-        return pp_funcs.algid(arg_val)
-    elif api_name == "SHGetFolderPathW" and arg_name == "Folder":
-        return pp_funcs.api_name_shgetfolderpathw_arg_name_folder(arg_val)
-    elif arg_name == "HookIdentifier":
-        return pp_funcs.hookidentifer(arg_val)
-    elif arg_name == "InfoLevel":
-        return pp_funcs.infolevel(arg_val)
-
-    elif arg_name == "Disposition":
-        return pp_funcs.disposition(arg_val)
-    elif arg_name == "CreateDisposition":
-        return pp_funcs.createdisposition(arg_val)
-    elif arg_name == "ShareAccess":
-        return pp_funcs.shareaccess(arg_val)
-    elif arg_name == "SystemInformationClass":
-        return pp_funcs.systeminformationclass(arg_val)
-    elif category == "registry" and arg_name == "Type":
-        return pp_funcs.category_registry_arg_name_type(arg_val)
-    elif api_name in {"OpenSCManagerA", "OpenSCManagerW"} and arg_name == "DesiredAccess":
-        return pp_funcs.api_name_opensc_arg_name_desiredaccess(arg_val)
-    elif category == "services" and arg_name == "ControlCode":
-        return pp_funcs.category_services_arg_name_controlcode(arg_val)
-    elif category == "services" and arg_name == "ErrorControl":
-        return pp_funcs.category_services_arg_name_errorcontrol(arg_val)
-    elif category == "services" and arg_name == "StartType":
-        return pp_funcs.category_services_arg_name_starttype(arg_val)
-    elif category == "services" and arg_name == "ServiceType":
-        return pp_funcs.category_services_arg_name_servicetype(arg_val)
-    elif category == "services" and arg_name == "DesiredAccess":
-        return pp_funcs.category_services_arg_name_desiredaccess(arg_val)
-    elif category == "registry" and arg_name in {"Access", "DesiredAccess"}:
-        return pp_funcs.category_registry_arg_name_access_desired_access(arg_val)
-    elif arg_name == "IoControlCode":
-        return pp_funcs.arg_name_iocontrolcode(arg_val)
-    elif arg_name in {"Protection", "Win32Protect", "NewAccessProtection", "OldAccessProtection", "OldProtection"}:
-        return pp_funcs.arg_name_protection_and_others(arg_val)
-    elif (
-        api_name in ("CreateProcessInternalW", "CreateProcessWithTokenW", "CreateProcessWithLogonW") and arg_name == "CreationFlags"
-    ):
-        return pp_funcs.api_name_in_creation(arg_val)
-    elif api_name in {"MoveFileWithProgressW", "MoveFileWithProgressTransactedW"} and arg_name == "Flags":
-        return pp_funcs.api_name_move_arg_name_flags(arg_val)
-    elif arg_name == "FileAttributes":
-        return pp_funcs.arg_name_fileattributes(arg_val)
-    elif (
-        api_name in {"NtCreateFile", "NtOpenFile", "NtCreateDirectoryObject", "NtOpenDirectoryObject"}
-        and arg_name == "DesiredAccess"
-    ):
-        return pp_funcs.api_name_nt_arg_name_desiredaccess(arg_val)
-    elif api_name == "NtOpenProcess" and arg_name == "DesiredAccess":
-        return pp_funcs.api_name_ntopenprocess_arg_name_desiredaccess(arg_val)
-    elif api_name == "NtOpenThread" and arg_name == "DesiredAccess":
-        return pp_funcs.api_name_ntopenthread_arg_name_desiredaccess(arg_val)
-    elif api_name == "CoInternetSetFeatureEnabled" and arg_name == "FeatureEntry":
-        return pp_funcs.api_name_cointernet_arg_name_featureentry(arg_val)
-    elif api_name == "CoInternetSetFeatureEnabled" and arg_name == "Flags":
-        return pp_funcs.api_name_cointernet_arg_name_flags(arg_val)
-
-    elif api_name == "InternetSetOptionA" and arg_name == "Option":
-        return pp_funcs.api_name_internetsetoptiona_arg_name_option(arg_val)
-    elif api_name in ("socket", "WSASocketA", "WSASocketW"):
-        return pp_funcs.api_name_socket(arg_val, arg_name)
-    elif arg_name == "FileInformationClass":
-        return pp_funcs.arg_name_fileinformationclass(arg_val)
-    elif arg_name == "ProcessInformationClass":
-        return pp_funcs.arg_name_processinformationclass(arg_val)
-    elif arg_name == "ThreadInformationClass":
-        return pp_funcs.arg_name_threadinformationclass(arg_val)
-    elif arg_name == "MemType":
-        return pp_funcs.arg_name_memtype(arg_val)
-    elif arg_name == "Show":
-        return pp_funcs.arg_name_show(arg_val)
-    elif arg_name == "Registry":
-        return pp_funcs.arg_name_registry(arg_val)
-
+    """Creates pretty-printed versions of API arguments."""
+    if (api_name, arg_name) in _pretty_print_map:
+        return _pretty_print_map[(api_name, arg_name)](arg_val)
+    if (None, arg_name) in _pretty_print_map:
+        return _pretty_print_map[(None, arg_name)](arg_val)
+    if (category, arg_name) in _pretty_print_map:
+        return _pretty_print_map[(category, arg_name)](arg_val)
+    if (api_name, None) in _pretty_print_map:
+        return _pretty_print_map[(api_name, None)](arg_val, arg_name)
     return None
 
 
@@ -837,66 +787,31 @@ def validate_ttp(ttp: str) -> bool:
     return bool(re.fullmatch(regex, ttp, flags=re.IGNORECASE))
 
 
+def _yara_scan(block, name):
+    for sub_keyword in ("cape_yara", "yara"):
+        for yara_block in block.get(sub_keyword, []):
+            if re.findall(name, yara_block["name"], re.I):
+                yield sub_keyword, block.get("path", ""), yara_block, block
+
 def yara_detected(name, results):
     for result in results:
         target = result.get("target", {})
         if target.get("category") in ("file", "static") and target.get("file"):
-            for keyword in ("cape_yara", "yara"):
-                for yara_block in results["target"]["file"].get(keyword, []):
-                    if re.findall(name, yara_block["name"], re.I):
-                        yield "sample", results["target"]["file"]["path"], yara_block, results["target"]["file"]
+            yield from _yara_scan(target["file"], name)
+            for extracted_file in target["file"].get("extracted_files", []):
+                yield from _yara_scan(extracted_file, name)
 
-            for block in target["file"].get("extracted_files", []):
-                for keyword in ("cape_yara", "yara"):
-                    for yara_block in block[keyword]:
-                        if re.findall(name, yara_block["name"], re.I):
-                            # we can't use here values from set_path
-                            yield "sample", block["path"], yara_block, block
-
-        for block in result.get("CAPE", {}).get("payloads", []) or []:
-            for sub_keyword in ("cape_yara", "yara"):
-                for yara_block in block.get(sub_keyword, []):
-                    if re.findall(name, yara_block["name"], re.I):
-                        yield sub_keyword, block["path"], yara_block, block
-
-            for subblock in block.get("extracted_files", []):
-                for keyword in ("cape_yara", "yara"):
-                    for yara_block in subblock[keyword]:
-                        if re.findall(name, yara_block["name"], re.I):
-                            yield "sample", subblock["path"], yara_block, block
+        for block in result.get("CAPE", {}).get("payloads", []):
+            yield from _yara_scan(block, name)
+            for extracted_file in block.get("extracted_files", []):
+                yield from _yara_scan(extracted_file, name)
 
         for keyword in ("procdump", "procmemory", "extracted", "dropped"):
             for block in result.get(keyword, []):
-                if not isinstance(block, dict):
-                    continue
-                for sub_keyword in ("cape_yara", "yara"):
-                    for yara_block in block.get(sub_keyword, []):
-                        if re.findall(name, yara_block["name"], re.I):
-                            path = block["path"] if block.get("path", False) else ""
-                            yield keyword, path, yara_block, block
+                if isinstance(block, dict):
+                    yield from _yara_scan(block, name)
                     if keyword == "procmemory":
-                        for pe in block.get("extracted_pe", []) or []:
-                            for yara_block in pe.get(sub_keyword, []) or []:
-                                if re.findall(name, yara_block["name"], re.I):
-                                    yield "extracted_pe", pe["path"], yara_block, block
-                for subblock in block.get("extracted_files", []):
-                    for keyword in ("cape_yara", "yara"):
-                        for yara_block in subblock[keyword]:
-                            if re.findall(name, yara_block["name"], re.I):
-                                yield "sample", subblock["path"], yara_block, block
-
-        """
-        macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(results["info"]["id"]), "macros")
-        for macroname in result.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
-            for yara_block in results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
-                for sub_block in results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
-                    if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(macro_path, macroname), sub_block, results["static"]["office"]["Macro"]["info"]
-
-        if result.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
-            for yara_block in results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
-                if re.findall(name, yara_block["name"], re.I):
-                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, results["static"]["office"][
-                        "XLMMacroDeobfuscator"
-                    ]["info"]
-        """
+                        for pe in block.get("extracted_pe", []):
+                            yield from _yara_scan(pe, name)
+                    for extracted_file in block.get("extracted_files", []):
+                        yield from _yara_scan(extracted_file, name)

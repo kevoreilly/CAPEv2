@@ -129,11 +129,11 @@ class ProcessMemory(Processing):
                     with open(dmp_path, "rb") as f:
                         data = f.read()
 
+                    # ToDo add nul termination string support here
                     # ASCII strings
                     for match in re.finditer(b"[\x20-\x7e]{%d,}" % minchars, data):
                         strings.append(match.group(0))
 
-                    # Unicode strings
                     for match in re.finditer(b"(?:[\x20-\x7e]\x00){%d,}" % minchars, data):
                         try:
                             strings.append(match.group(0).decode("utf-16le").encode("utf-8"))

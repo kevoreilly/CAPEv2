@@ -196,6 +196,7 @@ tasks_tags = Table(
     Column("tag_id", Integer, ForeignKey("tags.id", ondelete="cascade")),
 )
 
+
 def get_count(q, property):
     count_q = q.statement.with_only_columns(func.count(property)).order_by(None)
     count = q.session.execute(count_q).scalar()
@@ -216,6 +217,7 @@ class SampleAssociation(Base):
     parent: Mapped["Sample"] = relationship(foreign_keys=[parent_id], back_populates="child_links")
     child: Mapped["Sample"] = relationship(foreign_keys=[child_id], back_populates="parent_links")
     task: Mapped["Task"] = relationship(back_populates="association")
+
 
 class Machine(Base):
     """Configured virtual machines to be used as guests."""
@@ -391,7 +393,9 @@ class Sample(Base):
         """
         return json.dumps(self.to_dict())
 
-    def __init__(self, md5, crc32, sha1, sha256, sha512, file_size, file_type=None, ssdeep=None, parent_sample=None, source_url=None):
+    def __init__(
+        self, md5, crc32, sha1, sha256, sha512, file_size, file_type=None, ssdeep=None, parent_sample=None, source_url=None
+    ):
         self.md5 = md5
         self.sha1 = sha1
         self.crc32 = crc32
@@ -650,7 +654,9 @@ class _Database:
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )
-                    print(red("Please backup your data before migration!\ncd utils/db_migration/ && poetry run alembic upgrade head"))
+                    print(
+                        red("Please backup your data before migration!\ncd utils/db_migration/ && poetry run alembic upgrade head")
+                    )
                     sys.exit()
 
     def __del__(self):
@@ -687,23 +693,26 @@ class _Database:
         @param model: model to query
         @return: row instance
         """
+        # Using a session-level cache to avoid repeated queries within the same session
         cache = self.session.info.setdefault("_get_or_create_cache", {})
         cache_key = (model, frozenset(kwargs.items()))
         if cache_key in cache:
             return cache[cache_key]
 
+        # Modern SQLAlchemy 2.0 style query
         stmt = select(model).filter_by(**kwargs)
-        # Execute with session.scalar() to get a single object or None
-        instance = self.session.scalar(stmt)
+        instance = self.session.scalars(stmt).first()
+
         if instance:
             cache[cache_key] = instance
             return instance
         else:
             instance = model(**kwargs)
             self.session.add(instance)
+            # The instance is added to the cache here. It will be flushed to the DB
+            # with the next transaction commit.
             cache[cache_key] = instance
-
-        return instance
+            return instance
 
     def drop(self):
         """Drop all tables."""
@@ -714,23 +723,17 @@ class _Database:
 
     def clean_machines(self):
         """Clean old stored machines and related tables."""
-        # Secondary table.
-        # TODO: this is better done via cascade delete.
-        # self.engine.execute(machines_tags.delete())
-        # ToDo : If your ForeignKey has "ON DELETE CASCADE", deleting a Machine
-        # would automatically delete its entries in machines_tags.
-        # If not, deleting them manually first is correct.
+        # The delete() function from SQLAlchemy 2.0 is used here.
         self.session.execute(delete(machines_tags))
         self.session.execute(delete(Machine))
 
-    def delete_machine(self, name) -> bool:
+    def delete_machine(self, name: str) -> bool:
         """Delete a single machine entry from DB."""
-
+        # Modern select statement
         stmt = select(Machine).where(Machine.name == name)
-        machine = self.session.scalar(stmt)
+        machine = self.session.scalars(stmt).first()
 
         if machine:
-            # Deleting a specific ORM instance remains the same
             self.session.delete(machine)
             return True
         else:
@@ -779,29 +782,23 @@ class _Database:
 
     def set_machine_interface(self, label, interface):
         stmt = select(Machine).filter_by(label=label)
-        machine = self.session.scalar(stmt)
+        machine = self.session.scalars(stmt).first()
 
         if machine is None:
             log.debug("Database error setting interface: %s not found", label)
             return
 
-        # This part remains the same
         machine.interface = interface
         return machine
 
     def set_vnc_port(self, task_id: int, port: int):
-        stmt = select(Task).where(Task.id == task_id)
-        task = self.session.scalar(stmt)
+        task = self.session.get(Task, task_id)
 
         if task is None:
             log.debug("Database error setting VPN port: For task %s", task_id)
             return
 
-        # This logic remains the same
-        if task.options:
-            task.options += f",vnc_port={port}"
-        else:
-            task.options = f"vnc_port={port}"
+        task.options = f"{task.options or ''},vnc_port={port}".lstrip(",")
 
     def update_clock(self, task_id):
         row = self.session.get(Task, task_id)
@@ -933,15 +930,14 @@ class _Database:
 
     def guest_get_status(self, task_id: int):
         """Gets the status for a given guest."""
-        stmt = select(Guest).where(Guest.task_id == task_id)
-        guest = self.session.scalar(stmt)
-        return guest.status if guest else None
+        stmt = select(Guest.status).where(Guest.task_id == task_id)
+        return self.session.scalars(stmt).first()
 
     def guest_set_status(self, task_id: int, status: str):
         """Sets the status for a given guest."""
         stmt = select(Guest).where(Guest.task_id == task_id)
-        guest = self.session.scalar(stmt)
-        if guest is not None:
+        guest = self.session.scalars(stmt).first()
+        if guest:
             guest.status = status
 
     def guest_remove(self, guest_id):
@@ -1068,7 +1064,9 @@ class _Database:
         self.session.merge(machine)
         return machine
 
-    def count_machines_available(self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None):
+    def count_machines_available(
+        self, label=None, platform=None, tags=None, arch=None, include_reserved=False, os_version=None
+    ) -> int:
         """How many (relevant) virtual machines are ready for analysis.
         @param label: machine ID.
         @param platform: machine platform.
@@ -1087,7 +1085,6 @@ class _Database:
             os_version=os_version,
             include_reserved=include_reserved,
         )
-
         return self.session.scalar(stmt)
 
     def get_available_machines(self) -> List[Machine]:
@@ -1100,18 +1097,17 @@ class _Database:
         stmt = select(func.count(Machine.id)).where(Machine.locked.is_(True))
         return self.session.scalar(stmt)
 
-    def set_machine_status(self, machine_or_label: Union[str, Machine], status):
+    def set_machine_status(self, machine_or_label: Union[str, Machine], status: str):
         """Set status for a virtual machine."""
         if isinstance(machine_or_label, str):
             stmt = select(Machine).where(Machine.label == machine_or_label)
-            machine = self.session.scalar(stmt)
+            machine = self.session.scalars(stmt).first()
         else:
             machine = machine_or_label
 
         if machine:
             machine.status = status
             machine.status_changed_on = datetime.now()
-            # No need for session.add() here; the ORM tracks changes to loaded objects.
 
     def add_error(self, message, task_id):
         """Add an error related to a task."""
@@ -1327,7 +1323,7 @@ class _Database:
         cape=False,
         tags_tasks=False,
         user_id=0,
-        parent_sample = None,
+        parent_sample=None,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -1634,7 +1630,12 @@ class _Database:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, options=options, parent_sample=parent_sample,
+                        file_path=file,
+                        priority=priority,
+                        tlp=tlp,
+                        user_id=user_id,
+                        options=options,
+                        parent_sample=parent_sample,
                     )
 
             if not config and not only_extraction:
@@ -1966,29 +1967,21 @@ class _Database:
         # 2. Execute the statement and return the single integer result.
         return self.session.scalar(stmt)
 
-    def check_file_uniq(self, sha256: str, hours: int = 0):
+    def check_file_uniq(self, sha256: str, hours: int = 0) -> bool:
         # TODO This function is poorly named. It returns True if a sample with the given
         # sha256 already exists in the database, rather than returning True if the given
         # sha256 is unique.
-        uniq = False
         if hours and sha256:
             date_since = datetime.now() - timedelta(hours=hours)
-
             stmt = (
                 select(Task)
                 .join(Sample, Task.sample_id == Sample.id)
                 .where(Sample.sha256 == sha256)
                 .where(Task.added_on >= date_since)
             )
-            return self.session.scalar(select(stmt.exists()))
+            return self.session.query(stmt.exists()).scalar()
         else:
-            if not self.find_sample(sha256=sha256):
-                uniq = False
-            else:
-                uniq = True
-
-        return uniq
-
+            return self.session.query(select(Sample).where(Sample.sha256 == sha256).exists()).scalar()
 
     def get_parent_sample_from_task(self, task_id: int) -> Optional[Sample]:
         """Finds the Parent Sample using the ID of the child's Task."""

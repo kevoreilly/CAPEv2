@@ -918,13 +918,13 @@ function install_qemu() {
                     make -j"$(nproc)" install
                 fi
                 # hack for libvirt/virt-manager
-                if [ ! -f /usr/bin/qemu-system-x86_64-spice ]; then
+                if [ ! -L /usr/bin/qemu-system-x86_64-spice ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64-spice
                 fi
-                if [ ! -f /usr/bin/kvm-spice ]; then
+                if [ ! -L /usr/bin/kvm-spice ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm-spice
                 fi
-                if [ ! -f /usr/bin/kvm ]; then
+                if [ ! -L /usr/bin/kvm ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm
                 fi
                 if  [ $? -eq 0 ]; then

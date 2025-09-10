@@ -976,6 +976,7 @@ function install_seabios() {
         # Windows 10(latest rev.) is uninstallable without ACPI_DSDT
         # sed -i 's/CONFIG_ACPI_DSDT=y/CONFIG_ACPI_DSDT=n/g' .config
         if PIP_BREAK_SYSTEM_PACKAGES=1 make -j "$(nproc)"; then
+            mkdir -p /usr/share/qemu
             echo '[+] Replacing old bios.bin to new out/bios.bin'
             bios=0
             SHA256_BIOS=$(shasum -a 256 out/bios.bin|awk '{print $1}')

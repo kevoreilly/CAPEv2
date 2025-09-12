@@ -29,7 +29,7 @@ $(document)
     .on('change', '.btn-file :file', function() {
         var input = $(this),
         numFiles = input.get(0).files ? input.get(0).files.length : 1,
-        label = input.val().replace(/\\/g, '/').replace(/.*\//, '');
+        label = input.val().replace(/\/g, '/').replace(/.*ackslash//, '');
         input.trigger('fileselect', [numFiles, label]);
 });
 
@@ -498,7 +498,8 @@ $(document).ready( function() {
                                                 </tr>
                                                 <tr>
                                                     <td><code>store_memdump</code></td>
-                                                    <td>Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this </td>
+                                                    <td>Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this 
+                                                    </td>
                                                 </tr>
                                                 <tr>
                                                     <td><code>pre_script_args</code></td>

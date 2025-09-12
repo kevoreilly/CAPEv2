@@ -26,6 +26,8 @@
             {% if http.response %}
                 {% if http.resp.sha256 %}
                     <a href="{% url "file" "networkzip" id http.resp.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span> Response content</a>
+                    <button class="btn btn-secondary btn-sm" onclick="toggleHexDump('{{http.resp.sha256}}')">Toggle Hex Dump</button>
+                    <pre id="hex-dump-{{http.resp.sha256}}" style="display: none;"></pre>
                 {% else %}
                     Response:
                 {% endif %}
@@ -63,3 +65,36 @@
 {% else %}
     <p>No HTTP(s) requests performed.</p>
 {% endif %}
+
+<script>
+function hexdump(buffer) {
+  const lines = [];
+  const view = new Uint8Array(buffer);
+  for (let i = 0; i < view.length; i += 16) {
+    const chunk = Array.from(view.slice(i, i + 16));
+    const hex = chunk.map(b => b.toString(16).padStart(2, '0')).join(' ');
+    const ascii = chunk.map(b => (b >= 32 && b <= 126) ? String.fromCharCode(b) : '.').join('');
+    const address = i.toString(16).padStart(8, '0');
+    lines.push(`${address}  ${hex.padEnd(48)}  |${ascii}|`);
+  }
+  return lines.join('\n');
+}
+
+function toggleHexDump(sha256) {
+    const pre = document.getElementById('hex-dump-' + sha256);
+    if (pre.style.display === 'none') {
+        if (pre.textContent.trim() === '') {
+            fetch('/analysis/{{id}}/networkzip/' + sha256 + '/')
+                .then(response => response.arrayBuffer())
+                .then(buffer => {
+                    pre.textContent = hexdump(buffer);
+                    pre.style.display = 'block';
+                });
+        } else {
+            pre.style.display = 'block';
+        }
+    } else {
+        pre.style.display = 'none';
+    }
+}
+</script>

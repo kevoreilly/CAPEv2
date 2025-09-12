@@ -1,3 +1,4 @@
+{% load compress %}
 <!DOCTYPE html>
 <html class="datatable-dark" lang="en" xmlns="http://www.w3.org/1999/xhtml">
 <head>
@@ -11,20 +12,21 @@
 <meta name="description" content="CAPE Sandbox">
 <meta name="author" content="CAPE Sandbox">
 <link rel="icon" type="image/png" href="{{ STATIC_URL }}img/cape.png" />
+{% compress css %}
+<link href="{{ STATIC_URL }}bootstrap/css/bootstrap.min.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/lightbox.css" rel="stylesheet">
-<script src="{{ STATIC_URL }}js/jquery.js"></script>
-<!--dark theme https://cdnjs.com/libraries/bootswatch-->
-<link href="{{ STATIC_URL }}css/bootstrap.min.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/bootstrap-social.min.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/style.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/fontawesome-all.css" rel="stylesheet">
+{% endcompress %}
+<script src="{{ STATIC_URL }}bootstrap/js/bootstrap.bundle.min.js"></script>
 </head>
 <body>
   <header>
-      <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top py-0">
+      <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top py-0">
         <div class="collapse navbar-collapse" id="navbarColor02">
           <a class="nav-link" style="padding-right:0px;padding-left:0px" href="{% url "analysis" %}"><img src="{{ STATIC_URL }}graphic/cape.png"></a>
-          <ul class="navbar-nav mr-auto">
+          <ul class="navbar-nav me-auto">
             <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><span class="fas fa-tachometer-alt"></span> Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><span class="fas fa-list"></span> Recent</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><span class="fas fa-clock"></span> Pending</a></li>
@@ -34,7 +36,7 @@
             <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><span class="fas fa-chart-area"></span> Statistics</a></li>
             {% if settings.WEB_AUTHENTICATION %}
             <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="fas fa-users"></span> User</a>
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false"><span class="fas fa-users"></span> User</a>
               <div class="dropdown-menu" aria-labelledby="navbarDropdown">
                 <a class="dropdown-item" href="/admin"><span class="fas fa-users-cog"></span> Admin</a>
                 <a class="dropdown-item" href="/accounts/signup/"><span class="fas fa-users"></span> Register</a>
@@ -49,7 +51,7 @@
             <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/"><span class="fas fa-info"></span> Docs</a></li>
             <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md"><span class="far fa-newspaper"></span> Changelog</a></li>
           </ul>
-          <form class="form-inline" style="margin:0px;" action="{% url "search" %}" method="get">
+          <form class="d-flex" action="{% url "search" %}" method="get">
             <input class="form-control" type="text" id="form_search" name="search" placeholder="Search term as regex">
             <button class="btn btn-secondary" type="submit">Search</button>
           </form>

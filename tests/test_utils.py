@@ -12,7 +12,6 @@ from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common import utils
 
 
-
 def test_get_memdump_path(mocker):
     ret_path = utils.get_memdump_path(memdump_id=123)
     assert ret_path.rsplit("/", 4)[-4:] == "storage/analyses/123/memory.dmp".split("/")
@@ -130,7 +129,7 @@ class TestIsPrintable:
 
 class TestConvertFilenameChar:
     def test_convert_filename_char(self):
-        assert utils.convert_filename_char("\u00A3") == "\\xa3"
+        assert utils.convert_filename_char("\u00a3") == "\\xa3"
 
     def test_convert_filename_char_allowed(self):
         assert utils.convert_filename_char("!") == "!"
@@ -169,10 +168,10 @@ class TestPrettyPrintRetval:
 @pytest.mark.skip
 def test_is_safelisted_domain():
     from lib.cuckoo.common.safelist import is_safelisted_domain
+
     assert is_safelisted_domain("java.com") is True
     assert is_safelisted_domain("java2.com") is False
     assert is_safelisted_domain("crl.microsoft.com") is True
-
 
     @pytest.fixture
     def mock_config(mocker):
@@ -240,4 +239,3 @@ def test_is_safelisted_domain():
         with pytest.raises(CuckooOperationalError):
             utils.store_temp_file(filedata, filename)
         mock_path_mkdir.assert_called_once_with("/tmp/cuckoo-tmp")
-

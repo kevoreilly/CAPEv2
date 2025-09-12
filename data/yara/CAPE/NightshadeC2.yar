@@ -2,7 +2,7 @@ rule NightshadeC2
 {
     meta:
         author = "YungBinary"
-        description = "https://x.com/YungBinary/status/1963751038340534482"
+        description = "NightshadeC2 AKA CastleRAT - https://x.com/YungBinary/status/1963751038340534482"
         hash = "963c012d56c62093d105ab5044517fdcce4ab826f7782b3e377932da1df6896d"
         cape_type = "NightshadeC2 Payload"
     strings:

@@ -17,5 +17,5 @@ rule MonsterV2
             E8 ?? ?? ?? ??
         }
     condition:
-        $decrypt_config
+        uint16(0) == 0x5A4D and $decrypt_config
 }

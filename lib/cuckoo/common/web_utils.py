@@ -1397,21 +1397,29 @@ def perform_search(
         search_term_map[term] = f"CAPE.configs.{value}"
         query_val = {"$exists": True}
 
+    retval = []
     if repconf.mongodb.enabled and query_val:
         if term in hash_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
             split_by = "," if "," in query_val else " "
             query_val = {"$in": [val.strip() for val in query_val.split(split_by)]}
-            # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
-            file_docs = list(mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_task_ids": 1}))
-            if not file_docs:
-                return []
-            all_ids = []
-            for file_doc in file_docs:
-                all_ids.extend(file_doc["_task_ids"])
-            ids = sorted(list(set(all_ids)), reverse=True)[:search_limit]
-            term = "ids"
-            mongo_search_query = {"info.id": {"$in": ids}}
+            pipeline = [
+                # Stages 1-5: Find, unwind, group, sort, limit IDs
+                {"$match": {hash_searches[term]: query_filter_list}},
+                {"$unwind": "$_task_ids"},
+                {"$group": {"_id": "$_task_ids"}},
+                {"$sort": {"_id": -1}},
+                {"$limit": limit},
+                # Stage 6: Join with the tasks collection
+                {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
+                # Stage 7: Unpack the joined doc
+                {"$unwind": "$task_doc"},
+                # Stage 8: Make the task doc the new root
+                {"$replaceRoot": {"newRoot": "$task_doc"}},
+                # Stage 9: Add your custom projection
+                {"$project": perform_search_filters},
+            ]
+            retval = list(mongo_aggregate(FILES_COLL, pipeline))
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         elif isinstance(search_term_map[term], list):
@@ -1426,7 +1434,8 @@ def perform_search(
         if "target.file.sha256" in projection:
             projection = dict(**projection)
             projection[f"target.file.{FILE_REF_KEY}"] = 1
-        retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
+        if not retval:
+            retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})
             if FILE_REF_KEY in target_file and "sha256" not in target_file:

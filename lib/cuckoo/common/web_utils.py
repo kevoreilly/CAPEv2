@@ -1402,14 +1402,14 @@ def perform_search(
         if term in hash_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
             split_by = "," if "," in query_val else " "
-            query_val = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
             pipeline = [
                 # Stages 1-5: Find, unwind, group, sort, limit IDs
                 {"$match": {hash_searches[term]: query_filter_list}},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
-                {"$limit": limit},
+                {"$limit": search_limit},
                 # Stage 6: Join with the tasks collection
                 {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
                 # Stage 7: Unpack the joined doc

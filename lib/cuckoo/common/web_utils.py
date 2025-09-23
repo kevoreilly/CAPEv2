@@ -1400,10 +1400,16 @@ def perform_search(
     if repconf.mongodb.enabled and query_val:
         if term in hash_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
+            split_by = "," if "," in query_val else " "
+            query_val = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
             file_docs = list(mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_task_ids": 1}))
             if not file_docs:
                 return []
-            ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
+            all_ids = []
+            for file_doc in file_docs:
+                all_ids.extend(file_doc["_task_ids"])
+            ids = sorted(list(set(all_ids)), reverse=True)[:search_limit]
             term = "ids"
             mongo_search_query = {"info.id": {"$in": ids}}
         elif isinstance(search_term_map[term], str):

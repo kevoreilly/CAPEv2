@@ -1,3 +1,11 @@
+### [23.09.2025]
+* Monitor updates:
+    * unhook: attempt restoration of detected hook modifications
+    * config: fix issue parsing multiple sysbp addresses supplied via submission option
+    * Trace: don't step over named exported functions if trace-all set
+    * Tweak tracking of regions from syscall capture (InstrCallback.c)
+    * Enhance VerifyHeaders() to include EP bytes to detect shellcode overwrites (e.g. HijackLoader)
+
 ### [2.09.2025]
 * Loader update: set patched import directory size to allow RestoreHeaders() to work properly, and hence VMProtect binaries
 

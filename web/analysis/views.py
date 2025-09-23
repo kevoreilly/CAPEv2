@@ -2172,15 +2172,17 @@ def search(request, searched=""):
 
         if not term:
             value = value.lower()
-            if re.match(r"^([a-fA-F\d]{32})$", value):
-                term = "md5"
-            elif re.match(r"^([a-fA-F\d]{40})$", value):
-                term = "sha1"
-            elif re.match(r"^([a-fA-F\d]{64})$", value):
+            split_by = "," if "," in value else " "
+            tmp_value = value.split(split_by)[0]
+            if len(tmp_value) == 64 and re.match(r"^([a-fA-F\d]{64})$", tmp_value):
                 term = "sha256"
-            elif re.match(r"^([a-fA-F\d]{96})$", value):
+            elif len(tmp_value) == 32 and re.match(r"^([a-fA-F\d]{32})$", tmp_value):
+                term = "md5"
+            elif len(tmp_value) == 40 and re.match(r"^([a-fA-F\d]{40})$", tmp_value):
+                term = "sha1"
+            elif len(tmp_value) == 96 and re.match(r"^([a-fA-F\d]{96})$", tmp_value):
                 term = "sha3"
-            elif re.match(r"^([a-fA-F\d]{128})$", value):
+            elif len(tmp_value) == 128 and re.match(r"^([a-fA-F\d]{128})$", tmp_value):
                 term = "sha512"
 
         if term == "ids":

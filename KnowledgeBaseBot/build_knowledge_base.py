@@ -35,12 +35,12 @@ model = SentenceTransformer(MODEL_NAME)
 if os.path.exists(INDEX_FILE):
     print("Loading existing knowledge base...")
     index = faiss.read_index(INDEX_FILE)
-    with open(METADATA_FILE, "rb") as f:
-        metadata = pickle.load(f)
-    with open(TEXTS_FILE, "rb") as f:
-        all_texts = pickle.load(f)
-    with open(STATE_FILE, "rb") as f:
-        last_update_time = pickle.load(f)
+    with open(METADATA_FILE, "r") as f:
+        metadata = json.load(f)
+    with open(TEXTS_FILE, "r") as f:
+        all_texts = json.load(f)
+    with open(STATE_FILE, "r") as f:
+        last_update_time = datetime.fromisoformat(json.load(f))
     print(f"Knowledge base loaded. Last update was at: {last_update_time}")
 else:
     print("No existing knowledge base found. Creating a new one.")

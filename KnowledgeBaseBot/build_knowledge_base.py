@@ -44,6 +44,7 @@ if os.path.exists(INDEX_FILE):
     with open(STATE_FILE, "r") as f:
         last_update_time = datetime.fromisoformat(json.load(f))
     print(f"Knowledge base loaded. Last update was at: {last_update_time}")
+    new_issues = repo.get_issues(state='all', since=last_update_time)
 else:
     print("No existing knowledge base found. Creating a new one.")
     index = None
@@ -51,7 +52,7 @@ else:
     all_texts = []
     # Set a very old date to fetch all issues for the first time
     last_update_time = datetime(1970, 1, 1, tzinfo=timezone.utc)
-
+    new_issues = repo.get_issues(state='all')
     # Initial processing of documentation (only on first build)
     print("Processing documentation for the first time...")
     loader = DirectoryLoader(DOCS_PATH, glob="**/*.rst")
@@ -67,7 +68,6 @@ else:
 print(f"Fetching issues updated since {last_update_time.isoformat()}...")
 # The 'since' parameter fetches issues updated on or after the given time
 # be aware since might not work
-new_issues = repo.get_issues(state='all', since=last_update_time)
 
 new_issue_texts = []
 new_issue_metadata = []

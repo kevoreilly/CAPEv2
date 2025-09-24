@@ -9,7 +9,11 @@ import google.generativeai as genai
 # --- Configuration ---
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 REPO_NAME = os.getenv('REPO_NAME')
-ISSUE_NUMBER = int(os.getenv('ISSUE_NUMBER'))
+try:
+    ISSUE_NUMBER = int(os.getenv('ISSUE_NUMBER'))
+except (TypeError, ValueError):
+    print("Error: Invalid or missing ISSUE_NUMBER environment variable. Exiting.")
+    exit(1)
 MODEL_NAME = 'all-MiniLM-L6-v2'
 K_NEAREST_NEIGHBORS = 5 # Number of similar items to retrieve
 genai.configure(api_key=os.getenv('GEMINI_API_KEY'))

@@ -1,12 +1,12 @@
 import os
 import json
 import faiss
-import pickle
 import numpy as np
+from github import Auth
 from github import Github
 from sentence_transformers import SentenceTransformer
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.document_loaders import DirectoryLoader
+from langchain_community.document_loaders import DirectoryLoader
 from datetime import datetime, timezone
 
 # --- Configuration ---
@@ -27,7 +27,8 @@ STATE_FILE = "kb_state.json"
 # download_pandoc()
 
 # --- Initialization ---
-g = Github(GITHUB_TOKEN)
+auth = Auth.Token(GITHUB_TOKEN)
+g = Github(auth=auth)
 # auth=github.Auth.Token(...)
 repo = g.get_repo(REPO_NAME)
 model = SentenceTransformer(MODEL_NAME)
@@ -65,16 +66,19 @@ else:
 # --- Fetch New Issues from GitHub ---
 print(f"Fetching issues updated since {last_update_time.isoformat()}...")
 # The 'since' parameter fetches issues updated on or after the given time
+# be aware since might not work
 new_issues = repo.get_issues(state='all', since=last_update_time)
 
 new_issue_texts = []
 new_issue_metadata = []
 latest_issue_time = last_update_time
+existing_issue_urls = {m['url'] for m in metadata if m.get('source') == 'issue'}
 
 for issue in new_issues:
     # We check the updated_at time to ensure we save the most recent timestamp
-    if issue.updated_at.replace(tzinfo=timezone.utc) > latest_issue_time:
-        latest_issue_time = issue.updated_at.replace(tzinfo=timezone.utc)
+    # ToDo this doesn't work properly
+    #if issue.updated_at.replace(tzinfo=timezone.utc) > latest_issue_time:
+    #    latest_issue_time = issue.updated_at.replace(tzinfo=timezone.utc)
 
     # Simple logic to avoid adding duplicates. For a robust system, you might check IDs.
     issue_url = issue.html_url

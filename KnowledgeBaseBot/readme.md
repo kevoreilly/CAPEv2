@@ -29,7 +29,7 @@ uv pip install -r requirements.txt --no-build-isolation
 uv run python build_knowledge_base.py
 ```
 
-* After it finishes, you will see three new files in your folder: unified_index.faiss, metadata.pkl, and all_texts.pkl. These files are your bot's knowledge base.
+* After it finishes, you will see four new files in your folder: unified_index.faiss, metadata.pkl, all_texts.pkl, and kb_state.pkl. These files are your bot's knowledge base.
 
 ### Phase 2: Deploy to GitHub
 Now you just need to upload everything to your repository.

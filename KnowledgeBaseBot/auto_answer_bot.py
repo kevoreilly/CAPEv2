@@ -22,10 +22,10 @@ model = SentenceTransformer(MODEL_NAME)
 
 # --- Load the Unified Knowledge Base ---
 index = faiss.read_index("unified_index.faiss")
-with open("metadata.pkl", "rb") as f:
-    metadata = pickle.load(f)
-with open("all_texts.pkl", "rb") as f:
-    all_texts = pickle.load(f)
+with open("metadata.json", "rb") as f:
+    metadata = json.load(f)
+with open("all_texts.json", "rb") as f:
+    all_texts = json.load(f)
 
 # --- Process the New Issue ---
 new_issue_text = f"Title: {issue.title}\nBody: {issue.body}"

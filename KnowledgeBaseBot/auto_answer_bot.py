@@ -1,7 +1,6 @@
 import os
+import json
 import faiss
-import pickle
-import numpy as np
 from github import Github
 from sentence_transformers import SentenceTransformer
 import google.generativeai as genai

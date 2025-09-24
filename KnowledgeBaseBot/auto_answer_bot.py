@@ -24,7 +24,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 g = Github(GITHUB_TOKEN)
 repo = g.get_repo(REPO_NAME)
 issue = repo.get_issue(number=ISSUE_NUMBER)
-model = SentenceTransformer(MODEL_NAME)
+llm_model = SentenceTransformer(MODEL_NAME)
 
 # --- Load the Unified Knowledge Base ---
 index = faiss.read_index("unified_index.faiss")
@@ -35,7 +35,7 @@ with open("all_texts.json", "rb") as f:
 
 # --- Process the New Issue ---
 new_issue_text = f"Title: {issue.title}\nBody: {issue.body}"
-new_issue_embedding = model.encode([new_issue_text]).astype('float32')
+new_issue_embedding = llm_model.encode([new_issue_text]).astype('float32')
 
 # --- Semantic Search ---
 distances, indices = index.search(new_issue_embedding, K_NEAREST_NEIGHBORS)
@@ -85,12 +85,12 @@ system_instruction = "You are an expert GitHub support assistant. Your mission i
 
 # https://ai.google.dev/gemini-api/docs/models
 # Create the model with the system instruction
-model = genai.GenerativeModel(
+generative_model = genai.GenerativeModel(
     model_name="gemini-2.5-flash",
     system_instruction=system_instruction
 )
 
-response = model.generate_content(prompt)
+response = generative_model.generate_content(prompt)
 # --- Post the Comment ---
 final_comment = f"Hello @{issue.user.login}, thanks for reaching out.\n\n"
 final_comment += response.text

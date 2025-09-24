@@ -49,7 +49,7 @@ git push
 * A user opens a new issue in your repository.
 * The `auto_answer.yml` workflow automatically triggers.
 * It runs the `auto_answer_bot.py` script.
-* The bot reads the new issue, searches for similar content in your knowledge base files (.faiss and .pkl), generates a helpful response using OpenAI, and posts it as a comment.
+* The bot reads the new issue, searches for similar content in your knowledge base files (.faiss and .pkl), generates a helpful response using Google Gemini, and posts it as a comment.
 
 
 ### Maintenance

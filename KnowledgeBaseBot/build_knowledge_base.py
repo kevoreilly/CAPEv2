@@ -128,12 +128,12 @@ else:
 # --- Save the Updated Knowledge Base and State ---
 print("Saving knowledge base and state...")
 faiss.write_index(index, INDEX_FILE)
-with open(METADATA_FILE, "wb") as f:
-    pickle.dump(metadata, f)
-with open(TEXTS_FILE, "wb") as f:
-    pickle.dump(all_texts, f)
+with open(METADATA_FILE, "w") as f:
+    json.dump(metadata, f, indent=2)
+with open(TEXTS_FILE, "w") as f:
+    json.dump(all_texts, f, indent=2)
 # Save the timestamp of the latest issue we processed for the next run
-with open(STATE_FILE, "wb") as f:
-    pickle.dump(latest_issue_time, f)
+with open(STATE_FILE, "w") as f:
+    json.dump(latest_issue_time.isoformat(), f)
 
 print("Process complete!")

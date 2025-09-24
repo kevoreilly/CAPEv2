@@ -23,7 +23,7 @@ jobs:
           enable-cache: true
 
       - name: Install the project
-        run: uv pip install -r requirements.txt
+        run: uv run pip install -r requirements.txt
 
       - name: Run the answer bot with uv run
         env:

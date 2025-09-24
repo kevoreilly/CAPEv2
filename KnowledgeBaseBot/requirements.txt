@@ -4,7 +4,7 @@ PyGithub
 sentence-transformers
 faiss-cpu
 numpy
-pickle-mixin
+# pickle-mixin
 langchain
 unstructured[rst]
 beautifulsoup4

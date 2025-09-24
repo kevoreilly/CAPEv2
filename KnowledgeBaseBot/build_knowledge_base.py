@@ -1,4 +1,5 @@
 import os
+import json
 import faiss
 import pickle
 import numpy as np
@@ -17,13 +18,13 @@ MODEL_NAME = 'all-MiniLM-L6-v2' # An efficient embedding model
 
 # --- File Paths for State ---
 INDEX_FILE = "unified_index.faiss"
-METADATA_FILE = "metadata.pkl"
-TEXTS_FILE = "all_texts.pkl"
-STATE_FILE = "kb_state.pkl" # New file to store the last update time
+METADATA_FILE = "metadata.json"
+TEXTS_FILE = "all_texts.json"
+STATE_FILE = "kb_state.json"
 
 # init pandoc
-from pypandoc.pandoc_download import download_pandoc
-download_pandoc()
+# from pypandoc.pandoc_download import download_pandoc
+# download_pandoc()
 
 # --- Initialization ---
 g = Github(GITHUB_TOKEN)
@@ -59,20 +60,6 @@ else:
     for chunk in doc_chunks:
         all_texts.append(chunk.page_content)
         metadata.append({'source': 'documentation', 'file': chunk.metadata.get('source', 'N/A')})
-
-# --- Process Documentation ---
-print("Processing documentation...")
-# Use DirectoryLoader to load all .md files from the directory
-loader = DirectoryLoader(DOCS_PATH, glob="**/*.rst")
-docs = loader.load()
-
-# Split the documents into smaller, manageable chunks
-text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-doc_chunks = text_splitter.split_documents(docs)
-
-for chunk in doc_chunks:
-    all_texts.append(chunk.page_content)
-    metadata.append({'source': 'documentation', 'file': chunk.metadata.get('source', 'N/A')})
 
 # --- Process GitHub Issues ---
 # --- Fetch New Issues from GitHub ---

@@ -91,7 +91,7 @@ for issue in new_issues:
 
     # Simple logic to avoid adding duplicates. For a robust system, you might check IDs.
     issue_url = issue.html_url
-    if any(m.get('url') == issue_url for m in metadata if m['source'] == 'issue'):
+    if issue_url in existing_issue_urls:
         print(f"Skipping issue #{issue.number} as it might be a duplicate or minor update.")
         continue
 

@@ -32,4 +32,4 @@ jobs:
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           REPO_NAME: ${{ github.repository }}
         # This single step installs dependencies (if needed) and runs the script
-        run: uv run python auto_answer_bot.py
+        run: cd KnowledgeBaseBot && uv run python auto_answer_bot.py

@@ -54,15 +54,32 @@ context = "\n\n".join(context_pieces)
 
 # --- Generate Answer with LLM (Improved Prompt) ---
 prompt = f"""
-A user has created a new GitHub issue. Below are the new issue's details and relevant excerpts from the official documentation and previously resolved issues.
+You are an expert GitHub Triage Assistant for an open-source project. Your primary goal is to ensure every issue is actionable for the developers. Your secondary goal is to answer questions using the provided context. Follow these steps in order:
 
-Based **strictly** on the provided context, generate a clear and helpful response.
-- If the documentation context answers the question, summarize that information.
-- If a past issue offers a solution, explain it clearly.
-- Cite your sources using the issue URLs or documentation filenames provided in the context.
-- If the context is not relevant enough or has lack of information. Requesst it from the user.
-- Make clear that this is open source project and there is no paid support and all support is done in free time by devs and community.
+**Step 1: Triage the User's Issue Quality**
+First, analyze the "New Issue" content. Does it contain enough detail to be actionable?
+- **GOOD ISSUE:** It has a clear description, steps to reproduce, error messages, or a specific question.
+- **POOR ISSUE:** It's a short, vague question (e.g., "it doesn't work"), it's missing crucial details, or the user has deleted the issue template.
 
+**Step 2: Take Action Based on Triage**
+
+<if_issue_is_poor>
+- Gently inform the user that more information is needed for the community to help.
+- Explain *why* details are important (e.g., "to understand the context and reproduce the problem").
+- Provide a clear, actionable list of what's missing. Use the official issue template as a guide (e.g., "Please provide steps to reproduce, the version you are using, and any error logs.").
+- Politely remind them that this is a community-supported open-source project and that clear, detailed reports are the best way to get helpful and fast responses from volunteers.
+- **Do NOT attempt to answer the question.** Your only goal is to improve the quality of the issue report.
+</if_issue_is_poor>
+
+<if_issue_is_good>
+- Acknowledge their well-detailed report.
+- Now, analyze the "Relevant Context" provided (from documentation and past issues).
+- Generate a clear and helpful response based **strictly** on this context.
+- If the documentation provides an answer, summarize it and cite the source file.
+- If a past issue offers a solution, explain it and provide the URL to that issue.
+- If the context doesn't seem to fully resolve their detailed question, state that and mention a maintainer will look into it.
+- Conclude by thanking them for their contribution to the project.
+</if_issue_is_good>
 **New Issue:**
 {new_issue_text}
 

@@ -15,7 +15,10 @@ except (TypeError, ValueError):
     exit(1)
 MODEL_NAME = 'all-MiniLM-L6-v2'
 K_NEAREST_NEIGHBORS = 5 # Number of similar items to retrieve
-genai.configure(api_key=os.getenv('GEMINI_API_KEY'))
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+if not GEMINI_API_KEY:
+    exit("Missed GEMINI api key")
+genai.configure(api_key=GEMINI_API_KEY)
 
 # --- Initialization ---
 g = Github(GITHUB_TOKEN)

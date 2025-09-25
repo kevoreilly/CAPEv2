@@ -674,16 +674,18 @@ $(document).ready( function() {
                                         <input type="checkbox" name="nohuman" /> Disable automated interaction
                                     </label>
                                 </div>
+                                {% if config.interactive_desktop %}
                                 <div class="form-check">
                                     <label>
-                                        <input type="checkbox" name="interactive" /> Interactive desktop
+                                        <input type="checkbox" id="interactive" name="interactive" /> Interactive desktop
                                     </label>
                                 </div>
                                 <div class="form-check">
                                     <label>
-                                        <input type="checkbox" name="manual" /> Manual detonation. Must be used with Interactive desktop
+                                        <input type="checkbox" id="manual" name="manual" disabled /> Manual detonation <span class="text-muted"><small>(Must be used with Interactive desktop!)</small></span>
                                     </label>
                                 </div>
+                                {% endif %}
                                 {% if config.kernel %}
                                 <div class="form-check">
                                     <label>
@@ -711,4 +713,22 @@ $(document).ready( function() {
         </form>
     </div>
 </div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+    const interactive = document.getElementById("interactive");
+    const manual = document.getElementById("manual");
+
+    if (interactive && manual) {
+        const syncManualCheckbox = () => {
+            manual.disabled = !interactive.checked;
+            if (!interactive.checked) {
+                manual.checked = false;
+            }
+        };
+
+        syncManualCheckbox();
+        interactive.addEventListener("change", syncManualCheckbox);
+    }
+});
+</script>
 {% endblock %}

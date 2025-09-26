@@ -53,7 +53,7 @@ class GCS(Report):
         credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
         if not os.path.isfile(credentials_path):
             raise CuckooReportError(
-                f"GCS credentials_path '{credentials_path}' is invalid or file does not exist in reporting.conf -> gcs"
+                "GCS credentials_path '%s' is invalid or file does not exist in reporting.conf -> gcs", credentials_path
             )
 
         # Read the exclusion lists, defaulting to empty strings
@@ -66,9 +66,9 @@ class GCS(Report):
         exclude_files = {item.strip() for item in exclude_files_str.split(",") if item.strip()}
 
         if exclude_dirs:
-            log.debug(f"GCS reporting will exclude directories: {exclude_dirs}")
+            log.debug("GCS reporting will exclude directories: %s", exclude_dirs)
         if exclude_files:
-            log.debug(f"GCS reporting will exclude files: {exclude_files}")
+            log.debug("GCS reporting will exclude files: %s", exclude_files)
 
         try:
             # --- Authentication ---
@@ -80,7 +80,7 @@ class GCS(Report):
             # Check if the bucket exists and is accessible
             if not bucket.exists():
                 raise CuckooReportError(
-                    f"The specified GCS bucket '{bucket_name}' does not exist or you don't have permission to access it."
+                    "The specified GCS bucket '%s' does not exist or you don't have permission to access it.", bucket_name
                 )
 
             # --- File Upload ---
@@ -89,7 +89,7 @@ class GCS(Report):
             if not analysis_id:
                 raise CuckooReportError("Could not get analysis ID from results.")
 
-            log.debug(f"Uploading files for analysis ID {analysis_id} to GCS bucket '{bucket_name}'")
+            log.debug("Uploading files for analysis ID %d to GCS bucket '%s'", analysis_id, bucket_name)
 
             # self.analysis_path is the path to the analysis results directory
             # e.g., /opt/cape/storage/analyses/123/
@@ -103,19 +103,19 @@ class GCS(Report):
                 for filename in files:
                     # --- NEW: File Exclusion Logic ---
                     if filename in exclude_files:
-                        log.debug(f"Skipping excluded file: {os.path.join(root, filename)}")
+                        log.debug("Skipping excluded file: %s", os.path.join(root, filename))
                         continue  # Skip to the next file
 
                     local_path = os.path.join(root, filename)
                     relative_path = os.path.relpath(local_path, source_directory)
                     blob_name = f"{analysis_id}/{relative_path}"
 
-                    log.debug(f"Uploading '{local_path}' to '{blob_name}'")
+                    log.debug("Uploading '%s' to '%s'", local_path, blob_name)
 
                     blob = bucket.blob(blob_name)
                     blob.upload_from_filename(local_path)
 
-            log.info(f"Successfully uploaded files for analysis {analysis_id} to GCS.")
+            log.info("Successfully uploaded files for analysis %d to GCS.", analysis_id)
 
         except Exception as e:
-            raise CuckooReportError(f"Failed to upload report to GCS: {e}")
+            raise CuckooReportError("Failed to upload report to GCS: %s", str(e))

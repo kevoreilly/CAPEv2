@@ -41,13 +41,17 @@ class GCS(Reporting):
             return
 
         # Read configuration options from gcs.conf
+        # Read configuration options from gcs.conf and validate them
         bucket_name = self.options.get("bucket_name")
-        credentials_path = self.options.get("credentials_path", "")
-        credentials_path = os.path.join(CUCKOO_ROOT, credentials_path)
-        # Validate configuration
         if not bucket_name:
             raise CuckooReportError("GCS bucket_name is not configured in reporting.conf -> gcs")
-        if not credentials_path or not os.path.exists():
+
+        credentials_path_str = self.options.get("credentials_path")
+        if not credentials_path_str:
+            raise CuckooReportError("GCS credentials_path is not configured in reporting.conf -> gcs")
+
+        credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
+        if not os.path.isfile(credentials_path):
             raise CuckooReportError(
                 f"GCS credentials_path '{credentials_path}' is invalid or file does not exist in reporting.conf -> gcs"
             )

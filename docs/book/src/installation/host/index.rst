@@ -13,3 +13,4 @@ reference system for the commands examples.
     configuration
     routing
     cloud
+    gcs

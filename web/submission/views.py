@@ -328,6 +328,9 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("process_memory"):
             options += "procmemdump=1,"
 
+        if request.POST.get("amsidump"):
+            options += "amsidump=1,"
+
         if request.POST.get("import_reconstruction"):
             options += "import_reconstruction=1,"
 

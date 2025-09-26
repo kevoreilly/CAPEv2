@@ -1,7 +1,7 @@
 import os
 import logging
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.abstracts import Reporting
+from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 
 # Set up a logger for this module
@@ -17,17 +17,17 @@ except ImportError:
     HAVE_GCS = False
 
 
-class GCS(Reporting):
+class GCS(Report):
     """
     Uploads all analysis files to a Google Cloud Storage (GCS) bucket.
     """
 
-    # This reporting module is not executed by default
+    # This Report module is not executed by default
     order = 9999
 
     def run(self, results):
         """
-        Run the reporting module.
+        Run the Report module.
 
         Args:
             results (dict): The analysis results dictionary.
@@ -47,7 +47,7 @@ class GCS(Reporting):
         # Validate configuration
         if not bucket_name:
             raise CuckooReportError("GCS bucket_name is not configured in reporting.conf -> gcs")
-        if not credentials_path or not os.path.exists():
+        if not credentials_path or not os.path.exists(credentials_path):
             raise CuckooReportError(
                 f"GCS credentials_path '{credentials_path}' is invalid or file does not exist in reporting.conf -> gcs"
             )

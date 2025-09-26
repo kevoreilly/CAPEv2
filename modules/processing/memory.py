@@ -9,9 +9,8 @@
 import json
 import logging
 import os
-from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
-
+from contextlib import suppress
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -28,7 +27,6 @@ JsonRenderer = ""
 
 try:
     import volatility3.plugins
-    import volatility3.symbols
     from volatility3 import framework
     from volatility3.cli.text_renderer import JsonRenderer
     from volatility3.framework import automagic, constants, contexts, interfaces, plugins
@@ -57,7 +55,9 @@ class MuteProgress:
     def __call__(self, progress: Union[int, float], description: str = None):
         pass
 
+
 if HAVE_VOLATILITY:
+
     class ReturnJsonRenderer(JsonRenderer):
         def render(self, grid: interfaces.renderers.TreeGrid):
             final_output = ({}, [])
@@ -100,47 +100,41 @@ class VolatilityAPI:
         self.memdump = f"file:///{memdump}" if not memdump.startswith("file:///") and path_exists(memdump) else memdump
 
     def run(self, plugin_class, pids=None, round=1):
-        """Module which initialize all volatility 3 internals
-        https://github.com/volatilityfoundation/volatility3/blob/stable/doc/source/using-as-a-library.rst
-        @param plugin_class: plugin class. Ex. windows.pslist.PsList
-        @param plugin_class: plugin class. Ex. windows.pslist.PsList
-        @param pids: pid list -> abstrats.py -> get_pids(), for custom scripts
-        @param round: read -> https://github.com/volatilityfoundation/volatility3/pull/504
-        @return: Volatility3 interface.
-
-        """
+        """Initializes and runs a Volatility 3 plugin."""
         if not self.loaded:
-            self.ctx = contexts.Context()
-            constants.PARALLELISM = constants.Parallelism.Off
-            framework.import_files(volatility3.plugins, True)
-            self.automagics = automagic.available(self.ctx)
-            self.plugin_list = framework.list_plugins()
-            seen_automagics = set()
-            # volatility3.symbols.__path__ = [symbols_path] + constants.SYMBOL_BASEPATHS
-            for amagic in self.automagics:
-                if amagic in seen_automagics:
-                    continue
-                seen_automagics.add(amagic)
-
-            single_location = self.memdump
-            self.ctx.config["automagic.LayerStacker.single_location"] = single_location
-            if path_exists(yara_rules_path):
-                self.ctx.config["plugins.YaraScan.yara_compiled_file"] = f"file:///{yara_rules_path}"
+            self._initialize_volatility()
 
         if pids is not None:
             self.ctx.config["sandbox_pids"] = pids
             self.ctx.config["sandbox_round"] = round
 
         plugin = self.plugin_list.get(plugin_class)
+        if not plugin:
+            log.error("Volatility plugin %s not found.", plugin_class)
+            return {}
+
         try:
             automagics = automagic.choose_automagic(self.automagics, plugin)
             constructed = plugins.construct_plugin(self.ctx, automagics, plugin, "plugins", None, None)
             runned_plugin = constructed.run()
-            json_data, error = ReturnJsonRenderer().render(runned_plugin)
-            return json_data  # , error
-        except AttributeError:
-            log.error("Failing %s on %s", plugin_class, self.memdump)
+            json_data, _ = ReturnJsonRenderer().render(runned_plugin)
+            return json_data
+        except (AttributeError, UnsatisfiedException) as e:
+            log.error("Failing %s on %s: %s", plugin_class, self.memdump, e)
             return {}
+
+    def _initialize_volatility(self):
+        """Initializes the Volatility 3 framework context."""
+        self.ctx = contexts.Context()
+        constants.PARALLELISM = constants.Parallelism.Off
+        framework.import_files(volatility3.plugins, True)
+        self.automagics = automagic.available(self.ctx)
+        self.plugin_list = framework.list_plugins()
+
+        self.ctx.config["automagic.LayerStacker.single_location"] = self.memdump
+        if path_exists(yara_rules_path):
+            self.ctx.config["plugins.YaraScan.yara_compiled_file"] = f"file:///{yara_rules_path}"
+        self.loaded = True
 
 
 """ keeping at the moment to see if we want to integrate more
@@ -295,25 +289,26 @@ class VolatilityManager:
     def do_strings(self):
         if not self.options.basic.dostrings:
             return None
-        try:
-            data = Path(self.memfile).read_bytes()
-        except (IOError, OSError, MemoryError) as e:
-            raise CuckooProcessingError(f"Error opening file {e}") from e
 
-        nulltermonly = self.options.basic.get("strings_nullterminated_only", True)
-        minchars = str(self.options.basic.get("strings_minchars", 5)).encode()
+        strings_path = f"{self.memfile}.strings"
+        minchars = self.options.basic.get("strings_minchars", 5)
 
-        if nulltermonly:
-            apat = b"([\x20-\x7e]{" + minchars + b",})\x00"
-            upat = b"((?:[\x20-\x7e][\x00]){" + minchars + b",})\x00\x00"
-        else:
-            apat = b"[\x20-\x7e]{" + minchars + b",}"
-            upat = b"(?:[\x20-\x7e][\x00]){" + minchars + b",}"
+        apat = re.compile(b"[\x20-\x7e]{%d,}" % minchars)
+        upat = re.compile(b"(?:[\x20-\x7e]\x00){%d,}" % minchars)
 
-        strings = re.findall(apat, data) + [ws.decode("utf-16le").encode() for ws in re.findall(upat, data)]
-        _ = Path(f"{self.memfile}.strings").write_bytes(b"\n".join(strings))
+        with open(strings_path, "wb") as outfile:
+            try:
+                with open(self.memfile, "rb") as infile:
+                    for chunk in iter(lambda: infile.read(1024 * 1024), b""):
+                        for match in apat.finditer(chunk):
+                            outfile.write(match.group(0) + b"\n")
+                        for match in upat.finditer(chunk):
+                            with suppress(UnicodeError):
+                                outfile.write(match.group(0).decode("utf-16le").encode("utf-8") + b"\n")
+            except (IOError, OSError) as e:
+                raise CuckooProcessingError(f"Error opening file {e}") from e
 
-        return f"{self.memfile}.strings"
+        return strings_path
 
     def cleanup(self):
         """Delete the memory dump (if configured to do so)."""

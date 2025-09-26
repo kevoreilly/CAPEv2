@@ -95,7 +95,7 @@ class AzSniffer(Auxiliary):
             result = poller.result()
 
             self.blob_url = result.storage_location.storage_path
-            log.info("Started Azure Network Watcher packet capture: %s",self.capture_name)
+            log.info("Started Azure Network Watcher packet capture: %s", self.capture_name)
             log.debug("Blob URL for packet capture: %s", self.blob_url)
         except AzureError as e:
             log.error("Azure error occurred while creating packet capture: %s", str(e))

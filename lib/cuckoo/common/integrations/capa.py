@@ -5,6 +5,7 @@
 import collections
 import logging
 import os
+
 # from contextlib import suppress
 from typing import Any, Dict, Set
 
@@ -236,6 +237,7 @@ def render_dictionary(doc) -> Dict[str, Any]:
     render_capabilities(doc, result)
     return result
 
+
 # ===== CAPA END
 
 
@@ -277,7 +279,9 @@ def flare_capa_details(
 
             capabilities = capa.capabilities.common.find_capabilities(rules, extractor, disable_progress=disable_progress)
             # collect metadata (used only to make rendering more complete)
-            meta = capa.loader.collect_metadata([], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor, capabilities)
+            meta = capa.loader.collect_metadata(
+                [], file_path_object, FORMAT_AUTO, OS_AUTO, [path_object(rules_path)], extractor, capabilities
+            )
             meta.analysis.layout = capa.loader.compute_layout(rules, extractor, capabilities.matches)
             capa_output: Any = False
 
@@ -302,4 +306,5 @@ def flare_capa_details(
 if __name__ == "__main__":
     import sys
     from lib.cuckoo.common.integrations.capa import flare_capa_details, HAVE_FLARE_CAPA
+
     details = flare_capa_details(sys.argv[1], "static", on_demand=True)

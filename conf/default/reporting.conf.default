@@ -217,11 +217,9 @@ enabled = no
 [browserext]
 enabled = no
 
-# Google Cloud Storage
+# Google Cloud Storage - Store all copy of analysis foldr in GCS
 [gcs]
-# Is this reporting module enabled?
 enabled = no
-
 # The name of your Google Cloud Storage bucket where files will be uploaded.
 bucket_name = your-gcs-bucket-name
 

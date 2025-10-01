@@ -18,6 +18,7 @@ Before installing the module, you need to prepare your Google Cloud environment.
     * Grant it the **Storage Object Creator** or **Storage Object Admin** role. This permission is necessary to write files to the bucket.
 
 3.  **Download JSON Key:**
+    * This step is optional if you use ``auth_by=vm``
     * After creating the service account, go to its **Keys** tab.
     * Click **Add Key** > **Create new key**.
     * Select ``JSON`` as the key type and click **Create**. A JSON file will be downloaded.
@@ -40,6 +41,7 @@ Module Installation and Configuration
     * Edit ``/opt/CAPEv2/conf/reporting.conf``.
     * ``[gcs]`` section, enable ``enabled=yes``.
     * Set ``bucket_name`` to the name of your GCS bucket.
+    * Set ``auth_by`` to ``vm`` if using system account or ``json`` if using credential file.
     * Set ``credentials_path`` to the **absolute path** where you saved your service account JSON key file.
 
 3.  **Restart CAPE-processor:**

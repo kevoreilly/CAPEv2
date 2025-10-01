@@ -45,16 +45,22 @@ class GCS(Report):
         bucket_name = self.options.get("bucket_name")
         if not bucket_name:
             raise CuckooReportError("GCS bucket_name is not configured in reporting.conf -> gcs")
+        auth_by = self.options.get("auth_by")
+        if auth_by == "vm":
+            storage_client = storage.Client()
+        else:
+            credentials_path_str = self.options.get("credentials_path")
+            if not credentials_path_str:
+                raise CuckooReportError("GCS credentials_path is not configured in reporting.conf -> gcs")
 
-        credentials_path_str = self.options.get("credentials_path")
-        if not credentials_path_str:
-            raise CuckooReportError("GCS credentials_path is not configured in reporting.conf -> gcs")
+            credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
+            if not os.path.isfile(credentials_path):
+                raise CuckooReportError(
+                    "GCS credentials_path '%s' is invalid or file does not exist in reporting.conf -> gcs", credentials_path
+                )
 
-        credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
-        if not os.path.isfile(credentials_path):
-            raise CuckooReportError(
-                "GCS credentials_path '%s' is invalid or file does not exist in reporting.conf -> gcs", credentials_path
-            )
+            credentials = service_account.Credentials.from_service_account_file(credentials_path)
+            storage_client = storage.Client(credentials=credentials)
 
         # Read the exclusion lists, defaulting to empty strings
         exclude_dirs_str = self.options.get("exclude_dirs", "")
@@ -73,8 +79,6 @@ class GCS(Report):
         try:
             # --- Authentication ---
             log.debug("Authenticating with Google Cloud Storage...")
-            credentials = service_account.Credentials.from_service_account_file(credentials_path)
-            storage_client = storage.Client(credentials=credentials)
             bucket = storage_client.bucket(bucket_name)
 
             # Check if the bucket exists and is accessible

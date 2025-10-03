@@ -28,7 +28,7 @@ def is_supported(hash: str, apikey: str) -> bool:
     return True
 
 
-def download(hash: str, apikey: str=None) -> bytes:
+def download(hash: str, apikey: str = None) -> bytes:
     """
     Downloads a file from VirusTotal using the provided hash and API key.
 

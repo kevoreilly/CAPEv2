@@ -1,3 +1,6 @@
+### [03.10.2025]
+* Monitor update: Fix issue with hook_restore config setting being ignored (fixes #2715 - thanks @federicofantini)
+
 ### [23.09.2025]
 * Monitor updates:
     * unhook: attempt restoration of detected hook modifications

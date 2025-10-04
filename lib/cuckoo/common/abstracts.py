@@ -40,7 +40,7 @@ from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
-from lib.cuckoo.core.database import Database, Machine, _Database
+from lib.cuckoo.core.database import Database, Machine, _Database, Task
 
 try:
     import re2 as re
@@ -262,6 +262,13 @@ class Machinery:
         return self.db.count_machines_available(
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
+
+    def find_machine_to_service_task(self, task):
+        """Find a machine that is able to service the given task.
+        This can be overridden by machinery modules for custom logic.
+        By default, it delegates to the database implementation.
+        """
+        return self.db.find_machine_to_service_task(task)
 
     def _machine_can_service_task(self, machine: Machine, task: Task) -> bool:
         """Check if a machine can service a task based on platform, arch, and tags."""

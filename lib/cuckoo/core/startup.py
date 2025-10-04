@@ -396,7 +396,7 @@ def check_snapshot_state():
 
             except libvirt.libvirtError as e:
                 # It's possible a snapshot name is provided but doesn't exist, which is a config error.
-                snapshot_identifier = f"with snapshot '{snapshot_name}'" if "snapshot_name" in locals() and snapshot_name else ""
+                snapshot_identifier = f"with snapshot '{snapshot_name}'" if snapshot_name else ""
                 raise CuckooStartupError(
                     f"Error checking snapshot state for VM '{machine_name}' {snapshot_identifier}. Libvirt error: {e}"
                 )

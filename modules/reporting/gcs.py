@@ -1,5 +1,7 @@
 import os
 import logging
+import tempfile
+import zipfile
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
@@ -40,7 +42,6 @@ class GCS(Report):
             )
             return
 
-        # Read configuration options from gcs.conf
         # Read configuration options from gcs.conf and validate them
         bucket_name = self.options.get("bucket_name")
         if not bucket_name:
@@ -66,8 +67,7 @@ class GCS(Report):
         exclude_dirs_str = self.options.get("exclude_dirs", "")
         exclude_files_str = self.options.get("exclude_files", "")
 
-        # --- NEW: Parse the exclusion strings into sets for efficient lookups ---
-        # The `if item.strip()` ensures we don't have empty strings from trailing commas
+        # Parse the exclusion strings into sets for efficient lookups
         exclude_dirs = {item.strip() for item in exclude_dirs_str.split(",") if item.strip()}
         exclude_files = {item.strip() for item in exclude_files_str.split(",") if item.strip()}
 
@@ -75,6 +75,9 @@ class GCS(Report):
             log.debug("GCS reporting will exclude directories: %s", exclude_dirs)
         if exclude_files:
             log.debug("GCS reporting will exclude files: %s", exclude_files)
+
+        # Get the upload mode, defaulting to 'file' for backward compatibility
+        mode = self.options.get("mode", "file")
 
         try:
             # --- Authentication ---
@@ -87,39 +90,64 @@ class GCS(Report):
                     "The specified GCS bucket '%s' does not exist or you don't have permission to access it.", bucket_name
                 )
 
-            # --- File Upload ---
-            # Use the analysis ID as a "folder" in the bucket
             analysis_id = results.get("info", {}).get("id")
             if not analysis_id:
                 raise CuckooReportError("Could not get analysis ID from results.")
 
-            log.debug("Uploading files for analysis ID %d to GCS bucket '%s'", analysis_id, bucket_name)
-
-            # self.analysis_path is the path to the analysis results directory
-            # e.g., /opt/cape/storage/analyses/123/
             source_directory = self.analysis_path
 
-            for root, dirs, files in os.walk(source_directory):
-                # We modify 'dirs' in-place to prevent os.walk from descending into them.
-                # This is the most efficient way to skip entire directory trees.
-                dirs[:] = [d for d in dirs if d not in exclude_dirs]
-
-                for filename in files:
-                    # --- NEW: File Exclusion Logic ---
-                    if filename in exclude_files:
-                        log.debug("Skipping excluded file: %s", os.path.join(root, filename))
-                        continue  # Skip to the next file
-
-                    local_path = os.path.join(root, filename)
-                    relative_path = os.path.relpath(local_path, source_directory)
-                    blob_name = f"{analysis_id}/{relative_path}"
-
-                    log.debug("Uploading '%s' to '%s'", local_path, blob_name)
-
-                    blob = bucket.blob(blob_name)
-                    blob.upload_from_filename(local_path)
-
-            log.info("Successfully uploaded files for analysis %d to GCS.", analysis_id)
+            if mode == "zip":
+                self.upload_zip_archive(bucket, analysis_id, source_directory, exclude_dirs, exclude_files)
+            elif mode == "file":
+                self.upload_files_individually(bucket, analysis_id, source_directory, exclude_dirs, exclude_files)
+            else:
+                raise CuckooReportError("Invalid GCS upload mode specified: %s. Must be 'file' or 'zip'.", mode)
 
         except Exception as e:
-            raise CuckooReportError("Failed to upload report to GCS: %s", str(e))
+            raise CuckooReportError(f"Failed to upload report to GCS: {e}") from e
+
+    def _iter_files_to_upload(self, source_directory, exclude_dirs, exclude_files):
+        """Generator that yields files to be uploaded, skipping excluded ones."""
+        for root, dirs, files in os.walk(source_directory):
+            # Exclude specified directories
+            dirs[:] = [d for d in dirs if d not in exclude_dirs]
+            for filename in files:
+                # Exclude specified files
+                if filename in exclude_files:
+                    log.debug("Skipping excluded file: %s", os.path.join(root, filename))
+                    continue
+
+                local_path = os.path.join(root, filename)
+                relative_path = os.path.relpath(local_path, source_directory)
+                yield local_path, relative_path
+
+    def upload_zip_archive(self, bucket, analysis_id, source_directory, exclude_dirs, exclude_files):
+        """Compresses and uploads the analysis directory as a single zip file."""
+        log.debug("Compressing and uploading files for analysis ID %d to GCS bucket '%s'", analysis_id, bucket.name)
+        zip_name = "%s.zip" % analysis_id
+        blob_name = zip_name
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
+            tmp_zip_file_name = tmp_zip_file.name
+            with zipfile.ZipFile(tmp_zip_file, "w", zipfile.ZIP_DEFLATED) as archive:
+                for local_path, relative_path in self._iter_files_to_upload(source_directory, exclude_dirs, exclude_files):
+                    archive.write(local_path, relative_path)
+
+        try:
+            log.debug("Uploading '%s' to '%s'", tmp_zip_file_name, blob_name)
+            blob = bucket.blob(blob_name)
+            blob.upload_from_filename(tmp_zip_file_name)
+        finally:
+            os.unlink(tmp_zip_file_name)
+        log.info("Successfully uploaded archive for analysis %d to GCS.", analysis_id)
+
+    def upload_files_individually(self, bucket, analysis_id, source_directory, exclude_dirs, exclude_files):
+        """Uploads analysis files individually to the GCS bucket."""
+        log.debug("Uploading files for analysis ID %d to GCS bucket '%s'", analysis_id, bucket.name)
+        for local_path, relative_path in self._iter_files_to_upload(source_directory, exclude_dirs, exclude_files):
+            blob_name = f"{analysis_id}/{relative_path}"
+            log.debug("Uploading '%s' to '%s'", local_path, blob_name)
+            blob = bucket.blob(blob_name)
+            blob.upload_from_filename(local_path)
+
+        log.info("Successfully uploaded files for analysis %d to GCS.", analysis_id)

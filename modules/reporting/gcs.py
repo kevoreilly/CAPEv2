@@ -142,7 +142,7 @@ class GCS(Report):
                     continue
                 local_path = os.path.join(root, filename)
                 relative_path = os.path.relpath(local_path, source_directory)
-                blob_name = "%s/%s" % (analysis_id, relative_path)
+                blob_name = f"{analysis_id}/{relative_path}"
 
                 log.debug("Uploading '%s' to '%s'", local_path, blob_name)
                 blob = bucket.blob(blob_name)

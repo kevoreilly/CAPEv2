@@ -112,7 +112,8 @@ class GCS(Report):
         zip_name = "%s.zip" % analysis_id
         blob_name = zip_name
 
-        with tempfile.NamedTemporaryFile(delete=False) as tmp_zip_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
+            tmp_zip_file_name = tmp_zip_file.name
             with zipfile.ZipFile(tmp_zip_file, "w", zipfile.ZIP_DEFLATED) as archive:
                 for root, dirs, files in os.walk(source_directory):
                     dirs[:] = [d for d in dirs if d not in exclude_dirs]
@@ -124,11 +125,12 @@ class GCS(Report):
                         relative_path = os.path.relpath(local_path, source_directory)
                         archive.write(local_path, relative_path)
 
-            log.debug("Uploading '%s' to '%s'", tmp_zip_file.name, blob_name)
+        try:
+            log.debug("Uploading '%s' to '%s'", tmp_zip_file_name, blob_name)
             blob = bucket.blob(blob_name)
-            blob.upload_from_filename(tmp_zip_file.name)
-
-        os.unlink(tmp_zip_file.name)
+            blob.upload_from_filename(tmp_zip_file_name)
+        finally:
+            os.unlink(tmp_zip_file_name)
         log.info("Successfully uploaded archive for analysis %d to GCS.", analysis_id)
 
     def upload_files_individually(self, bucket, analysis_id, source_directory, exclude_dirs, exclude_files):

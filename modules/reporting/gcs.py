@@ -104,7 +104,7 @@ class GCS(Report):
                 raise CuckooReportError("Invalid GCS upload mode specified: %s. Must be 'file' or 'zip'.", mode)
 
         except Exception as e:
-            raise CuckooReportError("Failed to upload report to GCS: %s", e)
+            raise CuckooReportError(f"Failed to upload report to GCS: {e}") from e
 
     def upload_zip_archive(self, bucket, analysis_id, source_directory, exclude_dirs, exclude_files):
         """Compresses and uploads the analysis directory as a single zip file."""

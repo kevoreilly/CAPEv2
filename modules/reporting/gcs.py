@@ -42,6 +42,8 @@ class GCS(Report):
             )
             return
 
+        tlp = results.get("info", {}).get("tlp")
+
         # Read configuration options from gcs.conf and validate them
         bucket_name = self.options.get("bucket_name")
         if not bucket_name:
@@ -97,9 +99,9 @@ class GCS(Report):
             source_directory = self.analysis_path
 
             if mode == "zip":
-                self.upload_zip_archive(bucket, analysis_id, source_directory, exclude_dirs, exclude_files)
+                self.upload_zip_archive(bucket, analysis_id, source_directory, exclude_dirs, exclude_files, tlp=tlp)
             elif mode == "file":
-                self.upload_files_individually(bucket, analysis_id, source_directory, exclude_dirs, exclude_files)
+                self.upload_files_individually(bucket, analysis_id, source_directory, exclude_dirs, exclude_files, tlp=tlp)
             else:
                 raise CuckooReportError("Invalid GCS upload mode specified: %s. Must be 'file' or 'zip'.", mode)
 
@@ -121,10 +123,14 @@ class GCS(Report):
                 relative_path = os.path.relpath(local_path, source_directory)
                 yield local_path, relative_path
 
-    def upload_zip_archive(self, bucket, analysis_id, source_directory, exclude_dirs, exclude_files):
+    def upload_zip_archive(self, bucket, analysis_id, source_directory, exclude_dirs, exclude_files, tlp=None):
         """Compresses and uploads the analysis directory as a single zip file."""
         log.debug("Compressing and uploading files for analysis ID %d to GCS bucket '%s'", analysis_id, bucket.name)
-        zip_name = "%s.zip" % analysis_id
+        if tlp:
+            zip_name = "%s_tlp_%s.zip" % analysis_id, tlp
+        else:
+            zip_name = "%s.zip" % analysis_id
+
         blob_name = zip_name
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
@@ -141,11 +147,15 @@ class GCS(Report):
             os.unlink(tmp_zip_file_name)
         log.info("Successfully uploaded archive for analysis %d to GCS.", analysis_id)
 
-    def upload_files_individually(self, bucket, analysis_id, source_directory, exclude_dirs, exclude_files):
+    def upload_files_individually(self, bucket, analysis_id, source_directory, exclude_dirs, exclude_files, tlp=None):
         """Uploads analysis files individually to the GCS bucket."""
         log.debug("Uploading files for analysis ID %d to GCS bucket '%s'", analysis_id, bucket.name)
+        folder_name = analysis_id
+        if tlp:
+            folder_name = "%s_tlp_%s" % analysis_id, tlp
+
         for local_path, relative_path in self._iter_files_to_upload(source_directory, exclude_dirs, exclude_files):
-            blob_name = f"{analysis_id}/{relative_path}"
+            blob_name = f"{folder_name}/{relative_path}"
             log.debug("Uploading '%s' to '%s'", local_path, blob_name)
             blob = bucket.blob(blob_name)
             blob.upload_from_filename(local_path)

@@ -23,7 +23,8 @@ try:
 except ImportError as e:
     log.debug(
         "Could not load auxiliary module DNS_ETW due to '%s'\nIn order to use DNS_ETW functionality, it "
-        "is required to have pywintrace setup in python", str(e)
+        "is required to have pywintrace setup in python",
+        str(e),
     )
 
 __author__ = "[Canadian Centre for Cyber Security] @CybercentreCanada"

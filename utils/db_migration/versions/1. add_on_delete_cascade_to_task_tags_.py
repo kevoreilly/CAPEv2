@@ -11,23 +11,23 @@ Create Date: 2025-04-11 09:58:42.957359
 """
 
 # revision identifiers, used by Alembic.
-revision = '4e000e02a409'
+revision = "4e000e02a409"
 down_revision = None
 
 from alembic import op
 
 
 def upgrade():
-     op.drop_constraint('tasks_tags_task_id_fkey', 'tasks_tags', type_='foreignkey')
-     op.create_foreign_key('tasks_tags_task_id_fkey', 'tasks_tags', 'tasks', ['task_id'], ['id'], ondelete='CASCADE')
+    op.drop_constraint("tasks_tags_task_id_fkey", "tasks_tags", type_="foreignkey")
+    op.create_foreign_key("tasks_tags_task_id_fkey", "tasks_tags", "tasks", ["task_id"], ["id"], ondelete="CASCADE")
 
-     op.drop_constraint('tasks_tags_tag_id_fkey', 'tasks_tags', type_='foreignkey')
-     op.create_foreign_key('tasks_tags_tag_id_fkey', 'tasks_tags', 'tags', ['tag_id'], ['id'], ondelete='CASCADE')
+    op.drop_constraint("tasks_tags_tag_id_fkey", "tasks_tags", type_="foreignkey")
+    op.create_foreign_key("tasks_tags_tag_id_fkey", "tasks_tags", "tags", ["tag_id"], ["id"], ondelete="CASCADE")
 
 
 def downgrade():
-     op.drop_constraint('tasks_tags_task_id_fkey', 'tasks_tags', type_='foreignkey')
-     op.create_foreign_key('tasks_tags_task_id_fkey', 'tasks_tags', 'tasks', ['task_id'], ['id'])
+    op.drop_constraint("tasks_tags_task_id_fkey", "tasks_tags", type_="foreignkey")
+    op.create_foreign_key("tasks_tags_task_id_fkey", "tasks_tags", "tasks", ["task_id"], ["id"])
 
-     op.drop_constraint('tasks_tags_tag_id_fkey', 'tasks_tags', type_='foreignkey')
-     op.create_foreign_key('tasks_tags_tag_id_fkey', 'tasks_tags', 'tags', ['tag_id'], ['id'])
+    op.drop_constraint("tasks_tags_tag_id_fkey", "tasks_tags", type_="foreignkey")
+    op.create_foreign_key("tasks_tags_tag_id_fkey", "tasks_tags", "tags", ["tag_id"], ["id"])

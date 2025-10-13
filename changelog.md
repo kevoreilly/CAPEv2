@@ -1,3 +1,10 @@
+### [13.10.2025]
+* Monitor updates:
+    * Fix debug output for dump-limit config setting
+    * Expand 'DumpImage' debugger action to handle target imagebase address e.g. action0=dumpimage:0x400000,action1=dumpimage:ecx+0x280
+    * GetFunctionByName: bug fixess and improvements (thanks @heck-gd)
+    * Trace: fix issue with long conditional jump target calculation in InstructionHandler()
+
 ### [06.10.2025]
 * Monitor update: Improve debugger breakpoint protection, fixes instruction counting anti-debug detection in CheckPoint ShowStopper (thanks @cccs-mog)
 

@@ -2,7 +2,7 @@ rule DarkCloud {
     meta:
         author = "YungBinary"
         description = "https://x.com/YungBinary/status/1971585972912689643"
-        cape_type = "DartCloud Payload"
+        cape_type = "DarkCloud Payload"
     strings:
         $darkcloud1 = "===============DARKCLOUD===============" fullword wide
         $creds1 = "@GateUrl" wide

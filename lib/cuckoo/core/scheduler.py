@@ -177,6 +177,9 @@ class Scheduler:
 
         task: Optional[Task] = None
         machine: Optional[Machine] = None
+        # Cache available machine stats to avoid repeated DB queries within the loop.
+        available_tags_stats = self.get_available_machine_stats()
+
         # Get the list of all pending tasks in the order that they should be processed.
         for task_candidate in self.db.list_tasks(
             status=TASK_PENDING,
@@ -192,11 +195,32 @@ class Scheduler:
             try:
                 machine = self.machinery_manager.find_machine_to_service_task(task_candidate)
             except CuckooUnserviceableTaskError:
+                requested_tags = ", ".join(tag.name for tag in task_candidate.tags)
+                log_message = (
+                    "Task #{task_id}: {status} unserviceable task because no matching machine could be found. "
+                    "Requested tags: '{tags}'. Available machine tags: {available}. "
+                    "Please check your machinery configuration."
+                )
+
                 if self.cfg.cuckoo.fail_unserviceable:
-                    log.info("Task #%s: Failing unserviceable task", task_candidate.id)
+                    log.info(
+                        log_message.format(
+                            task_id=task_candidate.id,
+                            status="Failing",
+                            tags=requested_tags,
+                            available=available_tags_stats,
+                        )
+                    )
                     self.db.set_status(task_candidate.id, TASK_FAILED_ANALYSIS)
                 else:
-                    log.info("Task #%s: Unserviceable task", task_candidate.id)
+                    log.info(
+                        log_message.format(
+                            task_id=task_candidate.id,
+                            status="Unserviceable",
+                            tags=requested_tags,
+                            available=available_tags_stats,
+                        )
+                    )
                 continue
 
             if machine:

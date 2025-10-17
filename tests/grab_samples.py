@@ -59,9 +59,7 @@ def run(args):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Grab malicious samples from sample.json"
-    )
+    parser = argparse.ArgumentParser(description="Grab malicious samples from sample.json")
 
     parser.add_argument("--family", action="store", dest="family", type=str)
     args = parser.parse_args()

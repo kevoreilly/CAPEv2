@@ -453,7 +453,7 @@ class LibVirtMachinery(Machinery):
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
                 _start_vm_if_necessary(snapshot, vm)
             except libvirt.libvirtError as e:
-                msg = f"Unable to restore snapshot {vm_info.snapshot} on virtual machine {label}. Your snapshot MUST BE in running state!"
+                msg = f"Unable to restore snapshot {vm_info.snapshot} on virtual machine {label}. Please ensure the snapshot is valid."
                 raise CuckooMachineError(msg) from e
             finally:
                 self._disconnect(conn)

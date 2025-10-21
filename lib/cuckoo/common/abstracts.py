@@ -431,6 +431,18 @@ class LibVirtMachinery(Machinery):
 
         snapshot_list = self.vms[label].snapshotListNames(flags=0)
 
+        def _start_vm_if_necessary(snapshot, vm):
+            """Starts VM if snapshot was taken while VM was shutoff.
+            @param snapshot: VM snapshot
+            @param vm: VM reference
+            """
+            xml = ET.fromstring(snapshot.getXMLDesc(flags=0))
+            if xml.findtext("./state") == 'shutoff':
+                try:
+                    vm.create()
+                except libvirt.libvirtError as e:
+                    raise CuckooMachineError(f"Unable to create (start) virtual machine {label}") from e
+
         # If a snapshot is configured try to use it.
         if vm_info.snapshot and vm_info.snapshot in snapshot_list:
             # Revert to desired snapshot, if it exists.
@@ -439,6 +451,7 @@ class LibVirtMachinery(Machinery):
                 vm = self.vms[label]
                 snapshot = vm.snapshotLookupByName(vm_info.snapshot, flags=0)
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
+                _start_vm_if_necessary(snapshot, vm)
             except libvirt.libvirtError as e:
                 msg = f"Unable to restore snapshot {vm_info.snapshot} on virtual machine {label}. Your snapshot MUST BE in running state!"
                 raise CuckooMachineError(msg) from e
@@ -449,6 +462,7 @@ class LibVirtMachinery(Machinery):
             log.debug("Using snapshot %s for virtual machine %s", snapshot.getName(), label)
             try:
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
+                _start_vm_if_necessary(snapshot, self.vms[label])
             except libvirt.libvirtError as e:
                 raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}") from e
             finally:

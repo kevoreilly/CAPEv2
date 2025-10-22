@@ -1241,6 +1241,7 @@ class CommandPipeHandler:
     def _handle_resume(self, data):
         # RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+        self._handle_process(data)
 
     def _handle_shutdown(self, data):
         """Handle attempted shutdowns/restarts.

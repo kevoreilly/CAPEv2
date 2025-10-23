@@ -223,3 +223,6 @@ packages =
 
 [yara_detail]
 enabled = no
+
+[pcap_ng]
+enabled = no

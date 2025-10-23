@@ -2,8 +2,8 @@
 
     <div class="alert alert-primary center">
         <a class="btn btn-secondary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}"><span class="fas fa-download"></span> PCAP</a>
-        {% if pcapng.sha256 %}
-            <a class="btn btn-secondary btn-sm" title="PCAP with embedded TLS keys for use in WireShark." href="{% url "file" "pcapng" id pcapng.sha256 %}"><span class="fas fa-download"></span> PCAP-NG</a>
+        {% if config.pcap_ng %}
+            <a class="btn btn-secondary btn-sm" title="PCAP with embedded TLS keys for use in WireShark." href="{% url "file" "pcapng" id "dump" %}"><span class="fas fa-download"></span> PCAP-NG</a>
         {% endif %}
             <a class="btn btn-secondary btn-sm" href="{% url "file" "pcapzip" id network.pcap_sha256 %}"><span class="fas fa-file-archive"></span><span class="fas fa-download"></span> PCAP</a>
         {% if tlskeys_exists %}

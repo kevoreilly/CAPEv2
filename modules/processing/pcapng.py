@@ -2,7 +2,7 @@ import logging
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.objects import File
-from utils.pcap import PcapToNg, file_exists_not_empty, is_pcapng
+from lib.cuckoo.common.pcap_utils import PcapToNg, file_exists_not_empty, is_pcapng
 from pathlib import Path
 
 log = logging.getLogger(__name__)

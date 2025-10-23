@@ -28,7 +28,7 @@ from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
-from utils.pcap import PcapToNg
+from lib.cuckoo.common.pcap_utils import PcapToNg
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT

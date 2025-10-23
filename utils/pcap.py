@@ -133,11 +133,9 @@ class PcapToNg:
             sslkeys_log: Optional path to the SSLKEYLOGFILE format key log
         """
         self.pcap_path = Path(pcap_path)
-        self.pcapng_path = Path(str(self.pcap_path.suffix) + "ng")
-        if tlsdump_log:
-            self.tlsdump_log = Path(tlsdump_log)
-        if sslkeys_log:
-            self.sslkeys_log = Path(sslkeys_log)
+        self.pcapng_path = Path(f"{self.pcap_path}ng")
+        self.tlsdump_log = Path(tlsdump_log) if tlsdump_log else None
+        self.sslkeys_log = Path(sslkeys_log) if sslkeys_log else None
 
     def generate(self, outfile: Path | str | None = None):
         """Generate a pcapng file by combining the pcap with TLS/SSL key logs.

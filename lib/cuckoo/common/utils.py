@@ -153,7 +153,7 @@ def create_zip(files=False, folder=False, encrypted=False):
 
     mem_zip = BytesIO()
     if encrypted and HAVE_PYZIPPER:
-        zipper = pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES)
+        zipper = pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES)
     else:
         zipper = zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False)
     with zipper as zf:

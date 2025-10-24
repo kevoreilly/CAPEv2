@@ -1964,7 +1964,7 @@ def file(request, category, task_id, dlfile):
                 return resp
             else:
                 mem_zip = BytesIO()
-                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
                     zf.setpassword(settings.ZIP_PWD)
                     if not isinstance(path, list):
                         path = [path]
@@ -2032,7 +2032,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
                 s.seek(0)
                 if zipped and HAVE_PYZIPPER:
                     mem_zip = BytesIO()
-                    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
                         zf.setpassword(settings.ZIP_PWD)
                         zf.writestr(file_name, s.getvalue())
                     file_name += ".zip"

@@ -67,18 +67,23 @@ class PolarProxyProcessor(Processing):
 
         tmp_pcap = os.path.join(temp_dir.name, "tmp.pcap")
 
-        ret, stdout, stderr = run_subprocess([
-            polarproxy_cfg.cfg.mergecap,
-            # Make snaplen consistent across all packets so wireshark doesn't freak out
-            "-s", "262144",
-            # Use pcap format instead of pcapng for Snort
-            "-F", "pcap",
-            # Destination file
-            "-w", tmp_pcap,
-            # Input files
-            self.pcap_path,
-            tls_pcap_path
-        ])
+        ret, stdout, stderr = run_subprocess(
+            [
+                polarproxy_cfg.cfg.mergecap,
+                # Make snaplen consistent across all packets so wireshark doesn't freak out
+                "-s",
+                "262144",
+                # Use pcap format instead of pcapng for Snort
+                "-F",
+                "pcap",
+                # Destination file
+                "-w",
+                tmp_pcap,
+                # Input files
+                self.pcap_path,
+                tls_pcap_path,
+            ]
+        )
 
         if ret == 0:
             log.info("Creating PCAP with decrypted TLS streams")

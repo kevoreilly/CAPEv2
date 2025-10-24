@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 polarproxy = Config("polarproxy")
 routing = Config("routing")
 
+
 class PolarProxy(Auxiliary):
     """Module for generating PCAP with PolarProxy."""
 
@@ -205,7 +206,7 @@ class PolarProxyThread(Thread):
                     self.listen_port,
                     self.pcap,
                     self.log_file,
-                    str(e)
+                    str(e),
                 )
                 self.log_file.close()
                 self.log_file = None

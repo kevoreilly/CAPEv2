@@ -125,7 +125,7 @@ def insert_calls(report, elastic_db=None, mongodb=False):
                 chunk_id = None
                 # If the chunk size is CHUNK_CALL_SIZE or if the loop is completed then store the chunk in DB.
                 if len(chunk) == CHUNK_CALL_SIZE:
-                    to_insert = {"pid": process["process_id"], "calls": chunk , "task_id": report["info"]["id"]}
+                    to_insert = {"pid": process["process_id"], "calls": chunk, "task_id": report["info"]["id"]}
                     with suppress(Exception):
                         chunk_id = mongo_insert_one("calls", to_insert).inserted_id
                     if chunk_id:

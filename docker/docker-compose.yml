@@ -2,7 +2,7 @@ services:
   cape-db:
     image: postgres:bookworm
     hostname: cape-db
-    restart: always
+    restart: unless-stopped
     ports:
       - "127.0.0.1:${PG_PORT:-5432}:5432"
     environment:
@@ -11,20 +11,19 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-cape}
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - ../pg-data:/var/lib/postgresql/data
+      - cape-db-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-cape} -d ${POSTGRES_DB:-cape}"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 30s
-
   
   mongodb:
     image: mongo:6
     command: ["--bind_ip_all"]
     volumes:
-      - ../mongodata:/data/db
+      - cape-mongo-data:/data/db
     ports:
       - "127.0.0.1:${MONGO_PORT:-27017}:27017"
     restart: unless-stopped
@@ -36,7 +35,9 @@ services:
       start_period: 20s
 
   cape-server:
-    build: ./
+    build:
+      context: ../
+      dockerfile: docker/Dockerfile
     hostname: cape-server
     restart: unless-stopped
     depends_on:
@@ -55,3 +56,7 @@ services:
     cap_add:
       - NET_ADMIN
       - NET_RAW
+
+volumes:
+  cape-db-data:
+  cape-mongo-data:

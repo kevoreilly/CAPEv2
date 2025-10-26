@@ -17,7 +17,7 @@ rule MyKings
         $s10 = "/ru \"SYSTEM\" /f" ascii
         $s11 = "cmd.exe /C timeout /t 1 & del " wide
         $s12 = "/login.aspx?uid=0" wide
-        $s13 = "Y21kMS5jbWQtMjMwODEyLnJ1Oj" ascii
-    condition: 
+        $s13 = "cmd-230812.ru" base64
+    condition:
         uint16(0) == 0x5a4d and (3 of ($s*))
 }

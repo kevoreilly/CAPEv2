@@ -328,7 +328,7 @@ def check_snapshot_state():
     except ImportError:
         raise CuckooStartupError(
             "The 'libvirt-python' library is required for KVM/QEMU machinery but is not installed. "
-            "Please install it (e.g., 'pip install libvirt-python')."
+            "Please install it (e.g., 'cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/libvirt_installer.sh')."
         )
 
     machinery_config = Config(cuckoo.cuckoo.machinery)

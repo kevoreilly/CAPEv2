@@ -40,7 +40,7 @@ from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
-from lib.cuckoo.core.database import Database, Machine, _Database
+from lib.cuckoo.core.database import Database, Machine, _Database, Task
 
 try:
     import re2 as re
@@ -270,6 +270,48 @@ class Machinery:
         """
         return self.db.find_machine_to_service_task(task)
 
+    def _machine_can_service_task(self, machine: Machine, task: Task) -> bool:
+        """Check if a machine can service a task based on platform, arch, and tags."""
+        # 1. Platform check
+        if task.platform and machine.platform != task.platform:
+            return False
+
+        task_tags = {tag.name for tag in task.tags}
+        machine_tags = {tag.name for tag in machine.tags}
+
+        # Define architecture tags.
+        arch_tags = {"x86", "x64"}  # Add other relevant archs if needed
+        task_arch = next((tag for tag in task_tags if tag in arch_tags), None)
+
+        # 2. Architecture compatibility check
+        if task_arch:
+            if machine.platform == "windows":
+                # 32-bit Windows can't run 64-bit tasks.
+                if machine.arch == "x86" and task_arch == "x64":
+                    return False
+            else:  # Strict matching for Linux/other platforms
+                # The machine's arch must equal the task's arch.
+                if machine.arch != task_arch:
+                    return False
+
+        # 3. Check remaining tags
+        # All tags that are NOT architecture tags must be present on the machine.
+        other_tags = task_tags - arch_tags
+        if not other_tags.issubset(machine_tags):
+            return False
+
+        # For strict platforms (not Windows), the machine must explicitly have the arch tag.
+        if task_arch and machine.platform != "windows":
+            if task_arch not in machine_tags:
+                return False
+
+        # For a Windows machine to run an x64 task, it must have the x64 tag.
+        if task_arch == "x64" and machine.platform == "windows":
+            if "x64" not in machine_tags:
+                return False
+
+        return True
+
     def scale_pool(self, machine: Machine) -> None:
         """This can be overridden in sub-classes to scale the pool of machines once one has been acquired."""
         return
@@ -450,7 +492,7 @@ class LibVirtMachinery(Machinery):
             try:
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
             except libvirt.libvirtError as e:
-                raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}") from e
+                raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}. Your snapshot MUST BE in running state!") from e
             finally:
                 self._disconnect(conn)
         else:

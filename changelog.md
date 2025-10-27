@@ -67,7 +67,7 @@
 * Monitor update: WMI hooks: add handling for VT_NULL and enable WMI_Get logging
 
 ### [06.06.2025]
-* Monitor updates: 
+* Monitor updates:
     * WMI hooks
     * Fix format string vulnerability in debugger StringsOutput() function
 

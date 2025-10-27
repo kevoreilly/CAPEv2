@@ -11,7 +11,7 @@ import logging
 import os
 import sys
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Union, Tuple, Dict
 
 # Sflock does a good filetype recon
@@ -471,8 +471,16 @@ class Task(Base):
     platform: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     memory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     enforce_timeout: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    clock: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
-    added_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
+    clock: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        nullable=False,
+    )
+    added_on: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        nullable=False,
+    )
     started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     completed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     status: Mapped[str] = mapped_column(
@@ -1602,7 +1610,7 @@ class _Database:
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
         if extracted_files and not any(file_path == path for path, _ in extracted_files):
-            _ = self.register_sample(File(file_path), source_url=source_url)
+            parent_sample = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
 

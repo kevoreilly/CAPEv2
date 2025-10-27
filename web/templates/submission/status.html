@@ -15,10 +15,10 @@
         <p>The analysis is not finished yet, it's still <b>{{status}}</b>. This page will refresh every 30 seconds.</p>
         {% if session_data %}
             <p>To view the Remote Session - click <a href='javascript:window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_blank");'>here.</a></p>
-            <div class="progress progress-striped active" style="margin-top: 10px;">
-                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
-            </div>
         {% endif %}
+        <div class="progress progress-striped active" style="margin-top: 10px;">
+                <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+        </div>
     </div>
 {% endif %}
 {% endblock %}

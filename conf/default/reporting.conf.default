@@ -216,3 +216,23 @@ enabled = no
 
 [browserext]
 enabled = no
+
+# Google Cloud Storage
+[gcs]
+enabled = no
+# The name of your Google Cloud Storage bucket where files will be uploaded.
+bucket_name = your-gcs-bucket-name
+
+# Comma-separated list of DIRECTORY names to exclude from the upload.
+# Good examples are 'shots' (contains all screenshots) or 'memory' (for full memory dumps).
+exclude_dirs = logs, shots
+
+# Comma-separated list of exact FILENAMES to exclude from the upload.
+# Good examples are large report formats you don't need in GCS.
+exclude_files =
+
+# Can be vm or json
+auth_by = vm
+# only if auth_by = json. The absolute path to your Google Cloud service account JSON key file.
+# This file is required for authentication.
+credentials_path = data/gcp-credentials.json

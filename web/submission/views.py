@@ -328,6 +328,9 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("process_memory"):
             options += "procmemdump=1,"
 
+        if request.POST.get("amsidump"):
+            options += "amsidump=1,"
+
         if request.POST.get("import_reconstruction"):
             options += "import_reconstruction=1,"
 
@@ -653,6 +656,7 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["pre_script"] = web_conf.pre_script.enabled
         enabledconf["during_script"] = web_conf.during_script.enabled
         enabledconf["downloading_service"] = bool(downloader_services.downloaders)
+        enabledconf["interactive_desktop"] = web_conf.guacamole.enabled
 
         all_vms_tags = load_vms_tags()
 
@@ -775,7 +779,7 @@ def status(request, task_id):
         "session_data": "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
-    if settings.REMOTE_SESSION:
+    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1":
         machine = db.view_machine_by_label(task.machine)
         if machine:
             guest_ip = machine.ip

@@ -1,3 +1,23 @@
+### [23.09.2025]
+* Monitor updates:
+    * unhook: attempt restoration of detected hook modifications
+    * config: fix issue parsing multiple sysbp addresses supplied via submission option
+    * Trace: don't step over named exported functions if trace-all set
+    * Tweak tracking of regions from syscall capture (InstrCallback.c)
+    * Enhance VerifyHeaders() to include EP bytes to detect shellcode overwrites (e.g. HijackLoader)
+
+### [2.09.2025]
+* Loader update: set patched import directory size to allow RestoreHeaders() to work properly, and hence VMProtect binaries
+
+### [1.09.2025]
+* Monitor update: CoCreateInstance hook: remove disable_sleep_skip() breaking e.g. 493b6a86546ac79b7647bd6f3c3523dd910e6a56e427c45197e957e268df8df2
+* Tweak StealcV2 date check bypass sig to improve coverage
+
+### [27.08.2025]
+* Monitor updates:
+    * FindFixAndRun hook: Internal cmd.exe hook targeting 'Exorcism' api FindFixAndRun for batch deobfuscation (thanks @KingKDot and @KillerInstinct)
+    * Remove Scylla code preventing dumping of MEW executables (thanks @shuiyc)
+
 ### [18.08.2025]
 * Monitor update: YaraHarness: fix issue with ParseOptionLine() adding imagebase to sysbps (thanks @ClaudioWayne)
 

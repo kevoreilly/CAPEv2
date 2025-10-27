@@ -35,6 +35,8 @@
     * TheMythologist
     * cccs-kevin 🇨🇦
     * @r0ny123
+    * @KillerInstinct
+    * @KingKDot
     * And many others <3
 * Special thank you to Paul Royal and [Georgia Tech](https://www.cc.gatech.edu/)
 * Finally a massive debt of gratitude to Gabor Kiss, for teaching me everything I know, and setting me on the path to enlightenment.

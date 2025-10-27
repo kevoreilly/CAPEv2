@@ -147,6 +147,30 @@ def get_cursor_position():
     return {"x": pt.x, "y": pt.y}
 
 
+def cursor_over_console_window():
+    # Get current cursor position
+    pt = wintypes.POINT()
+    USER32.GetCursorPos(byref(pt))
+
+    # Get the window handle at the cursor position
+    hwnd = USER32.WindowFromPoint(pt)
+
+    if not hwnd:
+        return False
+
+    # Check if the window is visible
+    if not USER32.IsWindowVisible(hwnd):
+        return False
+
+    # Get the window's class name
+    classname_ptr = create_unicode_buffer(128)
+    USER32.GetClassNameW(hwnd, classname_ptr, 128)
+    classname = str(classname_ptr.value)
+
+    terminal_classes = ["ConsoleWindowClass",]
+    return any(cls in classname for cls in terminal_classes)
+
+
 def get_window_text(hwnd):
     length = USER32.SendMessageW(hwnd, WM_GETTEXTLENGTH, 0, 0)
     if length == 0:
@@ -439,6 +463,25 @@ def realistic_human_cursor_movement():
         KERNEL32.Sleep(50)
 
 
+def populate_clipboard():
+    # add some random data to the clipboard
+    randchars = list("   aaaabcddeeeeeefghhhiiillmnnnooooprrrsssttttuwy")
+    cliplen = random.randint(10, 1000)
+    clipval = [randchars[random.randint(0, len(randchars) - 1)] for _ in range(cliplen)]
+
+    clipstr = "".join(clipval)
+    cliprawstr = create_unicode_buffer(clipstr)
+    USER32.OpenClipboard(None)
+    USER32.EmptyClipboard()
+
+    buf = KERNEL32.GlobalAlloc(GMEM_MOVEABLE, sizeof(cliprawstr))
+    lockbuf = KERNEL32.GlobalLock(buf)
+    memmove(lockbuf, cliprawstr, sizeof(cliprawstr))
+    KERNEL32.GlobalUnlock(buf)
+    USER32.SetClipboardData(CF_TEXT, buf)
+    USER32.CloseClipboard()
+
+
 class Human(Auxiliary, Thread):
     """Human after all"""
 
@@ -464,22 +507,7 @@ class Human(Auxiliary, Thread):
             seconds = 0
             randoff = random.randint(0, 10)
 
-            # add some random data to the clipboard
-            randchars = list("   aaaabcddeeeeeefghhhiiillmnnnooooprrrsssttttuwy")
-            cliplen = random.randint(10, 1000)
-            clipval = [randchars[random.randint(0, len(randchars) - 1)] for _ in range(cliplen)]
-
-            clipstr = "".join(clipval)
-            cliprawstr = create_unicode_buffer(clipstr)
-            USER32.OpenClipboard(None)
-            USER32.EmptyClipboard()
-
-            buf = KERNEL32.GlobalAlloc(GMEM_MOVEABLE, sizeof(cliprawstr))
-            lockbuf = KERNEL32.GlobalLock(buf)
-            memmove(lockbuf, cliprawstr, sizeof(cliprawstr))
-            KERNEL32.GlobalUnlock(buf)
-            USER32.SetClipboardData(CF_TEXT, buf)
-            USER32.CloseClipboard()
+            populate_clipboard()
 
             nohuman = self.options.get("nohuman")
             if nohuman:
@@ -549,7 +577,9 @@ class Human(Auxiliary, Thread):
                 if rng > 1:  # 0-1
                     if rng < 4:  # 2-3 25% of the time move the cursor on the middle of the screen for x and move around
                         USER32.SetCursorPos(RESOLUTION["x"] // 2, 0)
-                        click_mouse()
+                        # Avoid clicking on console windows and suspending execution
+                        if not cursor_over_console_window():
+                            click_mouse()
                         move_mouse()
                     elif (
                         rng >= 6
@@ -560,7 +590,9 @@ class Human(Auxiliary, Thread):
                             int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),
                             int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)),
                         )
-                        click_mouse()
+                        # Avoid clicking on console windows and suspending execution
+                        if not cursor_over_console_window():
+                            click_mouse()
                         move_mouse()
 
                 if (seconds % (15 + randoff)) == 0:

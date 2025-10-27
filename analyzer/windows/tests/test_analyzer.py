@@ -977,9 +977,8 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         # TODO add a couple of mocks
         random_pid = random.randint(1, 99999999)
         random_tid = random.randint(1, 9999999)
-        suspended = 1
-        data = bytes(f"{suspended}:{random_pid},{random_tid}".encode())
-        # This produces something like b"1:910271,1819029"
+        data = bytes(f"{random_pid},{random_tid}".encode())
+        # This produces something like b"910271,1819029"
         with patch("analyzer.INJECT_LIST", []):
             self.pipe_handler._handle_process(data=data)
             self.assertEqual(1, len(analyzer.INJECT_LIST))

@@ -1,3 +1,29 @@
+### [22.10.2025]
+* Remove obsolete 'suspended' parameter from PROCESS monitor message
+* Monitor updates:
+    * WriteMemoryHandler: prevent analysis log spam for small PE writes
+    * Cap per-process messages to prevent detonation slow-down & failure in e.g. 9f8333d81c13ea426953b758140836cff2cf7e7f32e36738f118c6257c6efd34
+    * Experimental debugger action 'guard' to trap on guard violation
+    * (origin/capemon, origin/HEAD) YaraHarness: write rules canary detection to analysis log
+    * YaraHarness: simplify 'dump' option
+    * Deprecate Win7 wow64 breakpoint workaround
+    * Implement Gemini suggestions from #111
+    * Merge pull request #111 from StephanTLavavej/unordered_map
+    * Improve NtContinueHandler debug register stealth/protection to allow detonation of e.g. 8443224de889424012ba57ec075fec219104fffa8c3ae13a2db27b4ba9d71a3b
+
+### [13.10.2025]
+* Monitor updates:
+    * Fix debug output for dump-limit config setting
+    * Expand 'DumpImage' debugger action to handle target imagebase address e.g. action0=dumpimage:0x400000,action1=dumpimage:ecx+0x280
+    * GetFunctionByName: bug fixess and improvements (thanks @heck-gd)
+    * Trace: fix issue with long conditional jump target calculation in InstructionHandler()
+
+### [06.10.2025]
+* Monitor update: Improve debugger breakpoint protection, fixes instruction counting anti-debug detection in CheckPoint ShowStopper (thanks @cccs-mog)
+
+### [03.10.2025]
+* Monitor update: Fix issue with hook_restore config setting being ignored (fixes #2715 - thanks @federicofantini)
+
 ### [23.09.2025]
 * Monitor updates:
     * unhook: attempt restoration of detected hook modifications
@@ -41,7 +67,7 @@
 * Monitor update: WMI hooks: add handling for VT_NULL and enable WMI_Get logging
 
 ### [06.06.2025]
-* Monitor updates: 
+* Monitor updates:
     * WMI hooks
     * Fix format string vulnerability in debugger StringsOutput() function
 

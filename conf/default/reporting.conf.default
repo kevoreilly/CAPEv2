@@ -231,6 +231,10 @@ exclude_dirs = logs, shots
 # Good examples are large report formats you don't need in GCS.
 exclude_files =
 
+# Mode: zip - will submit all files and folders as unique zip archive. Useful to not spam pubsub notification on file creation.
+# Mode: file - will submit one by one.
+mode = zip
+
 # Can be vm or json
 auth_by = vm
 # only if auth_by = json. The absolute path to your Google Cloud service account JSON key file.

@@ -918,13 +918,13 @@ function install_qemu() {
                     make -j"$(nproc)" install
                 fi
                 # hack for libvirt/virt-manager
-                if [ ! -f /usr/bin/qemu-system-x86_64-spice ]; then
+                if [ ! -L /usr/bin/qemu-system-x86_64-spice ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64-spice
                 fi
-                if [ ! -f /usr/bin/kvm-spice ]; then
+                if [ ! -L /usr/bin/kvm-spice ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm-spice
                 fi
-                if [ ! -f /usr/bin/kvm ]; then
+                if [ ! -L /usr/bin/kvm ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm
                 fi
                 if  [ $? -eq 0 ]; then
@@ -976,6 +976,7 @@ function install_seabios() {
         # Windows 10(latest rev.) is uninstallable without ACPI_DSDT
         # sed -i 's/CONFIG_ACPI_DSDT=y/CONFIG_ACPI_DSDT=n/g' .config
         if PIP_BREAK_SYSTEM_PACKAGES=1 make -j "$(nproc)"; then
+            mkdir -p /usr/share/qemu
             echo '[+] Replacing old bios.bin to new out/bios.bin'
             bios=0
             SHA256_BIOS=$(shasum -a 256 out/bios.bin|awk '{print $1}')

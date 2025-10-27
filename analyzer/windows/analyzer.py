@@ -1241,6 +1241,7 @@ class CommandPipeHandler:
     def _handle_resume(self, data):
         # RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+        self._handle_process(data)
 
     def _handle_shutdown(self, data):
         """Handle attempted shutdowns/restarts.
@@ -1334,16 +1335,9 @@ class CommandPipeHandler:
         suspended = False
         process_id = thread_id = None
         # We parse the process ID.
-        suspended, data = data.split(b":")
-        if b"," not in data:
-            if data.isdigit():
-                process_id = int(data)
-        elif data.count(b",") == 1:
-            process_id, param = data.split(b",")
-            thread_id = None
-            process_id = int(process_id) if process_id.isdigit() else None
-            if param.isdigit():
-                thread_id = int(param)
+        pid_s, tid_s = data.split(b",", 1)
+        process_id = int(pid_s)
+        thread_id  = int(tid_s)
         if process_id and not ANALYSIS_TIMED_OUT:
             if process_id not in (self.analyzer.pid, self.analyzer.ppid):
                 # We inject the process only if it's not being

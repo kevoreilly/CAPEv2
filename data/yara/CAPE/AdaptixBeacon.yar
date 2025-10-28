@@ -4,7 +4,6 @@ rule AdaptixBeacon
         author = "enzok"
         description = "AdaptixBeacon Payload"
         cape_type = "AdaptixBeacon Payload"
-        hash = "f78f5803be5704420cbb2e0ac3c57fcb3d9cdf443fbf1233c069760bee115b5d"
     strings:
         $conf_1 = {8D ?? ?? E8 [3] 00 4? 89 [1-2] 4? 8B 4C 24 ?? E8 [3] 00 4? 8B 53 48 66 [0-1] 89 04}
         $conf_2 = {E8 [3] 00 48 8B 4C 24 ?? 48 89 43 78 E8 [3] 00 48 8B 4C 24 ?? 89 83 80 00 00 00 E8 [3] 00 03 83 80 00 00 00 48 8B 4C 24}

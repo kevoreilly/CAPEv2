@@ -1,11 +1,16 @@
+### [03.11.2025]
+* Rhadamanthys:
+    * static config extraction - thanks @YungBinary
+    * anti-anti detonation bypass
+
 ### [22.10.2025]
+* Add monitor injection to previously unused RESUME: monitor message handler _handle_resume()
 * Remove obsolete 'suspended' parameter from PROCESS monitor message
 * Monitor updates:
     * WriteMemoryHandler: prevent analysis log spam for small PE writes
     * Cap per-process messages to prevent detonation slow-down & failure in e.g. 9f8333d81c13ea426953b758140836cff2cf7e7f32e36738f118c6257c6efd34
     * Experimental debugger action 'guard' to trap on guard violation
-    * (origin/capemon, origin/HEAD) YaraHarness: write rules canary detection to analysis log
-    * YaraHarness: simplify 'dump' option
+    * YaraHarness: write rules canary detection to analysis log & simplify 'dump' option
     * Deprecate Win7 wow64 breakpoint workaround
     * Implement Gemini suggestions from #111
     * Merge pull request #111 from StephanTLavavej/unordered_map

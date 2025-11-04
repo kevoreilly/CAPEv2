@@ -1142,8 +1142,7 @@ class NetworkAnalysis(Processing):
             try:
                 p2 = {}
                 tls_master = self.get_tlsmaster()
-                if tls_master:
-                    p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
+                p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
                 if p2:
                     results.update(p2)
             except Exception:

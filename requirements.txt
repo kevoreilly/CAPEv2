@@ -380,9 +380,9 @@ django-recaptcha==4.0.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:5316438f97700c431d65351470d1255047e3f2cd9af0f2f13592b637dad9213e
 django-settings-export==1.2.1 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:fceeae49fc597f654c1217415d8e049fc81c930b7154f5d8f28c432db738ff79
-django==5.1.13 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:06f257f79dc4c17f3f9e23b106a4c5ed1335abecbe731e83c598c941d14fbeed \
-    --hash=sha256:543ff21679f15e80edfc01fe7ea35f8291b6d4ea589433882913626a7c1cf929
+django==5.1.14 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:2a4b9c20404fd1bf50aaaa5542a19d860594cba1354f688f642feb271b91df27 \
+    --hash=sha256:b98409fb31fdd6e8c3a6ba2eef3415cc5c0020057b43b21ba7af6eff5f014831
 djangorestframework==3.15.2 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:2b8871b062ba1aefc2de01f773875441a961fefbf79f5eed1e32b2f096944b20 \
     --hash=sha256:36fe88cd2d6c6bec23dca9804bab2ba5517a8bb9d8f47ebc68981b56840107ad

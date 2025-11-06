@@ -350,8 +350,10 @@ def check_snapshot_state():
                 continue
 
             try:
-                domain = conn.lookupByName(machine_name)
                 machine_config = machinery_config.get(machine_name)
+                machine_name = machine_config.get("label")
+                domain = conn.lookupByName(machine_name)
+                
 
                 # Check for valid architecture configuration.
                 arch = machine_config.get("arch")

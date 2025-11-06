@@ -30,4 +30,4 @@ class PcapNg(Processing):
         if not is_pcapng(self.pcapng_path):
             log.warning("generated pcapng file is not valid: %s", self.pcapng_path)
             return {}
-        return {"sha256": File(self.pcapng_path).get_sha256()}
+        return {"sha256": File(str(self.pcapng_path)).get_sha256()}

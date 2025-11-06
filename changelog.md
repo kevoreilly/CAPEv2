@@ -1,3 +1,10 @@
+### [06.11.2025]
+* Monitor updates:
+    * path_from_object_attributes(): fix issue with memcpy from bad ObjectName->Buffer (e.g. 0a9d9b402fb39cf8df21ca4e68b84577c39b3ecf00415c999b28fcc92a695663)
+    * Fix/improve exception handling code which queries current SEH handler
+    * Harden our_stackwalk() against invalid stack pointers (hooking_64)
+    * Add exported function name logging to thread hooks: NtCreateThreadEx, CreateThread, NtQueueApcThread, NtQueueApcThreadEx
+
 ### [03.11.2025]
 * Rhadamanthys:
     * static config extraction - thanks @YungBinary

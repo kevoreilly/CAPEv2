@@ -340,7 +340,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # original file
     if not retlist:
         if error_msg:
-            error_list.append({os.path.basename(filename).decode(), error_msg})
+            error_list.append({os.path.basename(filename).decode(): error_msg})
         new_retlist.append((filename, platform))
     else:
         for filename, platform, magic_type, file_size in retlist:

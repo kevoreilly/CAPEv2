@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-15 08:08+0000\n"
+"POT-Creation-Date: 2025-11-15 08:23+0000\n"
 "PO-Revision-Date: 2025-11-15 08:06+0000\n"
 "Last-Translator: Codex <dev@local>\n"
 "Language-Team: Chinese Simplified\n"
@@ -144,6 +144,7 @@ msgid "Dll Image Base"
 msgstr "DLL 映像基址"
 
 #: web/templates/analysis/behavior/_processes.html:144
+#: web/templates/analysis/generic/_pe.html:9
 msgid "Image Base"
 msgstr "映像基址"
 
@@ -294,6 +295,72 @@ msgstr "字符串"
 msgid "String Name: Address"
 msgstr "字符串名称：地址"
 
+#: web/templates/analysis/generic/_dotnet.html:6
+msgid "Assembly Information"
+msgstr "程序集信息"
+
+#: web/templates/analysis/generic/_dotnet.html:11
+#: web/templates/analysis/generic/_dotnet.html:31
+#: web/templates/analysis/generic/_dotnet.html:53
+#: web/templates/analysis/generic/_pdf.html:79
+#: web/templates/analysis/generic/_pe.html:109
+#: web/templates/analysis/generic/_pe.html:171
+#: web/templates/analysis/generic/_rdp.html:8
+#: web/templates/analysis/network/_dns.html:6
+#: web/templates/analysis/network/_dns_not_ajax.html:7
+#: web/templates/analysis/overview/_info.html:133
+#: web/templates/analysis/overview/_summary.html:143
+#: web/templates/statistics.html:71 web/templates/statistics.html:100
+msgid "Name"
+msgstr "名称"
+
+#: web/templates/analysis/generic/_dotnet.html:15
+#: web/templates/analysis/generic/_dotnet.html:32
+msgid "Version"
+msgstr ""
+
+#: web/templates/analysis/generic/_dotnet.html:27
+msgid "Assembly References"
+msgstr "程序集引用"
+
+#: web/templates/analysis/generic/_dotnet.html:48
+msgid "Custom Attributes"
+msgstr "自定义属性"
+
+#: web/templates/analysis/generic/_dotnet.html:52
+#: web/templates/analysis/overview/index.html:19
+msgid "Type"
+msgstr "类型"
+
+#: web/templates/analysis/generic/_dotnet.html:54
+#: web/templates/analysis/generic/_pdf.html:80
+#: web/templates/analysis/generic/_rdp.html:9
+#: web/templates/analysis/generic/_rdp.html:23
+#: web/templates/analysis/overview/_summary.html:144
+msgid "Value"
+msgstr "值"
+
+#: web/templates/analysis/generic/_dotnet.html:71
+msgid "Type References"
+msgstr "类型引用"
+
+#: web/templates/analysis/generic/_dotnet.html:75
+msgid "Assembly"
+msgstr ""
+
+#: web/templates/analysis/generic/_dotnet.html:76
+#, fuzzy
+#| msgid "Name"
+msgid "Type Name"
+msgstr "名称"
+
+#: web/templates/analysis/generic/_dotnet.html:91
+#: web/templates/analysis/generic/_lnk.html:42
+#: web/templates/analysis/generic/_pdf.html:178
+#: web/templates/analysis/generic/_rdp.html:69
+msgid "Nothing to display."
+msgstr "无可显示内容。"
+
 #: web/templates/analysis/generic/_file_info.html:209
 #, fuzzy
 #| msgid "CAPE Yara Details"
@@ -371,6 +438,353 @@ msgstr "紧凑字符串"
 msgid "Static Strings"
 msgstr "静态字符串"
 
+#: web/templates/analysis/generic/_lnk.html:6
+msgid "Flags"
+msgstr "标志"
+
+#: web/templates/analysis/generic/_lnk.html:15
+#: web/templates/analysis/generic/_lnk.html:27
+#: web/templates/analysis/generic/_pe.html:17
+msgid "Icon"
+msgstr "图标"
+
+#: web/templates/analysis/generic/_lnk.html:21
+msgid "CMD line"
+msgstr "命令行"
+
+#: web/templates/analysis/generic/_office.html:8
+msgid "Malicious Macro Bot Results"
+msgstr "恶意宏扫描结果"
+
+#: web/templates/analysis/generic/_office.html:28
+msgid "SummaryInformation Metadata"
+msgstr "SummaryInformation 元数据"
+
+#: web/templates/analysis/generic/_office.html:48
+msgid "DocumentSummaryInformation Metadata"
+msgstr "DocumentSummaryInformation 元数据"
+
+#: web/templates/analysis/generic/_office.html:69
+msgid "File Analysis (Signatures)"
+msgstr "文件分析（签名）"
+
+#: web/templates/analysis/generic/_office.html:100
+#, fuzzy
+#| msgid "Extracted"
+msgid "Extracted Macros"
+msgstr "提取的宏"
+
+#: web/templates/analysis/generic/_office.html:108
+#, fuzzy
+#| msgid "Filename"
+msgid "VBA Filename"
+msgstr "VBA 文件名"
+
+#: web/templates/analysis/generic/_office.html:110
+#, fuzzy
+#| msgid "Extracted"
+msgid "Extracted Macro"
+msgstr "展开宏"
+
+#: web/templates/analysis/generic/_office.html:126
+msgid "RTF document details"
+msgstr "RTF 文档详情"
+
+#: web/templates/analysis/generic/_office.html:131
+#: web/templates/analysis/index.html:47 web/templates/analysis/index.html:335
+msgid "Filename"
+msgstr "文件名"
+
+#: web/templates/analysis/generic/_office.html:132
+#: web/templates/analysis/generic/_pdf.html:153
+#: web/templates/analysis/generic/_pe.html:148
+#: web/templates/analysis/generic/_pe.html:173
+msgid "Size"
+msgstr "大小"
+
+#: web/templates/analysis/generic/_office.html:133
+msgid "Index"
+msgstr ""
+
+#: web/templates/analysis/generic/_office.html:134
+msgid "Class Name"
+msgstr "类名"
+
+#: web/templates/analysis/generic/_office.html:135
+msgid "Type Embed"
+msgstr "嵌入类型"
+
+#: web/templates/analysis/generic/_office.html:136
+msgid "CVE"
+msgstr "CVE"
+
+#: web/templates/analysis/generic/_office.html:166
+msgid "DDE Detected"
+msgstr "检测到 DDE"
+
+#: web/templates/analysis/generic/_pdf.html:8
+#, fuzzy
+#| msgid "Documentation"
+msgid "PDF Information"
+msgstr "PDF 信息"
+
+#: web/templates/analysis/generic/_pdf.html:17
+msgid "Creator"
+msgstr "创建者"
+
+#: web/templates/analysis/generic/_pdf.html:23
+msgid "Producer"
+msgstr "生产者"
+
+#: web/templates/analysis/generic/_pdf.html:29
+msgid "Author"
+msgstr "作者"
+
+#: web/templates/analysis/generic/_pdf.html:34
+msgid "Total Entropy"
+msgstr "总体熵"
+
+#: web/templates/analysis/generic/_pdf.html:38
+msgid "Entropy In Streams"
+msgstr "流内熵"
+
+#: web/templates/analysis/generic/_pdf.html:42
+msgid "Entropy Out of Streams"
+msgstr "流外熵"
+
+#: web/templates/analysis/generic/_pdf.html:46
+#, python-format
+msgid "Count of '%%%% EOF'"
+msgstr ""
+
+#: web/templates/analysis/generic/_pdf.html:50
+msgid "PDF Header"
+msgstr "PDF 头"
+
+#: web/templates/analysis/generic/_pdf.html:54
+msgid "Data After EOF"
+msgstr "EOF 之后的数据"
+
+#: web/templates/analysis/generic/_pdf.html:58
+#, fuzzy
+#| msgid "Image Size"
+msgid "File Size"
+msgstr "文件大小"
+
+#: web/templates/analysis/generic/_pdf.html:63
+msgid "Number of Pages"
+msgstr "页数"
+
+#: web/templates/analysis/generic/_pdf.html:75
+msgid "PDF Date(s)"
+msgstr "PDF 日期"
+
+#: web/templates/analysis/generic/_pdf.html:96
+msgid "Keyword Counts"
+msgstr "关键字计数"
+
+#: web/templates/analysis/generic/_pdf.html:104
+msgid "Keyword"
+msgstr "关键字"
+
+#: web/templates/analysis/generic/_pdf.html:105
+#: web/templates/dashboard/index.html:45
+msgid "Count"
+msgstr "数量"
+
+#: web/templates/analysis/generic/_pdf.html:120
+msgid "Link Annotation URLs"
+msgstr "链接批注 URL"
+
+#: web/templates/analysis/generic/_pdf.html:130
+msgid "Javascript URLs"
+msgstr "JavaScript URL"
+
+#: web/templates/analysis/generic/_pdf.html:140
+msgid "Javascript Streams"
+msgstr "JavaScript 流"
+
+#: web/templates/analysis/generic/_pdf.html:149
+msgid "Object ID"
+msgstr "对象 ID"
+
+#: web/templates/analysis/generic/_pdf.html:161
+#: web/templates/analysis/generic/_pe.html:144
+#: web/templates/analysis/generic/_pe.html:172
+msgid "Offset"
+msgstr "偏移"
+
+#: web/templates/analysis/generic/_pdf.html:165
+msgid "Data"
+msgstr "数据"
+
+#: web/templates/analysis/generic/_pdf.html:166
+#, fuzzy
+#| msgid "Extracted"
+msgid "Data Extracted"
+msgstr "展开数据"
+
+#: web/templates/analysis/generic/_pe.html:6
+#, fuzzy
+#| msgid "Email configuration"
+msgid "PE Information"
+msgstr "PE 信息"
+
+#: web/templates/analysis/generic/_pe.html:10
+msgid "Entry Point"
+msgstr "入口点"
+
+#: web/templates/analysis/generic/_pe.html:11
+#, fuzzy
+#| msgid "Reported"
+msgid "Reported Checksum"
+msgstr "声明的校验和"
+
+#: web/templates/analysis/generic/_pe.html:12
+msgid "Actual Checksum"
+msgstr "实际校验和"
+
+#: web/templates/analysis/generic/_pe.html:13
+msgid "Minimum OS Version"
+msgstr "最小 OS 版本"
+
+#: web/templates/analysis/generic/_pe.html:14
+msgid "PDB Path"
+msgstr "PDB 路径"
+
+#: web/templates/analysis/generic/_pe.html:15
+#, fuzzy
+#| msgid "Completed"
+msgid "Compile Time"
+msgstr "编译时间"
+
+#: web/templates/analysis/generic/_pe.html:16
+msgid "Import Hash"
+msgstr "Import 哈希"
+
+#: web/templates/analysis/generic/_pe.html:18
+msgid "Icon Exact Hash"
+msgstr "图标精确哈希"
+
+#: web/templates/analysis/generic/_pe.html:19
+msgid "Icon Similarity Hash"
+msgstr "图标相似度哈希"
+
+#: web/templates/analysis/generic/_pe.html:20
+msgid "Icon DHash"
+msgstr "图标 DHash"
+
+#: web/templates/analysis/generic/_pe.html:21
+msgid "Exported DLL Name"
+msgstr "导出 DLL 名称"
+
+#: web/templates/analysis/generic/_pe.html:70
+msgid "Version Infos"
+msgstr "版本信息"
+
+#: web/templates/analysis/generic/_pe.html:92
+#, fuzzy
+#| msgid "Signatures"
+msgid "PEiD Signatures"
+msgstr "PEiD 签名"
+
+#: web/templates/analysis/generic/_pe.html:105
+#, fuzzy
+#| msgid "Detections"
+msgid "Sections"
+msgstr "节区"
+
+#: web/templates/analysis/generic/_pe.html:110
+msgid "RAW Address"
+msgstr "原始地址"
+
+#: web/templates/analysis/generic/_pe.html:111
+msgid "Virtual Address"
+msgstr "虚拟地址"
+
+#: web/templates/analysis/generic/_pe.html:112
+msgid "Virtual Size"
+msgstr "虚拟大小"
+
+#: web/templates/analysis/generic/_pe.html:113
+msgid "Size of Raw Data"
+msgstr "原始数据大小"
+
+#: web/templates/analysis/generic/_pe.html:114
+#, fuzzy
+#| msgid "Statistics"
+msgid "Characteristics"
+msgstr "属性"
+
+#: web/templates/analysis/generic/_pe.html:115
+#: web/templates/analysis/generic/_pe.html:176
+msgid "Entropy"
+msgstr "熵"
+
+#: web/templates/analysis/generic/_pe.html:136
+msgid "Overlay"
+msgstr "叠加区"
+
+#: web/templates/analysis/generic/_pe.html:162
+msgid "Resources"
+msgstr "资源"
+
+#: web/templates/analysis/generic/_pe.html:174
+msgid "Language"
+msgstr "语言"
+
+#: web/templates/analysis/generic/_pe.html:175
+msgid "Sub-language"
+msgstr "子语言"
+
+#: web/templates/analysis/generic/_pe.html:177
+msgid "File type"
+msgstr "文件类型"
+
+#: web/templates/analysis/generic/_pe.html:199
+#, fuzzy
+#| msgid "Reported"
+msgid "Imports"
+msgstr "导入"
+
+#: web/templates/analysis/generic/_rdp.html:4
+#, fuzzy
+#| msgid "Cluster details"
+msgid "RDP file details"
+msgstr "RDP 文件详情"
+
+#: web/templates/analysis/generic/_rdp.html:22
+msgid "Certificate"
+msgstr "证书"
+
+#: web/templates/analysis/generic/_rdp.html:26
+msgid "Subject Organization Name"
+msgstr "主体机构名"
+
+#: web/templates/analysis/generic/_rdp.html:30
+msgid "Issuer"
+msgstr "颁发者"
+
+#: web/templates/analysis/generic/_rdp.html:36
+msgid "Not valid before"
+msgstr "生效时间"
+
+#: web/templates/analysis/generic/_rdp.html:42
+msgid "Not valid after"
+msgstr "失效时间"
+
+#: web/templates/analysis/generic/_rdp.html:48
+msgid "Serial number"
+msgstr "序列号"
+
+#: web/templates/analysis/generic/_rdp.html:54
+msgid "Cert's sha256 fingerprint"
+msgstr "证书 SHA256 指纹"
+
+#: web/templates/analysis/generic/_rdp.html:60
+msgid "Cert's sha1 fingerprint"
+msgstr "证书 SHA1 指纹"
+
 #: web/templates/analysis/generic/_virustotal.html:4
 #, python-format
 msgid "VirusTotal (%(pos)s/%(total)s)"
@@ -395,6 +809,10 @@ msgstr "结果"
 #: web/templates/analysis/generic/_virustotal.html:22
 msgid "Clean"
 msgstr "未命中"
+
+#: web/templates/analysis/generic/_xlmmacro.html:4
+msgid "XLM Macro"
+msgstr ""
 
 #: web/templates/analysis/generic/_yara.html:5
 #, fuzzy
@@ -447,10 +865,6 @@ msgstr "执行主机"
 #: web/templates/analysis/overview/_info.html:34
 msgid "Package"
 msgstr "分析包"
-
-#: web/templates/analysis/index.html:47 web/templates/analysis/index.html:335
-msgid "Filename"
-msgstr "文件名"
 
 #: web/templates/analysis/index.html:48 web/templates/analysis/index.html:336
 #: web/templates/analysis/index.html:816 web/templates/analysis/index.html:833
@@ -579,14 +993,6 @@ msgstr "本页暂无 URL 记录。"
 #: web/templates/analysis/index.html:807
 msgid "Recent PCAPs"
 msgstr "最新 PCAP"
-
-#: web/templates/analysis/network/_dns.html:6
-#: web/templates/analysis/network/_dns_not_ajax.html:7
-#: web/templates/analysis/overview/_info.html:133
-#: web/templates/analysis/overview/_summary.html:143
-#: web/templates/statistics.html:71 web/templates/statistics.html:100
-msgid "Name"
-msgstr "名称"
 
 #: web/templates/analysis/network/_dns.html:7
 #: web/templates/analysis/network/_dns_not_ajax.html:8
@@ -970,10 +1376,6 @@ msgstr "启动的服务"
 msgid "Reversing Labs"
 msgstr "Reversing Labs"
 
-#: web/templates/analysis/overview/_summary.html:144
-msgid "Value"
-msgstr "值"
-
 #: web/templates/analysis/overview/index.html:10
 #: web/templates/analysis/overview/index.html:20
 #, python-format
@@ -983,10 +1385,6 @@ msgstr "%(fam)s 配置"
 #: web/templates/analysis/overview/index.html:12
 msgid "CENTS ruleset"
 msgstr "CENTS 规则集"
-
-#: web/templates/analysis/overview/index.html:19
-msgid "Type"
-msgstr "类型"
 
 #: web/templates/analysis/overview/index.html:26
 #, fuzzy
@@ -1152,10 +1550,6 @@ msgstr "样本总数"
 #: web/templates/dashboard/index.html:44
 msgid "State"
 msgstr "状态"
-
-#: web/templates/dashboard/index.html:45
-msgid "Count"
-msgstr "数量"
 
 #: web/templates/error.html:4 web/templates/standalone_error.html:2
 msgid "ERROR :-("

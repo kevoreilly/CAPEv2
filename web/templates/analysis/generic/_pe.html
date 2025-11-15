@@ -1,23 +1,24 @@
 <section id="static_analysis">
     {% load key_tags %}
+    {% load i18n %}
     {% if file.pe %}
             <div>
-                <h4>PE Information</h4>
+                <h4>{% trans "PE Information" %}</h4>
                 <div id="pe_information">
                     <table class="table table-striped table-bordered" style="table-layout: fixed;">
-                        {% if file.pe.imagebase %} <th style="width: 5%;">Image Base</th> {% endif %}
-                        {% if file.pe.entrypoint %} <th style="width: 5%;">Entry Point</th> {% endif %}
-                        {% if file.pe.reported_checksum %} <th style="width: 10%;">Reported Checksum</th> {% endif %}
-                        {% if file.pe.actual_checksum %} <th style="width: 10%;">Actual Checksum</th> {% endif %}
-                        {% if file.pe.osversion %} <th style="width: 10%;">Minimum OS Version</th> {% endif %}
-                        {% if file.pe.pdbpath %} <th style="width: 15%;">PDB Path</th> {% endif %}
-                        {% if file.pe.timestamp %} <th style="width: 10%;">Compile Time</th> {% endif %}
-                        {% if file.pe.imphash %} <th style="width: 15%;">Import Hash</th> {% endif %}
-                        {% if file.pe.icon %} <th style="width: 5%;">Icon</th>{% endif %}
-                        {% if file.pe.icon_hash %} <th style="width: 15%;">Icon Exact Hash</th> {% endif %}
-                        {% if file.pe.icon_fuzzy %} <th style="width: 15%;">Icon Similarity Hash</th> {% endif %}
-                        {% if file.pe.icon_dhash %} <th style="width: 10%;">Icon DHash</th> {% endif %}
-                        {% if file.pe.exported_dll_name %} <th style="width: 15%;">Exported DLL Name</th> {% endif %}
+                        {% if file.pe.imagebase %} <th style="width: 5%;">{% trans "Image Base" %}</th> {% endif %}
+                        {% if file.pe.entrypoint %} <th style="width: 5%;">{% trans "Entry Point" %}</th> {% endif %}
+                        {% if file.pe.reported_checksum %} <th style="width: 10%;">{% trans "Reported Checksum" %}</th> {% endif %}
+                        {% if file.pe.actual_checksum %} <th style="width: 10%;">{% trans "Actual Checksum" %}</th> {% endif %}
+                        {% if file.pe.osversion %} <th style="width: 10%;">{% trans "Minimum OS Version" %}</th> {% endif %}
+                        {% if file.pe.pdbpath %} <th style="width: 15%;">{% trans "PDB Path" %}</th> {% endif %}
+                        {% if file.pe.timestamp %} <th style="width: 10%;">{% trans "Compile Time" %}</th> {% endif %}
+                        {% if file.pe.imphash %} <th style="width: 15%;">{% trans "Import Hash" %}</th> {% endif %}
+                        {% if file.pe.icon %} <th style="width: 5%;">{% trans "Icon" %}</th>{% endif %}
+                        {% if file.pe.icon_hash %} <th style="width: 15%;">{% trans "Icon Exact Hash" %}</th> {% endif %}
+                        {% if file.pe.icon_fuzzy %} <th style="width: 15%;">{% trans "Icon Similarity Hash" %}</th> {% endif %}
+                        {% if file.pe.icon_dhash %} <th style="width: 10%;">{% trans "Icon DHash" %}</th> {% endif %}
+                        {% if file.pe.exported_dll_name %} <th style="width: 15%;">{% trans "Exported DLL Name" %}</th> {% endif %}
 
                         <tr>
                             {% if file.pe.imagebase %}
@@ -66,7 +67,7 @@
             <hr />
         {% if file.pe.versioninfo %}
             <div>
-                <h4>Version Infos</h4>
+                <h4>{% trans "Version Infos" %}</h4>
                 <div id="pe_versioninfo">
                     <table class="table table-striped table-bordered">
                         <colgroup>
@@ -88,7 +89,7 @@
         {% endif %}
         {% if file.pe.peid_signatures%}
         <div>
-            <h4>PEiD Signatures</h4>
+            <h4>{% trans "PEiD Signatures" %}</h4>
             <div id="peid_signatures">
                 <table class="table table-striped table-bordered">
                 {% for sig in file.pe.peid_signatures %}
@@ -101,17 +102,17 @@
         {% endif %}
         {% if file.pe.sections %}
             <div>
-                <h4>Sections</h4>
+                <h4>{% trans "Sections" %}</h4>
                 <div id="pe_sections">
                     <table class="table table-striped table-bordered">
                         <tr>
-                            <th>Name</th>
-                            <th>RAW Address</th>
-                            <th>Virtual Address</th>
-                            <th>Virtual Size</th>
-                            <th>Size of Raw Data</th>
-                            <th>Characteristics</th>
-                            <th>Entropy</th>
+                            <th>{% trans "Name" %}</th>
+                            <th>{% trans "RAW Address" %}</th>
+                            <th>{% trans "Virtual Address" %}</th>
+                            <th>{% trans "Virtual Size" %}</th>
+                            <th>{% trans "Size of Raw Data" %}</th>
+                            <th>{% trans "Characteristics" %}</th>
+                            <th>{% trans "Entropy" %}</th>
                         </tr>
                         {% for section in file.pe.sections %}
                             <tr>
@@ -132,7 +133,7 @@
 
         {% if file.pe.overlay %}
         <div>
-            <h4>Overlay</h4>
+            <h4>{% trans "Overlay" %}</h4>
             <div id="pe_overlay">
                 <table class="table table-striped table-bordered">
                     <colgroup>
@@ -140,11 +141,11 @@
                         <col width="*" />
                     </colgroup>
                     <tr>
-                        <td><strong>Offset</strong></td>
+                        <td><strong>{% trans "Offset" %}</strong></td>
                         <td>{{file.pe.overlay.offset}}</td>
                     </tr>
                     <tr>
-                        <td><strong>Size</strong></td>
+                        <td><strong>{% trans "Size" %}</strong></td>
                         <td>{{file.pe.overlay.size}}</td>
                     </tr>
                     </table>
@@ -158,7 +159,7 @@
                 <div class="card-header">
                     <h5 class="mb-0">
                     <button class="btn btn-link" data-toggle="collapse" href="#pe_resources" data-target="#pe_resources_{{file.sha256}}" aria-expanded="false">
-                        <strong>Resources</strong></a>
+                        <strong>{% trans "Resources" %}</strong></a>
                     </button>
                     </h5>
                 </div>
@@ -167,13 +168,13 @@
                     <div class="card-body">
                         <table class="table table-striped table-bordered">
                             <tr>
-                                <th>Name</th>
-                                <th>Offset</th>
-                                <th>Size</th>
-                                <th>Language</th>
-                                <th>Sub-language</th>
-                                <th>Entropy</th>
-                                <th>File type</th>
+                                <th>{% trans "Name" %}</th>
+                                <th>{% trans "Offset" %}</th>
+                                <th>{% trans "Size" %}</th>
+                                <th>{% trans "Language" %}</th>
+                                <th>{% trans "Sub-language" %}</th>
+                                <th>{% trans "Entropy" %}</th>
+                                <th>{% trans "File type" %}</th>
                             </tr>
                             {% for section in file.pe.resources %}
                                 <tr>
@@ -195,7 +196,7 @@
 
         {% if file.pe.imports %}
         <div>
-            <h4>Imports</h4>
+            <h4>{% trans "Imports" %}</h4>
             {% for dll, library in file.pe.imports.items %}
             <div class="card">
                 <div class="card-header">

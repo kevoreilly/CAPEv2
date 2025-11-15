@@ -1,10 +1,11 @@
 {% load pdf_tags %}
 {% load key_tags %}
+{% load i18n %}
 <section id="static_analysis">
     {% if file.pdf %}
         {% if file.pdf.Info %}
         <div>
-            <h4>PDF Information</h4>
+            <h4>{% trans "PDF Information" %}</h4>
             <div id="PDF_Info">
                 <table class="table table-striped table-bordered">
                     <colgroup>
@@ -13,53 +14,53 @@
                     </colgroup>
                     {% if file.pdf.Info.Creator %}
                         <tr>
-                            <th>Creator</th>
+                            <th>{% trans "Creator" %}</th>
                             <td><span class="mono">{{file.pdf.Info.Creator}}</span></td>
                         </tr>
                     {% endif %}
                     {% if file.pdf.Info.Producer %}
                         <tr>
-                            <th>Producer</th>
+                            <th>{% trans "Producer" %}</th>
                             <td><span class="mono">{{file.pdf.Info.Producer}}</span></td>
                         </tr>
                     {% endif %}
                     {% if file.pdf.Info.Author %}
                         <tr>
-                            <th>Author</th>
+                            <th>{% trans "Author" %}</th>
                             <td><span class="mono">{{file.pdf.Info.Author}}</span></td>
                         </tr>
                     {% endif %}
                     <tr>
-                        <th>Total Entropy</th>
+                        <th>{% trans "Total Entropy" %}</th>
                         <td><span class="mono">{{file.pdf.Info|getkey:"Total Entropy"}}</span></td>
                     </tr>
                     <tr>
-                        <th>Entropy In Streams</th>
+                        <th>{% trans "Entropy In Streams" %}</th>
                         <td><span class="mono">{{file.pdf.Info|getkey:"Entropy In Streams"}}</span></td>
                     </tr>
                     <tr>
-                        <th>Entropy Out of Streams</th>
+                        <th>{% trans "Entropy Out of Streams" %}</th>
                         <td><span class="mono">{{file.pdf.Info|getkey:"Entropy Out Streams"}}</span></td>
                     </tr>
                     <tr>
-                        <th>Count of "%% EOF"</th>
+                        <th>{% trans "Count of '%% EOF'" %}</th>
                         <td><span class="mono">{{file.pdf.Info|getkey:"Count %% EOF"}}</span></td>
                     </tr>
                     <tr>
-                        <th>PDF Header</th>
+                        <th>{% trans "PDF Header" %}</th>
                         <td><span class="mono">{{file.pdf.Info|getkey:"PDF Header"}}</span></td>
                     </tr>
                     <tr>
-                        <th>Data After EOF</th>
+                        <th>{% trans "Data After EOF" %}</th>
                         <td><span class="mono">{{file.pdf.Info|getkey:"Data After EOF"}} bytes</span></td>
                     </tr>
                     <tr>
-                        <th>File Size</th>
+                        <th>{% trans "File Size" %}</th>
                         <td><span class="mono">{{file.size}} bytes</span></td>
                     </tr>
                     {% if file.pdf.Keywords|getkey:"/Page" %}
                     <tr>
-                        <th>Number of Pages</th>
+                        <th>{% trans "Number of Pages" %}</th>
                         <td><span class="mono">{{file.pdf.Keywords|getkey:"/Page"}}</span></td>
                     </tr>
                     {% endif %}
@@ -71,12 +72,12 @@
 
         {% if file.pdf.Dates %}
         <div>
-            <h4>PDF Date(s)</h4>
+            <h4>{% trans "PDF Date(s)" %}</h4>
             <div id="date">
                 <table class="table table-striped table-bordered">
                     <tr>
-                        <th>Name</th>
-                        <th>Value</th>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Value" %}</th>
                     </tr>
                     {% for date in file.pdf.Dates %}
                     <tr>
@@ -92,7 +93,7 @@
 
         {% if file.pdf.Keywords %}
         <div>
-            <h4>Keyword Counts</h4>
+            <h4>{% trans "Keyword Counts" %}</h4>
             <div id="keywords">
                 <table class="table table-striped table-bordered">
                     <colgroup>
@@ -100,8 +101,8 @@
                         <col width="*" />
                     </colgroup>
                     <tr>
-                        <th>Keyword</th>
-                        <th>Count</th>
+                        <th>{% trans "Keyword" %}</th>
+                        <th>{% trans "Count" %}</th>
                     </tr>
                     {% for keyword, count in file.pdf.Keywords.items %}
                     <tr>
@@ -116,7 +117,7 @@
         {% endif %}
         {% if file.pdf.Annot_URLs %}
         <div>
-            <h4>Link Annotation URLs</h4>
+            <h4>{% trans "Link Annotation URLs" %}</h4>
             <div class="card card-body">
                 {% for url in file.pdf.Annot_URLs %}
                     {{url}}<br />
@@ -126,7 +127,7 @@
         {% endif %}
         {% if file.pdf.JS_URLs %}
         <div>
-            <h4>Javascript URLs</h4>
+            <h4>{% trans "Javascript URLs" %}</h4>
             <div class="card card-body">
                 {% for url in file.pdf.JS_URLs %}
                     {{url}}<br />
@@ -136,7 +137,7 @@
         {% endif %}
         {% if file.pdf.JSStreams %}
         <div>
-            <h4>Javascript Streams</h4>
+            <h4>{% trans "Javascript Streams" %}</h4>
             <div id="objects">
                 {% for obj in file.pdf.JSStreams %}
                 <table class="table table-striped table-bordered">
@@ -145,11 +146,11 @@
                     <col width="*" />
                 </colgroup>
                 <tr>
-                    <td>Object ID</td>
+                    <td>{% trans "Object ID" %}</td>
                     <td>{{obj|getkey:"Object ID"}}</td>
                 </tr>
                 <tr>
-                    <td>Size</td>
+                    <td>{% trans "Size" %}</td>
                     {% if obj.Size == 1 %}
                     <td>{{obj.Size}} byte</td>
                     {% else %}
@@ -157,12 +158,12 @@
                     {% endif %}
                 </tr>
                 <tr>
-                    <td>Offset</td>
+                    <td>{% trans "Offset" %}</td>
                     <td>{{obj.Offset}}</td>
                 </tr>
                 <tr>
-                    <td>Data</td>
-                    <td><a class="accordion-toggle" data-toggle="collapse" href="#JSStream_{{obj|getkey:'Object ID'}}_Data">Data Extracted</a></td>
+                    <td>{% trans "Data" %}</td>
+                    <td><a class="accordion-toggle" data-toggle="collapse" href="#JSStream_{{obj|getkey:'Object ID'}}_Data">{% trans "Data Extracted" %}</a></td>
                 </tr>
                 </table>
                 <div id="JSStream_{{obj|getkey:'Object ID'}}_Data" class="collapse">
@@ -174,6 +175,6 @@
         {% endif %}
 
     {% else %}
-        Nothing to display.
+        {% trans "Nothing to display." %}
     {% endif %}
 </section>

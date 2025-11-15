@@ -1,10 +1,11 @@
+{% load key_tags %}
+{% load i18n %}
 <section id="static_analysis">
-    {% load key_tags %}
         {% if file.office %}
             {% if file.mmbot %}
                 <div>
                     <div id="mmbot_results">
-                        <h4>Malicious Macro Bot Results</h4>
+                        <h4>{% trans "Malicious Macro Bot Results" %}</h4>
                         <table class="table table-striped table-bordered">
                             <colgroup>
                                 <col width="250" />
@@ -24,7 +25,7 @@
                 {% if file.office.Metadata.SummaryInformation %}
                 <div>
                     <div id="si_metadata">
-                        <h4>SummaryInformation Metadata</h4>
+                        <h4>{% trans "SummaryInformation Metadata" %}</h4>
                         <table class="table table-striped table-bordered">
                             <colgroup>
                                 <col width="250" />
@@ -44,7 +45,7 @@
                 {% if file.office.Metadata.DocumentSummaryInformation %}
                 <div>
                     <div id="dsi_metadata">
-                        <h4>DocumentSummaryInformation Metadata</h4>
+                        <h4>{% trans "DocumentSummaryInformation Metadata" %}</h4>
                         <table class="table table-striped table-bordered">
                             <colgroup>
                                 <col width="250" />
@@ -65,7 +66,7 @@
             {% if file.office.Macro %}
                 {% if file.office.Macro.Analysis %}
                     <div id="analysis_sigs">
-                        <h4>File Analysis (Signatures)</h4>
+                        <h4>{% trans "File Analysis (Signatures)" %}</h4>
                         {% for detection in file.office.Macro.Analysis %}
                         <div>
                             <div class="panel" id="accordion" style="margin-top: 20px;">
@@ -96,7 +97,7 @@
                 {% if file.office.Macro.Code and not file.office.XLMMacroDeobfuscator %}
                 <div>
                     <div id="macro">
-                    <h4>Extracted Macros</h4>
+                    <h4>{% trans "Extracted Macros" %}</h4>
                     {% for macrodata in file.office.Macro.Code %}
                     <table class="table table-striped table-bordered">
                         <col style="width:20%">
@@ -104,9 +105,9 @@
                         <col style="width:20%">
                         {% for name, code in file.office.Macro.Code|getkey:macrodata %}
                         <tr>
-                            <td>VBA Filename</td>
+                            <td>{% trans "VBA Filename" %}</td>
                             <td>{{name}}</td>
-                            <td><a class="accordion-toggle" data-toggle="collapse" href="#{{macrodata}}">Extracted Macro</a></td>
+                            <td><a class="accordion-toggle" data-toggle="collapse" href="#{{macrodata}}">{% trans "Extracted Macro" %}</a></td>
                         </tr>
                         </table>
                         <div id="{{macrodata}}" class="collapse">
@@ -122,17 +123,17 @@
         {% if file.office.rtf %}
             <div>
                 <div id="si_metadata">
-                    <h4>RTF document details</h4>
+                    <h4>{% trans "RTF document details" %}</h4>
                     <table class="table table-striped table-bordered">
                         {% for key, value in file.office.rtf.items %}
                             <h5>Object ID: {{key}}</h5>
                             <tr>
-                                <th width=10%>Filename</th>
-                                <td>Size</td>
-                                <th>Index</th>
-                                <td>Class Name</td>
-                                <td>Type Embed</td>
-                                <th>CVE</th>
+                                <th width=10%>{% trans "Filename" %}</th>
+                                <td>{% trans "Size" %}</td>
+                                <th>{% trans "Index" %}</th>
+                                <td>{% trans "Class Name" %}</td>
+                                <td>{% trans "Type Embed" %}</td>
+                                <th>{% trans "CVE" %}</th>
                             </tr>
                             {% for block in value %}
                                 <tr>
@@ -162,7 +163,7 @@
                 <col width="*" />
             </colgroup>
             <tr>
-                <td><h4>DDE Detected</h4></td>
+                <td><h4>{% trans "DDE Detected" %}</h4></td>
                 <td>{{file.dde}}</td>
             </tr>
         </table>

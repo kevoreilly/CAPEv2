@@ -1,6 +1,7 @@
+{% load i18n %}
 <section id="static_analysis">
     <div>
-        <h4>XLM Macro</h4>
+        <h4>{% trans "XLM Macro" %}</h4>
         <pre>
             {% for line in file.office.XLMMacroDeobfuscator.Code %}
                 {{line}}

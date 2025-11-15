@@ -1,17 +1,18 @@
+{% load i18n %}
 <section id="static_analysis">
     {% if file.dotnet %}
         {% if file.dotnet.typerefs or file.dotnet.assemblyrefs or file.dotnet.assemblyinfo or file.dotnet.customattrs %}
             <div>
-                <h4>Assembly Information</h4>
+                <h4>{% trans "Assembly Information" %}</h4>
                 <div id="dotnet_assembly_information">
                     <table class="table table-striped table-bordered" style="table-layout: fixed;">
                         {% if file.dotnet.assemblyinfo %}
                             <tr>
-                                <th style="width: 15%;">Name</th>
+                                <th style="width: 15%;">{% trans "Name" %}</th>
                                 <td>{{file.dotnet.assemblyinfo.name}}</td>
                             </tr>
                             <tr>
-                                <th style="width: 15%;">Version</th>
+                                <th style="width: 15%;">{% trans "Version" %}</th>
                                 <td>{{file.dotnet.assemblyinfo.version}}</td>
                             </tr>
                         {% endif %}
@@ -23,12 +24,12 @@
 
         {% if file.dotnet.assemblyrefs %}
             <div>
-                <h4>Assembly References</h4>
+                <h4>{% trans "Assembly References" %}</h4>
                 <div id="dotnet_assembly_references">
                     <table class="table table-striped table-bordered">
                     <tr>
-                        <th>Name</th>
-                        <th>Version</th>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Version" %}</th>
                     </tr>
                     {% for asm in file.dotnet.assemblyrefs %}
                     <tr>
@@ -44,13 +45,13 @@
 
         {% if file.dotnet.customattrs %}
             <div>
-                <h4>Custom Attributes</h4>
+                <h4>{% trans "Custom Attributes" %}</h4>
                 <div id="dotnet_custom_attributes">
                     <table class="table table-striped table-bordered">
                     <tr>
-                        <th>Type</th>
-                        <th>Name</th>
-                        <th>Value</th>
+                        <th>{% trans "Type" %}</th>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Value" %}</th>
                     </tr>
                     {% for attr in file.dotnet.customattrs %}
                     <tr>
@@ -67,12 +68,12 @@
 
         {% if file.dotnet.typerefs %}
             <div>
-                <h4>Type References</h4>
+                <h4>{% trans "Type References" %}</h4>
                 <div id="dotnet_type_references">
                     <table class="table table-striped table-bordered">
                     <tr>
-                        <th>Assembly</th>
-                        <th>Type Name</th>
+                        <th>{% trans "Assembly" %}</th>
+                        <th>{% trans "Type Name" %}</th>
                     </tr>
                     {% for typeref in file.dotnet.typerefs %}
                     <tr>
@@ -87,6 +88,6 @@
         {% endif %}
 
     {% else %}
-        Nothing to display.
+        {% trans "Nothing to display." %}
     {% endif %}
 </section>

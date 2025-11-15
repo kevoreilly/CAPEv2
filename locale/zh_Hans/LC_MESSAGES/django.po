@@ -20,7 +20,7 @@ msgstr ""
 
 #: web/analysis/templatetags/analysis_tags.py:114 web/templates/header.html:31
 msgid "Pending"
-msgstr "待处理"
+msgstr "等待中"
 
 #: web/analysis/templatetags/analysis_tags.py:115
 msgid "Running"
@@ -117,7 +117,7 @@ msgstr "重复次数"
 msgid ""
 "Error loading data. Please reload the page and if the error persists contact"
 " us."
-msgstr "数据加载失败，请刷新页面；若仍失败请联系管理员。"
+msgstr "加载数据出错，请刷新页面；若问题仍存在请联系管理员。"
 
 #: web/templates/analysis/behavior/_processes.html:135
 #, fuzzy
@@ -126,10 +126,9 @@ msgid "PID"
 msgstr "进程号"
 
 #: web/templates/analysis/behavior/_processes.html:135
-#, fuzzy
 #| msgid "Recent Files"
 msgid "Parent PID"
-msgstr "父进程号"
+msgstr "父 PID"
 
 #: web/templates/analysis/behavior/_processes.html:136
 msgid "Full Path"
@@ -158,7 +157,6 @@ msgstr "默认"
 
 #: web/templates/analysis/behavior/_processes.html:159
 #: web/templates/analysis/behavior/_search_results.html:14
-#, fuzzy
 #| msgid "Register"
 msgid "registry"
 msgstr "注册表"
@@ -175,7 +173,6 @@ msgstr "网络"
 
 #: web/templates/analysis/behavior/_processes.html:162
 #: web/templates/analysis/behavior/_search_results.html:15
-#, fuzzy
 #| msgid "Processing"
 msgid "process"
 msgstr "进程"
@@ -236,11 +233,10 @@ msgstr "调用"
 
 #: web/templates/analysis/behavior/_processes.html:195
 msgid "Filter"
-msgstr "筛选"
+msgstr "筛选器"
 
 #: web/templates/analysis/behavior/_search.html:21
 #: web/templates/analysis/behavior/_search.html:22
-#, fuzzy
 #| msgid "Search term as regex"
 msgid "Search term"
 msgstr "搜索词"
@@ -268,7 +264,6 @@ msgid "No results"
 msgstr "无结果"
 
 #: web/templates/analysis/behavior/_tree.html:5
-#, fuzzy
 #| msgid "Processing"
 msgid "Process Tree"
 msgstr "进程树"
@@ -317,7 +312,7 @@ msgstr "名称"
 #: web/templates/analysis/generic/_dotnet.html:15
 #: web/templates/analysis/generic/_dotnet.html:32
 msgid "Version"
-msgstr ""
+msgstr "版本"
 
 #: web/templates/analysis/generic/_dotnet.html:27
 msgid "Assembly References"
@@ -504,7 +499,7 @@ msgstr "大小"
 
 #: web/templates/analysis/generic/_office.html:133
 msgid "Index"
-msgstr ""
+msgstr "索引"
 
 #: web/templates/analysis/generic/_office.html:134
 msgid "Class Name"
@@ -763,7 +758,7 @@ msgstr "主体机构名"
 
 #: web/templates/analysis/generic/_rdp.html:30
 msgid "Issuer"
-msgstr "颁发者"
+msgstr "签发者"
 
 #: web/templates/analysis/generic/_rdp.html:36
 msgid "Not valid before"
@@ -808,7 +803,7 @@ msgstr "结果"
 
 #: web/templates/analysis/generic/_virustotal.html:22
 msgid "Clean"
-msgstr "未命中"
+msgstr "无恶意"
 
 #: web/templates/analysis/generic/_xlmmacro.html:4
 msgid "XLM Macro"
@@ -859,7 +854,7 @@ msgstr "时间戳"
 #: web/templates/analysis/index.html:45
 #: web/templates/analysis/overview/_info.html:128
 msgid "Machine"
-msgstr "执行主机"
+msgstr "虚拟机"
 
 #: web/templates/analysis/index.html:46
 #: web/templates/analysis/overview/_info.html:34
@@ -1160,10 +1155,9 @@ msgid "Started"
 msgstr "开始时间"
 
 #: web/templates/analysis/overview/_info.html:37
-#, fuzzy
 #| msgid "Documentation"
 msgid "Duration"
-msgstr "文档"
+msgstr "持续时间"
 
 #: web/templates/analysis/overview/_info.html:39
 msgid "Options"
@@ -1200,16 +1194,14 @@ msgid "Show"
 msgstr "显示"
 
 #: web/templates/analysis/overview/_info.html:72
-#, fuzzy
 #| msgid "Processing"
 msgid "Process"
-msgstr "Processing 模块"
+msgstr "进程"
 
 #: web/templates/analysis/overview/_info.html:74
-#, fuzzy
 #| msgid "Login"
 msgid "Log"
-msgstr "登录"
+msgstr "日志"
 
 #: web/templates/analysis/overview/_info.html:77
 msgid "Show Pre Script"
@@ -1313,26 +1305,23 @@ msgid "Summary"
 msgstr "摘要"
 
 #: web/templates/analysis/overview/_summary.html:5
-#, fuzzy
 #| msgid "Recent Files"
 msgid "Accessed Files"
-msgstr "最新文件"
+msgstr "访问的文件"
 
 #: web/templates/analysis/overview/_summary.html:6
-#, fuzzy
 #| msgid "Recent Files"
 msgid "Read Files"
-msgstr "最新文件"
+msgstr "读取的文件"
 
 #: web/templates/analysis/overview/_summary.html:7
 msgid "Modified Files"
 msgstr "修改的文件"
 
 #: web/templates/analysis/overview/_summary.html:8
-#, fuzzy
 #| msgid "Recent Files"
 msgid "Deleted Files"
-msgstr "最新文件"
+msgstr "删除的文件"
 
 #: web/templates/analysis/overview/_summary.html:9
 #, fuzzy
@@ -1342,19 +1331,19 @@ msgstr "注册"
 
 #: web/templates/analysis/overview/_summary.html:10
 msgid "Read Registry Keys"
-msgstr "读取的注册表键"
+msgstr "读取的注册表项"
 
 #: web/templates/analysis/overview/_summary.html:11
 msgid "Modified Registry Keys"
-msgstr "修改的注册表键"
+msgstr "修改的注册表项"
 
 #: web/templates/analysis/overview/_summary.html:12
 msgid "Deleted Registry Keys"
-msgstr "删除的注册表键"
+msgstr "删除的注册表项"
 
 #: web/templates/analysis/overview/_summary.html:13
 msgid "Resolved APIs"
-msgstr "解析的 API"
+msgstr "解析出的 API"
 
 #: web/templates/analysis/overview/_summary.html:14
 msgid "Executed Commands"
@@ -1366,7 +1355,7 @@ msgstr "互斥量"
 
 #: web/templates/analysis/overview/_summary.html:16
 msgid "Created Services"
-msgstr "创建的服务"
+msgstr "新建的服务"
 
 #: web/templates/analysis/overview/_summary.html:17
 msgid "Started Services"
@@ -1622,7 +1611,7 @@ msgstr "更新日志"
 
 #: web/templates/header.html:54
 msgid "Search term as regex"
-msgstr "使用正则表达式搜索"
+msgstr "以正则表达式搜索"
 
 #: web/templates/statistics.html:6
 #, python-format
@@ -1681,7 +1670,7 @@ msgstr "各模块耗时"
 
 #: web/templates/statistics.html:96
 msgid "Processing"
-msgstr "Processing 模块"
+msgstr "处理中"
 
 #: web/templates/statistics.html:146
 msgid "Reporting"
@@ -1794,3 +1783,1151 @@ msgstr "简体中文"
 #: web/web/settings.py:130
 msgid "English"
 msgstr "英文"
+
+#: web/templates/analysis/memory/_apihooks.html:6
+msgid "Process Name"
+msgstr "进程名称"
+
+#: web/templates/analysis/memory/_apihooks.html:7
+msgid "Victim Function"
+msgstr "被劫持函数"
+
+#: web/templates/analysis/memory/_apihooks.html:8
+msgid "Hook Type"
+msgstr "挂钩类型"
+
+#: web/templates/analysis/memory/_apihooks.html:9
+msgid "Hooking Module"
+msgstr "挂钩模块"
+
+#: web/templates/analysis/memory/_callbacks.html:5
+msgid "Module"
+msgstr "模块"
+
+#: web/templates/analysis/memory/_callbacks.html:6
+msgid "Callback"
+msgstr "回调"
+
+#: web/templates/analysis/memory/_callbacks.html:8
+msgid "Details"
+msgstr "详情"
+
+#: web/templates/analysis/memory/_devicetree.html:5
+msgid "Driver Name"
+msgstr "驱动名"
+
+#: web/templates/analysis/memory/_devicetree.html:6
+msgid "Driver Offset"
+msgstr "驱动偏移"
+
+#: web/templates/analysis/memory/_devicetree.html:7
+msgid "Devices"
+msgstr "设备"
+
+#: web/templates/analysis/memory/_dlllist.html:7
+msgid "Base"
+msgstr "基址"
+
+#: web/templates/analysis/memory/_dlllist.html:11
+msgid "Path"
+msgstr "路径"
+
+#: web/templates/analysis/memory/_dlllist.html:12
+msgid "Load Time"
+msgstr "加载时间"
+
+#: web/templates/analysis/memory/_gdt.html:5
+msgid "CPU"
+msgstr "CPU"
+
+#: web/templates/analysis/memory/_gdt.html:6
+msgid "Selector"
+msgstr "选择子"
+
+#: web/templates/analysis/memory/_gdt.html:8
+msgid "Limit"
+msgstr "界限"
+
+#: web/templates/analysis/memory/_gdt.html:10
+msgid "Dpl"
+msgstr "特权级"
+
+#: web/templates/analysis/memory/_gdt.html:11
+msgid "Granularity"
+msgstr "粒度"
+
+#: web/templates/analysis/memory/_gdt.html:12
+msgid "Present"
+msgstr "存在"
+
+#: web/templates/analysis/memory/_getsids.html:7
+msgid "SID"
+msgstr "SID"
+
+#: web/templates/analysis/memory/_handles.html:8
+msgid "Handle Value"
+msgstr "句柄值"
+
+#: web/templates/analysis/memory/_handles.html:10
+msgid "Granted Access"
+msgstr "授予权限"
+
+#: web/templates/analysis/memory/_idt.html:8
+msgid "Address"
+msgstr "地址"
+
+#: web/templates/analysis/memory/_idt.html:10
+msgid "Section"
+msgstr "节"
+
+#: web/templates/analysis/memory/_malfind.html:7
+msgid "Start"
+msgstr "起始"
+
+#: web/templates/analysis/memory/_malfind.html:8
+msgid "End"
+msgstr "结束"
+
+#: web/templates/analysis/memory/_malfind.html:9
+msgid "Tag"
+msgstr "标签"
+
+#: web/templates/analysis/memory/_malfind.html:10
+msgid "Protection"
+msgstr "保护属性"
+
+#: web/templates/analysis/memory/_malfind.html:18
+msgid "ToDo"
+msgstr "待补充"
+
+#: web/templates/analysis/memory/_messagehooks.html:6
+msgid "Session"
+msgstr "会话"
+
+#: web/templates/analysis/memory/_messagehooks.html:7
+msgid "Desktop"
+msgstr "桌面"
+
+#: web/templates/analysis/memory/_messagehooks.html:8
+msgid "Thread"
+msgstr "线程"
+
+#: web/templates/analysis/memory/_messagehooks.html:11
+msgid "Function"
+msgstr "函数"
+
+#: web/templates/analysis/memory/_modscan.html:5
+msgid "Base Address"
+msgstr "基地址"
+
+#: web/templates/analysis/memory/_modscan.html:8
+msgid "File"
+msgstr "文件"
+
+#: web/templates/analysis/memory/_netscan.html:7
+msgid "Local Address"
+msgstr "本地地址"
+
+#: web/templates/analysis/memory/_netscan.html:8
+msgid "Local Port"
+msgstr "本地端口"
+
+#: web/templates/analysis/memory/_netscan.html:9
+msgid "Remote Address"
+msgstr "远程地址"
+
+#: web/templates/analysis/memory/_netscan.html:10
+msgid "Remote Port"
+msgstr "远程端口"
+
+#: web/templates/analysis/memory/_netscan.html:11
+msgid "Protocol"
+msgstr "协议"
+
+#: web/templates/analysis/memory/_netscan.html:12
+msgid "Created"
+msgstr "创建时间"
+
+#: web/templates/analysis/memory/_netscan.html:13
+msgid "Owner"
+msgstr "所有者"
+
+#: web/templates/analysis/memory/_privs.html:7
+msgid "Privilege"
+msgstr "权限"
+
+#: web/templates/analysis/memory/_privs.html:8
+msgid "Attributes"
+msgstr "属性"
+
+#: web/templates/analysis/memory/_privs.html:9
+msgid "Description"
+msgstr "说明"
+
+#: web/templates/analysis/memory/_pslist.html:8
+msgid "Create Time"
+msgstr "创建时间"
+
+#: web/templates/analysis/memory/_pslist.html:9
+msgid "Exit Time"
+msgstr "退出时间"
+
+#: web/templates/analysis/memory/_pslist.html:10
+msgid "# Threads"
+msgstr "线程数"
+
+#: web/templates/analysis/memory/_pslist.html:11
+msgid "# Handles"
+msgstr "句柄数"
+
+#: web/templates/analysis/memory/_pslist.html:12
+msgid "Session ID"
+msgstr "会话 ID"
+
+#: web/templates/analysis/memory/_sockscan.html:6
+msgid "Creation Time"
+msgstr "创建时间"
+
+#: web/templates/analysis/memory/_ssdt.html:6
+msgid "Syscall Addr"
+msgstr "系统调用地址"
+
+#: web/templates/analysis/memory/_ssdt.html:7
+msgid "Syscall Modname"
+msgstr "系统调用模块名"
+
+#: web/templates/analysis/memory/_ssdt.html:8
+msgid "Syscall Name"
+msgstr "系统调用名称"
+
+#: web/templates/analysis/memory/_svcscan.html:6
+msgid "Display Name"
+msgstr "显示名称"
+
+#: web/templates/analysis/memory/_svcscan.html:7
+msgid "Binary Path"
+msgstr "二进制路径"
+
+#: web/templates/analysis/memory/_svcscan.html:9
+msgid "Order"
+msgstr "顺序"
+
+#: web/templates/analysis/memory/_timers.html:6
+msgid "Due Time"
+msgstr "到期时间"
+
+#: web/templates/analysis/memory/_timers.html:7
+msgid "Period"
+msgstr "周期"
+
+#: web/templates/analysis/memory/_timers.html:8
+msgid "Signaled"
+msgstr "已触发"
+
+#: web/templates/analysis/memory/_timers.html:9
+msgid "Routine"
+msgstr "回调例程"
+
+#: web/templates/analysis/memory/_yarascan.html:6
+msgid "Rule"
+msgstr "规则"
+
+#: web/templates/analysis/memory/_yarascan.html:7
+msgid "Hexdump"
+msgstr "十六进制转储"
+
+#: web/templates/analysis/memory/index.html:3
+msgid "Download file"
+msgstr "下载文件"
+
+#: web/templates/analysis/memory/index.html:3
+msgid "Full Memory Dump"
+msgstr "完整内存转储"
+
+#: web/templates/analysis/memory/index.html:4
+msgid "Download strings"
+msgstr "下载字符串"
+
+#: web/templates/analysis/memory/index.html:4
+msgid "Full Memory Dump Strings"
+msgstr "内存转储字符串"
+
+#: web/templates/analysis/memory/index.html:9
+msgid "Process List"
+msgstr "进程列表"
+
+#: web/templates/analysis/memory/index.html:10
+msgid "Process Scan"
+msgstr "进程扫描"
+
+#: web/templates/analysis/memory/index.html:11
+msgid "Rootkits"
+msgstr "Rootkit"
+
+#: web/templates/analysis/memory/index.html:12
+msgid "Services"
+msgstr "服务"
+
+#: web/templates/analysis/memory/index.html:13
+msgid "Kernel Modules"
+msgstr "内核模块"
+
+#: web/templates/analysis/memory/index.html:14
+msgid "Device Tree"
+msgstr "设备树"
+
+#: web/templates/analysis/memory/index.html:15
+msgid "Code Injection"
+msgstr "代码注入"
+
+#: web/templates/analysis/memory/index.html:16
+msgid "Timers"
+msgstr "定时器"
+
+#: web/templates/analysis/memory/index.html:17
+msgid "Messagehooks"
+msgstr "消息钩子"
+
+#: web/templates/analysis/memory/index.html:18
+msgid "API Hooks"
+msgstr "API 钩子"
+
+#: web/templates/analysis/memory/index.html:19
+msgid "Callbacks"
+msgstr "回调"
+
+#: web/templates/analysis/memory/index.html:20
+msgid "Yarascan"
+msgstr "Yara 扫描"
+
+#: web/templates/analysis/memory/index.html:25
+msgid "Handles"
+msgstr "句柄"
+
+#: web/templates/analysis/memory/index.html:26
+msgid "Sid by Process"
+msgstr "SID 列表（按进程）"
+
+#: web/templates/analysis/memory/index.html:27
+msgid "Dll List"
+msgstr "DLL 列表"
+
+#: web/templates/analysis/memory/index.html:28
+msgid "Mutex"
+msgstr "互斥体"
+
+#: web/templates/analysis/memory/index.html:30
+msgid "Sockets"
+msgstr "套接字"
+
+#: web/templates/analysis/memory/index.html:147
+msgid "No Memory details."
+msgstr "暂无内存数据。"
+
+msgid "CIF Results"
+msgstr "CIF 结果"
+
+msgid "Detection Time"
+msgstr "检测时间"
+
+msgid "Report Time"
+msgstr "上报时间"
+
+msgid "Restriction"
+msgstr "限制级别"
+
+msgid "Confidence"
+msgstr "置信度"
+
+msgid "Assessment"
+msgstr "评估"
+
+msgid "No CIF Results"
+msgstr "暂无 CIF 结果"
+
+msgid "HTTP Requests"
+msgstr "HTTP 请求"
+
+msgid "URI"
+msgstr "URI"
+
+msgid "Request content"
+msgstr "请求内容"
+
+msgid "Request:"
+msgstr "请求："
+
+msgid "Response content"
+msgstr "响应内容"
+
+msgid "Response:"
+msgstr "响应："
+
+msgid "Response preview:"
+msgstr "响应预览："
+
+msgid "No response"
+msgstr "无响应"
+
+msgid "No HTTP(s) requests performed."
+msgstr "未捕获 HTTP(S) 请求。"
+
+msgid "Source"
+msgstr "源地址"
+
+msgid "Destination"
+msgstr "目标地址"
+
+msgid "ICMP Type"
+msgstr "ICMP 类型"
+
+msgid "No ICMP traffic performed."
+msgstr "未捕获 ICMP 流量。"
+
+msgid "IRC traffic"
+msgstr "IRC 流量"
+
+msgid "Command"
+msgstr "命令"
+
+msgid "Params"
+msgstr "参数"
+
+msgid "No IRC requests performed."
+msgstr "未捕获 IRC 请求。"
+
+msgid "SMTP traffic"
+msgstr "SMTP 流量"
+
+msgid "No SMTP traffic performed."
+msgstr "未捕获 SMTP 流量。"
+
+msgid "Suricata Alerts"
+msgstr "Suricata 告警"
+
+msgid "Source IP"
+msgstr "源 IP"
+
+msgid "Destination IP"
+msgstr "目的 IP"
+
+msgid "Destination Port"
+msgstr "目的端口"
+
+msgid "GID"
+msgstr "GID"
+
+msgid "REV"
+msgstr "REV"
+
+msgid "Signature"
+msgstr "签名"
+
+msgid "Severity"
+msgstr "严重度"
+
+msgid "No Suricata Alerts"
+msgstr "暂无 Suricata 告警。"
+
+msgid "Suri Extracted"
+msgstr "Suricata 提取文件"
+
+msgid "File name"
+msgstr "文件名"
+
+msgid "Expected File Size"
+msgstr "期望文件大小"
+
+msgid "Actual File Size"
+msgstr "实际文件大小"
+
+msgid "bytes"
+msgstr "字节"
+
+msgid "File Type"
+msgstr "文件类型"
+
+msgid "File URI"
+msgstr "文件 URI"
+
+msgid "Host"
+msgstr "主机"
+
+msgid "HTTP Referrer"
+msgstr "HTTP 引用"
+
+msgid "None matched"
+msgstr "无匹配"
+
+msgid "Search for Analysis"
+msgstr "查看分析"
+
+msgid "Display Text"
+msgstr "显示文本"
+
+msgid "No Suricata Extracted files."
+msgstr "无 Suricata 提取文件。"
+
+msgid "Suricata HTTP"
+msgstr "Suricata HTTP"
+
+msgid "Method"
+msgstr "方法"
+
+msgid "Hostname"
+msgstr "主机名"
+
+msgid "Content Type"
+msgstr "内容类型"
+
+msgid "User Agent"
+msgstr "User-Agent"
+
+msgid "Referrer"
+msgstr "来源页面"
+
+msgid "Length"
+msgstr "长度"
+
+msgid "No Suricata HTTP"
+msgstr "暂无 Suricata HTTP"
+
+msgid "Suricata TLS"
+msgstr "Suricata TLS"
+
+msgid "Subject"
+msgstr "主题"
+
+msgid "Fingerprint"
+msgstr "指纹"
+
+msgid "hash:"
+msgstr "hash："
+
+msgid "string:"
+msgstr "字符串："
+
+msgid "No Suricata TLS"
+msgstr "暂无 Suricata TLS"
+
+msgid "No TCP connections recorded."
+msgstr "未记录 TCP 连接。"
+
+msgid "Inbound"
+msgstr "入站"
+
+msgid "Outbound"
+msgstr "出站"
+
+msgid "No UDP connections recorded."
+msgstr "未记录 UDP 连接。"
+
+msgid "Source Port"
+msgstr "源端口"
+
+msgid "Completed On"
+msgstr "完成时间"
+
+msgid "Analysis 1"
+msgstr "分析 1"
+
+msgid "Analysis 2"
+msgstr "分析 2"
+
+msgid "Execution Graph"
+msgstr "执行图"
+
+msgid ""
+"This graph gives you an abstracted overview of the execution of the analyzer"
+" file. More specifically it represents the percentage of occurrences of "
+"behavioral events classified by category: the bigger the colored block, the "
+"higher is the count of events for the respective category performed by the "
+"analyzed malware"
+msgstr "该图展示分析器执行过程的抽象概览：彩色块面积代表不同类别行为事件的占比，块越大说明恶意样本在该类别触发的事件越多。"
+
+msgid ""
+"Comparing two graphs from different analyses can help you estimate how much "
+"the behavior of the two files differ."
+msgstr "对比不同分析的两幅图可以估算两个文件在行为上的差异程度。"
+
+msgid "Following are the colored categories:"
+msgstr "颜色对应的类别如下："
+
+msgid "system"
+msgstr "系统"
+
+msgid "windows"
+msgstr "窗口"
+
+msgid "Summary Similarities"
+msgstr "相似性汇总"
+
+msgid "Accessed Registry Keys"
+msgstr "访问的注册表项"
+
+msgid "No similarly accessed files."
+msgstr "没有相同的文件访问行为。"
+
+msgid "No similarly read files."
+msgstr "没有相同的文件读取行为。"
+
+msgid "No similarly written files."
+msgstr "没有相同的文件写入行为。"
+
+msgid "No similarly deleted files."
+msgstr "没有相同的文件删除行为。"
+
+msgid "No similarly accessed registry keys."
+msgstr "没有相同的注册表访问行为。"
+
+msgid "No similarly read registry keys."
+msgstr "没有相同的注册表读取行为。"
+
+msgid "No similarly written registry keys."
+msgstr "没有相同的注册表写入行为。"
+
+msgid "No similarly deleted registry keys."
+msgstr "没有相同的注册表删除行为。"
+
+msgid "No similarly resolved API imports."
+msgstr "没有相同的 API 解析行为。"
+
+msgid "No similarly executed commands."
+msgstr "没有相同的命令执行行为。"
+
+msgid "No similarly created mutexes."
+msgstr "没有相同的互斥量创建行为。"
+
+msgid "No similarly created services"
+msgstr "没有相同方式创建的服务。"
+
+msgid "No simiarly started services."
+msgstr "没有相同方式启动的服务。"
+
+msgid "You need to select the second analysis."
+msgstr "请选择第二个分析任务。"
+
+msgid ""
+"Following are all the analyses of the file with provided MD5 "
+"<b>%(hash)s</b>:"
+msgstr "下方列出所有 MD5 为 <b>%(hash)s</b> 的分析记录："
+
+msgid ""
+"There is no analysis for the specified file or you selected the same "
+"selected analysis."
+msgstr "未找到该文件的分析，或您选择了同一个分析任务。"
+
+msgid "Following are all the other analyses of the same file:"
+msgstr "以下列出了该文件的其他分析："
+
+msgid "There is no other analysis for the same file."
+msgstr "没有该文件的其他分析。"
+
+msgid ""
+"If you want to compare the analysis to a different file, please provide the "
+"MD5 hash:"
+msgstr "如需与其他文件对比，请提供目标文件的 MD5："
+
+msgid "Debugger Output"
+msgstr "调试器输出"
+
+msgid "Event ID"
+msgstr "事件 ID"
+
+msgid "Date"
+msgstr "日期"
+
+msgid "IOCs"
+msgstr "IOC"
+
+msgid "Level"
+msgstr "等级"
+
+msgid "Malicious"
+msgstr "恶意"
+
+msgid "Suspicious"
+msgstr "可疑"
+
+msgid "Similar Analyses"
+msgstr "相似分析"
+
+msgid "Target/MD5"
+msgstr "目标/MD5"
+
+msgid "MalFamily"
+msgstr "恶意家族"
+
+msgid "(added on)"
+msgstr "（加入队列）"
+
+msgid "No similar analyses found."
+msgstr "未找到相似分析。"
+
+msgid "Download password-protected file archive with all files"
+msgstr "下载包含所有文件的受密码保护压缩包"
+
+msgid "Download All Files"
+msgstr "下载全部文件"
+
+msgid "No dropped files."
+msgstr "无投放文件。"
+
+msgid "(unknown)"
+msgstr "（未知）"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "Full Cmdline"
+msgstr "完整命令行"
+
+msgid ""
+"Show all events, including those outside the known process tree (may be "
+"important)"
+msgstr "显示所有事件（包括不在已知进程树内的事件，可能同样重要）"
+
+msgid "⚠️ Security Event"
+msgstr "⚠️ 安全事件"
+
+msgid "🔍 Significant Event"
+msgstr "🔍 重要事件"
+
+msgid "Triggered By:"
+msgstr "触发来源："
+
+msgid "Details & MITRE ATT&CK"
+msgstr "详情与 MITRE ATT&CK"
+
+msgid "[Only security events]"
+msgstr "[仅安全事件]"
+
+msgid "[Significant + security + network events]"
+msgstr "[重要事件/安全事件/网络事件]"
+
+msgid ""
+"A kernel module was loaded. Introduction of malicious kernel modules can "
+"introduce significant security threats deep into the system. You may "
+"download the kernel module under 'Dropped Files'."
+msgstr "检测到内核模块加载。恶意内核模块可能带来深层次安全风险，可在“Dropped Files”中下载该模块进一步分析。"
+
+msgid ""
+"The kernel generated and returned a file descriptor for BPF programs. Most "
+"software does not use this feature, and its usage could be suspicious as it "
+"can give visibility into low-level system information and enable functions "
+"like password stealing or network traffic monitoring.<br><b>You can download"
+" the eBPF bytecode for analysis in \"Dropped Files\".</b><br><pre>bpf-"
+"objdump -D -b binary -m bpf bpf_artifact_file</pre>"
+msgstr ""
+"内核生成并返回了 BPF "
+"程序的文件描述符。常规软件极少使用该特性，其出现可能意味着程序试图获取底层系统信息，从而实现窃取密码或监视网络流量等功能。<br><b>可在“Dropped"
+" Files”中下载 eBPF 字节码以便分析。</b><br><pre>bpf-objdump -D -b binary -m bpf "
+"bpf_artifact_file</pre>"
+
+msgid ""
+"A loaded hidden kernel module was detected on your system. Strong indication"
+" that your system is compromised. It periodically checks for a hidden "
+"module."
+msgstr "检测到已加载的隐藏内核模块，强烈表明系统可能已被入侵。组件会周期性检查隐藏模块。"
+
+msgid ""
+"A program which hooks into and modifies the execution flow of fundamental "
+"system calls was detected, which is likely malicious."
+msgstr "检测到程序钩挂并修改关键系统调用的执行流程，极有可能为恶意行为。"
+
+msgid "Some programs which want to hook syscalls may lookup this table."
+msgstr "试图钩挂系统调用的程序通常会查询该表。"
+
+msgid ""
+"A memory region protection access change is suspicious for malicious "
+"activity. Memory access protection changes might expose writeable memory to "
+"execution, or hide its possible execution."
+msgstr "内存区域访问权限的调整可疑，可能是恶意行为。权限变更可能使可写内存获得执行权限，或隐藏潜在的代码执行。"
+
+msgid "PID / Timestamp"
+msgstr "PID / 时间戳"
+
+msgid "Syscall / Event"
+msgstr "系统调用 / 事件"
+
+msgid "Args &amp; Details"
+msgstr "参数与详情"
+
+msgid "ReturnVal"
+msgstr "返回值"
+
+msgid "Event Type / Syscall"
+msgstr "事件类型 / 系统调用"
+
+msgid "No tracee."
+msgstr "无 Tracee 数据。"
+
+msgid "All"
+msgstr "全部"
+
+msgid "No process dumps."
+msgstr "暂无进程转储。"
+
+msgid "Full Dump Information"
+msgstr "完整转储信息"
+
+msgid "Executable Path"
+msgstr "可执行文件路径"
+
+msgid "Match:"
+msgstr "匹配："
+
+msgid "Author:"
+msgstr "作者："
+
+msgid "Full Dump"
+msgstr "完整转储"
+
+msgid "Process Strings"
+msgstr "进程字符串"
+
+msgid "Address Space"
+msgstr "地址空间"
+
+msgid "Yes"
+msgstr "是"
+
+msgid "No"
+msgstr "否"
+
+msgid "Download password-protected archive"
+msgstr "下载受密码保护的压缩包"
+
+msgid "JSON"
+msgstr "JSON"
+
+msgid "HTML"
+msgstr "HTML"
+
+msgid "HTML summary"
+msgstr "HTML 摘要"
+
+msgid "PDF"
+msgstr "PDF"
+
+msgid "MAEC"
+msgstr "MAEC"
+
+msgid "MAEC5"
+msgstr "MAEC5"
+
+msgid "Metadata"
+msgstr "元数据"
+
+msgid "MISP"
+msgstr "MISP"
+
+msgid "Lite"
+msgstr "精简版"
+
+msgid "CENTS"
+msgstr "CENTS"
+
+msgid "URL Details"
+msgstr "URL 详情"
+
+msgid "Usage"
+msgstr "资源占用"
+
+msgid "No CAPE files."
+msgstr "无 CAPE 文件。"
+
+msgid "No strace."
+msgstr "无 strace 数据。"
+
+msgid "Overall classification"
+msgstr "总体分类"
+
+msgid "Family"
+msgstr "家族"
+
+msgid "Score"
+msgstr "得分"
+
+msgid "Per thread classification"
+msgstr "按线程分类"
+
+msgid "Meta"
+msgstr "元信息"
+
+msgid "Pid:"
+msgstr "进程号："
+
+msgid "Tid:"
+msgstr "线程号："
+
+msgid ""
+"ElasticSearch queries do not use a prefix. For example '*windows.*' would "
+"match 'time.windows.com'."
+msgstr "ElasticSearch 查询不需要前缀，例如 '*windows.*' 可以匹配 'time.windows.com'。"
+
+msgid ""
+"For MD5, SHA1, SHA3, SHA256 and SHA512 no prefix is needed (will match any "
+"file generated by this analysis as binary/dropped/CAPEdump/etc)."
+msgstr "MD5、SHA1、SHA3、SHA256、SHA512 无需前缀（会匹配本次分析生成的二进制/丢弃文件/CAPE dump 等）。"
+
+msgid "Prefix"
+msgstr "前缀"
+
+msgid "SHA256 hash"
+msgstr "SHA256 哈希"
+
+msgid "Family name"
+msgstr "家族名称"
+
+msgid "task_id, e.g. id:1"
+msgstr "任务 ID，例如 id:1"
+
+msgid "task_ids, e.g. ids:1,2,3,4,5"
+msgstr "任务 ID 列表，例如 ids:1,2,3,4,5"
+
+msgid "x=y, e.g. options:function=DllMain"
+msgstr "x=y，例如 options:function=DllMain"
+
+msgid "Tag name, e.g. tags_tasks:mytag"
+msgstr "任务标签名，例如 tags_tasks:mytag"
+
+msgid "Package, e.g. package:ps1"
+msgstr "执行包名，例如 package:ps1"
+
+msgid "File name pattern"
+msgstr "文件名模式"
+
+msgid "File type/format"
+msgstr "文件类型/格式"
+
+msgid "Fuzzy hash"
+msgstr "Fuzzy Hash"
+
+msgid "CRC32 hash"
+msgstr "CRC32 哈希"
+
+msgid "Search for PE Imphash"
+msgstr "搜索 PE Imphash"
+
+msgid "Search for exact hash of the icon associated with the PE"
+msgstr "搜索 PE 图标的精确哈希"
+
+msgid "Search for hash designed to match on similar-looking icons"
+msgstr "搜索用于匹配相似图标的哈希"
+
+msgid "Open files matching the pattern"
+msgstr "匹配模式的打开文件"
+
+msgid "Executed commands matching the pattern"
+msgstr "匹配模式的执行命令"
+
+msgid "APIs resolved at runtime matching the pattern"
+msgstr "运行时解析且匹配模式的 API"
+
+msgid "Open registry keys matching the pattern"
+msgstr "匹配模式的注册表项"
+
+msgid "Open mutexes matching the pattern"
+msgstr "匹配模式的互斥量"
+
+msgid "Source port, e.g. sport:X"
+msgstr "源端口，如 sport:X"
+
+msgid "Destination port, e.g. dport:443"
+msgstr "目标端口，如 dport:443"
+
+msgid "Search both source and destination ports, e.g. port:x"
+msgstr "同时在源/目标端口中搜索，如 port:x"
+
+msgid "Contact the specified IP address"
+msgstr "通信到指定 IP 地址"
+
+msgid "Contact the specified domain"
+msgstr "通信到指定域名"
+
+msgid "Search for CAPE Sandbox URL analysis"
+msgstr "搜索 CAPE Sandbox URL 分析"
+
+msgid "Search for CAPE Sandbox signatures through signature names"
+msgstr "按签名名称搜索 CAPE Sandbox 签名"
+
+msgid "Search for CAPE Sandbox signatures through signature descriptions"
+msgstr "按签名描述搜索 CAPE Sandbox 签名"
+
+msgid "Search for samples associated with malware family"
+msgstr "按家族搜索样本"
+
+msgid "Search for Suricata alert messages"
+msgstr "搜索 Suricata 告警消息"
+
+msgid "Search for Suricata alerts"
+msgstr "搜索 Suricata 告警"
+
+msgid "Search for Suricata alert SIDs"
+msgstr "搜索 Suricata 告警 SID"
+
+msgid "Search for URLs in Suricata HTTP logs"
+msgstr "在 Suricata HTTP 日志中搜索 URL"
+
+msgid "Search for User-Agent strings in Suricata HTTP logs"
+msgstr "在 Suricata HTTP 日志中搜索 User-Agent"
+
+msgid "Search for Referrer values in Suricata HTTP logs"
+msgstr "在 Suricata HTTP 日志中搜索 Referrer"
+
+msgid "Search for Host values in Suricata HTTP logs"
+msgstr "在 Suricata HTTP 日志中搜索 Host"
+
+msgid "Search for TLS Subject in Suricata TLS logs"
+msgstr "在 Suricata TLS 日志中搜索证书主体"
+
+msgid "Search for TLS Issuer DN in Suricata TLS logs"
+msgstr "在 Suricata TLS 日志中搜索签发者 DN"
+
+msgid "Search for TLS fingerprint in Suricata TLS logs"
+msgstr "在 Suricata TLS 日志中搜索指纹"
+
+msgid "Search for Suricata TLS entries"
+msgstr "搜索 Suricata TLS 记录"
+
+msgid "Search for Suricata HTTP entries"
+msgstr "搜索 Suricata HTTP 记录"
+
+msgid "Search for JA3 string"
+msgstr "搜索 JA3 字符串"
+
+msgid "Search for JA3 hash"
+msgstr "搜索 JA3 哈希"
+
+msgid "Local ClamAV detections"
+msgstr "本地 ClamAV 检测结果"
+
+msgid "Yara rule name for analysis samples (binary folder)"
+msgstr "分析样本（binary 目录）的 Yara 规则名"
+
+msgid "Yara rule name for CAPE Yara hits (cape folder)"
+msgstr "CAPE 命中的 Yara 规则名（cape 目录）"
+
+msgid "Yara rule name for process dumps"
+msgstr "进程转储使用的 Yara 规则名"
+
+msgid "Yara rule name for process memory dumps"
+msgstr "进程内存转储使用的 Yara 规则名"
+
+msgid "VirusTotal detected name"
+msgstr "VirusTotal 检测名称"
+
+msgid "Name of the target machine"
+msgstr "靶机名称"
+
+msgid "Label of the target machine"
+msgstr "靶机标签"
+
+msgid "Custom data"
+msgstr "自定义数据"
+
+msgid "Search for analysis comments"
+msgstr "搜索分析备注"
+
+msgid "Search for malscore greater than a value"
+msgstr "搜索大于指定值的 malscore"
+
+msgid "TTP id, e.g. T1053"
+msgstr "TTP ID，如 T1053"
+
+msgid "dhash value"
+msgstr "dhash 值"
+
+msgid "Fingerprint produced by DIE, e.g. die:obsidium"
+msgstr "DIE 生成的指纹，如 die:obsidium"
+
+msgid ""
+"Extracted tool name, e.g. extracted_tool:InnoExtract (see file_extra_info.py"
+" for all names)"
+msgstr "提取工具名称，如 extracted_tool:InnoExtract（其余名称见 file_extra_info.py）"
+
+msgid "Autonomous system ID, e.g. asn:AS15169"
+msgstr "自治系统 ID，如 asn:AS15169"
+
+msgid "ASN name, e.g. asn_name:Google LLC"
+msgstr "ASN 名称，如 asn_name:Google LLC"
+
+msgid "Term"
+msgstr "搜索词"
+
+msgid ""
+"Download password-protected archive with every file matching the searched "
+"term (not only the original target)."
+msgstr "下载包含所有匹配搜索词文件的受密码保护压缩包（不仅限于初始样本）。"
+
+msgid "Search Results"
+msgstr "搜索结果"
+
+msgid "No results found."
+msgstr "未找到结果。"
+
+msgid "None"
+msgstr "无"
+
+msgid "C&C"
+msgstr "C&C"
+
+msgid "Downloads"
+msgstr "下载"
+
+msgid "Add comment ..."
+msgstr "添加评论..."
+
+msgid "No comments posted"
+msgstr "暂无评论"
+
+msgid "Pending Tasks"
+msgstr "待处理任务"
+
+msgid "Timestamp (added on)"
+msgstr "时间戳（加入队列）"
+
+msgid "Action"
+msgstr "操作"
+
+msgid "No pending tasks."
+msgstr "暂无待处理任务。"
+
+msgid "Task ID"
+msgstr "任务 ID"
+
+msgid "Delete task"
+msgstr "删除任务"
+
+msgid "Cuckoo release"
+msgstr "Cuckoo 版本"
+
+msgid ""
+"Task created by user id: <a href=\"{% url \"admin:auth_user_change\" uid "
+"%}\">{{ uid }}</a>"
+msgstr "任务创建者用户 ID：<a href=\"{% url \"admin:auth_user_change\" uid %}\">{{ uid }}</a>"
+
+msgid "Ban user"
+msgstr "封禁用户"
+
+msgid "Ban all tasks of this user"
+msgstr "封禁该用户的全部任务"
+
+msgid "or"
+msgstr "或"
+
+msgid "Task created by user id:"
+msgstr "任务创建者用户 ID："
+
+msgid "DNS"
+msgstr "DNS"
+
+msgid "TLP: Red"
+msgstr "TLP：红"
+
+msgid "TLP: Amber"
+msgstr "TLP：橙"
+
+msgid "TLP: Green"
+msgstr "TLP：绿"

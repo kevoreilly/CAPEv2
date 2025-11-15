@@ -1,21 +1,22 @@
+{% load i18n %}
 <section id="suri_http">
-    <h4>Suricata HTTP</h4>
+    <h4>{% trans "Suricata HTTP" %}</h4>
     {% if suricata.http %}
         <table class="table table-striped table-bordered" style="table-layout: fixed; width: 100%">
             <tr>
-                <th width="8%">Timestamp</th>
-                <th width="9%">Source IP</th>
-                <th width="5%">Source Port</th>
-                <th width="9%">Destination IP</th>
-                <th width="5%">Destination Port</th>
-                <th width="4%">Method</th>
-                <th width="4%">Status</th>
-                <th width="10%">Hostname</th>
-                <th width="13%">URI</th>
-                <th width="8%">Content Type</th>
-                <th width="8%">User Agent</th>
-                <th width="13%">Referrer</th>
-                <th width="4%">Length</th>
+                <th width="8%">{% trans "Timestamp" %}</th>
+                <th width="9%">{% trans "Source IP" %}</th>
+                <th width="5%">{% trans "Source Port" %}</th>
+                <th width="9%">{% trans "Destination IP" %}</th>
+                <th width="5%">{% trans "Destination Port" %}</th>
+                <th width="4%">{% trans "Method" %}</th>
+                <th width="4%">{% trans "Status" %}</th>
+                <th width="10%">{% trans "Hostname" %}</th>
+                <th width="13%">{% trans "URI" %}</th>
+                <th width="8%">{% trans "Content Type" %}</th>
+                <th width="8%">{% trans "User Agent" %}</th>
+                <th width="13%">{% trans "Referrer" %}</th>
+                <th width="4%">{% trans "Length" %}</th>
             </tr>
             {% for http in suricata.http %}
             <tr>
@@ -90,6 +91,6 @@
         </table>
 
     {% else %}
-        <p>No Suricata HTTP</p>
+        <p>{% trans "No Suricata HTTP" %}</p>
     {% endif %}
 </section>

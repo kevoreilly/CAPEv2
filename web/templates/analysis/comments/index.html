@@ -1,10 +1,11 @@
-<h4>Comments</h4><br />
+{% load i18n %}
+<h4>{% trans "Comments" %}</h4><br />
 <form role="form" method="post" action="/analysis/{{analysis.info.id}}/comments/">{% csrf_token %}
 <div class="row">
   <div class="form group col-lg-10">
-      <textarea class="form-control" rows="7" name="commentbox" placeholder="Add comment ..."></textarea>
+      <textarea class="form-control" rows="7" name="commentbox" placeholder="{% trans "Add comment ..." %}"></textarea>
       <div style="margin-top: 5px;">
-        <button class="btn btn-secondary float-right" type="submit">Submit</button>
+        <button class="btn btn-secondary float-right" type="submit">{% trans "Submit" %}</button>
       </div>
   </div>
 </div>
@@ -15,5 +16,5 @@
 <div class="alert alert-primary"><b>[{{comment.Timestamp}}]</b><br />{{comment.Data|safe}}</div>
 {% endfor %}
 {% else %}
-<div class="alert alert-primary center">No comments posted</div>
+<div class="alert alert-primary center">{% trans "No comments posted" %}</div>
 {% endif %}

@@ -1,22 +1,23 @@
+{% load i18n %}
 {% if suricata.files|length > 0 %}
-    <div class="alert alert-primary center"><a class="btn btn-secondary btn-sm" href="{% url "file" "zip" id "files" %}"><span class="fas fa-download"></span> Suri Extracted</a></div>
+    <div class="alert alert-primary center"><a class="btn btn-secondary btn-sm" href="{% url "file" "zip" id "files" %}"><span class="fas fa-download"></span> {% trans "Suri Extracted" %}</a></div>
     {% for file in suricata.files %}
         <div class="table">
             <table class="table table-striped">
                 <tr>
-                    <th style="border-top: 0;" width="15%">File name</th>
+                    <th style="border-top: 0;" width="15%">{% trans "File name" %}</th>
                     <td style="border-top: 0;"><b>{{file.filename}}</b></td>
                 </tr>
                 <tr>
-                    <th>Expected File Size</th>
-                    <td>{{file.size}} bytes</td>
+                    <th>{% trans "Expected File Size" %}</th>
+                    <td>{{file.size}} {% trans "bytes" %}</td>
                 </tr>
                 <tr>
-                    <th>Actual File Size</th>
-                    <td>{{file.file_info.size}} bytes</td>
+                    <th>{% trans "Actual File Size" %}</th>
+                    <td>{{file.file_info.size}} {% trans "bytes" %}</td>
                 </tr>
                 <tr>
-                    <th>File Type</th>
+                    <th>{% trans "File Type" %}</th>
                     {% if file.file_info.type %}
                     <td>{{file.file_info.type}}</td>
                     {% else %}
@@ -24,7 +25,7 @@
                     {% endif %}
                 </tr>
                 <tr>
-                    <th>File URI</th>
+                    <th>{% trans "File URI" %}</th>
                     <td>{{file.http_uri}}
                         {% if file.moloch_uri_url %}
                             <a href={{file.moloch_uri_url}} target="_blank">[MLCH]</a>
@@ -32,7 +33,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <th>Host</th>
+                    <th>{% trans "Host" %}</th>
                     <td>{{file.http_host}}
                         {% if file.moloch_host_url %}
                             <a href={{file.moloch_host_url}} target="_blank">[MLCH]</a>
@@ -40,7 +41,7 @@
                     </td>
                 </tr>
                 <tr>
-                    <th>HTTP Referrer</th>
+                    <th>{% trans "HTTP Referrer" %}</th>
                     <td>{{file.http_referer}}</td>
                 </tr>
                 <tr>
@@ -81,7 +82,7 @@
                         {% endfor %}
                         </ul>
                     {% else %}
-                        None matched
+                        {% trans "None matched" %}
                     {% endif %}
                 </tr>
                 <tr>
@@ -98,25 +99,25 @@
                         {% endfor %}
                         </ul>
                     {% else %}
-                        None matched
+                        {% trans "None matched" %}
                     {% endif %}
                     </td>
                 </tr>
                 <tr>
                     <th>VirusTotal</th>
-                    <td><a href="https://www.virustotal.com/en/file/{{file.file_info.sha256}}/analysis/">Search for Analysis</a></td>
+                    <td><a href="https://www.virustotal.com/en/file/{{file.file_info.sha256}}/analysis/">{% trans "Search for Analysis" %}</a></td>
                 </tr>
                 {% if config.display_et_portal %}
                 <tr>
                     <th>EmergingThreats</th>
-                    <td><a href="https://threatintel.proofpoint.com/search?q={{file.md5}}" target="_blank">Search for Analysis</a></td>
+                    <td><a href="https://threatintel.proofpoint.com/search?q={{file.md5}}" target="_blank">{% trans "Search for Analysis" %}</a></td>
                 </tr>
                 {% endif %}
                 <tr>
                     <th></th>
                     <td><a href="{% url "file" "suricata" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
                     {% if file.file_info.data %}
-                    &emsp;<a class="btn btn-secondary btn-sm" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
+                    &emsp;<a class="btn btn-secondary btn-sm" data-toggle="collapse" data-target="#{{file.sha256}}">{% trans "Display Text" %}</a>
                     {% endif %}
                     </td>
                 </tr>
@@ -129,5 +130,5 @@
         </div>
     {% endfor %}
 {% else %}
-    <div class="alert alert-primary"><b>Sorry!</b> No Suricata Extracted files.</div>
+    <div class="alert alert-primary"><b>{% trans "Sorry!" %}</b> {% trans "No Suricata Extracted files." %}</div>
 {% endif %}

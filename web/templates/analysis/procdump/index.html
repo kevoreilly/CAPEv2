@@ -1,12 +1,13 @@
+{% load i18n %}
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
 {% if procdump|length > 0 %}
     {% if settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
-        <center><a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive with all files"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> Download All Files</a></center>
+        <center><a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="{% trans "Download password-protected file archive with all files" %}"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> {% trans "Download All Files" %}</a></center>
         </br>
     {% endif %}
     {% for file in procdump %}
         {% include "analysis/generic/_file_info.html" %}
     {% endfor %}
 {% else %}
-    <div class="alert alert-secondary"><b>Sorry!</b> No process dumps.</div>
+    <div class="alert alert-secondary"><b>{% trans "Sorry!" %}</b> {% trans "No process dumps." %}</div>
 {% endif %}

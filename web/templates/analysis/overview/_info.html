@@ -12,11 +12,11 @@
     {% if config.malscore and analysis.malstatus %}
         <p  style="text-align:center; font-size: 18px;font-weight-bold";>{% trans "Status:" %}
             {% if analysis.malstatus == "Malicious" %}
-                <span class="badge badge-danger">{{analysis.malstatus}}</span>
+                <span class="badge badge-danger">{% trans "Malicious" %}</span>
             {% elif analysis.malstatus == "Suspicious" %}
-                <span class="badge badge-warning">{{analysis.malstatus}}</span>
+                <span class="badge badge-warning">{% trans "Suspicious" %}</span>
             {% elif analysis.malstatus == "Clean" %}
-                <span class="badge badge-success">{{analysis.malstatus}}</span>
+                <span class="badge badge-success">{% trans "Clean" %}</span>
             {% else %}
                 {{analysis.malstatus}}
          {% endif %}

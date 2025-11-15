@@ -1,3 +1,4 @@
+{% load i18n %}
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
 <section id="udp" class="tcpudp">
     {% if network.udp %}
@@ -5,10 +6,10 @@
             <div class="col-md-6">
                 <table class="table table-bordered">
                     <tr>
-                        <th>Source</th>
-                        <th>Source Port</th>
-                        <th>Destination</th>
-                        <th>Destination Port</th>
+                        <th>{% trans "Source" %}</th>
+                        <th>{% trans "Source Port" %}</th>
+                        <th>{% trans "Destination" %}</th>
+                        <th>{% trans "Destination Port" %}</th>
                     </tr>
                     {% for p in network.udp %}
                         <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},udp">
@@ -27,6 +28,6 @@
             <div class="stream col-md-6"></div>
         </div>
     {% else %}
-        <p>No UDP connections recorded.</p>
+        <p>{% trans "No UDP connections recorded." %}</p>
     {% endif %}
 </section>

@@ -1,15 +1,16 @@
+{% load i18n %}
 <table class="table table-bordered" style="table-layout: fixed;">
     <thead>
         <tr>
-            <th>Offset</th>
-            <th>PID</th>
-            <th>Local Address</th>
-            <th>Local Port</th>
-            <th>Remote Address</th>
-            <th>Remote Port</th>
-            <th>Protocol</th>
-            <th>Created</th>
-            <th>Owner</th>
+            <th>{% trans "Offset" %}</th>
+            <th>{% trans "PID" %}</th>
+            <th>{% trans "Local Address" %}</th>
+            <th>{% trans "Local Port" %}</th>
+            <th>{% trans "Remote Address" %}</th>
+            <th>{% trans "Remote Port" %}</th>
+            <th>{% trans "Protocol" %}</th>
+            <th>{% trans "Created" %}</th>
+            <th>{% trans "Owner" %}</th>
         </tr>
     </thead>
     <tbody>
@@ -25,12 +26,12 @@
             {% if sock.Created %}
                 <td>{{sock.Created}}</td>
             {% else %}
-                <td>-</td>
+                <td>{% trans "-" %}</td>
             {% endif %}
             {% if sock.Owner %}
                 <td>{{sock.Owner}}</td>
             {% else %}
-                <td>-</td>
+                <td>{% trans "-" %}</td>
             {% endif %}
         </tr>
     {% endfor %}

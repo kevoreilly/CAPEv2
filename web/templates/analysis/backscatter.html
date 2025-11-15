@@ -1,9 +1,10 @@
+{% load i18n %}
 <table class="table table-bordered" style="table-layout: fixed;">
     <tbody>
         {% for key, value in analysis.backscatter.items %}
             {% if key == "sample_hashes" %}
             <tr>
-                <td width="20%"><strong>Hashes</strong></td>
+                <td width="20%"><strong>{% trans "Hashes" %}</strong></td>
                 <td>
                     {% for hash_type, hash in value.items %}
                         <li>{{hash}}</li>
@@ -12,7 +13,7 @@
             </tr>
             {% elif key == "bot" %}
             <tr>
-                <td width="20%"><strong>C&C</strong></td>
+                <td width="20%"><strong>{% trans "C&C" %}</strong></td>
                 <td>
                     {% for _, cncs in value.items %}
                         {% for cnc in cncs %}
@@ -23,7 +24,7 @@
             </tr>
             {% elif key == "downloads" %}
             <tr>
-                <td width="20%"><strong>Downloads</strong></td>
+                <td width="20%"><strong>{% trans "Downloads" %}</strong></td>
                 <td>
                     {% for downloads in value %}
                        <li>{{downloads.inet.url}}</li>

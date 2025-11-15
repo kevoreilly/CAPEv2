@@ -1,9 +1,9 @@
-{% load analysis_tags %}
+{% load analysis_tags i18n %}
 <div class="panel panel-default">
     <table class="table table-striped table-bordered">
         <tr>
-            <th>Task ID</th>
-            <td>{{analysis.info.id}} <a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Delete task"><i class="fas fa-trash-alt"></i></a></td>
+            <th>{% trans "Task ID" %}</th>
+            <td>{{analysis.info.id}} <a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="{% trans "Delete task" %}"><i class="fas fa-trash-alt"></i></a></td>
         </tr>
         {% if config.mongodb %}
         <tr>
@@ -21,16 +21,16 @@
         </tr>
         {% endif %}
         <tr>
-            <th>Cuckoo release</th>
+            <th>{% trans "Cuckoo release" %}</th>
             <td>{{analysis.info.version}}</td>
         </tr>
         {% if analysis.info.user_id %}
         <tr>
-            <th>Task cretated by user id: <a href="{% url "admin:auth_user_change" analysis.info.user_id  %}">{{analysis.info.user_id}}</a></th>
+            <th>{% trans "Task created by user id:" %} <a href="{% url "admin:auth_user_change" analysis.info.user_id  %}">{{analysis.info.user_id}}</a></th>
             <td>
-                <a href="{% url "ban_user" analysis.info.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="Ban user"><i class="fas fa-user-lock"></i></a>
-                or
-                <a href="{% url "ban_all_user_tasks" analysis.info.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="Ban all task of this user"><i class="fas fa-tasks"></i><i class="fas fa-user-lock"></i></a>
+                <a href="{% url "ban_user" analysis.info.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="{% trans "Ban user" %}"><i class="fas fa-user-lock"></i></a>
+                {% trans "or" %}
+                <a href="{% url "ban_all_user_tasks" analysis.info.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="{% trans "Ban all tasks of this user" %}"><i class="fas fa-tasks"></i><i class="fas fa-user-lock"></i></a>
 
             </td>
         </tr>

@@ -1,10 +1,11 @@
-<h4>IRC traffic</h4>
+{% load i18n %}
+<h4>{% trans "IRC traffic" %}</h4>
 {% if network.irc %}
 <table class="table table-striped table-bordered" style="table-layout: fixed;">
     <tr>
-        <th>Command</th>
-        <th>Params</th>
-        <th>Type</th>
+        <th>{% trans "Command" %}</th>
+        <th>{% trans "Params" %}</th>
+        <th>{% trans "Type" %}</th>
     </tr>
     {% for irc in network.irc %}
     <tr>
@@ -15,5 +16,5 @@
     {% endfor %}
 </table>
 {% else %}
-<p>No IRC requests performed.</p>
+<p>{% trans "No IRC requests performed." %}</p>
 {% endif %}

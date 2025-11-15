@@ -1,15 +1,16 @@
+{% load i18n %}
 {% if similar|length > 0 %}
     <div class="card ">
         <div class="card-header">
-            <h3 class="card-title">Similar Analyses</h3>
+            <h3 class="card-title">{% trans "Similar Analyses" %}</h3>
         </div>
         <table class="table table-striped" style="table-layout: fixed;">
             <thead>
             <tr>
-                <th width="5%">ID</th>
-                <th width="12%">Timestamp</th>
-                <th width="37%">Filename</th>
-                <th width="20%">Target/MD5</th>
+                <th width="5%">{% trans "ID" %}</th>
+                <th width="12%">{% trans "Timestamp" %}</th>
+                <th width="37%">{% trans "Filename" %}</th>
+                <th width="20%">{% trans "Target/MD5" %}</th>
                 {% if config.moloch %}
                 <th width="5%">Moloch</th>
                 {% endif %}
@@ -19,8 +20,8 @@
                 {% if config.virustotal %}
                 <th width="5%">VT</th>
                 {% endif %}
-                <th width="5%">MalScore</th>
-                <th width="6%" style="text-align: right;">MalFamily</th>
+                <th width="5%">{% trans "MalScore" %}</th>
+                <th width="6%" style="text-align: right;">{% trans "MalFamily" %}</th>
             </tr>
             </thead>
             <tbody>
@@ -33,7 +34,7 @@
                     {% if analysis.status == "reported" %}
                         {{analysis.completed_on}}
                     {% else %}
-                        <span class="muted">{{analysis.added_on}} (added on)</span>
+                        <span class="muted">{{analysis.added_on}} {% trans "(added on)" %}</span>
                     {% endif %}
                     </td>
                     <td>
@@ -61,7 +62,7 @@
                         {% if analysis.moloch_url %}
                             <a href={{analysis.moloch_url}} target="_blank"><span class="mono">MOLOCH</span></a>
                         {% else %}
-                            <span class="mono">None</span>
+                            <span class="mono">{% trans "None" %}</span>
                         {% endif %}
                     </td>
                     {% endif %}
@@ -70,7 +71,7 @@
                         {% if analysis.suri_alert_cnt %}
                             <span class="mono">{{analysis.suri_alert_cnt}}</span>
                         {% else %}
-                            <span class="mono">None</span>
+                            <span class="mono">{% trans "None" %}</span>
                         {% endif %}
                     </td>
                     {% endif %}
@@ -79,7 +80,7 @@
                         {% if analysis.virustotal_summary %}
                             <span class="mono">{{analysis.virustotal_summary}}</span>
                         {% else %}
-                            <span class="mono">None</span>
+                            <span class="mono">{% trans "None" %}</span>
                         {% endif %}
                     </td>
                     {% endif %}
@@ -95,14 +96,14 @@
                             {% endif %}
                             >{{analysis.malscore|floatformat:1}}</span>
                         {% else %}
-                            <span class="mono">None</span>
+                            <span class="mono">{% trans "None" %}</span>
                         {% endif %}
                     </td>
                     <td style="text-align: right;">
                         {% if analysis.detections %}
                             <span class="mono">{{analysis.detections}}</span>
                         {% else %}
-                            <span class="mono">None</span>
+                            <span class="mono">{% trans "None" %}</span>
                         {% endif %}
                     </td>
                 </tr>
@@ -111,5 +112,5 @@
         </table>
     </div>
 {% else %}
-    <div class="alert alert-info" style="text-align: center;"><b>No similar analyses found.</b></div>
+    <div class="alert alert-info" style="text-align: center;"><b>{% trans "No similar analyses found." %}</b></div>
 {% endif %}

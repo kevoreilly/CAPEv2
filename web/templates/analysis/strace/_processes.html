@@ -1,5 +1,7 @@
-{% load analysis_tags %}
+{% load analysis_tags i18n %}
 <script type="text/javascript">
+    const TEXT_ERROR_LOADING = "{{ _('Error loading data. Please reload the page and if the error persists contact us.')|escapejs }}";
+
     function paginationbar(pages, page) {
         if (pages === 0) return "";
 
@@ -27,7 +29,7 @@
     function load_chunk(pid, pagenum, callback) {
         $("#process_" + pid + " div.calltable").load("/analysis/chunk/{{id}}/" + pid + "/" + pagenum + "/", function (data, status, xhr) {
             if (status == "error") {
-                $("#process_" + pid + " div.calltable").html("Error loading data. Please reload the page and if the error persists contact us.");
+                $("#process_" + pid + " div.calltable").html(TEXT_ERROR_LOADING);
             }
             else {
                 $("#process_" + pid + " ul.pagination").html(paginationbar(parseInt($("#process_" + pid).data("length")), pagenum));
@@ -91,7 +93,7 @@
 
         $("#process_" + pid + " div.calltable").load("/analysis/filtered/{{id}}/" + pid + "/" + category + "/" + encodedlist + "/" + caller + "/" + tid + "/", function (data, status, xhr) {
             if (status == "error") {
-                $("#process_" + pid + " div.calltable").html("Error loading data. Please reload the page and if the error persists contact us.");
+                $("#process_" + pid + " div.calltable").html(TEXT_ERROR_LOADING);
             }
             else {
                 $("#process_" + pid + " div.pagination ul").html(paginationbar(0, 0));

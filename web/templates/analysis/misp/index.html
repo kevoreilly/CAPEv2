@@ -1,12 +1,13 @@
+{% load i18n %}
 <table class="table table-bordered" style="table-layout: fixed;">
     <tbody>
     {% if analysis.misp %}
         <tr>
-            <td width=80px><strong>Event ID</strong></td>
-            <td width=100px><strong>Date</strong></td>
-            <td><strong>IOCs</strong></td>
-            <td><strong>Description</strong></td>
-            <td width=60px><strong>Level</strong></td>
+            <td width=80px><strong>{% trans "Event ID" %}</strong></td>
+            <td width=100px><strong>{% trans "Date" %}</strong></td>
+            <td><strong>{% trans "IOCs" %}</strong></td>
+            <td><strong>{% trans "Description" %}</strong></td>
+            <td width=60px><strong>{% trans "Level" %}</strong></td>
         </tr>
         {% for event in analysis.misp %}
         <tr>

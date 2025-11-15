@@ -1,3 +1,4 @@
+{% load i18n %}
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
 <section id="tcp" class="tcpudp">
     {% if network.tcp %}
@@ -5,10 +6,10 @@
             <div class="col-md-6">
                 <table class="table table-bordered">
                     <tr>
-                        <th>Source</th>
-                        <th>Source Port</th>
-                        <th>Destination</th>
-                        <th>Destination Port</th>
+                        <th>{% trans "Source" %}</th>
+                        <th>{% trans "Source Port" %}</th>
+                        <th>{% trans "Destination" %}</th>
+                        <th>{% trans "Destination Port" %}</th>
                     </tr>
                     {% for p in network.tcp %}
                         <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},tcp">
@@ -27,11 +28,14 @@
             <div class="stream col-md-6"></div>
         </div>
     {% else %}
-        <p>No TCP connections recorded.</p>
+        <p>{% trans "No TCP connections recorded." %}</p>
     {% endif %}
 </section>
 <script type='text/javascript'>
 $(function () {
+    var errorMessage = "{{ _('Error loading data. Please reload the page and if the error persists contact us.')|escapejs }}";
+    var inboundTitle = "{{ _('Inbound')|escapejs }}";
+    var outboundTitle = "{{ _('Outbound')|escapejs }}";
     $("section.tcpudp table tr.connrow").click(function(e) {
         var $section = $(this).closest("section");
 
@@ -42,7 +46,7 @@ $(function () {
 
         $.get("/analysis/{{id}}/pcapstream/"+choice+"/", function(data, status, xhr) {
             if (status == "error") {
-                $section.find("div.stream").html("Error loading data. Please reload the page and if the error persists contact us.");
+                $section.find("div.stream").html(errorMessage);
             } else {
                 var out = $("<ul class=\"tcp-flow\">");
                 var first = undefined;
@@ -54,10 +58,10 @@ $(function () {
                     if (first == undefined) first = tuple;
                     if (first != tuple) {
                         tcpclass = "tcp-in";
-                        icon = "<i class=\"fa fa-chevron-down\" title=\"Inbound\"></i>";
+                        icon = "<i class=\"fa fa-chevron-down\" title=\"" + inboundTitle + "\"></i>";
                     } else {
                         tcpclass = "tcp-out";
-                        icon = "<i class=\"fa fa-chevron-up\" title=\"Outbound\"></i>";
+                        icon = "<i class=\"fa fa-chevron-up\" title=\"" + outboundTitle + "\"></i>";
                     }
 
                     var li = $("<li class=\"" + tcpclass + "\">" + icon + tuple + "</li>").append("<pre>" + hexy(base64.decode(p.raw)) + "</pre>");

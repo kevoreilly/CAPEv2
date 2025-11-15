@@ -2,34 +2,34 @@
 <div><center>
     <i class="far fa-file-alt"></i> {% trans "Reports:" %}
             {% if config.jsondump %}
-                <a  href="{% url "filereport" analysis.info.id "json" %}">JSON </a>
+                <a  href="{% url "filereport" analysis.info.id "json" %}">{% trans "JSON" %}</a>
             {% endif %}
             {% if config.reporthtml %}
-                <a href="{% url "filereport" analysis.info.id "html" %}">HTML</a>
+                <a href="{% url "filereport" analysis.info.id "html" %}">{% trans "HTML" %}</a>
             {% endif %}
             {% if config.reporthtmlsummary %}
-                 <a href="{% url "filereport" analysis.info.id "htmlsummary" %}">HTML summary </a>
+                 <a href="{% url "filereport" analysis.info.id "htmlsummary" %}">{% trans "HTML summary" %}</a>
             {% endif %}
             {% if config.reportpdf %}
-               <a href="{% url "filereport" analysis.info.id "pdf" %}">PDF</a>
+               <a href="{% url "filereport" analysis.info.id "pdf" %}">{% trans "PDF" %}</a>
             {% endif %}
             {% if config.maec41 %}
-               <a href="{% url "filereport" analysis.info.id "maec" %}">MAEC</a>
+               <a href="{% url "filereport" analysis.info.id "maec" %}">{% trans "MAEC" %}</a>
             {% endif %}
             {% if config.maec5 %}
-               <a href="{% url "filereport" analysis.info.id "maec5" %}">MAEC5</a>
+               <a href="{% url "filereport" analysis.info.id "maec5" %}">{% trans "MAEC5" %}</a>
             {% endif %}
             {% if config.mmdef %}
-               <a href="{% url "filereport" analysis.info.id "metadata" %}">Metadata</a>
+               <a href="{% url "filereport" analysis.info.id "metadata" %}">{% trans "Metadata" %}</a>
             {% endif %}
             {% if config.misp %}
-               <a href="{% url "filereport" analysis.info.id "misp" %}">MISP</a>
+               <a href="{% url "filereport" analysis.info.id "misp" %}">{% trans "MISP" %}</a>
             {% endif %}
             {% if config.litereport %}
-               <a href="{% url "filereport" analysis.info.id "litereport" %}">Lite</a>
+               <a href="{% url "filereport" analysis.info.id "litereport" %}">{% trans "Lite" %}</a>
             {% endif %}
             {% if config.cents %}
-               <a href="{% url "filereport" analysis.info.id "cents" %}">CENTS</a>
+               <a href="{% url "filereport" analysis.info.id "cents" %}">{% trans "CENTS" %}</a>
             {% endif %}
          </center>
 </div>

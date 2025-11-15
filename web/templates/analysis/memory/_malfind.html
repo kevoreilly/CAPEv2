@@ -1,12 +1,13 @@
+{% load i18n %}
 <table class="table table-bordered" style="table-layout: fixed;">
     <thead>
         <tr>
-            <th>PID</th>
-            <th>Process Name</th>
-            <th>Start</th>
-            <th>End</th>
-            <th>Tag</th>
-            <th>Protection</th>
+            <th>{% trans "PID" %}</th>
+            <th>{% trans "Process Name" %}</th>
+            <th>{% trans "Start" %}</th>
+            <th>{% trans "End" %}</th>
+            <th>{% trans "Tag" %}</th>
+            <th>{% trans "Protection" %}</th>
         </tr>
     </thead>
     <tbody>
@@ -14,8 +15,8 @@
         <tr>
             <td>{{mal.PID}}</td>
             <td>{{mal.Process}}</td>
-            <td><span class="mono">ToDo</span></td>
-            <td><span class="mono">ToDo</span></td>
+            <td><span class="mono">{% trans "ToDo" %}</span></td>
+            <td><span class="mono">{% trans "ToDo" %}</span></td>
             <td>{{mal.Tag}}</td>
             <td>{{mal.Protection}}</td>
         </tr>

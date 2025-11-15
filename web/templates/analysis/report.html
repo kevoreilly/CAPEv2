@@ -62,13 +62,12 @@ $(function() {
 </style>
 {% if analysis.info.tlp %}
     {% if analysis.info.tlp == "Red" %}
-    <div class="alert alert-tlp_red">
+    <div class="alert alert-tlp_red">{% trans "TLP: Red" %}</div>
     {% elif analysis.info.tlp == "Amber" %}
-    <div class="alert alert-tlp_amber">
+    <div class="alert alert-tlp_amber">{% trans "TLP: Amber" %}</div>
     {% elif analysis.info.tlp == "Green" %}
-        <div class="alert alert-tlp_amber">
+        <div class="alert alert-tlp_green">{% trans "TLP: Green" %}</div>
     {% endif %}
-    </div>
 {% endif %}
 
 <ul class="nav nav-tabs">
@@ -97,7 +96,7 @@ $(function() {
         {% endif %}
         {% if analysis.CAPE %}
             <li class="nav-item"><a class="nav-link" href="#CAPE" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/CAPE/" data-toggle="tab">{% blocktrans with count=analysis.CAPE %}Payloads ({{ count }}){% endblocktrans %}</a></li>
-        {% endif%}
+        {% endif %}
         {% if analysis.debugger_logs %}
             <li class="nav-item"><a class="nav-link" href="#debugger" data-toggle="tabajax" data-url="/analysis/load_files/{{analysis.info.id}}/debugger/" data-toggle="tab">{% trans "Debugger" %}</a></li>
         {% endif %}

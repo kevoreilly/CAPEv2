@@ -1,6 +1,7 @@
 {% load generic_tags %}
+{% load i18n %}
 
-<h4>Process Tree</h4>
+<h4>{% trans "Process Tree" %}</h4>
 <ul>
 {% for process in strace.processtree|proctreetolist %}
     {% if process.startchildren %}

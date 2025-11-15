@@ -1,3 +1,4 @@
+{% load i18n %}
 <div id="tracee">
     {% if tracee %}
     <script src="/static/js/pako_inflate.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -35,6 +36,18 @@
 
             const shownProcs = { 0: true };
 
+            const textUnknownShort = "{{ _('(unknown)')|escapejs }}";
+            const textUnknown = "{{ _('Unknown')|escapejs }}";
+            const textFullCmdline = "{{ _('Full Cmdline')|escapejs }}";
+            const textShowAllEvents = "{{ _('Show all events, including those outside the known process tree (may be important)')|escapejs }}";
+            const textSecurityEvent = "{{ _('⚠️ Security Event')|escapejs }}";
+            const textSignificantEvent = "{{ _('🔍 Significant Event')|escapejs }}";
+            const textTriggeredBy = "{{ _('Triggered By:')|escapejs }}";
+            const textDetailsMitre = "{{ _('Details & MITRE ATT&CK')|escapejs }}";
+            const textOnlySecurityEvents = "{{ _('[Only security events]')|escapejs }}";
+            const textDefaultSignificant = "{{ _('[Significant + security + network events]')|escapejs }}";
+            const textAllLabel = "{{ _('All')|escapejs }}";
+
             // extract data
             const rawContent = `{{ tracee.rawData }}`;
             const inflated = pako.inflate(base64ToArrayBuffer(rawContent));
@@ -47,10 +60,10 @@
                 const li = document.createElement("li");
                 let liInnerHtml = ``;
 
-                if (!currentTree.details.desc) currentTree.details.desc = "(unknown)"
+                if (!currentTree.details.desc) currentTree.details.desc = textUnknownShort
 
-                let procDescription = currentTree.details.desc ? currentTree.details.desc.toString() : "Unknown";
-                if (procDescription.length > 512) procDescription = procDescription.substring(0, 512) + `... <details><summary>Full Cmdline</summary><div>${currentTree.details.desc.toString()}</div></details>`;
+                let procDescription = currentTree.details.desc ? currentTree.details.desc.toString() : textUnknown;
+                if (procDescription.length > 512) procDescription = procDescription.substring(0, 512) + `... <details><summary>${textFullCmdline}</summary><div>${currentTree.details.desc.toString()}</div></details>`;
 
                 if (currentTree.details.desc.toString().includes("tracee-health-check-1903ae") || currentTree.details.desc.toString().includes("PARENT")) {
                     liInnerHtml += `<label style="display: none;"><input type="checkbox" id="tracee-${currentTree.pid}" /> ${currentTree.pid} - ${procDescription}</label>`;
@@ -73,7 +86,7 @@
 
             const htmlTree = buildProcTree(traceeData.metadata.proctree);
             document.querySelector("#tracee-procTree").innerHTML = htmlTree;
-            document.querySelector("#tracee-procTree").innerHTML += `<label><input type="checkbox" id="tracee-0" checked /> Show all events, including those outside the known process tree (may be important)</label>`
+            document.querySelector("#tracee-procTree").innerHTML += `<label><input type="checkbox" id="tracee-0" checked /> ${textShowAllEvents}</label>`
 
             document.querySelectorAll(`#tracee-procTree input[type=checkbox]`).forEach(el => {
                 el.addEventListener("change", () => {
@@ -114,23 +127,20 @@
             ];
 
             const EXTRAS_DATA = {
-                finit_module: "A kernel module was loaded. Introduction of malicious kernel modules can introduce significant security threats deep into the system. You may download the kernel module under 'Dropped Files'.",
-                security_bpf_prog: `The kernel generated and returned a file descriptor for BPF programs. Most software does not use this feature,
-and its usage could be suspicious as it can give visibility into low-level system information and enable functions like password stealing or network traffic monitoring.
-<br><b>You can download the eBPF bytecode for analysis in "Dropped Files".</b>
-<br><pre>bpf-objdump -D -b binary -m bpf bpf_artifact_file</pre>`,
-                hidden_kernel_module: "A loaded hidden kernel module was detected on your system. Strong indication that your system is compromised. It periodically checks for a hidden module.",
-                hooked_syscall: "A program which hooks into and modifies the execution flow of fundamental system calls was detected, which is likely malicious.",
-                kallsysm_lookup_name: "Some programs which want to hook syscalls may lookup this table.",
-                mem_prot_alert: "A memory region protection access change is suspicious for malicious activity. Memory access protection changes might expose writeable memory to execution, or hide its possible execution.",
+                finit_module: `{{ _("A kernel module was loaded. Introduction of malicious kernel modules can introduce significant security threats deep into the system. You may download the kernel module under 'Dropped Files'.")|escapejs }}`,
+                security_bpf_prog: `{{ _("The kernel generated and returned a file descriptor for BPF programs. Most software does not use this feature, and its usage could be suspicious as it can give visibility into low-level system information and enable functions like password stealing or network traffic monitoring.<br><b>You can download the eBPF bytecode for analysis in \\\"Dropped Files\\\".</b><br><pre>bpf-objdump -D -b binary -m bpf bpf_artifact_file</pre>")|escapejs }}`,
+                hidden_kernel_module: `{{ _("A loaded hidden kernel module was detected on your system. Strong indication that your system is compromised. It periodically checks for a hidden module.")|escapejs }}`,
+                hooked_syscall: `{{ _("A program which hooks into and modifies the execution flow of fundamental system calls was detected, which is likely malicious.")|escapejs }}`,
+                kallsysm_lookup_name: `{{ _("Some programs which want to hook syscalls may lookup this table.")|escapejs }}`,
+                mem_prot_alert: `{{ _("A memory region protection access change is suspicious for malicious activity. Memory access protection changes might expose writeable memory to execution, or hide its possible execution.")|escapejs }}`,
             };
 
             for (const [idx, call] of traceeData.syscalls.entries()) {
                 let date = new Date(call.timestamp / 1000000);
                 let securityEventSeverity = "";
 
-                if (DANGEROUS.includes(call.eventName)) securityEventSeverity = `<div class="alert alert-danger mt-2 p-2"><b>⚠️ Security Event</b></div>`;
-                else if (SIGNATURISED.includes(call.eventName)) securityEventSeverity = `<div class="alert alert-info mt-2 p-2"><b>🔍 Significant Event</b></div>`;
+                if (DANGEROUS.includes(call.eventName)) securityEventSeverity = `<div class="alert alert-danger mt-2 p-2"><b>${textSecurityEvent}</b></div>`;
+                else if (SIGNATURISED.includes(call.eventName)) securityEventSeverity = `<div class="alert alert-info mt-2 p-2"><b>${textSignificantEvent}</b></div>`;
 
                 const row = [
                     `PID ${call.processId}<br>${date.toLocaleString()} ${date.getMilliseconds()}ms`,
@@ -143,7 +153,7 @@ and its usage could be suspicious as it can give visibility into low-level syste
                 ];
                 
                 if (call.args[0] && call.args[0].name == "triggeredBy") {
-                    row[2] += `<b>Triggered By:</b><br>`;
+                    row[2] += `<b>${textTriggeredBy}</b><br>`;
                     call.args = call.args[0].value.args;
                 }
 
@@ -156,7 +166,7 @@ and its usage could be suspicious as it can give visibility into low-level syste
                 }
 
                 if (call.metadata) {
-                    row[2] += SaferHTML`<details class="mt-2"><summary class="alert alert-info p-2 bold">Details &amp; MITRE ATTACK</summary><div class="alert alert-secondary p-2">${call.metadata.Description}<br><pre>${JSON.stringify(call.metadata.Properties, null, 2)}</pre></div></details>`;
+                    row[2] += SaferHTML`<details class="mt-2"><summary class="alert alert-info p-2 bold">${textDetailsMitre}</summary><div class="alert alert-secondary p-2">${call.metadata.Description}<br><pre>${JSON.stringify(call.metadata.Properties, null, 2)}</pre></div></details>`;
                 }
                 if (EXTRAS_DATA[call.eventName]) {
                     row[2] += `<div class="alert alert-info mt-2 p-2">${EXTRAS_DATA[call.eventName]}</div>`;
@@ -167,8 +177,8 @@ and its usage could be suspicious as it can give visibility into low-level syste
                 // note for security events
                 if (!row[5][0]) row[5] = []
 
-                if (DANGEROUS.includes(call.eventName)) row[5].push("! ONLY SECURITY EVENTS")
-                if (SIGNATURISED.includes(call.eventName)) row[5].push("! DEFAULT SIGNIFICANT + SECURITY + NETWORK EVENTS")
+                if (DANGEROUS.includes(call.eventName)) row[5].push(textOnlySecurityEvents)
+                if (SIGNATURISED.includes(call.eventName)) row[5].push(textDefaultSignificant)
 
                 if (call.metadata && call.metadata.Properties) {
                     if (call.metadata.Properties.Technique && call.metadata.Properties.external_id) {
@@ -195,7 +205,7 @@ and its usage could be suspicious as it can give visibility into low-level syste
                     pageLength: 200,
                     lengthMenu: [
                         [10, 25, 50, 100, 200, -1],
-                        [10, 25, 50, 100, 200, 'All'],
+                        [10, 25, 50, 100, 200, textAllLabel],
                     ],
 
                     ordering: false,
@@ -322,12 +332,12 @@ and its usage could be suspicious as it can give visibility into low-level syste
     <table id="tracee-mainTable" class="display wrap dark" style="width:100%;">
         <thead style="width: 100%;">
             <tr>
-                <td>PID / Timestamp</td>
-                <td>Syscall / Event</td>
-                <td>Args &amp; Details</td>
-                <td>ReturnVal</td>
-                <td>Event Type / Syscall</td>
-                <td>Category</td>
+                <td>{% trans "PID / Timestamp" %}</td>
+                <td>{% trans "Syscall / Event" %}</td>
+                <td>{% trans "Args &amp; Details" %}</td>
+                <td>{% trans "ReturnVal" %}</td>
+                <td>{% trans "Event Type / Syscall" %}</td>
+                <td>{% trans "Category" %}</td>
             </tr>
         </thead>
     </table>
@@ -337,6 +347,6 @@ and its usage could be suspicious as it can give visibility into low-level syste
     </script>
 
     {% else %}
-    <div class="alert alert-primary"><b>Sorry!</b> No tracee.</div>
+    <div class="alert alert-primary"><b>{% trans "Sorry!" %}</b> {% trans "No tracee." %}</div>
     {% endif %}
 </div>

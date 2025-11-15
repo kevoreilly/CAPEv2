@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-15 07:51+0000\n"
-"PO-Revision-Date: 2025-11-15 07:51+0000\n"
+"POT-Creation-Date: 2025-11-15 07:58+0000\n"
+"PO-Revision-Date: 2025-11-15 07:58+0000\n"
 "Last-Translator: Codex <dev@local>\n"
 "Language-Team: Chinese Simplified\n"
 "Language: zh_Hans\n"
@@ -55,6 +55,230 @@ msgstr "处理失败"
 #: web/analysis/templatetags/analysis_tags.py:122
 msgid "Failed reporting"
 msgstr "报告失败"
+
+#: web/templates/analysis/behavior/_api_call.html:19
+msgid "success"
+msgstr "成功"
+
+#: web/templates/analysis/behavior/_api_call.html:21
+msgid "failed"
+msgstr "失败"
+
+#: web/templates/analysis/behavior/_api_call.html:33
+msgid "times"
+msgstr "次"
+
+#: web/templates/analysis/behavior/_api_call.html:35
+msgid "time"
+msgstr "次"
+
+#: web/templates/analysis/behavior/_chunk.html:5
+#: web/templates/analysis/behavior/_search_results.html:27
+#, fuzzy
+#| msgid "Timestamp"
+msgid "Time"
+msgstr "时间"
+
+#: web/templates/analysis/behavior/_chunk.html:6
+#: web/templates/analysis/behavior/_processes.html:193
+#: web/templates/analysis/behavior/_search_results.html:28
+#, fuzzy
+#| msgid "ID"
+msgid "TID"
+msgstr "线程 ID"
+
+#: web/templates/analysis/behavior/_chunk.html:7
+#: web/templates/analysis/behavior/_search_results.html:29
+msgid "Caller"
+msgstr "调用者"
+
+#: web/templates/analysis/behavior/_chunk.html:9
+#: web/templates/analysis/behavior/_search_results.html:31
+msgid "Arguments"
+msgstr "参数"
+
+#: web/templates/analysis/behavior/_chunk.html:10
+#: web/templates/analysis/behavior/_search_results.html:32
+#: web/templates/analysis/index.html:81 web/templates/analysis/index.html:360
+msgid "Status"
+msgstr "状态"
+
+#: web/templates/analysis/behavior/_chunk.html:11
+#: web/templates/analysis/behavior/_search_results.html:33
+msgid "Return"
+msgstr "返回值"
+
+#: web/templates/analysis/behavior/_chunk.html:12
+#: web/templates/analysis/behavior/_search_results.html:34
+msgid "Repeated"
+msgstr "重复次数"
+
+#: web/templates/analysis/behavior/_processes.html:4
+msgid ""
+"Error loading data. Please reload the page and if the error persists contact"
+" us."
+msgstr "数据加载失败，请刷新页面；若仍失败请联系管理员。"
+
+#: web/templates/analysis/behavior/_processes.html:135
+#, fuzzy
+#| msgid "ID"
+msgid "PID"
+msgstr "进程号"
+
+#: web/templates/analysis/behavior/_processes.html:135
+#, fuzzy
+#| msgid "Recent Files"
+msgid "Parent PID"
+msgstr "父进程号"
+
+#: web/templates/analysis/behavior/_processes.html:136
+msgid "Full Path"
+msgstr "完整路径"
+
+#: web/templates/analysis/behavior/_processes.html:138
+msgid "Command Line"
+msgstr "命令行"
+
+#: web/templates/analysis/behavior/_processes.html:141
+msgid "Dll Image Base"
+msgstr "DLL 映像基址"
+
+#: web/templates/analysis/behavior/_processes.html:144
+msgid "Image Base"
+msgstr "映像基址"
+
+#: web/templates/analysis/behavior/_processes.html:147
+msgid "Image Size"
+msgstr "映像大小"
+
+#: web/templates/analysis/behavior/_processes.html:158
+msgid "default"
+msgstr "默认"
+
+#: web/templates/analysis/behavior/_processes.html:159
+#: web/templates/analysis/behavior/_search_results.html:14
+#, fuzzy
+#| msgid "Register"
+msgid "registry"
+msgstr "注册表"
+
+#: web/templates/analysis/behavior/_processes.html:160
+#: web/templates/analysis/behavior/_search_results.html:13
+msgid "filesystem"
+msgstr "文件系统"
+
+#: web/templates/analysis/behavior/_processes.html:161
+#: web/templates/analysis/behavior/_search_results.html:12
+msgid "network"
+msgstr "网络"
+
+#: web/templates/analysis/behavior/_processes.html:162
+#: web/templates/analysis/behavior/_search_results.html:15
+#, fuzzy
+#| msgid "Processing"
+msgid "process"
+msgstr "进程"
+
+#: web/templates/analysis/behavior/_processes.html:163
+#: web/templates/analysis/behavior/_search_results.html:16
+#, fuzzy
+#| msgid "Pending"
+msgid "threading"
+msgstr "线程"
+
+#: web/templates/analysis/behavior/_processes.html:164
+#: web/templates/analysis/behavior/_search_results.html:17
+msgid "services"
+msgstr "服务"
+
+#: web/templates/analysis/behavior/_processes.html:165
+#: web/templates/analysis/behavior/_search_results.html:18
+msgid "device"
+msgstr "设备"
+
+#: web/templates/analysis/behavior/_processes.html:166
+#: web/templates/analysis/behavior/_search_results.html:19
+msgid "synchronization"
+msgstr "同步"
+
+#: web/templates/analysis/behavior/_processes.html:167
+#: web/templates/analysis/behavior/_search_results.html:20
+msgid "crypto"
+msgstr "加解密"
+
+#: web/templates/analysis/behavior/_processes.html:168
+#: web/templates/analysis/behavior/_search_results.html:21
+msgid "browser"
+msgstr "浏览器"
+
+#: web/templates/analysis/behavior/_processes.html:169
+msgid "all"
+msgstr "全部"
+
+#: web/templates/analysis/behavior/_processes.html:172
+#: web/templates/analysis/behavior/_processes.html:187
+#: web/templates/analysis/behavior/_processes.html:192
+msgid "API Filter"
+msgstr "API 过滤"
+
+#: web/templates/analysis/behavior/_processes.html:173
+msgid "API list separated by ',' , use '!' for exclusion"
+msgstr "使用逗号分隔 API 名称，前缀 '!' 表示排除"
+
+#: web/templates/analysis/behavior/_processes.html:183
+msgid "Additional Filters"
+msgstr "附加筛选"
+
+#: web/templates/analysis/behavior/_processes.html:189
+msgid "Calls"
+msgstr "调用"
+
+#: web/templates/analysis/behavior/_processes.html:195
+msgid "Filter"
+msgstr "筛选"
+
+#: web/templates/analysis/behavior/_search.html:21
+#: web/templates/analysis/behavior/_search.html:22
+#, fuzzy
+#| msgid "Search term as regex"
+msgid "Search term"
+msgstr "搜索词"
+
+#: web/templates/analysis/behavior/_search.html:24
+#: web/templates/header.html:32 web/templates/header.html:55
+msgid "Search"
+msgstr "搜索"
+
+#: web/templates/analysis/behavior/_search_results.html:10
+#, fuzzy
+#| msgid "No results"
+msgid "Results"
+msgstr "结果"
+
+#: web/templates/analysis/behavior/_search_results.html:40
+#: web/templates/analysis/overview/_signatures.html:45
+#, python-format
+msgid "Process: %(pname)s (%(pid)s)"
+msgstr "进程：%(pname)s（%(pid)s）"
+
+#: web/templates/analysis/behavior/_search_results.html:55
+#: web/templates/analysis/overview/_summary.html:162
+msgid "No results"
+msgstr "无结果"
+
+#: web/templates/analysis/behavior/_tree.html:5
+#, fuzzy
+#| msgid "Processing"
+msgid "Process Tree"
+msgstr "进程树"
+
+#: web/templates/analysis/behavior/index.html:7
+msgid "Sorry!"
+msgstr "抱歉！"
+
+#: web/templates/analysis/behavior/index.html:7
+msgid "No behavior."
+msgstr "暂无行为信息。"
 
 #: web/templates/analysis/index.html:6 web/templates/analysis/index.html:67
 msgid "Files"
@@ -163,10 +387,6 @@ msgstr "PCAP"
 #: web/templates/analysis/index.html:586
 msgid "ClamAV"
 msgstr "ClamAV"
-
-#: web/templates/analysis/index.html:81 web/templates/analysis/index.html:360
-msgid "Status"
-msgstr "状态"
 
 #: web/templates/analysis/index.html:100 web/templates/analysis/index.html:373
 #: web/templates/analysis/index.html:621 web/templates/analysis/index.html:857
@@ -534,11 +754,6 @@ msgstr "无可用截图。"
 msgid "Signatures"
 msgstr "Signatures 模块"
 
-#: web/templates/analysis/overview/_signatures.html:45
-#, python-format
-msgid "Process: %(pname)s (%(pid)s)"
-msgstr "进程：%(pname)s（%(pid)s）"
-
 #: web/templates/analysis/overview/_signatures.html:100
 #, fuzzy
 #| msgid "Signatures"
@@ -636,10 +851,6 @@ msgstr "Reversing Labs"
 #: web/templates/analysis/overview/_summary.html:144
 msgid "Value"
 msgstr "值"
-
-#: web/templates/analysis/overview/_summary.html:162
-msgid "No results"
-msgstr "无结果"
 
 #: web/templates/analysis/overview/index.html:10
 #: web/templates/analysis/overview/index.html:20
@@ -852,10 +1063,6 @@ msgstr "仪表盘"
 #: web/templates/header.html:30
 msgid "Recent"
 msgstr "最新分析"
-
-#: web/templates/header.html:32 web/templates/header.html:55
-msgid "Search"
-msgstr "搜索"
 
 #: web/templates/header.html:33
 msgid "API"

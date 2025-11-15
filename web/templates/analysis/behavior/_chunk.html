@@ -1,14 +1,15 @@
+{% load i18n %}
 <table class="table table-bordered" style="table-layout: fixed;">
     <thead>
         <tr>
-            <th width="10%">Time</th>
-            <th width="3%">TID</th>
-            <th width="8%">Caller</th>
+            <th width="10%">{% trans "Time" %}</th>
+            <th width="3%">{% trans "TID" %}</th>
+            <th width="8%">{% trans "Caller" %}</th>
             <th width="15%">API</th>
-            <th width="42%">Arguments</th>
-            <th width="5%">Status</th>
-            <th width="11%">Return</th>
-            <th width="6%">Repeated</th>
+            <th width="42%">{% trans "Arguments" %}</th>
+            <th width="5%">{% trans "Status" %}</th>
+            <th width="11%">{% trans "Return" %}</th>
+            <th width="6%">{% trans "Repeated" %}</th>
         </tr>
     </thead>
     <tbody>

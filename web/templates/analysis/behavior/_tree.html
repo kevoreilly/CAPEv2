@@ -1,7 +1,8 @@
 {% load generic_tags %}
 {% load analysis_tags %}
+{% load i18n %}
 
-<h4>Process Tree</h4>
+<h4>{% trans "Process Tree" %}</h4>
 <ul>
 {% for process in behavior.processtree|proctreetolist %}
     {% if process.startchildren %}

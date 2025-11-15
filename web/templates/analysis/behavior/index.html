@@ -1,7 +1,8 @@
+{% load i18n %}
 {% if behavior %}
     {% include "analysis/behavior/_tree.html" %}
     <hr />
     {% include "analysis/behavior/_processes.html" %}
 {% else %}
-    <div class="alert alert-primary"><b>Sorry!</b> No behavior.</div>
+    <div class="alert alert-primary"><b>{% trans "Sorry!" %}</b> {% trans "No behavior." %}</div>
 {% endif %}

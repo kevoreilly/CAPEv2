@@ -14,11 +14,12 @@
     {% endfor %}
 </td>
 <td>
-    {% if call.status %}
-        success
-    {% else %}
-        failed
-    {% endif %}
+{% load i18n %}
+{% if call.status %}
+        {% trans "success" %}
+{% else %}
+        {% trans "failed" %}
+{% endif %}
 </td>
 {% if call.pretty_return %}
     <td style="word-wrap: break-word"><span class="mono" title="{{call.return}}">{{call.pretty_return}}</span></td>
@@ -29,9 +30,9 @@
     {% if call.repeated > 0 %}
         {{call.repeated}}
         {% if call.repeated > 1 %}
-            times
+            {% trans "times" %}
         {% else %}
-            time
+            {% trans "time" %}
         {% endif %}
     {% endif %}
 </td>

@@ -12,15 +12,16 @@ $(function () {
 	});
 });
 </script>
+{% load i18n %}
 {% if id %}
 	<div class="tab-pane" id="search">
 		<form id='search' class="form-inline" role="form" action="{% url "search_behavior" id %}">
 			{% csrf_token %}
 			<div class="form-group">
-				<label class="sr-only" for="form_search">Search term</label>
-				<input type="text" class="form-control" id="form_search" name="search" size=50 placeholder="Search term" />
+				<label class="sr-only" for="form_search">{% trans "Search term" %}</label>
+				<input type="text" class="form-control" id="form_search" name="search" size=50 placeholder="{% trans "Search term" %}" />
 			</div>
-			<button type="submit" class="btn btn-secondary">Search</button>
+			<button type="submit" class="btn btn-secondary">{% trans "Search" %}</button>
 		</form>
 
 		<div id="search-results">

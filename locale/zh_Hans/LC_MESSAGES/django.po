@@ -1,0 +1,396 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2025-11-15 05:31+0000\n"
+"PO-Revision-Date: 2025-11-15 05:32+0000\n"
+"Last-Translator: Codex <dev@local>\n"
+"Language-Team: Chinese Simplified\n"
+"Language: zh_Hans\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+#: web/analysis/templatetags/analysis_tags.py:114 web/templates/header.html:31
+msgid "Pending"
+msgstr "待处理"
+
+#: web/analysis/templatetags/analysis_tags.py:115
+msgid "Running"
+msgstr "运行中"
+
+#: web/analysis/templatetags/analysis_tags.py:116
+msgid "Distributed"
+msgstr "已分发"
+
+#: web/analysis/templatetags/analysis_tags.py:117
+msgid "Completed"
+msgstr "已完成"
+
+#: web/analysis/templatetags/analysis_tags.py:118
+msgid "Reported"
+msgstr "已生成报告"
+
+#: web/analysis/templatetags/analysis_tags.py:119
+msgid "Recovered"
+msgstr "已恢复"
+
+#: web/analysis/templatetags/analysis_tags.py:120
+msgid "Failed analysis"
+msgstr "分析失败"
+
+#: web/analysis/templatetags/analysis_tags.py:121
+msgid "Failed processing"
+msgstr "处理失败"
+
+#: web/analysis/templatetags/analysis_tags.py:122
+msgid "Failed reporting"
+msgstr "报告失败"
+
+#: web/templates/analysis/index.html:6 web/templates/analysis/index.html:67
+msgid "Files"
+msgstr "文件"
+
+#: web/templates/analysis/index.html:7
+msgid "Static"
+msgstr "静态"
+
+#: web/templates/analysis/index.html:9
+msgid "URLs"
+msgstr "URL"
+
+#: web/templates/analysis/index.html:11
+msgid "PCAPs"
+msgstr "PCAP 捕获"
+
+#: web/templates/analysis/index.html:20 web/templates/analysis/index.html:286
+msgid "Newer"
+msgstr "更新"
+
+#: web/templates/analysis/index.html:32 web/templates/analysis/index.html:298
+msgid "Older"
+msgstr "更早"
+
+#: web/templates/analysis/index.html:38
+msgid "Recent Files"
+msgstr "最新文件"
+
+#: web/templates/analysis/index.html:43 web/templates/analysis/index.html:333
+msgid "ID"
+msgstr "编号"
+
+#: web/templates/analysis/index.html:44 web/templates/analysis/index.html:334
+msgid "Timestamp"
+msgstr "时间戳"
+
+#: web/templates/analysis/index.html:45
+msgid "Machine"
+msgstr "执行主机"
+
+#: web/templates/analysis/index.html:46
+msgid "Package"
+msgstr "分析包"
+
+#: web/templates/analysis/index.html:47 web/templates/analysis/index.html:335
+msgid "Filename"
+msgstr "文件名"
+
+#: web/templates/analysis/index.html:48 web/templates/analysis/index.html:336
+#: web/templates/analysis/index.html:816 web/templates/analysis/index.html:833
+msgid "MD5"
+msgstr "MD5"
+
+#: web/templates/analysis/index.html:49 web/templates/analysis/index.html:337
+msgid "Detections"
+msgstr "检测结果"
+
+#: web/templates/analysis/index.html:52 web/templates/analysis/index.html:339
+msgid "Task tags"
+msgstr "任务标签"
+
+#: web/templates/analysis/index.html:56 web/templates/analysis/index.html:342
+msgid "PKG"
+msgstr "分析包"
+
+#: web/templates/analysis/index.html:59 web/templates/analysis/index.html:345
+msgid "Moloch"
+msgstr "Moloch"
+
+#: web/templates/analysis/index.html:62 web/templates/analysis/index.html:348
+msgid "Martians"
+msgstr "Martians"
+
+#: web/templates/analysis/index.html:65
+msgid "SuriAlert"
+msgstr "Suricata 告警"
+
+#: web/templates/analysis/index.html:67
+msgid "HTTP"
+msgstr "HTTP"
+
+#: web/templates/analysis/index.html:67
+msgid "TLS"
+msgstr "TLS"
+
+#: web/templates/analysis/index.html:72 web/templates/analysis/index.html:351
+msgid "VT"
+msgstr "VT"
+
+#: web/templates/analysis/index.html:75 web/templates/analysis/index.html:354
+msgid "MalScore"
+msgstr "恶意评分"
+
+#: web/templates/analysis/index.html:78 web/templates/analysis/index.html:237
+#: web/templates/analysis/index.html:357 web/templates/analysis/index.html:470
+#: web/templates/analysis/index.html:585 web/templates/analysis/index.html:724
+#: web/templates/analysis/index.html:827 web/templates/analysis/index.html:931
+msgid "PCAP"
+msgstr "PCAP"
+
+#: web/templates/analysis/index.html:79 web/templates/analysis/index.html:358
+#: web/templates/analysis/index.html:586
+msgid "ClamAV"
+msgstr "ClamAV"
+
+#: web/templates/analysis/index.html:81 web/templates/analysis/index.html:360
+msgid "Status"
+msgstr "状态"
+
+#: web/templates/analysis/index.html:100 web/templates/analysis/index.html:373
+#: web/templates/analysis/index.html:621 web/templates/analysis/index.html:857
+#, python-format
+msgid "%(added)s (added on)"
+msgstr "%(added)s（加入时间）"
+
+#: web/templates/analysis/index.html:137 web/templates/analysis/index.html:396
+msgid "Multiple"
+msgstr "多个"
+
+#: web/templates/analysis/index.html:159 web/templates/analysis/index.html:420
+#: web/templates/analysis/index.html:636 web/templates/analysis/index.html:875
+msgid "MOLOCH"
+msgstr "Moloch"
+
+#: web/templates/analysis/index.html:255 web/templates/analysis/index.html:488
+#: web/templates/analysis/index.html:742 web/templates/analysis/index.html:940
+msgid "pending"
+msgstr "待处理"
+
+#: web/templates/analysis/index.html:257 web/templates/analysis/index.html:490
+#: web/templates/analysis/index.html:744 web/templates/analysis/index.html:942
+msgid "running"
+msgstr "运行中"
+
+#: web/templates/analysis/index.html:259 web/templates/analysis/index.html:492
+msgid "distributed"
+msgstr "已分发"
+
+#: web/templates/analysis/index.html:261 web/templates/analysis/index.html:494
+#: web/templates/analysis/index.html:746 web/templates/analysis/index.html:944
+msgid "processing"
+msgstr "处理中"
+
+#: web/templates/analysis/index.html:269 web/templates/analysis/index.html:748
+msgid "reported"
+msgstr "已生成报告"
+
+#: web/templates/analysis/index.html:279
+msgid "No files to display on this page."
+msgstr "本页暂无可显示的文件。"
+
+#: web/templates/analysis/index.html:328
+msgid "Recent Static"
+msgstr "最新静态分析"
+
+#: web/templates/analysis/index.html:512
+msgid "No static analyses to display on this page."
+msgstr "本页暂无静态分析。"
+
+#: web/templates/analysis/index.html:561
+msgid "Recent URLs"
+msgstr "最新 URL"
+
+#: web/templates/analysis/index.html:569 web/templates/analysis/index.html:591
+msgid "URL"
+msgstr "URL"
+
+#: web/templates/analysis/index.html:577 web/templates/analysis/index.html:821
+msgid "Suricata Alerts/HTTP/TLS/Files"
+msgstr "Suricata 告警/HTTP/TLS/文件"
+
+#: web/templates/analysis/index.html:758
+msgid "No URLS to display on this page."
+msgstr "本页暂无 URL 记录。"
+
+#: web/templates/analysis/index.html:807
+msgid "Recent PCAPs"
+msgstr "最新 PCAP"
+
+#: web/templates/auth/base.html:31
+msgid "Welcome,"
+msgstr "欢迎，"
+
+#: web/templates/auth/base.html:36
+msgid "View site"
+msgstr "查看站点"
+
+#: web/templates/auth/base.html:41
+msgid "Documentation"
+msgstr "文档"
+
+#: web/templates/auth/base.html:45 web/templates/header.html:44
+msgid "Change password"
+msgstr "修改密码"
+
+#: web/templates/auth/base.html:47
+msgid "Log out"
+msgstr "退出登录"
+
+#: web/templates/auth/base.html:57
+msgid "Home"
+msgstr "首页"
+
+#: web/templates/auth/base_site.html:4 web/templates/auth/base_site.html:8
+#: web/templates/header.html:9 web/templates/header.html:12
+#: web/templates/header.html:13
+msgid "CAPE Sandbox"
+msgstr "CAPE 沙箱"
+
+#: web/templates/auth/login.html:18
+msgid "Please correct the error below."
+msgstr "请修正以下错误。"
+
+#: web/templates/auth/login.html:20
+msgid "Please correct the errors below."
+msgstr "请修正以下所有错误。"
+
+#: web/templates/auth/login.html:36
+#, python-format
+msgid ""
+"You are authenticated as %(username)s, but are not authorized to access this"
+" page. Would you like to login to a different account?"
+msgstr "您已作为 %(username)s 登录，但无权访问此页面。是否改用其他账号登录？"
+
+#: web/templates/auth/login.html:56
+msgid "Forgotten your password or username?"
+msgstr "忘记密码或用户名？"
+
+#: web/templates/auth/login.html:60
+msgid "Log in"
+msgstr "登录"
+
+#: web/templates/auth/logout.html:5
+msgid "Logged out"
+msgstr "已退出登录"
+
+#: web/templates/dashboard/index.html:6
+#, python-format
+msgid "Estimating ~<b>%(hour)s</b> analysis per hour, <b>%(day)s</b> per day."
+msgstr "预计每小时约 <b>%(hour)s</b> 次分析、每日 <b>%(day)s</b> 次。"
+
+#: web/templates/dashboard/index.html:13
+msgid "Total tasks"
+msgstr "任务总数"
+
+#: web/templates/dashboard/index.html:19
+msgid "Total samples"
+msgstr "样本总数"
+
+#: web/templates/dashboard/index.html:44
+msgid "State"
+msgstr "状态"
+
+#: web/templates/dashboard/index.html:45
+msgid "Count"
+msgstr "数量"
+
+#: web/templates/footer.html:6
+msgid "Back to the top"
+msgstr "返回顶部"
+
+#: web/templates/footer.html:11
+msgid "CAPE Sandbox on GitHub"
+msgstr "GitHub 上的 CAPE Sandbox"
+
+#: web/templates/header.html:7
+#, python-format
+msgid "%(page_title)s · CAPE Sandbox"
+msgstr "%(page_title)s · CAPE 沙箱"
+
+#: web/templates/header.html:29
+msgid "Dashboard"
+msgstr "仪表盘"
+
+#: web/templates/header.html:30
+msgid "Recent"
+msgstr "最新分析"
+
+#: web/templates/header.html:32 web/templates/header.html:55
+msgid "Search"
+msgstr "搜索"
+
+#: web/templates/header.html:33
+msgid "API"
+msgstr "API"
+
+#: web/templates/header.html:34
+msgid "Submit"
+msgstr "提交"
+
+#: web/templates/header.html:35
+msgid "Statistics"
+msgstr "统计"
+
+#: web/templates/header.html:38
+msgid "User"
+msgstr "用户"
+
+#: web/templates/header.html:40
+msgid "Admin"
+msgstr "管理后台"
+
+#: web/templates/header.html:41
+msgid "Register"
+msgstr "注册"
+
+#: web/templates/header.html:42
+msgid "Login"
+msgstr "登录"
+
+#: web/templates/header.html:43
+msgid "Logout"
+msgstr "退出"
+
+#: web/templates/header.html:45
+msgid "Reset password"
+msgstr "重置密码"
+
+#: web/templates/header.html:46
+msgid "Email configuration"
+msgstr "邮箱配置"
+
+#: web/templates/header.html:50
+msgid "Docs"
+msgstr "文档"
+
+#: web/templates/header.html:51
+msgid "Changelog"
+msgstr "更新日志"
+
+#: web/templates/header.html:54
+msgid "Search term as regex"
+msgstr "使用正则表达式搜索"
+
+#: web/web/settings.py:129
+msgid "Simplified Chinese"
+msgstr "简体中文"
+
+#: web/web/settings.py:130
+msgid "English"
+msgstr "英文"

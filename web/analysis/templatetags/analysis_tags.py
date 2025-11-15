@@ -12,6 +12,7 @@ from uuid import NAMESPACE_DNS, uuid3
 from django.template.defaultfilters import register
 from django.utils.html import escape
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext as _
 
 
 @register.filter("is_string")
@@ -107,6 +108,27 @@ def format_cli(cli, length):
     if not ret:
         return ""
     return ret
+
+
+STATUS_LABELS = {
+    "pending": _("Pending"),
+    "running": _("Running"),
+    "distributed": _("Distributed"),
+    "completed": _("Completed"),
+    "reported": _("Reported"),
+    "recovered": _("Recovered"),
+    "failed_analysis": _("Failed analysis"),
+    "failed_processing": _("Failed processing"),
+    "failed_reporting": _("Failed reporting"),
+}
+
+
+@register.filter(name="status_label")
+def status_label(value):
+    """Map内部状态码到可翻译文本"""
+    if not value:
+        return value
+    return STATUS_LABELS.get(value, value)
 
 
 @register.filter(name="flare_capa_capability")

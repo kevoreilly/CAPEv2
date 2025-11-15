@@ -1,15 +1,16 @@
+{% load i18n %}
 <!DOCTYPE html>
-<html class="datatable-dark" lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<html class="datatable-dark" lang="{{ LANGUAGE_CODE|default:"zh-hans" }}" xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <meta charset="utf-8">
 {% if title %}
-<title>{{ title|add:" · CAPE Sandbox" }}</title>
+<title>{% blocktrans with page_title=title %}{{ page_title }} · CAPE Sandbox{% endblocktrans %}</title>
 {% else %}
-<title>CAPE Sandbox</title>
+<title>{% trans "CAPE Sandbox" %}</title>
 {% endif %}
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="CAPE Sandbox">
-<meta name="author" content="CAPE Sandbox">
+<meta name="description" content="{% trans "CAPE Sandbox" %}">
+<meta name="author" content="{% trans "CAPE Sandbox" %}">
 <link rel="icon" type="image/png" href="{{ STATIC_URL }}img/cape.png" />
 <link href="{{ STATIC_URL }}css/lightbox.css" rel="stylesheet">
 <script src="{{ STATIC_URL }}js/jquery.js"></script>
@@ -25,33 +26,33 @@
         <div class="collapse navbar-collapse" id="navbarColor02">
           <a class="nav-link" style="padding-right:0px;padding-left:0px" href="{% url "analysis" %}"><img src="{{ STATIC_URL }}graphic/cape.png"></a>
           <ul class="navbar-nav mr-auto">
-            <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><span class="fas fa-tachometer-alt"></span> Dashboard</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><span class="fas fa-list"></span> Recent</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><span class="fas fa-clock"></span> Pending</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><span class="fas fa-search"></span> Search</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url "apiv2" %}"><span class="fas fa-cog"></span> API</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><span class="fas fa-upload"></span> Submit</a></li>
-            <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><span class="fas fa-chart-area"></span> Statistics</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><span class="fas fa-tachometer-alt"></span> {% trans "Dashboard" %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><span class="fas fa-list"></span> {% trans "Recent" %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><span class="fas fa-clock"></span> {% trans "Pending" %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><span class="fas fa-search"></span> {% trans "Search" %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url "apiv2" %}"><span class="fas fa-cog"></span> {% trans "API" %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><span class="fas fa-upload"></span> {% trans "Submit" %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><span class="fas fa-chart-area"></span> {% trans "Statistics" %}</a></li>
             {% if settings.WEB_AUTHENTICATION %}
             <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="fas fa-users"></span> User</a>
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><span class="fas fa-users"></span> {% trans "User" %}</a>
               <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-                <a class="dropdown-item" href="/admin"><span class="fas fa-users-cog"></span> Admin</a>
-                <a class="dropdown-item" href="/accounts/signup/"><span class="fas fa-users"></span> Register</a>
-                <a class="dropdown-item" href="/accounts/login/"><span class="fas fa-users"></span> Login</a>
-                <a class="dropdown-item" href="/accounts/logout/"><span class="fas fa-users"></span> Logout</a>
-                <a class="dropdown-item" href="/accounts/password/change/"><span class="fas fa-users"></span> Change password</a>
-                <a class="dropdown-item" href="/accounts/password/reset/"><span class="fas fa-users"></span> Reset password</a>
-                <a class="dropdown-item" href="/accounts/email/"><span class="fas fa-users"></span> Email configuration</a>
+                <a class="dropdown-item" href="/admin"><span class="fas fa-users-cog"></span> {% trans "Admin" %}</a>
+                <a class="dropdown-item" href="/accounts/signup/"><span class="fas fa-users"></span> {% trans "Register" %}</a>
+                <a class="dropdown-item" href="/accounts/login/"><span class="fas fa-users"></span> {% trans "Login" %}</a>
+                <a class="dropdown-item" href="/accounts/logout/"><span class="fas fa-users"></span> {% trans "Logout" %}</a>
+                <a class="dropdown-item" href="/accounts/password/change/"><span class="fas fa-users"></span> {% trans "Change password" %}</a>
+                <a class="dropdown-item" href="/accounts/password/reset/"><span class="fas fa-users"></span> {% trans "Reset password" %}</a>
+                <a class="dropdown-item" href="/accounts/email/"><span class="fas fa-users"></span> {% trans "Email configuration" %}</a>
               </div>
             </li>
             {% endif %}
-            <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/"><span class="fas fa-info"></span> Docs</a></li>
-            <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md"><span class="far fa-newspaper"></span> Changelog</a></li>
+            <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/"><span class="fas fa-info"></span> {% trans "Docs" %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md"><span class="far fa-newspaper"></span> {% trans "Changelog" %}</a></li>
           </ul>
           <form class="form-inline" style="margin:0px;" action="{% url "search" %}" method="get">
-            <input class="form-control" type="text" id="form_search" name="search" placeholder="Search term as regex">
-            <button class="btn btn-secondary" type="submit">Search</button>
+            <input class="form-control" type="text" id="form_search" name="search" placeholder="{% trans "Search term as regex" %}">
+            <button class="btn btn-secondary" type="submit">{% trans "Search" %}</button>
           </form>
         </div>
       </div>

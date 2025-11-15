@@ -1,21 +1,22 @@
 {% extends "base.html" %}
+{% load i18n analysis_tags %}
 {% block content %}
 
 <div class="alert alert-primary" style="text-align: center;font-size: 22px; color: white;">
-    Estimating ~<b>{{report.estimate_hour}}</b> analysis per hour, <b>{{report.estimate_day}}</b> per day.
+    {% blocktrans with hour=report.estimate_hour day=report.estimate_day %}Estimating ~<b>{{ hour }}</b> analysis per hour, <b>{{ day }}</b> per day.{% endblocktrans %}
 </div>
 
 <div class="row">
     <div class="col-md-6">
         <div class="jumbotron" style="text-align: center;">
             <h1>{{report.total_tasks}}</h1>
-            Total tasks
+            {% trans "Total tasks" %}
         </div>
     </div>
     <div class="col-md-6">
         <div class="jumbotron" style="text-align: center;">
             <h1>{{report.total_samples}}</h1>
-            Total samples
+            {% trans "Total samples" %}
         </div>
     </div>
 </div>
@@ -40,14 +41,14 @@
     <table class="table table-striped table-dark table-hover" style="table-layout: fixed;">
         <thead>
         <tr>
-            <th>State</th>
-            <th>Count</th>
+            <th>{% trans "State" %}</th>
+            <th>{% trans "Count" %}</th>
         </tr>
         </thead>
         <tbody>
         {% for state, count in report.states_count.items %}
             <tr>
-                <td>{{state}}</td>
+                <td>{{state|status_label}}</td>
                 <td>{{count}}</td>
             </tr>
         {% endfor %}

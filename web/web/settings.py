@@ -6,6 +6,8 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
+from django.utils.translation import gettext_lazy as _
+
 if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
     sys.exit("Root is not allowed. You gonna break permission and other parts of CAPE. RTM!")
 
@@ -118,10 +120,17 @@ USE_L10N = True
 
 # Disabling time zone support and using local time for web interface and storage.
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
-LANGUAGE_CODE = "en-us"
+LANGUAGE_CODE = "zh-hans"
 TIME_ZONE = "UTC"
 USE_I18N = True
 USE_TZ = True
+
+LANGUAGES = (
+    ("zh-hans", _("Simplified Chinese")),
+    ("en-us", _("English")),
+)
+
+LOCALE_PATHS = (os.path.join(CUCKOO_PATH, "locale"),)
 
 # Unique secret key generator.
 # Secret key will be placed in secret_key.py file.
@@ -203,8 +212,9 @@ TEMPLATES = [
 
 
 MIDDLEWARE = [
-    "django.middleware.common.CommonMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
+    "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

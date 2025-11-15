@@ -14,6 +14,8 @@ CUCKOO_PATH = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..
 sys.path.append(CUCKOO_PATH)
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+# 统一站点认证 SQLite 位置，避免 runserver/migrate 目录不同导致使用两份数据库
+SITEAUTH_DB_PATH = os.path.join(CUCKOO_PATH, "siteauth.sqlite")
 
 RUNNING_TESTS = "test" in sys.argv
 
@@ -102,7 +104,7 @@ ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
 DEBUG = True
 
 # Database settings. We don't need it.
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "siteauth.sqlite"}}
+DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": SITEAUTH_DB_PATH}}
 
 SITE_ID = 1
 
@@ -160,7 +162,8 @@ STATIC_ROOT = ""
 STATIC_URL = "/static/"
 
 # Additional locations of static files
-STATICFILES_DIRS = (os.path.join(Path.cwd(), "static"),)
+# 指向 web/static 目录，避免从不同工作目录启动时丢失静态文件
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
 
 # List of finder classes that know how to find static files in
 # various locations.

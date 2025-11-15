@@ -5,11 +5,13 @@ from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
 
-CUCKOO_PATH = os.path.join(Path.cwd(), "..")
+CUCKOO_PATH = os.path.abspath(os.path.join(Path.cwd(), ".."))
 sys.path.append(CUCKOO_PATH)
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
+# 复用与主站相同的 SQLite 绝对路径，避免迁移和服务读取不同目录
+SITEAUTH_DB_PATH = os.path.join(CUCKOO_PATH, "siteauth.sqlite")
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
@@ -77,7 +79,7 @@ TEMPLATES = [
 ]
 
 # Database settings. We don't need it.
-DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "siteauth.sqlite"}}
+DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": SITEAUTH_DB_PATH}}
 
 ASGI_APPLICATION = "web.asgi.application"
 

@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-15 08:06+0000\n"
+"POT-Creation-Date: 2025-11-15 08:08+0000\n"
 "PO-Revision-Date: 2025-11-15 08:06+0000\n"
 "Last-Translator: Codex <dev@local>\n"
 "Language-Team: Chinese Simplified\n"
@@ -293,6 +293,65 @@ msgstr "字符串"
 #: web/templates/analysis/generic/_yara.html:34
 msgid "String Name: Address"
 msgstr "字符串名称：地址"
+
+#: web/templates/analysis/generic/_file_info.html:209
+#, fuzzy
+#| msgid "CAPE Yara Details"
+msgid "Display CAPE Yara details"
+msgstr "CAPE Yara 详情"
+
+#: web/templates/analysis/generic/_file_info.html:231
+msgid "TriD"
+msgstr ""
+
+#: web/templates/analysis/generic/_file_info.html:244
+msgid "Detect It Easy"
+msgstr ""
+
+#: web/templates/analysis/generic/_file_info.html:258
+#: web/templates/submission/index.html:79
+msgid "Download"
+msgstr "下载"
+
+#: web/templates/analysis/generic/_file_info.html:278
+msgid "Re-submit file for analysis"
+msgstr "重新提交此文件"
+
+#: web/templates/analysis/generic/_file_info.html:281
+msgid "Generate CAPA findings"
+msgstr "生成 CAPA 结果"
+
+#: web/templates/analysis/generic/_file_info.html:283
+msgid "Display CAPA"
+msgstr ""
+
+#: web/templates/analysis/generic/_file_info.html:288
+#, fuzzy
+#| msgid "Statistics"
+msgid "Generate strings"
+msgstr "生成字符串"
+
+#: web/templates/analysis/generic/_file_info.html:290
+#: web/templates/analysis/generic/_file_info.html:294
+msgid "Display strings"
+msgstr "显示字符串"
+
+#: web/templates/analysis/generic/_file_info.html:328
+#: web/templates/analysis/generic/_file_info.html:331
+msgid "Display text"
+msgstr "显示文本"
+
+#: web/templates/analysis/generic/_file_info.html:335
+#, fuzzy
+#| msgid "Recent Files"
+msgid "Display extracted files"
+msgstr "显示提取文件"
+
+#: web/templates/analysis/generic/_file_info.html:441
+#, fuzzy
+#| msgid "Change password"
+msgid "Archive password:"
+msgstr "压缩包密码："
 
 #: web/templates/analysis/generic/_floss.html:5
 msgid "Decoded Strings"
@@ -1255,10 +1314,6 @@ msgstr "文件重提"
 #: web/templates/submission/index.html:77
 msgid "File(s)"
 msgstr "文件"
-
-#: web/templates/submission/index.html:79
-msgid "Download"
-msgstr "下载"
 
 #: web/templates/submission/index.html:85
 msgid "DL&Exec"

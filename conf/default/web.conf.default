@@ -1,6 +1,6 @@
 # Enable Django authentication/signup for website
 [web_auth]
-enabled = no
+enabled = yes
 # You will also need to add django admin to make it working by running:
 # poetry run python manage.py createsuperuser
 # ReCaptcha protected admin login

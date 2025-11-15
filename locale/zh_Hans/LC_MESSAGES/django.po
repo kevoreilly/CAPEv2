@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-15 07:58+0000\n"
-"PO-Revision-Date: 2025-11-15 07:58+0000\n"
+"POT-Creation-Date: 2025-11-15 08:06+0000\n"
+"PO-Revision-Date: 2025-11-15 08:06+0000\n"
 "Last-Translator: Codex <dev@local>\n"
 "Language-Team: Chinese Simplified\n"
 "Language: zh_Hans\n"
@@ -279,6 +279,69 @@ msgstr "抱歉！"
 #: web/templates/analysis/behavior/index.html:7
 msgid "No behavior."
 msgstr "暂无行为信息。"
+
+#: web/templates/analysis/generic/_capeyara.html:5
+msgid "CAPE Yara Details"
+msgstr "CAPE Yara 详情"
+
+#: web/templates/analysis/generic/_capeyara.html:22
+#: web/templates/analysis/generic/_yara.html:22
+msgid "Strings"
+msgstr "字符串"
+
+#: web/templates/analysis/generic/_capeyara.html:34
+#: web/templates/analysis/generic/_yara.html:34
+msgid "String Name: Address"
+msgstr "字符串名称：地址"
+
+#: web/templates/analysis/generic/_floss.html:5
+msgid "Decoded Strings"
+msgstr "解码字符串"
+
+#: web/templates/analysis/generic/_floss.html:14
+msgid "Stack Strings"
+msgstr "堆栈字符串"
+
+#: web/templates/analysis/generic/_floss.html:23
+msgid "Tight Strings"
+msgstr "紧凑字符串"
+
+#: web/templates/analysis/generic/_floss.html:32
+#, fuzzy
+#| msgid "Statistics"
+msgid "Static Strings"
+msgstr "静态字符串"
+
+#: web/templates/analysis/generic/_virustotal.html:4
+#, python-format
+msgid "VirusTotal (%(pos)s/%(total)s)"
+msgstr ""
+
+#: web/templates/analysis/generic/_virustotal.html:10
+#, fuzzy
+#| msgid "No results"
+msgid "Full Results"
+msgstr "查看完整结果"
+
+#: web/templates/analysis/generic/_virustotal.html:15
+msgid "Engine"
+msgstr "引擎"
+
+#: web/templates/analysis/generic/_virustotal.html:15
+#, fuzzy
+#| msgid "No results"
+msgid "Result"
+msgstr "结果"
+
+#: web/templates/analysis/generic/_virustotal.html:22
+msgid "Clean"
+msgstr "未命中"
+
+#: web/templates/analysis/generic/_yara.html:5
+#, fuzzy
+#| msgid "Cluster details"
+msgid "Yara Details"
+msgstr "Yara 详情"
 
 #: web/templates/analysis/index.html:6 web/templates/analysis/index.html:67
 msgid "Files"

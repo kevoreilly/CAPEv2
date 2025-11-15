@@ -1,7 +1,8 @@
 <section id="static_analysis">
     {% load key_tags %}
+    {% load i18n %}
     <div>
-        <h4>Yara Details</h4>
+        <h4>{% trans "Yara Details" %}</h4>
         <p></p>
         <div id="yara_details">
             {% for hit in file.yara %}
@@ -18,7 +19,7 @@
                         <table class="table table-striped table-bordered" style="table-layout: fixed;">
                             {% if hit.strings %}
                             <tr>
-                                <th style="border-top: 0; width: 15%;">Strings</th>
+                                <th style="border-top: 0; width: 15%;">{% trans "Strings" %}</th>
                                 <td>
                                     <ul style="margin-bottom: 0;">
                                         {% for string in hit.strings %}
@@ -30,7 +31,7 @@
                             {% endif %}
                             {% if hit.addresses %}
                             <tr>
-                                <th style="border-top: 0; width: 15%;">String Name: Address</th>
+                                <th style="border-top: 0; width: 15%;">{% trans "String Name: Address" %}</th>
                                 <td>
                                     <ul style="margin-bottom: 0;">
                                         {% for key, value in hit.addresses.items %}

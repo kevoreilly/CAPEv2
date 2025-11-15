@@ -1,4 +1,5 @@
 {% load analysis_tags %}
+{% load i18n %}
 
 <style type="text/css">
 .signature {
@@ -17,7 +18,7 @@
 }
 </style>
 <section id="signatures" style="overflow-wrap: break-word;">
-    <h4 style="padding-top: 5px;">Signatures</h4>
+    <h4 style="padding-top: 5px;">{% trans "Signatures" %}</h4>
     {% if analysis.signatures %}
         {% for signature in analysis.signatures %}
             <a style="text-decoration: none;" href="#signature_{{signature.name}}" data-toggle="collapse">
@@ -41,7 +42,7 @@
                     <tbody>
                         {% for match in signature.new_data %}
                             {% if match.process.process_name %}
-                                <tr><td colspan="9" class="signature-process">Process: {{match.process.process_name}} ({{match.process.process_id}})</td></tr>
+                                <tr><td colspan="9" class="signature-process">{% blocktrans with pname=match.process.process_name pid=match.process.process_id %}Process: {{ pname }} ({{ pid }}){% endblocktrans %}</td></tr>
                             {% endif %}
                             {% for sign in match.signs %}
                                 <tr>
@@ -96,6 +97,6 @@
             </div>
         {% endfor %}
     {% else %}
-        <p>No signatures</p>
+        <p>{% trans "No signatures" %}</p>
     {% endif %}
 </section>

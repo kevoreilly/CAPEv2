@@ -1,20 +1,21 @@
+{% load i18n %}
 <section id="summary">
-    <h4>Summary</h4>
+    <h4>{% trans "Summary" %}</h4>
     <ul class="nav nav-tabs flex-column flex-sm-row">
-        {% if analysis.behavior.summary.files %}<li class="nav-item active"><a class="nav-link" href="#summary_files" data-toggle="tab">Accessed Files</a></li>{% endif %}
-        {% if analysis.behavior.summary.read_files %}<li class="nav-item"><a class="nav-link" href="#summary_read_files" data-toggle="tab">Read Files</a></li>{% endif %}
-        {% if analysis.behavior.summary.write_files %}<li class="nav-item"><a class="nav-link" href="#summary_write_files" data-toggle="tab">Modified Files</a></li>{% endif %}
-        {% if analysis.behavior.summary.delete_files %}<li class="nav-item"><a class="nav-link" href="#summary_delete_files" data-toggle="tab">Deleted Files</a></li>{% endif %}
-        {% if analysis.behavior.summary.keys %}<li class="nav-item"><a class="nav-link" href="#summary_keys" data-toggle="tab">Registry Keys</a></li>{% endif %}
-        {% if analysis.behavior.summary.read_keys %}<li class="nav-item"><a class="nav-link" href="#summary_read_keys" data-toggle="tab">Read Registry Keys</a></li>{% endif %}
-        {% if analysis.behavior.summary.write_keys %}<li class="nav-item"><a class="nav-link" href="#summary_write_keys" data-toggle="tab">Modified Registry Keys</a></li>{% endif %}
-        {% if analysis.behavior.summary.delete_keys %}<li class="nav-item"><a class="nav-link" href="#summary_delete_keys" data-toggle="tab">Deleted Registry Keys</a></li>{% endif %}
-        {% if analysis.behavior.summary.resolved_apis %}<li class="nav-item"><a class="nav-link" href="#summary_resolved_apis" data-toggle="tab">Resolved APIs</a></li>{% endif %}
-        {% if analysis.behavior.summary.executed_commands %}<li class="nav-item"><a class="nav-link" href="#summary_executed_commands" data-toggle="tab">Executed Commands</a></li>{% endif %}
-        {% if analysis.behavior.summary.mutexes %}<li class="nav-item"><a class="nav-link" href="#summary_mutexes" data-toggle="tab">Mutexes</a></li>{% endif %}
-        {% if analysis.behavior.summary.created_services %}<li class="nav-item"><a class="nav-link" href="#summary_created_services" data-toggle="tab">Created Services</a></li>{% endif %}
-        {% if analysis.behavior.summary.started_services %}<li class="nav-item"><a class="nav-link" href="#summary_started_services" data-toggle="tab">Started Services</a></li>{% endif %}
-        {% if analysis.behavior.summary.reversing_labs %}<li class="nav-item"><a class="nav-link" href="#summary_reversing_labs" data-toggle="tab">Reversing Labs</a></li>{% endif %}
+        {% if analysis.behavior.summary.files %}<li class="nav-item active"><a class="nav-link" href="#summary_files" data-toggle="tab">{% trans "Accessed Files" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.read_files %}<li class="nav-item"><a class="nav-link" href="#summary_read_files" data-toggle="tab">{% trans "Read Files" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.write_files %}<li class="nav-item"><a class="nav-link" href="#summary_write_files" data-toggle="tab">{% trans "Modified Files" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.delete_files %}<li class="nav-item"><a class="nav-link" href="#summary_delete_files" data-toggle="tab">{% trans "Deleted Files" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.keys %}<li class="nav-item"><a class="nav-link" href="#summary_keys" data-toggle="tab">{% trans "Registry Keys" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.read_keys %}<li class="nav-item"><a class="nav-link" href="#summary_read_keys" data-toggle="tab">{% trans "Read Registry Keys" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.write_keys %}<li class="nav-item"><a class="nav-link" href="#summary_write_keys" data-toggle="tab">{% trans "Modified Registry Keys" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.delete_keys %}<li class="nav-item"><a class="nav-link" href="#summary_delete_keys" data-toggle="tab">{% trans "Deleted Registry Keys" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.resolved_apis %}<li class="nav-item"><a class="nav-link" href="#summary_resolved_apis" data-toggle="tab">{% trans "Resolved APIs" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.executed_commands %}<li class="nav-item"><a class="nav-link" href="#summary_executed_commands" data-toggle="tab">{% trans "Executed Commands" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.mutexes %}<li class="nav-item"><a class="nav-link" href="#summary_mutexes" data-toggle="tab">{% trans "Mutexes" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.created_services %}<li class="nav-item"><a class="nav-link" href="#summary_created_services" data-toggle="tab">{% trans "Created Services" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.started_services %}<li class="nav-item"><a class="nav-link" href="#summary_started_services" data-toggle="tab">{% trans "Started Services" %}</a></li>{% endif %}
+        {% if analysis.behavior.summary.reversing_labs %}<li class="nav-item"><a class="nav-link" href="#summary_reversing_labs" data-toggle="tab">{% trans "Reversing Labs" %}</a></li>{% endif %}
     </ul>
     <div class="tab-content">
         <div class="tab-pane fade show active" id="summary_files">
@@ -139,8 +140,8 @@
                 {% if analysis.reversinglabs %}
                 <table class="table">
                     <tr>
-                        <th>Name</th>
-                        <th>Value</th>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Value" %}</th>
                     </tr>
                     {% for key, value in analysis.reversinglabs.items %}
                     <tr>
@@ -158,7 +159,7 @@
                     {% endfor %}
                 </table>
                 {% else %}
-                <center><b style="color:red">No results</b></center>
+                <center><b style="color:red">{% trans "No results" %}</b></center>
                 {% endif %}
             </div>
         </div>

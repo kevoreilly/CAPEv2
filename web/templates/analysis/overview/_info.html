@@ -1,7 +1,8 @@
+{% load i18n %}
 <section id="information">
 
     {% if analysis.detections %}
-        <p  style="text-align:center; font-size: 18px;font-weight-bold";>Detection(s):
+        <p  style="text-align:center; font-size: 18px;font-weight-bold";>{% trans "Detection(s):" %}
         {% for block  in analysis.detections %}
             <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge badge-danger"  title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}&#013;{% endif %}{% endfor %}{% endfor %}">{{block.family}}</span></a>
         {% endfor %}
@@ -9,7 +10,7 @@
     {% endif %}
 
     {% if config.malscore and analysis.malstatus %}
-        <p  style="text-align:center; font-size: 18px;font-weight-bold";>Status:
+        <p  style="text-align:center; font-size: 18px;font-weight-bold";>{% trans "Status:" %}
             {% if analysis.malstatus == "Malicious" %}
                 <span class="badge badge-danger">{{analysis.malstatus}}</span>
             {% elif analysis.malstatus == "Suspicious" %}
@@ -24,31 +25,31 @@
 
     <div class="panel panel-primary">
         <div class="panel-heading">
-            <h4 class="panel-title">Analysis {% if settings.REPROCESS_TASKS %} <a class="btn btn-secondary btn-sm" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess the task"><span class="fa-solid fa-rotate"></span></a>{% endif %}</h4>
+            <h4 class="panel-title">{% trans "Analysis" %} {% if settings.REPROCESS_TASKS %} <a class="btn btn-secondary btn-sm" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="{% trans "Reprocess the task" %}"><span class="fa-solid fa-rotate"></span></a>{% endif %}</h4>
         </div>
         <table class="table table-striped">
             <thead>
                 <tr>
-                    <th>Category</th>
-                    <th>Package</th>
-                    <th>Started</th>
-                    <th>Completed</th>
-                    <th>Duration</th>
+                    <th>{% trans "Category" %}</th>
+                    <th>{% trans "Package" %}</th>
+                    <th>{% trans "Started" %}</th>
+                    <th>{% trans "Completed" %}</th>
+                    <th>{% trans "Duration" %}</th>
                     {% if analysis.info.options %}
-                        <th>Options</th>
+                        <th>{% trans "Options" %}</th>
                     {% endif %}
                     {% if user.is_staff and analysis.distributed %}
-                        <th>Distributed</th>
+                        <th>{% trans "Distributed" %}</th>
                     {% endif %}
-                    <th>Log(s)</th>
+                    <th>{% trans "Log(s)" %}</th>
                     {% if analysis.debug.pre_script_log %}
-                        <th>Pre Script Logs</th>
+                        <th>{% trans "Pre Script Logs" %}</th>
                     {% endif %}
                     {% if analysis.debug.during_script_log %}
-                        <th>During Script Logs</th>
+                        <th>{% trans "During Script Logs" %}</th>
                     {% endif %}
                     {% if config.malscore and analysis.malscore %}
-                        <th>MalScore</th>
+                        <th>{% trans "MalScore" %}</th>
                     {% endif %}
                 </tr>
             </thead>
@@ -58,25 +59,25 @@
                     <td>{{analysis.info.package}}</td>
                     <td>{{analysis.info.started}}</td>
                     <td>{{analysis.info.ended}}</td>
-                    <td>{{analysis.info.duration}} seconds</td>
+                    <td>{% blocktrans with duration=analysis.info.duration %}{{ duration }} seconds{% endblocktrans %}</td>
                     {% if analysis.info.options %}
-                        <td><a class="accordion-toggle" data-toggle="collapse" href="#options">Show Options</a></td>
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#options">{% trans "Show Options" %}</a></td>
                     {% endif %}
                     {% if user.is_staff and analysis.distributed %}
-                        <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
+                        <td>{% blocktrans with name=analysis.distributed.name tid=analysis.distributed.task_id %}{{ name }} - {{ tid }}{% endblocktrans %}</td>
                     {% endif %}
                     <td>
-                        Show <a class="accordion-toggle" data-toggle="collapse" href="#info-log">Analysis</a>
+                        {% trans "Show" %} <a class="accordion-toggle" data-toggle="collapse" href="#info-log">{% trans "Analysis" %}</a>
                         {% if analysis.process_log %}
-                            | <a class="accordion-toggle" data-toggle="collapse" href="#process-log"> Process</a>
+                            | <a class="accordion-toggle" data-toggle="collapse" href="#process-log"> {% trans "Process" %}</a>
                         {% endif %}
-                        Log
+                        {% trans "Log" %}
                     </td>
                     {% if analysis.debug.pre_script_log %}
-                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-pre-script-log">Show Pre Script</a></td>
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-pre-script-log">{% trans "Show Pre Script" %}</a></td>
                     {% endif %}
                     {% if analysis.debug.during_script_log %}
-                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-during-script-log">Show During Script</a></td>
+                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-during-script-log">{% trans "Show During Script" %}</a></td>
                     {% endif %}
                     {% if config.malscore and analysis.malscore %}
                     <td>
@@ -97,7 +98,7 @@
     {% if analysis.debug.errors %}
         <ul style="font-size: 16px;">
         {% for error in analysis.debug.errors %}
-            <li class="text-info"><b>Info:</b> {{error}}</li>
+            <li class="text-info"><b>{% trans "Info:" %}</b> {{error}}</li>
         {% endfor %}
         </ul>
     {% endif %}
@@ -124,18 +125,18 @@
     <section id="machine">
         <div class="panel panel-primary">
             <div class="panel-heading">
-                <h4 class="panel-title">Machine</h4>
+                <h4 class="panel-title">{% trans "Machine" %}</h4>
             </div>
             <table class="table table-striped">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Label</th>
-                        <th>Manager</th>
-                        <th>Started On</th>
-                        <th>Shutdown On</th>
+                        <th>{% trans "Name" %}</th>
+                        <th>{% trans "Label" %}</th>
+                        <th>{% trans "Manager" %}</th>
+                        <th>{% trans "Started On" %}</th>
+                        <th>{% trans "Shutdown On" %}</th>
                         {% if analysis.info.route %}
-                            <th>Route</th>
+                            <th>{% trans "Route" %}</th>
                         {% endif %}
                     </tr>
                 </thead>

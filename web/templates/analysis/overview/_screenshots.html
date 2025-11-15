@@ -1,5 +1,6 @@
+{% load i18n %}
 <section id="screenshots">
-    <h4>Screenshots</h4>
+    <h4>{% trans "Screenshots" %}</h4>
     {% if analysis.shots %}
         <div>
         {% for shot in analysis.shots %}
@@ -9,6 +10,6 @@
         {% endfor %}
         </div>
     {% else %}
-        No screenshots available.
+        {% trans "No screenshots available." %}
     {% endif %}
 </section>

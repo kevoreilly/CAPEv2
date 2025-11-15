@@ -1,4 +1,5 @@
 {% load key_tags %}
+{% load i18n %}
 {% include "analysis/overview/_info.html" %}
 <hr />
 {% if analysis.malware_conf %}
@@ -6,23 +7,23 @@
         {% for family, config in config_block.items %}
             {% if family|slice:":1" != "_" %}
                 <div class="card-header">
-                    <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span> {{family}} Config</span></a>
+                    <a class="accordion-toggle" data-toggle="collapse" aria-expanded="true" href="#{{family}}_config"><i class="fas fa-tasks"></i><span> {% blocktrans with fam=family %}{{ fam }} Config{% endblocktrans %}</span></a>
                     {% if analysis.info.has_cents_rules %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "filereport" analysis.info.id "cents" %}"><span class="fas fa-download"></span> CENTS ruleset</a>
+                        <a class="btn btn-secondary btn-sm" href="{% url "filereport" analysis.info.id "cents" %}"><span class="fas fa-download"></span> {% trans "CENTS ruleset" %}</a>
                     {% endif %}
                 </div>
                 <div id="{{family}}_config" class="collapse show extracted-config">
                     <table class="table table-striped table-bordered" style="table-layout: fixed;">
                         <thead>
                             <tr>
-                                <th style="border-top: 0; width: 15%;">Type</th>
-                                <th style="border-top: 0; word-wrap: break-word;">{{family}} Config</th>
+                                <th style="border-top: 0; width: 15%;">{% trans "Type" %}</th>
+                                <th style="border-top: 0; word-wrap: break-word;">{% blocktrans with fam=family %}{{ fam }} Config{% endblocktrans %}</th>
                             </tr>
                         </thead>
                         {% if config_block|get_item:"_associated_config_hashes" %}
                             <tfoot>
                                 <tr>
-                                    <th>Extracted From</th>
+                                    <th>{% trans "Extracted From" %}</th>
                                     <td>
                                         {% for hashes in config_block|get_item:"_associated_config_hashes" %}
                                             <div class="card" style="margin-bottom: 4px">
@@ -41,7 +42,7 @@
                                                             <dl class="row" style="margin-bottom: 0px">
                                                                 {% with sorted_hashes=hashes|sort %}
                                                                     {% for algo, value in sorted_hashes.items %}
-                                                                        <dt class="col-sm-1">{{ algo }}</dt>
+                                                                    <dt class="col-sm-1">{{ algo }}</dt>
                                                                         <dd class="col-sm-11">{{ value }}</dd>
                                                                     {% endfor %}
                                                                 {% endwith %}
@@ -86,7 +87,7 @@
 {% endif %}
 
 {% if analysis.info.category in "file,static" and analysis.target %}
-    <h4>File Details  {% if analysis.info.parent_sample %} <label for="parent_file"><a href="#parent_file" data-toggle="collapse"> - Parent file</a></label> {% endif %} </h4>
+    <h4>{% trans "File Details" %}  {% if analysis.info.parent_sample %} <label for="parent_file"><a href="#parent_file" data-toggle="collapse"> - {% trans "Parent file" %}</a></label> {% endif %} </h4>
     {% if analysis.info.parent_sample %}
     <div class="form-group">
         <div id="parent_file" class="collapse">

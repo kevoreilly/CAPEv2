@@ -1,5 +1,6 @@
+{% load i18n %}
 <div><center>
-    <i class="far fa-file-alt"></i> Reports:
+    <i class="far fa-file-alt"></i> {% trans "Reports:" %}
             {% if config.jsondump %}
                 <a  href="{% url "filereport" analysis.info.id "json" %}">JSON </a>
             {% endif %}

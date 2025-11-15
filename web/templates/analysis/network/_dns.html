@@ -1,10 +1,11 @@
+{% load i18n %}
 <section id="domains">
     {% if network.dns %}
         <table class="table table-striped table-bordered" style="width: 50%;margin-left: auto;margin-right: auto;">
             <tr>
-                <th>Name</th>
-                <th>Response</th>
-                <th>Post-Analysis Lookup</th>
+                <th>{% trans "Name" %}</th>
+                <th>{% trans "Response" %}</th>
+                <th>{% trans "Post-Analysis Lookup" %}</th>
             </tr>
             {% for p in network.dns %}
                 <tr>
@@ -52,6 +53,6 @@
             {% endfor %}
         </table>
     {% else %}
-        <p>No domains contacted.</p>
+        <p>{% trans "No domains contacted." %}</p>
     {% endif %}
 </section>

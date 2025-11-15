@@ -1,21 +1,22 @@
+{% load i18n %}
 <section id="hosts">
     {% if network.hosts %}
         <table class="table table-striped table-bordered" style="width: 50%;margin-left: auto;margin-right: auto;">
             <tr>
-                <th width="10%">Direct</th>
+                <th width="10%">{% trans "Direct" %}</th>
                 <th>IP</th>
-                <th>Country Name</th>
-                <th>ASN</th>
+                <th>{% trans "Country Name" %}</th>
+                <th>{% trans "ASN" %}</th>
             </tr>
             {% for host in network.hosts %}
             <tr>
                 {% if host.ip|slice:":7" != "192.168" %}
                     {% if "hostname" in host and host.hostname == "" %}
-                        <td>Y</td>
+                        <td>{% trans "Y" %}</td>
                     {% elif "hostname" in host %}
-                        <td>N</td>
+                        <td>{% trans "N" %}</td>
                     {% else %}
-                        <td>N/A</td>
+                        <td>{% trans "N/A" %}</td>
                     {% endif %}
                     <td>{{host.ip}} <a href="https://www.virustotal.com/gui/ip-address/{{host.ip}}/">[VT]</a>
                         {% if config.display_et_portal %}
@@ -34,6 +35,6 @@
             {% endfor %}
         </table>
     {% else %}
-        <p>No hosts contacted.</p>
+        <p>{% trans "No hosts contacted." %}</p>
     {% endif %}
 </section>

@@ -1,7 +1,8 @@
 {% if analysis.statistics %}
     {% load analysis_tags %}
+    {% load i18n %}
     <div class="card-header">
-        <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#stadistics"><i class="fas fa-stopwatch"></i> Statistics {% if stats_total.total %}({{stats_total.total}}) {% endif %}</a></center>
+        <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#stadistics"><i class="fas fa-stopwatch"></i> {% trans "Statistics" %} {% if stats_total.total %}({{stats_total.total}}) {% endif %}</a></center>
     </div>
     <div id="stadistics" class="collapse">
         {% if analysis.info.category != "pcap" and analysis.info.category != "static"  %}
@@ -15,7 +16,7 @@
         <div class="container">
             <div class="row">
                 <div class="col-sm">
-                    <h4>Processing&emsp;( {{ stats_total.processing }} seconds )</h4>
+                    <h4>{% blocktrans with seconds=stats_total.processing %}Processing ( {{ seconds }} seconds ){% endblocktrans %}</h4>
                     <ul class="list-group">
                         {% for stat in analysis.statistics.processing|dictsortreversed:"time" %}
                             {% if stat.time %}
@@ -28,7 +29,7 @@
                     </ul>
                 </div>
                 <div class="col-sm">
-                <h4>Signatures&emsp;( {{ stats_total.signatures }} seconds )</h4>
+                <h4>{% blocktrans with seconds=stats_total.signatures %}Signatures ( {{ seconds }} seconds ){% endblocktrans %}</h4>
                     <ul class="list-group">
                         {% for stat in analysis.statistics.signatures|dictsortreversed:"time" %}
                             {% if stat.time %}
@@ -41,7 +42,7 @@
                     </ul>
                 </div>
                 <div class="col-sm">
-                    <h4>Reporting&emsp;( {{ stats_total.reporting }} seconds )</h4>
+                    <h4>{% blocktrans with seconds=stats_total.reporting %}Reporting ( {{ seconds }} seconds ){% endblocktrans %}</h4>
                 <ul class="list-group">
                     {% for stat in analysis.statistics.reporting|dictsortreversed:"time" %}
                         {% if stat.time %}

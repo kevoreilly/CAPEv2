@@ -8,8 +8,8 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-15 07:39+0000\n"
-"PO-Revision-Date: 2025-11-15 07:39+0000\n"
+"POT-Creation-Date: 2025-11-15 07:51+0000\n"
+"PO-Revision-Date: 2025-11-15 07:51+0000\n"
 "Last-Translator: Codex <dev@local>\n"
 "Language-Team: Chinese Simplified\n"
 "Language: zh_Hans\n"
@@ -27,10 +27,12 @@ msgid "Running"
 msgstr "运行中"
 
 #: web/analysis/templatetags/analysis_tags.py:116
+#: web/templates/analysis/overview/_info.html:42
 msgid "Distributed"
 msgstr "已分发"
 
 #: web/analysis/templatetags/analysis_tags.py:117
+#: web/templates/analysis/overview/_info.html:36
 msgid "Completed"
 msgstr "已完成"
 
@@ -91,10 +93,12 @@ msgid "Timestamp"
 msgstr "时间戳"
 
 #: web/templates/analysis/index.html:45
+#: web/templates/analysis/overview/_info.html:128
 msgid "Machine"
 msgstr "执行主机"
 
 #: web/templates/analysis/index.html:46
+#: web/templates/analysis/overview/_info.html:34
 msgid "Package"
 msgstr "分析包"
 
@@ -144,6 +148,7 @@ msgid "VT"
 msgstr "VT"
 
 #: web/templates/analysis/index.html:75 web/templates/analysis/index.html:354
+#: web/templates/analysis/overview/_info.html:52
 msgid "MalScore"
 msgstr "恶意评分"
 
@@ -232,6 +237,514 @@ msgstr "本页暂无 URL 记录。"
 #: web/templates/analysis/index.html:807
 msgid "Recent PCAPs"
 msgstr "最新 PCAP"
+
+#: web/templates/analysis/network/_dns.html:6
+#: web/templates/analysis/network/_dns_not_ajax.html:7
+#: web/templates/analysis/overview/_info.html:133
+#: web/templates/analysis/overview/_summary.html:143
+#: web/templates/statistics.html:71 web/templates/statistics.html:100
+msgid "Name"
+msgstr "名称"
+
+#: web/templates/analysis/network/_dns.html:7
+#: web/templates/analysis/network/_dns_not_ajax.html:8
+msgid "Response"
+msgstr "响应"
+
+#: web/templates/analysis/network/_dns.html:8
+#: web/templates/analysis/network/_dns_not_ajax.html:9
+msgid "Post-Analysis Lookup"
+msgstr "分析后查询"
+
+#: web/templates/analysis/network/_dns.html:56
+#: web/templates/analysis/network/_dns_not_ajax.html:57
+msgid "No domains contacted."
+msgstr "未通信任何域名。"
+
+#: web/templates/analysis/network/_hosts.html:6
+#: web/templates/analysis/network/_hosts_not_ajax.html:7
+msgid "Direct"
+msgstr "直连"
+
+#: web/templates/analysis/network/_hosts.html:8
+#: web/templates/analysis/network/_hosts_not_ajax.html:9
+msgid "Country Name"
+msgstr "国家"
+
+#: web/templates/analysis/network/_hosts.html:9
+#: web/templates/analysis/network/_hosts_not_ajax.html:10
+#, fuzzy
+#| msgid "Top ASN"
+msgid "ASN"
+msgstr "热门 ASN"
+
+#: web/templates/analysis/network/_hosts.html:15
+#: web/templates/analysis/network/_hosts_not_ajax.html:16
+msgid "Y"
+msgstr "是"
+
+#: web/templates/analysis/network/_hosts.html:17
+#: web/templates/analysis/network/_hosts_not_ajax.html:18
+msgid "N"
+msgstr "否"
+
+#: web/templates/analysis/network/_hosts.html:19
+#: web/templates/analysis/network/_hosts_not_ajax.html:20
+msgid "N/A"
+msgstr "无"
+
+#: web/templates/analysis/network/_hosts.html:38
+#: web/templates/analysis/network/_hosts_not_ajax.html:39
+msgid "No hosts contacted."
+msgstr "未通信任何主机。"
+
+#: web/templates/analysis/network/_hosts_not_ajax.html:3
+msgid "Hosts"
+msgstr "主机"
+
+#: web/templates/analysis/network/index.html:7
+msgid "PCAP with embedded TLS keys for use in WireShark."
+msgstr "包含 TLS 密钥的 PCAP，可用于 Wireshark。"
+
+#: web/templates/analysis/network/index.html:11
+msgid "TLS keys"
+msgstr "TLS 密钥"
+
+#: web/templates/analysis/network/index.html:19
+#, python-format
+msgid "Hosts (%(count)s)"
+msgstr "主机（%(count)s）"
+
+#: web/templates/analysis/network/index.html:20
+#, python-format
+msgid "DNS (%(count)s)"
+msgstr "DNS（%(count)s）"
+
+#: web/templates/analysis/network/index.html:21
+#, python-format
+msgid "TCP (%(count)s)"
+msgstr "TCP（%(count)s）"
+
+#: web/templates/analysis/network/index.html:22
+#, python-format
+msgid "UDP (%(count)s)"
+msgstr "UDP（%(count)s）"
+
+#: web/templates/analysis/network/index.html:25
+#, python-format
+msgid "HTTP(S) <span class=\"button-badge\">(%(count)s)</span>"
+msgstr "HTTP(S) <span class=\"button-badge\">（%(count)s）</span>"
+
+#: web/templates/analysis/network/index.html:27
+#, python-format
+msgid "HTTP <span class=\"button-badge\">(%(count)s)</span>"
+msgstr "HTTP <span class=\"button-badge\">（%(count)s）</span>"
+
+#: web/templates/analysis/network/index.html:30
+#, python-format
+msgid "SMTP (%(count)s)"
+msgstr "SMTP（%(count)s）"
+
+#: web/templates/analysis/network/index.html:31
+#, python-format
+msgid "IRC (%(count)s)"
+msgstr "IRC（%(count)s）"
+
+#: web/templates/analysis/network/index.html:32
+#, python-format
+msgid "ICMP (%(count)s)"
+msgstr "ICMP（%(count)s）"
+
+#: web/templates/analysis/network/index.html:34
+#, python-format
+msgid "CIF Results (%(count)s)"
+msgstr "CIF 结果（%(count)s）"
+
+#: web/templates/analysis/network/index.html:37
+#, python-format
+msgid "Suricata Alerts (%(count)s)"
+msgstr "Suricata 告警（%(count)s）"
+
+#: web/templates/analysis/network/index.html:38
+#, python-format
+msgid "Suricata TLS (%(count)s)"
+msgstr "Suricata TLS（%(count)s）"
+
+#: web/templates/analysis/network/index.html:39
+#, python-format
+msgid "Suricata HTTP (%(count)s)"
+msgstr "Suricata HTTP（%(count)s）"
+
+#: web/templates/analysis/network/index.html:40
+#, python-format
+msgid "Suricata Files (%(count)s)"
+msgstr "Suricata 文件（%(count)s）"
+
+#: web/templates/analysis/overview/_info.html:5
+#, fuzzy
+#| msgid "Detections"
+msgid "Detection(s):"
+msgstr "检测结果"
+
+#: web/templates/analysis/overview/_info.html:13
+#, fuzzy
+#| msgid "Status"
+msgid "Status:"
+msgstr "状态"
+
+#: web/templates/analysis/overview/_info.html:28
+#: web/templates/analysis/overview/_info.html:70
+#, fuzzy
+#| msgid "Failed analysis"
+msgid "Analysis"
+msgstr "分析失败"
+
+#: web/templates/analysis/overview/_info.html:28
+msgid "Reprocess the task"
+msgstr "重新处理任务"
+
+#: web/templates/analysis/overview/_info.html:33
+msgid "Category"
+msgstr "类别"
+
+#: web/templates/analysis/overview/_info.html:35
+msgid "Started"
+msgstr "开始时间"
+
+#: web/templates/analysis/overview/_info.html:37
+#, fuzzy
+#| msgid "Documentation"
+msgid "Duration"
+msgstr "文档"
+
+#: web/templates/analysis/overview/_info.html:39
+msgid "Options"
+msgstr "选项"
+
+#: web/templates/analysis/overview/_info.html:44
+msgid "Log(s)"
+msgstr "日志"
+
+#: web/templates/analysis/overview/_info.html:46
+msgid "Pre Script Logs"
+msgstr "前置脚本日志"
+
+#: web/templates/analysis/overview/_info.html:49
+msgid "During Script Logs"
+msgstr "执行中脚本日志"
+
+#: web/templates/analysis/overview/_info.html:62
+#, python-format
+msgid "%(duration)s seconds"
+msgstr "%(duration)s 秒"
+
+#: web/templates/analysis/overview/_info.html:64
+msgid "Show Options"
+msgstr "查看选项"
+
+#: web/templates/analysis/overview/_info.html:67
+#, python-format
+msgid "%(name)s - %(tid)s"
+msgstr "%(name)s - %(tid)s"
+
+#: web/templates/analysis/overview/_info.html:70
+msgid "Show"
+msgstr "显示"
+
+#: web/templates/analysis/overview/_info.html:72
+#, fuzzy
+#| msgid "Processing"
+msgid "Process"
+msgstr "Processing 模块"
+
+#: web/templates/analysis/overview/_info.html:74
+#, fuzzy
+#| msgid "Login"
+msgid "Log"
+msgstr "登录"
+
+#: web/templates/analysis/overview/_info.html:77
+msgid "Show Pre Script"
+msgstr "查看前置脚本"
+
+#: web/templates/analysis/overview/_info.html:80
+msgid "Show During Script"
+msgstr "查看执行脚本"
+
+#: web/templates/analysis/overview/_info.html:101
+msgid "Info:"
+msgstr "信息："
+
+#: web/templates/analysis/overview/_info.html:134
+msgid "Label"
+msgstr "标签"
+
+#: web/templates/analysis/overview/_info.html:135
+msgid "Manager"
+msgstr "管理器"
+
+#: web/templates/analysis/overview/_info.html:136
+msgid "Started On"
+msgstr "启动时间"
+
+#: web/templates/analysis/overview/_info.html:137
+msgid "Shutdown On"
+msgstr "关机时间"
+
+#: web/templates/analysis/overview/_info.html:139
+msgid "Route"
+msgstr "路由"
+
+#: web/templates/analysis/overview/_playback.html:5
+msgid "Session Playback"
+msgstr "会话回放"
+
+#: web/templates/analysis/overview/_playback.html:19
+msgid "Seek in progress..."
+msgstr "正在跳转..."
+
+#: web/templates/analysis/overview/_playback.html:20
+msgid "Cancel"
+msgstr "取消"
+
+#: web/templates/analysis/overview/_playback.html:27
+msgid "Play"
+msgstr "播放"
+
+#: web/templates/analysis/overview/_playback.html:40
+msgid "No playback available."
+msgstr "无可用回放。"
+
+#: web/templates/analysis/overview/_reports.html:3
+#, fuzzy
+#| msgid "Reported"
+msgid "Reports:"
+msgstr "已生成报告"
+
+#: web/templates/analysis/overview/_screenshots.html:3
+msgid "Screenshots"
+msgstr "截图"
+
+#: web/templates/analysis/overview/_screenshots.html:13
+msgid "No screenshots available."
+msgstr "无可用截图。"
+
+#: web/templates/analysis/overview/_signatures.html:21
+#: web/templates/statistics.html:121
+msgid "Signatures"
+msgstr "Signatures 模块"
+
+#: web/templates/analysis/overview/_signatures.html:45
+#, python-format
+msgid "Process: %(pname)s (%(pid)s)"
+msgstr "进程：%(pname)s（%(pid)s）"
+
+#: web/templates/analysis/overview/_signatures.html:100
+#, fuzzy
+#| msgid "Signatures"
+msgid "No signatures"
+msgstr "Signatures 模块"
+
+#: web/templates/analysis/overview/_statistics.html:5
+#: web/templates/header.html:35
+msgid "Statistics"
+msgstr "统计"
+
+#: web/templates/analysis/overview/_statistics.html:19
+#, python-format
+msgid "Processing ( %(seconds)s seconds )"
+msgstr "Processing（%(seconds)s 秒）"
+
+#: web/templates/analysis/overview/_statistics.html:32
+#, python-format
+msgid "Signatures ( %(seconds)s seconds )"
+msgstr "Signatures（%(seconds)s 秒）"
+
+#: web/templates/analysis/overview/_statistics.html:45
+#, python-format
+msgid "Reporting ( %(seconds)s seconds )"
+msgstr "Reporting（%(seconds)s 秒）"
+
+#: web/templates/analysis/overview/_summary.html:3
+msgid "Summary"
+msgstr "摘要"
+
+#: web/templates/analysis/overview/_summary.html:5
+#, fuzzy
+#| msgid "Recent Files"
+msgid "Accessed Files"
+msgstr "最新文件"
+
+#: web/templates/analysis/overview/_summary.html:6
+#, fuzzy
+#| msgid "Recent Files"
+msgid "Read Files"
+msgstr "最新文件"
+
+#: web/templates/analysis/overview/_summary.html:7
+msgid "Modified Files"
+msgstr "修改的文件"
+
+#: web/templates/analysis/overview/_summary.html:8
+#, fuzzy
+#| msgid "Recent Files"
+msgid "Deleted Files"
+msgstr "最新文件"
+
+#: web/templates/analysis/overview/_summary.html:9
+#, fuzzy
+#| msgid "Register"
+msgid "Registry Keys"
+msgstr "注册"
+
+#: web/templates/analysis/overview/_summary.html:10
+msgid "Read Registry Keys"
+msgstr "读取的注册表键"
+
+#: web/templates/analysis/overview/_summary.html:11
+msgid "Modified Registry Keys"
+msgstr "修改的注册表键"
+
+#: web/templates/analysis/overview/_summary.html:12
+msgid "Deleted Registry Keys"
+msgstr "删除的注册表键"
+
+#: web/templates/analysis/overview/_summary.html:13
+msgid "Resolved APIs"
+msgstr "解析的 API"
+
+#: web/templates/analysis/overview/_summary.html:14
+msgid "Executed Commands"
+msgstr "执行的命令"
+
+#: web/templates/analysis/overview/_summary.html:15
+msgid "Mutexes"
+msgstr "互斥量"
+
+#: web/templates/analysis/overview/_summary.html:16
+msgid "Created Services"
+msgstr "创建的服务"
+
+#: web/templates/analysis/overview/_summary.html:17
+msgid "Started Services"
+msgstr "启动的服务"
+
+#: web/templates/analysis/overview/_summary.html:18
+msgid "Reversing Labs"
+msgstr "Reversing Labs"
+
+#: web/templates/analysis/overview/_summary.html:144
+msgid "Value"
+msgstr "值"
+
+#: web/templates/analysis/overview/_summary.html:162
+msgid "No results"
+msgstr "无结果"
+
+#: web/templates/analysis/overview/index.html:10
+#: web/templates/analysis/overview/index.html:20
+#, python-format
+msgid "%(fam)s Config"
+msgstr "%(fam)s 配置"
+
+#: web/templates/analysis/overview/index.html:12
+msgid "CENTS ruleset"
+msgstr "CENTS 规则集"
+
+#: web/templates/analysis/overview/index.html:19
+msgid "Type"
+msgstr "类型"
+
+#: web/templates/analysis/overview/index.html:26
+#, fuzzy
+#| msgid "Extracted"
+msgid "Extracted From"
+msgstr "提取成功"
+
+#: web/templates/analysis/overview/index.html:90
+#, fuzzy
+#| msgid "Cluster details"
+msgid "File Details"
+msgstr "集群详情"
+
+#: web/templates/analysis/overview/index.html:90
+#, fuzzy
+#| msgid "Recent Files"
+msgid "Parent file"
+msgstr "最新文件"
+
+#: web/templates/analysis/report.html:75
+msgid "Quick Overview"
+msgstr "快速概览"
+
+#: web/templates/analysis/report.html:77 web/templates/analysis/report.html:80
+#, fuzzy
+#| msgid "Failed analysis"
+msgid "Behavioral Analysis"
+msgstr "行为分析"
+
+#: web/templates/analysis/report.html:78
+msgid "Detailed Behaviour (Tracee)"
+msgstr "行为细节（Tracee）"
+
+#: web/templates/analysis/report.html:83
+msgid "Network Analysis"
+msgstr "网络分析"
+
+#: web/templates/analysis/report.html:87
+#, python-format
+msgid "Dropped Files (%(count)s)"
+msgstr "投放文件（%(count)s）"
+
+#: web/templates/analysis/report.html:90
+#, python-format
+msgid "Process Memory (%(count)s)"
+msgstr "进程内存（%(count)s）"
+
+#: web/templates/analysis/report.html:93
+#, fuzzy
+#| msgid "Failed analysis"
+msgid "Memory Analysis"
+msgstr "内存分析"
+
+#: web/templates/analysis/report.html:96
+#, python-format
+msgid "Process Dumps (%(count)s)"
+msgstr "进程转储（%(count)s）"
+
+#: web/templates/analysis/report.html:99
+#, python-format
+msgid "Payloads (%(count)s)"
+msgstr "有效载荷（%(count)s）"
+
+#: web/templates/analysis/report.html:102
+msgid "Debugger"
+msgstr "调试器"
+
+#: web/templates/analysis/report.html:107
+#, python-format
+msgid "Comments (%(count)s)"
+msgstr "评论（%(count)s）"
+
+#: web/templates/analysis/report.html:109
+msgid "Comments"
+msgstr "评论"
+
+#: web/templates/analysis/report.html:115
+msgid "Backscatter"
+msgstr "反向散射"
+
+#: web/templates/analysis/report.html:116
+msgid "Classification"
+msgstr "分类"
+
+#: web/templates/analysis/report.html:117
+msgid "Compare this analysis to..."
+msgstr "与其他分析对比..."
+
+#: web/templates/analysis/report.html:118 web/templates/header.html:40
+msgid "Admin"
+msgstr "管理后台"
 
 #: web/templates/auth/base.html:31
 msgid "Welcome,"
@@ -352,17 +865,9 @@ msgstr "API"
 msgid "Submit"
 msgstr "提交"
 
-#: web/templates/header.html:35
-msgid "Statistics"
-msgstr "统计"
-
 #: web/templates/header.html:38
 msgid "User"
 msgstr "用户"
-
-#: web/templates/header.html:40
-msgid "Admin"
-msgstr "管理后台"
 
 #: web/templates/header.html:41
 msgid "Register"
@@ -401,7 +906,7 @@ msgstr "使用正则表达式搜索"
 msgid ""
 "Information for %(days)s days. Total number of tasks: %(total)s, Average per"
 " day: %(avg)s"
-msgstr ""
+msgstr "最近 %(days)s 天信息：任务总数 %(total)s，每日平均 %(avg)s 次"
 
 #: web/templates/statistics.html:25
 msgid "Top ASN"
@@ -431,10 +936,6 @@ msgstr "失败任务"
 msgid "Custom Signatures data only for Volatility/static extraction"
 msgstr "仅用于 Volatility/静态提取的自定义特征数据"
 
-#: web/templates/statistics.html:71 web/templates/statistics.html:100
-msgid "Name"
-msgstr "名称"
-
 #: web/templates/statistics.html:72 web/templates/statistics.html:101
 msgid "Total time in minutes"
 msgstr "总耗时（分钟）"
@@ -459,10 +960,6 @@ msgstr "各模块耗时"
 msgid "Processing"
 msgstr "Processing 模块"
 
-#: web/templates/statistics.html:121
-msgid "Signatures"
-msgstr "Signatures 模块"
-
 #: web/templates/statistics.html:146
 msgid "Reporting"
 msgstr "Reporting 模块"
@@ -478,7 +975,7 @@ msgstr "集群详情"
 #: web/templates/statistics.html:185
 #, python-format
 msgid "Node: %(node)s - Tasks %(task)s"
-msgstr ""
+msgstr "节点：%(node)s - 任务 %(task)s"
 
 #: web/templates/submission/index.html:75
 #: web/templates/submission/index.html:95
@@ -500,6 +997,56 @@ msgstr "下载并执行"
 #: web/templates/submission/index.html:104
 msgid "Select"
 msgstr "选择"
+
+#: web/templates/submission/remote_status.html:12
+msgid "Hang on..."
+msgstr "请稍候..."
+
+#: web/templates/submission/remote_status.html:13
+msgid "The task is not running yet. This page will refresh every 5 seconds."
+msgstr "任务尚未运行，页面每 5 秒刷新一次。"
+
+#: web/templates/submission/status.html:6
+msgid "Good news! :-)"
+msgstr "好消息！"
+
+#: web/templates/submission/status.html:6
+msgid "The analysis is completed, you can view it"
+msgstr "分析已完成，可在此查看"
+
+#: web/templates/submission/status.html:6
+msgid "here"
+msgstr "此处"
+
+#: web/templates/submission/status.html:9
+#: web/templates/submission/status.html:15
+#, python-format
+msgid "Status for task %(tid)s - %(target)s"
+msgstr "任务 %(tid)s - %(target)s 的状态"
+
+#: web/templates/submission/status.html:10
+#, python-format
+msgid "The analysis failed with status '%(st)s'."
+msgstr "分析失败，状态为 '%(st)s'。"
+
+#: web/templates/submission/status.html:10
+msgid "Click here to resubmit."
+msgstr "点击此处重新提交。"
+
+#: web/templates/submission/status.html:16
+#, python-format
+msgid ""
+"The analysis is not finished yet, it's still <b>%(st)s</b>. This page will "
+"refresh every 30 seconds."
+msgstr "分析尚未完成，当前状态为 <b>%(st)s</b>。本页每 30 秒刷新一次。"
+
+#: web/templates/submission/status.html:18
+msgid "To view the Remote Session - click"
+msgstr "查看远程会话，请点击"
+
+#: web/templates/submission/status.html:18
+msgid "here."
+msgstr "此处。"
 
 #: web/templates/success.html:5
 msgid "Submission complete!"

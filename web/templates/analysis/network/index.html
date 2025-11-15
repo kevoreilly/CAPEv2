@@ -1,13 +1,14 @@
+{% load i18n %}
 {% if network.pcap_sha256 %}
 
     <div class="alert alert-primary center">
         <a class="btn btn-secondary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}"><span class="fas fa-download"></span> PCAP</a>
         {% if config.pcap_ng %}
-            <a class="btn btn-secondary btn-sm" title="PCAP with embedded TLS keys for use in WireShark." href="{% url "file" "pcapng" id "dump" %}"><span class="fas fa-download"></span> PCAP-NG</a>
+            <a class="btn btn-secondary btn-sm" title="{% trans "PCAP with embedded TLS keys for use in WireShark." %}" href="{% url "file" "pcapng" id "dump" %}"><span class="fas fa-download"></span> PCAP-NG</a>
         {% endif %}
             <a class="btn btn-secondary btn-sm" href="{% url "file" "pcapzip" id network.pcap_sha256 %}"><span class="fas fa-file-archive"></span><span class="fas fa-download"></span> PCAP</a>
         {% if tlskeys_exists %}
-            <a class="btn btn-secondary btn-sm" href="{% url "file" "tlskeys" id network.pcap_sha256 %}"><span class="fas fa-download"></span> TLS keys</a>
+            <a class="btn btn-secondary btn-sm" href="{% url "file" "tlskeys" id network.pcap_sha256 %}"><span class="fas fa-download"></span> {% trans "TLS keys" %}</a>
         {% endif %}
         {% if mitmdump_exists %}
             <a class="btn btn-secondary btn-sm" href="{% url "file" "mitmdump" id 0 %}"><span class="fas fa-download"></span> Mitmdump </a>
@@ -15,28 +16,28 @@
     </div>
 {% endif %}
     <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
-        <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-toggle="tab">DNS ({{ network.domains|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-toggle="tab">TCP ({{ network.tcp|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-toggle="tab">UDP ({{ network.udp|length }})</a></li>
+        <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-toggle="tab">{% blocktrans with count=network.hosts|length %}Hosts ({{ count }}){% endblocktrans %}</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-toggle="tab">{% blocktrans with count=network.domains|length %}DNS ({{ count }}){% endblocktrans %}</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-toggle="tab">{% blocktrans with count=network.tcp|length %}TCP ({{ count }}){% endblocktrans %}</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-toggle="tab">{% blocktrans with count=network.udp|length %}UDP ({{ count }}){% endblocktrans %}</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_http_tab" data-toggle="tab">
             {% if network.http_ex or network.https_ex %}
-                HTTP(S) <span class="button-badge">({{ network.http_ex|add:network.https_ex|length }})</span>
+                {% blocktrans with count=network.http_ex|add:network.https_ex|length %}HTTP(S) <span class="button-badge">({{ count }})</span>{% endblocktrans %}
             {% else %}
-                HTTP <span class="button-badge">({{ network.http|length }})</span>
+                {% blocktrans with count=network.http|length %}HTTP <span class="button-badge">({{ count }})</span>{% endblocktrans %}
             {% endif %}
         </a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_smtp_tab" data-toggle="tab">SMTP ({{ network.smtp|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_irc_tab" data-toggle="tab">IRC ({{ network.irc|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_icmp_tab" data-toggle="tab">ICMP ({{ network.icmp|length }})</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_smtp_tab" data-toggle="tab">{% blocktrans with count=network.smtp|length %}SMTP ({{ count }}){% endblocktrans %}</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_irc_tab" data-toggle="tab">{% blocktrans with count=network.irc|length %}IRC ({{ count }}){% endblocktrans %}</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network_icmp_tab" data-toggle="tab">{% blocktrans with count=network.icmp|length %}ICMP ({{ count }}){% endblocktrans %}</a></li>
         {% if config.cif %}
-            <li class="nav-item"><a class="nav-link" href="#network_cif_tab" data-toggle="tab">CIF Results ({{ cif|length }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_cif_tab" data-toggle="tab">{% blocktrans with count=cif|length %}CIF Results ({{ count }}){% endblocktrans %}</a></li>
         {% endif %}
         {% if config.suricata %}
-            <li class="nav-item"><a class="nav-link" href="#network_suri_alerts_tab" data-toggle="tab">Suricata Alerts ({{ suricata.alerts|length }})</a></li>
-            <li class="nav-item"><a class="nav-link" href="#network_suri_tls_tab" data-toggle="tab">Suricata TLS ({{ suricata.tls|length }})</a></li>
-            <li class="nav-item"><a class="nav-link" href="#network_suri_http_tab" data-toggle="tab">Suricata HTTP ({{ suricata.http|length }})</a></li>
-            <li class="nav-item"><a class="nav-link" href="#network_suri_files" data-toggle="tab">Suricata Files ({{ suricata.files|length }})</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_suri_alerts_tab" data-toggle="tab">{% blocktrans with count=suricata.alerts|length %}Suricata Alerts ({{ count }}){% endblocktrans %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_suri_tls_tab" data-toggle="tab">{% blocktrans with count=suricata.tls|length %}Suricata TLS ({{ count }}){% endblocktrans %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_suri_http_tab" data-toggle="tab">{% blocktrans with count=suricata.http|length %}Suricata HTTP ({{ count }}){% endblocktrans %}</a></li>
+            <li class="nav-item"><a class="nav-link" href="#network_suri_files" data-toggle="tab">{% blocktrans with count=suricata.files|length %}Suricata Files ({{ count }}){% endblocktrans %}</a></li>
         {% endif %}
     </ul>
     <div class="tab-content">

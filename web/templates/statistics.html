@@ -1,8 +1,9 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% block content %}
 {% if statistics %}
 
-<h4>Information for {{days}} days. Total number of tasks: {{statistics.total}}, Average per day: {{statistics.average}}</h4>
+<h4>{% blocktrans with days=days total=statistics.total avg=statistics.average %}Information for {{ days }} days. Total number of tasks: {{ total }}, Average per day: {{ avg }}{% endblocktrans %}</h4>
 
 {% if statistics.detections %}
   <table class="table table-striped table-bordered">
@@ -21,7 +22,7 @@
 {% endif %}
 
 {% if statistics.asns %}
-  <center><h4>Top ASN</h4></center>
+  <center><h4>{% trans "Top ASN" %}</h4></center>
   <table class="table table-striped table-hover" style="table-layout: fixed; width: 50%; text-align: center;margin-left: auto;margin-right: auto;">
     {% for block in statistics.asns %}
       {% if block.asn %}
@@ -37,14 +38,14 @@
 </table>
 {% endif %}
 
-<h4>Tasks per day</h4>
+<h4>{% trans "Tasks per day" %}</h4>
 <table class="table table-striped table-hover">
     <thead>
       <tr>
-        <th scope="col">Day</th>
-        <th scope="col">Tasks Added</th>
-        <th scope="col">Tasks Reported</th>
-        <th scope="col">Tasks Failed</th>
+        <th scope="col">{% trans "Day" %}</th>
+        <th scope="col">{% trans "Tasks Added" %}</th>
+        <th scope="col">{% trans "Tasks Reported" %}</th>
+        <th scope="col">{% trans "Tasks Failed" %}</th>
       </tr>
     </thead>
     <tbody>
@@ -63,15 +64,15 @@
 <hr />
 
   {% if statistics.custom_statistics %}
-  <h4>Custom Signatures data only for Volatility/static extraction</h4>
+  <h4>{% trans "Custom Signatures data only for Volatility/static extraction" %}</h4>
   <table class="table table-striped table-hover">
     <thead>
       <tr>
-        <th scope="col">Name</th>
-        <th scope="col">Total time in minutes</th>
-        <th scope="col">Runs</th>
-        <th scope="col">Extracted </th>
-        <th scope="col">Average time in minutes(Total/runs)</th>
+        <th scope="col">{% trans "Name" %}</th>
+        <th scope="col">{% trans "Total time in minutes" %}</th>
+        <th scope="col">{% trans "Runs" %}</th>
+        <th scope="col">{% trans "Extracted" %}</th>
+        <th scope="col">{% trans "Average time in minutes(Total/runs)" %}</th>
       </tr>
     </thead>
     <tbody>
@@ -87,19 +88,19 @@
     </tbody>
   </table>
 {% endif %}
-<h4>Time per module</h4>
+<h4>{% trans "Time per module" %}</h4>
 <div class="container">
     <div class="row">
         {% if statistics.processing %}
         <div class="col-sm">
-            <h4>Processing</h4>
+            <h4>{% trans "Processing" %}</h4>
             <table class="table table-striped table-hover">
               <thead>
                 <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Total time in minutes</th>
-                  <th scope="col">Runs</th>
-                  <th scope="col">Average time in minutes(Total/runs)</th>
+                  <th scope="col">{% trans "Name" %}</th>
+                  <th scope="col">{% trans "Total time in minutes" %}</th>
+                  <th scope="col">{% trans "Runs" %}</th>
+                  <th scope="col">{% trans "Average time in minutes(Total/runs)" %}</th>
                 </tr>
               </thead>
               <tbody>
@@ -117,7 +118,7 @@
         {% endif %}
         {% if statistics.signatures %}
         <div class="col-sm">
-            <h4>Signatures</h4>
+            <h4>{% trans "Signatures" %}</h4>
             <table class="table table-striped table-hover">
               <thead>
                 <tr>
@@ -142,7 +143,7 @@
         {% endif %}
         {% if statistics.reporting %}
         <div class="col-sm">
-            <h4>Reporting</h4>
+            <h4>{% trans "Reporting" %}</h4>
             <table class="table table-striped table-hover">
               <thead>
                 <tr>
@@ -169,11 +170,11 @@
 </div>
 
 {% else %}
-    <div class="alert alert-primary">No statistics found.</div>
+    <div class="alert alert-primary">{% trans "No statistics found." %}</div>
 {% endif %}
 
 {% if statistics.distributed_tasks %}
-<h4>Cluster details</h4>
+<h4>{% trans "Cluster details" %}</h4>
 <div class="container">
     <div class="row">
         {% for day, block in statistics.distributed_tasks.items %}
@@ -181,7 +182,7 @@
             <th scope="row">{{day}}</th>
             <td>
             {% for name, tasks in block.items %}
-              <li>Node: {{name}} - Tasks {{tasks}}</li>
+              <li>{% blocktrans with node=name task=tasks %}Node: {{ node }} - Tasks {{ task }}{% endblocktrans %}</li>
             {% endfor %}
           </td>
 

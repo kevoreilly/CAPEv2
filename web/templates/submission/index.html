@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% block content %}
 <style>
 .btn-file {
@@ -48,7 +49,7 @@ $(document).ready( function() {
     });
     $('.nav-tabs a').on('show.bs.tab', function (event) {
         var tabname = $(event.target).text()
-        if (tabname == " PCAP" || tabname == " Static") {
+        if (tabname.trim() == "PCAP" || tabname.trim() == "Static") {
             document.getElementById('non-pcap-1').style.display = "none";
             document.getElementById('non-pcap-2').style.display = "none";
         } else {
@@ -71,27 +72,27 @@ $(document).ready( function() {
             <div class="tabbable">
                 <ul class="nav nav-tabs">
                     {% if resubmit %}
-                        <li class="nav-item active"><a class="nav-link" href="#resubmit" data-toggle="tab"><span class="fa fa-file"></span> File resubmission</a></li>
+                        <li class="nav-item active"><a class="nav-link" href="#resubmit" data-toggle="tab"><span class="fa fa-file"></span> {% trans "File resubmission" %}</a></li>
                     {% else %}
-                        <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="fa fa-file"></span> File(s)</a></li>
+                        <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="fa fa-file"></span> {% trans "File(s)" %}</a></li>
                         {% if config.downloading_service %}
-                            <li class="nav-item"><a class="nav-link" href="#downloading_service" data-toggle="tab"><span class="fa fa-download"></span> Download</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#downloading_service" data-toggle="tab"><span class="fa fa-download"></span> {% trans "Download" %}</a></li>
                         {% endif %}
                         {% if config.url_analysis %}
                             <li class="nav-item"><a class="nav-link" href="#url" data-toggle="tab"><span class="fa fa-globe"></span> URL</a></li>
                         {% endif %}
                         {% if config.dlnexec %}
-                            <li class="nav-item"><a class="nav-link" href="#dlurl" data-toggle="tab"><span class="fa fa-download"></span> DL&Exec</a></li>
+                            <li class="nav-item"><a class="nav-link" href="#dlurl" data-toggle="tab"><span class="fa fa-download"></span> {% trans "DL&Exec" %}</a></li>
                         {% endif %}
                         <li class="nav-item"><a class="nav-link" href="#pcap" data-toggle="tab"><span class="fa fa-network-wired"></span> PCAP</a></li>
-                        <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab"><span class="fa fa-tasks"></span> Static</a></li>
+                        <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab"><span class="fa fa-tasks"></span> {% trans "Static" %}</a></li>
                     {% endif %}
                 </ul>
                 <div class="tab-content">
                     {% if resubmit %}
                         <div class="tab-pane fade show active" id="resubmit">
                             <div class="input-group mb-3">
-                                <label class="sr-only" form="form_resubmission"> File resubmission</label>
+                                <label class="sr-only" form="form_resubmission"> {% trans "File resubmission" %}</label>
                                 <input type="text" class="form-control" id="form_resubmission" name="hash" value="{{resubmit}}" />
                             </div>
                         </div>
@@ -100,7 +101,7 @@ $(document).ready( function() {
                             <div class="input-group">
                                     <input type="text" class="form-control" readonly>
                                     <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="sample" multiple="multiple">
+                                        {% trans "Select" %} <input type="file" name="sample" multiple="multiple">
                                     </span>
                             </div>
                         </div>

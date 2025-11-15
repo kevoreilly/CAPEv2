@@ -3,12 +3,13 @@
 # This file is distributed under the same license as the PACKAGE package.
 # FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
+#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2025-11-15 05:31+0000\n"
-"PO-Revision-Date: 2025-11-15 05:32+0000\n"
+"POT-Creation-Date: 2025-11-15 07:39+0000\n"
+"PO-Revision-Date: 2025-11-15 07:39+0000\n"
 "Last-Translator: Codex <dev@local>\n"
 "Language-Team: Chinese Simplified\n"
 "Language: zh_Hans\n"
@@ -57,7 +58,7 @@ msgstr "报告失败"
 msgid "Files"
 msgstr "文件"
 
-#: web/templates/analysis/index.html:7
+#: web/templates/analysis/index.html:7 web/templates/submission/index.html:88
 msgid "Static"
 msgstr "静态"
 
@@ -310,6 +311,14 @@ msgstr "状态"
 msgid "Count"
 msgstr "数量"
 
+#: web/templates/error.html:4 web/templates/standalone_error.html:2
+msgid "ERROR :-("
+msgstr "出错了 :-("
+
+#: web/templates/error.html:6
+msgid "Submission Failed!"
+msgstr "提交失败！"
+
 #: web/templates/footer.html:6
 msgid "Back to the top"
 msgstr "返回顶部"
@@ -386,6 +395,131 @@ msgstr "更新日志"
 #: web/templates/header.html:54
 msgid "Search term as regex"
 msgstr "使用正则表达式搜索"
+
+#: web/templates/statistics.html:6
+#, python-format
+msgid ""
+"Information for %(days)s days. Total number of tasks: %(total)s, Average per"
+" day: %(avg)s"
+msgstr ""
+
+#: web/templates/statistics.html:25
+msgid "Top ASN"
+msgstr "热门 ASN"
+
+#: web/templates/statistics.html:41
+msgid "Tasks per day"
+msgstr "每日任务"
+
+#: web/templates/statistics.html:45
+msgid "Day"
+msgstr "日期"
+
+#: web/templates/statistics.html:46
+msgid "Tasks Added"
+msgstr "新增任务"
+
+#: web/templates/statistics.html:47
+msgid "Tasks Reported"
+msgstr "产出报告"
+
+#: web/templates/statistics.html:48
+msgid "Tasks Failed"
+msgstr "失败任务"
+
+#: web/templates/statistics.html:67
+msgid "Custom Signatures data only for Volatility/static extraction"
+msgstr "仅用于 Volatility/静态提取的自定义特征数据"
+
+#: web/templates/statistics.html:71 web/templates/statistics.html:100
+msgid "Name"
+msgstr "名称"
+
+#: web/templates/statistics.html:72 web/templates/statistics.html:101
+msgid "Total time in minutes"
+msgstr "总耗时（分钟）"
+
+#: web/templates/statistics.html:73 web/templates/statistics.html:102
+msgid "Runs"
+msgstr "运行次数"
+
+#: web/templates/statistics.html:74
+msgid "Extracted"
+msgstr "提取成功"
+
+#: web/templates/statistics.html:75 web/templates/statistics.html:103
+msgid "Average time in minutes(Total/runs)"
+msgstr "平均耗时（总计/次数）"
+
+#: web/templates/statistics.html:91
+msgid "Time per module"
+msgstr "各模块耗时"
+
+#: web/templates/statistics.html:96
+msgid "Processing"
+msgstr "Processing 模块"
+
+#: web/templates/statistics.html:121
+msgid "Signatures"
+msgstr "Signatures 模块"
+
+#: web/templates/statistics.html:146
+msgid "Reporting"
+msgstr "Reporting 模块"
+
+#: web/templates/statistics.html:173
+msgid "No statistics found."
+msgstr "未找到统计数据。"
+
+#: web/templates/statistics.html:177
+msgid "Cluster details"
+msgstr "集群详情"
+
+#: web/templates/statistics.html:185
+#, python-format
+msgid "Node: %(node)s - Tasks %(task)s"
+msgstr ""
+
+#: web/templates/submission/index.html:75
+#: web/templates/submission/index.html:95
+msgid "File resubmission"
+msgstr "文件重提"
+
+#: web/templates/submission/index.html:77
+msgid "File(s)"
+msgstr "文件"
+
+#: web/templates/submission/index.html:79
+msgid "Download"
+msgstr "下载"
+
+#: web/templates/submission/index.html:85
+msgid "DL&Exec"
+msgstr "下载并执行"
+
+#: web/templates/submission/index.html:104
+msgid "Select"
+msgstr "选择"
+
+#: web/templates/success.html:5
+msgid "Submission complete!"
+msgstr "提交完成！"
+
+#: web/templates/success.html:6
+msgid "The following tasks were added successfully:"
+msgstr "以下任务已成功加入："
+
+#: web/templates/success.html:10
+msgid "Click on the links to monitor the status of the submission."
+msgstr "点击链接可查看任务状态。"
+
+#: web/templates/success_vtup.html:5
+msgid "VirusTotal submission complete!"
+msgstr "VirusTotal 提交完成！"
+
+#: web/templates/success_vtup.html:9
+msgid "Click on the link to view the submission."
+msgstr "点击链接查看提交详情。"
 
 #: web/web/settings.py:129
 msgid "Simplified Chinese"

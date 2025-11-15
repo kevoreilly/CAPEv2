@@ -1,11 +1,12 @@
 {% extends "base.html" %}
+{% load i18n %}
 {% block content %}
 
-<div class="alert alert-success"><h4>Submission complete!</h4>
-The following tasks were added successfully:
+<div class="alert alert-success"><h4>{% trans "Submission complete!" %}</h4>
+{% trans "The following tasks were added successfully:" %}
 {% for task in tasks %}
     <a href="{% url "submission_status" task %}">{{task}}</a>
 {% endfor %}.
-Click on the links to monitor the status of the submission.
+{% trans "Click on the links to monitor the status of the submission." %}
 </div>
 {% endblock %}

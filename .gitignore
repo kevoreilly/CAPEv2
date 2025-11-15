@@ -11,6 +11,10 @@ __pycache__/
 .env/
 .vscode
 env/
+# Serena MCP 本地状态
+.serena/
+# 本地虚拟环境
+venv/
 tests/test_objects/
 log/
 storage/

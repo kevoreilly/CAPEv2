@@ -1,3 +1,6 @@
+### [17.11.2025]
+* Monitor update: Add config option for monitor injection into supplied pid or "explorer" for shell: monitor=<pid/"explorer">
+
 ### [06.11.2025]
 * Monitor updates:
     * path_from_object_attributes(): fix issue with memcpy from bad ObjectName->Buffer (e.g. 0a9d9b402fb39cf8df21ca4e68b84577c39b3ecf00415c999b28fcc92a695663)

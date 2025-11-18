@@ -24,7 +24,9 @@ class CALLBACKHOME(Report):
             Database().set_status(task_id, TASK_REPORTED)
         for url in urls:
             try:
-                res = requests.post(url, headers={"Content-Type": "application/json"}, data=json.dumps({"task_id": task_id}), timeout=20)
+                res = requests.post(
+                    url, headers={"Content-Type": "application/json"}, data=json.dumps({"task_id": task_id}), timeout=20
+                )
                 if res and res.ok:
                     log.debug("reported id: %d", task_id)
                 else:

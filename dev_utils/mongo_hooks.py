@@ -197,5 +197,7 @@ def collect_file_dicts(report) -> itertools.chain:
     file_dicts.append(report.get("CAPE", {}).get("payloads", None) or [])
     file_dicts.append(report.get("procdump", None) or [])
     if report.get("suricata", {}).get("files", []):
-        file_dicts.append(list(filter(None, [file_info.get("file_info", []) for file_info in report.get("suricata", {}).get("files", [])])))
+        file_dicts.append(
+            list(filter(None, [file_info.get("file_info", []) for file_info in report.get("suricata", {}).get("files", [])]))
+        )
     return itertools.chain.from_iterable(file_dicts)

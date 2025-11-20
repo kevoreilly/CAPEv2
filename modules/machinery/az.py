@@ -1000,7 +1000,7 @@ class Azure(Machinery):
             "wait": False,
         }
         self.required_vmsss[vmss_name]["exists"] = True
-        with self.db.session.begin_nested() if self.db.session.in_transaction() else self.db.session.begin() as session:
+        with self.db.session.begin_nested() if self.db.session().in_transaction() else self.db.session.begin() as session:
             if machine_pools[vmss_name]["size"] == 0:
                 self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
             else:

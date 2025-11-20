@@ -1060,7 +1060,7 @@ class Azure(Machinery):
         @param per_platform: A boolean flag indicating that we should scale machine pools "per platform" vs. "per tag"
         @return: Ends method call
         """
-        with self.db.session.begin_nested() if self.db.session.in_transaction() else self.db.session.begin() as session:
+        with self.db.session.begin_nested() if self.db.session().in_transaction() else self.db.session.begin() as session:
             self._scale_machine_pool(tag, per_platform=per_platform)
             try:
                 session.commit()

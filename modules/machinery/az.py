@@ -1043,7 +1043,7 @@ class Azure(Machinery):
             else:
                 log.exception(repr(e))
                 raise
-        with self.db.session.begin_nested() if self.db.session.in_transaction() else self.db.session.begin() as session:
+        with self.db.session.begin_nested() if self.db.session().in_transaction() else self.db.session.begin() as session:
             self._add_machines_to_db(vmss_name)
             try:
                 session.commit()

@@ -8,7 +8,7 @@ import socket
 import threading
 import time
 import timeit
-from typing import Optional, cast
+from typing import Optional
 
 import sqlalchemy
 from sqlalchemy import select

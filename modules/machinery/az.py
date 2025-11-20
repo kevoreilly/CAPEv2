@@ -8,7 +8,7 @@ import socket
 import threading
 import time
 import timeit
-from typing import Optional
+from typing import Optional, cast
 
 import sqlalchemy
 from sqlalchemy import select
@@ -1010,6 +1010,10 @@ class Azure(Machinery):
             except sqlalchemy.exc.InvalidRequestError:
                 session.rollback()
                 # Retry logic might be needed here if the session was already committed by an outer scope.
+                if machine_pools[vmss_name]["size"] == 0:
+                    self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
+                else:
+                    self._add_machines_to_db(vmss_name)
 
     def _thr_reimage_vmss(self, vmss_name):
         """
@@ -1046,10 +1050,8 @@ class Azure(Machinery):
             except sqlalchemy.exc.InvalidRequestError:
                 session.rollback()
                 # Retry logic might be needed here if the session was already committed by an outer scope.
-                if machine_pools[vmss_name]["size"] == 0:
-                    self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
-                else:
-                    self._add_machines_to_db(vmss_name)
+                # For now, just call it again outside a transaction.
+                self._add_machines_to_db(vmss_name)
 
     def _thr_scale_machine_pool(self, tag, per_platform=False):
         """

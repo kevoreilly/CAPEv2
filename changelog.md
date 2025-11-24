@@ -1,3 +1,6 @@
+### [24.11.2025]
+* Monitor update: Fix issue with RESUME: monitor message from NtResumeProcess hook
+
 ### [17.11.2025]
 * Monitor update: Add config option for monitor injection into supplied pid or "explorer" for shell: monitor=<pid/"explorer">
 

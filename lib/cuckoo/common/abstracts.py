@@ -894,7 +894,7 @@ class Signature:
                 return
 
             for keyword in ("cape_yara", "yara"):
-                for yara_block in data_block.get(keyword, []) or []:
+                for yara_block in data_block.get(keyword, []):
                     if name_pattern.search(yara_block.get("name", "")):
                         label = label_override if label_override else keyword
                         yield label, path, yara_block, data_block

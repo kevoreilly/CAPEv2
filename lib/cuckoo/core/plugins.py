@@ -683,6 +683,8 @@ class RunSignatures:
                             result = False
 
                         if result:
+                            if hasattr(sig, "on_complete"):
+                                log.debug("Signature: %s is matched! on_complete won't be executed!", sig.name)
                             sig.matched = True
 
             # Call the stop method on all remaining instances.

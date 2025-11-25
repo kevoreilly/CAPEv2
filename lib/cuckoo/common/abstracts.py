@@ -886,7 +886,7 @@ class Signature:
         except CuckooOperationalError as e:
             CuckooReportError(e)
 
-        def yara_detected(self, name):
+    def yara_detected(self, name):
         name_pattern = re.compile(name, re.I)
 
         def _check_matches(data_block, path, label_override=None):

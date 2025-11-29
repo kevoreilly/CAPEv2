@@ -33,47 +33,54 @@
 <style>
 {% include "css/bootstrap.min.css" %}
 {% include "css/style.css" %}
-
+body { padding-top: 70px; } /* Ensure content isn't hidden behind fixed navbar */
 </style>
 </head>
 <body>
 <div class="container-fluid">
     {% include "graphic/logo.html" %}
     {% if not summary_report %}
-    <div class="navbar navbar-inverse" style="margin-top: 10px;">
-        <div class="navbar-inner">
-            <div class="container-fluid">
-                <div class="nav-collapse">
-                    <nav class="nav">
-                        <a style="margin-right: 20px" href="#info">Info</a>
-                        {% if results.info.category == "file" %}
-                            <a style="margin-right: 20px" href="#file">File</a>
-                        {% elif results.info.category == "url" %}
-                            <a style="margin-right: 20px" href="#url">URL</a>
-                        {% endif %}
-                        <a style="margin-right: 20px" href="#signatures">Signatures</a>
-                        <a style="margin-right: 20px" href="#screenshots">Screenshots</a>
-                        <a style="margin-right: 20px" href="#network">Network</a>
-                        <a style="margin-right: 20px" href="#dropped">Dropped</a>
-                        <a style="margin-right: 20px" href="#payloads">Payloads</a>
-                        <a style="margin-right: 20px" href="#behavior">Behavior</a>
-                        <a style="margin-right: 20px" href="#volatility">Volatility</a>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-    {% block content %}{% endblock %}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top shadow-sm border-bottom border-secondary">
+        <a class="navbar-brand" href="#">CAPE Report</a>
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#reportNavbar" aria-controls="reportNavbar" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
 
-    <footer class="footer">
-        {% if not summary_report %}
-        <p class="float-right"><a href="#">Back to top</a></p>
-        {% endif %}
-        <p class="text-center"><a href="https://github.com/kevoreilly/CAPEv2">CAPE Sandbox on Github</a></p>
+        <div class="collapse navbar-collapse" id="reportNavbar">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item"><a class="nav-link" href="#info">Info</a></li>
+                {% if results.info.category == "file" %}
+                    <li class="nav-item"><a class="nav-link" href="#file">File</a></li>
+                {% elif results.info.category == "url" %}
+                    <li class="nav-item"><a class="nav-link" href="#url">URL</a></li>
+                {% endif %}
+                <li class="nav-item"><a class="nav-link" href="#signatures">Signatures</a></li>
+                <li class="nav-item"><a class="nav-link" href="#screenshots">Screenshots</a></li>
+                <li class="nav-item"><a class="nav-link" href="#network">Network</a></li>
+                <li class="nav-item"><a class="nav-link" href="#dropped">Dropped</a></li>
+                <li class="nav-item"><a class="nav-link" href="#payloads">Payloads</a></li>
+                <li class="nav-item"><a class="nav-link" href="#behavior">Behavior</a></li>
+                <li class="nav-item"><a class="nav-link" href="#volatility">Volatility</a></li>
+            </ul>
+        </div>
+    </nav>
+    {% endif %}
+    
+    <div class="mt-4">
+        {% block content %}{% endblock %}
+    </div>
+
+    <footer class="footer mt-5 py-3 bg-dark text-muted border-top border-secondary">
+        <div class="container-fluid">
+            {% if not summary_report %}
+            <p class="float-right"><a href="#" class="text-muted">Back to top</a></p>
+            {% endif %}
+            <p class="text-center mb-0">Powered by <a href="https://github.com/kevoreilly/CAPEv2" class="text-light">CAPE Sandbox</a></p>
+        </div>
     </footer>
 </div>
 <script>
+{% include "js/jquery.min.js" %}
 {% include "js/bootstrap.min.js" %}
 {% include "js/functions.js" %}
 </script>

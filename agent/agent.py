@@ -92,6 +92,8 @@ class Status(enum.IntEnum):
         return None
 
 
+TERMINAL_STATUSES = [Status.COMPLETE, Status.FAILED, Status.EXCEPTION]
+
 AGENT_BROWSER_EXT_PATH = ""
 AGENT_BROWSER_LOCK = Lock()
 ANALYZER_FOLDER = ""
@@ -493,6 +495,11 @@ def put_status():
         status = Status(request.form.get("status"))
     except ValueError:
         return json_error(400, "No valid status has been provided")
+
+    # If the new status is terminal, unset the async subprocess so /status reports
+    # the final analysis state rather than the child process state.
+    if status in TERMINAL_STATUSES:
+        state["async_subprocess"] = None
 
     state["status"] = status
     state["description"] = request.form.get("description")

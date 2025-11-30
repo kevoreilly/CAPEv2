@@ -690,7 +690,9 @@ EOL
 
 function install_suricata() {
     echo '[+] Installing Suricata'
-    sudo add-apt-repository -y ppa:oisf/suricata-stable
+    # Suricata 8 has many breaking changes. We don't have time to make it compatible
+    # sudo add-apt-repository -y ppa:oisf/suricata-stable
+    sudo add-apt-repository ppa:oisf/suricata-7.0
     sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata
     touch /etc/suricata/threshold.config
 

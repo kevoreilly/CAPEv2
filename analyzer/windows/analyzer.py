@@ -1332,7 +1332,6 @@ class CommandPipeHandler:
         """Request for injection into a process."""
         # Parse the process identifier.
         # PROCESS:1:1824,2856
-        suspended = False
         process_id = thread_id = None
         # We parse the process ID.
         pid_s, tid_s = data.split(b",", 1)
@@ -1352,7 +1351,6 @@ class CommandPipeHandler:
                         config=self.analyzer.config,
                         pid=process_id,
                         thread_id=thread_id,
-                        suspended=suspended,
                     )
                     filepath = proc.get_filepath()  # .encode('utf8', 'replace')
                     # if it's a URL analysis, provide the URL to all processes as

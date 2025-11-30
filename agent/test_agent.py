@@ -639,6 +639,34 @@ class TestAgent:
         js = self.confirm_status(str(agent.Status.FAILED))
         assert "process_id" not in js
 
+    def test_async_manual_status_override(self):
+        """Test that a manual status update overrides an in-progress async process."""
+        # Upload a Python file that sleeps for a short period, to ensure the
+        # async subprocess is running while we override the status.
+        file_contents = (
+            "import time",
+            "time.sleep(10)",
+        )
+
+        filepath = self.store_file(file_contents)
+        form = {"filepath": filepath, "async": 1}
+
+        execpy_resp = self.post_form("execpy", form)
+        assert execpy_resp.get("message") == "Successfully spawned command"
+
+        # While the subprocess is running, the status should initially be RUNNING.
+        self.confirm_status(str(agent.Status.RUNNING))
+
+        # Manually override the status to COMPLETE via POST /status.
+        override_form = {
+            "status": str(agent.Status.COMPLETE),
+            "description": "beep boop"
+        }
+        status_resp = self.post_form("status", override_form)
+        assert status_resp.get("message") == "Analysis status updated"
+
+        self.confirm_status(str(agent.Status.COMPLETE))
+
     def test_execute(self):
         """Test executing the 'date' command."""
         if sys.platform == "win32":

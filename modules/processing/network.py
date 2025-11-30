@@ -1140,11 +1140,9 @@ class NetworkAnalysis(Processing):
 
         if HAVE_HTTPREPLAY:
             try:
-                p2 = {}
                 tls_master = self.get_tlsmaster()
-                if tls_master:
-                    p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
-                if p2:
+                p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
+                if any(p2.values()):
                     results.update(p2)
             except Exception:
                 log.exception("Error running httpreplay-based PCAP analysis")

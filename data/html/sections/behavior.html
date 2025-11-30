@@ -100,7 +100,7 @@
         <div>
             <h4><a href="javascript:showHide('process_{{process.process_id}}');">{{process.process_name}}</a>
                 <small>PID: {{process.process_id}}, Parent PID: {{process.parent_id}}, Full Path: <b>{{process.module_path}}</b>
-                    {% if process.environ.CommandLine %}
+                    {% if process.environ and process.environ.CommandLine %}
                     , Command Line: <b>{{ process.environ.CommandLine }}</b>
                     {% endif %}
                 </small>
@@ -158,6 +158,7 @@
         Nothing to display.
     {% endif %}
     {% endif %}
+    {% if results.behavior and results.behavior.summary %}
         <div class="card card-body">
             <b>Accessed Files</b>
             {% if results.behavior.summary.files %}
@@ -266,4 +267,5 @@
                 Nothing to display.
             {% endif %}
         </div>
+    {% endif %}
 </section>

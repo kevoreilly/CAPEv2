@@ -25,15 +25,15 @@ from django.template import loader
 if not settings.configured:
     settings.configure(
         INSTALLED_APPS=[
-            'analysis',
-            'django.contrib.contenttypes',
-            'django.contrib.auth',
-            'django.contrib.sessions',
-            'django.contrib.messages',
-            'django.contrib.staticfiles',
+            "analysis",
+            "django.contrib.contenttypes",
+            "django.contrib.auth",
+            "django.contrib.sessions",
+            "django.contrib.messages",
+            "django.contrib.staticfiles",
         ],
         # The {% url %} template tag requires ROOT_URLCONF to be set.
-        ROOT_URLCONF='web.urls',
+        ROOT_URLCONF="web.urls",
         # CUCKOO_PATH is needed by analysis/views.py for sys.path.append.
         CUCKOO_PATH=CUCKOO_ROOT,
         # The following settings are accessed by templates.
@@ -41,12 +41,26 @@ if not settings.configured:
         WEB_OAUTH=False,
         ZIPPED_DOWNLOAD_ALL=False,
         STATIC_URL="/static/",
+        ANON_VIEW=True,
+        COMMENTS=False,
+        ADMIN=False,
+        URL_ANALYSIS=False,
+        DLNEXEC=False,
+        MOLOCH_ENABLED=False,
+        TEMP_PATH="/tmp",
+        DEBUG=False,
         TEMPLATES=[
             {
                 "BACKEND": "django.template.backends.django.DjangoTemplates",
                 "DIRS": [os.path.join(CUCKOO_ROOT, "web", "templates")],
                 # APP_DIRS must be True to load template tags from INSTALLED_APPS.
                 "APP_DIRS": True,
+                "OPTIONS": {
+                    "context_processors": [
+                        "django.template.context_processors.request",
+                        "django_settings_export.settings_export",
+                    ],
+                },
             },
         ]
     )

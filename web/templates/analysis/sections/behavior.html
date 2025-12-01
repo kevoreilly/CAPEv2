@@ -98,7 +98,8 @@
                     </button>
                     <div class="collapse" id="moreBehaviorSummary">
                         <div class="row">
-                            {% for key in ["files", "read_files", "write_files", "delete_files", "keys", "read_keys", "write_keys", "delete_keys", "resolved_apis"] %}
+                            {% with summary_keys=["files", "read_files", "write_files", "delete_files", "keys", "read_keys", "write_keys", "delete_keys", "resolved_apis"] %}
+                            {% for key in summary_keys %}
                             <div class="col-md-4 mb-3">
                                 <div class="card bg-secondary text-white h-100">
                                     <div class="card-header border-dark font-weight-bold text-capitalize">{{ key|replace("_", " ") }}</div>

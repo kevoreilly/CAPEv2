@@ -20,6 +20,8 @@ sys.path.append(os.path.join(CUCKOO_ROOT, "web"))
 from django.conf import settings
 from django.template import loader
 
+log = logging.getLogger(__name__)
+
 # Configure Django for standalone script usage.
 # This is required to discover and use template tags from the 'analysis' app.
 if not settings.configured:
@@ -34,6 +36,7 @@ if not settings.configured:
             "django.contrib.sites",
             "django_settings_export",
             "django.contrib.admin",
+            "allauth.account",
         ],
         # The {% url %} template tag requires ROOT_URLCONF to be set.
         ROOT_URLCONF="web.urls",
@@ -82,7 +85,6 @@ if not settings.configured:
         # This may be called multiple times in the same process.
         log.warning("Ignoring Django setup error in reporthtml: %s", e)
 
-log = logging.getLogger(__name__)
 
 
 class ReportHTML(Report):

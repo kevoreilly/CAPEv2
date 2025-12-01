@@ -618,7 +618,7 @@ class Azure(Machinery):
 
         machines = self.db.session.query(Machine).options(sqlalchemy.orm.joinedload(Machine.tags))
         filter_kwargs = {
-            "machines": machines,
+            "statement": machines,
             "label": task.machine,
             "tags": task_tags,
             "archs": task_archs,

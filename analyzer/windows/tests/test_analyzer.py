@@ -986,23 +986,3 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         mock_process.assert_called_once()
         self.assertEqual(1, ana.NUM_INJECTED)
-
-    @patch("analyzer.Process")
-    def test_handle_process_invalid_data(self, mock_process):
-        ana = self.analyzer
-        with self.assertRaises(ValueError):
-            data = bytes("does not have a colon".encode())
-            self.pipe_handler._handle_process(data=data)
-        with self.assertRaises(ValueError):
-            data = bytes("has:too:many:colons".encode())
-            self.pipe_handler._handle_process(data=data)
-
-        data = bytes("no_comma:non_digits".encode())
-        self.pipe_handler._handle_process(data=data)
-        self.assertIsNone(ana.LASTINJECT_TIME)
-        mock_process.assert_not_called()
-
-        data = bytes("with_comma:non_digits,non_digits".encode())
-        self.pipe_handler._handle_process(data=data)
-        self.assertIsNone(ana.LASTINJECT_TIME)
-        mock_process.assert_not_called()

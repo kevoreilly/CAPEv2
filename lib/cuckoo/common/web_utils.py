@@ -1221,6 +1221,7 @@ search_term_map = {
     "suriurl": "suricata.http.uri",
     "suriua": "suricata.http.ua",
     "surireferrer": "suricata.http.referrer",
+    "surihost": "suricata.http.hostname",
     "suritlssubject": "suricata.tls.subject",
     "suritlsissuerdn": "suricata.tls.issuer",
     "suritlsfingerprint": "suricata.tls.fingerprint",

@@ -29,36 +29,36 @@
                     {% endif %}
                     <tr>
                         <th>Total Entropy</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Total Entropy"}}</span></td>
+                        <td><span class="mono">{{file.pdf.Info|getkey("Total Entropy")}}</span></td>
                     </tr>
                     <tr>
                         <th>Entropy In Streams</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Entropy In Streams"}}</span></td>
+                        <td><span class="mono">{{file.pdf.Info|getkey("Entropy In Streams")}}</span></td>
                     </tr>
                     <tr>
                         <th>Entropy Out of Streams</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Entropy Out Streams"}}</span></td>
+                        <td><span class="mono">{{file.pdf.Info|getkey("Entropy Out Streams")}}</span></td>
                     </tr>
                     <tr>
                         <th>Count of "%% EOF"</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Count %% EOF"}}</span></td>
+                        <td><span class="mono">{{file.pdf.Info|getkey("Count %% EOF")}}</span></td>
                     </tr>
                     <tr>
                         <th>PDF Header</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"PDF Header"}}</span></td>
+                        <td><span class="mono">{{file.pdf.Info|getkey("PDF Header")}}</span></td>
                     </tr>
                     <tr>
                         <th>Data After EOF</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Data After EOF"}} bytes</span></td>
+                        <td><span class="mono">{{file.pdf.Info|getkey("Data After EOF")}} bytes</span></td>
                     </tr>
                     <tr>
                         <th>File Size</th>
                         <td><span class="mono">{{file.size}} bytes</span></td>
                     </tr>
-                    {% if file.pdf.Keywords|getkey:"/Page" %}
+                    {% if file.pdf.Keywords|getkey("/Page") %}
                     <tr>
                         <th>Number of Pages</th>
-                        <td><span class="mono">{{file.pdf.Keywords|getkey:"/Page"}}</span></td>
+                        <td><span class="mono">{{file.pdf.Keywords|getkey("/Page")}}</span></td>
                     </tr>
                     {% endif %}
                 </table>
@@ -144,7 +144,7 @@
                 </colgroup>
                 <tr>
                     <td>Object ID</td>
-                    <td>{{obj|getkey:"Object ID"}}</td>
+                    <td>{{obj|getkey("Object ID")}}</td>
                 </tr>
                 <tr>
                     <td>Size</td>
@@ -160,7 +160,7 @@
                 </tr>
                 <tr>
                     <td>Data</td>
-                    <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#JSStream_{{obj|getkey:'Object ID'}}_Data">Data Extracted</a></td>
+                    <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#JSStream_{{obj|getkey('Object ID')}}_Data">Data Extracted</a></td>
                 </tr>
                 </table>
                 <div id="JSStream_{{obj|getkey:'Object ID'}}_Data" class="collapse">

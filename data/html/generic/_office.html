@@ -78,7 +78,7 @@
                                     <col width="*">
                                 </colgroup>
                                 <th colspan="2">{{detection}}</th>
-                                {% for indicator, description in file.office.Macro.Analysis|getkey:detection %}
+                                {% for indicator, description in file.office.Macro.Analysis|getkey(detection) %}
                                     <tr>
                                         <td>{{indicator}}</td>
                                         <td>{{description}}</td>
@@ -101,7 +101,7 @@
                         <col style="width:20%">
                         <col style="width:60%">
                         <col style="width:20%">
-                        {% for name, code in file.office.Macro.Code|getkey:macrodata %}
+                        {% for name, code in file.office.Macro.Code|getkey(macrodata) %}
                         <tr>
                             <td>VBA Filename</td>
                             <td>{{name}}</td>

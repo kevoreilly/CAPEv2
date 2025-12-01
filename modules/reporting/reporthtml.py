@@ -26,6 +26,7 @@ if not settings.configured:
     settings.configure(
         INSTALLED_APPS=[
             'analysis',
+            'django.contrib.contenttypes',
         ],
         # The {% url %} template tag requires ROOT_URLCONF to be set.
         ROOT_URLCONF='web.urls',

@@ -29,6 +29,8 @@ if not settings.configured:
         ],
         # The {% url %} template tag requires ROOT_URLCONF to be set.
         ROOT_URLCONF='web.urls',
+        # CUCKOO_PATH is needed by analysis/views.py for sys.path.append.
+        CUCKOO_PATH=CUCKOO_ROOT,
         TEMPLATES=[
             {
                 "BACKEND": "django.template.backends.django.DjangoTemplates",

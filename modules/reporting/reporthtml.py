@@ -33,6 +33,7 @@ if not settings.configured:
             "django.contrib.staticfiles",
             "django.contrib.sites",
             "django_settings_export",
+            "django.contrib.admin",
         ],
         # The {% url %} template tag requires ROOT_URLCONF to be set.
         ROOT_URLCONF="web.urls",

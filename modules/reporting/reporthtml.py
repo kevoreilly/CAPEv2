@@ -24,6 +24,12 @@ if not settings.configured:
             {
                 "BACKEND": "django.template.backends.django.DjangoTemplates",
                 "DIRS": [os.path.join(CUCKOO_ROOT, "web", "templates")],
+                "OPTIONS": {
+                    "libraries": {
+                        "key_tags": "analysis.templatetags.key_tags",
+                        "analysis_tags": "analysis.templatetags.analysis_tags",
+                    }
+                },
             },
         ]
     )

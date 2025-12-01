@@ -347,7 +347,7 @@
         {% if file.lnk %} <div class="collapse" id="lnk_{{file.sha256}}"> <div> {% include "generic/_lnk.html" %}</div></div></br>{% endif %}
         {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div> {% include "generic/_java.html" %}</div></div></br>{% endif %}
         {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div> {% include "generic/_office.html" %}</div></div></br>{% endif %}
-        {% if file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div> {% include "generic/_xlmmacro.html" %}</div></div></br>{% endif %}
+        {% if file.get('office') and file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div> {% include "generic/_xlmmacro.html" %}</div></div></br>{% endif %}
         {% if file.floss %} <div class="collapse" id="floss_{{file.sha256}}"> <div> {% include "generic/_floss.html" %}</div></div></br>{% endif %}
     </table>
 

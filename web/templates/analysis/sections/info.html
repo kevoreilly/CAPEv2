@@ -92,7 +92,7 @@
                             {% for key, value in config.items %}
                             <tr>
                                 <td class="font-weight-bold text-info">{{key}}</td>
-                                <td class="text-break">{{value|malware_config}}</td>
+                                <td class="text-break">{% malware_config value %}</td>
                             </tr>
                             {% endfor %}
                             </tbody>

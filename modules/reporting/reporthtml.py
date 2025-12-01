@@ -62,6 +62,12 @@ if not settings.configured:
         SITE_ID=1,
         CRISPY_TEMPLATE_PACK="bootstrap4",
         TWOFA=False,
+        MIDDLEWARE=[
+            "django.contrib.sessions.middleware.SessionMiddleware",
+            "django.contrib.auth.middleware.AuthenticationMiddleware",
+            "django.contrib.messages.middleware.MessageMiddleware",
+            "allauth.account.middleware.AccountMiddleware",
+        ],
         TEMPLATES=[
             {
                 "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -71,6 +77,8 @@ if not settings.configured:
                 "OPTIONS": {
                     "context_processors": [
                         "django.template.context_processors.request",
+                        "django.contrib.auth.context_processors.auth",
+                        "django.contrib.messages.context_processors.messages",
                         "django_settings_export.settings_export",
                     ],
                 },

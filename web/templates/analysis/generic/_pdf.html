@@ -1,5 +1,3 @@
-{% load pdf_tags %}
-{% load key_tags %}
 <section id="static_analysis">
     {% if file.pdf %}
         {% if file.pdf.Info %}
@@ -162,7 +160,7 @@
                 </tr>
                 <tr>
                     <td>Data</td>
-                    <td><a class="accordion-toggle" data-toggle="collapse" href="#JSStream_{{obj|getkey:'Object ID'}}_Data">Data Extracted</a></td>
+                    <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#JSStream_{{obj|getkey:'Object ID'}}_Data">Data Extracted</a></td>
                 </tr>
                 </table>
                 <div id="JSStream_{{obj|getkey:'Object ID'}}_Data" class="collapse">

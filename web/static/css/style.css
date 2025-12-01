@@ -333,3 +333,139 @@ pre {
     background-color: darkgray;
     color:black;
 }
+
+/* Styles from data/html/css/style.css merged for standalone reports */
+@media print {
+    html {
+        -webkit-print-color-adjust: exact;
+    }
+    .table{
+        color: #000!important;
+    }
+}
+
+@page {
+    size: A3;
+    margin: 1cm;
+}
+
+.text-success:hover {
+    color: #62c462;
+}
+
+/* Windows API categories */
+.filesystem {
+    background-color: #ffe3c5;
+    color: black;
+}
+.registry {
+    background-color: #ffc5c5;
+    color: black;
+}
+.process {
+    background-color: #c5e0ff;
+    color: black;
+}
+.threading {
+    background-color: #d3e0ff;
+    color: black;
+}
+.services {
+    background-color: #ccc5ff;
+    color: black;
+}
+.device {
+    background-color: #d3c5cc;
+    color: black;
+}
+.network {
+    background-color: #d3ffc5;
+    color: black;
+}
+.socket {
+    background-color: #d3ffc5;
+    color: black;
+}
+.synchronization {
+    background-color: #f9c5ff;
+    color: black;
+}
+.browser {
+    background-color: #dfffdf;
+    color: black;
+}
+.crypto {
+    background-color: #f0f2c5;
+    color: black;
+}
+.system {
+    background-color: #fffcc5;
+    color: black;
+}
+.windows {
+    background-color: #ffc5ee;
+    color: black;
+}
+.page-header {
+    margin-bottom: 10px;
+}
+.filter-box {
+    display : none;
+    padding-top: 15px;
+	height : auto;
+	width : 40%;
+}
+/* Fix the icon tab override */
+.nav-tabs > .active > a > [class^="icon-"],.nav-tabs>.active>a>[class*=" icon-"] { background-image:url("../img/glyphicons-halflings.png") !important; }
+
+td {
+    word-wrap: break-word;
+}
+
+.tab-content {
+    margin-top: 25px;
+}
+
+.row-active {
+    background-color:darkred;
+}
+
+pre {
+    white-space: -moz-pre-wrap;
+    white-space: -pre-wrap;
+    white-space: -o-pre-wrap;
+    word-wrap: break-word;
+}
+
+.tcp-flow {
+    list-style-type: none;
+}
+.tcp-flow li {
+    margin-bottom: 20px;
+}
+.tcp-out {
+}
+.tcp-out pre {
+    padding: 0;
+    border: 0;
+    /*background-color: white;*/
+    color: #d9534f;
+}
+.tcp-in {
+    padding-left: 100px;
+}
+.tcp-in pre {
+    padding: 0;
+    border: 0;
+    /*background-color: white;*/
+    color: #5bc0de;
+}
+#filter-toggle {
+    display: inline-block;
+    cursor: pointer;
+}
+
+.form-control {
+    background-color: darkgray;
+    color:black;
+}

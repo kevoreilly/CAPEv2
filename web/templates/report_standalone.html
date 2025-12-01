@@ -1,4 +1,4 @@
-{% extends "base-report.html" %}
+{% extends "base.html" %}
 {% block content %}
 <div class="container-fluid">
     <ul class="nav nav-tabs" id="reportTabs" role="tablist">
@@ -41,24 +41,24 @@
         <!-- Overview Tab -->
         <div class="tab-pane fade show active" id="overview" role="tabpanel" aria-labelledby="overview-tab">
             <br>
-            {% include "sections/info.html" %}
-            {% include "sections/errors.html" %}
+            {% include "analysis/sections/info.html" %}
+            {% include "analysis/sections/errors.html" %}
             
             {% if results.info.category == "file" or results.info.category == "pcap" or results.info.category == "static" %}
-                {% include "sections/file.html" %}
+                {% include "analysis/sections/file.html" %}
             {% elif results.info.category == "url" %}
-                {% include "sections/url.html" %}
+                {% include "analysis/sections/url.html" %}
             {% endif %}
             
-            {% include "sections/signatures.html" %}
-            {% include "sections/screenshots.html" %}
+            {% include "analysis/sections/signatures.html" %}
+            {% include "analysis/sections/screenshots.html" %}
         </div>
 
         <!-- Network Tab -->
         {% if results.network %}
         <div class="tab-pane fade" id="network" role="tabpanel" aria-labelledby="network-tab">
             <br>
-            {% include "sections/network.html" %}
+            {% include "analysis/sections/network.html" %}
         </div>
         {% endif %}
 
@@ -66,7 +66,7 @@
         {% if results.behavior %}
         <div class="tab-pane fade" id="behavior" role="tabpanel" aria-labelledby="behavior-tab">
             <br>
-            {% include "sections/behavior.html" %}
+            {% include "analysis/sections/behavior.html" %}
         </div>
         {% endif %}
 
@@ -74,7 +74,7 @@
         {% if results.dropped %}
         <div class="tab-pane fade" id="dropped" role="tabpanel" aria-labelledby="dropped-tab">
             <br>
-            {% include "sections/dropped.html" %}
+            {% include "analysis/sections/dropped.html" %}
         </div>
         {% endif %}
 
@@ -82,7 +82,7 @@
         {% if results.CAPE and results.CAPE.payloads %}
         <div class="tab-pane fade" id="payloads" role="tabpanel" aria-labelledby="payloads-tab">
             <br>
-            {% include "sections/payloads.html" %}
+            {% include "analysis/sections/payloads.html" %}
         </div>
         {% endif %}
 
@@ -90,9 +90,6 @@
         {% if results.procdump %}
         <div class="tab-pane fade" id="procdump" role="tabpanel" aria-labelledby="procdump-tab">
             <br>
-            <!-- Need to check if sections/procdump.html exists, usually it's just a loop over procdump files similar to dropped -->
-            <!-- Since I don't see sections/procdump.html in the file list, I'll iterate here or assume it might be missing from my view -->
-            <!-- I'll implement a basic loop here if the file doesn't exist, but let's assume it might be handled or I'll copy dropped structure -->
             <section id="procdump_section">
                 <div class="section-title">
                     <h4>Process Dumps</h4>
@@ -101,7 +98,7 @@
                     <div>
                         <h4><a href="javascript:showHide('procdump_{{loop.index}}');">{{file.name}}</a></h4>
                         <div id="procdump_{{loop.index}}" style="display: none;">
-                        {% include "generic/_file_info.html" %}
+                        {% include "analysis/generic/_file_info.html" %}
                         </div>
                     </div>
                 {% endfor %}
@@ -113,7 +110,7 @@
         {% if results.memory %}
         <div class="tab-pane fade" id="memory" role="tabpanel" aria-labelledby="memory-tab">
             <br>
-            {% include "sections/volatility.html" %}
+            {% include "analysis/sections/volatility.html" %}
         </div>
         {% endif %}
 

@@ -28,12 +28,12 @@
                                 {% for key in results.virustotal.scans|sort %}
                                 <tr>
                                     <td>{{key}}</td>
-                                    {% if results["virustotal"]["scans"][key]["detected"] %}
+                                    {% if results.virustotal.scans|getkey:key|getkey:"detected" %}
                                         <td><span class="text-error">
                                     {% else %}
                                         <td><span class="muted">
                                     {% endif %}
-                                    {{ results["virustotal"]["scans"][key]["result"]|title }}</span></td>
+                                    {{ results.virustotal.scans|getkey:key|getkey:"result"|title }}</span></td>
                                 </tr>
                                 {% endfor %}
                             </table>

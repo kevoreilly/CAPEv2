@@ -410,8 +410,8 @@
                         {% for signer in file.pe.guest_signers.aux_signers %}
                         <tr>
                                 <td>{{signer.name}}</td>
-                                <td>{{signer|getkey"Issued to"}}</td>
-                                <td>{{signer|getkey"Issued by"}}</td>
+                                <td>{{signer|getkey:"Issued to"}}</td>
+                                <td>{{signer|getkey:"Issued by"}}</td>
                                 <td>{{signer.Expires}}</td>
                                 <td>{{signer|getkey:"SHA1 hash"}}</td>
                         </tr>

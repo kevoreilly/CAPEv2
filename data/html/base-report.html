@@ -40,29 +40,22 @@
 <div class="container-fluid">
     {% include "graphic/logo.html" %}
     {% if not summary_report %}
-    <div class="navbar navbar-inverse" style="margin-top: 10px;">
-        <div class="navbar-inner">
-            <div class="container-fluid">
-                <div class="nav-collapse">
-                    <nav class="nav">
-                        <a style="margin-right: 20px" href="#info">Info</a>
-                        {% if results.info.category == "file" %}
-                            <a style="margin-right: 20px" href="#file">File</a>
-                        {% elif results.info.category == "url" %}
-                            <a style="margin-right: 20px" href="#url">URL</a>
-                        {% endif %}
-                        <a style="margin-right: 20px" href="#signatures">Signatures</a>
-                        <a style="margin-right: 20px" href="#screenshots">Screenshots</a>
-                        <a style="margin-right: 20px" href="#network">Network</a>
-                        <a style="margin-right: 20px" href="#dropped">Dropped</a>
-                        <a style="margin-right: 20px" href="#payloads">Payloads</a>
-                        <a style="margin-right: 20px" href="#behavior">Behavior</a>
-                        <a style="margin-right: 20px" href="#volatility">Volatility</a>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ul class="nav nav-tabs">
+        <li class="nav-item"><a class="nav-link active" href="#overview" data-toggle="tab">Overview</a></li>
+        <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab">Static</a></li>
+        <li class="nav-item"><a class="nav-link" href="#signatures" data-toggle="tab">Signatures</a></li>
+        <li class="nav-item"><a class="nav-link" href="#network" data-toggle="tab">Network</a></li>
+        <li class="nav-item"><a class="nav-link" href="#behavior" data-toggle="tab">Behavioral Analysis</a></li>
+        <li class="nav-item"><a class="nav-link" href="#dropped" data-toggle="tab">Dropped Files</a></li>
+        <li class="nav-item"><a class="nav-link" href="#payloads" data-toggle="tab">Payloads</a></li>
+        <li class="nav-item"><a class="nav-link" href="#screenshots" data-toggle="tab">Screenshots</a></li>
+        {% if results.procdump %}<li class="nav-item"><a class="nav-link" href="#procdump" data-toggle="tab">Process Dumps</a></li>{% endif %}
+        {% if results.procmemory %}<li class="nav-item"><a class="nav-link" href="#procmemory" data-toggle="tab">Process Memory</a></li>{% endif %}
+        {% if results.debugger %}<li class="nav-item"><a class="nav-link" href="#debugger" data-toggle="tab">Debugger</a></li>{% endif %}
+        {% if results.misp %}<li class="nav-item"><a class="nav-link" href="#misp" data-toggle="tab">MISP</a></li>{% endif %}
+        {% if results.info.machine.platform == "linux" and results.strace %}<li class="nav-item"><a class="nav-link" href="#strace" data-toggle="tab">Behavioral Analysis (strace)</a></li>{% endif %}
+        {% if results.memory %}<li class="nav-item"><a class="nav-link" href="#memory" data-toggle="tab">Memory Analysis</a></li>{% endif %}
+    </ul>
     {% endif %}
     {% block content %}{% endblock %}
 
@@ -74,8 +67,17 @@
     </footer>
 </div>
 <script>
+{% include "js/jquery.min.js" %}
 {% include "js/bootstrap.min.js" %}
 {% include "js/functions.js" %}
+</script>
+<script>
+$(function() {
+    $('.nav-tabs a').click(function (e) {
+        e.preventDefault();
+        $(this).tab('show');
+    });
+});
 </script>
 </body>
 </html>

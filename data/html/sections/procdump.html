@@ -1,0 +1,7 @@
+{% if results.procdump|length > 0 %}
+    {% for file in results.procdump %}
+        {% include "generic/_file_info.html" %}
+    {% endfor %}
+{% else %}
+    <div class="alert alert-primary"><b>Sorry!</b> No process dumps.</div>
+{% endif %}

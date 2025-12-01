@@ -1,21 +1,71 @@
 {% extends "base-report.html" %}
 {% block content %}
-    {% include "sections/info.html" %}
-    {% include "sections/errors.html" %}
-    {% if results.info.category == "file,pcap,static" %}
-        {% include "sections/file.html" %}
-    {% elif results.info.category == "url" %}
-        {% include "sections/url.html" %}
-    {% endif %}
-    {% include "sections/signatures.html" %}
-    {% include "sections/screenshots.html" %}
-    {% include "sections/network.html" %}
-    {% if results.info.category == "file" %}
-        {% include "sections/dropped.html" %}
-        {% include "sections/payloads.html" %}
-        {% include "sections/behavior.html" %}
-        {% if results.memory %}
-            {% include "sections/volatility.html" %}
+<div class="tab-content">
+    <div class="tab-pane fade show active" id="overview">
+        {% include "sections/overview.html" %}
+    </div>
+    <div class="tab-pane fade" id="static">
+        {% if results.info.category == "file" or results.info.category == "pcap" or results.info.category == "static" %}
+            {% include "sections/file.html" %}
+        {% elif results.info.category == "url" %}
+            {% include "sections/url.html" %}
         {% endif %}
+    </div>
+    <div class="tab-pane fade" id="signatures">
+        {% include "sections/signatures.html" %}
+    </div>
+    <div class="tab-pane fade" id="network">
+        {% include "sections/network.html" %}
+    </div>
+    <div class="tab-pane fade" id="behavior">
+        {% if "behavior" in results %}
+            {% include "sections/behavior.html" %}
+        {% else %}
+            <div class="alert alert-info"><b>Sorry!</b> No behavior.</div>
+        {% endif %}
+    </div>
+    <div class="tab-pane fade" id="dropped">
+        {% if results.info.category == "file" %}
+            {% include "sections/dropped.html" %}
+        {% endif %}
+    </div>
+    <div class="tab-pane fade" id="payloads">
+        {% if results.info.category == "file" %}
+            {% include "sections/payloads.html" %}
+        {% endif %}
+    </div>
+    <div class="tab-pane fade" id="screenshots">
+        {% include "sections/screenshots.html" %}
+    </div>
+    {% if results.procdump %}
+    <div class="tab-pane fade" id="procdump">
+        {% include "sections/procdump.html" %}
+    </div>
     {% endif %}
+    {% if results.procmemory %}
+    <div class="tab-pane fade" id="procmemory">
+        {% include "sections/procmemory.html" %}
+    </div>
+    {% endif %}
+    {% if results.debugger %}
+    <div class="tab-pane fade" id="debugger">
+        {% include "sections/debugger.html" %}
+    </div>
+    {% endif %}
+    {% if results.misp %}
+    <div class="tab-pane fade" id="misp">
+        {% include "sections/misp.html" %}
+    </div>
+    {% endif %}
+    {% if results.info.machine.platform == "linux" and results.strace %}
+    <div class="tab-pane fade" id="strace">
+        {% include "sections/strace.html" %}
+    </div>
+    {% endif %}
+    {% if results.memory %}
+    <div class="tab-pane fade" id="memory">
+        {% include "sections/volatility.html" %}
+    </div>
+    {% endif %}
+</div>
 {% endblock %}

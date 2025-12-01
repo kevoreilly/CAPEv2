@@ -232,43 +232,35 @@
         </tr>
         {% endif %}
 
-        {% if file.dropdir %}
-        <tr>
-            <th></th>
-            <td></td>
-        </tr>
-        {% else %}
-
         <tr>
             <th>
-                {% if file.pe %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pe_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>{% endif %}
-                {% if file.dotnet %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#dotnet_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display DotNet info"><span class="fas fa-file-lines"></span> DotNET</a>{% endif %}
-                {% if file.pdf %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pdf_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pdf_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display PDF info"><span class="fas fa-file-lines"></span> PDF</a>{% endif %}
-                {% if file.lnk %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#lnk_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display LNK info"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
-                {% if file.java %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#java_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Java info"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
+                {% if file.pe %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pe_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{file.sha256}}"><span class="fas fa-file-lines"></span> PE</a>{% endif %}
+                {% if file.dotnet %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#dotnet_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_{{file.sha256}}"><span class="fas fa-file-lines"></span> DotNET</a>{% endif %}
+                {% if file.pdf %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pdf_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pdf_{{file.sha256}}"><span class="fas fa-file-lines"></span> PDF</a>{% endif %}
+                {% if file.lnk %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#lnk_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{file.sha256}}"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
+                {% if file.java %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#java_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{file.sha256}}"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
             </th>
             <td>
                 {% if file.flare_capa %}
                     <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a>
                 {% endif %}
                 {% if file.strings %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"></span> Strings</a>
                 {% endif %}
                 {% if file.floss %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#floss_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#floss_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{file.sha256}}"></span> Floss</a>
                 {% endif %}
                 {% if file.data %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}"></span> Text</a>
                 {% endif %}
                 {% if file.decoded_files %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}"></span> {{file.decoded_files_tool}}</a>
                 {% endif %}
                 {% if file.extracted_files %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}} {% if file.extracted_files_time %} ({{"%0.2f" % file.extracted_files_time|float}} sec) {% endif %}</a>
+                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"></span> {{file.extracted_files_tool}} {% if file.extracted_files_time %} ({{"%0.2f" % file.extracted_files_time|float}} sec) {% endif %}</a>
                 {% endif %}
             </td>
         </tr>
-        {% endif %}
 
         {% if file.flare_capa %}
             <tr>
@@ -291,13 +283,6 @@
             </tr>
             </br>
         {% endif %}
-        {#
-        {% if graphs.vba2graph.content|getkey:file.sha256 %}
-            <tr><th></th>
-                <td>{{ graphs.vba2graph.content|getkey:file.sha256|safe }}</td>
-            </tr>
-        {% endif %}
-        #}
         {% if file.virustotal %}
             <tr>
                 <th></th>
@@ -344,8 +329,10 @@
                 <th></th><td>
                 <div class="collapse" id="extracted_files_{{file.sha256}}">
                     <div class="table">
-                        {% for sub_file in file.extracted_files %}
+                        {% for inner_sub_file in file.extracted_files %}
+                            {% with sub_file=inner_sub_file %}
                             {% include "generic/_subfile_info.html" %}
+                            {% endwith %}
                         {% endfor %}
                     </div>
                 </div>
@@ -354,17 +341,14 @@
             </br>
         {% endif %}
 
-        {#
-            {% if file.pe %} <div class="collapse" id="pe_{{file.sha256}}"> <div> {% include "generic/_pe.html" %}</div></div></br>{% endif %}
-            {% if file.dotnet %} <div class="collapse" id="dotnet_{{file.sha256}}"> <div> {% include "generic/_dotnet.html" %}</div></div></br>{% endif %}
-            {% if file.pdf %} <div class="collapse" id="pdf_{{file.sha256}}"> <div> {% include "generic/_pdf.html" %}</div></div></br>{% endif %}
-            {% if file.lnk %} <div class="collapse" id="lnk_{{file.sha256}}"> <div> {% include "generic/_lnk.html" %}</div></div></br>{% endif %}
-            {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div> {% include "generic/_java.html" %}</div></div></br>{% endif %}
-            {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div> {% include "generic/_office.html" %}</div></div></br>{% endif %}
-            {% if file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div> {% include "generic/_xlmmacro.html" %}</div></div></br>{% endif %}
-            {% if file.floss %} <div class="collapse" id="floss_{{file.sha256}}"> <div> {% include "generic/_floss.html" %}</div></div></br>{% endif %}
-            {% if graphs.bingraph.content|getkey:file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:file.sha256|safe }}</td></center></br>{% endif %}
-        #}
+        {% if file.pe %} <div class="collapse" id="pe_{{file.sha256}}"> <div> {% include "generic/_pe.html" %}</div></div></br>{% endif %}
+        {% if file.dotnet %} <div class="collapse" id="dotnet_{{file.sha256}}"> <div> {% include "generic/_dotnet.html" %}</div></div></br>{% endif %}
+        {% if file.pdf %} <div class="collapse" id="pdf_{{file.sha256}}"> <div> {% include "generic/_pdf.html" %}</div></div></br>{% endif %}
+        {% if file.lnk %} <div class="collapse" id="lnk_{{file.sha256}}"> <div> {% include "generic/_lnk.html" %}</div></div></br>{% endif %}
+        {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div> {% include "generic/_java.html" %}</div></div></br>{% endif %}
+        {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div> {% include "generic/_office.html" %}</div></div></br>{% endif %}
+        {% if file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div> {% include "generic/_xlmmacro.html" %}</div></div></br>{% endif %}
+        {% if file.floss %} <div class="collapse" id="floss_{{file.sha256}}"> <div> {% include "generic/_floss.html" %}</div></div></br>{% endif %}
     </table>
 
 </div>

@@ -21,13 +21,10 @@
                         <span class="text-muted">Clean</span>
                     {% else %}
                         <span class="text-danger">{{values.result}}
-                        {% if values.moloch %}
-                        <a href="{{values.moloch}}" target="_blank">[MLCH]</a>
-                        {% endif %}
                         </span>
                     {% endif %}
                 </td>
-            {% if loop.index %3 == 0 %}
+            {% if loop.index % 3 == 0 %}
                 </tr>
             {% elif loop.last %}
                 </tr>

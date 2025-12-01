@@ -1,0 +1,310 @@
+{# from web/templates/analysis/overview/_info.html #}
+<section id="information">
+
+    {% if results.detections %}
+        <p  style="text-align:center; font-size: 18px;font-weight-bold";>Detection(s):
+        {% for block  in results.detections %}
+            <span class="badge badge-danger">{{block.family}}</span>
+        {% endfor %}
+        </p>
+    {% endif %}
+
+    <div class="panel panel-primary">
+        <div class="panel-heading">
+            <h4 class="panel-title">Analysis</h4>
+        </div>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Package</th>
+                    <th>Started</th>
+                    <th>Completed</th>
+                    <th>Duration</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>{{results.info.category|upper}}</td>
+                    <td>{{results.info.package}}</td>
+                    <td>{{results.info.started}}</td>
+                    <td>{{results.info.ended}}</td>
+                    <td>{{results.info.duration}} seconds</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    {% if results.debug.errors %}
+        <ul style="font-size: 16px;">
+        {% for error in results.debug.errors %}
+            <li class="text-info"><b>Info:</b> {{error}}</li>
+        {% endfor %}
+        </ul>
+    {% endif %}
+</section>
+
+{% if results.info.machine and results.info.machine.name %}
+    <section id="machine">
+        <div class="panel panel-primary">
+            <div class="panel-heading">
+                <h4 class="panel-title">Machine</h4>
+            </div>
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Label</th>
+                        <th>Manager</th>
+                        <th>Started On</th>
+                        <th>Shutdown On</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{results.info.machine.name}}</td>
+                        <td>{{results.info.machine.label}}</td>
+                        <td>{{results.info.machine.manager}}</td>
+                        <td>{{results.info.machine.started_on}}</td>
+                        <td>{{results.info.machine.shutdown_on}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endif %}
+
+<hr />
+
+{% if "CAPE" in results and results.CAPE.configs %}
+<h4>Malware config(s)</h4>
+<section id="malware_conf">
+    {% for config_block in results.CAPE.configs %}
+        {% for family, config in config_block.items() %}
+            {% if family not in "_associated_config_hashes,_associated_analysis_hashes" %}
+                <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                    <tr>
+                        <th style="border-top: 0; width: 15%;">Type</th>
+                        <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
+                    </tr>
+                    {% for key, value in config.items() %}
+                    <tr>
+                        <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
+                        <td style="border-top: 0; word-wrap: break-word;">{{value|malware_config}}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+</section>
+<hr />
+{% endif %}
+
+{% include "sections/signatures.html" %}
+<hr />
+{% include "sections/screenshots.html" %}
+<hr />
+{# from web/templates/analysis/network/_hosts_not_ajax.html #}
+<section id="hosts">
+    <h4>Hosts</h4>
+    {% if results.network.hosts %}
+        <table class="table table-striped table-bordered">
+            <tr>
+                <th width="10%">Direct</th>
+                <th>IP</th>
+                <th>Country Name</th>
+                <th>ASN</th>
+            </tr>
+            {% for host in results.network.hosts %}
+            <tr>
+                {% if host.ip|slice:":7" != "192.168" %}
+                    {% if "hostname" in host and host.hostname == "" %}
+                        <td>Y</td>
+                    {% elif "hostname" in host %}
+                        <td>N</td>
+                    {% else %}
+                        <td>N/A</td>
+                    {% endif %}
+                    <td>{{host.ip}}</td>
+                    <td>{{host.country_name}}</td>
+                    {% if host.asn %}
+                        <td>{{host.asn}}</td>
+                    {% endif %}
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No hosts contacted.</p>
+    {% endif %}
+</section>
+
+{# from web/templates/analysis/network/_dns_not_ajax.html #}
+<section id="domains">
+    <h4>DNS</h4>
+    {% if results.network.dns %}
+        <table class="table table-striped table-bordered">
+            <tr>
+                <th>Name</th>
+                <th>Response</th>
+            </tr>
+            {% for p in results.network.dns %}
+                <tr>
+                <td>{{p.request}}</td>
+                    <td>
+                        {% for a in p.answers %}
+                            {{a.type}} {{a.data|linebreaksbr}}
+                            {% if not forloop.last %}
+                                <br/>
+                            {% endif %}
+                        {% endfor %}
+                    </td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% else %}
+        <p>No domains contacted.</p>
+    {% endif %}
+</section>
+
+{# from web/templates/analysis/overview/_summary.html #}
+{% if results.behavior.summary %}
+<section id="summary">
+    <h4>Summary</h4>
+    <ul class="nav nav-tabs flex-column flex-sm-row">
+        {% if results.behavior.summary.files %}<li class="nav-item active"><a class="nav-link" href="#summary_files2" data-toggle="tab">Accessed Files</a></li>{% endif %}
+        {% if results.behavior.summary.read_files %}<li class="nav-item"><a class="nav-link" href="#summary_read_files2" data-toggle="tab">Read Files</a></li>{% endif %}
+        {% if results.behavior.summary.write_files %}<li class="nav-item"><a class="nav-link" href="#summary_write_files2" data-toggle="tab">Modified Files</a></li>{% endif %}
+        {% if results.behavior.summary.delete_files %}<li class="nav-item"><a class="nav-link" href="#summary_delete_files2" data-toggle="tab">Deleted Files</a></li>{% endif %}
+        {% if results.behavior.summary.keys %}<li class="nav-item"><a class="nav-link" href="#summary_keys2" data-toggle="tab">Registry Keys</a></li>{% endif %}
+        {% if results.behavior.summary.read_keys %}<li class="nav-item"><a class="nav-link" href="#summary_read_keys2" data-toggle="tab">Read Registry Keys</a></li>{% endif %}
+        {% if results.behavior.summary.write_keys %}<li class="nav-item"><a class="nav-link" href="#summary_write_keys2" data-toggle="tab">Modified Registry Keys</a></li>{% endif %}
+        {% if results.behavior.summary.delete_keys %}<li class="nav-item"><a class="nav-link" href="#summary_delete_keys2" data-toggle="tab">Deleted Registry Keys</a></li>{% endif %}
+        {% if results.behavior.summary.resolved_apis %}<li class="nav-item"><a class="nav-link" href="#summary_resolved_apis2" data-toggle="tab">Resolved APIs</a></li>{% endif %}
+        {% if results.behavior.summary.executed_commands %}<li class="nav-item"><a class="nav-link" href="#summary_executed_commands2" data-toggle="tab">Executed Commands</a></li>{% endif %}
+        {% if results.behavior.summary.mutexes %}<li class="nav-item"><a class="nav-link" href="#summary_mutexes2" data-toggle="tab">Mutexes</a></li>{% endif %}
+        {% if results.behavior.summary.created_services %}<li class="nav-item"><a class="nav-link" href="#summary_created_services2" data-toggle="tab">Created Services</a></li>{% endif %}
+        {% if results.behavior.summary.started_services %}<li class="nav-item"><a class="nav-link" href="#summary_started_services2" data-toggle="tab">Started Services</a></li>{% endif %}
+    </ul>
+    <div class="tab-content">
+        <div class="tab-pane fade show active" id="summary_files2">
+            <div class="card card-body">
+                {% if results.behavior.summary.files %}
+                    {% for file in results.behavior.summary.files %}
+                        {{file}}<br/>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_read_files2">
+            <div class="card card-body">
+                {% if results.behavior.summary.read_files %}
+                    {% for file in results.behavior.summary.read_files %}
+                        {{file}}<br/>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_write_files2">
+            <div class="card card-body">
+                {% if results.behavior.summary.write_files %}
+                    {% for file in results.behavior.summary.write_files %}
+                        {{file}}<br/>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_delete_files2">
+            <div class="card card-body">
+                {% if results.behavior.summary.delete_files %}
+                {% for file in results.behavior.summary.delete_files %}
+                {{file}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_keys2">
+            <div class="card card-body">
+                {% if results.behavior.summary.keys %}
+                {% for key in results.behavior.summary.keys %}
+                {{key}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_read_keys2">
+            <div class="card card-body">
+                {% if results.behavior.summary.read_keys %}
+                    {% for key in results.behavior.summary.read_keys %}
+                        {{key}}<br/>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_write_keys2">
+            <div class="card card-body">
+                {% if results.behavior.summary.write_keys %}
+                {% for key in results.behavior.summary.write_keys %}
+                {{key}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_delete_keys2">
+            <div class="card card-body">
+                {% if results.behavior.summary.delete_keys %}
+                {% for key in results.behavior.summary.delete_keys %}
+                {{key}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_resolved_apis2">
+            <div class="card card-body">
+                {% if results.behavior.summary.resolved_apis %}
+                {% for api in results.behavior.summary.resolved_apis %}
+                {{api}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_executed_commands2">
+            <div class="card card-body">
+                {% if results.behavior.summary.executed_commands %}
+                {% for cmd in results.behavior.summary.executed_commands %}
+                {{cmd}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_mutexes2">
+            <div class="card card-body">
+                {% if results.behavior.summary.mutexes %}
+                {% for mutex in results.behavior.summary.mutexes %}
+                {{mutex}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_created_services2">
+            <div class="card card-body">
+                {% if results.behavior.summary.created_services %}
+                {% for service in results.behavior.summary.created_services %}
+                {{service}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+        <div class="tab-pane fade" id="summary_started_services2">
+            <div class="card card-body">
+                {% if results.behavior.summary.started_services %}
+                {% for service in results.behavior.summary.started_services %}
+                {{service}}<br/>
+                {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}

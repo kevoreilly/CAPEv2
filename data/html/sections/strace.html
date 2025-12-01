@@ -1,0 +1,68 @@
+{% if results.strace %}
+    <h4>Process Tree</h4>
+    <ul>
+    {% for process in results.strace.processtree|proctreetolist %}
+        {% if process.startchildren %}
+          <ul>
+        {% elif process.endchildren %}
+          </ul>
+        {% else %}
+          <li>
+        <strong>{{process.pid}}</strong>
+          {% if process.name %}
+            <i>{{process.name}}</i>
+          {% endif %}
+         </li>
+        {% endif %}
+    {% endfor %}
+    </ul>
+    <hr />
+
+    <div class="tabbable">
+        <ul class="nav nav-tabs">
+            {% for process in results.strace.processes %}
+            <li {% if loop.first %} class="nav-item active" {% endif %}><a class="nav-link" href="#strace_process_{{process.process_id}}"
+                    data-toggle="tab"><span class="fa fa-cogs"></span>
+                    {{process.process_id}}</a></li>
+            {% endfor %}
+        </ul>
+    
+        <div class="tab-content">
+            {% for process in results.strace.processes %}
+            <div class="tab-pane{% if loop.first %} active{% endif %}" id="strace_process_{{process.process_id}}">
+                <div class="alert alert-primary" style="text-align: center;overflow-wrap: break-word;">
+                    <b>{{process.process_name}}</b><br>PID: <b>{{process.process_id}}</b>, Parent PID: {{process.parent_id}}
+                </div>
+                <table class="table table-bordered table-responsive-lg" style="table-layout: fixed;">
+                    <thead>
+                        <tr>
+                            <td width="12%"><strong>Timestamp</strong></td>
+                            <td width="15%"><strong>Syscall</strong></td>
+                            <td width="48%"><strong>Arguments</strong></td>
+                            <td width="13%"><strong>Return Value</strong></td>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for call in process.calls %}
+                        <tr class="{{call.category}}" id="call_{{call.id}}">
+                            <td>{{call.timestamp}}</td>
+                            <td><strong>{{call.api}}</strong></td>
+                            <td style="word-wrap: break-word;">
+                                {% for argument in call.arguments %}
+                                    <span class="gray">{{argument.name}}:</span>
+                                    <span class="mono">{{argument.value}}</span>
+                                    <br />
+                                {% endfor %}
+                            </td>
+                            <td style="word-wrap: break-word"><span class="mono">{{call.return}}</span></td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+{% else %}
+    <div class="alert alert-primary"><b>Sorry!</b> No strace.</div>
+{% endif %}

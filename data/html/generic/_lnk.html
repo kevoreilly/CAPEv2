@@ -34,7 +34,7 @@
         </div>
         <hr />
         {% elif file.lnk.data %}
-        <p>{{file.lnk|force_escape}}</p>
+        <p>{{file.lnk|escape}}</p>
         {% endif %}
 
     {% else %}

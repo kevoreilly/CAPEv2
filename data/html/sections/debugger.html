@@ -1,0 +1,24 @@
+{% if results.debugger %}
+<h4>Debugger Output</h4>
+<ul class="nav nav-tabs">
+    {% for process in results.debugger.processes %}
+        {% for key, value in results.debugger_logs.items() %}
+                {% if key == process.process_id %}
+                    <li class="nav-item"><a class="nav-link {% if loop.first%} active {% endif %}" href="#dbg_{{process.process_id}}" data-toggle="tab"><span class="fa fa-cogs"></span> {{process.process_name}} ({{process.process_id}})</a></li>
+                {% endif %}
+        {% endfor %}
+    {% endfor %}
+</ul>
+
+<div class="tab-content">
+    {% for process in results.debugger.processes %}
+        {% for key, value in results.debugger_logs.items() %}
+            {% if key == process.process_id %}
+            <div class="tab-pane fade {% if loop.first %} show active {% endif %}" id="dbg_{{key}}">
+                <pre>{{value}}</pre>
+            </div>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+</div>
+{% endif %}

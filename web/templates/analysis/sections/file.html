@@ -4,7 +4,9 @@
         <h5 class="mb-0 text-white"><i class="fas fa-file-alt mr-2 text-primary"></i> Target File</h5>
     </div>
     <div class="card-body">
-        {% include "analysis/generic/_file_info.html" with file=results.target.file tab_name="target" %}
+        {% with file=results.target.file %}
+            {% include "analysis/generic/_file_info.html" with tab_name="target" %}
+        {% endwith %}
         {% if results.info.parent_sample %}
             <h5 class="mt-4 text-white">Parent Sample</h5>
             {% for file in results.info.parent_sample|parentfixup|dict2list %}

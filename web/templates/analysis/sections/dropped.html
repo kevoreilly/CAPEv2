@@ -2,21 +2,7 @@
     <div class="section-title">
         <h4>Dropped Files</h4>
     </div>
-    {% set tab_name = 'dropped' %}
-    {% if results.dropped %}
-        {% for file in results.dropped %}
-            <div>
-                {% if summary_report %}
-                    <h4>{% for name in file.name%} {{name}} {% endfor %}</h4>
-                    <div id="dropped_{{loop.index}}">
-                {% else %}
-                    <h4><a href="javascript:showHide('dropped_{{loop.index}}');">{% for name in file.name%} {{name}} {% endfor %}</a></h4>
-                    <div id="dropped_{{loop.index}}" style="display: none;">
-                    {% include "generic/_file_info.html" %}
-                {% endif %}
-            </div>
-        {% endfor %}
-    {% else %}
-        Nothing to display.
-    {% endif %}
+    {% for file in results.dropped %}
+        {% include "analysis/generic/_file_info.html" with file=file tab_name="dropped" %}
+    {% endfor %}
 </section>

@@ -126,7 +126,7 @@
                     <a href="https://bazaar.abuse.ch/sample/{{file.sha256}}/" class="badge badge-info" target="_blank">Bazaar</a>
                 </td>
             </tr>
-            
+
             {% if file.sha3_384 %}
             <tr>
                 <th>SHA3-384</th>
@@ -222,7 +222,7 @@
             {% endif %}
         </table>
     </div>
-    
+
     {% if not file.dropdir %}
         <!-- Expanded Details (Collapsible) -->
         <div class="card-footer bg-dark border-secondary">
@@ -232,7 +232,7 @@
                     {% include "generic/_pe.html" %}
                 </div>
             {% endif %}
-            
+
             {% if file.dotnet %}
                 <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('dotnet_{{file.sha256}}');">.NET Info</button>
                 <div id="dotnet_{{file.sha256}}" style="display: none;" class="mt-2">
@@ -266,15 +266,16 @@
                 <div id="office_{{file.sha256}}" style="display: none;" class="mt-2">
                     {% include "generic/_office.html" %}
                 </div>
-            {% endif %}
 
-            {% if file.office.XLMMacroDeobfuscator %}
-                <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('xlmmacro_{{file.sha256}}');">XLM Macro</button>
-                <div id="xlmmacro_{{file.sha256}}" style="display: none;" class="mt-2">
-                    {% include "generic/_xlmmacro.html" %}
-                </div>
-            {% endif %}
 
+                {% if file.office.XLMMacroDeobfuscator %}
+                    <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('xlmmacro_{{file.sha256}}');">XLM Macro</button>
+                    <div id="xlmmacro_{{file.sha256}}" style="display: none;" class="mt-2">
+                        {% include "generic/_xlmmacro.html" %}
+                    </div>
+                {% endif %}
+
+            {% endif %}
             {% if file.flare_capa %}
                 <button class="btn btn-sm btn-outline-warning mb-2" type="button" onclick="showHide('flare_capa_{{file.sha256}}');">FLARE CAPA</button>
                 <div id="flare_capa_{{file.sha256}}" style="display: none;" class="mt-2">

@@ -1,3 +1,4 @@
+{% load key_tags %}
 <section id="static_analysis">
     {% if file.pe %}
             <div>
@@ -194,7 +195,7 @@
 
         {% if file.pe.imports %}
         <div>
-            {% for dll, library in file.pe.imports.items() %}
+            {% for dll, library in file.pe.imports.items %}
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">
@@ -409,8 +410,8 @@
                         {% for signer in file.pe.guest_signers.aux_signers %}
                         <tr>
                                 <td>{{signer.name}}</td>
-                                <td>{{signer|getkey"Issued to"}}</td>
-                                <td>{{signer|getkey"Issued by"}}</td>
+                                <td>{{signer|getkey:"Issued to"}}</td>
+                                <td>{{signer|getkey:"Issued by"}}</td>
                                 <td>{{signer.Expires}}</td>
                                 <td>{{signer|getkey:"SHA1 hash"}}</td>
                         </tr>

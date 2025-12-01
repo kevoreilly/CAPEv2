@@ -1,0 +1,253 @@
+{% if not summary_report %}
+<section id="volatility">
+    <div class="section-title">
+        <h4>Volatility</h4>
+    </div>
+
+    {% if results.memory %}
+
+        <!-- Malfind -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_malfind');"><b>Malfind</b></a>
+            <small>
+                Scanning for injections
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#malfind" target="_blank">help</a>)
+            </small>
+            <div id="volatility_malfind" style="display: none;">
+                {% if results.memory.malfind %}
+                    {% include "memory/_malfind.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Yarascan -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_yarascan');"><b>Yarascan</b></a>
+            <small>
+                Scanning for rule matches
+                (<a href="https://code.google.com/p/volatility/wiki/CommandReferenceMal23#yarascan" target="_blank">help</a>)
+            </small>
+            <div id="volatility_yarascan" style="display: none;">
+                {% if results.memory.yarascan %}
+                    {% include "memory/_yarascan.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- APIHooks -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_apihooks');"><b>Apihooks</b></a>
+            <small>
+                Listing API hooks
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#apihooks" target="_blank">help</a>)
+            </small>
+            <div id="volatility_apihooks" style="display: none;">
+                {% if results.memory.apihooks %}
+                    {% include "memory/_apihooks.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Pslist -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_pslist');"><b>PSList</b></a>
+            <small>
+                Listing processes
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReference23#pslist" target="_blank">help</a>)
+            </small>
+            <div id="volatility_pslist" style="display: none;">
+                {% if results.memory.pslist %}
+                    {% include "memory/_pslist.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Callbacks -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_callbacks');"><b>Callbacks</b></a>
+            <small>
+                Listing registered callbacks
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#callbacks" target="_blank">help</a>)
+            </small>
+            <div id="volatility_callbacks" style="display: none;">
+                {% if results.memory.callbacks %}
+                    {% include "memory/_callbacks.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Messagehooks -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_messagehooks');"><b>Messagehooks</b></a>
+            <small>
+                Registered Messagehooks
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceGui23#messagehooks" target="_blank">help</a>)
+            </small>
+            <div id="volatility_messagehooks" style="display: none;">
+                {% if results.memory.messagehooks %}
+                    {% include "memory/_messagehooks.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Devicetree -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_devicetree');"><b>Devicetree</b></a>
+            <small>
+                Listing devices and drivers
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#devicetree" target="_blank">help</a>)
+            </small>
+            <div id="volatility_devicetree" style="display: none;">
+                {% if results.memory.devicetree %}
+                    {% include "memory/_devicetree.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Svcscan -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_svcscan');"><b>Svcscan</b></a>
+            <small>
+                Scanning for services
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#svcscan" target="_blank">help</a>)
+            </small>
+            <div id="volatility_svcscan" style="display: none;">
+                {% if results.memory.svcscan %}
+                    {% include "memory/_svcscan.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Modscan -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_modscan');"><b>Modscan</b></a>
+            <small>
+                Scan for (hidden) kernel drivers
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReference23#modscan" target="_blank">help</a>)
+            </small>
+            <div id="volatility_modscan" style="display: none;">
+                {% if results.memory.modscan %}
+                    {% include "memory/_modscan.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- idt -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_idt');"><b>IDT</b></a>
+            <small>
+                Listing IDTs
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#idt" target="_blank">help</a>)
+            </small>
+            <div id="volatility_idt" style="display: none;">
+                {% if results.memory.idt %}
+                    {% include "memory/_idt.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- timers -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_timers');"><b>Timers</b></a>
+            <small>
+                Listing timers
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#timers" target="_blank">help</a>)
+            </small>
+            <div id="volatility_timers" style="display: none;">
+                {% if results.memory.timers %}
+                    {% include "memory/_timers.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- gdt -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_gdt');"><b>GDT</b></a>
+            <small>
+                Listing GDTs
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#gdt" target="_blank">help</a>)
+            </small>
+            <div id="volatility_gdt" style="display: none;">
+                {% if results.memory.gdt %}
+                    {% include "memory/_gdt.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+            <!-- SSDT -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_ssdt');"><b>SSDT</b></a>
+            <small>
+                Listing SSDT
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#ssdt" target="_blank">help</a>)
+            </small>
+            <div id="volatility_ssdt" style="display: none;">
+                {% if results.memory.ssdt %}
+                    {% include "memory/_ssdt.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- netscan -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_netscan');"><b>Netscan</b></a>
+            <small>
+                Listing netscan
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#netscan" target="_blank">help</a>)
+            </small>
+            <div id="volatility_netscan" style="display: none;">
+                {% if results.memory.netscan %}
+                    {% include "memory/_netscan.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- sockscan -->
+        <div class="card card-body">
+            <a href="javascript:showHide('volatility_sockscan');"><b>Sockscan</b></a>
+            <small>
+                Listing sockscan
+                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#sockscan" target="_blank">help</a>)
+            </small>
+            <div id="volatility_sockscan" style="display: none;">
+                {% if results.memory.sockscan %}
+                    {% include "memory/_sockscan.html" %}
+                {% else %}
+                    Nothing to display.
+                {% endif %}
+            </div>
+        </div>
+
+    {% else %}
+        Nothing to display.
+    {% endif %}
+</section>
+{% endif %}

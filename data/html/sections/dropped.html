@@ -1,0 +1,8 @@
+<section id="dropped">
+    <div class="section-title">
+        <h4>Dropped Files</h4>
+    </div>
+    {% for file in results.dropped %}
+        {% include "analysis/generic/_file_info.html" with file=file tab_name="dropped" %}
+    {% endfor %}
+</section>

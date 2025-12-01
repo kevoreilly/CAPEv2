@@ -1,0 +1,289 @@
+<section id="network" class="mb-4">
+    
+    {% if results.network %}
+        {% if results.network.hosts %}
+            <div class="card bg-dark border-secondary mb-3">
+                <div class="card-header border-secondary">
+                    <h5 class="mb-0 text-white"><a href="javascript:showHide('hosts');" class="text-white text-decoration-none">Hosts Involved</a></h5>
+                </div>
+                {% if summary_report %}
+                <div id="hosts">
+                {% else %}
+                <div id="hosts" style="display: none;">
+                {% endif %}
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th width="10%">Direct</th>
+                                    <th>IP Address</th>
+                                    <th>Country Name</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for host in results.network.hosts %}
+                           <tr>
+                                {% if host.ip|slice:":7" != "192.168" %}
+                                    {% if "hostname" in host and host.hostname == "" %}
+                                        <td><span class="badge badge-success">Y</span></td>
+                                    {% elif "hostname" in host %}
+                                        <td><span class="badge badge-secondary">N</span></td>
+                                    {% else %}
+                                        <td><span class="badge badge-secondary">N/A</span></td>
+                                    {% endif %}
+                                    <td><span class="text-monospace">{{host.ip}}</span></td>
+                                    <td>{{host.country_name}}</td>
+                                {% endif %}
+                           </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if results.network.domains %}
+        <div class="card bg-dark border-secondary mb-3">
+            <div class="card-header border-secondary">
+                <h5 class="mb-0 text-white"><a href="javascript:showHide('dns');" class="text-white text-decoration-none">DNS Requests</a></h5>
+            </div>
+            {% if summary_report %}
+            <div id="dns">
+            {% else %}
+            <div id="dns" style="display: none;">
+            {% endif %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Response</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for dns in results.network.dns %}
+                        <tr>
+                            <td><span class="text-monospace">{{dns.request}}</span></td>
+                            <td>
+                                {% for a in dns.answers %}
+                                    <span class="text-monospace">{{a.type}} {{a.data}}</span>
+                                    {%  if not loop.last %}
+                                    <br>
+                                    {% endif %}
+                                {% endfor %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if results.network.tcp %}
+            <div class="card bg-dark border-secondary mb-3">
+                <div class="card-header border-secondary">
+                    <h5 class="mb-0 text-white"><a href="javascript:showHide('tcp');" class="text-white text-decoration-none">TCP Connections</a></h5>
+                </div>
+            {% if summary_report %}
+            <div id="tcp">
+            {% else %}
+            <div id="tcp" style="display: none;">
+           {% endif %}
+                    <div class="table-responsive">
+                         <table class="table table-dark table-striped table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th>IP Address</th>
+                                    <th>Port</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for conn in results.network.tcp %}
+                            <tr>
+                                <td><span class="text-monospace">{{conn.dst}}</span></td>
+                                <td><span class="text-monospace">{{conn.dport}}</span></td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if results.network.udp %}
+            <div class="card bg-dark border-secondary mb-3">
+                <div class="card-header border-secondary">
+                    <h5 class="mb-0 text-white"><a href="javascript:showHide('udp');" class="text-white text-decoration-none">UDP Connections</a></h5>
+                </div>
+            {% if summary_report %}
+            <div id="udp">
+            {% else %}
+            <div id="udp" style="display: none;">
+            {% endif %}
+                    <div class="table-responsive">
+                         <table class="table table-dark table-striped table-bordered mb-0">
+                            <thead>
+                                <tr>
+                                    <th>IP Address</th>
+                                    <th>Port</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for conn in results.network.udp %}
+                            <tr>
+                                <td><span class="text-monospace">{{conn.dst}}</span></td>
+                                <td><span class="text-monospace">{{conn.dport}}</span></td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if results.network.http %}
+        <div class="card bg-dark border-secondary mb-3">
+            <div class="card-header border-secondary">
+                <h5 class="mb-0 text-white"><a href="javascript:showHide('http');" class="text-white text-decoration-none">HTTP Requests</a></h5>
+            </div>
+            {% if summary_report %}
+            <div id="http">
+            {% else %}
+            <div id="http" style="display: none;">
+            {% endif %}
+                 <div class="table-responsive">
+                     <table class="table table-dark table-striped table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>URL</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for http in results.network.http %}
+                        <tr>
+                            <td><span class="text-monospace text-break">{{http.uri}}</span></td>
+                            <td><pre class="mb-0 text-light small">{{http.data}}</pre></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        {% if results.network.smtp %}
+        <div class="card bg-dark border-secondary mb-3">
+            <div class="card-header border-secondary">
+                <h5 class="mb-0 text-white"><a href="javascript:showHide('smtp');" class="text-white text-decoration-none">SMTP Requests</a></h5>
+            </div>
+            {% if summary_report %}
+            <div id="smtp">
+            {% else %}
+            <div id="smtp" style="display: none;">
+            {% endif %}
+                 <div class="table-responsive">
+                     <table class="table table-dark table-striped table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Destination</th>
+                                <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for smtp in results.network.smtp %}
+                        <tr>
+                            <td><span class="text-monospace">{{smtp.dst}}</span></td>
+                            <td><pre class="mb-0 text-light small">{{smtp.raw}}</pre></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if results.network.irc %}
+        <div class="card bg-dark border-secondary mb-3">
+            <div class="card-header border-secondary">
+                <h5 class="mb-0 text-white"><a href="javascript:showHide('irc');" class="text-white text-decoration-none">IRC Requests</a></h5>
+            </div>
+            {% if summary_report %}
+            <div id="irc">
+            {% else %}
+            <div id="irc" style="display: none;">
+            {% endif %}
+                 <div class="table-responsive">
+                     <table class="table table-dark table-striped table-bordered mb-0">
+                        <thead>
+                            <tr>
+                                <th>Command</th>
+                                <th>Params</th>
+                                <th>Type</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for irc in results.network.irc %}
+                        <tr>
+                            <td><span class="text-monospace">{{irc.command}}</span></td>
+                            <td><pre class="mb-0 text-light small">{{irc.params}}</pre></td>
+                            <td><pre class="mb-0 text-light small">{{irc.type}}</pre></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {% if results.network.icmp %}
+        <div class="card bg-dark border-secondary mb-3">
+           <div class="card-header border-secondary">
+                <h5 class="mb-0 text-white"><a href="javascript:showHide('icmp');" class="text-white text-decoration-none">ICMP Requests</a></h5>
+            </div>
+           {% if summary_report %}
+            <div id="icmp">
+            {% else %}
+            <div id="icmp" style="display: none;">
+            {% endif %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-bordered mb-0">
+                        <thead>
+                            <tr>
+                               <th>Source</th>
+                               <th>Destination</th>
+                               <th>ICMP Type</th>
+                               <th>Data</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for icmp in results.network.icmp %}
+                        <tr>
+                           <td><span class="text-monospace">{{icmp.src}}</span></td>
+                           <td><span class="text-monospace">{{icmp.dst}}</span></td>
+                           <td><span class="text-monospace">{{icmp.type}}</span></td>
+                           <td><pre class="mb-0 text-light small">{{icmp.data}}</pre></td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+         </div>
+        {% endif %}
+
+        {% if not results.network.hosts and not results.network.domains and not results.network.http and not results.network.irc and not results.network.icmp %}
+            <div class="alert alert-info">No network activity recorded.</div>
+        {% endif %}
+    {% else %}
+        <div class="alert alert-info">No network activity recorded.</div>
+    {% endif %}
+</section>

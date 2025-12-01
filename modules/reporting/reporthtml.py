@@ -13,87 +13,48 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
-
-# Add the web directory to the Python path so that the 'analysis' app can be found.
-sys.path.append(os.path.join(CUCKOO_ROOT, "web"))
-
-from django.conf import settings
-from django.template import loader
+from jinja2 import Environment, FileSystemLoader
 
 log = logging.getLogger(__name__)
 
-# Configure Django for standalone script usage.
-# This is required to discover and use template tags from the 'analysis' app.
-if not settings.configured:
-    settings.configure(
-        INSTALLED_APPS=[
-            "analysis",
-            "django.contrib.contenttypes",
-            "django.contrib.auth",
-            "django.contrib.sessions",
-            "django.contrib.messages",
-            "django.contrib.staticfiles",
-            "django.contrib.sites",
-            "django_settings_export",
-            "django.contrib.admin",
-            "allauth.account",
-        ],
-        # The {% url %} template tag requires ROOT_URLCONF to be set.
-        ROOT_URLCONF="web.urls",
-        # CUCKOO_PATH is needed by analysis/views.py for sys.path.append.
-        CUCKOO_PATH=CUCKOO_ROOT,
-        # The following settings are accessed by templates.
-        WEB_AUTHENTICATION=False,
-        WEB_OAUTH=False,
-        ZIPPED_DOWNLOAD_ALL=False,
-        STATIC_URL="/static/",
-        ANON_VIEW=True,
-        COMMENTS=False,
-        ADMIN=False,
-        URL_ANALYSIS=False,
-        DLNEXEC=False,
-        MOLOCH_ENABLED=False,
-        TEMP_PATH="/tmp",
-        DEBUG=False,
-        NOCAPTCHA=True,
-        REMOTE_SESSION=False,
-        ALLOW_DL_REPORTS_TO_ALL=True,
-        OPT_ZER0M0N=False,
-        SITE_ID=1,
-        CRISPY_TEMPLATE_PACK="bootstrap4",
-        TWOFA=False,
-        MIDDLEWARE=[
-            "django.contrib.sessions.middleware.SessionMiddleware",
-            "django.contrib.auth.middleware.AuthenticationMiddleware",
-            "django.contrib.messages.middleware.MessageMiddleware",
-            "allauth.account.middleware.AccountMiddleware",
-        ],
-        TEMPLATES=[
-            {
-                "BACKEND": "django.template.backends.django.DjangoTemplates",
-                "DIRS": [os.path.join(CUCKOO_ROOT, "web", "templates")],
-                # APP_DIRS must be True to load template tags from INSTALLED_APPS.
-                "APP_DIRS": True,
-                "OPTIONS": {
-                    "context_processors": [
-                        "django.template.context_processors.request",
-                        "django.contrib.auth.context_processors.auth",
-                        "django.contrib.messages.context_processors.messages",
-                        "django_settings_export.settings_export",
-                    ],
-                },
-            },
-        ]
-    )
-    import django
-    try:
-        # Populate the app registry.
-        django.setup()
-    except RuntimeError as e:
-        # This may be called multiple times in the same process.
-        log.warning("Ignoring Django setup error in reporthtml: %s", e)
+def getkey(d, key):
+    """Jinja2 filter to get a key from a dictionary."""
+    return d.get(key, "")
 
+def str2list(value):
+    """Jinja2 filter to convert a string to a list."""
+    if isinstance(value, str):
+        return [value]
+    return value
 
+def dict2list(value):
+    """Jinja2 filter to convert a dictionary to a list if it's a dictionary."""
+    if isinstance(value, dict):
+        return [value]
+    return value
+
+def parentfixup(value):
+    """Jinja2 filter for parent fixup logic."""
+    if "file_size" in value:
+        value["size"] = value["file_size"]
+    if "name" not in value:
+        value["name"] = value["sha256"]
+    return value
+
+def divisibleby(value, divisor):
+    """Jinja2 filter to check if a value is divisible by a divisor."""
+    return value % divisor == 0
+
+def replace_filter(value, old, new):
+    """Jinja2 filter to replace occurrences of a substring."""
+    return value.replace(old, new)
+
+def slice_filter(value, slice_str):
+    """Jinja2 filter for slicing strings."""
+    parts = slice_str.split(':')
+    start = int(parts[0]) if parts[0] else 0
+    end = int(parts[1]) if parts[1] else len(value)
+    return value[start:end]
 
 class ReportHTML(Report):
     """Stores report in HTML format."""
@@ -103,41 +64,70 @@ class ReportHTML(Report):
         @param results: Cuckoo results dict.
         @raise CuckooReportError: if fails to write report.
         """
-
         shots_path = os.path.join(self.analysis_path, "shots")
         if path_exists(shots_path) and self.options.screenshots:
             shots = []
-            counter = 1
-            for shot_name in os.listdir(shots_path):
+            for shot_name in sorted(os.listdir(shots_path)):
                 if not shot_name.endswith((".jpg", ".png")):
                     continue
-
                 shot_path = os.path.join(shots_path, shot_name)
-
                 if os.path.getsize(shot_path) == 0:
                     continue
-
-                shot = {}
-                shot["id"] = os.path.splitext(File(shot_path).get_name())[0]
-                shot["data"] = base64.b64encode(open(shot_path, "rb").read()).decode()
+                
+                shot = {
+                    "id": os.path.splitext(shot_name)[0],
+                    "data": base64.b64encode(open(shot_path, "rb").read()).decode(),
+                }
                 shots.append(shot)
-
-                counter += 1
-
-            shots.sort(key=lambda shot: shot["id"])
             results["shots"] = shots
         else:
             results["shots"] = []
 
-        results["STATIC_URL"] = settings.STATIC_URL
-        results["local_conf"] = self.options
+        # Set up Jinja2 environment
+        template_dir = os.path.join(CUCKOO_ROOT, "data", "html") # Pointing to data/html
+        env = Environment(loader=FileSystemLoader(template_dir))
 
+        # Register Django-like filters and functions
+        env.filters['getkey'] = getkey
+        env.filters['str2list'] = str2list
+        env.filters['dict2list'] = dict2list
+        env.filters['parentfixup'] = parentfixup
+        env.filters['divisibleby'] = divisibleby
+        env.filters['replace'] = replace_filter
+        env.filters['slice'] = slice_filter
+
+        # Expose config options to the template context
+        template_context = {
+            "results": results,
+            "summary_report": False,
+            "config": self.options, # Self.options contains configurations
+            "STATIC_URL": "/static/", # Default static URL
+            "WEB_AUTHENTICATION": False,
+            "WEB_OAUTH": False,
+            "ZIPPED_DOWNLOAD_ALL": False,
+            "ANON_VIEW": True,
+            "COMMENTS": False,
+            "ADMIN": False,
+            "URL_ANALYSIS": False,
+            "DLNEXEC": False,
+            "MOLOCH_ENABLED": False,
+            "TEMP_PATH": "/tmp",
+            "DEBUG": False,
+            "NOCAPTCHA": True,
+            "REMOTE_SESSION": False,
+            "ALLOW_DL_REPORTS_TO_ALL": True,
+            "OPT_ZER0M0N": False,
+            "SITE_ID": 1,
+            "CRISPY_TEMPLATE_PACK": "bootstrap4",
+            "TWOFA": False,
+        }
+        
         try:
-            template = loader.get_template("report_standalone.html")
-            html = template.render({"results": results, "summary_report": False, "config": self.options})
+            template = env.get_template("report.html") # Use report.html from data/html
+            html = template.render(template_context)
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
                 report.write(html)
         except Exception as e:
-            log.exception("Failed to generate summary HTML report: %s", e)
+            raise CuckooReportError(f"Failed to generate HTML report: {e}")
 
         return True

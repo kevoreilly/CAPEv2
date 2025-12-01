@@ -1,0 +1,106 @@
+<section id="info" class="mb-4">
+
+    {% if results.detections %}
+    <section id="malfamily" class="mb-3 text-center">
+        <h5>Detection(s):</h5>
+        {% for block in results.detections %}
+            <span class="badge badge-danger p-2 mb-1">{{block.family}}</span>
+        {% endfor %}
+    </section>
+    {% endif %}
+
+    <div class="card bg-dark border-secondary mb-3">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white">Sandbox Info</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-bordered mb-0">
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Started On</th>
+                        <th>Completed On</th>
+                        <th>Duration</th>
+                        <th>Cuckoo Version</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="badge badge-info">{{results.info.category|upper}}</span></td>
+                        <td>{{results.info.started}}</td>
+                        <td>{{results.info.ended}}</td>
+                        <td>{{results.info.duration}} seconds</td>
+                        <td>{{results.info.version}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+
+{% if results.info.machine and results.info.machine.name %}
+<section id="machine" class="mb-4">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white">Machine Info</h5>
+        </div>
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-bordered mb-0">
+                <thead>
+                    <tr>
+                        <th>Machine</th>
+                        <th>Label</th>
+                        <th>Manager</th>
+                        <th>Started On</th>
+                        <th>Shutdown On</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>{{results.info.machine.name}}</td>
+                        <td>{{results.info.machine.label}}</td>
+                        <td>{{results.info.machine.manager}}</td>
+                        <td>{{results.info.machine.started_on}}</td>
+                        <td>{{results.info.machine.shutdown_on}}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if "CAPE" in results and results.CAPE.configs %}
+<section id="malware_conf" class="mb-4">
+    <h4 class="mb-3 text-white">Malware Config(s)</h4>
+    {% for config_block in results.CAPE.configs %}
+        {% for family, config in config_block.items() %}
+            {% if family not in "_associated_config_hashes,_associated_analysis_hashes" %}
+                <div class="card bg-dark border-secondary mb-3">
+                    <div class="card-header border-secondary">
+                        <h5 class="mb-0 text-white">{{family}} Config</h5>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-bordered mb-0" style="table-layout: fixed;">
+                            <thead>
+                                <tr>
+                                    <th style="width: 20%;">Type</th>
+                                    <th>Value</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                            {% for key, value in config.items() %}
+                            <tr>
+                                <td class="font-weight-bold text-info">{{key}}</td>
+                                <td class="text-break">{% malware_config value %}</td>
+                            </tr>
+                            {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% endfor %}
+</section>
+{% endif %}

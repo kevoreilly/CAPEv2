@@ -1,0 +1,46 @@
+<section id="signatures" class="mb-4">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white">Signatures</h5>
+        </div>
+        <div class="card-body">
+            {% if results.signatures %}
+                {% for sign in results.signatures %}
+                    <div class="mb-3">
+                        {% if sign.severity == 1 %}
+                            <div class="alert alert-success d-flex align-items-center mb-1">
+                                <span class="badge badge-success mr-2">Low</span>
+                        {% elif sign.severity == 2 %}
+                            <div class="alert alert-warning d-flex align-items-center mb-1">
+                                <span class="badge badge-warning mr-2">Medium</span>
+                        {% elif sign.severity >= 3 %}
+                            <div class="alert alert-danger d-flex align-items-center mb-1">
+                                <span class="badge badge-danger mr-2">High</span>
+                        {% else %}
+                            <div class="alert alert-info d-flex align-items-center mb-1">
+                                <span class="badge badge-info mr-2">Info</span>
+                        {% endif %}
+                                <strong>{{sign.description}}</strong>
+                            </div>
+                        
+                        {% if summary_report %}
+                            <div id="signature_{{sign.name}}" class="ml-3 mt-2">
+                            {% if sign.data %}
+                                <div class="card bg-secondary text-white p-2">
+                                {% for sign in sign.data %}
+                                    {% for key, value in sign.items() %}
+                                        <div><strong>{{key}}</strong>: <span class="text-break">{{value}}</span></div>
+                                    {% endfor %}
+                                {% endfor %}
+                                </div>
+                            {% endif %}
+                            </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="alert alert-secondary">No signatures matched</div>
+            {% endif %}
+        </div>
+    </div>
+</section>

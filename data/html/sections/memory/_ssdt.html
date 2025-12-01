@@ -1,0 +1,20 @@
+<table class="table table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th width="100px">Index</th>
+            <th width="300px">Syscall Addr</th>
+            <th width="300px">Syscall Modname</th>
+            <th>Syscall Name</th>
+        </tr>
+    </thead>
+    <tbody>
+    {% for x in results.memory.ssdt %}
+        <tr>
+            <td>{{x.Index}}</td>
+            <td><span class="mono">{{x.Address}}</span></td>
+            <td>{{x.Module}}</td>
+            <td>{{x.Symbol}}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>

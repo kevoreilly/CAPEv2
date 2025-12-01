@@ -1,3 +1,4 @@
+{% load key_tags %}
 <div class="card bg-dark border-secondary mb-3">
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-file mr-2 text-primary"></i> File Information</h5>
@@ -229,49 +230,49 @@
             {% if file.pe %}
                 <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('pe_{{file.sha256}}');">PE Info</button>
                 <div id="pe_{{file.sha256}}" style="display: none;" class="mt-2">
-                    {% include "generic/_pe.html" %}
+                    {% include "analysis/generic/_pe.html" %}
                 </div>
             {% endif %}
 
             {% if file.dotnet %}
                 <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('dotnet_{{file.sha256}}');">.NET Info</button>
                 <div id="dotnet_{{file.sha256}}" style="display: none;" class="mt-2">
-                    {% include "generic/_dotnet.html" %}
+                    {% include "analysis/generic/_dotnet.html" %}
                 </div>
             {% endif %}
 
             {% if file.pdf %}
                 <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('pdf_{{file.sha256}}');">PDF Info</button>
                 <div id="pdf_{{file.sha256}}" style="display: none;" class="mt-2">
-                    {% include "generic/_pdf.html" %}
+                    {% include "analysis/generic/_pdf.html" %}
                 </div>
             {% endif %}
 
             {% if file.lnk %}
                 <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('lnk_{{file.sha256}}');">LNK Info</button>
                 <div id="lnk_{{file.sha256}}" style="display: none;" class="mt-2">
-                    {% include "generic/_lnk.html" %}
+                    {% include "analysis/generic/_lnk.html" %}
                 </div>
             {% endif %}
 
             {% if file.java %}
                 <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('java_{{file.sha256}}');">Java Info</button>
                 <div id="java_{{file.sha256}}" style="display: none;" class="mt-2">
-                    {% include "generic/_java.html" %}
+                    {% include "analysis/generic/_java.html" %}
                 </div>
             {% endif %}
 
             {% if file.office %}
                 <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('office_{{file.sha256}}');">Office Info</button>
                 <div id="office_{{file.sha256}}" style="display: none;" class="mt-2">
-                    {% include "generic/_office.html" %}
+                    {% include "analysis/generic/_office.html" %}
                 </div>
 
 
                 {% if file.office.XLMMacroDeobfuscator %}
                     <button class="btn btn-sm btn-outline-info mb-2" type="button" onclick="showHide('xlmmacro_{{file.sha256}}');">XLM Macro</button>
                     <div id="xlmmacro_{{file.sha256}}" style="display: none;" class="mt-2">
-                        {% include "generic/_xlmmacro.html" %}
+                        {% include "analysis/generic/_xlmmacro.html" %}
                     </div>
                 {% endif %}
 
@@ -298,7 +299,7 @@
 
             {% if file.virustotal %}
                 <div class="mt-3">
-                    {% include "generic/_virustotal.html" %}
+                    {% include "analysis/generic/_virustotal.html" %}
                 </div>
             {% endif %}
         </div>

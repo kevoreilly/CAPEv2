@@ -1,0 +1,22 @@
+
+<section id="payloads">
+    <div class="section-title">
+        <h4>Payloads</h4>
+    </div>
+    {% if "CAPE" in results and results.CAPE.payloads %}
+        {% for file in results.CAPE.payloads %}
+            <div>
+                {% if summary_report %}
+                    <h4>{{file.name}}</h4>
+                    <div id="payload_{{loop.index}}">
+                {% else %}
+                    <h4><a href="javascript:showHide('payload_{{loop.index}}');">{{file.name}}</a></h4>
+                    <div id="payload_{{loop.index}}" style="display: none;">
+                    {% include "generic/_file_info.html" %}
+                {% endif %}
+            </div>
+        {% endfor %}
+    {% else %}
+        Nothing to display.
+    {% endif %}
+</section>

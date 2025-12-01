@@ -3,13 +3,11 @@
         <h5 class="mb-0 text-white"><i class="fas fa-file-alt mr-2 text-primary"></i> Target File</h5>
     </div>
     <div class="card-body">
-        {% with file=results.target.file %}
-            {% include "generic/_file_info.html" with tab_name="target" %}
-        {% endwith %}
+        {% include "generic/_file_info.html" with file=results.target.file, tab_name="target" %}
         {% if results.info.parent_sample %}
             <h5 class="mt-4 text-white">Parent Sample</h5>
             {% for file in results.info.parent_sample|parentfixup|dict2list %}
-                {% include "generic/_file_info.html" with file=file tab_name="parent" %}
+                {% include "generic/_file_info.html" with file=file, tab_name="parent" %}
             {% endfor %}
         {% endif %}
     </div>

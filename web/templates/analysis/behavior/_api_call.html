@@ -1,37 +1,42 @@
-<td>{{call.timestamp}}</td>
+<td class="text-nowrap">{{call.timestamp}}</td>
 <td>{{call.thread_id}}</td>
-<td>{{call.caller}}<br />{{call.parentcaller}}</td>
-<td><strong>{{call.api}}</strong></td>
-<td style="word-wrap: break-word;">
+<td>
+    {{call.caller}}
+    {% if call.parentcaller %}<br /><small class="text-muted">{{call.parentcaller}}</small>{% endif %}
+</td>
+<td><strong class="text-info">{{call.api}}</strong></td>
+<td class="text-break">
     {% for argument in call.arguments %}
-        <span class="gray">{{argument.name}}:</span>
-        {% if argument.pretty_value %}
-            <span class="mono" title="{{argument.value}}">{{argument.pretty_value}}</span>
-        {% else %}
-            <span class="mono">{{argument.value}}</span>
-        {% endif %}
-        <br />
+        <div class="mb-1">
+            <span class="text-muted">{{argument.name}}:</span>
+            <code class="text-light">
+            {% if argument.pretty_value %}
+                <span title="{{argument.value}}">{{argument.pretty_value}}</span>
+            {% else %}
+                {{argument.value}}
+            {% endif %}
+            </code>
+        </div>
     {% endfor %}
 </td>
 <td>
     {% if call.status %}
-        success
+        <span class="badge badge-success">success</span>
     {% else %}
-        failed
+        <span class="badge badge-danger">failed</span>
     {% endif %}
 </td>
-{% if call.pretty_return %}
-    <td style="word-wrap: break-word"><span class="mono" title="{{call.return}}">{{call.pretty_return}}</span></td>
-{% else %}
-    <td style="word-wrap: break-word"><span class="mono">{{call.return}}</span></td>
-{% endif %}
+<td class="text-break">
+    <code class="text-light">
+    {% if call.pretty_return %}
+        <span title="{{call.return}}">{{call.pretty_return}}</span>
+    {% else %}
+        {{call.return}}
+    {% endif %}
+    </code>
+</td>
 <td>
     {% if call.repeated > 0 %}
-        {{call.repeated}}
-        {% if call.repeated > 1 %}
-            times
-        {% else %}
-            time
-        {% endif %}
+        <span class="badge badge-secondary">{{call.repeated}}</span>
     {% endif %}
 </td>

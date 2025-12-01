@@ -83,9 +83,9 @@ class ReportHTML(Report):
         else:
             results["shots"] = []
 
-        # Set up Jinja2 environment
+        # Set up Jinja2 environment with the 'do' extension
         template_dir = os.path.join(CUCKOO_ROOT, "data", "html") # Pointing to data/html
-        env = Environment(loader=FileSystemLoader(template_dir))
+        env = Environment(loader=FileSystemLoader(template_dir), extensions=['jinja2.ext.do'])
 
         # Register Django-like filters and functions
         env.filters['getkey'] = getkey

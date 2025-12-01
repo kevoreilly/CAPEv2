@@ -3,6 +3,6 @@
         <h4>Dropped Files</h4>
     </div>
     {% for file in results.dropped %}
-        {% include "analysis/generic/_file_info.html" with file=file tab_name="dropped" %}
+        {% include "generic/_file_info.html" with file=file, tab_name="dropped" %}
     {% endfor %}
 </section>

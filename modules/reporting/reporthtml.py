@@ -27,6 +27,10 @@ if not settings.configured:
         INSTALLED_APPS=[
             'analysis',
             'django.contrib.contenttypes',
+            'django.contrib.auth',
+            'django.contrib.sessions',
+            'django.contrib.messages',
+            'django.contrib.staticfiles',
         ],
         # The {% url %} template tag requires ROOT_URLCONF to be set.
         ROOT_URLCONF='web.urls',

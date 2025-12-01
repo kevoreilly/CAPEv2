@@ -36,6 +36,11 @@ if not settings.configured:
         ROOT_URLCONF='web.urls',
         # CUCKOO_PATH is needed by analysis/views.py for sys.path.append.
         CUCKOO_PATH=CUCKOO_ROOT,
+        # The following settings are accessed by templates.
+        WEB_AUTHENTICATION=False,
+        WEB_OAUTH=False,
+        ZIPPED_DOWNLOAD_ALL=False,
+        STATIC_URL="/static/",
         TEMPLATES=[
             {
                 "BACKEND": "django.template.backends.django.DjangoTemplates",

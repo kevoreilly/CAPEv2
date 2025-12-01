@@ -17,22 +17,29 @@ from lib.cuckoo.common.path_utils import path_exists
 from django.conf import settings
 from django.template import loader
 
-# Configure Django settings lightly for template rendering, avoiding full app setup.
+# Configure Django for standalone script usage.
+# This is required to discover and use template tags from the 'analysis' app.
 if not settings.configured:
     settings.configure(
+        INSTALLED_APPS=[
+            'analysis',
+        ],
         TEMPLATES=[
             {
                 "BACKEND": "django.template.backends.django.DjangoTemplates",
                 "DIRS": [os.path.join(CUCKOO_ROOT, "web", "templates")],
-                "OPTIONS": {
-                    "libraries": {
-                        "key_tags": "analysis.templatetags.key_tags",
-                        "analysis_tags": "analysis.templatetags.analysis_tags",
-                    }
-                },
+                # APP_DIRS must be True to load template tags from INSTALLED_APPS.
+                "APP_DIRS": True,
             },
         ]
     )
+    import django
+    try:
+        # Populate the app registry.
+        django.setup()
+    except RuntimeError as e:
+        # This may be called multiple times in the same process.
+        log.warning("Ignoring Django setup error in reporthtml: %s", e)
 
 log = logging.getLogger(__name__)
 

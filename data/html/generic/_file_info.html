@@ -341,14 +341,14 @@
             </br>
         {% endif %}
 
-        {% if file.pe %} <div class="collapse" id="pe_{{file.sha256}}"> <div> {% include "generic/_pe.html" %}</div></div></br>{% endif %}
-        {% if file.dotnet %} <div class="collapse" id="dotnet_{{file.sha256}}"> <div> {% include "generic/_dotnet.html" %}</div></div></br>{% endif %}
-        {% if file.pdf %} <div class="collapse" id="pdf_{{file.sha256}}"> <div> {% include "generic/_pdf.html" %}</div></div></br>{% endif %}
-        {% if file.lnk %} <div class="collapse" id="lnk_{{file.sha256}}"> <div> {% include "generic/_lnk.html" %}</div></div></br>{% endif %}
-        {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div> {% include "generic/_java.html" %}</div></div></br>{% endif %}
-        {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div> {% include "generic/_office.html" %}</div></div></br>{% endif %}
-        {% if file.get('office') and file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div> {% include "generic/_xlmmacro.html" %}</div></div></br>{% endif %}
-        {% if file.floss %} <div class="collapse" id="floss_{{file.sha256}}"> <div> {% include "generic/_floss.html" %}</div></div></br>{% endif %}
+        {% if file.pe %} <div class="collapse" id="pe_{{file.sha256}}"> <div> {% include "generic/_pe.html" %}</div></div>{% endif %}
+        {% if file.dotnet %} <div class="collapse" id="dotnet_{{file.sha256}}"> <div> {% include "generic/_dotnet.html" %}</div></div>{% endif %}
+        {% if file.pdf %} <div class="collapse" id="pdf_{{file.sha256}}"> <div> {% include "generic/_pdf.html" %}</div></div>{% endif %}
+        {% if file.lnk %} <div class="collapse" id="lnk_{{file.sha256}}"> <div> {% include "generic/_lnk.html" %}</div></div>{% endif %}
+        {% if file.java %} <div class="collapse" id="java_{{file.sha256}}"> <div> {% include "generic/_java.html" %}</div></div>{% endif %}
+        {% if file.office %} <div class="collapse" id="office_{{file.sha256}}"> <div> {% include "generic/_office.html" %}</div></div>{% endif %}
+        {% if file.get('office') and file.office.XLMMacroDeobfuscator %} <div class="collapse" id="xlmmacro_{{file.sha256}}"> <div> {% include "generic/_xlmmacro.html" %}</div></div>{% endif %}
+        {% if file.floss %} <div class="collapse" id="floss_{{file.sha256}}"> <div> {% include "generic/_floss.html" %}</div></div>{% endif %}
     </table>
 
 </div>

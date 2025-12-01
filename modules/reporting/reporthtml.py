@@ -14,7 +14,8 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 import json
 
-from web.analysis.templatetags.analysis_tags import flare_capa_attck, flare_capa_capabilities, flare_capa_mbc, malware_config, proctreetolist
+from web.analysis.templatetags.analysis_tags import flare_capa_attck, flare_capa_capabilities, flare_capa_mbc, malware_config
+from web.analysis.templatetags.generic_tags import proctreetolist
 from web.analysis.templatetags.key_tags import dict2list, getkey, parentfixup, str2list
 from web.analysis.templatetags.pdf_tags import datefmt
 

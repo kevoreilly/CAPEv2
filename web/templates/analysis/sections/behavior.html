@@ -104,9 +104,9 @@
                                 <div class="card bg-secondary text-white h-100">
                                     <div class="card-header border-dark font-weight-bold text-capitalize">{{ key|replace("_", " ") }}</div>
                                     <div class="card-body p-2" style="max-height: 150px; overflow-y: auto;">
-                                        {% if results.behavior.summary[key] %}
+                                        {% if results.behavior.summary|getkey:key %}
                                             <ul class="list-unstyled mb-0 small">
-                                                {% for item in results.behavior.summary[key] %}
+                                                {% for item in results.behavior.summary|getkey:key %}
                                                 <li class="text-break">{{item}}</li>
                                                 {% endfor %}
                                             </ul>

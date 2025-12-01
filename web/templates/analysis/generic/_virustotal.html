@@ -14,7 +14,7 @@
                 <th>Engine</th><th>Result</th><th>Engine</th><th>Result</th><th>Engine</th><th>Result</th>
             </tr>
 
-            {% for av, values in file.virustotal.scans.items() %}
+            {% for av, values in file.virustotal.scans.items %}
                 <td>{{av}}</td>
                 <td>
                     {% if not values.result %}

@@ -31,6 +31,8 @@ if not settings.configured:
             "django.contrib.sessions",
             "django.contrib.messages",
             "django.contrib.staticfiles",
+            "django.contrib.sites",
+            "django_settings_export",
         ],
         # The {% url %} template tag requires ROOT_URLCONF to be set.
         ROOT_URLCONF="web.urls",
@@ -49,6 +51,12 @@ if not settings.configured:
         MOLOCH_ENABLED=False,
         TEMP_PATH="/tmp",
         DEBUG=False,
+        NOCAPTCHA=True,
+        REMOTE_SESSION=False,
+        ALLOW_DL_REPORTS_TO_ALL=True,
+        OPT_ZER0M0N=False,
+        SITE_ID=1,
+        CRISPY_TEMPLATE_PACK="bootstrap4",
         TEMPLATES=[
             {
                 "BACKEND": "django.template.backends.django.DjangoTemplates",

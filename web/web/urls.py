@@ -12,9 +12,9 @@ from django.urls import path, re_path
 from django.views.generic.base import TemplateView
 
 if settings.NOCAPTCHA:
-    from captcha_admin import admin
-else:
     from django.contrib import admin
+else:
+    from captcha_admin import admin
 
 if settings.TWOFA:
     from django_otp.admin import OTPAdminSite

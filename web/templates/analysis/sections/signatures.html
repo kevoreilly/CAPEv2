@@ -28,7 +28,7 @@
                             {% if sign.data %}
                                 <div class="card bg-secondary text-white p-2">
                                 {% for sign in sign.data %}
-                                    {% for key, value in sign.items() %}
+                                    {% for key, value in sign.items %}
                                         <div><strong>{{key}}</strong>: <span class="text-break">{{value}}</span></div>
                                     {% endfor %}
                                 {% endfor %}

@@ -74,7 +74,7 @@
 <section id="malware_conf" class="mb-4">
     <h4 class="mb-3 text-white">Malware Config(s)</h4>
     {% for config_block in results.CAPE.configs %}
-        {% for family, config in config_block.items() %}
+        {% for family, config in config_block.items %}
             {% if family not in "_associated_config_hashes,_associated_analysis_hashes" %}
                 <div class="card bg-dark border-secondary mb-3">
                     <div class="card-header border-secondary">

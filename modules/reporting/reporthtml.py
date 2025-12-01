@@ -14,6 +14,9 @@ from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 
+# Add the web directory to the Python path so that the 'analysis' app can be found.
+sys.path.append(os.path.join(CUCKOO_ROOT, "web"))
+
 from django.conf import settings
 from django.template import loader
 

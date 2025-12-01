@@ -6,23 +6,27 @@ import base64
 import codecs
 import logging
 import os
+import sys
 
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
-from web.analysis.templatetags.analysis_tags import flare_capa_attck, flare_capa_capabilities, flare_capa_mbc, malware_config
-from web.analysis.templatetags.key_tags import dict2list, getkey, parentfixup, str2list
-from web.analysis.templatetags.pdf_tags import datefmt
 
-try:
-    from jinja2.environment import Environment
-    from jinja2.loaders import FileSystemLoader
+from django.conf import settings
+from django.template import loader
 
-    HAVE_JINJA2 = True
-except ImportError:
-    HAVE_JINJA2 = False
+# Configure Django settings lightly for template rendering, avoiding full app setup.
+if not settings.configured:
+    settings.configure(
+        TEMPLATES=[
+            {
+                "BACKEND": "django.template.backends.django.DjangoTemplates",
+                "DIRS": [os.path.join(CUCKOO_ROOT, "web", "templates")],
+            },
+        ]
+    )
 
 log = logging.getLogger(__name__)
 
@@ -35,8 +39,6 @@ class ReportHTML(Report):
         @param results: Cuckoo results dict.
         @raise CuckooReportError: if fails to write report.
         """
-        if not HAVE_JINJA2:
-            raise CuckooReportError("Failed to generate HTML report: Jinja2 Python library is not installed")
 
         shots_path = os.path.join(self.analysis_path, "shots")
         if path_exists(shots_path) and self.options.screenshots:
@@ -63,29 +65,12 @@ class ReportHTML(Report):
         else:
             results["shots"] = []
 
-        env = Environment(autoescape=True)
-        env.filters.update(
-            {
-                "getkey": getkey,
-                "str2list": str2list,
-                "dict2list": dict2list,
-                "parentfixup": parentfixup,
-                "malware_config": malware_config,
-                "flare_capa_capability": flare_capa_capabilities,
-                "flare_capa_attck": flare_capa_attck,
-                "flare_capa_mbc": flare_capa_mbc,
-                "datefmt": datefmt,
-            }
-        )
-        env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "web", "templates"))
-        env.globals.update({
-            "STATIC_URL": "/static/", # Placeholder, might need dynamic retrieval from Django settings.
-        })
+        results["STATIC_URL"] = settings.STATIC_URL
         results["local_conf"] = self.options
 
         try:
-            tpl = env.get_template("report_standalone.html")
-            html = tpl.render({"results": results, "summary_report": False})
+            template = loader.get_template("report_standalone.html")
+            html = template.render({"results": results, "summary_report": False, "config": self.options})
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
                 report.write(html)
         except Exception as e:

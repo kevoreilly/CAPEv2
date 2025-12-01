@@ -105,7 +105,7 @@ class Scheduler:
             if self.next_timeout_time < time.time():
                 self.next_timeout_time = time.time() + self.cfg.cuckoo.get("task_timeout_scan_interval", 30)
                 with self.db.session.begin():
-                    self.db.check_tasks_timeout(self.cfg.cuckoo.get("task_pending_timeout", 0))
+                    self.db.clean_timed_out_tasks(self.cfg.cuckoo.get("task_pending_timeout", 0))
 
         analysis_manager: Optional[AnalysisManager] = None
         with self.db.session.begin():

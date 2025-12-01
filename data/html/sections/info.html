@@ -1,3 +1,4 @@
+{% from "macros.html" import malware_config %}
 <section id="info" class="mb-4">
 
     {% if results.detections %}
@@ -92,7 +93,7 @@
                             {% for key, value in config.items() %}
                             <tr>
                                 <td class="font-weight-bold text-info">{{key}}</td>
-                                <td class="text-break">{% malware_config value %}</td>
+                                <td class="text-break">{{ malware_config(value) }}</td>
                             </tr>
                             {% endfor %}
                             </tbody>

@@ -1,0 +1,24 @@
+{% macro malware_config(obj) %}
+    {% if obj is mapping %}
+        <table class="table table-dark table-striped table-bordered mb-0">
+            {% for key, value in obj.items() %}
+                <tr>
+                    <td>{{ malware_config(key) }}</td>
+                    <td>{{ malware_config(value) }}</td>
+                </tr>
+            {% endfor %}
+        </table>
+    {% elif obj is iterable and obj is not string %}
+        {% if obj|length > 1 %}
+            <ul style="margin: 0; columns: 4;">
+                {% for item in obj %}
+                    <li>{{ malware_config(item) }}</li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            {{ malware_config(obj[0]) }}
+        {% endif %}
+    {% else %}
+        {{ obj }}
+    {% endif %}
+{% endmacro %}

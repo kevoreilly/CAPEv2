@@ -57,6 +57,7 @@ if not settings.configured:
         OPT_ZER0M0N=False,
         SITE_ID=1,
         CRISPY_TEMPLATE_PACK="bootstrap4",
+        TWOFA=False,
         TEMPLATES=[
             {
                 "BACKEND": "django.template.backends.django.DjangoTemplates",

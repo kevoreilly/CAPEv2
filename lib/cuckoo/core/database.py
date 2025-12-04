@@ -2223,7 +2223,7 @@ class _Database:
             return
 
         # Calculate the cutoff time before which tasks are considered timed out.
-        timeout_threshold = datetime.now() - timedelta(seconds=timeout)
+        timeout_threshold = datetime.utcnow() - timedelta(seconds=timeout)
 
         # Build a single, efficient DELETE statement that filters in the database.
         delete_stmt = delete(Task).where(Task.status == TASK_PENDING).where(Task.added_on < timeout_threshold)

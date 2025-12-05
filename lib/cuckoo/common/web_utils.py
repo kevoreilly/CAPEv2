@@ -1535,7 +1535,7 @@ def parse_request_arguments(request, keyword="POST"):
     tags = getattr(request, keyword).get("tags")
     custom = getattr(request, keyword).get("custom", "")
     memory = force_bool(getattr(request, keyword).get("memory", False))
-    clock = getattr(request, keyword).get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
+    clock = getattr(request, keyword).get("clock", "")
     if not clock:
         clock = datetime.utcfromtimestamp(0)
     elif "1970" in clock:

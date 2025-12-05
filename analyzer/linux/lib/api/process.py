@@ -25,7 +25,7 @@ class Process:
         status = self.get_proc_status()
         if not status:
             return False
-        if "zombie" in status.get("State:", ""):
+        if "zombie" in status.get("State", ""):
             return False
         return True
 
@@ -36,7 +36,7 @@ class Process:
         try:
             with open(f"/proc/{self.pid}/status") as f:
                 status = f.readlines()
-            status_values = dict([j.strip().split(maxsplit=1) for j in status])
+            status_values = dict([tuple(map(str.strip, j.split(':',1))) for j in status])
             return status_values
         except Exception:
             log.critical("Could not get process status for pid %s", self.pid)

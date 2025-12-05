@@ -1537,8 +1537,8 @@ def parse_request_arguments(request, keyword="POST"):
     memory = force_bool(getattr(request, keyword).get("memory", False))
     clock = getattr(request, keyword).get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
     if not clock:
-        clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-    if "1970" in clock:
+        clock = datetime.utcfromtimestamp(0)
+    elif "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
     enforce_timeout = force_bool(getattr(request, keyword).get("enforce_timeout", False))
     unique = force_bool(getattr(request, keyword).get("unique", False))

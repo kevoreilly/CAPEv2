@@ -105,10 +105,15 @@ def dump_memory(pid):
         output_file = open(f"{MEM_PATH}/{pid}.dmp", "wb")
 
         for line in maps_file.readlines():
-            m = re.match(r"([0-9A-Fa-f]+)-([0-9A-Fa-f]+) ([-r])(\S+)\s+\d+\s+\S+\s+\d+\s*(.*)?", line)
-            if m and m.group(3) == "r":
+            # Reference: https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
+            m = re.match(r"^([0-9a-f]+)-([0-9a-f]+) ([-rwxsp]{4}) ([0-9a-f]+) (\d\d:\d\d) (\d+) *(.*)$", line)
+            if not m:
+                log.error("Could not parse memory map line for pid %s: %s", pid, line)
+                continue
+            perms = m.group(3)
+            pathname = m.group(7)
+            if "r" in perms:
                 # Testing: Uncomment to skip memory regions associated with dynamic libraries
-                # pathname = m.group(5)
                 # if pathname and (pathname.endswith('.so') or 'lib' in pathname or '[' in pathname):
                 # continue
                 start = int(m.group(1), 16)
@@ -118,7 +123,7 @@ def dump_memory(pid):
                     chunk = mem_file.read(end - start)
                     output_file.write(chunk)
                 except (OSError, ValueError) as e:
-                    log.error("Could not read memory range %s: {e}", f"{start:x}-{end:x}", str(e))
+                    log.error("Could not read memory range %x-%x (%s) (%s): %s", start, end, perms, pathname, e)
         maps_file.close()
         mem_file.close()
         output_file.close()

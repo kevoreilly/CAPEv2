@@ -27,7 +27,41 @@
                             <th style="border-top: 0; width: 15%;">Type</th>
                             <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
                         </tr>
-                        {% for key, value in config.items() %}
+                        {% if config_block._associated_config_hashes %}
+                        <tfoot>
+                            <tr>
+                                <th>Extracted From</th>
+                                <td>
+                                    {% for hashes in config_block._associated_config_hashes %}
+                                        <div class="card" style="margin-bottom: 4px">
+                                                {% set short_sha256 = hashes.sha256|slice:":8" %}
+                                                {% set hashes_id = family|add:"-"|add:short_sha256 %}
+                                                {% set hashes_header_id = hashes_id|add:"-header" %}
+                                                <div class="card-header" id="{{ hashes_header_id }}" style="padding: 0px">
+                                                    <h3 class="mb-0">
+                                                        <a class="btn btn-block text-left" role="button" data-toggle="collapse" href="#{{ hashes_id }}" aria-expanded="false" aria-controls="{{ hashes_id }}">
+                                                            <b>sha256:</b> {{ hashes.sha256 }}
+                                                        </a>
+                                                    </h3>
+                                                </div>
+                                                <div id="{{ hashes_id }}" class="collapse" aria-labelledby="{{ hashes_header_id }}">
+                                                    <div class="card-body">
+                                                        <dl class="row" style="margin-bottom: 0px">
+                                                            {% for algo, value in hashes.items %}
+                                                                <dt class="col-sm-1">{{ algo }}</dt>
+                                                                <dd class="col-sm-11">{{ value }}</dd>
+                                                            {% endfor %}
+                                                        </dl>
+                                                    </div>
+                                                </div>
+                                        </div>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                        <tbody>
+                        {% for key, value in config.items %}
                         <tr>
                             <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
                             <td style="border-top: 0; word-wrap: break-word;">{{value|malware_config}}</td>

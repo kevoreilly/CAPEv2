@@ -63,6 +63,21 @@ class ReportHTML(Report):
         else:
             results["shots"] = []
 
+        bingraph_path = os.path.join(self.analysis_path, "bingraph")
+        if path_exists(bingraph_path):
+            if "graphs" not in results:
+                results["graphs"] = {}
+
+            bingraph_dict_content = {}
+            for file_name in os.listdir(bingraph_path):
+                file_path = os.path.join(bingraph_path, file_name)
+                sha256 = os.path.basename(file_path).split("-", 1)[0]
+                with codecs.open(file_path, "r", encoding="utf-8") as f:
+                    bingraph_dict_content[sha256] = f.read()
+
+            if bingraph_dict_content:
+                results["graphs"]["bingraph"] = {"enabled": True, "content": bingraph_dict_content}
+
         env = Environment(autoescape=True)
         env.filters.update(
             {

@@ -81,7 +81,7 @@
                         <div class="card card-body bg-dark text-white">
                             {% if results.behavior.summary.keys %}
                                 <ul>
-                                    {% for key in results.behavior.summary.keys %}
+                                    {% for key in results.behavior.summary %} # missed .keys due to conflict
                                         <li>{{key}}</li>
                                     {% endfor %}
                                 </ul>

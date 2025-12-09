@@ -25,7 +25,7 @@
                     <div class="card-body">
                         {% for entry in dict.events %} {% for event, message in entry.items() %}
                         <b>Event: {{ event }}</b>
-                        <p>{{ message.original|linebreaks }}</p>
+                        <p>{{ message.original }}</p>
                         {% endfor %} {% endfor %}
                     </div>
                 </div>
@@ -40,7 +40,7 @@
                     <div class="card-body">
                         {% for entry in dict.events %} {% for event, message in entry.items() %}
                         <b>Event: {{ event }}</b>
-                        <p>{{ message.altered|linebreaks }}</p>
+                        <p>{{ message.altered }}</p>
                         {% endfor %} {% endfor %}
                     </div>
                 </div>
@@ -56,7 +56,7 @@
                         {% for entry in dict.filter %}
                         {% for event, message in entry.items() %}
                         <b>Event: {{ event }}</b>
-                        <p>{{ message|linebreaks }}</p>
+                        <p>{{ message }}</p>
                         {% endfor %} {% endfor %}
                     </div>
                 </div>

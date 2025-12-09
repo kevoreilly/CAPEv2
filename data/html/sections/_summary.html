@@ -201,7 +201,7 @@
                             </tr>
                             {% for key, value in results.reversinglabs.items %}
                             <tr>
-                                <td>{{key|capfirst}}</td>
+                                <td>{{key}}</td>
                                 {% if key == "permalink" %}
                                     <td><a target="_blank" href="{{value}}">{{value}}</a></td>
                                 {% elif key == "malicious" and value%}

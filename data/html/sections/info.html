@@ -34,9 +34,9 @@
                                 <td>
                                     {% for hashes in config_block._associated_config_hashes %}
                                         <div class="card" style="margin-bottom: 4px">
-                                                {% set short_sha256 = hashes.sha256|slice:":8" %}
-                                                {% set hashes_id = family|add:"-"|add:short_sha256 %}
-                                                {% set hashes_header_id = hashes_id|add:"-header" %}
+                                                {% set short_sha256 = hashes.sha256[:8] %}
+                                                {% set hashes_id = family ~ "-" ~ short_sha256 %}
+                                                {% set hashes_header_id = hashes_id ~ "-header" %}
                                                 <div class="card-header" id="{{ hashes_header_id }}" style="padding: 0px">
                                                     <h3 class="mb-0">
                                                         <a class="btn btn-block text-left" role="button" data-toggle="collapse" href="#{{ hashes_id }}" aria-expanded="false" aria-controls="{{ hashes_id }}">

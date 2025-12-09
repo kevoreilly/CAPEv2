@@ -6,8 +6,9 @@
         <th>Country Name</th>
     </tr>
     {% for host in results.network.hosts %}
-   <tr>
         {% if host.ip[:7] != "192.168" %}
+        <tr>
+
             {% if "hostname" in host and host.hostname == "" %}
                 <td><span class="mono">Y</span></td>
             {% elif "hostname" in host %}
@@ -17,8 +18,8 @@
             {% endif %}
             <td><span class="mono">{{host.ip}}</span></td>
             <td>{{host.country_name}}</td>
+        </tr>
         {% endif %}
-   </tr>
     {% endfor %}
 </table>
 {% else %}

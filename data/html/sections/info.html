@@ -47,7 +47,7 @@
                                                 <div id="{{ hashes_id }}" class="collapse" aria-labelledby="{{ hashes_header_id }}">
                                                     <div class="card-body">
                                                         <dl class="row" style="margin-bottom: 0px">
-                                                            {% for algo, value in hashes.items %}
+                                                            {% for algo, value in hashes.items() %}
                                                                 <dt class="col-sm-1">{{ algo }}</dt>
                                                                 <dd class="col-sm-11">{{ value }}</dd>
                                                             {% endfor %}

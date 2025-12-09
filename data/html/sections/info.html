@@ -1,3 +1,18 @@
+{% if results.detections %}
+<div class="card mt-4">
+    <div class="card-header">
+        Detections
+    </div>
+    <div class="card-body">
+        <p style="text-align:center; font-size: 18px;font-weight:bold;">
+            {% for block in results.detections %}
+                <span class="badge badge-danger">{{block.family}}</span>
+            {% endfor %}
+        </p>
+    </div>
+</div>
+{% endif %}
+
 <div class="card">
     <div class="card-header">
         Analysis Info

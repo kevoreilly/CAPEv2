@@ -41,64 +41,47 @@
 </div>
 {% endif %}
 
-<div class="row">
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h4>Analysis Info</h4>
-            </div>
-            <div class="card-body">
-                <table class="table table-striped table-bordered">
-                    <tbody>
-                        <tr>
-                            <th style="width: 30%;">Report Time</th>
-                            <td>{{ results.info.started }}</td>
-                        </tr>
-                        <tr>
-                            <th>Analysis ID</th>
-                            <td>{{ results.info.id }}</td>
-                        </tr>
-                        <tr>
-                            <th>Duration</th>
-                            <td>{{ results.info.duration }} seconds</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Analysis & Machine Summary</h4>
     </div>
-    <div class="col-md-6">
-        <div class="card">
-            <div class="card-header">
-                <h4>Machine Info</h4>
-            </div>
-            <div class="card-body">
-                <table class="table table-striped table-bordered">
-                    <tbody>
-                        <tr>
-                            <th style="width: 30%;">Name</th>
-                            <td>{{ results.info.machine.name }}</td>
-                        </tr>
-                        <tr>
-                            <th>Label</th>
-                            <td>{{ results.info.machine.label }}</td>
-                        </tr>
-                        <tr>
-                            <th>Manager</th>
-                            <td>{{ results.info.machine.manager }}</td>
-                        </tr>
-                        <tr>
-                            <th>OS</th>
-                            <td>{{ results.info.machine.os }}</td>
-                        </tr>
-                        <tr>
-                            <th>Shutdown On</th>
-                            <td>{{ results.info.machine.shutdown_on }}</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
+    <div class="card-body">
+        <table class="table table-striped table-bordered">
+            <tbody>
+                <tr>
+                    <th style="width: 15%;">Report Time</th>
+                    <td>{{ results.info.started }}</td>
+                </tr>
+                <tr>
+                    <th>Analysis ID</th>
+                    <td>{{ results.info.id }}</td>
+                </tr>
+                <tr>
+                    <th>Duration</th>
+                    <td>{{ results.info.duration }} seconds</td>
+                </tr>
+                <tr>
+                    <th style="width: 15%;">Machine Name</th>
+                    <td>{{ results.info.machine.name }}</td>
+                </tr>
+                <tr>
+                    <th>Machine Label</th>
+                    <td>{{ results.info.machine.label }}</td>
+                </tr>
+                <tr>
+                    <th>Machine Manager</th>
+                    <td>{{ results.info.machine.manager }}</td>
+                </tr>
+                <tr>
+                    <th>Machine OS</th>
+                    <td>{{ results.info.machine.os }}</td>
+                </tr>
+                <tr>
+                    <th>Shutdown On</th>
+                    <td>{{ results.info.machine.shutdown_on }}</td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 </div>
 

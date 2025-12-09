@@ -86,7 +86,7 @@ class ReportHTML(Report):
                 {
                     "results": results,
                     "summary_report": False,
-                    "graphs": self.results.get("graphs", {}),
+                    "graphs": results.get("graphs", {}),
                 }
             )
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:

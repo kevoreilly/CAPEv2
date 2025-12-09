@@ -1,0 +1,16 @@
+{% if results.network.http %}
+<table class="table table-striped table-bordered">
+    <tr>
+        <th>URL</th>
+        <th>Data</th>
+    </tr>
+    {% for http in results.network.http %}
+    <tr>
+        <td><span class="mono">{{http.uri}}</span></td>
+        <td><span class="mono"><pre>{{http.data}}</pre></span></td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nothing to display.</p>
+{% endif %}

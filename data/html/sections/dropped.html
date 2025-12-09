@@ -1,28 +1,18 @@
 <div class="mt-4">
-    <div class="section-title">
-        <h4>Dropped Files</h4>
-    </div>
-    {% set tab_name = 'dropped' %}
-    {% if results.dropped %}
-        <div id="accordionDroppedFiles">
-        {% for file in results.dropped %}
-            <div class="card mt-2">
-                <div class="card-header" id="headingDroppedFile{{loop.index}}">
-                    <h5 class="mb-0">
-                        <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseDroppedFile{{loop.index}}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapseDroppedFile{{loop.index}}">
-                            {% for name in file.name%}{{name}}{% endfor %}
-                        </button>
-                    </h5>
-                </div>
-                <div id="collapseDroppedFile{{loop.index}}" class="collapse {% if loop.first %}show{% endif %}" aria-labelledby="headingDroppedFile{{loop.index}}" data-parent="#accordionDroppedFiles">
-                    <div class="card-body">
-                        {% include "generic/_file_info.html" %}
-                    </div>
-                </div>
-            </div>
-        {% endfor %}
+    <div class="card">
+        <div class="card-header">
+            <h4>Dropped Files</h4>
         </div>
-    {% else %}
-        <p>Nothing to display.</p>
-    {% endif %}
+        <div class="card-body">
+            {% set tab_name = 'dropped' %}
+            {% if results.dropped %}
+                {% for file in results.dropped %}
+                    {% if not loop.first %}<hr>{% endif %}
+                    {% include "generic/_file_info.html" %}
+                {% endfor %}
+            {% else %}
+                <p>Nothing to display.</p>
+            {% endif %}
+        </div>
+    </div>
 </div>

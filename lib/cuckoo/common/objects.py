@@ -796,7 +796,7 @@ class ProcDump:
         if prot & PAGE_GUARD:
             return "G"
         prot &= 0xFF
-        return self.protmap[prot]
+        return self.protmap.get(prot, "UNKNOWN")
 
     def pretty_print(self):
         new_addr_space = copy.deepcopy(self.address_space)

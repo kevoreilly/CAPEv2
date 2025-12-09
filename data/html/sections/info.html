@@ -42,46 +42,37 @@
 {% endif %}
 
 <div class="card mt-4">
-    <div class="card-header">
+    <div class="card-header" id="analysis-summary-header" data-toggle="collapse" data-target="#analysis-summary-body" aria-expanded="false" aria-controls="analysis-summary-body" style="cursor: pointer;">
         <h4>Analysis & Machine Summary</h4>
     </div>
-    <div class="card-body">
-        <table class="table table-striped table-bordered">
-            <tbody>
-                <tr>
-                    <th style="width: 15%;">Report Time</th>
-                    <td>{{ results.info.started }}</td>
-                </tr>
-                <tr>
-                    <th>Analysis ID</th>
-                    <td>{{ results.info.id }}</td>
-                </tr>
-                <tr>
-                    <th>Duration</th>
-                    <td>{{ results.info.duration }} seconds</td>
-                </tr>
-                <tr>
-                    <th style="width: 15%;">Machine Name</th>
-                    <td>{{ results.info.machine.name }}</td>
-                </tr>
-                <tr>
-                    <th>Machine Label</th>
-                    <td>{{ results.info.machine.label }}</td>
-                </tr>
-                <tr>
-                    <th>Machine Manager</th>
-                    <td>{{ results.info.machine.manager }}</td>
-                </tr>
-                <tr>
-                    <th>Machine OS</th>
-                    <td>{{ results.info.machine.os }}</td>
-                </tr>
-                <tr>
-                    <th>Shutdown On</th>
-                    <td>{{ results.info.machine.shutdown_on }}</td>
-                </tr>
-            </tbody>
-        </table>
+    <div id="analysis-summary-body" class="collapse">
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-2">Report Time</dt>
+                <dd class="col-sm-4">{{ results.info.started }}</dd>
+
+                <dt class="col-sm-2">Machine Name</dt>
+                <dd class="col-sm-4">{{ results.info.machine.name }}</dd>
+
+                <dt class="col-sm-2">Analysis ID</dt>
+                <dd class="col-sm-4">{{ results.info.id }}</dd>
+
+                <dt class="col-sm-2">Machine Label</dt>
+                <dd class="col-sm-4">{{ results.info.machine.label }}</dd>
+
+                <dt class="col-sm-2">Duration</dt>
+                <dd class="col-sm-4">{{ results.info.duration }} seconds</dd>
+
+                <dt class="col-sm-2">Machine Manager</dt>
+                <dd class="col-sm-4">{{ results.info.machine.manager }}</dd>
+
+                <dt class="col-sm-2">OS</dt>
+                <dd class="col-sm-4">{{ results.info.machine.os }}</dd>
+
+                <dt class="col-sm-2">Shutdown On</dt>
+                <dd class="col-sm-4">{{ results.info.machine.shutdown_on }}</dd>
+            </dl>
+        </div>
     </div>
 </div>
 

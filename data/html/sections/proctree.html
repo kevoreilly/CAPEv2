@@ -1,0 +1,25 @@
+{% if results.behavior.processtree %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Process Tree</h4>
+    </div>
+    <div class="card-body">
+        <ul>
+        {% for process in results.behavior.processtree %}
+            {% if process.children %}
+            <li>
+                <strong>{{process.name}}</strong> (PID: {{process.pid}})
+                <ul>
+                {% for child in process.children %}
+                    <li><strong>{{child.name}}</strong> (PID: {{child.pid}})</li>
+                {% endfor %}
+                </ul>
+            </li>
+            {% else %}
+            <li><strong>{{process.name}}</strong> (PID: {{process.pid}})</li>
+            {% endif %}
+        {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}

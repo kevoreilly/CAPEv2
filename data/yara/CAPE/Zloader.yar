@@ -23,7 +23,7 @@ rule Zloader2024
         author = "enzok"
         description = "Zloader Payload"
         cape_type = "Zloader Payload"
-        hash = "49405370a33abbf131c5d550cebe00780cc3fd3cbe888220686582ae88f16af7 "
+        hash = "49405370a33abbf131c5d550cebe00780cc3fd3cbe888220686582ae88f16af7"
     strings:
         $conf_1 = {48 01 ?? 48 8D 15 [4] 41 B8 ?? 04 00 00 E8 [4] [0-5] C7 [1-2] 00 00 00 00}
         $confkey_1 = {48 8D 15 [4] 48 89 ?? 49 89 ?? E8 [4] [0-5] C7 [1-2] 00 00 00 00}

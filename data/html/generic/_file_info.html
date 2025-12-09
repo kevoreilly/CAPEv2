@@ -384,7 +384,7 @@
         {% if file.floss %}
             <tr><td colspan="2"><div class="collapse" id="floss_{{file.sha256}}"><div>{% include "generic/_floss.html" %}</div></div></td></tr>
         {% endif %}
-        {% if graphs.bingraph.content[file.sha256] %}
+        {% if graphs and graphs.bingraph and graphs.bingraph.content[file.sha256] %}
             <tr><td colspan="2" class="text-center">{{ graphs.bingraph.content[file.sha256]|safe }}</td></tr>
         {% endif %}
     </table>

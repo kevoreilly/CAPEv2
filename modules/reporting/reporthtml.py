@@ -82,7 +82,13 @@ class ReportHTML(Report):
 
         try:
             tpl = env.get_template("report.html")
-            html = tpl.render({"results": results, "summary_report": False})
+            html = tpl.render(
+                {
+                    "results": results,
+                    "summary_report": False,
+                    "graphs": self.results.get("graphs", {}),
+                }
+            )
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:
                 report.write(html)
         except Exception as e:

@@ -10,7 +10,9 @@
                     {% if results.behavior.summary.read_files %}<li class="nav-item"><a class="nav-link" id="summary-read-files-tab" data-toggle="pill" href="#summary-read-files" role="tab" aria-controls="summary-read-files" aria-selected="false">Read Files</a></li>{% endif %}
                     {% if results.behavior.summary.write_files %}<li class="nav-item"><a class="nav-link" id="summary-write-files-tab" data-toggle="pill" href="#summary-write-files" role="tab" aria-controls="summary-write-files" aria-selected="false">Modified Files</a></li>{% endif %}
                     {% if results.behavior.summary.delete_files %}<li class="nav-item"><a class="nav-link" id="summary-delete-files-tab" data-toggle="pill" href="#summary-delete-files" role="tab" aria-controls="summary-delete-files" aria-selected="false">Deleted Files</a></li>{% endif %}
+                    <!--
                     {% if results.behavior.summary.keys %}<li class="nav-item"><a class="nav-link" id="summary-keys-tab" data-toggle="pill" href="#summary-keys" role="tab" aria-controls="summary-keys" aria-selected="false">Registry Keys</a></li>{% endif %}
+                    -->
                     {% if results.behavior.summary.read_keys %}<li class="nav-item"><a class="nav-link" id="summary-read-keys-tab" data-toggle="pill" href="#summary-read-keys" role="tab" aria-controls="summary-read-keys" aria-selected="false">Read Registry Keys</a></li>{% endif %}
                     {% if results.behavior.summary.write_keys %}<li class="nav-item"><a class="nav-link" id="summary-write-keys-tab" data-toggle="pill" href="#summary-write-keys" role="tab" aria-controls="summary-write-keys" aria-selected="false">Modified Registry Keys</a></li>{% endif %}
                     {% if results.behavior.summary.delete_keys %}<li class="nav-item"><a class="nav-link" id="summary-delete-keys-tab" data-toggle="pill" href="#summary-delete-keys" role="tab" aria-controls="summary-delete-keys" aria-selected="false">Deleted Registry Keys</a></li>{% endif %}
@@ -74,6 +76,7 @@
                             {% endif %}
                         </div>
                     </div>
+                    <!--
                     <div class="tab-pane fade" id="summary-keys" role="tabpanel" aria-labelledby="summary-keys-tab">
                         <div class="card card-body bg-dark text-white">
                             {% if results.behavior.summary.keys %}
@@ -87,6 +90,7 @@
                             {% endif %}
                         </div>
                     </div>
+                    -->
                     <div class="tab-pane fade" id="summary-read-keys" role="tabpanel" aria-labelledby="summary-read-keys-tab">
                         <div class="card card-body bg-dark text-white">
                             {% if results.behavior.summary.read_keys %}

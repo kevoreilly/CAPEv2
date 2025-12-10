@@ -349,6 +349,7 @@ def check_snapshot_state():
             if not machine_name:
                 continue
 
+            snapshot_name = ""
             try:
                 machine_config = machinery_config.get(machine_name)
                 machine_name = machine_config.get("label")

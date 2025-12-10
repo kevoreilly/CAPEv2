@@ -4,7 +4,7 @@
         <th>URI</th>
         <th>Details</th>
     </tr>
-    {% for http in results.network.http_ex|add:results.network.https_ex %}
+    {% for http in (results.network.http_ex|list + results.network.https_ex|list) %}
     <tr>
         <td style="word-wrap: break-word;">{{http.protocol }}://{{http.host}}{{http.uri}}</td>
         <td style="word-wrap: break-word;">

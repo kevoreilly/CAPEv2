@@ -18,7 +18,9 @@
 
             {% if results.info.parent_sample %}
             <div id="static_parent_file_collapse" class="collapse mt-3">
-                {% for file in results.info.parent_sample|parentfixup|dict2list %}
+                {% for _file_item in results.info.parent_sample|parentfixup|dict2list %}
+                    {% set file = _file_item %}
+                    {% set tab_name = 'static' %}
                     {% include "generic/_file_info.html" %}
                 {% endfor %}
             </div>

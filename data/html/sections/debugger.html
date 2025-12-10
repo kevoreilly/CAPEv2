@@ -32,6 +32,7 @@
             proctreeContainer.addEventListener("click", function(event) {
                 const target = event.target.closest(".proctree-process");
                 if (target) {
+                    event.preventDefault(); // Prevent the link from navigating
                     const pid = target.dataset.pid;
                     if (pid) {
                         const collapseTarget = document.querySelector(`#collapseLog${pid}`);

@@ -7,16 +7,26 @@
         <ul>
         {% for process in results.behavior.processtree %}
             {% if process.children %}
-            <li class="proctree-process" data-pid="{{process.pid}}">
-                <strong>{{process.name}}</strong> (PID: {{process.pid}})
+            <li>
+                <a href="#" class="proctree-process" data-pid="{{process.pid}}">
+                    <strong>{{process.name}}</strong> (PID: {{process.pid}})
+                </a>
                 <ul>
                 {% for child in process.children %}
-                    <li class="proctree-process" data-pid="{{child.pid}}"><strong>{{child.name}}</strong> (PID: {{child.pid}})</li>
+                    <li>
+                        <a href="#" class="proctree-process" data-pid="{{child.pid}}">
+                            <strong>{{child.name}}</strong> (PID: {{child.pid}})
+                        </a>
+                    </li>
                 {% endfor %}
                 </ul>
             </li>
             {% else %}
-            <li class="proctree-process" data-pid="{{process.pid}}"><strong>{{process.name}}</strong> (PID: {{process.pid}})</li>
+            <li>
+                <a href="#" class="proctree-process" data-pid="{{process.pid}}">
+                    <strong>{{process.name}}</strong> (PID: {{process.pid}})
+                </a>
+            </li>
             {% endif %}
         {% endfor %}
         </ul>

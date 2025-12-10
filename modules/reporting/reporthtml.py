@@ -92,7 +92,8 @@ class ReportHTML(Report):
 
                     try:
                         pid = int(log_file.strip(".log"))
-                        results["debugger"][pid] = File(log_path).get_content()
+                        with open(log_path, "r") as f:
+                            results["debugger"][pid] = f.read()
                     except (ValueError, TypeError):
                         log.warning("Could not parse PID from debugger log file: %s", log_file)
             except Exception as e:

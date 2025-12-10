@@ -37,5 +37,10 @@
             {% include "sections/volatility.html" %}
         {% endif %}
     </div>
+    <div class="tab-pane fade" id="debugger" role="tabpanel" aria-labelledby="debugger-tab">
+        {% if results.debugger.log %}
+            {% include "sections/debugger.html" %}
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

@@ -1,0 +1,14 @@
+<div class="mt-4">
+    <div class="section-title">
+        <h4>Debugger Log</h4>
+    </div>
+    {% if results.debugger.log %}
+        <div class="card">
+            <div class="card-body">
+                <pre>{{results.debugger.log}}</pre>
+            </div>
+        </div>
+    {% else %}
+        <p>No debugger log available.</p>
+    {% endif %}
+</div>

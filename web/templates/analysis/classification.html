@@ -1,6 +1,6 @@
 <div class="card bg-dark border-secondary mb-4">
     <div class="card-header border-secondary">
-        <h5 class="mb-0 text-white"><i class="fas fa-info-circle mr-2 text-info"></i> About Classification</h5>
+        <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-info"></i> About Classification</h5>
     </div>
     <div class="card-body text-light">
         <p class="card-text">
@@ -24,7 +24,7 @@
 {% if analysis.classification.family_top %}
 <div class="card bg-dark border-secondary mb-4">
     <div class="card-header border-secondary">
-        <h5 class="mb-0 text-white"><i class="fas fa-trophy mr-2 text-warning"></i> Overall Classification</h5>
+        <h5 class="mb-0 text-white"><i class="fas fa-trophy me-2 text-warning"></i> Overall Classification</h5>
     </div>
     <div class="table-responsive">
         <table class="table table-dark table-striped mb-0" style="table-layout: fixed;">
@@ -50,7 +50,7 @@
 
 <div class="card bg-dark border-secondary">
     <div class="card-header border-secondary">
-        <h5 class="mb-0 text-white"><i class="fas fa-network-wired mr-2 text-primary"></i> Per Thread Classification</h5>
+        <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-primary"></i> Per Thread Classification</h5>
     </div>
     <div class="card-body p-0">
         {% if analysis.classification.details %}
@@ -59,8 +59,8 @@
                 <div class="card bg-secondary mb-2 mx-2 mt-2">
                     <div class="card-header p-2" id="heading{{forloop.counter}}">
                         <h5 class="mb-0">
-                            <button class="btn btn-link text-white text-decoration-none" type="button" data-toggle="collapse" data-target="#collapse{{forloop.counter}}" aria-expanded="true" aria-controls="collapse{{forloop.counter}}">
-                                <span class="badge badge-light mr-2">
+                            <button class="btn btn-link text-white text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{forloop.counter}}" aria-expanded="true" aria-controls="collapse{{forloop.counter}}">
+                                <span class="badge text-dark bg-light me-2">
                                     {% if block.pid %}PID: {{block.pid}}{% endif %}
                                     {% if block.tid %}TID: {{block.tid}}{% endif %}
                                 </span>
@@ -69,7 +69,7 @@
                         </h5>
                     </div>
 
-                    <div id="collapse{{forloop.counter}}" class="collapse" aria-labelledby="heading{{forloop.counter}}" data-parent="#classificationDetails">
+                    <div id="collapse{{forloop.counter}}" class="collapse" aria-labelledby="heading{{forloop.counter}}" data-bs-parent="#classificationDetails">
                         <div class="card-body bg-dark text-white">
                             {% if block.results %}
                                 <ul class="list-unstyled">
@@ -77,7 +77,7 @@
                                     {% for key, value in sub_block.items %}
                                         {% if key == "samples" %}
                                             <li><strong class="text-info">Samples:</strong>
-                                                <ul class="ml-3">
+                                                <ul class="ms-3">
                                                 {% for sub_value in value %}
                                                     {% for skey, svalue in sub_value.items %}
                                                         <li><strong>{{ skey }}:</strong> {{ svalue }}</li>
@@ -107,8 +107,8 @@
                 <div class="card bg-secondary mb-2 mx-2 mt-2">
                     <div class="card-header p-2">
                         <h5 class="mb-0">
-                            <button class="btn btn-link text-white text-decoration-none" type="button" data-toggle="collapse" data-target="#collapseLegacy{{forloop.counter}}">
-                                <span class="badge badge-light mr-2">
+                            <button class="btn btn-link text-white text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLegacy{{forloop.counter}}">
+                                <span class="badge text-dark bg-light me-2">
                                     {% if block.pid %}PID: {{block.pid}}{% endif %}
                                     {% if block.tid %}TID: {{block.tid}}{% endif %}
                                 </span>
@@ -124,7 +124,7 @@
                                     {% for key, value in sub_block.items %}
                                         {% if key == "samples" %}
                                             <li><strong class="text-info">Samples:</strong>
-                                                <ul class="ml-3">
+                                                <ul class="ms-3">
                                                 {% for sub_value in value %}
                                                     {% for skey, svalue in sub_value.items %}
                                                         <li><strong>{{ skey }}:</strong> {{ svalue }}</li>

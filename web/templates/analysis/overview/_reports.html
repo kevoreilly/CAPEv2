@@ -1,18 +1,18 @@
 <div class="card bg-dark border-secondary mb-3">
     <div class="card-body d-flex align-items-center justify-content-center flex-wrap">
-        <h5 class="mb-0 mr-3 text-white"><i class="far fa-file-alt mr-2 text-info"></i> Reports:</h5>
+        <h5 class="mb-0 me-3 text-white"><i class="far fa-file-alt me-2 text-info"></i> Reports:</h5>
         
         {% if config.jsondump %}
-            <a href="{% url "filereport" analysis.info.id "json" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-code mr-1"></i> JSON</a>
+            <a href="{% url "filereport" analysis.info.id "json" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-code me-1"></i> JSON</a>
         {% endif %}
         {% if config.reporthtml %}
-            <a href="{% url "filereport" analysis.info.id "html" %}" class="btn btn-sm btn-outline-light m-1"><i class="fab fa-html5 mr-1"></i> HTML</a>
+            <a href="{% url "filereport" analysis.info.id "html" %}" class="btn btn-sm btn-outline-light m-1"><i class="fab fa-html5 me-1"></i> HTML</a>
         {% endif %}
         {% if config.reporthtmlsummary %}
-             <a href="{% url "filereport" analysis.info.id "htmlsummary" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-file-invoice mr-1"></i> HTML Summary</a>
+             <a href="{% url "filereport" analysis.info.id "htmlsummary" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-file-invoice me-1"></i> HTML Summary</a>
         {% endif %}
         {% if config.reportpdf %}
-           <a href="{% url "filereport" analysis.info.id "pdf" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-file-pdf mr-1"></i> PDF</a>
+           <a href="{% url "filereport" analysis.info.id "pdf" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-file-pdf me-1"></i> PDF</a>
         {% endif %}
         {% if config.maec41 %}
            <a href="{% url "filereport" analysis.info.id "maec" %}" class="btn btn-sm btn-outline-light m-1">MAEC</a>

@@ -2,11 +2,11 @@
 {% block content %}
 <div class="card bg-dark shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-white"><i class="fas fa-clock mr-2 text-warning"></i>Pending Tasks</h5>
+        <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-warning"></i>Pending Tasks</h5>
         {% if count %}
-        <span class="badge badge-warning">{{count}} pending</span>
+        <span class="badge bg-warning">{{count}} pending</span>
         {% else %}
-        <span class="badge badge-secondary">0 pending</span>
+        <span class="badge bg-secondary">0 pending</span>
         {% endif %}
     </div>
     {% if tasks %}
@@ -28,21 +28,21 @@
                     <td><span class="font-weight-bold">{{task.id}}</span></td>
                     <td><span class="text-muted small">{{task.added_on|date:"Y-m-d H:i:s"}}</span></td>
                     <td class="text-center">
-                        <span class="badge badge-info">{{task.category|upper}}</span>
+                        <span class="badge bg-info">{{task.category|upper}}</span>
                     </td>
                     <td class="text-truncate" title="{{task.target|filename}}">
                         <span class="text-light">{{task.target|filename}}</span>
                     </td>
                     <td class="small">
                         <div class="text-truncate mb-1" title="MD5: {{task.md5}}">
-                            <span class="text-muted mr-1">MD5:</span> <span class="text-monospace">{{task.md5}}</span>
+                            <span class="text-muted me-1">MD5:</span> <span class="text-monospace">{{task.md5}}</span>
                         </div>
                         <div class="text-truncate" title="SHA256: {{task.sha256}}">
-                            <span class="text-muted mr-1">SHA256:</span> <span class="text-monospace">{{task.sha256}}</span>
+                            <span class="text-muted me-1">SHA256:</span> <span class="text-monospace">{{task.sha256}}</span>
                         </div>
                     </td>
                     <td class="text-center">
-                        <a href="/apiv2/tasks/delete/{{task.id}}/pending" class="btn btn-sm btn-outline-danger" data-toggle="tooltip" title="Delete Task">
+                        <a href="/apiv2/tasks/delete/{{task.id}}/pending" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Delete Task">
                             <i class="fas fa-trash-alt"></i>
                         </a>
                     </td>

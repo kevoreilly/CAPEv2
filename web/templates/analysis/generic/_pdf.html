@@ -4,7 +4,7 @@
     {% if file.pdf %}
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
-            <h5 class="mb-0 text-white"><i class="fas fa-file-pdf mr-2 text-danger"></i> PDF Information</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-file-pdf me-2 text-danger"></i> PDF Information</h5>
         </div>
         <div class="card-body">
             
@@ -123,12 +123,12 @@
                     <div class="card bg-dark border-bottom border-secondary rounded-0">
                         <div class="card-header p-0" id="headingJSStream{{forloop.counter}}">
                             <h2 class="mb-0">
-                                <button class="btn btn-block text-left p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-toggle="collapse" data-target="#JSStream_{{obj|getkey:'Object ID'}}" aria-expanded="false">
-                                    <i class="fab fa-js mr-2 text-warning"></i> Object ID: {{obj|getkey:"Object ID"}}
+                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#JSStream_{{obj|getkey:'Object ID'}}" aria-expanded="false">
+                                    <i class="fab fa-js me-2 text-warning"></i> Object ID: {{obj|getkey:"Object ID"}}
                                 </button>
                             </h2>
                         </div>
-                        <div id="JSStream_{{obj|getkey:'Object ID'}}" class="collapse" data-parent="#jsStreamsAccordion">
+                        <div id="JSStream_{{obj|getkey:'Object ID'}}" class="collapse" data-bs-parent="#jsStreamsAccordion">
                             <div class="card-body bg-secondary text-white">
                                 <p class="mb-1"><strong>Size:</strong> {{obj.Size}} bytes</p>
                                 <p class="mb-2"><strong>Offset:</strong> {{obj.Offset}}</p>

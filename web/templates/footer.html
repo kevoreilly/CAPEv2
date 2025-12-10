@@ -5,16 +5,17 @@
                 <small>Powered by <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-light font-weight-bold">CAPE Sandbox</a></small>
             </div>
             <div class="col-md-4 text-center mb-2 mb-md-0">
-                <a href="#" class="text-muted text-decoration-none"><i class="fas fa-chevron-up mr-1"></i> Back to top</a>
+                <a href="#" class="text-muted text-decoration-none"><i class="fas fa-chevron-up me-1"></i> Back to top</a>
             </div>
             <div class="col-md-4 text-center text-md-right">
-                <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-muted mr-3" data-toggle="tooltip" title="GitHub Repository"><i class="fab fa-github fa-lg"></i></a>
-                <a href="https://capev2.readthedocs.io/" target="_blank" class="text-muted" data-toggle="tooltip" title="Documentation"><i class="fas fa-book fa-lg"></i></a>
+                <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-muted me-3" data-bs-toggle="tooltip" title="GitHub Repository"><i class="fab fa-github fa-lg"></i></a>
+                <a href="https://capev2.readthedocs.io/" target="_blank" class="text-muted" data-bs-toggle="tooltip" title="Documentation"><i class="fas fa-book fa-lg"></i></a>
             </div>
         </div>
     </div>
 </footer>
 
+<script src="{{ STATIC_URL }}js/bootstrap.bundle.min.js"></script>
 <script src="{{ STATIC_URL }}js/bootstrap.min.js"></script>
 <script src="{{ STATIC_URL }}js/bootstrap-fileupload.js"></script>
 <script src="{{ STATIC_URL }}js/lightbox.js"></script>
@@ -23,8 +24,8 @@
 <script>
     // Initialize Bootstrap tooltips and popovers globally
     $(function () {
-        $('[data-toggle="tooltip"]').tooltip();
-        $('[data-toggle="popover"]').popover();
+        $('[data-bs-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="popover"]').popover();
     })
 </script>
 </body>

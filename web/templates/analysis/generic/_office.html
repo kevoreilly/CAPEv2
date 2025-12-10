@@ -3,7 +3,7 @@
     {% if file.office %}
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
-            <h5 class="mb-0 text-white"><i class="fas fa-file-word mr-2 text-primary"></i> Office Document Information</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-file-word me-2 text-primary"></i> Office Document Information</h5>
         </div>
         <div class="card-body">
             
@@ -74,12 +74,12 @@
                         <div class="card bg-dark border-bottom border-secondary rounded-0">
                             <div class="card-header p-0" id="headingMacroSig{{forloop.counter}}">
                                 <h2 class="mb-0">
-                                    <button class="btn btn-block text-left p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-toggle="collapse" data-target="#macro_sig_{{detection|slugify}}" aria-expanded="false" aria-controls="macro_sig_{{detection|slugify}}">
-                                        <i class="fas fa-exclamation-triangle mr-2 text-warning"></i> {{detection}}
+                                    <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_sig_{{detection|slugify}}" aria-expanded="false" aria-controls="macro_sig_{{detection|slugify}}">
+                                        <i class="fas fa-exclamation-triangle me-2 text-warning"></i> {{detection}}
                                     </button>
                                 </h2>
                             </div>
-                            <div id="macro_sig_{{detection|slugify}}" class="collapse" aria-labelledby="headingMacroSig{{forloop.counter}}" data-parent="#macroSignaturesAccordion">
+                            <div id="macro_sig_{{detection|slugify}}" class="collapse" aria-labelledby="headingMacroSig{{forloop.counter}}" data-bs-parent="#macroSignaturesAccordion">
                                 <div class="card-body bg-secondary text-white">
                                     <div class="table-responsive">
                                         <table class="table table-dark table-sm table-striped mb-0">
@@ -116,12 +116,12 @@
                         <div class="card bg-dark border-bottom border-secondary rounded-0">
                             <div class="card-header p-0" id="headingMacroCode{{forloop.parentloop.counter0}}-{{forloop.counter0}}">
                                 <h2 class="mb-0">
-                                    <button class="btn btn-block text-left p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-toggle="collapse" data-target="#macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" aria-expanded="false">
-                                        <i class="fas fa-code mr-2 text-info"></i> {{name}}
+                                    <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" aria-expanded="false">
+                                        <i class="fas fa-code me-2 text-info"></i> {{name}}
                                     </button>
                                 </h2>
                             </div>
-                            <div id="macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" class="collapse" data-parent="#macroCodeAccordion">
+                            <div id="macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" class="collapse" data-bs-parent="#macroCodeAccordion">
                                 <div class="card-body bg-secondary text-white">
                                     <pre class="mb-0 text-light small" style="max-height: 400px; overflow-y: auto;">{{code}}</pre>
                                 </div>

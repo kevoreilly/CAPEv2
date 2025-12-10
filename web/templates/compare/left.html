@@ -15,11 +15,11 @@ $(function () {
 
 <div class="row">
     <div class="col-md-6 border-right border-secondary">
-        <h4 class="text-center text-white mb-3"><i class="fas fa-file-alt mr-2 text-info"></i> Analysis 1</h4>
+        <h4 class="text-center text-white mb-3"><i class="fas fa-file-alt me-2 text-info"></i> Analysis 1</h4>
         {% include "compare/_info.html" with record=left %}
     </div>
     <div class="col-md-6">
-        <h4 class="text-center text-white mb-3"><i class="fas fa-random mr-2 text-warning"></i> Select Analysis 2</h4>
+        <h4 class="text-center text-white mb-3"><i class="fas fa-random me-2 text-warning"></i> Select Analysis 2</h4>
 
         <div class="card bg-dark border-secondary mb-4">
             <div class="card-header border-secondary text-white">Same File Analysis</div>
@@ -29,7 +29,7 @@ $(function () {
                     {% include "compare/_summary_table.html" %}
                 {% else %}
                     <div class="alert alert-secondary">
-                        <i class="fas fa-info-circle mr-2"></i> No other analysis found for this file.
+                        <i class="fas fa-info-circle me-2"></i> No other analysis found for this file.
                     </div>
                 {% endif %}
             </div>
@@ -42,7 +42,7 @@ $(function () {
                 <form class="form-inline" action="#" id="hash">
                     <div class="input-group w-100">
                         <input class="form-control bg-secondary text-white border-secondary" type="text" name="hash" placeholder="MD5 Hash" />
-                        <div class="input-group-append">
+                        
                             <button type="submit" class="btn btn-outline-info"><i class="fas fa-search"></i> Search</button>
                         </div>
                     </div>

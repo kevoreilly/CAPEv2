@@ -7,13 +7,13 @@
                 <form class="form-inline justify-content-center" role="form" action="{% url "search" %}" method="get">
                     <div class="input-group w-50">
                         <input type="text" class="form-control bg-secondary text-white border-secondary" id="form_search" name="search" placeholder="Search term as regex..." aria-label="Search">
-                        <div class="input-group-append">
+                        
                             <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Search</button>
                         </div>
                     </div>
                 </form>
                 <div class="text-center mt-3">
-                    <p class="text-muted mb-0">Need help? <a href="#help" class="text-info" data-toggle="collapse" role="button" aria-expanded="false" aria-controls="help">Click here for search syntax <i class="fas fa-chevron-down"></i></a></p>
+                    <p class="text-muted mb-0">Need help? <a href="#help" class="text-info" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="help">Click here for search syntax <i class="fas fa-chevron-down"></i></a></p>
                 </div>
             </div>
         </div>
@@ -21,7 +21,7 @@
         <div id="help" class="collapse mt-3">
             <div class="card bg-dark border-secondary">
                 <div class="card-header border-secondary">
-                    <h5 class="mb-0 text-white"><i class="fas fa-info-circle mr-2"></i>Search Help</h5>
+                    <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2"></i>Search Help</h5>
                 </div>
                 <div class="card-body">
                     <p class="text-muted">ElasticSearch queries do not use a prefix. e.g., <code>*windows.*</code> matches 'time.windows.com'.</p>
@@ -108,7 +108,7 @@
     <div class="col-12 text-center">
         <h3>Results for term: <span class="text-danger font-weight-bold">{{term}}</span></h3>
         {% if settings.ZIPPED_DOWNLOAD_ALL and term_only in 'capetype,capeyara' %}
-            <a href="{% url 'file' term_only|add:'zipall' '1' value_only %}" class="btn btn-sm btn-outline-warning mt-2" data-bs-toggle="tooltip" title="Download password-protected archive with all matching files."><i class="fas fa-file-archive mr-1"></i> Download All Matches</a>
+            <a href="{% url 'file' term_only|add:'zipall' '1' value_only %}" class="btn btn-sm btn-outline-warning mt-2" data-bs-toggle="tooltip" title="Download password-protected archive with all matching files."><i class="fas fa-file-archive me-1"></i> Download All Matches</a>
         {% endif %}
     </div>
 </div>
@@ -118,8 +118,8 @@
     {% if analyses|length > 0 %}
         <div class="card bg-dark shadow-sm border-secondary mb-4">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-list mr-2"></i>Search Results</h5>
-                <span class="badge badge-secondary">{{analyses|length}} items</span>
+                <h5 class="mb-0 text-white"><i class="fas fa-list me-2"></i>Search Results</h5>
+                <span class="badge bg-secondary">{{analyses|length}} items</span>
             </div>
             <div class="table-responsive">
                 <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
@@ -159,7 +159,7 @@
                         <th width="5%" class="border-top-0">ClamAV</th>
                         <th width="10%" class="border-top-0">Custom</th>
                         {% endif %}
-                        <th width="7%" class="border-top-0 text-right">Status</th>
+                        <th width="7%" class="border-top-0 text-end">Status</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -176,7 +176,7 @@
                             {% endif %}
                             </td>
                             <td>
-                                <span class="badge badge-dark border border-secondary">{{analysis.package}}</span>
+                                <span class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span>
                             </td>
                             <td class="text-truncate" title="{{analysis.filename}}">
                             {% if analysis.filename %}
@@ -205,11 +205,11 @@
                             <td>
                                 {% if analysis.detections %}
                                     {% if analysis.detections|is_string %}
-                                        <a href="/analysis/search/detections:{{analysis.detections}}" class="badge badge-danger">{{analysis.detections}}</a>
+                                        <a href="/analysis/search/detections:{{analysis.detections}}" class="badge bg-danger">{{analysis.detections}}</a>
                                     {% elif analysis.detections|length == 1 %}
-                                        <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge badge-danger">{{analysis.detections.0.family}}</a>
+                                        <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge bg-danger">{{analysis.detections.0.family}}</a>
                                     {% elif analysis.detections|length > 1 %}
-                                        <span class="badge badge-danger" data-toggle="tooltip" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple ({{analysis.detections|length}})</span>
+                                        <span class="badge bg-danger" data-bs-toggle="tooltip" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple ({{analysis.detections|length}})</span>
                                     {% endif %}
                                 {% endif %}
                             </td>
@@ -225,7 +225,7 @@
                             {% if config.moloch %}
                             <td>
                                 {% if analysis.moloch_url %}
-                                    <a href={{analysis.moloch_url}} target="_blank" class="badge badge-primary">MOLOCH</a>
+                                    <a href={{analysis.moloch_url}} target="_blank" class="badge bg-primary">MOLOCH</a>
                                 {% else %}
                                       <span class="text-muted small">-</span>
                                 {% endif %}
@@ -236,7 +236,7 @@
                                      <td>
                                          <span class="small">
                                          {% if analysis.mlist_cnt %}
-                                             <span class="badge badge-warning">{{analysis.mlist_cnt}}</span>
+                                             <span class="badge bg-warning">{{analysis.mlist_cnt}}</span>
                                          {% else %}
                                              <span class="text-muted">-</span>
                                          {% endif %}
@@ -248,7 +248,7 @@
                                     <td>
                                         <span class="small">
                                         {% if analysis.f_mlist_cnt %}
-                                            <span class="badge badge-warning">{{analysis.f_mlist_cnt}}</span>
+                                            <span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>
                                         {% else %}
                                             <span class="text-muted">-</span>
                                         {% endif %}
@@ -287,7 +287,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge badge-secondary">{{analysis.virustotal_summary}}</a>
+                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-secondary">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                       <span class="text-muted small">-</span>
                                 {% endif %}
@@ -296,7 +296,7 @@
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                    <span class="badge {% if analysis.malscore <= 2.0 %}badge-success{% elif analysis.malscore <= 6.0 %}badge-warning{% else %}badge-danger{% endif %}"
+                                    <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                     {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}>
                                         {{analysis.malscore|floatformat:1}}
                                     </span>
@@ -343,21 +343,21 @@
                                 </span>
                             </td>
                             {% endif %}
-                            <td class="text-right">
+                            <td class="text-end">
                                 {% if analysis.status == "pending" %}
-                                    <span class="badge badge-secondary">pending</span>
+                                    <span class="badge bg-secondary">pending</span>
                                 {% elif analysis.status == "running" %}
-                                    <span class="badge badge-warning">running</span>
+                                    <span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "completed" %}
-                                    <span class="badge badge-info">processing</span>
+                                    <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
                                     {% if analysis.errors %}
-                                        <span class="badge badge-danger">error</span>
+                                        <span class="badge bg-danger">error</span>
                                     {% else %}
-                                        <span class="badge badge-success">reported</span>
+                                        <span class="badge bg-success">reported</span>
                                     {% endif%}
                                 {% else %}
-                                    <span class="badge badge-danger">{{analysis.status}}</span>
+                                    <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -368,13 +368,13 @@
         </div>
     {% else %}
         <div class="alert alert-warning text-center shadow-sm" role="alert">
-            <i class="fas fa-search-minus fa-lg mr-2"></i> <b>No results found.</b> Try refining your search query.
+            <i class="fas fa-search-minus fa-lg me-2"></i> <b>No results found.</b> Try refining your search query.
         </div>
     {% endif %}
 {% else %}
     {% if error %}
         <div class="alert alert-danger text-center shadow-sm" role="alert">
-            <i class="fas fa-exclamation-triangle fa-lg mr-2"></i> <b>{{error}}</b>
+            <i class="fas fa-exclamation-triangle fa-lg me-2"></i> <b>{{error}}</b>
         </div>
     {% endif %}
 {% endif %}

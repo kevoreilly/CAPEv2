@@ -6,25 +6,25 @@
     <div class="col-12">
         <ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1" id="analysisTabs" role="tablist">
             <li class="nav-item">
-                <a class="nav-link active font-weight-bold" id="files-tab" data-toggle="pill" href="#files" role="tab" aria-controls="files" aria-selected="true">
-                    <i class="fas fa-file mr-2"></i>Files
+                <a class="nav-link active font-weight-bold" id="files-tab" data-bs-toggle="pill" href="#files" role="tab" aria-controls="files" aria-selected="true">
+                    <i class="fas fa-file me-2"></i>Files
                 </a>
             </li>
             <li class="nav-item">
-                <a class="nav-link font-weight-bold" id="static-tab" data-toggle="pill" href="#static" role="tab" aria-controls="static" aria-selected="false">
-                    <i class="fas fa-code mr-2"></i>Static
+                <a class="nav-link font-weight-bold" id="static-tab" data-bs-toggle="pill" href="#static" role="tab" aria-controls="static" aria-selected="false">
+                    <i class="fas fa-code me-2"></i>Static
                 </a>
             </li>
             {% if config.url_analysis %}
             <li class="nav-item">
-                <a class="nav-link font-weight-bold" id="urls-tab" data-toggle="pill" href="#urls" role="tab" aria-controls="urls" aria-selected="false">
-                    <i class="fas fa-link mr-2"></i>URLs
+                <a class="nav-link font-weight-bold" id="urls-tab" data-bs-toggle="pill" href="#urls" role="tab" aria-controls="urls" aria-selected="false">
+                    <i class="fas fa-link me-2"></i>URLs
                 </a>
             </li>
             {% endif %}
             <li class="nav-item">
-                <a class="nav-link font-weight-bold" id="pcaps-tab" data-toggle="pill" href="#pcaps" role="tab" aria-controls="pcaps" aria-selected="false">
-                    <i class="fas fa-network-wired mr-2"></i>PCAPs
+                <a class="nav-link font-weight-bold" id="pcaps-tab" data-bs-toggle="pill" href="#pcaps" role="tab" aria-controls="pcaps" aria-selected="false">
+                    <i class="fas fa-network-wired me-2"></i>PCAPs
                 </a>
             </li>
         </ul>
@@ -58,8 +58,8 @@
 
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                 <h5 class="mb-0 text-white"><i class="fas fa-clock mr-2 text-muted"></i>Recent Files</h5>
-                 <span class="badge badge-secondary">{{files|length}} items</span>
+                 <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-muted"></i>Recent Files</h5>
+                 <span class="badge bg-secondary">{{files|length}} items</span>
             </div>
             {% if files %}
             <div class="table-responsive">
@@ -104,7 +104,7 @@
                         <th width="3%" class="border-top-0">PCAP</th>
                         <th width="5%" class="border-top-0">ClamAV</th>
                         {% endif %}
-                        <th width="6%" class="border-top-0 text-right">Status</th>
+                        <th width="6%" class="border-top-0 text-end">Status</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -134,7 +134,7 @@
                             {% endif %}
                             </td>
                             <td>
-                                <span class="badge badge-dark border border-secondary">{{analysis.package}}</span>
+                                <span class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span>
                             </td>
                             <td class="text-truncate" title="{{analysis.filename}}">
                                 {% if analysis.status in "reported,recovered" %}
@@ -156,17 +156,17 @@
                             </td>
                             <td>
                                 {% if analysis.detections|is_string %}
-                                    <a href="/analysis/search/detections:{{analysis.detections}}" class="badge badge-danger">{{analysis.detections}}</a>
+                                    <a href="/analysis/search/detections:{{analysis.detections}}" class="badge bg-danger">{{analysis.detections}}</a>
                                 {% elif analysis.detections|length == 1 %}
-                                    <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge badge-danger">{{analysis.detections.0.family}}</a>
+                                    <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge bg-danger">{{analysis.detections.0.family}}</a>
                                 {% elif analysis.detections|length > 1 %}
-                                    <span class="badge badge-danger" data-toggle="tooltip" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple ({{analysis.detections|length}})</span>
+                                    <span class="badge bg-danger" data-bs-toggle="tooltip" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple ({{analysis.detections|length}})</span>
                                 {% endif %}
                             </td>
                             {% if config.display_task_tags %}
                             <td>
                                 {% if analysis.user_task_tags %}
-                                    <span class="badge badge-info">{{analysis.user_task_tags}}</span>
+                                    <span class="badge bg-info">{{analysis.user_task_tags}}</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -182,7 +182,7 @@
                             {% if config.moloch %}
                             <td>
                                 {% if analysis.moloch_url %}
-                                    <a href={{analysis.moloch_url}} target="_blank" class="badge badge-primary">MOLOCH</a>
+                                    <a href={{analysis.moloch_url}} target="_blank" class="badge bg-primary">MOLOCH</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -191,7 +191,7 @@
                             {% if config.display_office_martians %}
                             <td>
                                 {% if analysis.f_mlist_cnt %}
-                                <span class="badge badge-warning">{{analysis.f_mlist_cnt}}</span>
+                                <span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>
                                 {% else %}
                                 <span class="text-muted">-</span>
                                 {% endif %}
@@ -228,7 +228,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge badge-secondary">{{analysis.virustotal_summary}}</a>
+                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-secondary">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -237,7 +237,7 @@
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                    <span class="badge {% if analysis.malscore <= 2.0 %}badge-success{% elif analysis.malscore <= 6.0 %}badge-warning{% else %}badge-danger{% endif %}"
+                                    <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                     {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}>
                                         {{analysis.malscore|floatformat:1}}
                                     </span>
@@ -262,23 +262,23 @@
                                 {% endif %}
                             </td>
                             {% endif %}
-                            <td class="text-right">
+                            <td class="text-end">
                                 {% if analysis.status == "pending" %}
-                                    <span class="badge badge-secondary">pending</span>
+                                    <span class="badge bg-secondary">pending</span>
                                 {% elif analysis.status == "running" %}
-                                    <span class="badge badge-warning">running</span>
+                                    <span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "distributed" %}
-                                    <span class="badge badge-warning">distributed</span>
+                                    <span class="badge bg-warning">distributed</span>
                                 {% elif analysis.status == "completed" %}
-                                    <span class="badge badge-info">processing</span>
+                                    <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
                                     {% if analysis.errors %}
-                                        <span class="badge badge-danger">error</span>
+                                        <span class="badge bg-danger">error</span>
                                     {% else %}
-                                        <span class="badge badge-success">reported</span>
+                                        <span class="badge bg-success">reported</span>
                                     {% endif%}
                                 {% else %}
-                                    <span class="badge badge-danger">{{analysis.status}}</span>
+                                    <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -341,8 +341,8 @@
     {% endif %}
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-file-code mr-2 text-muted"></i>Recent Static Analysis</h5>
-                <span class="badge badge-secondary">{{static|length}} items</span>
+                <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-muted"></i>Recent Static Analysis</h5>
+                <span class="badge bg-secondary">{{static|length}} items</span>
             </div>
             {% if static %}
             <div class="table-responsive">
@@ -376,7 +376,7 @@
                         <th width="3%" class="border-top-0">PCAP</th>
                         <th width="5%" class="border-top-0">ClamAV</th>
                         {% endif %}
-                        <th width="6%" class="border-top-0 text-right">Status</th>
+                        <th width="6%" class="border-top-0 text-end">Status</th>
                     </tr>
                     </thead>
                     <tbody>
@@ -408,18 +408,18 @@
                             <td>
                                 <!--1 detection we show the name, more detection we show multi and add tooltip-->
                                 {% if analysis.detections|is_string %}
-                                        <a href="/analysis/search/detections:{{analysis.detections}}" class="badge badge-danger">{{analysis.detections}}</a>
+                                        <a href="/analysis/search/detections:{{analysis.detections}}" class="badge bg-danger">{{analysis.detections}}</a>
                                 {% elif analysis.detections|length == 1 %}
-                                    <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge badge-danger" data-bs-toggle="tooltip" title="{{analysis.detections.0.details}}">{{analysis.detections.0.family}}</a>
+                                    <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge bg-danger" data-bs-toggle="tooltip" title="{{analysis.detections.0.details}}">{{analysis.detections.0.family}}</a>
                                 {% elif analysis.detections|length > 1 %}
-                                    <span class="badge badge-danger" title="Multiple">Multiple</span>
+                                    <span class="badge bg-danger" title="Multiple">Multiple</span>
                                 {% endif %}
                             </td>
 
                             {% if config.display_task_tags %}
                             <td>
                                 {% if analysis.user_task_tags %}
-                                    <span class="badge badge-info">{{analysis.user_task_tags}}</span>
+                                    <span class="badge bg-info">{{analysis.user_task_tags}}</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -436,7 +436,7 @@
                             {% if config.moloch %}
                             <td>
                                 {% if analysis.moloch_url %}
-                                    <a href={{analysis.moloch_url}} target="_blank" class="badge badge-primary">MOLOCH</a>
+                                    <a href={{analysis.moloch_url}} target="_blank" class="badge bg-primary">MOLOCH</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -445,7 +445,7 @@
                             {% if config.display_office_martians %}
                             <td>
                                 {% if analysis.f_mlist_cnt %}
-                                <span class="badge badge-warning">{{analysis.f_mlist_cnt}}</span>
+                                <span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>
                                 {% else %}
                                 <span class="text-muted">None</span>
                                 {% endif %}
@@ -454,7 +454,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge badge-secondary">{{analysis.virustotal_summary}}</a>
+                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-secondary">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -463,7 +463,7 @@
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                    <span class="badge {% if analysis.malscore <= 2.0 %}badge-success{% elif analysis.malscore <= 6.0 %}badge-warning{% else %}badge-danger{% endif %}"
+                                    <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                     {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}>
                                         {{analysis.malscore|floatformat:1}}
                                     </span>
@@ -488,23 +488,23 @@
                                 {% endif %}
                             </td>
                             {% endif %}
-                            <td class="text-right">
+                            <td class="text-end">
                                 {% if analysis.status == "pending" %}
-                                    <span class="badge badge-secondary">pending</span>
+                                    <span class="badge bg-secondary">pending</span>
                                 {% elif analysis.status == "running" %}
-                                    <span class="badge badge-warning">running</span>
+                                    <span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "distributed" %}
-                                    <span class="badge badge-warning">distributed</span>
+                                    <span class="badge bg-warning">distributed</span>
                                 {% elif analysis.status == "completed" %}
-                                    <span class="badge badge-info">processing</span>
+                                    <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
                                     {% if analysis.errors %}
-                                        <span class="badge badge-danger">error</span>
+                                        <span class="badge bg-danger">error</span>
                                     {% else %}
-                                        <span class="badge badge-success">reported</span>
+                                        <span class="badge bg-success">reported</span>
                                     {% endif%}
                                 {% else %}
-                                    <span class="badge badge-danger">{{analysis.status}}</span>
+                                    <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -567,8 +567,8 @@
     {% endif %}
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-globe mr-2 text-muted"></i>Recent URLs</h5>
-                <span class="badge badge-secondary">{{urls|length}} items</span>
+                <h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-muted"></i>Recent URLs</h5>
+                <span class="badge bg-secondary">{{urls|length}} items</span>
             </div>
             {% if urls %}
             <div class="table-responsive">
@@ -596,7 +596,7 @@
                         {% endif %}
                         <th width="5%" class="border-top-0">PCAP</th>
                         <th width="10%" class="border-top-0">ClamAV</th>
-                        <th width="5%" class="border-top-0 text-right">Status</th>
+                        <th width="5%" class="border-top-0 text-end">Status</th>
                     {% else %}
                         <th width="5%" class="border-top-0">ID</th>
                         <th width="12%" class="border-top-0">Timestamp</th>
@@ -616,7 +616,7 @@
                         {% if config.malscore %}
                             <th width="5%" class="border-top-0">MalScore</th>
                         {% endif %}
-                        <th width="7%" class="border-top-0 text-right">Status</th>
+                        <th width="7%" class="border-top-0 text-end">Status</th>
                     {% endif %}
                     </tr>
                     </thead>
@@ -645,7 +645,7 @@
                             {% if config.moloch %}
                             <td>
                                 {% if analysis.moloch_url %}
-                                    <a href={{analysis.moloch_url}} target="_blank" class="badge badge-primary">MOLOCH</a>
+                                    <a href={{analysis.moloch_url}} target="_blank" class="badge bg-primary">MOLOCH</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -654,7 +654,7 @@
                             {% if config.display_browser_martians %}
                             <td>
                                 {% if analysis.mlist_cnt %}
-                                <span class="badge badge-warning">{{analysis.mlist_cnt}}</span>
+                                <span class="badge bg-warning">{{analysis.mlist_cnt}}</span>
                                 {% else %}
                                 -
                                 {% endif %}
@@ -692,7 +692,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge badge-secondary">{{analysis.virustotal_summary}}</a>
+                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-secondary">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                     -
                                 {% endif %}
@@ -701,7 +701,7 @@
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                    <span class="badge {% if analysis.malscore <= 2.0 %}badge-success{% elif analysis.malscore <= 6.0 %}badge-warning{% else %}badge-danger{% endif %}"
+                                    <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                     {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}>
                                         {{analysis.malscore|floatformat:1}}
                                     </span>
@@ -735,17 +735,17 @@
                                 {% endif %}
                             </td>
                             {% endif %}
-                            <td class="text-right">
+                            <td class="text-end">
                                 {% if analysis.status == "pending" %}
-                                    <span class="badge badge-secondary">pending</span>
+                                    <span class="badge bg-secondary">pending</span>
                                 {% elif analysis.status == "running" %}
-                                    <span class="badge badge-warning">running</span>
+                                    <span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "completed" %}
-                                    <span class="badge badge-info">processing</span>
+                                    <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
-                                    <span class="badge badge-success">reported</span>
+                                    <span class="badge bg-success">reported</span>
                                 {% else %}
-                                    <span class="badge badge-danger">{{analysis.status}}</span>
+                                    <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% endif %}
                             </td>
                         </tr>
@@ -808,8 +808,8 @@
     {% endif %}
     <div class="card bg-dark shadow-sm border-secondary">
         <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-white"><i class="fas fa-network-wired mr-2 text-muted"></i>Recent PCAPs</h5>
-            <span class="badge badge-secondary">{{pcaps|length}} items</span>
+            <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-muted"></i>Recent PCAPs</h5>
+            <span class="badge bg-secondary">{{pcaps|length}} items</span>
         </div>
         {% if pcaps %}
         <div class="table-responsive">
@@ -832,7 +832,7 @@
                         {% endif %}
 
                         <th width="5%" class="border-top-0">PCAP</th>
-                        <th width="5%" class="border-top-0 text-right">Status</th>
+                        <th width="5%" class="border-top-0 text-end">Status</th>
                     {% else %}
                         <th width="5%" class="border-top-0">ID</th>
                         <th width="12%" class="border-top-0">Timestamp</th>
@@ -847,7 +847,7 @@
                         {% if config.malscore %}
                             <th width="5%" class="border-top-0">MalScore</th>
                         {% endif %}
-                        <th width="6%" class="border-top-0 text-right">Status</th>
+                        <th width="6%" class="border-top-0 text-end">Status</th>
                     {% endif %}
                     </tr>
                 </thead>
@@ -879,7 +879,7 @@
                         {% if config.moloch %}
                         <td>
                             {% if analysis.moloch_url %}
-                            <a href={{analysis.moloch_url}} target="_blank" class="badge badge-primary">MOLOCH</a>
+                            <a href={{analysis.moloch_url}} target="_blank" class="badge bg-primary">MOLOCH</a>
                             {% else %}
                             -
                             {% endif %}
@@ -917,7 +917,7 @@
                         {% if config.malscore %}
                         <td>
                             {% if analysis.malscore != None %}
-                                <span class="badge {% if analysis.malscore <= 2.0 %}badge-success{% elif analysis.malscore <= 6.0 %}badge-warning{% else %}badge-danger{% endif %}"
+                                <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                 {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}>
                                     {{analysis.malscore|floatformat:1}}
                                 </span>
@@ -935,21 +935,21 @@
                             {% endif %}
                         </td>
                         {% endif %}
-                        <td class="text-right">
+                        <td class="text-end">
                             {% if analysis.status == "pending" %}
-                                <span class="badge badge-secondary">pending</span>
+                                <span class="badge bg-secondary">pending</span>
                             {% elif analysis.status == "running" %}
-                                <span class="badge badge-warning">running</span>
+                                <span class="badge bg-warning">running</span>
                             {% elif analysis.status == "completed" %}
-                                <span class="badge badge-info">processing</span>
+                                <span class="badge bg-info">processing</span>
                             {% elif analysis.status == "reported" %}
                                 {% if analysis.errors %}
-                                    <span class="badge badge-danger">error</span>
+                                    <span class="badge bg-danger">error</span>
                                 {% else %}
-                                    <span class="badge badge-success">reported</span>
+                                    <span class="badge bg-success">reported</span>
                                 {% endif%}
                             {% else %}
-                                <span class="badge badge-danger">{{analysis.status}}</span>
+                                <span class="badge bg-danger">{{analysis.status}}</span>
                             {% endif %}
                         </td>
                     </tr>
@@ -991,7 +991,7 @@
 <script>
 $(function() {
   //for bootstrap 3 use 'shown.bs.tab' instead of 'shown' in the next line
-  $('a[data-toggle="pill"]').on('click', function (e) {
+  $('a[data-bs-toggle="pill"]').on('click', function (e) {
     //save the latest tab; use cookies if you like 'em better:
     localStorage.setItem('lastTab', $(e.target).attr('href'));
   });

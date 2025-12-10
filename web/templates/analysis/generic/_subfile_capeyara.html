@@ -2,7 +2,7 @@
     {% load key_tags %}
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
-            <h5 class="mb-0 text-white"><i class="fas fa-file-signature mr-2 text-warning"></i> CAPE Yara Details</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-file-signature me-2 text-warning"></i> CAPE Yara Details</h5>
         </div>
         <div class="card-body p-0">
             {% if sub_file.cape_yara %}
@@ -11,19 +11,19 @@
                     <div class="card bg-dark border-bottom border-secondary rounded-0">
                         <div class="card-header p-0" id="headingSubCapeYara{{forloop.counter}}">
                             <h2 class="mb-0">
-                                <button class="btn btn-block text-left p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-toggle="collapse" data-target="#sub_cape_yara_{{hit.name}}" aria-expanded="false" aria-controls="sub_cape_yara_{{hit.name}}">
-                                    <i class="fas fa-search mr-2 text-info"></i> {{hit.name}}
-                                    <i class="fas fa-chevron-down float-right mt-1 text-muted"></i>
+                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sub_cape_yara_{{hit.name}}" aria-expanded="false" aria-controls="sub_cape_yara_{{hit.name}}">
+                                    <i class="fas fa-search me-2 text-info"></i> {{hit.name}}
+                                    <i class="fas fa-chevron-down float-end mt-1 text-muted"></i>
                                 </button>
                             </h2>
                         </div>
-                        <div id="sub_cape_yara_{{hit.name}}" class="collapse" aria-labelledby="headingSubCapeYara{{forloop.counter}}" data-parent="#subFileCapeYaraAccordion">
+                        <div id="sub_cape_yara_{{hit.name}}" class="collapse" aria-labelledby="headingSubCapeYara{{forloop.counter}}" data-bs-parent="#subFileCapeYaraAccordion">
                             <div class="card-body bg-secondary text-white">
                                 <div class="table-responsive">
                                     <table class="table table-dark table-sm table-striped mb-0" style="table-layout: fixed;">
                                         {% if hit.strings %}
                                         <tr>
-                                            <th style="width: 20%;">Strings</th>
+                                            <th style="width: 15%;">Strings</th>
                                             <td class="text-break">
                                                 <ul class="list-unstyled mb-0">
                                                     {% for string in hit.strings %}

@@ -4,7 +4,7 @@
 <div class="row mt-4 mb-4">
     <div class="col-12">
         <div class="alert alert-primary shadow-sm d-flex align-items-center justify-content-center" style="border: none; color: white;">
-            <i class="fas fa-stopwatch mr-3" style="font-size: 1.5rem;"></i>
+            <i class="fas fa-stopwatch me-3" style="font-size: 1.5rem;"></i>
             <div class="text-center" style="font-size: 1.1rem;">
                 Estimating ~<b>{{report.estimate_hour}}</b> analysis per hour, <b>{{report.estimate_day}}</b> per day.
             </div>
@@ -36,13 +36,13 @@
 {% if report.top_detections %}
 <div class="card bg-dark text-white mb-4 shadow-sm border-secondary">
     <div class="card-header border-secondary bg-transparent">
-        <h5 class="mb-0"><i class="fas fa-bug mr-2 text-danger"></i> Top Detections</h5>
+        <h5 class="mb-0"><i class="fas fa-bug me-2 text-danger"></i> Top Detections</h5>
     </div>
     <div class="card-body">
         <div class="d-flex flex-wrap justify-content-center align-items-center">
             {% for block in report.top_detections %}
             <a href="/analysis/search/detections:{{block.family}}" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
-                <span class="badge badge-danger mr-2 p-2">{{block.total}}</span>
+                <span class="badge bg-danger me-2 p-2">{{block.total}}</span>
                 <span class="font-weight-bold" style="font-size: 1rem;">{{block.family}}</span>
             </a>
             {% endfor %}
@@ -53,22 +53,22 @@
 
 <div class="card bg-dark text-white shadow-sm border-secondary mb-5">
     <div class="card-header border-secondary bg-transparent">
-        <h5 class="mb-0"><i class="fas fa-chart-bar mr-2 text-info"></i> Analysis States</h5>
+        <h5 class="mb-0"><i class="fas fa-chart-bar me-2 text-info"></i> Analysis States</h5>
     </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
                 <thead class="thead-dark">
                 <tr>
-                    <th class="text-uppercase border-top-0 pl-4">State</th>
-                    <th class="text-uppercase border-top-0 text-right pr-4">Count</th>
+                    <th class="text-uppercase border-top-0 ps-4">State</th>
+                    <th class="text-uppercase border-top-0 text-end pe-4">Count</th>
                 </tr>
                 </thead>
                 <tbody>
                 {% for state, count in report.states_count.items %}
                     <tr>
-                        <td class="pl-4 border-secondary">{{state|title}}</td>
-                        <td class="text-right pr-4 border-secondary font-weight-bold">{{count}}</td>
+                        <td class="ps-4 border-secondary">{{state|title}}</td>
+                        <td class="text-end pe-4 border-secondary font-weight-bold">{{count}}</td>
                     </tr>
                 {% endfor %}
                 </tbody>

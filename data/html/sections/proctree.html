@@ -6,7 +6,6 @@
     <div class="card-body">
         <ul>
         {% for process in results.behavior.processtree %}
-            {% if process.children %}
             <li>
                 <a href="#collapseLog{{process.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{process.pid}}">
                     <strong>{{process.name}}</strong> (PID: {{process.pid}})
@@ -21,13 +20,6 @@
                 {% endfor %}
                 </ul>
             </li>
-            {% else %}
-            <li>
-                <a href="#collapseLog{{process.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{process.pid}}">
-                    <strong>{{process.name}}</strong> (PID: {{process.pid}})
-                </a>
-            </li>
-            {% endif %}
         {% endfor %}
         </ul>
     </div>

@@ -91,7 +91,7 @@ class ReportHTML(Report):
                         continue
 
                     try:
-                        pid = int(log_file.strip(".log"))
+                        pid = log_file.strip(".log")
                         with open(log_path, "r") as f:
                             debugger[pid] = f.read()
                     except (ValueError, TypeError):

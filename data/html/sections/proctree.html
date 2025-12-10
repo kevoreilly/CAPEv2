@@ -1,0 +1,35 @@
+{% if results.behavior.processtree %}
+<div class="card mt-4" id="process-tree-container">
+    <div class="card-header">
+        <h4>Process Tree</h4>
+    </div>
+    <div class="card-body">
+        <ul>
+        {% for process in results.behavior.processtree %}
+            {% if process.children %}
+            <li>
+                <a href="#collapseLog{{process.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{process.pid}}">
+                    <strong>{{process.name}}</strong> (PID: {{process.pid}})
+                </a>
+                <ul>
+                {% for child in process.children %}
+                    <li>
+                        <a href="#collapseLog{{child.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{child.pid}}">
+                            <strong>{{child.name}}</strong> (PID: {{child.pid}})
+                        </a>
+                    </li>
+                {% endfor %}
+                </ul>
+            </li>
+            {% else %}
+            <li>
+                <a href="#collapseLog{{process.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{process.pid}}">
+                    <strong>{{process.name}}</strong> (PID: {{process.pid}})
+                </a>
+            </li>
+            {% endif %}
+        {% endfor %}
+        </ul>
+    </div>
+</div>
+{% endif %}

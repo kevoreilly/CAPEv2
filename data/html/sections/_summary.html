@@ -1,0 +1,232 @@
+    <div class="mt-4">
+        <div class="card">
+            <div class="card-header">
+                <h4>Behavioral Summary</h4>
+            </div>
+            <div class="card-body">
+                {% if results.behavior and results.behavior.summary %}
+                <ul class="nav nav-pills mb-3" id="summary-pills-tab" role="tablist">
+                    {% if results.behavior.summary.files %}<li class="nav-item"><a class="nav-link active" id="summary-files-tab" data-bs-toggle="pill" href="#summary-files" role="tab" aria-controls="summary-files" aria-selected="true">Accessed Files</a></li>{% endif %}
+                    {% if results.behavior.summary.read_files %}<li class="nav-item"><a class="nav-link" id="summary-read-files-tab" data-bs-toggle="pill" href="#summary-read-files" role="tab" aria-controls="summary-read-files" aria-selected="false">Read Files</a></li>{% endif %}
+                    {% if results.behavior.summary.write_files %}<li class="nav-item"><a class="nav-link" id="summary-write-files-tab" data-bs-toggle="pill" href="#summary-write-files" role="tab" aria-controls="summary-write-files" aria-selected="false">Modified Files</a></li>{% endif %}
+                    {% if results.behavior.summary.delete_files %}<li class="nav-item"><a class="nav-link" id="summary-delete-files-tab" data-bs-toggle="pill" href="#summary-delete-files" role="tab" aria-controls="summary-delete-files" aria-selected="false">Deleted Files</a></li>{% endif %}
+                    <!--
+                    {% if results.behavior.summary.keys %}<li class="nav-item"><a class="nav-link" id="summary-keys-tab" data-bs-toggle="pill" href="#summary-keys" role="tab" aria-controls="summary-keys" aria-selected="false">Registry Keys</a></li>{% endif %}
+                    -->
+                    {% if results.behavior.summary.read_keys %}<li class="nav-item"><a class="nav-link" id="summary-read-keys-tab" data-bs-toggle="pill" href="#summary-read-keys" role="tab" aria-controls="summary-read-keys" aria-selected="false">Read Registry Keys</a></li>{% endif %}
+                    {% if results.behavior.summary.write_keys %}<li class="nav-item"><a class="nav-link" id="summary-write-keys-tab" data-bs-toggle="pill" href="#summary-write-keys" role="tab" aria-controls="summary-write-keys" aria-selected="false">Modified Registry Keys</a></li>{% endif %}
+                    {% if results.behavior.summary.delete_keys %}<li class="nav-item"><a class="nav-link" id="summary-delete-keys-tab" data-bs-toggle="pill" href="#summary-delete-keys" role="tab" aria-controls="summary-delete-keys" aria-selected="false">Deleted Registry Keys</a></li>{% endif %}
+                    {% if results.behavior.summary.resolved_apis %}<li class="nav-item"><a class="nav-link" id="summary-resolved-apis-tab" data-bs-toggle="pill" href="#summary-resolved-apis" role="tab" aria-controls="summary-resolved-apis" aria-selected="false">Resolved APIs</a></li>{% endif %}
+                    {% if results.behavior.summary.executed_commands %}<li class="nav-item"><a class="nav-link" id="summary-executed-commands-tab" data-bs-toggle="pill" href="#summary-executed-commands" role="tab" aria-controls="summary-executed-commands" aria-selected="false">Executed Commands</a></li>{% endif %}
+                    {% if results.behavior.summary.mutexes %}<li class="nav-item"><a class="nav-link" id="summary-mutexes-tab" data-bs-toggle="pill" href="#summary-mutexes" role="tab" aria-controls="summary-mutexes" aria-selected="false">Mutexes</a></li>{% endif %}
+                    {% if results.behavior.summary.created_services %}<li class="nav-item"><a class="nav-link" id="summary-created-services-tab" data-bs-toggle="pill" href="#summary-created-services" role="tab" aria-controls="summary-created-services" aria-selected="false">Created Services</a></li>{% endif %}
+                    {% if results.behavior.summary.started_services %}<li class="nav-item"><a class="nav-link" id="summary-started-services-tab" data-bs-toggle="pill" href="#summary-started-services" role="tab" aria-controls="summary-started-services" aria-selected="false">Started Services</a></li>{% endif %}
+                    {% if results.behavior.summary.reversing_labs %}<li class="nav-item"><a class="nav-link" id="summary-reversing-labs-tab" data-bs-toggle="pill" href="#summary-reversing-labs" role="tab" aria-controls="summary-reversing-labs" aria-selected="false">Reversing Labs</a></li>{% endif %}
+                </ul>
+                <div class="tab-content" id="summary-pills-tabContent">
+                    <div class="tab-pane fade show active" id="summary-files" role="tabpanel" aria-labelledby="summary-files-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.files %}
+                                <ul>
+                                    {% for file in results.behavior.summary.files %}
+                                        <li>{{file}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-read-files" role="tabpanel" aria-labelledby="summary-read-files-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.read_files %}
+                                <ul>
+                                    {% for file in results.behavior.summary.read_files %}
+                                        <li>{{file}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-write-files" role="tabpanel" aria-labelledby="summary-write-files-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.write_files %}
+                                <ul>
+                                    {% for file in results.behavior.summary.write_files %}
+                                        <li>{{file}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-delete-files" role="tabpanel" aria-labelledby="summary-delete-files-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.delete_files %}
+                                <ul>
+                                    {% for file in results.behavior.summary.delete_files %}
+                                        <li>{{file}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <!--
+                    <div class="tab-pane fade" id="summary-keys" role="tabpanel" aria-labelledby="summary-keys-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.keys %}
+                                <ul>
+                                    {% for key in results.behavior.summary %} # missed .keys due to conflict
+                                        <li>{{key}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    -->
+                    <div class="tab-pane fade" id="summary-read-keys" role="tabpanel" aria-labelledby="summary-read-keys-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.read_keys %}
+                                <ul>
+                                    {% for key in results.behavior.summary.read_keys %}
+                                        <li>{{key}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-write-keys" role="tabpanel" aria-labelledby="summary-write-keys-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.write_keys %}
+                                <ul>
+                                    {% for key in results.behavior.summary.write_keys %}
+                                        <li>{{key}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-delete-keys" role="tabpanel" aria-labelledby="summary-delete-keys-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.delete_keys %}
+                                <ul>
+                                    {% for key in results.behavior.summary.delete_keys %}
+                                        <li>{{key}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-resolved-apis" role="tabpanel" aria-labelledby="summary-resolved-apis-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.resolved_apis %}
+                                <ul>
+                                    {% for api in results.behavior.summary.resolved_apis %}
+                                        <li>{{api}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-executed-commands" role="tabpanel" aria-labelledby="summary-executed-commands-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.executed_commands %}
+                                <ul>
+                                    {% for cmd in results.behavior.summary.executed_commands %}
+                                        <li>{{cmd}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-mutexes" role="tabpanel" aria-labelledby="summary-mutexes-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.mutexes %}
+                                <ul>
+                                    {% for mutex in results.behavior.summary.mutexes %}
+                                        <li>{{mutex}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-created-services" role="tabpanel" aria-labelledby="summary-created-services-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.created_services %}
+                                <ul>
+                                    {% for service in results.behavior.summary.created_services %}
+                                        <li>{{service}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-started-services" role="tabpanel" aria-labelledby="summary-started-services-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.behavior.summary.started_services %}
+                                <ul>
+                                    {% for service in results.behavior.summary.started_services %}
+                                        <li>{{service}}</li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p>Nothing to display.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="tab-pane fade" id="summary-reversing-labs" role="tabpanel" aria-labelledby="summary-reversing-labs-tab">
+                        <div class="card card-body bg-dark text-white">
+                            {% if results.reversinglabs %}
+                            <table class="table table-striped table-dark">
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Value</th>
+                                </tr>
+                                {% for key, value in results.reversinglabs.items %}
+                                <tr>
+                                    <td>{{key}}</td>
+                                    {% if key == "permalink" %}
+                                        <td><a target="_blank" href="{{value}}">{{value}}</a></td>
+                                    {% elif key == "malicious" and value%}
+                                        <td><b style="color:red">yes</b></td>
+                                    {% elif key == "malicious" and not value%}
+                                        <td><b style="color:green">no</b></td>
+                                    {% else %}
+                                        <td>{{value}}</td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </table>
+                            {% else %}
+                                <p class="text-center text-danger"><b>No results</b></p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% else %}
+                    <p>No behavioral summary data available.</p>
+                {% endif %}
+            </div>
+        </div>
+    </div>

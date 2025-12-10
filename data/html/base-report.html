@@ -14,64 +14,6 @@
     </style>
 </head>
 <body>
-<script>
-    {% include "js/popper/popper.min.js" %}
-    {% include "js/bootstrap/bootstrap.min.js" %}
-</script>
-<script>
-    document.addEventListener("DOMContentLoaded", function(){
-        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'))
-        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-            return new bootstrap.Tooltip(tooltipTriggerEl)
-        })
-    });
-</script>
-<div class="container-fluid">
-    {% include "graphic/logo.html" %}
-    {% if not summary_report %}
-    <ul class="nav nav-tabs" id="myTab" role="tablist">
-        <li class="nav-item">
-            <a class="nav-link active" id="info-tab" data-bs-toggle="tab" href="#info" role="tab" aria-controls="info" aria-selected="true">Info</a>
-        </li>
-        {% if results.info.category == "file" %}
-        <li class="nav-item">
-            <a class="nav-link" id="file-tab" data-bs-toggle="tab" href="#file" role="tab" aria-controls="file" aria-selected="false">File</a>
-        </li>
-        {% elif results.info.category == "url" %}
-        <li class="nav-item">
-            <a class="nav-link" id="url-tab" data-bs-toggle="tab" href="#url" role="tab" aria-controls="url" aria-selected="false">URL</a>
-        </li>
-        {% endif %}
-        <li class="nav-item">
-            <a class="nav-link" id="signatures-tab" data-bs-toggle="tab" href="#signatures" role="tab" aria-controls="signatures" aria-selected="false">Signatures</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" id="screenshots-tab" data-bs-toggle="tab" href="#screenshots" role="tab" aria-controls="screenshots" aria-selected="false">Screenshots</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" id="network-tab" data-bs-toggle="tab" href="#network" role="tab" aria-controls="network" aria-selected="false">Network</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" id="dropped-tab" data-bs-toggle="tab" href="#dropped" role="tab" aria-controls="dropped" aria-selected="false">Dropped</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" id="payloads-tab" data-bs-toggle="tab" href="#payloads" role="tab" aria-controls="payloads" aria-selected="false">Payloads</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" id="behavior-tab" data-bs-toggle="tab" href="#behavior" role="tab" aria-controls="behavior" aria-selected="false">Behavior</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" id="volatility-tab" data-bs-toggle="tab" href="#volatility" role="tab" aria-controls="volatility" aria-selected="false">Volatility</a>
-        </li>
-        {% if debugger %}
-        <li class="nav-item">
-            <a class="nav-link" id="debugger-tab" data-bs-toggle="tab" href="#debugger" role="tab" aria-controls="debugger" aria-selected="false">Debugger</a>
-        </li>
-        {% endif %}
-    </ul>
-    {% endif %}
-    {% block content %}{% endblock %}
-
     <footer class="footer">
         {% if not summary_report %}
         <p class="float-right"><a href="#">Back to top</a></p>
@@ -79,5 +21,49 @@
         <p class="text-center"><a href="https://github.com/kevoreilly/CAPEv2">CAPE Sandbox on Github</a></p>
     </footer>
 </div>
+
+<script>
+    {% include "js/popper/popper.min.js" %}
+    {% include "js/bootstrap/bootstrap.min.js" %}
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Activate tab from hash
+        const hash = window.location.hash;
+        if (hash) {
+            const triggerEl = document.querySelector('.nav-tabs a[href="' + hash + '"]');
+            if (triggerEl) {
+                const tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+
+        // Update hash on tab click
+        const tabElms = document.querySelectorAll('a[data-bs-toggle="tab"]');
+        tabElms.forEach(function (tabElm) {
+            tabElm.addEventListener('shown.bs.tab', function (event) {
+                history.replaceState(null, null, event.target.getAttribute('href'));
+            });
+        });
+
+        // Handle hash changes for back/forward
+        window.addEventListener('hashchange', function() {
+            const hash = window.location.hash;
+            if (hash) {
+                const triggerEl = document.querySelector('.nav-tabs a[href="' + hash + '"]');
+                 if (triggerEl) {
+                    const tab = new bootstrap.Tab(triggerEl);
+                    tab.show();
+                }
+            }
+        }, false);
+    });
+</script>
 </body>
 </html>

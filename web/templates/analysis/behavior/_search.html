@@ -20,8 +20,10 @@ $(function () {
                     {% csrf_token %}
                     <div class="input-group w-50">
                         <input type="text" class="form-control bg-secondary text-white border-secondary" id="form_search" name="search" placeholder="Enter search term..." aria-label="Search term" />
-                        
-                            
+                        <div class="input-group-append">
+                            <button type="submit" class="btn btn-primary"><i class="fas fa-search"></i> Search</button>
+                        </div>
+                    </div>
                 </form>
 
                 <div id="search-results"></div>

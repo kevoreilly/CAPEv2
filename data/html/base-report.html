@@ -8,9 +8,9 @@
     <meta name="author" content="CAPE Sandbox">
 
     <style>
-        {% include "css/bootstrap/bootstrap.min.css" %}
-        {% include "css/fontawesome/all.min.css" %}
-        {% include "css/style.css" %}
+        {{ bootstrap_css | safe }}
+        {{ fontawesome_css | safe }}
+        {{ style_css | safe }}
     </style>
 </head>
 <body>

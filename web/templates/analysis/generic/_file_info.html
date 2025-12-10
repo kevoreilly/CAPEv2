@@ -23,27 +23,27 @@
         <table class="table table-dark table-striped mb-0" style="table-layout: fixed;">
             {% if source_url %}
             <tr>
-                <th style="width: 20%;">Downloaded From</th>
+                <th style="width: 15%;">Downloaded From</th>
                 <td class="text-break">{{source_url|escape}}</td>
             </tr>
             {% endif %}
             
             {% if file.note %}
             <tr>
-                <th>Note</th>
+                <th style="width: 15%;">Note</th>
                 <td class="text-break"><strong>{{file.note}}</strong></td>
             </tr>
             {% endif %}
 
             {% if file.cape_type %}
             <tr>
-                <th>Type</th>
+                <th style="width: 15%;">Type</th>
                 <td><strong>{{file.cape_type}}</strong></td>
             </tr>
             {% endif %}
 
             <tr>
-                <th>File Name</th>
+                <th style="width: 15%;">File Name</th>
                 <td class="text-break">
                     {% for name in file.name|str2list %}
                         <div><strong>{{name|safe}}</strong></div>
@@ -53,14 +53,14 @@
 
             {% if file.type %}
             <tr>
-                <th>File Type</th>
+                <th style="width: 15%;">File Type</th>
                 <td>{{file.type}}</td>
             </tr>
             {% endif %}
 
             {% if file.guest_paths and tab_name == "dropped" %}
             <tr>
-                <th>Associated Filenames</th>
+                <th style="width: 15%;">Associated Filenames</th>
                 <td class="text-break">
                     {% for path in file.guest_paths|str2list %}
                         <div>{{path}}</div>
@@ -70,13 +70,13 @@
             {% endif %}
 
             <tr>
-                <th>File Size</th>
+                <th style="width: 15%;">File Size</th>
                 <td>{{file.size}} bytes</td>
             </tr>
 
             {% if file.module_path and file.process_path != file.module_path %}
             <tr>
-                <th>Module Path</th>
+                <th style="width: 15%;">Module Path</th>
                 <td class="text-break">{{file.module_path}}</td>
             </tr>
             {% endif %}
@@ -84,43 +84,43 @@
             <!-- Advanced Process Info -->
             {% if file.cape_type_code == 8 or file.cape_type_code == 9 %}
                 <tr>
-                    <th>Virtual Address</th>
+                    <th style="width: 15%;">Virtual Address</th>
                     <td>{{file.virtual_address}}</td>
                 </tr>
             {% endif %}
             {% if file.cape_type_code == 5 %}
                 <tr>
-                    <th>Section Handle</th>
+                    <th style="width: 15%;">Section Handle</th>
                     <td>{{file.section_handle}}</td>
                 </tr>
             {% endif %}
             {% if file.cape_type_code == 3 or file.cape_type_code == 4 %}
                 <tr>
-                    <th>Target Process</th>
+                    <th style="width: 15%;">Target Process</th>
                     <td>{{file.target_process}} (PID: {{file.target_pid}})</td>
                 </tr>
                 <tr>
-                    <th>Target Path</th>
+                    <th style="width: 15%;">Target Path</th>
                     <td class="text-break">{{file.target_path}}</td>
                 </tr>
                 <tr>
-                    <th>Injecting Process</th>
+                    <th style="width: 15%;">Injecting Process</th>
                     <td>{{file.process_name}} (PID: {{file.pid}})</td>
                 </tr>
                 <tr>
-                    <th>Path</th>
+                    <th style="width: 15%;">Path</th>
                     <td class="text-break">{{file.process_path}}</td>
                 </tr>
             {% else %}
                 {% if file.process_name %}
                 <tr>
-                    <th>Process</th>
+                    <th style="width: 15%;">Process</th>
                     <td>{{file.process_name}} {% if file.pid %}(PID: {{file.pid}}){% endif %}</td>
                 </tr>
                 {% endif %}
                 {% if file.process_path %}
                 <tr>
-                    <th>Path</th>
+                    <th style="width: 15%;">Path</th>
                     <td class="text-break">{{file.process_path}}</td>
                 </tr>
                 {% endif %}
@@ -128,15 +128,15 @@
 
             <!-- Hashes -->
             <tr>
-                <th>MD5</th>
+                <th style="width: 15%;">MD5</th>
                 <td class="text-monospace">{{file.md5}}</td>
             </tr>
             <tr>
-                <th>SHA1</th>
+                <th style="width: 15%;">SHA1</th>
                 <td class="text-monospace">{{file.sha1}}</td>
             </tr>
             <tr>
-                <th>SHA256</th>
+                <th style="width: 15%;">SHA256</th>
                 <td class="text-monospace">
                     {{file.sha256}}
                     <span class="ms-2">
@@ -176,7 +176,7 @@
             <!-- External Tools -->
             {% if file.clamav %}
             <tr>
-                <th>ClamAV</th>
+                <th style="width: 15%;">ClamAV</th>
                 <td>
                     <ul class="list-unstyled mb-0">
                     {% for sign in file.clamav %}
@@ -189,7 +189,7 @@
 
             {% if file.yara %}
             <tr>
-                <th>
+                <th style="width: 15%;">
                     {% if config.yara_detail %}
                         <a class="btn btn-sm btn-outline-light" data-bs-toggle="collapse" href="#yara_{{file.sha256}}" role="button"><i class="fas fa-file-code"></i> Yara</a>
                     {% else %}
@@ -212,7 +212,7 @@
 
             {% if file.cape_yara %}
             <tr>
-                <th>
+                <th style="width: 15%;">
                     {% if config.yara_detail %}
                         <a class="btn btn-sm btn-outline-light" data-bs-toggle="collapse" href="#capeyara_{{file.sha256}}" role="button"><i class="fas fa-file-signature"></i> CAPE Yara</a>
                     {% else %}
@@ -234,7 +234,7 @@
 
             {% if file.trid %}
             <tr>
-                <th>TriD</th>
+                <th style="width: 15%;">TriD</th>
                 <td>
                     <ul class="list-unstyled mb-0">
                         {% for str in file.trid %}<li>{{str}}</li>{% endfor %}
@@ -245,7 +245,7 @@
 
             {% if file.die %}
             <tr>
-                <th>Detect It Easy</th>
+                <th style="width: 15%;">Detect It Easy</th>
                 <td>
                     <ul class="list-unstyled mb-0">
                         {% for str in file.die %}<li>{{str}}</li>{% endfor %}

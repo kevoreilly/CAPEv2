@@ -15,7 +15,7 @@
             {% else %}
               <li class="mb-1">
                 <i class="fas fa-arrow-right text-muted me-1"></i>
-                <strong><a href="javascript:show_tab('process_{{process.pid}}');" class="text-info">{{process.name}}</a></strong> 
+                <strong><a href="javascript:show_tab('process_{{process.pid}}');" class="text-info">{{process.name}}</a></strong>
                 <span class="text-muted ms-1">({{process.pid}})</span>
                 {% if process.commandline %}
                     <span class="text-light small ms-2">{{ process.commandline }}</span>
@@ -23,7 +23,7 @@
                 {% if detections2pid|get_detection_by_pid:process.pid %}
                     <span class="badge bg-danger ms-2">{{ detections2pid|get_detection_by_pid:process.pid }}</span>
                 {% endif %}
-             </li>
+            </li>
             {% endif %}
         {% endfor %}
         </ul>

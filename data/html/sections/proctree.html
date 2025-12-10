@@ -1,5 +1,5 @@
 {% if results.behavior.processtree %}
-<div class="card mt-4">
+<div class="card mt-4" id="process-tree-container">
     <div class="card-header">
         <h4>Process Tree</h4>
     </div>
@@ -7,16 +7,16 @@
         <ul>
         {% for process in results.behavior.processtree %}
             {% if process.children %}
-            <li>
+            <li class="proctree-process" data-pid="{{process.pid}}">
                 <strong>{{process.name}}</strong> (PID: {{process.pid}})
                 <ul>
                 {% for child in process.children %}
-                    <li><strong>{{child.name}}</strong> (PID: {{child.pid}})</li>
+                    <li class="proctree-process" data-pid="{{child.pid}}"><strong>{{child.name}}</strong> (PID: {{child.pid}})</li>
                 {% endfor %}
                 </ul>
             </li>
             {% else %}
-            <li><strong>{{process.name}}</strong> (PID: {{process.pid}})</li>
+            <li class="proctree-process" data-pid="{{process.pid}}"><strong>{{process.name}}</strong> (PID: {{process.pid}})</li>
             {% endif %}
         {% endfor %}
         </ul>

@@ -20,7 +20,7 @@
                 {% for pid, dict in results.curtain.items() %}
                 <div class="card mt-3">
                     <div class="card-header">
-                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge badge-secondary">{{ entry }}</span>{% endfor %}
+                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge bg-secondary">{{ entry }}</span>{% endfor %}
                     </div>
                     <div class="card-body">
                         {% for entry in dict.events %} {% for event, message in entry.items() %}
@@ -35,7 +35,7 @@
                 {% for pid, dict in results.curtain.items() %}
                 <div class="card mt-3">
                     <div class="card-header">
-                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge badge-secondary">{{ entry }}</span>{% endfor %}
+                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge bg-secondary">{{ entry }}</span>{% endfor %}
                     </div>
                     <div class="card-body">
                         {% for entry in dict.events %} {% for event, message in entry.items() %}
@@ -50,7 +50,7 @@
                 {% for pid, dict in results.curtain.items() %}
                 <div class="card mt-3">
                     <div class="card-header">
-                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge badge-secondary">{{ entry }}</span>{% endfor %}
+                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge bg-secondary">{{ entry }}</span>{% endfor %}
                     </div>
                     <div class="card-body">
                         {% for entry in dict.filter %}

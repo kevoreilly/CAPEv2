@@ -389,10 +389,10 @@
                             <td>{{file.pe.guest_signers.aux_sha1}}</td>
                             <td>{{file.pe.guest_signers.aux_timestamp}}</td>
                             {% if file.pe.guest_signers.aux_valid %}
-                            <td><center><span class="badge badge-success">Yes</span></center></td>
+                            <td><center><span class="badge bg-success">Yes</span></center></td>
                             <td>None</td>
                             {% else %}
-                            <td><center><span class="badge badge-danger">No</span></center></td>
+                            <td><center><span class="badge bg-danger">No</span></center></td>
                             <td>{{file.pe.guest_signers.aux_error_desc}}</td>
                             {% endif %}
                         </tr>

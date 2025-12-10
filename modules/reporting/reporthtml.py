@@ -128,7 +128,7 @@ class ReportHTML(Report):
             bootstrap_bundle_js = f.read()
 
         try:
-            tpl = env.get_template("report.html")
+            tpl = env.get_template("base-report.html")
             html = tpl.render(
                 {
                     "results": results,

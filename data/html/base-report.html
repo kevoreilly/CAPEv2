@@ -7,16 +7,17 @@
     <meta name="description" content="CAPE Sandbox">
     <meta name="author" content="CAPE Sandbox">
 
-    <link href="css/bootstrap/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/fontawesome/all.min.css">
-
     <style>
+        {% include "css/bootstrap/bootstrap.min.css" %}
+        {% include "css/fontawesome/all.min.css" %}
         {% include "css/style.css" %}
     </style>
 </head>
 <body>
-<script src="js/popper/popper.min.js"></script>
-<script src="js/bootstrap/bootstrap.min.js"></script>
+<script>
+    {% include "js/popper/popper.min.js" %}
+    {% include "js/bootstrap/bootstrap.min.js" %}
+</script>
 <script>
     document.addEventListener("DOMContentLoaded", function(){
         if(window.location.hash) {

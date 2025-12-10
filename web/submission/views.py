@@ -650,6 +650,7 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["tags"] = False
         enabledconf["dist_master_storage_only"] = distconf.distributed.master_storage_only
         enabledconf["linux_on_gui"] = web_conf.linux.enabled
+        enabledconf["linux_static"] = web_conf.linux.static_only
         enabledconf["tlp"] = web_conf.tlp.enabled
         enabledconf["timeout"] = cfg.timeouts.default
         enabledconf["amsidump"] = web_conf.amsidump.enabled

@@ -266,7 +266,7 @@ $(document).ready( function() {
                                     <label for="form_timeout">Timeout (in seconds)</label>
                                     <input type="text" class="form-control" id="form_timeout" name="timeout" value="{{config.timeout}}" />
                                 </div>
-                                {% if config.linux_on_gui %}
+                                {% if config.linux_on_gui and not config.static_only %}
                                 <div class="form-group">
                                     <label for="form_lin_options">Linux Options (<a href="#optionlinuxhelp" data-toggle="collapse">help</a>)</label>
                                     <div id="optionlinuxhelp" class="collapse">
@@ -604,7 +604,7 @@ $(document).ready( function() {
                             </div>
                             {% endif %}
                             <div class="form-group">
-                                <label for="form_custom">Custom</label>
+                                <label for="form_custom">Custom database string</label>
                                 <input type="text" class="form-control" id="form_custom" name="custom" />
                             </div>
 

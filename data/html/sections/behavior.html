@@ -8,7 +8,7 @@
     <div class="card mt-3">
         <div class="card-header" id="headingAnomalies">
             <h5 class="mb-0">
-                <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseAnomalies" aria-expanded="true" aria-controls="collapseAnomalies">
+                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseAnomalies" aria-expanded="true" aria-controls="collapseAnomalies">
                     Anomalies
                 </button>
             </h5>
@@ -34,7 +34,7 @@
     <div class="card mt-3">
         <div class="card-header" id="headingProcesses">
             <h5 class="mb-0">
-                <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseProcesses" aria-expanded="true" aria-controls="collapseProcesses">
+                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProcesses" aria-expanded="true" aria-controls="collapseProcesses">
                     Processes
                 </button>
             </h5>
@@ -47,12 +47,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingProcess{{process.process_id}}">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseProcess{{process.process_id}}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapseProcess{{process.process_id}}">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProcess{{process.process_id}}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapseProcess{{process.process_id}}">
                                         {{process.process_name}} <small>PID: {{process.process_id}}, Parent PID: {{process.parent_id}}</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseProcess{{process.process_id}}" class="collapse {% if loop.first %}show{% endif %}" aria-labelledby="headingProcess{{process.process_id}}" data-parent="#accordionProcesses">
+                            <div id="collapseProcess{{process.process_id}}" class="collapse {% if loop.first %}show{% endif %}" aria-labelledby="headingProcess{{process.process_id}}" data-bs-parent="#accordionProcesses">
                                 <div class="card-body">
                                     <p>Full Path: <b>{{process.module_path}}</b></p>
                                     {% if process.environ and process.environ.CommandLine %}

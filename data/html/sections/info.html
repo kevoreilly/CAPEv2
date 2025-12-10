@@ -39,7 +39,7 @@
                                                 {% set hashes_header_id = hashes_id ~ "-header" %}
                                                 <div class="card-header" id="{{ hashes_header_id }}" style="padding: 0px">
                                                     <h3 class="mb-0">
-                                                        <a class="btn btn-block text-left" role="button" data-toggle="collapse" href="#{{ hashes_id }}" aria-expanded="false" aria-controls="{{ hashes_id }}">
+                                                        <a class="btn btn-block text-left" role="button" data-bs-toggle="collapse" href="#{{ hashes_id }}" aria-expanded="false" aria-controls="{{ hashes_id }}">
                                                             <b>sha256:</b> {{ hashes.sha256 }}
                                                         </a>
                                                     </h3>
@@ -76,7 +76,7 @@
 {% endif %}
 
 <div class="card mt-4">
-    <div class="card-header" id="analysis-summary-header" data-toggle="collapse" data-target="#analysis-summary-body" aria-expanded="false" aria-controls="analysis-summary-body" style="cursor: pointer;">
+    <div class="card-header" id="analysis-summary-header" data-bs-toggle="collapse" data-bs-target="#analysis-summary-body" aria-expanded="false" aria-controls="analysis-summary-body" style="cursor: pointer;">
         <h4>Analysis & Machine Summary</h4>
     </div>
     <div id="analysis-summary-body" class="collapse">

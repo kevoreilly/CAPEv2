@@ -3,7 +3,7 @@
     <div class="card">
         <div class="card-header" id="headingVolatility">
             <h4 class="mb-0">
-                <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseVolatility" aria-expanded="true" aria-controls="collapseVolatility">
+                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVolatility" aria-expanded="true" aria-controls="collapseVolatility">
                     Volatility Analysis
                 </button>
             </h4>
@@ -16,12 +16,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingMalfind">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseMalfind" aria-expanded="true" aria-controls="collapseMalfind">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMalfind" aria-expanded="true" aria-controls="collapseMalfind">
                                         Malfind <small>(Scanning for injections)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseMalfind" class="collapse show" aria-labelledby="headingMalfind" data-parent="#accordionVolatility">
+                            <div id="collapseMalfind" class="collapse show" aria-labelledby="headingMalfind" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.malfind %}
                                         {% include "sections/memory/_malfind.html" %}
@@ -36,12 +36,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingYarascan">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseYarascan" aria-expanded="false" aria-controls="collapseYarascan">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseYarascan" aria-expanded="false" aria-controls="collapseYarascan">
                                         Yarascan <small>(Scanning for rule matches)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseYarascan" class="collapse" aria-labelledby="headingYarascan" data-parent="#accordionVolatility">
+                            <div id="collapseYarascan" class="collapse" aria-labelledby="headingYarascan" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.yarascan %}
                                         {% include "sections/memory/_yarascan.html" %}
@@ -56,12 +56,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingApihooks">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseApihooks" aria-expanded="false" aria-controls="collapseApihooks">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseApihooks" aria-expanded="false" aria-controls="collapseApihooks">
                                         Apihooks <small>(Listing API hooks)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseApihooks" class="collapse" aria-labelledby="headingApihooks" data-parent="#accordionVolatility">
+                            <div id="collapseApihooks" class="collapse" aria-labelledby="headingApihooks" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.apihooks %}
                                         {% include "sections/memory/_apihooks.html" %}
@@ -76,12 +76,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingPslist">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapsePslist" aria-expanded="false" aria-controls="collapsePslist">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePslist" aria-expanded="false" aria-controls="collapsePslist">
                                         PSList <small>(Listing processes)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapsePslist" class="collapse" aria-labelledby="headingPslist" data-parent="#accordionVolatility">
+                            <div id="collapsePslist" class="collapse" aria-labelledby="headingPslist" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.pslist %}
                                         {% include "sections/memory/_pslist.html" %}
@@ -96,12 +96,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingCallbacks">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseCallbacks" aria-expanded="false" aria-controls="collapseCallbacks">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCallbacks" aria-expanded="false" aria-controls="collapseCallbacks">
                                         Callbacks <small>(Listing registered callbacks)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseCallbacks" class="collapse" aria-labelledby="headingCallbacks" data-parent="#accordionVolatility">
+                            <div id="collapseCallbacks" class="collapse" aria-labelledby="headingCallbacks" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.callbacks %}
                                         {% include "sections/memory/_callbacks.html" %}
@@ -116,12 +116,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingMessagehooks">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseMessagehooks" aria-expanded="false" aria-controls="collapseMessagehooks">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMessagehooks" aria-expanded="false" aria-controls="collapseMessagehooks">
                                         Messagehooks <small>(Registered Messagehooks)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseMessagehooks" class="collapse" aria-labelledby="headingMessagehooks" data-parent="#accordionVolatility">
+                            <div id="collapseMessagehooks" class="collapse" aria-labelledby="headingMessagehooks" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.messagehooks %}
                                         {% include "sections/memory/_messagehooks.html" %}
@@ -136,12 +136,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingDevicetree">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseDevicetree" aria-expanded="false" aria-controls="collapseDevicetree">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDevicetree" aria-expanded="false" aria-controls="collapseDevicetree">
                                         Devicetree <small>(Listing devices and drivers)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseDevicetree" class="collapse" aria-labelledby="headingDevicetree" data-parent="#accordionVolatility">
+                            <div id="collapseDevicetree" class="collapse" aria-labelledby="headingDevicetree" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.devicetree %}
                                         {% include "sections/memory/_devicetree.html" %}
@@ -156,12 +156,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingSvcscan">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseSvcscan" aria-expanded="false" aria-controls="collapseSvcscan">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSvcscan" aria-expanded="false" aria-controls="collapseSvcscan">
                                         Svcscan <small>(Scanning for services)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseSvcscan" class="collapse" aria-labelledby="headingSvcscan" data-parent="#accordionVolatility">
+                            <div id="collapseSvcscan" class="collapse" aria-labelledby="headingSvcscan" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.svcscan %}
                                         {% include "sections/memory/_svcscan.html" %}
@@ -176,12 +176,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingModscan">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseModscan" aria-expanded="false" aria-controls="collapseModscan">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseModscan" aria-expanded="false" aria-controls="collapseModscan">
                                         Modscan <small>(Scan for (hidden) kernel drivers)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseModscan" class="collapse" aria-labelledby="headingModscan" data-parent="#accordionVolatility">
+                            <div id="collapseModscan" class="collapse" aria-labelledby="headingModscan" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.modscan %}
                                         {% include "sections/memory/_modscan.html" %}
@@ -196,12 +196,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingIdt">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseIdt" aria-expanded="false" aria-controls="collapseIdt">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIdt" aria-expanded="false" aria-controls="collapseIdt">
                                         IDT <small>(Listing IDTs)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseIdt" class="collapse" aria-labelledby="headingIdt" data-parent="#accordionVolatility">
+                            <div id="collapseIdt" class="collapse" aria-labelledby="headingIdt" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.idt %}
                                         {% include "sections/memory/_idt.html" %}
@@ -216,12 +216,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingTimers">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseTimers" aria-expanded="false" aria-controls="collapseTimers">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTimers" aria-expanded="false" aria-controls="collapseTimers">
                                         Timers <small>(Listing timers)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseTimers" class="collapse" aria-labelledby="headingTimers" data-parent="#accordionVolatility">
+                            <div id="collapseTimers" class="collapse" aria-labelledby="headingTimers" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.timers %}
                                         {% include "sections/memory/_timers.html" %}
@@ -236,12 +236,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingGdt">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseGdt" aria-expanded="false" aria-controls="collapseGdt">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGdt" aria-expanded="false" aria-controls="collapseGdt">
                                         GDT <small>(Listing GDTs)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseGdt" class="collapse" aria-labelledby="headingGdt" data-parent="#accordionVolatility">
+                            <div id="collapseGdt" class="collapse" aria-labelledby="headingGdt" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.gdt %}
                                         {% include "sections/memory/_gdt.html" %}
@@ -256,12 +256,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingSsdt">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseSsdt" aria-expanded="false" aria-controls="collapseSsdt">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSsdt" aria-expanded="false" aria-controls="collapseSsdt">
                                         SSDT <small>(Listing SSDT)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseSsdt" class="collapse" aria-labelledby="headingSsdt" data-parent="#accordionVolatility">
+                            <div id="collapseSsdt" class="collapse" aria-labelledby="headingSsdt" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.ssdt %}
                                         {% include "sections/memory/_ssdt.html" %}
@@ -276,12 +276,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingNetscan">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseNetscan" aria-expanded="false" aria-controls="collapseNetscan">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNetscan" aria-expanded="false" aria-controls="collapseNetscan">
                                         Netscan <small>(Listing netscan)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseNetscan" class="collapse" aria-labelledby="headingNetscan" data-parent="#accordionVolatility">
+                            <div id="collapseNetscan" class="collapse" aria-labelledby="headingNetscan" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.netscan %}
                                         {% include "sections/memory/_netscan.html" %}
@@ -296,12 +296,12 @@
                         <div class="card mt-2">
                             <div class="card-header" id="headingSockscan">
                                 <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-toggle="collapse" data-target="#collapseSockscan" aria-expanded="false" aria-controls="collapseSockscan">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSockscan" aria-expanded="false" aria-controls="collapseSockscan">
                                         Sockscan <small>(Listing sockscan)</small>
                                     </button>
                                 </h6>
                             </div>
-                            <div id="collapseSockscan" class="collapse" aria-labelledby="headingSockscan" data-parent="#accordionVolatility">
+                            <div id="collapseSockscan" class="collapse" aria-labelledby="headingSockscan" data-bs-parent="#accordionVolatility">
                                 <div class="card-body">
                                     {% if results.memory.sockscan %}
                                         {% include "sections/memory/_sockscan.html" %}

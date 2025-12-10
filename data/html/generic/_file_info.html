@@ -241,15 +241,15 @@
 
         <tr>
             <th>
-                {% if file.pe %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#pe_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>{% endif %}
-                {% if file.dotnet %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#dotnet_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display DotNet info"><span class="fas fa-file-lines"></span> DotNET</a>{% endif %}
-                {% if file.pdf %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#pdf_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pdf_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display PDF info"><span class="fas fa-file-lines"></span> PDF</a>{% endif %}
-                {% if file.lnk %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#lnk_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display LNK info"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
-                {% if file.java %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#java_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Java info"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
+                {% if file.pe %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#pe_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{file.sha256}}" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>{% endif %}
+                {% if file.dotnet %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#dotnet_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_{{file.sha256}}" title="Display DotNet info"><span class="fas fa-file-lines"></span> DotNET</a>{% endif %}
+                {% if file.pdf %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#pdf_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="pdf_{{file.sha256}}" title="Display PDF info"><span class="fas fa-file-lines"></span> PDF</a>{% endif %}
+                {% if file.lnk %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#lnk_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{file.sha256}}" title="Display LNK info"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
+                {% if file.java %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#java_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{file.sha256}}" title="Display Java info"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
                 {% if file.office %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#office_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="office_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display Office info"><span class="fas fa-file-lines"></span> Office</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#office_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="office_{{file.sha256}}" title="Display Office info"><span class="fas fa-file-lines"></span> Office</a>
                     {% if file.office.XLMMacroDeobfuscator %}
-                        <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#xlmmacro_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="xlmmacro_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display XLM Macro Deobfuscator info"><span class="fas fa-file-lines"></span> XLM Deobfuscator</a>
+                        <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#xlmmacro_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="xlmmacro_{{file.sha256}}" title="Display XLM Macro Deobfuscator info"><span class="fas fa-file-lines"></span> XLM Deobfuscator</a>
                     {% endif %}
                 {% endif %}
             </th>
@@ -258,19 +258,19 @@
                     <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a>
                 {% endif %}
                 {% if file.strings %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                 {% endif %}
                 {% if file.floss %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#floss_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#floss_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{file.sha256}}" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
                 {% endif %}
                 {% if file.data %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
                 {% endif %}
                 {% if file.decoded_files %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}" title="Display text"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
                 {% endif %}
                 {% if file.extracted_files %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}} {% if file.extracted_files_time %} ({{"%0.2f" % file.extracted_files_time|float}} sec) {% endif %}</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}} {% if file.extracted_files_time %} ({{"%0.2f" % file.extracted_files_time|float}} sec) {% endif %}</a>
                 {% endif %}
             </td>
         </tr>

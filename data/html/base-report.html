@@ -20,33 +20,10 @@
 </script>
 <script>
     document.addEventListener("DOMContentLoaded", function(){
-        // Function to activate tab from hash
-        function activateTab(hash) {
-            if (hash) {
-                var triggerEl = document.querySelector('a[data-bs-toggle="tab"][href="' + hash + '"]');
-                if (triggerEl) {
-                    var tab = new bootstrap.Tab(triggerEl);
-                    tab.show();
-                }
-            }
-        }
-
-        // Activate tab on page load
-        activateTab(window.location.hash);
-
-        // Update hash and activate tab on click
-        var tabElms = document.querySelectorAll('a[data-bs-toggle="tab"]');
-        tabElms.forEach(function(tabElm) {
-            tabElm.addEventListener('shown.bs.tab', function(event) {
-                // Use replaceState to avoid jumping to the top of the page
-                history.replaceState(null, null, ' ' + event.target.getAttribute('href'));
-            });
-        });
-
-        // Handle hash changes (e.g., browser back/forward buttons)
-        window.addEventListener('hashchange', function() {
-            activateTab(window.location.hash);
-        }, false);
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
     });
 </script>
 <div class="container-fluid">

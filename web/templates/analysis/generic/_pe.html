@@ -3,7 +3,7 @@
     {% if file.pe %}
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
-            <h5 class="mb-0 text-white"><i class="fab fa-windows mr-2 text-info"></i> PE Information</h5>
+            <h5 class="mb-0 text-white"><i class="fab fa-windows me-2 text-info"></i> PE Information</h5>
         </div>
         <div class="card-body">
             
@@ -110,8 +110,8 @@
                 <div class="card bg-secondary border-0">
                     <div class="card-header p-0" id="headingResources">
                         <h2 class="mb-0">
-                            <button class="btn btn-block text-left p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-toggle="collapse" data-target="#pe_resources_{{file.sha256}}" aria-expanded="false">
-                                <i class="fas fa-box-open mr-2"></i> Resources
+                            <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pe_resources_{{file.sha256}}" aria-expanded="false">
+                                <i class="fas fa-box-open me-2"></i> Resources
                             </button>
                         </h2>
                     </div>
@@ -157,12 +157,12 @@
                     <div class="card bg-dark border-bottom border-secondary rounded-0">
                         <div class="card-header p-0" id="headingImport{{forloop.counter}}">
                             <h2 class="mb-0">
-                                <button class="btn btn-block text-left p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-toggle="collapse" data-target="#import_{{dll|slugify}}" aria-expanded="false">
-                                    <i class="fas fa-code-branch mr-2 text-warning"></i> {{dll}}
+                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#import_{{dll|slugify}}" aria-expanded="false">
+                                    <i class="fas fa-code-branch me-2 text-warning"></i> {{dll}}
                                 </button>
                             </h2>
                         </div>
-                        <div id="import_{{dll|slugify}}" class="collapse" data-parent="#peImportsAccordion">
+                        <div id="import_{{dll|slugify}}" class="collapse" data-bs-parent="#peImportsAccordion">
                             <div class="card-body bg-secondary text-white p-0">
                                 <div class="table-responsive">
                                     <table class="table table-dark table-striped table-sm mb-0">
@@ -221,8 +221,8 @@
                 <div class="card bg-secondary border-0">
                     <div class="card-header p-0">
                         <h2 class="mb-0">
-                            <button class="btn btn-block text-left p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-toggle="collapse" data-target="#pe_digital_signers" aria-expanded="false">
-                                <i class="fas fa-certificate mr-2 text-success"></i> Digital Signers
+                            <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pe_digital_signers" aria-expanded="false">
+                                <i class="fas fa-certificate me-2 text-success"></i> Digital Signers
                             </button>
                         </h2>
                     </div>

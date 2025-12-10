@@ -2,7 +2,7 @@
     {% load key_tags %}
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
-            <h5 class="mb-0 text-white"><i class="fas fa-file-code mr-2 text-success"></i> Yara Details</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-success"></i> Yara Details</h5>
         </div>
         <div class="card-body p-0">
             {% if sub_file.yara %}
@@ -11,13 +11,13 @@
                     <div class="card bg-dark border-bottom border-secondary rounded-0">
                         <div class="card-header p-0" id="headingSubYara{{forloop.counter}}">
                             <h2 class="mb-0">
-                                <button class="btn btn-block text-left p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-toggle="collapse" data-target="#sub_yara_{{hit.name}}" aria-expanded="false" aria-controls="sub_yara_{{hit.name}}">
-                                    <i class="fas fa-search mr-2 text-info"></i> {{hit.name}}
-                                    <i class="fas fa-chevron-down float-right mt-1 text-muted"></i>
+                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sub_yara_{{hit.name}}" aria-expanded="false" aria-controls="sub_yara_{{hit.name}}">
+                                    <i class="fas fa-search me-2 text-info"></i> {{hit.name}}
+                                    <i class="fas fa-chevron-down float-end mt-1 text-muted"></i>
                                 </button>
                             </h2>
                         </div>
-                        <div id="sub_yara_{{hit.name}}" class="collapse" aria-labelledby="headingSubYara{{forloop.counter}}" data-parent="#subFileYaraAccordion">
+                        <div id="sub_yara_{{hit.name}}" class="collapse" aria-labelledby="headingSubYara{{forloop.counter}}" data-bs-parent="#subFileYaraAccordion">
                             <div class="card-body bg-secondary text-white">
                                 <div class="table-responsive">
                                     <table class="table table-dark table-sm table-striped mb-0" style="table-layout: fixed;">

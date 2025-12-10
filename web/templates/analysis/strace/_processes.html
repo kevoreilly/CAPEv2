@@ -57,9 +57,9 @@
         // Else, show the tab and run the callback once the tab is shown
         else {
             // Wait for tab to be shown
-            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
                 if ($(e.target).attr('href') == '#' + id) {
-                    $('a[data-toggle="tab"]').off('shown.bs.tab');
+                    $('a[data-bs-toggle="tab"]').off('shown.bs.tab');
                     typeof callback === 'function' && callback();
                 }
             });
@@ -116,10 +116,10 @@
 
 <div class="tabbable">
     <ul class="nav nav-tabs">
-        <li class="nav-item"><a class="nav-link" href="#search" data-toggle="tab"><span class="fa fa-search"></span> Search</a></li>
+        <li class="nav-item"><a class="nav-link" href="#search" data-bs-toggle="tab"><span class="fa fa-search"></span> Search</a></li>
         {% for process in strace.processes %}
         <li {% if forloop.counter == 1 %} class="nav-item active" {% endif %}><a class="nav-link" href="#process_{{process.process_id}}"
-                data-toggle="tab"><span class="fa fa-cogs"></span>
+                data-bs-toggle="tab"><span class="fa fa-cogs"></span>
                 {{process.process_id}}</a></li>
         {% endfor %}
     </ul>
@@ -137,7 +137,7 @@
                 <div style="text-align: center; position:relative;">
                     <div>
                         <div id="currcategory" value="default"></div>
-                        <a id="badge_default_{{process.process_id}}" class="badge badge-primary default fs-1" role="button" style="color:black;">default</a>
+                        <a id="badge_default_{{process.process_id}}" class="badge bg-primary default fs-1" role="button" style="color:black;">default</a>
                         <a id="badge_kernel_{{process.process_id}}" class="badge kernel" role="button" style="color:black;">kernel</a>
                         <a id="badge_fs_{{process.process_id}}" class="badge fs" role="button" style="color:black;">fs</a>
                         <a id="badge_mm_{{process.process_id}}" class="badge mm" role="button" style="color:black;">mm</a>
@@ -148,7 +148,7 @@
                         <a id="badge_io_uring_{{process.process_id}}" class="badge io_uring" role="button" style="color:black;">io_uring</a>
                         <a id="badge_crypto_{{process.process_id}}" class="badge crypto" role="button" style="color:black;">crypto</a>
                         <a id="badge_block_{{process.process_id}}" class="badge block" role="button" style="color:black;">block</a>
-                        <a id="badge_all_{{process.process_id}}" class="badge badge-light all" role="button" style="color:black;">all</a>
+                        <a id="badge_all_{{process.process_id}}" class="badge text-dark bg-light all" role="button" style="color:black;">all</a>
                         <div class="form-group" style="display:inline-block; padding-left: 10px">
                             <div class="input-group">
                                 <label class="sr-only" for="form_search">API Filter</label>

@@ -2,7 +2,7 @@
     <div class="tabbable tabs">
         <ul class="nav nav-tabs" style="margin-bottom: 0;">
             {% for proc in procmemory %}
-                <li {%if forloop.first %}class="nav-item active"{% endif %}><a class="nav-link" href="#procmemory_{{proc.pid}}" data-toggle="tab">{{proc.pid}}</a></li>
+                <li {%if forloop.first %}class="nav-item active"{% endif %}><a class="nav-link" href="#procmemory_{{proc.pid}}" data-bs-toggle="tab">{{proc.pid}}</a></li>
             {% endfor %}
         </ul>
         <div class="tab-content">
@@ -82,7 +82,7 @@
                             {% for memmap in proc.address_space %}
                                 <tr>
                                     {% if memmap.chunks|length >= 2 %}
-                                    <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href=".map_{{memmap.start}}">{{memmap.start}}</a></td>
+                                    <td><a class="accordion-toggle" data-bs-toggle="collapse" data-bs-parent="#accordion" href=".map_{{memmap.start}}">{{memmap.start}}</a></td>
                                     {% else %}
                                     <td>{{memmap.start}}</td>
                                     {% endif %}
@@ -90,9 +90,9 @@
                                     <td>{{memmap.size}}</td>
                                     <td>{{memmap.prot}}</td>
                                     {% if memmap.PE %}
-                                    <td><span class="badge badge-success">Yes</span></td>
+                                    <td><span class="badge bg-success">Yes</span></td>
                                     {% else %}
-                                    <td><span class="badge badge-primary">No</span></td>
+                                    <td><span class="badge bg-primary">No</span></td>
                                     {% endif %}
                                     {% if proc.path %}
                                     <td>

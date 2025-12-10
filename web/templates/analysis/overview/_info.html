@@ -3,9 +3,9 @@
     <!-- Detections Badge Container -->
     {% if analysis.detections %}
         <div class="text-center mb-3">
-            <h5 class="d-inline-block mr-2 font-weight-bold">Detection(s):</h5>
+            <h5 class="d-inline-block me-2 font-weight-bold">Detection(s):</h5>
             {% for block in analysis.detections %}
-                <a href="/analysis/search/detections:{{block.family}}" class="badge badge-danger p-2 mb-1" data-toggle="tooltip" data-placement="top" data-html="true" title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}<br>{% endif %}{% endfor %}{% endfor %}">
+                <a href="/analysis/search/detections:{{block.family}}" class="badge bg-danger p-2 mb-1" data-bs-toggle="tooltip" data-placement="top" data-html="true" title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}<br>{% endif %}{% endfor %}{% endfor %}">
                     {{block.family}}
                 </a>
             {% endfor %}
@@ -15,15 +15,15 @@
     <!-- Malstatus Badge Container -->
     {% if config.malscore and analysis.malstatus %}
         <div class="text-center mb-3">
-            <h5 class="d-inline-block mr-2 font-weight-bold">Status:</h5>
+            <h5 class="d-inline-block me-2 font-weight-bold">Status:</h5>
             {% if analysis.malstatus == "Malicious" %}
-                <span class="badge badge-danger p-2">{{analysis.malstatus}}</span>
+                <span class="badge bg-danger p-2">{{analysis.malstatus}}</span>
             {% elif analysis.malstatus == "Suspicious" %}
-                <span class="badge badge-warning p-2">{{analysis.malstatus}}</span>
+                <span class="badge bg-warning p-2">{{analysis.malstatus}}</span>
             {% elif analysis.malstatus == "Clean" %}
-                <span class="badge badge-success p-2">{{analysis.malstatus}}</span>
+                <span class="badge bg-success p-2">{{analysis.malstatus}}</span>
             {% else %}
-                <span class="badge badge-secondary p-2">{{analysis.malstatus}}</span>
+                <span class="badge bg-secondary p-2">{{analysis.malstatus}}</span>
             {% endif %}
         </div>
     {% endif %}
@@ -31,9 +31,9 @@
     <!-- Analysis Details Card -->
     <div class="card bg-dark border-secondary mb-3">
         <div class="card-header border-secondary d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-white"><i class="fas fa-info-circle mr-2 text-primary"></i> Analysis Details</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-primary"></i> Analysis Details</h5>
             {% if settings.REPROCESS_TASKS %}
-                <a class="btn btn-sm btn-outline-secondary" href="{% url "reprocess_tasks" id %}" role="button" data-toggle="tooltip" title="Reprocess Task">
+                <a class="btn btn-sm btn-outline-secondary" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess Task">
                     <i class="fas fa-redo"></i>
                 </a>
             {% endif %}
@@ -57,39 +57,39 @@
                 </thead>
                 <tbody>
                     <tr>
-                        <td><span class="badge badge-info">{{analysis.info.category|upper}}</span></td>
+                        <td><span class="badge bg-info">{{analysis.info.category|upper}}</span></td>
                         <td>{{analysis.info.package}}</td>
                         <td class="text-nowrap">{{analysis.info.started}}</td>
                         <td class="text-nowrap">{{analysis.info.ended}}</td>
                         <td>{{analysis.info.duration}}s</td>
                         {% if analysis.info.options %}
-                            <td><button class="btn btn-sm btn-secondary" type="button" data-toggle="collapse" data-target="#options_collapse">View</button></td>
+                            <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
                         {% endif %}
                         {% if user.is_staff and analysis.distributed %}
                             <td>{{analysis.distributed.name}} <small class="text-muted">({{analysis.distributed.task_id}})</small></td>
                         {% endif %}
                         <td>
                             <div class="btn-group btn-group-sm">
-                                <button class="btn btn-outline-light" type="button" data-toggle="collapse" data-target="#info-log">Analysis</button>
+                                <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#info-log">Analysis</button>
                                 {% if analysis.process_log %}
-                                <button class="btn btn-outline-light" type="button" data-toggle="collapse" data-target="#process-log">Process</button>
+                                <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#process-log">Process</button>
                                 {% endif %}
                             </div>
                         </td>
                         {% if analysis.debug.pre_script_log %}
-                            <td><button class="btn btn-sm btn-secondary" type="button" data-toggle="collapse" data-target="#info-pre-script-log">View</button></td>
+                            <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#info-pre-script-log">View</button></td>
                         {% endif %}
                         {% if analysis.debug.during_script_log %}
-                            <td><button class="btn btn-sm btn-secondary" type="button" data-toggle="collapse" data-target="#info-during-script-log">View</button></td>
+                            <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#info-during-script-log">View</button></td>
                         {% endif %}
                         {% if config.malscore and analysis.malscore %}
                         <td>
                             {% if analysis.malscore > 6.0 %}
-                               <span class="badge badge-danger">{{analysis.malscore|floatformat:1}}</span>
+                               <span class="badge bg-danger">{{analysis.malscore|floatformat:1}}</span>
                             {% elif analysis.malscore > 2.0 %}
-                                <span class="badge badge-warning">{{analysis.malscore|floatformat:1}}</span>
+                                <span class="badge bg-warning">{{analysis.malscore|floatformat:1}}</span>
                             {% else %}
-                                <span class="badge badge-success">{{analysis.malscore|floatformat:1}}</span>
+                                <span class="badge bg-success">{{analysis.malscore|floatformat:1}}</span>
                             {% endif %}
                         </td>
                         {% endif %}
@@ -103,7 +103,7 @@
     {% if analysis.debug.errors %}
         <div class="alert alert-warning">
             <h6 class="alert-heading font-weight-bold">Analysis Errors/Warnings:</h6>
-            <ul class="mb-0 pl-3">
+            <ul class="mb-0 ps-3">
             {% for error in analysis.debug.errors %}
                 <li>{{error}}</li>
             {% endfor %}
@@ -155,7 +155,7 @@
     <section id="machine" class="mb-4">
         <div class="card bg-dark border-secondary">
             <div class="card-header border-secondary">
-                <h5 class="mb-0 text-white"><i class="fas fa-desktop mr-2 text-info"></i> Machine Information</h5>
+                <h5 class="mb-0 text-white"><i class="fas fa-desktop me-2 text-info"></i> Machine Information</h5>
             </div>
             <div class="table-responsive">
                 <table class="table table-dark table-striped mb-0">
@@ -172,7 +172,7 @@
                     <tbody>
                         <tr>
                             <td>{{analysis.info.machine.name}}</td>
-                            <td><span class="badge badge-secondary">{{analysis.info.machine.label}}</span></td>
+                            <td><span class="badge bg-secondary">{{analysis.info.machine.label}}</span></td>
                             <td>{{analysis.info.machine.manager}}</td>
                             <td class="text-nowrap">{{analysis.info.machine.started_on}}</td>
                             <td class="text-nowrap">{{analysis.info.machine.shutdown_on}}</td>

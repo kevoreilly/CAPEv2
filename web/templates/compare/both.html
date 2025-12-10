@@ -3,51 +3,51 @@
 
 <script type='text/javascript'>
 $(function () {
-  $('[data-toggle="tooltip"]').tooltip()
+  $('[data-bs-toggle="tooltip"]').tooltip()
 })
 </script>
 
 <div class="row mb-4">
     <div class="col-md-6 border-right border-secondary">
-        <h4 class="text-center text-white mb-3"><i class="fas fa-file-alt mr-2 text-info"></i> Analysis 1</h4>
+        <h4 class="text-center text-white mb-3"><i class="fas fa-file-alt me-2 text-info"></i> Analysis 1</h4>
         {% include "compare/_info.html" with record=left %}
     </div>
     <div class="col-md-6">
-        <h4 class="text-center text-white mb-3"><i class="fas fa-file-alt mr-2 text-warning"></i> Analysis 2</h4>
+        <h4 class="text-center text-white mb-3"><i class="fas fa-file-alt me-2 text-warning"></i> Analysis 2</h4>
         {% include "compare/_info.html" with record=right %}
     </div>
 </div>
 
 <div class="card bg-dark border-secondary mb-4">
     <div class="card-header border-secondary">
-        <h5 class="mb-0 text-white"><i class="fas fa-chart-bar mr-2 text-primary"></i> Execution Graph</h5>
+        <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-primary"></i> Execution Graph</h5>
     </div>
     <div class="card-body">
         <p class="text-muted">This graph visualizes the behavioral events by category. Larger blocks indicate higher activity in that category.</p>
         
         <div class="mb-4 text-center">
-            <span class="badge badge-dark text-white border border-secondary registry">registry</span>
-            <span class="badge badge-dark text-white border border-secondary filesystem">filesystem</span>
-            <span class="badge badge-dark text-white border border-secondary system">system</span>
-            <span class="badge badge-dark text-white border border-secondary network">network</span>
-            <span class="badge badge-dark text-white border border-secondary process">process</span>
-            <span class="badge badge-dark text-white border border-secondary services">services</span>
-            <span class="badge badge-dark text-white border border-secondary synchronization">synchronization</span>
-            <span class="badge badge-dark text-white border border-secondary windows">windows</span>
+            <span class="badge text-white bg-dark text-white border border-secondary registry">registry</span>
+            <span class="badge text-white bg-dark text-white border border-secondary filesystem">filesystem</span>
+            <span class="badge text-white bg-dark text-white border border-secondary system">system</span>
+            <span class="badge text-white bg-dark text-white border border-secondary network">network</span>
+            <span class="badge text-white bg-dark text-white border border-secondary process">process</span>
+            <span class="badge text-white bg-dark text-white border border-secondary services">services</span>
+            <span class="badge text-white bg-dark text-white border border-secondary synchronization">synchronization</span>
+            <span class="badge text-white bg-dark text-white border border-secondary windows">windows</span>
         </div>
 
         <div class="row">
             <div class="col-md-6 border-right border-secondary d-flex justify-content-center">
                 <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-secondary">
                     {% for cat, count in left_counts.items %}
-                        <div style="height: {{count}}%" class="{{cat}}" data-toggle="tooltip" data-placement="right" title="{{count}}% {{cat}}"></div>
+                        <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="right" title="{{count}}% {{cat}}"></div>
                     {% endfor %}
                 </div>
             </div>
             <div class="col-md-6 d-flex justify-content-center">
                 <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-secondary">
                     {% for cat, count in right_counts.items %}
-                        <div style="height: {{count}}%" class="{{cat}}" data-toggle="tooltip" data-placement="left" title="{{count}}% {{cat}}"></div>
+                        <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="left" title="{{count}}% {{cat}}"></div>
                     {% endfor %}
                 </div>
             </div>
@@ -57,25 +57,25 @@ $(function () {
 
 <div class="card bg-dark border-secondary mb-4">
     <div class="card-header border-secondary">
-        <h5 class="mb-0 text-white"><i class="fas fa-equals mr-2 text-success"></i> Summary Similarities</h5>
+        <h5 class="mb-0 text-white"><i class="fas fa-equals me-2 text-success"></i> Summary Similarities</h5>
     </div>
     <div class="card-body">
         <div class="row">
             <div class="col-md-3">
                 <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                    <a class="nav-link active" id="v-pills-files-tab" data-toggle="pill" href="#summary_compare_files" role="tab">Accessed Files</a>
-                    <a class="nav-link" id="v-pills-read-files-tab" data-toggle="pill" href="#summary_compare_read_files" role="tab">Read Files</a>
-                    <a class="nav-link" id="v-pills-write-files-tab" data-toggle="pill" href="#summary_compare_write_files" role="tab">Modified Files</a>
-                    <a class="nav-link" id="v-pills-delete-files-tab" data-toggle="pill" href="#summary_compare_delete_files" role="tab">Deleted Files</a>
-                    <a class="nav-link" id="v-pills-keys-tab" data-toggle="pill" href="#summary_compare_keys" role="tab">Accessed Keys</a>
-                    <a class="nav-link" id="v-pills-read-keys-tab" data-toggle="pill" href="#summary_compare_read_keys" role="tab">Read Keys</a>
-                    <a class="nav-link" id="v-pills-write-keys-tab" data-toggle="pill" href="#summary_compare_write_keys" role="tab">Modified Keys</a>
-                    <a class="nav-link" id="v-pills-delete-keys-tab" data-toggle="pill" href="#summary_compare_delete_keys" role="tab">Deleted Keys</a>
-                    <a class="nav-link" id="v-pills-apis-tab" data-toggle="pill" href="#summary_compare_resolved_apis" role="tab">Resolved APIs</a>
-                    <a class="nav-link" id="v-pills-cmds-tab" data-toggle="pill" href="#summary_compare_executed_commands" role="tab">Executed Commands</a>
-                    <a class="nav-link" id="v-pills-mutex-tab" data-toggle="pill" href="#summary_compare_mutexes" role="tab">Mutexes</a>
-                    <a class="nav-link" id="v-pills-cservices-tab" data-toggle="pill" href="#summary_compare_created_services" role="tab">Created Services</a>
-                    <a class="nav-link" id="v-pills-sservices-tab" data-toggle="pill" href="#summary_compare_started_services" role="tab">Started Services</a>
+                    <a class="nav-link active" id="v-pills-files-tab" data-bs-toggle="pill" href="#summary_compare_files" role="tab">Accessed Files</a>
+                    <a class="nav-link" id="v-pills-read-files-tab" data-bs-toggle="pill" href="#summary_compare_read_files" role="tab">Read Files</a>
+                    <a class="nav-link" id="v-pills-write-files-tab" data-bs-toggle="pill" href="#summary_compare_write_files" role="tab">Modified Files</a>
+                    <a class="nav-link" id="v-pills-delete-files-tab" data-bs-toggle="pill" href="#summary_compare_delete_files" role="tab">Deleted Files</a>
+                    <a class="nav-link" id="v-pills-keys-tab" data-bs-toggle="pill" href="#summary_compare_keys" role="tab">Accessed Keys</a>
+                    <a class="nav-link" id="v-pills-read-keys-tab" data-bs-toggle="pill" href="#summary_compare_read_keys" role="tab">Read Keys</a>
+                    <a class="nav-link" id="v-pills-write-keys-tab" data-bs-toggle="pill" href="#summary_compare_write_keys" role="tab">Modified Keys</a>
+                    <a class="nav-link" id="v-pills-delete-keys-tab" data-bs-toggle="pill" href="#summary_compare_delete_keys" role="tab">Deleted Keys</a>
+                    <a class="nav-link" id="v-pills-apis-tab" data-bs-toggle="pill" href="#summary_compare_resolved_apis" role="tab">Resolved APIs</a>
+                    <a class="nav-link" id="v-pills-cmds-tab" data-bs-toggle="pill" href="#summary_compare_executed_commands" role="tab">Executed Commands</a>
+                    <a class="nav-link" id="v-pills-mutex-tab" data-bs-toggle="pill" href="#summary_compare_mutexes" role="tab">Mutexes</a>
+                    <a class="nav-link" id="v-pills-cservices-tab" data-bs-toggle="pill" href="#summary_compare_created_services" role="tab">Created Services</a>
+                    <a class="nav-link" id="v-pills-sservices-tab" data-bs-toggle="pill" href="#summary_compare_started_services" role="tab">Started Services</a>
                 </div>
             </div>
             <div class="col-md-9">

@@ -1,6 +1,6 @@
 <div class="table-responsive">
     <table class="table table-dark table-striped table-bordered mb-0 table-sm">
-        <thead class="thead-light">
+        <thead class=" ">
             <tr>
                 <th class="text-center" width="5%">ID</th>
                 <th width="35%">Name</th>
@@ -15,9 +15,9 @@
                 <td class="text-center font-weight-bold">{{record.info.id}}</td>
                 <td class="text-truncate" title="{{record.target.file.name}}">{{record.target.file.name|truncatechars:40}}</td>
                 <td><a href="{% url "report" record.info.id %}" class="text-info text-monospace">{{record.target.file.md5}}</a></td>
-                <td><span class="badge badge-secondary">{{record.info.machine.label}}</span></td>
+                <td><span class="badge bg-secondary">{{record.info.machine.label}}</span></td>
                 <td class="small">{{record.info.ended}}</td>
-                <td class="text-right">{{record.info.duration}}s</td>
+                <td class="text-end">{{record.info.duration}}s</td>
             </tr>
         </tbody>
     </table>

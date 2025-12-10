@@ -8,13 +8,13 @@
         {% for process in results.behavior.processtree %}
             {% if process.children %}
             <li>
-                <a href="#" class="proctree-process" data-pid="{{process.pid}}">
+                <a href="#collapseLog{{process.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{process.pid}}">
                     <strong>{{process.name}}</strong> (PID: {{process.pid}})
                 </a>
                 <ul>
                 {% for child in process.children %}
                     <li>
-                        <a href="#" class="proctree-process" data-pid="{{child.pid}}">
+                        <a href="#collapseLog{{child.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{child.pid}}">
                             <strong>{{child.name}}</strong> (PID: {{child.pid}})
                         </a>
                     </li>
@@ -23,7 +23,7 @@
             </li>
             {% else %}
             <li>
-                <a href="#" class="proctree-process" data-pid="{{process.pid}}">
+                <a href="#collapseLog{{process.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{process.pid}}">
                     <strong>{{process.name}}</strong> (PID: {{process.pid}})
                 </a>
             </li>

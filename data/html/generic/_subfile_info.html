@@ -348,6 +348,8 @@
         {% if sub_file.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div> {% include "generic/_java.html" %}</div></div></br>{% endif %}
         {% if sub_file.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div> {% include "generic/_office.html" %}</div></div></br>{% endif %}
         {% if sub_file.floss %} <div class="collapse" id="floss_{{sub_file.sha256}}"> <div> {% include "generic/_floss.html" %}</div></div></br>{% endif %}
-        {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</td></center></br>{% endif %}
     #}
+<div class="d-flex justify-content-center mt-4">
+{% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}{% endif %}
+</div>
 </div>

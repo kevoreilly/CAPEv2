@@ -199,7 +199,7 @@
                     <ul class="list-unstyled mb-0">
                     {% for sign in sub_file.yara %}
                         <li>
-                            <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a> 
+                            <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a>
                             <span class="text-muted">- {{sign.meta.description}}</span>
                             {% if sign.meta.author %} <small class="text-muted">({{sign.meta.author}})</small>{% endif %}
                         </li>
@@ -303,11 +303,11 @@
             {% if sub_file.data %}
                 <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#text_{{sub_file.sha256}}">Text</a>
             {% endif %}
-            
+
             {% if sub_file.decoded_files %}
                 <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#decoded_files_{{sub_file.sha256}}">{{sub_file.decoded_files_tool}}</a>
             {% endif %}
-            
+
             {% if sub_file.extracted_files %}
                 <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#extracted_files_{{sub_file.sha256}}">{{sub_file.extracted_files_tool}}</a>
             {% endif %}
@@ -411,7 +411,7 @@
     {% if sub_file.java %} <div class="collapse mb-3" id="java_{{sub_file.sha256}}"> {% include "analysis/generic/_java.html" %}</div>{% endif %}
     {% if sub_file.office %} <div class="collapse mb-3" id="office_{{sub_file.sha256}}"> {% include "analysis/generic/_office.html" %}</div>{% endif %}
     {% if sub_file.floss %} <div class="collapse mb-3" id="floss_{{sub_file.sha256}}"> {% include "analysis/generic/_floss.html" %}</div>{% endif %}
-    
+
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}
         <div class="card bg-dark border-secondary mb-3">
             <div class="card-body text-center">{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</div>

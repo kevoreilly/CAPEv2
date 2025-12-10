@@ -26,7 +26,7 @@ body {
     }
 }
 
-a, .nav-link {
+.nav-link {
     color: white;
 }
 
@@ -200,7 +200,7 @@ pre {
     white-space: -pre-wrap;
     white-space: -o-pre-wrap;
     word-wrap: break-word;
-    color: #fff;
+    color: #fff !important;
 }
 
 .tcp-flow {

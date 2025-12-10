@@ -21,9 +21,9 @@
 </td>
 <td>
     {% if call.status %}
-        <span class="badge bg-success">success</span>
+        <span class="badge bg-success text-white">success</span>
     {% else %}
-        <span class="badge bg-danger">failed</span>
+        <span class="badge bg-danger text-white">failed</span>
     {% endif %}
 </td>
 <td class="text-break">
@@ -37,6 +37,6 @@
 </td>
 <td>
     {% if call.repeated > 0 %}
-        <span class="badge bg-secondary">{{call.repeated}}</span>
+        <span class="badge bg-secondary text-white">{{call.repeated}}</span>
     {% endif %}
 </td>

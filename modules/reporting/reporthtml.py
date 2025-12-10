@@ -116,6 +116,17 @@ class ReportHTML(Report):
         env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
         results["local_conf"] = self.options
 
+        # Read assets for embedding
+        template_path = os.path.join(CUCKOO_ROOT, "data", "html")
+        with open(os.path.join(template_path, "css", "bootstrap", "bootstrap.min.css")) as f:
+            bootstrap_css = f.read()
+        with open(os.path.join(template_path, "css", "fontawesome", "all.min.css")) as f:
+            fontawesome_css = f.read()
+        with open(os.path.join(template_path, "css", "style.css")) as f:
+            style_css = f.read()
+        with open(os.path.join(template_path, "js", "bootstrap", "bootstrap.bundle.min.js")) as f:
+            bootstrap_bundle_js = f.read()
+
         try:
             tpl = env.get_template("report.html")
             html = tpl.render(
@@ -124,6 +135,10 @@ class ReportHTML(Report):
                     "summary_report": False,
                     "graphs": results.get("graphs", {}),
                     "debugger": debugger,
+                    "bootstrap_css": bootstrap_css,
+                    "fontawesome_css": fontawesome_css,
+                    "style_css": style_css,
+                    "bootstrap_bundle_js": bootstrap_bundle_js,
                 }
             )
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:

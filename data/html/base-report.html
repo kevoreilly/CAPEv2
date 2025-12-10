@@ -8,9 +8,9 @@
     <meta name="author" content="CAPE Sandbox">
 
     <style>
-        {% include "css/bootstrap/bootstrap.min.css" %}
-        {% include "css/fontawesome/all.min.css" %}
-        {% include "css/style.css" %}
+        {{ bootstrap_css }}
+        {{ fontawesome_css }}
+        {{ style_css }}
     </style>
 </head>
 <body>
@@ -71,6 +71,45 @@
 </div>
 
 <script>
-    {% include "js/bootstrap/bootstrap.bundle.min.js" %}
+    {{ bootstrap_bundle_js }}
+</script>
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+        // Initialize tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[title]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Activate tab from hash
+        const hash = window.location.hash;
+        if (hash) {
+            const triggerEl = document.querySelector('.nav-tabs a[href="' + hash + '"]');
+            if (triggerEl) {
+                const tab = new bootstrap.Tab(triggerEl);
+                tab.show();
+            }
+        }
+
+        // Update hash on tab click
+        const tabElms = document.querySelectorAll('a[data-bs-toggle="tab"]');
+        tabElms.forEach(function (tabElm) {
+            tabElm.addEventListener('shown.bs.tab', function (event) {
+                history.replaceState(null, null, event.target.getAttribute('href'));
+            });
+        });
+
+        // Handle hash changes for back/forward
+        window.addEventListener('hashchange', function() {
+            const hash = window.location.hash;
+            if (hash) {
+                const triggerEl = document.querySelector('.nav-tabs a[href="' + hash + '"]');
+                 if (triggerEl) {
+                    const tab = new bootstrap.Tab(triggerEl);
+                    tab.show();
+                }
+            }
+        }, false);
+    });
 </script>
 </body>

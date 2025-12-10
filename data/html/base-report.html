@@ -48,9 +48,11 @@
         <li class="nav-item">
             <a class="nav-link" id="behavior-tab" data-bs-toggle="tab" href="#behavior" role="tab" aria-controls="behavior" aria-selected="false">Behavior</a>
         </li>
+        {% if results.memory %}
         <li class="nav-item">
             <a class="nav-link" id="volatility-tab" data-bs-toggle="tab" href="#volatility" role="tab" aria-controls="volatility" aria-selected="false">Volatility</a>
         </li>
+        {% endif %}
         {% if debugger %}
         <li class="nav-item">
             <a class="nav-link" id="debugger-tab" data-bs-toggle="tab" href="#debugger" role="tab" aria-controls="debugger" aria-selected="false">Debugger</a>

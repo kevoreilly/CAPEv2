@@ -17,6 +17,9 @@
     <div class="tab-pane fade" id="signatures" role="tabpanel" aria-labelledby="signatures-tab">
         {% include "sections/signatures.html" %}
     </div>
+    <div class="tab-pane fade" id="behavior" role="tabpanel" aria-labelledby="behavior-tab">
+        {% include "sections/behavior.html" %}
+    </div>
     <div class="tab-pane fade" id="screenshots" role="tabpanel" aria-labelledby="screenshots-tab">
         {% include "sections/screenshots.html" %}
     </div>
@@ -29,18 +32,15 @@
     <div class="tab-pane fade" id="payloads" role="tabpanel" aria-labelledby="payloads-tab">
         {% include "sections/payloads.html" %}
     </div>
-    <div class="tab-pane fade" id="behavior" role="tabpanel" aria-labelledby="behavior-tab">
-        {% include "sections/behavior.html" %}
-    </div>
-    <div class="tab-pane fade" id="volatility" role="tabpanel" aria-labelledby="volatility-tab">
-        {% if results.memory %}
-            {% include "sections/volatility.html" %}
-        {% endif %}
-    </div>
     <div class="tab-pane fade" id="debugger" role="tabpanel" aria-labelledby="debugger-tab">
         {% if debugger %}
             {% include "sections/debugger.html" %}
         {% endif %}
     </div>
+    {% if results.memory %}
+    <div class="tab-pane fade" id="volatility" role="tabpanel" aria-labelledby="volatility-tab">
+            {% include "sections/volatility.html" %}
+    </div>
+    {% endif %}
 </div>
 {% endblock %}

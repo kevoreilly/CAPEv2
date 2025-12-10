@@ -7,16 +7,18 @@
         <ul>
         {% for process in results.behavior.processtree %}
             <li>
-                <a href="#proctree-{{ process.pid }}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="proctree-{{ process.pid }}">
+                <a href="#collapseLog{{process.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{process.pid}}">
                     <strong>{{process.name}}</strong> (PID: {{process.pid}})
                 </a>
-                {% if process.children %}
-                <ul id="proctree-{{ process.pid }}" class="collapse">
-                    {% for child in process.children %}
-                        <li><strong>{{child.name}}</strong> (PID: {{child.pid}})</li>
-                    {% endfor %}
+                <ul>
+                {% for child in process.children %}
+                    <li>
+                        <a href="#collapseLog{{child.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{child.pid}}">
+                            <strong>{{child.name}}</strong> (PID: {{child.pid}})
+                        </a>
+                    </li>
+                {% endfor %}
                 </ul>
-                {% endif %}
             </li>
         {% endfor %}
         </ul>

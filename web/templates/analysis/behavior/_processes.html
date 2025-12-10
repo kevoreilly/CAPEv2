@@ -50,9 +50,9 @@
         if ($('#' + id).hasClass('active')) {
             typeof callback === 'function' && callback();
         } else {
-            $("a[data-toggle='pill']").on('shown.bs.tab', function (e) {
+            $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
                 if ($(e.target).attr('href') == '#' + id) {
-                    $("a[data-toggle='pill']").off('shown.bs.tab');
+                    $('a[data-bs-toggle="pill"]').off('shown.bs.tab');
                     typeof callback === 'function' && callback();
                 }
             });
@@ -176,7 +176,12 @@
                 $(document).ready(function() {
                     // Handlers for category buttons (simplified for brevity, replicate logic for all)
                     $("#badge_default_{{process.process_id}}").click(function() { load_chunk({{process.process_id}}, 1); });
+                    $("#badge_registry_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "registry", "null", 0); });
+                    $("#badge_filesystem_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "filesystem", "null", 0); });
                     $("#badge_network_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "network", "null", 0); });
+                    $("#badge_process_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "process", "null", 0); });
+                    $("#badge_services_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "services", "null", 0); });
+                    $("#badge_sync_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "sync", "null", 0); });
                     // ... (Add other category handlers similarly) ...
                     $("#badge_all_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "all", "null", 0); });
 

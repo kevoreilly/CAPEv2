@@ -116,16 +116,43 @@ class ReportHTML(Report):
         env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
         results["local_conf"] = self.options
 
+        # Initialize asset variables to empty strings
+        bootstrap_css = ""
+        fontawesome_css = ""
+        style_css = ""
+        bootstrap_bundle_js = ""
+
         # Read assets for embedding
         template_path = os.path.join(CUCKOO_ROOT, "data", "html")
-        with open(os.path.join(template_path, "css", "bootstrap", "bootstrap.min.css"), encoding="utf-8") as f:
-            bootstrap_css = f.read()
-        with open(os.path.join(template_path, "css", "fontawesome", "all.min.css"), encoding="utf-8") as f:
-            fontawesome_css = f.read()
-        with open(os.path.join(template_path, "css", "style.css"), encoding="utf-8") as f:
-            style_css = f.read()
-        with open(os.path.join(template_path, "js", "bootstrap", "bootstrap.bundle.min.js"), encoding="utf-8") as f:
-            bootstrap_bundle_js = f.read()
+
+        css_files = {
+            "bootstrap_css": os.path.join(template_path, "css", "bootstrap", "bootstrap.min.css"),
+            "fontawesome_css": os.path.join(template_path, "css", "fontawesome", "all.min.css"),
+            "style_css": os.path.join(template_path, "css", "style.css"),
+        }
+        js_files = {
+            "bootstrap_bundle_js": os.path.join(template_path, "js", "bootstrap", "bootstrap.bundle.min.js"),
+        }
+
+        for var_name, file_path in css_files.items():
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, encoding="utf-8") as f:
+                        globals()[var_name] = f.read()
+                except Exception as e:
+                    log.warning("Could not read CSS file %s for HTML report: %s", file_path, e)
+            else:
+                log.warning("CSS file not found for HTML report: %s", file_path)
+
+        for var_name, file_path in js_files.items():
+            if os.path.exists(file_path):
+                try:
+                    with open(file_path, encoding="utf-8") as f:
+                        globals()[var_name] = f.read()
+                except Exception as e:
+                    log.warning("Could not read JavaScript file %s for HTML report: %s", file_path, e)
+            else:
+                log.warning("JavaScript file not found for HTML report: %s", file_path)
 
         try:
             tpl = env.get_template("report.html")

@@ -71,7 +71,7 @@
 </div>
 
 <script>
-    {{ bootstrap_bundle_js }}
+    {{ bootstrap_bundle_js | safe }}
 </script>
 <script>
     document.addEventListener("DOMContentLoaded", function () {
@@ -112,4 +112,3 @@
         }, false);
     });
 </script>
-</body>

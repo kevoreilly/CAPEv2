@@ -75,8 +75,28 @@ class ReportHTML(Report):
                 with codecs.open(file_path, "r", encoding="utf-8") as f:
                     bingraph_dict_content[sha256] = f.read()
 
-            if bingraph_dict_content:
+        if bingraph_dict_content:
                 results["graphs"]["bingraph"] = {"enabled": True, "content": bingraph_dict_content}
+
+        debugger_path = os.path.join(self.analysis_path, "debugger")
+        if path_exists(debugger_path):
+            try:
+                results["debugger"] = {}
+                for log_file in sorted(os.listdir(debugger_path)):
+                    if not log_file.endswith(".log"):
+                        continue
+
+                    log_path = os.path.join(debugger_path, log_file)
+                    if not os.path.isfile(log_path):
+                        continue
+
+                    try:
+                        pid = int(log_file.strip(".log"))
+                        results["debugger"][pid] = File(log_path).get_content()
+                    except (ValueError, TypeError):
+                        log.warning("Could not parse PID from debugger log file: %s", log_file)
+            except Exception as e:
+                log.warning("Could not read debugger logs for HTML report: %s", e)
 
         env = Environment(autoescape=True)
         env.filters.update(

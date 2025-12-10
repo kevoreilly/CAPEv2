@@ -2,11 +2,22 @@
     <div class="section-title">
         <h4>Debugger Log</h4>
     </div>
-    {% if results.debugger.log %}
-        <div class="card">
-            <div class="card-body">
-                <pre>{{results.debugger.log}}</pre>
+    {% if results.debugger %}
+        <div class="accordion" id="accordionDebugger">
+        {% for pid, log in results.debugger.items() %}
+            <div class="accordion-item">
+                <h2 class="accordion-header" id="headingLog{{pid}}">
+                    <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLog{{pid}}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapseLog{{pid}}">
+                        Process with PID {{pid}}
+                    </button>
+                </h2>
+                <div id="collapseLog{{pid}}" class="accordion-collapse collapse {% if loop.first %}show{% endif %}" aria-labelledby="headingLog{{pid}}" data-bs-parent="#accordionDebugger">
+                    <div class="accordion-body">
+                        <pre>{{log}}</pre>
+                    </div>
+                </div>
             </div>
+        {% endfor %}
         </div>
     {% else %}
         <p>No debugger log available.</p>

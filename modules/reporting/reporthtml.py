@@ -79,9 +79,9 @@ class ReportHTML(Report):
                 results["graphs"]["bingraph"] = {"enabled": True, "content": bingraph_dict_content}
 
         debugger_path = os.path.join(self.analysis_path, "debugger")
+        debugger = {}
         if path_exists(debugger_path):
             try:
-                results["debugger"] = {}
                 for log_file in sorted(os.listdir(debugger_path)):
                     if not log_file.endswith(".log"):
                         continue
@@ -93,7 +93,7 @@ class ReportHTML(Report):
                     try:
                         pid = int(log_file.strip(".log"))
                         with open(log_path, "r") as f:
-                            results["debugger"][pid] = f.read()
+                            debugger[pid] = f.read()
                     except (ValueError, TypeError):
                         log.warning("Could not parse PID from debugger log file: %s", log_file)
             except Exception as e:
@@ -123,6 +123,7 @@ class ReportHTML(Report):
                     "results": results,
                     "summary_report": False,
                     "graphs": results.get("graphs", {}),
+                    "debugger": debugger,
                 }
             )
             with codecs.open(os.path.join(self.reports_path, "report.html"), "w", encoding="utf-8") as report:

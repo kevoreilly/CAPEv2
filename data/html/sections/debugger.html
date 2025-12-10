@@ -2,9 +2,9 @@
     <div class="section-title">
         <h4>Debugger Log</h4>
     </div>
-    {% if results.debugger %}
+    {% if debugger %}
         <div class="accordion" id="accordionDebugger">
-        {% for pid, log in results.debugger.items() %}
+        {% for pid, log in debugger.items() %}
             <div class="accordion-item">
                 <h2 class="accordion-header" id="headingLog{{pid}}">
                     <button class="accordion-button {% if not loop.first %}collapsed{% endif %}" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLog{{pid}}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapseLog{{pid}}">

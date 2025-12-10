@@ -200,7 +200,9 @@ class Azure(Machinery):
         self.subnet_limit = 0
         for subnet in subnets:
             if subnet.name == self.options.az.subnet:
-                match = re.match(IPV4_REGEX, subnet.address_prefix or (subnet.address_prefixes[0] if subnet.address_prefixes else ''))
+                match = re.match(
+                    IPV4_REGEX, subnet.address_prefix or (subnet.address_prefixes[0] if subnet.address_prefixes else "")
+                )
                 if match and len(match.regs) == 5:
                     self.subnet_limit = 2 ** (32 - int(match.group(4))) - (2 + 1 + 10)
 
@@ -662,10 +664,7 @@ class Azure(Machinery):
             raise CuckooUnserviceableTaskError
 
         # VMSS able to run the task exists but has no relevant machines. Scale up from zero.
-        threading.Thread(
-            target=self._thr_scale_machine_pool,
-            args=(assignable_vmss["tag"], True)
-        ).start()
+        threading.Thread(target=self._thr_scale_machine_pool, args=(assignable_vmss["tag"], True)).start()
 
     def _add_machines_to_db(self, vmss_name):
         """
@@ -726,7 +725,9 @@ class Azure(Machinery):
                 )
                 if not vmss_vm_nic:
                     log.error(
-                        "%s does not match any NICs in %s", vmss_vm.network_profile.network_interfaces[0].id.lower(), str([vmss_vm_nic.id.lower() for vmss_vm_nic in vmss_vm_nics])
+                        "%s does not match any NICs in %s",
+                        vmss_vm.network_profile.network_interfaces[0].id.lower(),
+                        str([vmss_vm_nic.id.lower() for vmss_vm_nic in vmss_vm_nics]),
                     )
                     continue
                 # Sets "new_machine" object in configuration object to
@@ -883,7 +884,10 @@ class Azure(Machinery):
             # For ClientRequestErrors, they do not have the attribute 'error'
             error = exc.error.error if getattr(exc, "error", False) else exc
             log.warning(
-                "Failed to '%s' due to the Azure error '%s': '%s'.", str(api_call), str(error), f"{exc.message if hasattr(exc, 'message') else repr(exc)}"
+                "Failed to '%s' due to the Azure error '%s': '%s'.",
+                str(api_call),
+                str(error),
+                f"{exc.message if hasattr(exc, 'message') else repr(exc)}",
             )
             if "NotFound" in repr(exc) or (hasattr(exc, "status_code") and exc.status_code == 404):
                 # Note that this exception is used to represent if an Azure resource
@@ -895,7 +899,7 @@ class Azure(Machinery):
             # Log the subscription limits
             headers = results._response.headers
             log.debug(
-                "API Charge: %s; Remaining Calls: %s", headers['x-ms-request-charge'], headers['x-ms-ratelimit-remaining-resource']
+                "API Charge: %s; Remaining Calls: %s", headers["x-ms-request-charge"], headers["x-ms-ratelimit-remaining-resource"]
             )
         return results
 
@@ -1149,7 +1153,9 @@ class Azure(Machinery):
                             number_of_relevant_machines + number_of_new_cpus_available / self.instance_type_cpus
                         )
                         log.debug(
-                            "Quota could be exceeded with projected number of machines (%s). Setting new limit to %s", str(old_number_of_relevant_machines_required), str(number_of_relevant_machines_required)
+                            "Quota could be exceeded with projected number of machines (%s). Setting new limit to %s",
+                            str(old_number_of_relevant_machines_required),
+                            str(number_of_relevant_machines_required),
                         )
 
             if machine_pools[vmss_name]["size"] == number_of_relevant_machines_required:
@@ -1221,7 +1227,10 @@ class Azure(Machinery):
                         # Relaxxxx
                         time.sleep(self.options.az.scale_down_polling_period)
                         log.debug(
-                            "Scaling %s down until new task is received. %s -> %s", vmss_name, str(number_of_relevant_machines), str(number_of_relevant_machines_required)
+                            "Scaling %s down until new task is received. %s -> %s",
+                            vmss_name,
+                            str(number_of_relevant_machines),
+                            str(number_of_relevant_machines_required),
                         )
 
                         # Get an updated count of relevant machines
@@ -1275,7 +1284,12 @@ class Azure(Machinery):
             machine_pools[vmss_name]["size"] = number_of_relevant_machines_required
 
             # Alter the database based on if we scaled up or down
-            log.debug("Updated %s capacity: %s; Initial capacity: %s", vmss_name, str(number_of_relevant_machines_required), str(initial_capacity))
+            log.debug(
+                "Updated %s capacity: %s; Initial capacity: %s",
+                vmss_name,
+                str(number_of_relevant_machines_required),
+                str(initial_capacity),
+            )
             if number_of_relevant_machines_required > initial_capacity:
                 if machine_pools[vmss_name]["has_placeholder_machine"]:
                     self._remove_placeholder_machine(vmss_name)
@@ -1452,10 +1466,13 @@ class Azure(Machinery):
 
                     for instance_id in instance_ids_that_should_not_be_reimaged_again:
                         if "InvalidParameter" in repr(exc):
-                            log.warning("Machine %s does not exist anymore. Deleting from database.", f"{vmss_to_reimage}_{instance_id}")
+                            log.warning(
+                                "Machine %s does not exist anymore. Deleting from database.", f"{vmss_to_reimage}_{instance_id}"
+                            )
                         elif "BadRequest" in repr(exc):
                             log.warning(
-                                "Machine %s cannot start due to ephemeral disk issues with Azure. Deleting from database and Azure.", f"{vmss_to_reimage}_{instance_id}"
+                                "Machine %s cannot start due to ephemeral disk issues with Azure. Deleting from database and Azure.",
+                                f"{vmss_to_reimage}_{instance_id}",
                             )
                             with vms_currently_being_deleted_lock:
                                 vms_currently_being_deleted.append(f"{vmss_to_reimage}_{instance_id}")
@@ -1478,7 +1495,9 @@ class Azure(Machinery):
                         reimaged = False
 
                         log.warning(
-                            "Reimaging machines %s in %s took too long, deleting them from the DB and the VMSS.", str(instance_ids), str(vmss_to_reimage)
+                            "Reimaging machines %s in %s took too long, deleting them from the DB and the VMSS.",
+                            str(instance_ids),
+                            str(vmss_to_reimage),
                         )
                         # That sucks, now we have mark each one for deletion
                         for instance_id in instance_ids:
@@ -1495,7 +1514,11 @@ class Azure(Machinery):
                     current_vmss_operations -= 1
                 timediff = timeit.default_timer() - start_time
                 log.debug(
-                    "%successfully reimaging instances %s in %s took %ds", {'S' if reimaged else 'Uns'}, str(instance_ids), str(vmss_to_reimage), round(timediff)
+                    "%successfully reimaging instances %s in %s took %ds",
+                    {"S" if reimaged else "Uns"},
+                    str(instance_ids),
+                    str(vmss_to_reimage),
+                    round(timediff),
                 )
             except Exception as e:
                 log.error("Exception occurred in the reimage thread: %s. Trying again...", str(e))
@@ -1572,7 +1595,10 @@ class Azure(Machinery):
                 with current_operations_lock:
                     current_vmss_operations -= 1
                 log.debug(
-                    "%successfully deleting instances %s in {vmss_to_delete_from} took %ss", 'S' if deleted else 'Uns', str(instance_ids), str(round(timeit.default_timer() - start_time))
+                    "%successfully deleting instances %s in {vmss_to_delete_from} took %ss",
+                    "S" if deleted else "Uns",
+                    str(instance_ids),
+                    str(round(timeit.default_timer() - start_time)),
                 )
             except Exception as e:
                 log.error("Exception occurred in the delete thread: %s. Trying again...", str(e))

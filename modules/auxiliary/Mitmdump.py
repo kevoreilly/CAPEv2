@@ -23,7 +23,6 @@ cape ALL=NOPASSWD: /usr/sbin/ip netns exec * /usr/bin/sudo -u cape *
 """
 
 
-
 import logging
 import os
 import socket
@@ -41,6 +40,7 @@ mitmdump = Config("mitmdump")
 
 log = logging.getLogger(__name__)
 
+
 def read_pid_from_file(pid_file_path):
     """
     Reads a process ID (PID) from a given file.
@@ -52,7 +52,7 @@ def read_pid_from_file(pid_file_path):
         int or None: The PID if successfully read, or None if an error occurs.
     """
     try:
-        with open(pid_file_path, 'r') as f:
+        with open(pid_file_path, "r") as f:
             pid_str = f.read().strip()
             pid = int(pid_str)
             return pid
@@ -65,6 +65,7 @@ def read_pid_from_file(pid_file_path):
     except Exception as e:
         log.error("An unexpected error occurred: %s", e)
         return None
+
 
 def wait_for_pid_exit(pid, timeout=None, poll_interval=1):
     """
@@ -87,6 +88,7 @@ def wait_for_pid_exit(pid, timeout=None, poll_interval=1):
             time.sleep(poll_interval)
         except OSError:
             return True  # Process does not exist (exited)
+
 
 class Mitmdump(Auxiliary):
     """Module for generating HAR with Mitmdump."""
@@ -130,7 +132,7 @@ class MitmdumpThread(Thread):
             if option.startswith("netns="):
                 _key, value = option.split("=")
                 return value
-        return ''
+        return ""
 
     def stop(self):
         """Set stop mitmdump capture."""
@@ -182,14 +184,13 @@ class MitmdumpThread(Thread):
                 log.info("has netns: %s", netns)
                 listen_host = "0.0.0.0"  # listen in net namespace
                 # sudo for ip netns exec, then sudo back to cape
-                mitmdump_args.extend([
-                    "/usr/bin/sudo", "ip", "netns", "exec", netns,
-                    "/usr/bin/sudo", "-u", "cape"])
+                mitmdump_args.extend(["/usr/bin/sudo", "ip", "netns", "exec", netns, "/usr/bin/sudo", "-u", "cape"])
 
             os.makedirs(self.mitmdump_path, exist_ok=True)
             file_path = os.path.join(self.mitmdump_path, "dump.har")
             mitmdump_args.extend(
-                [   "/opt/mitmproxy/mitmdump_wrapper.sh",
+                [
+                    "/opt/mitmproxy/mitmdump_wrapper.sh",
                     self.mitmdump_bin,
                     "-q",
                     "--listen-host",

@@ -233,21 +233,27 @@ class Processes:
             return
         # Default file descriptors
         fd_lookup = {
-            "0": [{
-                "filename": "STDIN",
-                "time_opened": "00:00:00.000000",
-                "time_closed": None,
-            }],
-            "1": [{
-                "filename": "STDOUT",
-                "time_opened": "00:00:00.000000",
-                "time_closed": None,
-            }],
-            "2": [{
-                "filename": "STDERR",
-                "time_opened": "00:00:00.000000",
-                "time_closed": None,
-            }]
+            "0": [
+                {
+                    "filename": "STDIN",
+                    "time_opened": "00:00:00.000000",
+                    "time_closed": None,
+                }
+            ],
+            "1": [
+                {
+                    "filename": "STDOUT",
+                    "time_opened": "00:00:00.000000",
+                    "time_closed": None,
+                }
+            ],
+            "2": [
+                {
+                    "filename": "STDERR",
+                    "time_opened": "00:00:00.000000",
+                    "time_closed": None,
+                }
+            ],
         }
         for fd_call in fd_calls:
             # Retrieve the relevant informaton from syscalls that open/duplicate/close file descriptors
@@ -281,9 +287,8 @@ class Processes:
                 # append filename to file descriptor according to relevant time that fd is opened
                 # if any unclosed file descriptor, assume that it is closed after process is finished
                 for fd in fd_lookup.get(call["arguments"][0]["value"], []):
-                    if (
-                        fd["time_opened"] < call["timestamp"]
-                        and (fd["time_closed"] is None or call["timestamp"] <= fd["time_closed"])
+                    if fd["time_opened"] < call["timestamp"] and (
+                        fd["time_closed"] is None or call["timestamp"] <= fd["time_closed"]
                     ):
                         call["arguments"][0]["value"] += f' ({fd["filename"]})'
                         break

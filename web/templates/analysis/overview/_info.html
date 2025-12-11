@@ -5,7 +5,7 @@
         <div class="text-center mb-3">
             <h5 class="d-inline-block me-2 font-weight-bold">Detection(s):</h5>
             {% for block in analysis.detections %}
-                <a href="/analysis/search/detections:{{block.family}}" class="badge bg-danger p-2 mb-1" data-bs-toggle="tooltip" data-placement="top" data-html="true" title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}<br>{% endif %}{% endfor %}{% endfor %}">
+                <a href="/analysis/search/detections:{{block.family}}" class="badge bg-danger p-2 mb-1" data-bs-toggle="tooltip" data-placement="top" data-bs-html="true" title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}<br>{% endif %}{% endfor %}{% endfor %}">
                     {{block.family}}
                 </a>
             {% endfor %}

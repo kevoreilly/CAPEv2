@@ -100,13 +100,13 @@
     <div class="card-header border-secondary">
         <ul class="nav nav-pills card-header-pills" id="processTabs" role="tablist">
             <li class="nav-item">
-                <a class="nav-link" id="search-tab" data-toggle="pill" href="#search" role="tab" aria-controls="search" aria-selected="false">
+                <a class="nav-link" id="search-tab" data-bs-toggle="pill" href="#search" role="tab" aria-controls="search" aria-selected="false">
                     <i class="fas fa-search mr-1"></i> Search
                 </a>
             </li>
             {% for process in behavior.processes %}
             <li class="nav-item">
-                <a class="nav-link {% if forloop.counter == 1 %}active{% endif %}" id="process-{{process.process_id}}-tab" data-toggle="pill" href="#process_{{process.process_id}}" role="tab" aria-controls="process_{{process.process_id}}" aria-selected="{% if forloop.counter == 1 %}true{% else %}false{% endif %}">
+                <a class="nav-link {% if forloop.counter == 1 %}active{% endif %}" id="process-{{process.process_id}}-tab" data-bs-toggle="pill" href="#process_{{process.process_id}}" role="tab" aria-controls="process_{{process.process_id}}" aria-selected="{% if forloop.counter == 1 %}true{% else %}false{% endif %}">
                     <i class="fas fa-microchip mr-1"></i> {{process.process_name}} <small>({{process.process_id}})</small>
                 </a>
             </li>
@@ -150,7 +150,7 @@
                             </div>
                         </div>
                         
-                        <button class="btn btn-sm btn-link text-muted" type="button" data-toggle="collapse" data-target="#advFilter_{{process.process_id}}">
+                        <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#advFilter_{{process.process_id}}">
                             Advanced Filters <i class="fas fa-chevron-down"></i>
                         </button>
                         

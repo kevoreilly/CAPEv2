@@ -43,7 +43,7 @@
             {% for block in report.top_detections %}
             <a href="/analysis/search/detections:{{block.family}}" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
                 <span class="badge bg-danger me-2 p-2">{{block.total}}</span>
-                <span class="font-weight-bold" style="font-size: 1rem;">{{block.family}}</span>
+                <span class="font-weight-bold" style="font-size: 1rem;"> {{block.family}}</span>
             </a>
             {% endfor %}
         </div>

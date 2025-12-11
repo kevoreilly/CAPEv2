@@ -2,14 +2,14 @@
 <td>{{call.thread_id}}</td>
 <td>
     {{call.caller}}
-    {% if call.parentcaller %}<br /><small class="text-muted">{{call.parentcaller}}</small>{% endif %}
+    {% if call.parentcaller %}<br /><small class="text-white">{{call.parentcaller}}</small>{% endif %}
 </td>
-<td><strong class="text-info">{{call.api}}</strong></td>
+<td><strong class="text-info text-white">{{call.api}}</strong></td>
 <td class="text-break">
     {% for argument in call.arguments %}
         <div class="mb-1">
-            <span class="text-muted">{{argument.name}}:</span>
-            <code class="text-light">
+            <span class="text-white">{{argument.name}}:</span>
+            <code class="text-white">
             {% if argument.pretty_value %}
                 <span title="{{argument.value}}">{{argument.pretty_value}}</span>
             {% else %}

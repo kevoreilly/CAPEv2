@@ -158,12 +158,13 @@
 
 {% include "analysis/overview/_signatures.html" %}
 
+{% if analysis.shots %}
 {% include "analysis/overview/_screenshots.html" %}
-
-{% if config.guacamole %}
-    {% include "analysis/overview/_playback.html" %}
 {% endif %}
 
+{% if config.guacamole and analysis.info.options.interactive %}
+{% include "analysis/overview/_playback.html" %}
+{% endif %}
 <!-- Network Overview -->
 <section id="network-overview" class="mb-4">
     <div class="row">

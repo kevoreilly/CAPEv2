@@ -422,11 +422,15 @@ class AnalysisManager(threading.Thread):
             options["clock"] = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")
         guest_manager.start_analysis(options)
-        if guest_manager.get_status_from_db() == "starting":
-            guest_manager.set_status_in_db("running")
-            guest_manager.wait_for_completion()
-
-        guest_manager.set_status_in_db("stopping")
+        
+        try:
+            if guest_manager.get_status_from_db() == "starting":
+                guest_manager.set_status_in_db("running")
+                guest_manager.wait_for_completion()
+            guest_manager.set_status_in_db("stopping")
+        except Exception as e:
+            guest_manager.set_status_in_db("failed")
+            self.log.error(f"Unknown exception: {e.args}")
 
         return
 

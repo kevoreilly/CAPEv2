@@ -101,13 +101,13 @@
         <ul class="nav nav-pills card-header-pills" id="processTabs" role="tablist">
             <li class="nav-item">
                 <a class="nav-link" id="search-tab" data-bs-toggle="pill" href="#search" role="tab" aria-controls="search" aria-selected="false">
-                    <i class="fas fa-search mr-1"></i> Search
+                    <i class="fas fa-search me-1"></i> Search
                 </a>
             </li>
             {% for process in behavior.processes %}
             <li class="nav-item">
                 <a class="nav-link {% if forloop.counter == 1 %}active{% endif %}" id="process-{{process.process_id}}-tab" data-bs-toggle="pill" href="#process_{{process.process_id}}" role="tab" aria-controls="process_{{process.process_id}}" aria-selected="{% if forloop.counter == 1 %}true{% else %}false{% endif %}">
-                    <i class="fas fa-microchip mr-1"></i> {{process.process_name}} <small>({{process.process_id}})</small>
+                    <i class="fas fa-microchip me-1"></i> {{process.process_name}} <small>({{process.process_id}})</small>
                 </a>
             </li>
             {% endfor %}
@@ -121,8 +121,8 @@
             {% for process in behavior.processes %}
             <div class="tab-pane fade {% if forloop.counter == 1%}show active{% endif %}" id="process_{{process.process_id}}" role="tabpanel" aria-labelledby="process-{{process.process_id}}-tab" data-pid="{{process.process_id}}" data-length="{{process.calls|length}}">
 
-                <div class="alert alert-info border-info text-center shadow-sm mb-4">
-                    <h5 class="alert-heading font-weight-bold">{{process.process_name}}</h5>
+                <div class="alert alert-primary border-primary text-center shadow-sm mb-4">
+                    <h5 class="alert-heading fw-bold">{{process.process_name}}</h5>
                     <p class="mb-0">
                         PID: <strong>{{process.process_id}}</strong> | Parent PID: <strong>{{process.parent_id}}</strong>
                         <br>Path: <code>{{process.module_path}}</code>
@@ -152,9 +152,7 @@
 
                         <div class="input-group mb-3 w-50 mx-auto">
                             <input type="text" class="form-control bg-secondary text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
-                            <div class="input-group-append">
-                                <button class="btn btn-primary" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
-                            </div>
+                            <button class="btn btn-primary" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
                         </div>
 
                         <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#advFilter_{{process.process_id}}">
@@ -163,7 +161,7 @@
 
                         <div class="collapse mt-2" id="advFilter_{{process.process_id}}">
                             <div class="card card-body bg-secondary">
-                                <div class="form-row">
+                                <div class="row g-3">
                                     <div class="col">
                                         <input type="text" class="form-control bg-dark text-white border-0" id="callerfilter_{{process.process_id}}" placeholder="Caller">
                                     </div>

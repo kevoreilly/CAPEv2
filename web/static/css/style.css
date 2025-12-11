@@ -170,105 +170,6 @@ h4, .h4 {
     font-size: 18px;
 }
 
-/* Windows API categories */
-.filesystem {
-    background-color: #2a2a2a;
-    color: white;
-}
-.registry {
-    background-color: #3a2a2a;
-    color: white;
-}
-.process {
-    background-color: #2a3a4a;
-    color: white;
-}
-.threading {
-    background-color: #2a2a4a;
-    color: white;
-}
-.services {
-    background-color: #3a2a4a;
-    color: white;
-}
-.device {
-    background-color: #4a3a3a;
-    color: white;
-}
-.network {
-    background-color: #2a4a2a;
-    color: white;
-}
-.socket {
-    background-color: #2a4a2a;
-    color: white;
-}
-.synchronization {
-    background-color: #4a2a4a;
-    color: white;
-}
-.browser {
-    background-color: #2a4a3a;
-    color: white;
-}
-.crypto {
-    background-color: #4a4a2a;
-    color: white;
-}
-/* Linux Syscall Categories */
-.kernel {
-    background-color: #3a2a2a;
-    color: white;
-}
-
-.fs {
-    color: white;
-    background-color: #2a2a2a;
-}
-
-.mm {
-    background-color: #2a4a2a;
-    color: white;
-}
-
-.net {
-    background-color: #2a3a4a;
-    color: white;
-}
-
-.ipc {
-    background-color: #2a2a4a;
-    color: white;
-}
-
-.security {
-    background-color: #3a2a4a;
-    color: white;
-}
-
-.drivers {
-    background-color: #4a3a3a;
-    color: white;
-}
-
-.io_uring {
-    background-color: #4a2a4a;
-    color: white;
-}
-
-.block {
-    background-color: #2a4a3a;
-    color: white;
-}
-
-.system {
-    background-color: #4a4a2a;
-    color: white;
-}
-.windows {
-    background-color: #4a2a4a;
-    color: white;
-}
 .page-header {
     margin-bottom: 10px;
 }
@@ -337,4 +238,104 @@ pre {
 .form-control {
     background-color: darkgray;
     color:black;
+}
+
+/* Windows API categories */
+.filesystem {
+    background-color: #ffe3c5;
+    color: black;
+}
+.registry {
+    background-color: #ffc5c5;
+    color: black;
+}
+.process {
+    background-color: #c5e0ff;
+    color: black;
+}
+.threading {
+    background-color: #d3e0ff;
+    color: black;
+}
+.services {
+    background-color: #ccc5ff;
+    color: black;
+}
+.device {
+    background-color: #d3c5cc;
+    color: black;
+}
+.network {
+    background-color: #d3ffc5;
+    color: black;
+}
+.socket {
+    background-color: #d3ffc5;
+    color: black;
+}
+.synchronization {
+    background-color: #f9c5ff;
+    color: black;
+}
+.browser {
+    background-color: #dfffdf;
+    color: black;
+}
+.crypto {
+    background-color: #f0f2c5;
+    color: black;
+}
+/* Linux Syscall Categories */
+.kernel {
+    background-color: #ffc5c5;
+    color: black;
+}
+
+.fs {
+    color: black;
+    background-color: #ffe3c5;
+}
+
+.mm {
+    background-color: #d3ffc5;
+    color: black;
+}
+
+.net {
+    background-color: #c5e0ff;
+    color: black;
+}
+
+.ipc {
+    background-color: #d3e0ff;
+    color: black;
+}
+
+.security {
+    background-color: #ccc5ff;
+    color: black;
+}
+
+.drivers {
+    background-color: #d3c5cc;
+    color: black;
+}
+
+.io_uring {
+    background-color: #f9c5ff;
+    color: black;
+}
+
+.block {
+    background-color: #dfffdf;
+    color: black;
+}
+
+.system {
+    background-color: #fffcc5;
+    color: black;
+}
+.windows {
+    background-color: #ffc5ee;
+    color: black;
 }

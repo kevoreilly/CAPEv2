@@ -7,7 +7,7 @@
                 <form class="form-inline justify-content-center" role="form" action="{% url "search" %}" method="get">
                     <div class="input-group w-50">
                         <input type="text" class="form-control bg-secondary text-white border-secondary" id="form_search" name="search" placeholder="Search term as regex..." aria-label="Search">
-                        
+
                             <button class="btn btn-primary" type="submit"><i class="fas fa-search"></i> Search</button>
                         </div>
                     </div>
@@ -18,10 +18,10 @@
             </div>
         </div>
 
-        <div id="help" class="collapse mt-3">
+        <div id="help" class="collapse mt-3 w-75 mx-auto">
             <div class="card bg-dark border-secondary">
                 <div class="card-header border-secondary">
-                    <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2"></i>Search Help</h5>
+                    <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2"></i> Search Help</h5>
                 </div>
                 <div class="card-body">
                     <p class="text-muted">ElasticSearch queries do not use a prefix. e.g., <code>*windows.*</code> matches 'time.windows.com'.</p>
@@ -118,7 +118,7 @@
     {% if analyses|length > 0 %}
         <div class="card bg-dark shadow-sm border-secondary mb-4">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-list me-2"></i>Search Results</h5>
+                <h5 class="mb-0 text-white"><i class="fas fa-list me-2"></i> Search Results</h5>
                 <span class="badge bg-secondary">{{analyses|length}} items</span>
             </div>
             <div class="table-responsive">

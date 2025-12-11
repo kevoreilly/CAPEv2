@@ -430,7 +430,7 @@ class AnalysisManager(threading.Thread):
             guest_manager.set_status_in_db("stopping")
         except Exception as e:
             guest_manager.set_status_in_db("failed")
-            self.log.error(f"Unknown exception: {e.args}")
+            self.log.exception(f"Unknown exception waiting for guest completion: {e}")
 
         return
 

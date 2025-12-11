@@ -52,7 +52,6 @@ class TestSubmissionViews(SimpleTestCase):
         found = self.find_in_list(regex, list_of_strings)
         self.assertFalse(found, f"One or more strings matched <{regex}>")
 
-    @pytest.mark.skip(reason="Need upgrade to bootstrap5")
     def test_submission_page(self):
         """The submission page should have a package selection form.
 
@@ -61,7 +60,7 @@ class TestSubmissionViews(SimpleTestCase):
         submission_page = self.client.get("/submit/#file")
         self.assertIsNotNone(submission_page.content)
         self.assertIn("Analysis Package", submission_page.content.decode())
-        pattern = re.compile(r'select class="form-control" id="form_package" name="package">(.*?)</select>', flags=re.DOTALL)
+        pattern = re.compile(r'select class="form-control.*?" id="form_package" name="package">(.*?)</select>', flags=re.DOTALL)
         matches = re.findall(pattern, submission_page.content.decode())
         self.assertEqual(len(matches), 1)
         group0 = matches[0].strip()

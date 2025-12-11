@@ -52,7 +52,7 @@ class TestSubmissionViews(SimpleTestCase):
         found = self.find_in_list(regex, list_of_strings)
         self.assertFalse(found, f"One or more strings matched <{regex}>")
 
-    @pytest.mark.skip(msg="Need upgrade to bootstrap5")
+    @pytest.mark.skip(reason="Need upgrade to bootstrap5")
     def test_submission_page(self):
         """The submission page should have a package selection form.
 

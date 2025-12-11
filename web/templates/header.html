@@ -31,7 +31,7 @@
             </button>
 
             <div class="collapse navbar-collapse" id="navbarColor02">
-              <ul class="navbar-nav me-auto">
+              <ul class="navbar-nav">
                 <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><i class="fas fa-list me-1"></i> Recent</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><i class="fas fa-clock me-1"></i> Pending</a></li>
@@ -57,11 +57,12 @@
                 <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/" target="_blank"><i class="fas fa-info-circle me-1"></i> Docs</a></li>
                 <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md" target="_blank"><i class="far fa-newspaper me-1"></i> Changelog</a></li>
               </ul>
-              <form class="d-flex" action="{% url "search" %}" method="get">
+
+            </div>
+            <form class="d-flex me-auto" action="{% url "search" %}" method="get">
                 <input class="form-control bg-dark text-white border-secondary me-2" type="text" id="form_search" name="search" placeholder="Search (Regex)">
                 <button class="btn btn-outline-secondary text-white" type="submit"><i class="fas fa-search"></i></button>
               </form>
-            </div>
             </div>
         </div>
       </nav>

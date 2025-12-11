@@ -125,8 +125,8 @@
                     <h5 class="alert-heading font-weight-bold">{{process.process_name}}</h5>
                     <p class="mb-0">
                         PID: <strong>{{process.process_id}}</strong> | Parent PID: <strong>{{process.parent_id}}</strong>
-                        <br>Path: <code class="text-dark">{{process.module_path}}</code>
-                        {% if process.environ.CommandLine %}<br>Cmd: <code class="text-dark">{{ process.environ.CommandLine }}</code>{% endif %}
+                        <br>Path: <code>{{process.module_path}}</code>
+                        {% if process.environ.CommandLine %}<br>Cmd: <code>{{ process.environ.CommandLine }}</code>{% endif %}
                     </p>
                 </div>
 

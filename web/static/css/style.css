@@ -28,9 +28,13 @@ a {
     display: block !important;
 }
 
-.alert-primary
+.alert-primary, .alert-info
 {
-    background-color: #303030
+    background-color: #1c1c1c
+}
+
+.alert-info code {
+    color: white;
 }
 
 .nav-link {

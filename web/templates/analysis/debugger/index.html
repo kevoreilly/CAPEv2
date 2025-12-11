@@ -29,14 +29,9 @@ function show_tab_dbg(id, callback) {
             </ul>
             {% else %}
             <li class="mb-2">
-                <i class="fas fa-arrow-right text-muted me-2"></i>
-                <strong><a href="javascript:show_tab_dbg('dbg_{{process.pid}}');" class="text-info">{{process.name}}</a></strong> 
+                <i class="text-muted me-2"></i>
+                <strong><a href="javascript:show_tab_dbg('dbg_{{process.pid}}');" class="text-info">{{process.name}}</a></strong>
                 <span class="text-muted ms-1">({{process.pid}})</span>
-                {% if process.commandline %}
-                  <div class="text-muted small ms-4 ps-3 border-left border-secondary mt-1">
-                      <i class="fas fa-terminal me-1"></i> {{ process.commandline }}
-                  </div>
-                {% endif %}
             </li>
             {% endif %}
         {% endfor %}
@@ -71,7 +66,7 @@ function show_tab_dbg(id, callback) {
                                 <i class="fas fa-download me-1"></i> Download Log
                             </a>
                         </div>
-                        <pre class="m-0 p-3 text-light bg-dark" style="max-height: 600px; overflow-y: auto; font-size: 0.85rem;">{{value}}</pre>
+                        <pre class="m-0 p-3 text-white bg-dark" style="max-height: 600px; overflow-y: auto; font-size: 0.85rem;">{{value}}</pre>
                     </div>
                     {% endif %}
                 {% endfor %}

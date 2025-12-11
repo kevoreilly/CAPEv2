@@ -121,9 +121,9 @@ footer a:hover {
 .center {
     text-align: center;
 }
-.mono {
-    font-family: monospace;
-    font-size: medium;
+td code {
+    white-space: pre-wrap;
+    word-break: break-all;
 }
 .content {
     background-color: white;
@@ -283,6 +283,7 @@ h4, .h4 {
 
 td {
     word-wrap: break-word;
+    word-break: break-all;
 }
 
 .tab-content {

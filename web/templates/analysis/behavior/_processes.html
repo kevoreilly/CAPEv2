@@ -45,7 +45,7 @@
         $(".badge-filter").removeClass("badge-light text-dark").addClass("badge-dark");
         $("#badge_default_" + pid).removeClass("badge-dark").addClass("badge-light text-dark");
     }
-    
+
     function show_tab(id, callback) {
         if ($('#' + id).hasClass('active')) {
             typeof callback === 'function' && callback();
@@ -113,20 +113,24 @@
             {% endfor %}
         </ul>
     </div>
-    
+
     <div class="card-body">
         <div class="tab-content" id="processTabsContent">
             {% include "analysis/behavior/_search.html" %}
-            
+
             {% for process in behavior.processes %}
             <div class="tab-pane fade {% if forloop.counter == 1%}show active{% endif %}" id="process_{{process.process_id}}" role="tabpanel" aria-labelledby="process-{{process.process_id}}-tab" data-pid="{{process.process_id}}" data-length="{{process.calls|length}}">
-                
+
                 <div class="alert alert-info border-info text-center shadow-sm mb-4">
                     <h5 class="alert-heading font-weight-bold">{{process.process_name}}</h5>
                     <p class="mb-0">
                         PID: <strong>{{process.process_id}}</strong> | Parent PID: <strong>{{process.parent_id}}</strong>
                         <br>Path: <code>{{process.module_path}}</code>
                         {% if process.environ.CommandLine %}<br>Cmd: <code>{{ process.environ.CommandLine }}</code>{% endif %}
+                        <br>Image Base: <strong>{% if process.environ.MainExeBase %}{{ process.environ.MainExeBase }}{% else %}{{process.image_base}}{% endif %}</strong> |
+                        Size: <strong>{% if process.environ.MainExeSize %}{{ process.environ.MainExeSize }}{% else %}{{process.size}}{% endif %}</strong> |
+                        Bitness: <strong>{% if process.environ.Bitness %}{{ process.environ.Bitness }}{% else %}{{process.bitness}}{% endif %}</strong>
+                        {% if process.environ.DllBase %}<br />Dll Image Base: <b>{{ process.environ.DllBase }}</b>{% endif %}
                     </p>
                 </div>
 
@@ -134,26 +138,29 @@
                     <div class="col-12 text-center">
                         <div class="btn-group flex-wrap mb-3" role="group">
                             <button id="badge_default_{{process.process_id}}" type="button" class="btn btn-outline-light badge-filter active">Default</button>
-                            <button id="badge_registry_{{process.process_id}}" type="button" class="btn btn-outline-info badge-filter">Registry</button>
-                            <button id="badge_filesystem_{{process.process_id}}" type="button" class="btn btn-outline-warning badge-filter">Filesystem</button>
-                            <button id="badge_network_{{process.process_id}}" type="button" class="btn btn-outline-primary badge-filter">Network</button>
-                            <button id="badge_process_{{process.process_id}}" type="button" class="btn btn-outline-danger badge-filter">Process</button>
-                            <button id="badge_services_{{process.process_id}}" type="button" class="btn btn-outline-light badge-filter">Services</button>
+                            <button id="badge_registry_{{process.process_id}}" type="button" class="btn btn-outline-danger badge-filter">Registry</button>
+                            <button id="badge_filesystem_{{process.process_id}}" type="button" class="btn btn-outline-primary badge-filter">Filesystem</button>
+                            <button id="badge_network_{{process.process_id}}" type="button" class="btn btn-outline-success badge-filter">Network</button>
+                            <button id="badge_process_{{process.process_id}}" type="button" class="btn btn-outline-info badge-filter">Process</button>
+                            <button id="badge_services_{{process.process_id}}" type="button" class="btn btn-outline-warning badge-filter">Services</button>
                             <button id="badge_sync_{{process.process_id}}" type="button" class="btn btn-outline-secondary badge-filter">Sync</button>
+                            <button id="badge_crypto_{{process.process_id}}" type="button" class="btn btn-outline-warning badge-filter">Crypto</button>
+                            <button id="badge_browser_{{process.process_id}}" type="button" class="btn btn-outline-info badge-filter">Browser</button>
+                            <button id="badge_device_{{process.process_id}}" type="button" class="btn btn-outline-secondary badge-filter">Device</button>
                             <button id="badge_all_{{process.process_id}}" type="button" class="btn btn-outline-success badge-filter">All</button>
                         </div>
-                        
+
                         <div class="input-group mb-3 w-50 mx-auto">
                             <input type="text" class="form-control bg-secondary text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
                             <div class="input-group-append">
                                 <button class="btn btn-primary" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
                             </div>
                         </div>
-                        
+
                         <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#advFilter_{{process.process_id}}">
                             Advanced Filters <i class="fas fa-chevron-down"></i>
                         </button>
-                        
+
                         <div class="collapse mt-2" id="advFilter_{{process.process_id}}">
                             <div class="card card-body bg-secondary">
                                 <div class="form-row">
@@ -182,6 +189,9 @@
                     $("#badge_process_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "process", "null", 0); });
                     $("#badge_services_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "services", "null", 0); });
                     $("#badge_sync_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "sync", "null", 0); });
+                    $("#badge_crypto_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "crypto", "null", 0); });
+                    $("#badge_browser_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "browser", "null", 0); });
+                    $("#badge_device_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "device", "null", 0); });
                     // ... (Add other category handlers similarly) ...
                     $("#badge_all_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "all", "null", 0); });
 
@@ -204,7 +214,7 @@
                     $("#apifilter_{{process.process_id}}").keypress(function(e) {
                         if (e.which == 13) { load_filtered_chunk({{process.process_id}}, "all", "null", 0); }
                     });
-                    
+
                     $("#search_button_{{process.process_id}}").click(function() {
                         load_filtered_chunk({{process.process_id}}, "all", "null", 0);
                     });

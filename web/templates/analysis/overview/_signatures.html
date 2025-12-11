@@ -14,7 +14,7 @@
                         {% if signature.severity >= 3 %}list-group-item-danger{% elif signature.severity == 2 %}list-group-item-warning{% elif signature.severity == 1 %}list-group-item-success{% else %}list-group-item-info{% endif %}"
                         data-bs-toggle="collapse" aria-expanded="false" aria-controls="signature_collapse_{{signature.name}}">
                                         <div class="d-flex w-50 justify-content-between">
-                                            <h5 class="mb-1 text-dark">
+                                            <div class="mb-1 text-dark">
                                                 {% if signature.severity <= 1 %}
                                                     <i class="fas fa-info-circle me-2 text-dark"></i>
                                                 {% elif signature.severity == 2 %}
@@ -23,7 +23,7 @@
                                                     <i class="fas fa-biohazard me-2 text-dark"></i>
                                                 {% endif %}
                                                 {{signature.description}}
-                                            </h5>
+                                            </div>
                                             <small class="text-dark"><i class="fas fa-chevron-down"></i></small>
                                         </div>
                                     </a>

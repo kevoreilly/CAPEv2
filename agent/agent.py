@@ -4,7 +4,8 @@
 
 import argparse
 import base64
-import cgi
+import email.parser
+import email.policy
 import enum
 import http.server
 import ipaddress
@@ -23,7 +24,8 @@ import sys
 import tempfile
 import time
 import traceback
-from io import StringIO
+import urllib.parse
+from io import BytesIO, StringIO
 from threading import Lock
 from typing import Iterable
 from zipfile import ZipFile
@@ -110,6 +112,55 @@ state = {
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "CAPE Agent"
 
+    def _parse_form(self):
+        request.client_ip, request.client_port = self.client_address
+        request.form = {}
+        request.files = {}
+
+        content_type = self.headers.get("Content-Type", "")
+        content_length = int(self.headers.get("Content-Length", 0))
+
+        if not content_type or not content_length:
+            return
+
+        body = self.rfile.read(content_length)
+
+        if "multipart/form-data" in content_type:
+            # Prepare a valid MIME message with headers
+            # We prefix the body with the Content-Type header so BytesParser can recognize the boundary
+            headers = f"Content-Type: {content_type}\r\n".encode("latin-1")
+
+            msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(headers + b"\r\n" + body)
+
+            if msg.is_multipart():
+                for part in msg.iter_parts():
+                    name = part.get_param("name", header="content-disposition")
+                    filename = part.get_filename()
+
+                    if not name:
+                        continue
+
+                    payload = part.get_payload(decode=True)
+
+                    if filename:
+                        request.files[name] = BytesIO(payload)
+                    else:
+                        # Attempt to decode text fields
+                        try:
+                            request.form[name] = payload.decode("utf-8")
+                        except UnicodeDecodeError:
+                            request.form[name] = payload.decode("latin-1")
+
+        elif "application/x-www-form-urlencoded" in content_type:
+            try:
+                data = urllib.parse.parse_qs(body.decode("utf-8"))
+            except UnicodeDecodeError:
+                data = urllib.parse.parse_qs(body.decode("latin-1"))
+
+            for key, val in data.items():
+                if val:
+                    request.form[key] = val[0]
+
     def do_GET(self):
         request.client_ip, request.client_port = self.client_address
         request.form = {}
@@ -119,47 +170,13 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.httpd.handle(self)
 
     def do_POST(self):
-        environ = {
-            "REQUEST_METHOD": "POST",
-            "CONTENT_TYPE": self.headers.get("Content-Type"),
-        }
-
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
-
-        request.client_ip, request.client_port = self.client_address
-        request.form = {}
-        request.files = {}
         request.method = "POST"
-
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
+        self._parse_form()
         self.httpd.handle(self)
 
     def do_DELETE(self):
-        environ = {
-            "REQUEST_METHOD": "DELETE",
-            "CONTENT_TYPE": self.headers.get("Content-Type"),
-        }
-
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
-
-        request.client_ip, request.client_port = self.client_address
-        request.form = {}
-        request.files = {}
         request.method = "DELETE"
-
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
+        self._parse_form()
         self.httpd.handle(self)
 
 
@@ -230,7 +247,7 @@ class MiniHTTPServer:
         # BaseServer also features a .shutdown() method, but you can't use
         # that from the same thread as that will deadlock the whole thing.
         if hasattr(self, "s"):
-            self.s._BaseServer__shutdown_request = True
+            self.s.shutdown()
         else:
             # When running unit tests in Windows, the system would hang here,
             # until this `exit(1)` was added.

@@ -112,11 +112,28 @@ state = {
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "CAPE Agent"
 
-    def _parse_form(self):
+    def _init_request(self, method):
         request.client_ip, request.client_port = self.client_address
         request.form = {}
         request.files = {}
+        request.method = method
 
+    def _decode_bytes(self, b):
+        try:
+            return b.decode("utf-8")
+        except UnicodeDecodeError:
+            return b.decode("latin-1")
+
+    def _add_to_dict(self, d, key, value):
+        if key in d:
+            if isinstance(d[key], list):
+                d[key].append(value)
+            else:
+                d[key] = [d[key], value]
+        else:
+            d[key] = value
+
+    def _parse_form(self):
         content_type = self.headers.get("Content-Type", "")
         content_length = int(self.headers.get("Content-Length", 0))
 
@@ -143,39 +160,30 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
                     payload = part.get_payload(decode=True)
 
                     if filename:
-                        request.files[name] = BytesIO(payload)
+                        self._add_to_dict(request.files, name, BytesIO(payload))
                     else:
-                        # Attempt to decode text fields
-                        try:
-                            request.form[name] = payload.decode("utf-8")
-                        except UnicodeDecodeError:
-                            request.form[name] = payload.decode("latin-1")
+                        self._add_to_dict(request.form, name, self._decode_bytes(payload))
 
         elif "application/x-www-form-urlencoded" in content_type:
-            try:
-                data = urllib.parse.parse_qs(body.decode("utf-8"))
-            except UnicodeDecodeError:
-                data = urllib.parse.parse_qs(body.decode("latin-1"))
+            data = urllib.parse.parse_qs(self._decode_bytes(body))
 
             for key, val in data.items():
-                if val:
+                if len(val) == 1:
                     request.form[key] = val[0]
+                else:
+                    request.form[key] = val
 
     def do_GET(self):
-        request.client_ip, request.client_port = self.client_address
-        request.form = {}
-        request.files = {}
-        request.method = "GET"
-
+        self._init_request("GET")
         self.httpd.handle(self)
 
     def do_POST(self):
-        request.method = "POST"
+        self._init_request("POST")
         self._parse_form()
         self.httpd.handle(self)
 
     def do_DELETE(self):
-        request.method = "DELETE"
+        self._init_request("DELETE")
         self._parse_form()
         self.httpd.handle(self)
 

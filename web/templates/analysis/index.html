@@ -58,7 +58,7 @@
 
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                 <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-muted"></i>Recent Files</h5>
+                 <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-muted"></i> Recent Files</h5>
                  <span class="badge bg-secondary">{{files|length}} items</span>
             </div>
             {% if files %}
@@ -121,9 +121,9 @@
                             </td>
                             <td>
                             {% if analysis.status in "reported,recovered" %}
-                                {{analysis.completed_on|date:"Y-m-d H:i"}}
+                                {{analysis.completed_on}}
                             {% else %}
-                                <span class="text-muted small">{{analysis.added_on|date:"Y-m-d H:i"}} (added)</span>
+                                <span class="text-muted small">{{analysis.added_on}} (added)</span>
                             {% endif %}
                             </td>
                             <td>
@@ -341,7 +341,7 @@
     {% endif %}
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-muted"></i>Recent Static Analysis</h5>
+                <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-muted"></i> Recent Static Analysis</h5>
                 <span class="badge bg-secondary">{{static|length}} items</span>
             </div>
             {% if static %}
@@ -387,9 +387,11 @@
                             </td>
                             <td>
                             {% if analysis.status in "reported,recovered" %}
-                                {{analysis.completed_on|date:"Y-m-d H:i"}}
-                            {% else %}
+                                {{analysis.completed_on}}
+                            {% elif analysis.added_on %}
                                 <span class="text-muted small">{{analysis.added_on|date:"Y-m-d H:i"}} (added)</span>
+                            {% else %}
+                                <span class="text-muted small">-</span>
                             {% endif %}
                             </td>
 
@@ -515,7 +517,7 @@
             {% else %}
             <div class="card-body text-center text-muted py-5">
                 <i class="fas fa-search-minus fa-3x mb-3"></i>
-                <p>No static analyses to display on this page.</p>
+                 <p>No static analyses to display on this page.</p>
             </div>
             {% endif %}
         </div>
@@ -550,7 +552,7 @@
            {% if paging.show_url_prev == "show" %}
             <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
            {% endif %}
-                      {% if paging.urls_page_range %}
+               {% if paging.urls_page_range %}
                {% for page in paging.urls_page_range %}
                    {% if page == paging.current_page %}
                    <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
@@ -567,7 +569,7 @@
     {% endif %}
         <div class="card bg-dark shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-muted"></i>Recent URLs</h5>
+                <h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-muted"></i> Recent URLs</h5>
                 <span class="badge bg-secondary">{{urls|length}} items</span>
             </div>
             {% if urls %}
@@ -628,9 +630,11 @@
                             </td>
                             <td>
                             {% if analysis.status in "reported,recovered" %}
-                                {{analysis.completed_on|date:"Y-m-d H:i"}}
-                            {% else %}
+                                {{analysis.completed_on}}
+                            {% elif analysis.added_on %}
                                 <span class="text-muted small">{{analysis.added_on|date:"Y-m-d H:i"}} (added)</span>
+                            {% else %}
+                                <span class="text-muted small">-</span>
                             {% endif %}
                             </td>
                             <td class="text-truncate" title="{{analysis.target}}">
@@ -808,7 +812,7 @@
     {% endif %}
     <div class="card bg-dark shadow-sm border-secondary">
         <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-muted"></i>Recent PCAPs</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-muted"></i> Recent PCAPs</h5>
             <span class="badge bg-secondary">{{pcaps|length}} items</span>
         </div>
         {% if pcaps %}
@@ -859,7 +863,7 @@
                         </td>
                         <td>
                             {% if analysis.status in "reported,recovered" %}
-                            {{analysis.completed_on|date:"Y-m-d H:i"}}
+                            {{analysis.completed_on}}
                             {% else %}
                             <span class="text-muted small">{{analysis.added_on|date:"Y-m-d H:i"}} (added)</span>
                             {% endif %}

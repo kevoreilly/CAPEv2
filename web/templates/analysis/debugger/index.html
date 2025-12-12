@@ -20,16 +20,16 @@ function show_tab_dbg(id, callback) {
         <h5 class="mb-0 text-white"><i class="fas fa-bug me-2 text-warning"></i> Debugger Output</h5>
     </div>
     <div class="card-body">
-        <h6 class="text-white border-bottom pb-2 mb-3">Process Tree</h6>
-        <ul class="list-unstyled mb-0 ps-3" style="font-family: monospace;">
+        <h6 class="text-white border-bottom pb-1 mb-2" style="font-size: 0.9rem;">Process Tree</h6>
+        <ul class="list-unstyled mb-0 ps-2" style="font-family: monospace; font-size: 0.8rem; line-height: 1.2;">
         {% for process in debugger.processtree|proctreetolist %}
             {% if process.startchildren %}
-            <ul class="ps-4 border-left border-secondary ms-2">
+            <ul class="ps-3 border-left border-secondary ms-1">
             {% elif process.endchildren %}
             </ul>
             {% else %}
-            <li class="mb-2">
-                <i class="text-muted me-2"></i>
+            <li class="mb-1">
+                <i class="text-muted me-1"></i>
                 <strong><a href="javascript:show_tab_dbg('dbg_{{process.pid}}');" class="text-white">{{process.name}}</a></strong>
                 <span class="text-muted ms-1">({{process.pid}})</span>
             </li>
@@ -66,7 +66,7 @@ function show_tab_dbg(id, callback) {
                                 <i class="fas fa-download me-1"></i> Download Log
                             </a>
                         </div>
-                        <pre class="m-0 p-3 text-white bg-dark" style="max-height: 600px; overflow-y: auto; font-size: 0.85rem;">{{value}}</pre>
+                        <pre class="m-0 p-3 text-white bg-dark" style="overflow-y: auto; font-size: 0.85rem;">{{value}}</pre>
                     </div>
                     {% endif %}
                 {% endfor %}

@@ -135,7 +135,11 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 
     def _parse_form(self):
         content_type = self.headers.get("Content-Type", "")
-        content_length = int(self.headers.get("Content-Length", 0))
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            log.warning("Malformed Content-Length header received, defaulting to 0: %s", self.headers.get("Content-Length"))
+            content_length = 0
 
         if not content_type or not content_length:
             return

@@ -21,21 +21,6 @@
         <li class="nav-item">
             <a class="nav-link active" id="info-tab" data-bs-toggle="tab" href="#info" role="tab" aria-controls="info" aria-selected="true">Info</a>
         </li>
-        {% if results.info.category == "file" %}
-        <li class="nav-item">
-            <a class="nav-link" id="file-tab" data-bs-toggle="tab" href="#file" role="tab" aria-controls="file" aria-selected="false">File</a>
-        </li>
-        {% elif results.info.category == "url" %}
-        <li class="nav-item">
-            <a class="nav-link" id="url-tab" data-bs-toggle="tab" href="#url" role="tab" aria-controls="url" aria-selected="false">URL</a>
-        </li>
-        {% endif %}
-        <li class="nav-item">
-            <a class="nav-link" id="signatures-tab" data-bs-toggle="tab" href="#signatures" role="tab" aria-controls="signatures" aria-selected="false">Signatures</a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" id="screenshots-tab" data-bs-toggle="tab" href="#screenshots" role="tab" aria-controls="screenshots" aria-selected="false">Screenshots</a>
-        </li>
         <li class="nav-item">
             <a class="nav-link" id="network-tab" data-bs-toggle="tab" href="#network" role="tab" aria-controls="network" aria-selected="false">Network</a>
         </li>

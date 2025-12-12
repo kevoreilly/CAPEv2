@@ -9,12 +9,12 @@
             <div class="card mt-2">
                 <div class="card-header" id="headingDroppedFile{{loop.index}}">
                     <h5 class="mb-0">
-                        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDroppedFile{{loop.index}}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapseDroppedFile{{loop.index}}">
+                        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDroppedFile{{loop.index}}" aria-expanded="true" aria-controls="collapseDroppedFile{{loop.index}}">
                             {% for name in file.name%}{{name}}{% endfor %}
                         </button>
                     </h5>
                 </div>
-                <div id="collapseDroppedFile{{loop.index}}" class="collapse {% if loop.first %}show{% endif %}" aria-labelledby="headingDroppedFile{{loop.index}}" data-bs-parent="#accordionDroppedFiles">
+                <div id="collapseDroppedFile{{loop.index}}" class="collapse show" aria-labelledby="headingDroppedFile{{loop.index}}" data-bs-parent="#accordionDroppedFiles">
                     <div class="card-body">
                         {% include "generic/_file_info.html" %}
                     </div>

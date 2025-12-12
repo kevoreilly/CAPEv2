@@ -258,19 +258,19 @@
                     <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#flare_capa_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{file.sha256}}">FLARE CAPA</a>
                 {% endif %}
                 {% if file.strings %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}" title="Display strings" data-bs-toggle="tooltip"><span class="fas fa-envelope-open-text"></span> Strings</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{file.sha256}}" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                 {% endif %}
                 {% if file.floss %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#floss_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{file.sha256}}" title="Display floss strings" data-bs-toggle="tooltip"><span class="fas fa-envelope-open-text"></span> Floss</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#floss_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{file.sha256}}" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
                 {% endif %}
                 {% if file.data %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}" title="Display text" data-bs-toggle="tooltip"><span class="fas fa-envelope-open-text"></span> Text</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#text_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{file.sha256}}" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
                 {% endif %}
                 {% if file.decoded_files %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}" title="Display text" data-bs-toggle="tooltip"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{file.sha256}}" title="Display text"><span class="fas fa-envelope-open-text"></span> {{file.decoded_files_tool}}</a>
                 {% endif %}
                 {% if file.extracted_files %}
-                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}" title="Display extracted files" data-bs-toggle="tooltip"><span class="fas fa-archive"></span> {{file.extracted_files_tool}} {% if file.extracted_files_time %} ({{"%0.2f" % file.extracted_files_time|float}} sec) {% endif %}</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#extracted_files_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{file.sha256}}" title="Display extracted files"><span class="fas fa-archive"></span> {{file.extracted_files_tool}} {% if file.extracted_files_time %} ({{"%0.2f" % file.extracted_files_time|float}} sec) {% endif %}</a>
                 {% endif %}
             </td>
         </tr>

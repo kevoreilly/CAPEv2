@@ -1305,7 +1305,8 @@ function install_CAPE() {
 if [ ! -f /etc/sudoers.d/cape ]; then
     cat >> /etc/sudoers.d/cape << EOF
 Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
-${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
+Cmnd_Alias UFW_STATUS = /usr/sbin/ufw status
+${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES, UFW_STATUS
 EOF
 fi
 if [ ! -f /etc/sudoers.d/ip_netns ]; then

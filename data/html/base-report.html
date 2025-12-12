@@ -22,6 +22,9 @@
             <a class="nav-link active" id="info-tab" data-bs-toggle="tab" href="#info" role="tab" aria-controls="info" aria-selected="true">Overview</a>
         </li>
         <li class="nav-item">
+            <a class="nav-link" id="behavior-tab" data-bs-toggle="tab" href="#behavior" role="tab" aria-controls="behavior" aria-selected="false">Behavior</a>
+        </li>
+        <li class="nav-item">
             <a class="nav-link" id="network-tab" data-bs-toggle="tab" href="#network" role="tab" aria-controls="network" aria-selected="false">Network</a>
         </li>
         <li class="nav-item">
@@ -30,17 +33,14 @@
         <li class="nav-item">
             <a class="nav-link" id="payloads-tab" data-bs-toggle="tab" href="#payloads" role="tab" aria-controls="payloads" aria-selected="false">Payloads</a>
         </li>
-        <li class="nav-item">
-            <a class="nav-link" id="behavior-tab" data-bs-toggle="tab" href="#behavior" role="tab" aria-controls="behavior" aria-selected="false">Behavior</a>
-        </li>
-        {% if results.memory %}
-        <li class="nav-item">
-            <a class="nav-link" id="volatility-tab" data-bs-toggle="tab" href="#volatility" role="tab" aria-controls="volatility" aria-selected="false">Volatility</a>
-        </li>
-        {% endif %}
         {% if debugger %}
         <li class="nav-item">
             <a class="nav-link" id="debugger-tab" data-bs-toggle="tab" href="#debugger" role="tab" aria-controls="debugger" aria-selected="false">Debugger</a>
+        </li>
+        {% endif %}
+        {% if results.memory %}
+        <li class="nav-item">
+            <a class="nav-link" id="volatility-tab" data-bs-toggle="tab" href="#volatility" role="tab" aria-controls="volatility" aria-selected="false">Volatility</a>
         </li>
         {% endif %}
     </ul>

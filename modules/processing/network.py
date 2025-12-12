@@ -789,6 +789,10 @@ class Pcap:
                     connection["sport"] = tcp.sport
                     connection["dport"] = tcp.dport
 
+                    if tcp.flags & dpkt.tcp.TH_SYN and tcp.flags & dpkt.tcp.TH_ACK:
+                        connection["src"], connection["dst"] = connection["dst"], connection["src"]
+                        connection["sport"], connection["dport"] = connection["dport"], connection["sport"]
+
                     if tcp.data:
                         self._tcp_dissect(connection, tcp.data, ts)
                         src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]

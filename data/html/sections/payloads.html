@@ -8,12 +8,12 @@
             <div class="card mt-2">
                 <div class="card-header" id="headingPayload{{loop.index}}">
                     <h5 class="mb-0">
-                        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePayload{{loop.index}}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapsePayload{{loop.index}}">
+                        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePayload{{loop.index}}" aria-expanded="true" aria-controls="collapsePayload{{loop.index}}">
                             {% for name in file.name%}{{name}}{% endfor %}
                         </button>
                     </h5>
                 </div>
-                <div id="collapsePayload{{loop.index}}" class="collapse {% if loop.first %}show{% endif %}" aria-labelledby="headingPayload{{loop.index}}" data-bs-parent="#accordionPayloads">
+                <div id="collapsePayload{{loop.index}}" class="collapse show" aria-labelledby="headingPayload{{loop.index}}" data-bs-parent="#accordionPayloads">
                     <div class="card-body">
                         {% include "generic/_file_info.html" %}
                     </div>

@@ -247,7 +247,7 @@ class MiniHTTPServer:
         # BaseServer also features a .shutdown() method, but you can't use
         # that from the same thread as that will deadlock the whole thing.
         if hasattr(self, "s"):
-            self.s.shutdown()
+            self.s._BaseServer__shutdown_request = True
         else:
             # When running unit tests in Windows, the system would hang here,
             # until this `exit(1)` was added.

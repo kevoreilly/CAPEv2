@@ -535,8 +535,7 @@ def cuckoo_clean_before(args: dict):
             response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
             if response.lower() in ("n", "not"):
                 sys.exit()
-        mongo_delete_data_range(range_end=highest_id)
-        # cleanup_files_collection_by_id(highest_id)
+        mongo_delete_data(id_arr)
 
     db.delete_tasks(added_before=added_before, category=category)
 

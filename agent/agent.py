@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import re
 import argparse
 import base64
 import email.parser
@@ -29,14 +30,11 @@ from io import BytesIO, StringIO
 from threading import Lock
 from typing import Iterable
 from zipfile import ZipFile
+import logging
 
-try:
-    import re2 as re  # type: ignore
-except ImportError:
-    import re
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+if sys.version_info[:2] < (3, 10):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.10")
 
 # You must run x86 version not x64
 # The analysis process interacts with low-level Windows libraries that need a
@@ -45,7 +43,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.20"
+AGENT_VERSION = "0.21"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -69,6 +67,8 @@ if sys.platform == "win32":
     WAIT_OBJECT_0 = 0x0
     WAIT_TIMEOUT = 0x102
     WAIT_FAILED = 0xFFFFFFFF
+
+log = logging.getLogger(__name__)
 
 
 class Status(enum.IntEnum):

@@ -1,3 +1,4 @@
+{% set proctree_details = True %}
 {% include "sections/proctree.html" %}
 <div class="mt-4">
     <div class="section-title">
@@ -28,94 +29,4 @@
         </div>
     </div>
     {% endif %}
-
-    <div class="card mt-3">
-        <div class="card-header" id="headingProcesses">
-            <h5 class="mb-0">
-                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProcesses" aria-expanded="true" aria-controls="collapseProcesses">
-                    Processes
-                </button>
-            </h5>
-        </div>
-        <div id="collapseProcesses" class="collapse show" aria-labelledby="headingProcesses">
-            <div class="card-body">
-                {% if results.behavior and results.behavior.processes %}
-                    <div id="accordionProcesses">
-                        {% for process in results.behavior.processes %}
-                        <div class="card mt-2">
-                            <div class="card-header" id="headingProcess{{process.process_id}}">
-                                <h6 class="mb-0">
-                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProcess{{process.process_id}}" aria-expanded="{% if loop.first %}true{% else %}false{% endif %}" aria-controls="collapseProcess{{process.process_id}}">
-                                        {{process.process_name}} <small>PID: {{process.process_id}}, Parent PID: {{process.parent_id}}</small>
-                                    </button>
-                                </h6>
-                            </div>
-                            <div id="collapseProcess{{process.process_id}}" class="collapse {% if loop.first %}show{% endif %}" aria-labelledby="headingProcess{{process.process_id}}" data-bs-parent="#accordionProcesses">
-                                <div class="card-body">
-                                    <p>Full Path: <b>{{process.module_path}}</b></p>
-                                    {% if process.environ and process.environ.CommandLine %}
-                                    <p>Command Line: <b>{{ process.environ.CommandLine }}</b></p>
-                                    {% endif %}
-                                    {% if results.local_conf.apicalls %}
-                                    <div class="table-responsive">
-                                        <table class="table table-bordered table-sm" style="table-layout: fixed;">
-                                            <thead>
-                                                <tr>
-                                                    <th width="10%">Timestamp</th>
-                                                    <th width="5%">Thread</th>
-                                                    <th width="15%">Function</th>
-                                                    <th width="50%">Arguments</th>
-                                                    <th width="5%">Status</th>
-                                                    <th width="10%">Return</th>
-                                                    <th width="5%">Repeated</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for call in process.calls %}
-                                                <tr class="{{call.category}}">
-                                                    <td>{{call.timestamp[11:]}}</td>
-                                                    <td>{{call.thread_id}}</td>
-                                                    <td><span class="mono">{{call.api}}</span></td>
-                                                    <td style="word-wrap: break-word;">
-                                                    {% for argument in call.arguments %}
-                                                        {% if argument.pretty_value %}
-                                                            {{argument.name}} => <span class="mono" title="{{argument.value}}">{{argument.pretty_value}}</span><br />
-                                                        {% else %}
-                                                            {{argument.name}} => <span class="mono">{{argument.value}}</span><br />
-                                                        {% endif %}
-                                                    {% endfor %}
-                                                    </td>
-                                                    <td>{% if call.status %}SUCCESS{% else %}FAILURE{% endif %}</td>
-                                                    {% if call.pretty_return %}
-                                                        <td style="word-wrap: break-word;"><span class="mono" title="{{call.return}}">{{call.pretty_return}}</span></td>
-                                                    {% else %}
-                                                        <td><span class="mono">{{call.return}}</span></td>
-                                                    {% endif %}
-                                                    <td>
-                                                    {% if call.repeated and call.repeated > 0 %}
-                                                        {{call.repeated}}
-                                                        {% if call.repeated == 1 %}
-                                                         time
-                                                        {% elif call.repeated > 1 %}
-                                                         times
-                                                        {% endif %}
-                                                    {% endif %}
-                                                    </td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <p>Nothing to display.</p>
-                {% endif %}
-            </div>
-        </div>
-    </div>
 </div>

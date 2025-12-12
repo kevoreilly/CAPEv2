@@ -1,27 +1,46 @@
+{% macro render_tree(processes) %}
+    <ul class="list-unstyled">
+    {% for process in processes %}
+        <li class="mb-3">
+            <div class="d-flex flex-column">
+                <div>
+                    <a class="btn btn-link p-0 text-decoration-none fw-bold" data-bs-toggle="collapse" href="#collapseProcess{{process.pid}}" role="button" aria-expanded="false" aria-controls="collapseProcess{{process.pid}}">
+                        {{process.name}}
+                    </a>
+                    <span class="badge bg-secondary ms-2">PID: {{process.pid}}</span>
+                    <span class="badge bg-light text-dark border ms-1">PPID: {{process.parent_id}}</span>
+                </div>
+                
+                {% if proctree_details %}
+                    {% if process.module_path %}
+                    <div class="small text-break ms-2"><span class="text-muted fw-bold">Path:</span> {{process.module_path}}</div>
+                    {% endif %}
+                    
+                    {% if process.command_line %}
+                        <div class="small text-break ms-2"><span class="text-muted fw-bold">Cmd:</span> <code>{{process.command_line}}</code></div>
+                    {% elif process.environ and process.environ.CommandLine %}
+                        <div class="small text-break ms-2"><span class="text-muted fw-bold">Cmd:</span> <code>{{process.environ.CommandLine}}</code></div>
+                    {% endif %}
+                {% endif %}
+            </div>
+            
+            {% if process.children %}
+                <div class="ms-4 border-start ps-3 border-secondary mt-2">
+                    {{ render_tree(process.children) }}
+                </div>
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+{% endmacro %}
+
 {% if results.behavior.processtree %}
-<div class="card mt-4" id="process-tree-container">
+<div class="card mt-4">
     <div class="card-header">
         <h4>Process Tree</h4>
     </div>
     <div class="card-body">
-        <ul>
-        {% for process in results.behavior.processtree %}
-            <li>
-                <a href="#collapseLog{{process.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{process.pid}}">
-                    <strong>{{process.name}}</strong> (PID: {{process.pid}})
-                </a>
-                <ul>
-                {% for child in process.children %}
-                    <li>
-                        <a href="#collapseLog{{child.pid}}" data-bs-toggle="collapse" role="button" aria-expanded="false" aria-controls="collapseLog{{child.pid}}">
-                            <strong>{{child.name}}</strong> (PID: {{child.pid}})
-                        </a>
-                    </li>
-                {% endfor %}
-                </ul>
-            </li>
-        {% endfor %}
-        </ul>
+        {{ render_tree(results.behavior.processtree) }}
     </div>
 </div>
 {% endif %}

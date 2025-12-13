@@ -717,18 +717,19 @@ def files_clean_before(timerange: str):
             for entry in it:
                 if not entry.is_dir():
                     continue
-                selfextracted = os.path.join(entry.path, "selfextracted")
-                if path_exists(selfextracted):
-                    with os.scandir(selfextracted) as se_it:
-                        for se_entry in se_it:
-                            if se_entry.is_symlink():
-                                try:
-                                    target = os.readlink(se_entry.path)
-                                    # Check if it points to storage/files
-                                    if os.path.abspath(target).startswith(os.path.abspath(files_folder)):
-                                        referenced.add(os.path.basename(target))
-                                except OSError:
-                                    pass
+                for subdir in ("selfextracted", "files", "CAPE", "procdump"):
+                    check_dir = os.path.join(entry.path, subdir)
+                    if path_exists(check_dir):
+                        with os.scandir(check_dir) as se_it:
+                            for se_entry in se_it:
+                                if se_entry.is_symlink():
+                                    try:
+                                        target = os.readlink(se_entry.path)
+                                        # Check if it points to storage/files
+                                        if os.path.abspath(target).startswith(os.path.abspath(files_folder)):
+                                            referenced.add(os.path.basename(target))
+                                    except OSError:
+                                        pass
 
     # 2. Iterate storage/files and clean
     for root, _, filenames in os.walk(files_folder, topdown=False):

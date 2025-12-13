@@ -192,9 +192,9 @@ class CAPE(Processing):
                     os.remove(file_path)
 
                 # Link back
-                if hasattr(os, "symlink"):
+                try:
                     os.symlink(master_path, file_path)
-                else:
+                except (OSError, AttributeError):
                     shutil.copy(master_path, file_path)
 
             except Exception as e:

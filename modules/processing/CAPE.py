@@ -16,6 +16,7 @@ import collections
 import json
 import logging
 import os
+import shutil
 import timeit
 from contextlib import suppress
 from pathlib import Path
@@ -23,9 +24,10 @@ from pathlib import Path
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, is_duplicated_binary, pe_map, static_config_parsers
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
@@ -174,6 +176,29 @@ class CAPE(Processing):
         # Optimize to not load all if duplicated, it stores sha256 in file object
         f = File(file_path, metadata.get("metadata", ""))
         sha256 = f.get_sha256()
+
+        # Deduplicate dropped, procdump, CAPE, and package files to storage/files
+        if category in ("dropped", "procdump", "CAPE", "package", "procmemory") and not os.path.islink(file_path):
+            try:
+                files_storage_dir = os.path.join(CUCKOO_ROOT, "storage", "files")
+                master_path = os.path.join(files_storage_dir, sha256)
+
+                if not path_exists(master_path):
+                    path_mkdir(files_storage_dir, exist_ok=True)
+                    # Move file
+                    shutil.move(file_path, master_path)
+                else:
+                    # Already exists, delete duplicate
+                    os.remove(file_path)
+
+                # Link back
+                if hasattr(os, "symlink"):
+                    os.symlink(master_path, file_path)
+                else:
+                    shutil.copy(master_path, file_path)
+
+            except Exception as e:
+                log.error("Deduplication failed for %s: %s", file_path, e)
 
         if sha256 in duplicated["sha256"]:
             log.debug("Skipping file that has already been processed: %s", sha256)

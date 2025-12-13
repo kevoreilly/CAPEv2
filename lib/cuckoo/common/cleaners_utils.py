@@ -125,6 +125,8 @@ def free_space_monitor(path=False, return_value=False, processing=False, analysi
         cleanup_dict["delete_older_than"] = config.cleaner.analysis
     if config.cleaner.unused_files_in_mongodb:
         cleanup_dict["delete_unused_file_data_in_mongo"] = 1
+    if config.cleaner.get("files"):
+        cleanup_dict["delete_files_items_older_than"] = config.cleaner.get("files")
 
     need_space, space_available = False, 0
     # Calculate the free disk space in megabytes.
@@ -683,6 +685,68 @@ def cape_clean_tlp():
     delete_bulk_tasks_n_folders(tlp_tasks, False)
 
 
+def files_clean_before(timerange: str):
+    """
+    Clean up files in storage/files that are not referenced by any analysis
+    and are older than the specified time range.
+    """
+    older_than = convert_into_time(timerange)
+    files_folder = os.path.join(CUCKOO_ROOT, "storage", "files")
+    analyses_folder = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+
+    if not path_exists(files_folder):
+        return
+
+    # 1. Build set of referenced hashes
+    referenced = set()
+    used_mongo = False
+
+    if is_reporting_db_connected() and repconf.mongodb.enabled and "mongo_find" in globals():
+        try:
+            # Query all _id (SHA256) from files collection
+            cursor = mongo_find("files", {}, {"_id": 1})
+            for doc in cursor:
+                referenced.add(doc["_id"])
+            used_mongo = True
+            log.info("Loaded %d referenced files from MongoDB", len(referenced))
+        except Exception as e:
+            log.error("Failed to query MongoDB for files: %s. Falling back to filesystem scan.", e)
+
+    if not used_mongo and path_exists(analyses_folder):
+        log.info("Scanning analysis folders for file references...")
+        with os.scandir(analyses_folder) as it:
+            for entry in it:
+                if not entry.is_dir():
+                    continue
+                selfextracted = os.path.join(entry.path, "selfextracted")
+                if path_exists(selfextracted):
+                    with os.scandir(selfextracted) as se_it:
+                        for se_entry in se_it:
+                            if se_entry.is_symlink():
+                                try:
+                                    target = os.readlink(se_entry.path)
+                                    # Check if it points to storage/files
+                                    if os.path.abspath(target).startswith(os.path.abspath(files_folder)):
+                                        referenced.add(os.path.basename(target))
+                                except OSError:
+                                    pass
+
+    # 2. Iterate storage/files and clean
+    for _, _, filenames in os.walk(files_folder):
+        for sha256 in filenames:
+            if sha256 in referenced:
+                continue
+
+            file_path = os.path.join(files_folder, sha256)
+            try:
+                st_ctime = path_get_date(file_path)
+                # Correct logic: delete if OLDER than limit (<)
+                if datetime.fromtimestamp(st_ctime) < older_than:
+                    path_delete(file_path)
+            except Exception as e:
+                log.warning("Error checking/deleting file %s: %s", file_path, e)
+
+
 def binaries_clean_before(timerange: str):
     # In case if "delete_bin_copy = off" we might need to clean binaries
     # find storage/binaries/ -name "*" -type f -mtime 5 -delete
@@ -783,11 +847,14 @@ def execute_cleanup(args: dict, init_log=True):
     if args.get("delete_tmp_items_older_than"):
         tmp_clean_before(args["delete_tmp_items_older_than"])
 
+    if args.get("delete_unused_file_data_in_mongo"):
+        delete_unused_file_data_in_mongo()
+
     if args.get("delete_binaries_items_older_than"):
         binaries_clean_before(args["delete_binaries_items_older_than"])
 
-    if args.get("delete_unused_file_data_in_mongo"):
-        delete_unused_file_data_in_mongo()
+    if args.get("delete_files_items_older_than"):
+        files_clean_before(args["delete_files_items_older_than"])
 
     if args.get("cleanup_files_collection_by_id"):
         cleanup_files_collection_by_id(args["cleanup_files_collection_by_id"])

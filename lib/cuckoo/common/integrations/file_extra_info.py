@@ -385,22 +385,44 @@ def _extracted_files_metadata(
             file_info["path"] = dest_path
             file_info["guest_paths"] = [file_info["name"]]
             file_info["name"] = os.path.basename(dest_path)
+            # Define the new central storage for all files (extracted, dropped, etc.)
+            files_storage_dir = os.path.join(CUCKOO_ROOT, "storage", "files")
+            master_file_path = os.path.join(files_storage_dir, file_info["sha256"])
+
+            # 1. Ensure file is in central storage
+            if not path_exists(master_file_path):
+                path_mkdir(files_storage_dir, exist_ok=True)
+                shutil.move(full_path, master_file_path)
+            elif path_exists(full_path):
+                # We already have it, delete the temp duplicate
+                path_delete(full_path)
+
+            # 2. Create symlink in analysis folder (or copy if link fails)
             if not path_exists(dest_path):
-                shutil.move(full_path, dest_path)
-                print(
-                    json.dumps(
-                        {
-                            "path": os.path.join("files", file_info["sha256"]),
-                            "filepath": file_info["name"],
-                            "pids": [],
-                            "ppids": [],
-                            "metadata": "",
-                            "category": "files",
-                        },
-                        ensure_ascii=False,
-                    ),
-                    file=f,
-                )
+                try:
+                    if hasattr(os, "symlink"):
+                        os.symlink(master_file_path, dest_path)
+                    else:
+                        shutil.copy(master_file_path, dest_path)
+                except OSError:
+                    # Fallback to copy on error
+                    shutil.copy(master_file_path, dest_path)
+            
+            # Update files.json for UI/Reporting to correctly reference the symlinked file
+            print(
+                json.dumps(
+                    {
+                        "path": os.path.join("selfextracted", file_info["sha256"]),
+                        "filepath": file_info["name"],
+                        "pids": [],
+                        "ppids": [],
+                        "metadata": "",
+                        "category": "selfextracted",
+                    },
+                    ensure_ascii=False,
+                ),
+                file=f,
+            )
             file_info["data"] = is_text_file(file_info, destination_folder, processing_conf.CAPE.buffer)
             metadata.append(file_info)
 

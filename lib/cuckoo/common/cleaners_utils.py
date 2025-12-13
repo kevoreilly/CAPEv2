@@ -732,7 +732,7 @@ def files_clean_before(timerange: str):
                                     pass
 
     # 2. Iterate storage/files and clean
-    for root, _, filenames in os.walk(files_folder):
+    for root, _, filenames in os.walk(files_folder, topdown=False):
         for sha256 in filenames:
             if sha256 in referenced:
                 continue
@@ -745,6 +745,14 @@ def files_clean_before(timerange: str):
                     path_delete(file_path)
             except Exception as e:
                 log.warning("Error checking/deleting file %s: %s", file_path, e)
+        
+        # Try to remove empty directories (except the root files_folder)
+        if root != files_folder:
+            try:
+                os.rmdir(root)
+            except OSError:
+                # Directory not empty or other error
+                pass
 
 
 def binaries_clean_before(timerange: str):

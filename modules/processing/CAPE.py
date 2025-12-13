@@ -33,6 +33,7 @@ from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,
     get_clamav_consensus,
+    get_files_storage_path,
     make_bytes,
     texttypes,
     wide2str,
@@ -180,8 +181,8 @@ class CAPE(Processing):
         # Deduplicate dropped, procdump, CAPE, and package files to storage/files
         if category in ("dropped", "procdump", "CAPE", "package", "procmemory") and not os.path.islink(file_path):
             try:
-                files_storage_dir = os.path.join(CUCKOO_ROOT, "storage", "files")
-                master_path = os.path.join(files_storage_dir, sha256)
+                master_path = get_files_storage_path(sha256)
+                files_storage_dir = os.path.dirname(master_path)
 
                 if not path_exists(master_path):
                     path_mkdir(files_storage_dir, exist_ok=True)

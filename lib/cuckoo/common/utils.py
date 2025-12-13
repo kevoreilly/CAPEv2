@@ -185,6 +185,18 @@ def get_memdump_path(memdump_id, analysis_folder=False):
     )
 
 
+def get_files_storage_path(sha256: str) -> str:
+    """
+    Get the path to the storage/files directory for a given SHA256.
+    Uses sharding (e.g., storage/files/ab/cd/abcdef...) to avoid
+    too many files in a single directory.
+    """
+    if not sha256 or len(sha256) < 4:
+        return os.path.join(CUCKOO_ROOT, "storage", "files", sha256)
+
+    return os.path.join(CUCKOO_ROOT, "storage", "files", sha256[:2], sha256[2:4], sha256)
+
+
 def validate_referrer(url):
     if not url:
         return None

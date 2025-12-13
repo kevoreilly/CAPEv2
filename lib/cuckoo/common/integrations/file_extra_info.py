@@ -45,7 +45,7 @@ from lib.cuckoo.common.path_utils import (
     path_read_file,
     path_write_file,
 )
-from lib.cuckoo.common.utils import get_options, is_text_file
+from lib.cuckoo.common.utils import get_files_storage_path, get_options, is_text_file
 
 try:
     from sflock import unpack
@@ -386,8 +386,8 @@ def _extracted_files_metadata(
             file_info["guest_paths"] = [file_info["name"]]
             file_info["name"] = os.path.basename(dest_path)
             # Define the new central storage for all files (extracted, dropped, etc.)
-            files_storage_dir = os.path.join(CUCKOO_ROOT, "storage", "files")
-            master_file_path = os.path.join(files_storage_dir, file_info["sha256"])
+            master_file_path = get_files_storage_path(file_info["sha256"])
+            files_storage_dir = os.path.dirname(master_file_path)
 
             # 1. Ensure file is in central storage
             if not path_exists(master_file_path):

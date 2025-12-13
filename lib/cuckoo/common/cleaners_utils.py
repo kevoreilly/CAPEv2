@@ -732,12 +732,12 @@ def files_clean_before(timerange: str):
                                     pass
 
     # 2. Iterate storage/files and clean
-    for _, _, filenames in os.walk(files_folder):
+    for root, _, filenames in os.walk(files_folder):
         for sha256 in filenames:
             if sha256 in referenced:
                 continue
 
-            file_path = os.path.join(files_folder, sha256)
+            file_path = os.path.join(root, sha256)
             try:
                 st_ctime = path_get_date(file_path)
                 # Correct logic: delete if OLDER than limit (<)

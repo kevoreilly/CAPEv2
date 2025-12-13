@@ -351,7 +351,6 @@ def cuckoo_clean_failed_tasks():
     # This need to init a console logger handler, because the standard
     # logger (init_logging()) logs to a file which will be deleted.
     create_structure()
-
     # ToDo multi status
     tasks_list = db.list_tasks(status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}")
     # ToDo rewrite for bulk delete

@@ -400,10 +400,7 @@ def _extracted_files_metadata(
             # 2. Create symlink in analysis folder (or copy if link fails)
             if not path_exists(dest_path):
                 try:
-                    if hasattr(os, "symlink"):
-                        os.symlink(master_file_path, dest_path)
-                    else:
-                        shutil.copy(master_file_path, dest_path)
+                    os.symlink(master_file_path, dest_path)
                 except OSError:
                     # Fallback to copy on error
                     shutil.copy(master_file_path, dest_path)

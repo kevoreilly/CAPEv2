@@ -341,29 +341,21 @@ def sync_sharded_files_nfs(worker_name, main_task_id):
                         if path_exists(worker_src):
                             path_mkdir(os.path.dirname(master_dest), exist_ok=True)
                             shutil.copy2(worker_src, master_dest)
-                        else:
-                            # Fallback check for flat structure on worker (migration support)
-                            flat_worker_src = os.path.join(worker_mount, "storage", "files", sha256)
-                            if path_exists(flat_worker_src):
-                                path_mkdir(os.path.dirname(master_dest), exist_ok=True)
-                                shutil.copy2(flat_worker_src, master_dest)
 
                     # Ensure symlink in analysis folder is correct
                     link_path = os.path.join(analysis_path, rel_path)
-                    
+
                     # If it's a broken link or doesn't exist or is a full file (we want link)
                     if path_exists(master_dest):
                         if os.path.islink(link_path):
-                            # Check if it points to the right place? 
+                            # Check if it points to the right place?
                             # For now, simpler to re-link if we want to enforce local storage path
                             os.remove(link_path)
                         elif path_exists(link_path):
                             # It's a file, replace with link to save space
                             path_delete(link_path)
-                        
                         path_mkdir(os.path.dirname(link_path), exist_ok=True)
                         os.symlink(master_dest, link_path)
-
                 except (json.JSONDecodeError, OSError) as e:
                     log.error("Error syncing file for task %s: %s", main_task_id, e)
     except Exception as e:

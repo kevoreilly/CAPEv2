@@ -409,7 +409,7 @@ def _extracted_files_metadata(
             print(
                 json.dumps(
                     {
-                        "path": os.path.join("selfextracted", file_info["sha256"]),
+                        "path": file_info["sha256"],  # Store just the SHA256
                         "filepath": file_info["name"],
                         "pids": [],
                         "ppids": [],

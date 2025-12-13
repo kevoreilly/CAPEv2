@@ -1122,20 +1122,18 @@ def category_all_files(task_id: str, category: str, base_path: str):
         files = []
         if query_category == "CAPE":
             for block in analysis.get(query_category, {}).get("payloads", []):
-                p = os.path.join(base_path, block["sha256"])
-                if path_exists(p):
-                    files.append(p)
-                else:
-                    p = get_files_storage_path(block["sha256"])
+                # Path in files.json now stores only the SHA256, not a relative path
+                sha256 = block.get("path") or block.get("sha256")
+                if sha256:
+                    p = get_files_storage_path(sha256)
                     if path_exists(p):
                         files.append(p)
         else:
             for block in analysis.get(category, []):
-                p = os.path.join(base_path, block["sha256"])
-                if path_exists(p):
-                    files.append(p)
-                else:
-                    p = get_files_storage_path(block["sha256"])
+                # Path in files.json now stores only the SHA256, not a relative path
+                sha256 = block.get("path") or block.get("sha256")
+                if sha256:
+                    p = get_files_storage_path(sha256)
                     if path_exists(p):
                         files.append(p)
 

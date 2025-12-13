@@ -1,81 +1,65 @@
-<!--
-  Cuckoo Sandbox - Automated Malware Analysis
-  Copyright (C) 2010-2015 Cuckoo Foundation.
-  http://www.cuckoosandbox.org
-
-  This file is part of Cuckoo.
-
-  Cuckoo is free software: you can redistribute it and/or modify
-  it under the terms of the GNU General Public License as published by
-  the Free Software Foundation, either version 3 of the License, or
-  (at your option) any later version.
-
-  Cuckoo is distributed in the hope that it will be useful,
-  but WITHOUT ANY WARRANTY; without even the implied warranty of
-  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-  GNU General Public License for more details.
-
-  You should have received a copy of the GNU General Public License
-  along with this program.  If not, see http://www.gnu.org/licenses/
--->
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-bs-theme="dark">
 <head>
-<meta charset="utf-8">
-{% if title %}
-<title>{{ title }} &#x2022; CAPE Sandbox</title>
-{% else %}
-<title>CAPE Sandbox</title>
-{% endif %}
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta name="description" content="CAPE Sandbox">
-<meta name="author" content="CAPE Sandbox">
-<style>
-{% include "css/bootstrap.min.css" %}
-{% include "css/style.css" %}
+    <meta charset="utf-8">
+    <title>{% if title %}{{ title }} &#x2022; {% endif %}CAPE Sandbox</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="CAPE Sandbox">
+    <meta name="author" content="CAPE Sandbox">
 
-</style>
+    <style>
+        {% include "css/bootstrap/bootstrap.min.css" %}
+        {% include "css/fontawesome/all.min.css" %}
+        {% include "css/style.css" %}
+    </style>
 </head>
 <body>
 <div class="container-fluid">
     {% include "graphic/logo.html" %}
     {% if not summary_report %}
-    <div class="navbar navbar-inverse" style="margin-top: 10px;">
-        <div class="navbar-inner">
-            <div class="container-fluid">
-                <div class="nav-collapse">
-                    <nav class="nav">
-                        <a style="margin-right: 20px" href="#info">Info</a>
-                        {% if results.info.category == "file" %}
-                            <a style="margin-right: 20px" href="#file">File</a>
-                        {% elif results.info.category == "url" %}
-                            <a style="margin-right: 20px" href="#url">URL</a>
-                        {% endif %}
-                        <a style="margin-right: 20px" href="#signatures">Signatures</a>
-                        <a style="margin-right: 20px" href="#screenshots">Screenshots</a>
-                        <a style="margin-right: 20px" href="#network">Network</a>
-                        <a style="margin-right: 20px" href="#dropped">Dropped</a>
-                        <a style="margin-right: 20px" href="#payloads">Payloads</a>
-                        <a style="margin-right: 20px" href="#behavior">Behavior</a>
-                        <a style="margin-right: 20px" href="#volatility">Volatility</a>
-                    </nav>
-                </div>
-            </div>
-        </div>
-    </div>
+    <ul class="nav nav-tabs" id="myTab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="info-tab" data-bs-toggle="tab" href="#info" role="tab" aria-controls="info" aria-selected="true">Overview</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="behavior-tab" data-bs-toggle="tab" href="#behavior" role="tab" aria-controls="behavior" aria-selected="false">Behavior</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="network-tab" data-bs-toggle="tab" href="#network" role="tab" aria-controls="network" aria-selected="false">Network</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="dropped-tab" data-bs-toggle="tab" href="#dropped" role="tab" aria-controls="dropped" aria-selected="false">Dropped</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="procdump-tab" data-bs-toggle="tab" href="#procdump" role="tab" aria-controls="procdump" aria-selected="false">Process Dumps</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="payloads-tab" data-bs-toggle="tab" href="#payloads" role="tab" aria-controls="payloads" aria-selected="false">Payloads</a>
+        </li>
+        {% if debugger %}
+        <li class="nav-item">
+            <a class="nav-link" id="debugger-tab" data-bs-toggle="tab" href="#debugger" role="tab" aria-controls="debugger" aria-selected="false">Debugger</a>
+        </li>
+        {% endif %}
+        {% if results.memory %}
+        <li class="nav-item">
+            <a class="nav-link" id="volatility-tab" data-bs-toggle="tab" href="#volatility" role="tab" aria-controls="volatility" aria-selected="false">Volatility</a>
+        </li>
+        {% endif %}
+    </ul>
     {% endif %}
     {% block content %}{% endblock %}
 
     <footer class="footer">
         {% if not summary_report %}
-        <p class="float-right"><a href="#">Back to top</a></p>
+        <p class="float-end"><a href="#">Back to top</a></p>
         {% endif %}
         <p class="text-center"><a href="https://github.com/kevoreilly/CAPEv2">CAPE Sandbox on Github</a></p>
     </footer>
 </div>
+
 <script>
-{% include "js/bootstrap.min.js" %}
-{% include "js/functions.js" %}
+    {% include "js/bootstrap/bootstrap.bundle.min.js" %}
 </script>
 </body>
 </html>

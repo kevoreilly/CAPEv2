@@ -1,57 +1,80 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="alert alert-primary" style="text-align: center;font-size: 22px; color: white;">
-    Estimating ~<b>{{report.estimate_hour}}</b> analysis per hour, <b>{{report.estimate_day}}</b> per day.
-</div>
-
-<div class="row">
-    <div class="col-md-6">
-        <div class="jumbotron" style="text-align: center;">
-            <h1>{{report.total_tasks}}</h1>
-            Total tasks
+<div class="row mt-4 mb-4">
+    <div class="col-12">
+        <div class="alert alert-primary shadow-sm d-flex align-items-center justify-content-center" style="border: none; color: white;">
+            <i class="fas fa-stopwatch me-3" style="font-size: 1.5rem;"></i>
+            <div class="text-center" style="font-size: 1.1rem;">
+                Estimating ~<b>{{report.estimate_hour}}</b> analysis per hour, <b>{{report.estimate_day}}</b> per day.
+            </div>
         </div>
     </div>
-    <div class="col-md-6">
-        <div class="jumbotron" style="text-align: center;">
-            <h1>{{report.total_samples}}</h1>
-            Total samples
+</div>
+
+<div class="row mb-4">
+    <div class="col-md-6 mb-3">
+        <div class="card text-white bg-dark h-100 shadow-sm border-secondary">
+            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center p-5">
+                <h1 class="display-3 font-weight-bold text-primary">{{report.total_tasks}}</h1>
+                <h5 class="card-title text-muted text-uppercase letter-spacing-1">Total tasks</h5>
+                <i class="fas fa-tasks fa-3x text-white-50 mt-3"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-3">
+        <div class="card text-white bg-dark h-100 shadow-sm border-secondary">
+            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center p-5">
+                <h1 class="display-3 font-weight-bold text-success">{{report.total_samples}}</h1>
+                <h5 class="card-title text-muted text-uppercase letter-spacing-1">Total samples</h5>
+                <i class="fas fa-vial fa-3x text-white-50 mt-3"></i>
+            </div>
         </div>
     </div>
 </div>
 
 {% if report.top_detections %}
-    <table class="table table-striped table-bordered table-sm">
-        {% for block in report.top_detections %}
-        <td style="text-align:center">
-            <a href="/analysis/search/detections:{{block.family}}">{{block.total}}: <span style="color:#EE1B2F;font-weight: bold;">{{block.family}}</span></a>
-        </td>
-
-        {% if forloop.counter|divisibleby:"5" %}
-        </tr>
-        {% elif forloop.last %}
-        </tr>
-        {% endif %}
-        {% endfor %}
-    </table>
+<div class="card bg-dark text-white mb-4 shadow-sm border-secondary">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0"><i class="fas fa-bug me-2 text-danger"></i> Top Detections</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-center align-items-center">
+            {% for block in report.top_detections %}
+            <a href="/analysis/search/detections:{{block.family}}" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
+                <span class="badge bg-danger me-2 p-2">{{block.total}}</span>
+                <span class="font-weight-bold" style="font-size: 1rem;"> {{block.family}}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
 {% endif %}
 
-<div class="table ">
-    <table class="table table-striped table-dark table-hover" style="table-layout: fixed;">
-        <thead>
-        <tr>
-            <th>State</th>
-            <th>Count</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for state, count in report.states_count.items %}
-            <tr>
-                <td>{{state}}</td>
-                <td>{{count}}</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+<div class="card bg-dark text-white shadow-sm border-secondary mb-5">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0"><i class="fas fa-chart-bar me-2 text-info"></i> Analysis States</h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
+                <thead class="thead-dark">
+                <tr>
+                    <th class="text-uppercase border-top-0 ps-4">State</th>
+                    <th class="text-uppercase border-top-0 text-end pe-4">Count</th>
+                </tr>
+                </thead>
+                <tbody>
+                {% for state, count in report.states_count.items %}
+                    <tr>
+                        <td class="ps-4 border-secondary">{{state|title}}</td>
+                        <td class="text-end pe-4 border-secondary font-weight-bold">{{count}}</td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
+
 {% endblock %}

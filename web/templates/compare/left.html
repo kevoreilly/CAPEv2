@@ -14,26 +14,41 @@ $(function () {
 </script>
 
 <div class="row">
-    <div class="col-md-6" style="border-right: 1px dashed #ddd;">
-        <h2 style="text-align: center;">Analysis 1</h2>
-
+    <div class="col-md-6 border-right border-secondary">
+        <h4 class="text-center text-white mb-3"><i class="fas fa-file-alt me-2 text-info"></i> Analysis 1</h4>
         {% include "compare/_info.html" with record=left %}
     </div>
     <div class="col-md-6">
-        <h2 style="text-align: center;">Analysis 2</h2>
+        <h4 class="text-center text-white mb-3"><i class="fas fa-random me-2 text-warning"></i> Select Analysis 2</h4>
 
-        <p>You need to select the second analysis.</p>
-        {% if records|length > 0 %}
-            <p>Following are all the other analyses of the same file:</p>
-            {% include "compare/_summary_table.html" %}
-        {% else %}
-            <p><b>There is no other analysis for the same file.</b></p>
-        {% endif %}
+        <div class="card bg-dark border-secondary mb-4">
+            <div class="card-header border-secondary text-white">Same File Analysis</div>
+            <div class="card-body">
+                {% if records|length > 0 %}
+                    <p class="text-muted">Choose another analysis of the same file:</p>
+                    {% include "compare/_summary_table.html" %}
+                {% else %}
+                    <div class="alert alert-secondary">
+                        <i class="fas fa-info-circle me-2"></i> No other analysis found for this file.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
 
-        <p>If you want to compare the analysis to a different file, please provide the MD5 hash:</p>
-        <form class="form-inline" action="#" id="hash">
-            <input class="form-control" type="text" name="hash" /> <button type="submit" class="btn btn-secondary btn-small">Search</button>
-        </form>
+        <div class="card bg-dark border-secondary">
+            <div class="card-header border-secondary text-white">Compare with Different File</div>
+            <div class="card-body">
+                <p class="text-muted">Enter MD5 hash to find a different analysis:</p>
+                <form class="form-inline" action="#" id="hash">
+                    <div class="input-group w-100">
+                        <input class="form-control bg-secondary text-white border-secondary" type="text" name="hash" placeholder="MD5 Hash" />
+                        
+                            <button type="submit" class="btn btn-outline-info"><i class="fas fa-search"></i> Search</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock %}

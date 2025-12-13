@@ -1,6 +1,6 @@
 {% if file.virustotal and not file.virustotal.error == True %}
 <div class="card-header">
-    <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#virustotal_binary"><i class="fas fa-shield-virus"></i> VirusTotal ({{file.virustotal.positives}}/{{file.virustotal.total}}) {% if file.virustotal.detection %} - {{file.virustotal.detection}} {% endif %}</a></center>
+    <div class="d-flex justify-content-center"><a class="btn btn-link" data-bs-toggle="collapse" aria-expanded="false" href="#virustotal_binary"><i class="fas fa-shield-virus"></i> VirusTotal ({{file.virustotal.positives}}/{{file.virustotal.total}}) {% if file.virustotal.detection %} - {{file.virustotal.detection}} {% endif %}</a></div>
 </div>
 
 <div class="collapse" id="virustotal_binary">

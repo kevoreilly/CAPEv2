@@ -1,7 +1,18 @@
-<section id="static_java">
-    <div class="well" style="font-family: monospace;">
-        {% if file.java and file.java.decompiled %}
-            <div><pre>{{file.java.decompiled}}</pre></div>
-        {% endif %}
+<section id="static_java" class="mb-4">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fab fa-java me-2 text-warning"></i> Java Decompiled Code</h5>
+        </div>
+        <div class="card-body">
+            {% if file.java and file.java.decompiled %}
+                <div class="card bg-secondary text-white border-0">
+                    <div class="card-body p-2" style="max-height: 500px; overflow-y: auto;">
+                        <pre class="mb-0 text-light small">{{file.java.decompiled}}</pre>
+                    </div>
+                </div>
+            {% else %}
+                <div class="text-muted">No decompiled code available.</div>
+            {% endif %}
+        </div>
     </div>
 </section>

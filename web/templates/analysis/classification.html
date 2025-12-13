@@ -1,108 +1,151 @@
-<p>
-  The table below presents matching against Cuckoo sanboxing of similar samples.<br/>
-  The score is computed from the comparison of the graph of API call observed during the execution of the different sample identified below by their SHA256.<br>
-  A graph is built for each process using the tuple (thread id, caller address) as node id and the API call name as symbol.
-  As a result the matching is per process, e.g. if the present sample is executing the command <b>cmd.exe</b> it will match at 100% or so any other sample executing the same process with similar arguments. For this reasons the matching table below is presented per process.<br>
-  In order to compute a numeric matching score, the API call graph is exploded into sub-graphs, lets denote SG(A) the set of subgraphs associated to the execution of a process A. Then the score relies on the cannonic set metric, that is the matching score of two processes A and B is size(SG(A) &amp; SG(B)) / size(SG(A) | SG(B)) where &amp; and | respectively denotes the set intersection and union.<br>
-  We also reference family names, note that is indicative only; the family names are extracted from the Cuckoo sanboxing of the referenced sample which can be subject to error and misclassifications. Also keep in mind the <b>cmd.exe</b> example presented above and only consider discriminative processes in the table below.
-</p>
+<div class="card bg-dark border-secondary mb-4">
+    <div class="card-header border-secondary">
+        <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-info"></i> About Classification</h5>
+    </div>
+    <div class="card-body text-light">
+        <p class="card-text">
+            The table below presents matching against Cuckoo sandboxing of similar samples.<br/>
+            The score is computed from the comparison of the graph of API calls observed during the execution of the different samples identified below by their SHA256.
+        </p>
+        <p class="card-text">
+            A graph is built for each process using the tuple <code>(thread id, caller address)</code> as node id and the API call name as symbol.
+            As a result, the matching is per process (e.g., if the present sample is executing <b>cmd.exe</b>, it will match highly with any other sample executing the same process).
+        </p>
+        <p class="card-text">
+            To compute a numeric matching score, the API call graph is exploded into sub-graphs. Let <code>SG(A)</code> be the set of subgraphs for process A. The score relies on the Jaccard index:
+            <code>size(SG(A) &cap; SG(B)) / size(SG(A) &cup; SG(B))</code>.
+        </p>
+        <p class="card-text text-muted small mb-0">
+            Note: Family names are indicative only and extracted from Cuckoo sandboxing references, which may be subject to error. Always consider the context of discriminative processes.
+        </p>
+    </div>
+</div>
 
 {% if analysis.classification.family_top %}
-<h2>Overall classfication</h2>
-<table class="table table-bordered" style="table-layout: fixed;">
-  <thead>
-    <tr>
-    <th width="100px">Family</td>
-    <th>Score</td>
-  </tr>
-</thead>
-<tbody>
-  {% for score in analysis.classification.family_top %}
-  <tr>
-    {% for entry in score %}
-    <td>{{entry}}</td>
-    {% endfor %}
-  </tr>
-  {% endfor %}
-</tbody>
-</table>
+<div class="card bg-dark border-secondary mb-4">
+    <div class="card-header border-secondary">
+        <h5 class="mb-0 text-white"><i class="fas fa-trophy me-2 text-warning"></i> Overall Classification</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-dark table-striped mb-0" style="table-layout: fixed;">
+            <thead>
+                <tr>
+                    <th width="20%">Family</th>
+                    <th>Score</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for score in analysis.classification.family_top %}
+                <tr>
+                    {% for entry in score %}
+                    <td>{{entry}}</td>
+                    {% endfor %}
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endif %}
 
-<h2>Per thread classfication</h2>
-<table class="table table-bordered" style="table-layout: fixed;">
-  <tbody>
-    {% if analysis.classification.details %}
-    {% for block in analysis.classification.details %}
-    <tr>
-      <td width=115px><b>Meta</b></td>
-      <td>{{block.meta}}</td>
-    </tr>
-    <tr>
-      <td>Thread</td>
-      <td>
-      {% if block.pid %} Pid: {{block.pid}} {% endif %}
-      {% if block.tid %} Tid: {{block.tid}} {% endif %}
-      </td>
-    </tr>
-    <tr>
-      <td>Details</td>
-      <td>
-        {% if block.results %}
-            {% for sub_block in block.results %}
-                {% for key, value in sub_block.iteritems %}
-                    {% if key == "samples" %}
-                        {% for sub_value in value %}
-                            {% for skey, svalue in sub_value.iteritems %}
-                                <li>{{ skey }}: {{ svalue }}</li>
-                            {% endfor %}
-                            <br>
-                        {% endfor %}
-                    {% else %}
-                        <li>{{ key }}: {{value}}</li>
-                    {% endif %}
-                {% endfor %}
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-primary"></i> Per Thread Classification</h5>
+    </div>
+    <div class="card-body p-0">
+        {% if analysis.classification.details %}
+            <div class="accordion" id="classificationDetails">
+            {% for block in analysis.classification.details %}
+                <div class="card bg-secondary mb-2 mx-2 mt-2">
+                    <div class="card-header p-2" id="heading{{forloop.counter}}">
+                        <h5 class="mb-0">
+                            <button class="btn btn-link text-white text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{forloop.counter}}" aria-expanded="true" aria-controls="collapse{{forloop.counter}}">
+                                <span class="badge text-dark bg-light me-2">
+                                    {% if block.pid %}PID: {{block.pid}}{% endif %}
+                                    {% if block.tid %}TID: {{block.tid}}{% endif %}
+                                </span>
+                                {{block.meta}}
+                            </button>
+                        </h5>
+                    </div>
+
+                    <div id="collapse{{forloop.counter}}" class="collapse" aria-labelledby="heading{{forloop.counter}}" data-bs-parent="#classificationDetails">
+                        <div class="card-body bg-dark text-white">
+                            {% if block.results %}
+                                <ul class="list-unstyled">
+                                {% for sub_block in block.results %}
+                                    {% for key, value in sub_block.items %}
+                                        {% if key == "samples" %}
+                                            <li><strong class="text-info">Samples:</strong>
+                                                <ul class="ms-3">
+                                                {% for sub_value in value %}
+                                                    {% for skey, svalue in sub_value.items %}
+                                                        <li><strong>{{ skey }}:</strong> {{ svalue }}</li>
+                                                    {% endfor %}
+                                                {% endfor %}
+                                                </ul>
+                                            </li>
+                                        {% else %}
+                                            <li><strong>{{ key }}:</strong> {{value}}</li>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                                </ul>
+                            {% else %}
+                                <span class="text-muted">No details available.</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
             {% endfor %}
-        {% endif %}
-        <br>
-      </td>
-    </tr>
-    {% endfor %}
-    {% else %}
-    {% for block in analysis.classification %}
-    <tr>
-      <td width=115px><b>Meta</b></td>
-      <td>{{block.meta}}</td>
-    </tr>
-    <tr>
-      <td>Thread</td>
-      <td>
-  {% if block.pid %} Pid: {{block.pid}} {% endif %}
-  {% if block.tid %} Tid: {{block.tid}} {% endif %}
-      </td>
-    </tr>
-    <tr>
-      <td>Details</td>
-      <td>
-        {% if block.results %}
-        {% for sub_block in block.results %}
-        {% for key, value in sub_block.iteritems %}
-        {% if key == "samples" %}
-        {% for sub_value in value %}
-        {% for skey, svalue in sub_value.iteritems %}
-  <li>{{ skey }}: {{ svalue }}</li>
-        {% endfor %}
-  {% endfor %}
+            </div>
         {% else %}
-        <li>{{ key }}: {{value}}</li>
+            <!-- Fallback for older structure if 'details' key is missing but root list exists -->
+            <div class="accordion" id="classificationLegacy">
+            {% for block in analysis.classification %}
+                {% if block.meta %}
+                <div class="card bg-secondary mb-2 mx-2 mt-2">
+                    <div class="card-header p-2">
+                        <h5 class="mb-0">
+                            <button class="btn btn-link text-white text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLegacy{{forloop.counter}}">
+                                <span class="badge text-dark bg-light me-2">
+                                    {% if block.pid %}PID: {{block.pid}}{% endif %}
+                                    {% if block.tid %}TID: {{block.tid}}{% endif %}
+                                </span>
+                                {{block.meta}}
+                            </button>
+                        </h5>
+                    </div>
+                    <div id="collapseLegacy{{forloop.counter}}" class="collapse">
+                        <div class="card-body bg-dark text-white">
+                            {% if block.results %}
+                                <ul class="list-unstyled">
+                                {% for sub_block in block.results %}
+                                    {% for key, value in sub_block.items %}
+                                        {% if key == "samples" %}
+                                            <li><strong class="text-info">Samples:</strong>
+                                                <ul class="ms-3">
+                                                {% for sub_value in value %}
+                                                    {% for skey, svalue in sub_value.items %}
+                                                        <li><strong>{{ skey }}:</strong> {{ svalue }}</li>
+                                                    {% endfor %}
+                                                {% endfor %}
+                                                </ul>
+                                            </li>
+                                        {% else %}
+                                            <li><strong>{{ key }}:</strong> {{value}}</li>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% endfor %}
+                                </ul>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            {% endfor %}
+            </div>
         {% endif %}
-        {% endfor %}
-        {% endfor %}
-        {% endif %}
-        <br>
-      </td>
-    </tr>
-    {% endfor %}
-    <hr>
-    {% endif %}
-  </tbody>
-</table>
+        <div class="p-2"></div>
+    </div>
+</div>

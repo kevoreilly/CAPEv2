@@ -1,179 +1,149 @@
-{% load pdf_tags %}
-{% load key_tags %}
-<section id="static_analysis">
+<section id="static_analysis_pdf" class="mb-4">
+    {% load pdf_tags %}
+    {% load key_tags %}
     {% if file.pdf %}
-        {% if file.pdf.Info %}
-        <div>
-            <h4>PDF Information</h4>
-            <div id="PDF_Info">
-                <table class="table table-striped table-bordered">
-                    <colgroup>
-                        <col width="250" />
-                        <col width="*" />
-                    </colgroup>
-                    {% if file.pdf.Info.Creator %}
-                        <tr>
-                            <th>Creator</th>
-                            <td><span class="mono">{{file.pdf.Info.Creator}}</span></td>
-                        </tr>
-                    {% endif %}
-                    {% if file.pdf.Info.Producer %}
-                        <tr>
-                            <th>Producer</th>
-                            <td><span class="mono">{{file.pdf.Info.Producer}}</span></td>
-                        </tr>
-                    {% endif %}
-                    {% if file.pdf.Info.Author %}
-                        <tr>
-                            <th>Author</th>
-                            <td><span class="mono">{{file.pdf.Info.Author}}</span></td>
-                        </tr>
-                    {% endif %}
-                    <tr>
-                        <th>Total Entropy</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Total Entropy"}}</span></td>
-                    </tr>
-                    <tr>
-                        <th>Entropy In Streams</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Entropy In Streams"}}</span></td>
-                    </tr>
-                    <tr>
-                        <th>Entropy Out of Streams</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Entropy Out Streams"}}</span></td>
-                    </tr>
-                    <tr>
-                        <th>Count of "%% EOF"</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Count %% EOF"}}</span></td>
-                    </tr>
-                    <tr>
-                        <th>PDF Header</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"PDF Header"}}</span></td>
-                    </tr>
-                    <tr>
-                        <th>Data After EOF</th>
-                        <td><span class="mono">{{file.pdf.Info|getkey:"Data After EOF"}} bytes</span></td>
-                    </tr>
-                    <tr>
-                        <th>File Size</th>
-                        <td><span class="mono">{{file.size}} bytes</span></td>
-                    </tr>
-                    {% if file.pdf.Keywords|getkey:"/Page" %}
-                    <tr>
-                        <th>Number of Pages</th>
-                        <td><span class="mono">{{file.pdf.Keywords|getkey:"/Page"}}</span></td>
-                    </tr>
-                    {% endif %}
-                </table>
-            </div>
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-file-pdf me-2 text-danger"></i> PDF Information</h5>
         </div>
-        <hr />
-        {% endif %}
-
-        {% if file.pdf.Dates %}
-        <div>
-            <h4>PDF Date(s)</h4>
-            <div id="date">
-                <table class="table table-striped table-bordered">
-                    <tr>
-                        <th>Name</th>
-                        <th>Value</th>
-                    </tr>
-                    {% for date in file.pdf.Dates %}
-                    <tr>
-                       <td>{{date.name}}</td>
-                       <td>{{date.value|datefmt}}</td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
-        </div>
-        <hr />
-        {% endif %}
-
-        {% if file.pdf.Keywords %}
-        <div>
-            <h4>Keyword Counts</h4>
-            <div id="keywords">
-                <table class="table table-striped table-bordered">
-                    <colgroup>
-                        <col width="250" />
-                        <col width="*" />
-                    </colgroup>
-                    <tr>
-                        <th>Keyword</th>
-                        <th>Count</th>
-                    </tr>
-                    {% for keyword, count in file.pdf.Keywords.items %}
-                    <tr>
-                        <td>{{keyword}}</td>
-                        <td>{{count}}</td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
-        </div>
-        <hr />
-        {% endif %}
-        {% if file.pdf.Annot_URLs %}
-        <div>
-            <h4>Link Annotation URLs</h4>
-            <div class="card card-body">
-                {% for url in file.pdf.Annot_URLs %}
-                    {{url}}<br />
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-        {% if file.pdf.JS_URLs %}
-        <div>
-            <h4>Javascript URLs</h4>
-            <div class="card card-body">
-                {% for url in file.pdf.JS_URLs %}
-                    {{url}}<br />
-                {% endfor %}
-            </div>
-        </div>
-        {% endif %}
-        {% if file.pdf.JSStreams %}
-        <div>
-            <h4>Javascript Streams</h4>
-            <div id="objects">
-                {% for obj in file.pdf.JSStreams %}
-                <table class="table table-striped table-bordered">
-                <colgroup>
-                    <col width="250" />
-                    <col width="*" />
-                </colgroup>
-                <tr>
-                    <td>Object ID</td>
-                    <td>{{obj|getkey:"Object ID"}}</td>
-                </tr>
-                <tr>
-                    <td>Size</td>
-                    {% if obj.Size == 1 %}
-                    <td>{{obj.Size}} byte</td>
-                    {% else %}
-                    <td>{{obj.Size}} bytes</td>
-                    {% endif %}
-                </tr>
-                <tr>
-                    <td>Offset</td>
-                    <td>{{obj.Offset}}</td>
-                </tr>
-                <tr>
-                    <td>Data</td>
-                    <td><a class="accordion-toggle" data-toggle="collapse" href="#JSStream_{{obj|getkey:'Object ID'}}_Data">Data Extracted</a></td>
-                </tr>
-                </table>
-                <div id="JSStream_{{obj|getkey:'Object ID'}}_Data" class="collapse">
-                    <pre>{{obj.Data|linebreaksbr}}</pre>
+        <div class="card-body">
+            
+            {% if file.pdf.Info %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">General Info</h6>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-sm mb-0">
+                        {% if file.pdf.Info.Creator %}
+                            <tr><td style="width: 30%;"><strong>Creator</strong></td><td class="text-break">{{file.pdf.Info.Creator}}</td></tr>
+                        {% endif %}
+                        {% if file.pdf.Info.Producer %}
+                            <tr><td><strong>Producer</strong></td><td class="text-break">{{file.pdf.Info.Producer}}</td></tr>
+                        {% endif %}
+                        {% if file.pdf.Info.Author %}
+                            <tr><td><strong>Author</strong></td><td class="text-break">{{file.pdf.Info.Author}}</td></tr>
+                        {% endif %}
+                        <tr><td><strong>Total Entropy</strong></td><td>{{file.pdf.Info|getkey:"Total Entropy"}}</td></tr>
+                        <tr><td><strong>Entropy In Streams</strong></td><td>{{file.pdf.Info|getkey:"Entropy In Streams"}}</td></tr>
+                        <tr><td><strong>Entropy Out of Streams</strong></td><td>{{file.pdf.Info|getkey:"Entropy Out Streams"}}</td></tr>
+                        <tr><td><strong>Count of "%% EOF"</strong></td><td>{{file.pdf.Info|getkey:"Count %% EOF"}}</td></tr>
+                        <tr><td><strong>PDF Header</strong></td><td>{{file.pdf.Info|getkey:"PDF Header"}}</td></tr>
+                        <tr><td><strong>Data After EOF</strong></td><td>{{file.pdf.Info|getkey:"Data After EOF"}} bytes</td></tr>
+                        <tr><td><strong>File Size</strong></td><td>{{file.size}} bytes</td></tr>
+                        {% if file.pdf.Keywords|getkey:"/Page" %}
+                        <tr><td><strong>Number of Pages</strong></td><td>{{file.pdf.Keywords|getkey:"/Page"}}</td></tr>
+                        {% endif %}
+                    </table>
                 </div>
-                {% endfor %}
             </div>
-        </div>
-        {% endif %}
+            {% endif %}
 
+            {% if file.pdf.Dates %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">Dates</h6>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for date in file.pdf.Dates %}
+                        <tr>
+                           <td>{{date.name}}</td>
+                           <td>{{date.value|datefmt}}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if file.pdf.Keywords %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">Keyword Counts</h6>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Keyword</th>
+                                <th>Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for keyword, count in file.pdf.Keywords.items %}
+                        <tr>
+                            <td>{{keyword}}</td>
+                            <td>{{count}}</td>
+                        </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if file.pdf.Annot_URLs %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">Link Annotation URLs</h6>
+                <div class="card bg-secondary text-white border-0">
+                    <div class="card-body p-2">
+                        <ul class="list-unstyled mb-0">
+                        {% for url in file.pdf.Annot_URLs %}
+                            <li class="text-break">{{url}}</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if file.pdf.JS_URLs %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">Javascript URLs</h6>
+                <div class="card bg-secondary text-white border-0">
+                    <div class="card-body p-2">
+                        <ul class="list-unstyled mb-0">
+                        {% for url in file.pdf.JS_URLs %}
+                            <li class="text-break">{{url}}</li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if file.pdf.JSStreams %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">Javascript Streams</h6>
+                <div class="accordion" id="jsStreamsAccordion">
+                {% for obj in file.pdf.JSStreams %}
+                    <div class="card bg-dark border-bottom border-secondary rounded-0">
+                        <div class="card-header p-0" id="headingJSStream{{forloop.counter}}">
+                            <h2 class="mb-0">
+                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#JSStream_{{obj|getkey:'Object ID'}}" aria-expanded="false">
+                                    <i class="fab fa-js me-2 text-warning"></i> Object ID: {{obj|getkey:"Object ID"}}
+                                </button>
+                            </h2>
+                        </div>
+                        <div id="JSStream_{{obj|getkey:'Object ID'}}" class="collapse" data-bs-parent="#jsStreamsAccordion">
+                            <div class="card-body bg-secondary text-white">
+                                <p class="mb-1"><strong>Size:</strong> {{obj.Size}} bytes</p>
+                                <p class="mb-2"><strong>Offset:</strong> {{obj.Offset}}</p>
+                                <pre class="mb-0 text-light small border p-2 rounded bg-dark">{{obj.Data|linebreaksbr}}</pre>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
     {% else %}
-        Nothing to display.
+        <div class="text-muted">Nothing to display.</div>
     {% endif %}
 </section>

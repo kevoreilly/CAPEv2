@@ -1,33 +1,24 @@
-<section id="signatures" style="overflow-wrap: break-word;">
-    <div class="section-title">
-        <h4>Signatures</h4>
+<div class="card mt-4">
+    <div class="card-header">
+        Signatures
     </div>
-    {% if results.signatures %}
-        {% for sign in results.signatures %}
-            {% if sign.severity == 1 %}
-                <div class="alert alert-success signature">
-            {% elif sign.severity == 2 %}
-                <div class="alert alert-warning signature">
-            {% elif sign.severity >= 3 %}
-                <div class="alert alert-danger signature">
-            {% else %}
-                <div class="alert alert-info signature">
-            {% endif %}
-            <b>{{sign.description}}</b>
-            </div>
-            {% if summary_report %}
-                <div id="signature_{{sign.name}}">
-                {% if sign.data %}
-                    {% for sign in sign.data %}
-                        {% for key, value in sign.items() %}
-                            <div><b>{{key}}</b>: {{value}}</div>
-                        {% endfor %}
-                    {% endfor %}
-                </div>
-                {% endif %}
-            {% endif %}
-        {% endfor %}
-    {% else %}
-        No signatures matched
-    {% endif %}
-</section>
+    <div class="card-body">
+        {% if results.signatures %}
+            <ul class="list-group">
+                {% for sign in results.signatures %}
+                    {% if sign.severity == 1 %}
+                        <li class="list-group-item list-group-item-success">{{sign.description}}</li>
+                    {% elif sign.severity == 2 %}
+                        <li class="list-group-item list-group-item-warning">{{sign.description}}</li>
+                    {% elif sign.severity >= 3 %}
+                        <li class="list-group-item list-group-item-danger">{{sign.description}}</li>
+                    {% else %}
+                        <li class="list-group-item list-group-item-info">{{sign.description}}</li>
+                    {% endif %}
+                {% endfor %}
+            </ul>
+        {% else %}
+            <p>No signatures matched.</p>
+        {% endif %}
+    </div>
+</div>

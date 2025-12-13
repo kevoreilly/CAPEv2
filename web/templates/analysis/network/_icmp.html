@@ -1,5 +1,10 @@
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <h5 class="mb-0 text-white"><i class="fas fa-stream me-2 text-info"></i>ICMP Traffic</h5>
+    </div>
 {% if network.icmp %}
-<table class="table table-striped table-bordered" style="table-layout: fixed;">
+<div class="card-body">
+<table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
     <tr>
         <th>Source</th>
         <th>Destination</th>
@@ -15,6 +20,10 @@
     </tr>
     {% endfor %}
 </table>
+</div>
 {% else %}
-<p>No ICMP traffic performed.</p>
+<div class="card-body">
+<div class="alert alert-info">No ICMP traffic performed.</div>
+</div>
 {% endif %}
+</div>

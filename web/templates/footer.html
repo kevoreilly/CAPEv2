@@ -1,19 +1,32 @@
-    <!-- Footer
-    ================================================== -->
-    <footer>
-        <div class="container-fluid center">
-            <a href="#">Back to the top</a>
-        </div>
-    </footer>
-    <div id="footer-extra">
-        <div class="container-fluid center">
-            <div><a href="https://github.com/kevoreilly/CAPEv2/" target="_blank">CAPE Sandbox on GitHub</a></div>
+    <footer class="footer mt-auto py-4 bg-dark text-muted border-top border-secondary">
+    <div class="container-fluid">
+        <div class="row align-items-center">
+            <div class="col-md-4 text-center text-md-left mb-2 mb-md-0">
+                <small>Powered by <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-light font-weight-bold">CAPE Sandbox</a></small>
+            </div>
+            <div class="col-md-4 text-center mb-2 mb-md-0">
+                <a href="#" class="text-muted text-decoration-none"><i class="fas fa-chevron-up me-1"></i> Back to top</a>
+            </div>
+            <div class="col-md-4 text-center text-md-right">
+                <a href="https://github.com/kevoreilly/CAPEv2/" target="_blank" class="text-muted me-3" data-bs-toggle="tooltip" title="GitHub Repository"><i class="fab fa-github fa-lg"></i></a>
+                <a href="https://capev2.readthedocs.io/" target="_blank" class="text-muted" data-bs-toggle="tooltip" title="Documentation"><i class="fas fa-book fa-lg"></i></a>
+            </div>
         </div>
     </div>
-    <script src="{{ STATIC_URL }}js/bootstrap.min.js"></script>
-    <script src="{{ STATIC_URL }}js/bootstrap-fileupload.js"></script>
-    <script src="{{ STATIC_URL }}js/lightbox.js"></script>
-    <script src="{{ STATIC_URL }}js/bootstrap-transition.js"></script>
-    <script src="{{ STATIC_URL }}js/moment.min.js"></script>
+</footer>
+
+<script src="{{ STATIC_URL }}js/bootstrap.bundle.min.js"></script>
+<script src="{{ STATIC_URL }}js/bootstrap.min.js"></script>
+<script src="{{ STATIC_URL }}js/bootstrap-fileupload.js"></script>
+<script src="{{ STATIC_URL }}js/lightbox.js"></script>
+<script src="{{ STATIC_URL }}js/bootstrap-transition.js"></script>
+<script src="{{ STATIC_URL }}js/moment.min.js"></script>
+<script>
+    // Initialize Bootstrap tooltips and popovers globally
+    $(function () {
+        $('[data-bs-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="popover"]').popover();
+    })
+</script>
 </body>
 </html>

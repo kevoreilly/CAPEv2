@@ -2,81 +2,114 @@
 __author__  = "Jeff White [karttoon] @noottrak"
 __email__   = "jwhite@paloaltonetworks.com"
 __version__ = "1.0.1"
-__date__    = "29NOV2017
+__date__    = "29NOV2017"
 -->
 
-<div class="card-header">
-    <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#curtain"><i class="fas fa-terminal"></i> Curtain</a></center>
-</div>
-<div id="curtain" class="collapse">
-    <div class="card">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-md-12">
-                    <div class="tabbable tabs">
-                        <ul class="nav nav-tabs" style="margin-bottom: 0;">
-                            <li class="nav-item active"><a class="nav-link" href="#curtain_orig_tab" data-toggle="tab">Original Events</a> </li>
-                            <li class="nav-item"><a class="nav-link" href="#curtain_altr_tab" data-toggle="tab">Altered Events</a></li>
-                            <li class="nav-item"><a class="nav-link" href="#curtain_filt_tab" data-toggle="tab">Filtered Events</a></li>
-                        </ul>
-                        <div class="tab-content">
-                            <div class="tab-pane fade show active" id="curtain_orig_tab">
-                                {% if analysis.curtain %}
-                                    {% for pid,dict in analysis.curtain.items %}
-                                    <div class="card ">
-                                        <div class="card-header">
-                                            PID: {{pid}} - {% for entry in dict.behaviors %}
-                                            <a class="btn btn-secondary">{{ entry }}</a>
-                                            {% endfor %}
-                                        </div>
-                                        <div class="card-body">
-                                            {% for entry in dict.events %} {% for event,message in entry.items %}
-                                            <b>Event: {{ event }}</b>
-                                            <p>{{ message.original|linebreaksbr }}</p> {% endfor %} {% endfor %}
-                                        </div>
-                                    </div>
-                                    {% endfor %}
-                                {% endif %}
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary" id="headingCurtain">
+        <h5 class="mb-0">
+            <button class="btn btn-link btn-block text-start text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#curtain" aria-expanded="false" aria-controls="curtain">
+                <i class="fas fa-terminal me-2 text-warning"></i> Curtain
+                <i class="fas fa-chevron-down float-end mt-1"></i>
+            </button>
+        </h5>
+    </div>
+    <div id="curtain" class="collapse" aria-labelledby="headingCurtain">
+        <div class="card-body p-3">
+            <ul class="nav nav-pills mb-3" id="curtainTabs" role="tablist">
+                <li class="nav-item">
+                    <a class="nav-link active" id="curtain-orig-tab" data-bs-toggle="pill" href="#curtain_orig_tab" role="tab" aria-controls="curtain_orig_tab" aria-selected="true">Original Events</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="curtain-altr-tab" data-bs-toggle="pill" href="#curtain_altr_tab" role="tab" aria-controls="curtain_altr_tab" aria-selected="false">Altered Events</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" id="curtain-filt-tab" data-bs-toggle="pill" href="#curtain_filt_tab" role="tab" aria-controls="curtain_filt_tab" aria-selected="false">Filtered Events</a>
+                </li>
+            </ul>
+            <div class="tab-content" id="curtainTabContent">
+                <!-- Original Events -->
+                <div class="tab-pane fade show active" id="curtain_orig_tab" role="tabpanel" aria-labelledby="curtain-orig-tab">
+                    {% if analysis.curtain %}
+                        {% for pid,dict in analysis.curtain.items %}
+                        <div class="card bg-secondary mb-3">
+                            <div class="card-header border-dark font-weight-bold">
+                                PID: {{pid}}
+                                {% for entry in dict.behaviors %}
+                                <span class="badge text-white bg-dark ms-2">{{ entry }}</span>
+                                {% endfor %}
                             </div>
-                            <div class="tab-pane fade" id="curtain_altr_tab">
-                                {% if analysis.curtain %}
-                                    {% for pid,dict in analysis.curtain.items %}
-                                    <div class="card ">
-                                        <div class="card-header">
-                                            PID: {{pid}} - {% for entry in dict.behaviors %}
-                                            <a class="btn btn-secondary">{{ entry }}</a>
-                                            {% endfor %}
+                            <div class="card-body bg-dark text-white">
+                                {% for entry in dict.events %}
+                                    {% for event,message in entry.items %}
+                                        <div class="mb-2">
+                                            <strong class="text-info">Event: {{ event }}</strong>
+                                            <p class="mb-0 small text-muted">{{ message.original|linebreaksbr }}</p>
                                         </div>
-                                        <div class="card-body">
-                                            {% for entry in dict.events %} {% for event,message in entry.items %} Event:
-                                            <b>{{ event }}</b>
-                                            <p>{{ message.altered|linebreaksbr }}</p> {% endfor %} {% endfor %}
-                                        </div>
-                                    </div>
                                     {% endfor %}
-                                {% endif %}
-                            </div>
-                            <div class="tab-pane fade" id="curtain_filt_tab">
-                                {% if analysis.curtain %} {% for pid,dict in analysis.curtain.items %}
-                                <div class="card ">
-                                    <div class="card-header">
-                                        PID: {{pid}} - {% for entry in dict.behaviors %}
-                                        <a class="btn btn-secondary">{{ entry }}</a>
-                                        {% endfor %}
-                                    </div>
-                                    <div class="card-body">
-                                        {% for entry in dict.filter %}
-                                        {% for event,message in entry.items %}
-                                        <b>Event: {{ event }}</b>
-                                        <p>
-                                            {{ message|linebreaksbr }}
-                                        </p> {% endfor %} {% endfor %}
-                                    </div>
-                                </div>
-                                {% endfor %} {% endif %}
+                                {% endfor %}
                             </div>
                         </div>
-                    </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No original events found.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Altered Events -->
+                <div class="tab-pane fade" id="curtain_altr_tab" role="tabpanel" aria-labelledby="curtain-altr-tab">
+                    {% if analysis.curtain %}
+                        {% for pid,dict in analysis.curtain.items %}
+                        <div class="card bg-secondary mb-3">
+                            <div class="card-header border-dark font-weight-bold">
+                                PID: {{pid}}
+                                {% for entry in dict.behaviors %}
+                                <span class="badge text-white bg-dark ms-2">{{ entry }}</span>
+                                {% endfor %}
+                            </div>
+                            <div class="card-body bg-dark text-white">
+                                {% for entry in dict.events %}
+                                    {% for event,message in entry.items %}
+                                        <div class="mb-2">
+                                            <strong class="text-warning">Event: {{ event }}</strong>
+                                            <p class="mb-0 small text-muted">{{ message.altered|linebreaksbr }}</p>
+                                        </div>
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No altered events found.</p>
+                    {% endif %}
+                </div>
+
+                <!-- Filtered Events -->
+                <div class="tab-pane fade" id="curtain_filt_tab" role="tabpanel" aria-labelledby="curtain-filt-tab">
+                    {% if analysis.curtain %}
+                        {% for pid,dict in analysis.curtain.items %}
+                        <div class="card bg-secondary mb-3">
+                            <div class="card-header border-dark font-weight-bold">
+                                PID: {{pid}}
+                                {% for entry in dict.behaviors %}
+                                <span class="badge text-white bg-dark ms-2">{{ entry }}</span>
+                                {% endfor %}
+                            </div>
+                            <div class="card-body bg-dark text-white">
+                                {% for entry in dict.filter %}
+                                    {% for event,message in entry.items %}
+                                        <div class="mb-2">
+                                            <strong class="text-danger">Event: {{ event }}</strong>
+                                            <p class="mb-0 small text-muted">{{ message|linebreaksbr }}</p>
+                                        </div>
+                                    {% endfor %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No filtered events found.</p>
+                    {% endif %}
                 </div>
             </div>
         </div>

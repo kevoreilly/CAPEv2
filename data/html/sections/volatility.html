@@ -1,253 +1,322 @@
 {% if not summary_report %}
-<section id="volatility">
-    <div class="section-title">
-        <h4>Volatility</h4>
+<div class="mt-4">
+    <div class="card">
+        <div class="card-header" id="headingVolatility">
+            <h4 class="mb-0">
+                <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVolatility" aria-expanded="true" aria-controls="collapseVolatility">
+                    Volatility Analysis
+                </button>
+            </h4>
+        </div>
+        <div id="collapseVolatility" class="collapse show" aria-labelledby="headingVolatility">
+            <div class="card-body">
+                {% if results.memory %}
+                    <div id="accordionVolatility">
+                        <!-- Malfind -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingMalfind">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMalfind" aria-expanded="true" aria-controls="collapseMalfind">
+                                        Malfind <small>(Scanning for injections)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseMalfind" class="collapse show" aria-labelledby="headingMalfind" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.malfind %}
+                                        {% include "sections/memory/_malfind.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Yarascan -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingYarascan">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseYarascan" aria-expanded="false" aria-controls="collapseYarascan">
+                                        Yarascan <small>(Scanning for rule matches)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseYarascan" class="collapse" aria-labelledby="headingYarascan" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.yarascan %}
+                                        {% include "sections/memory/_yarascan.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- APIHooks -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingApihooks">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseApihooks" aria-expanded="false" aria-controls="collapseApihooks">
+                                        Apihooks <small>(Listing API hooks)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseApihooks" class="collapse" aria-labelledby="headingApihooks" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.apihooks %}
+                                        {% include "sections/memory/_apihooks.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Pslist -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingPslist">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePslist" aria-expanded="false" aria-controls="collapsePslist">
+                                        PSList <small>(Listing processes)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapsePslist" class="collapse" aria-labelledby="headingPslist" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.pslist %}
+                                        {% include "sections/memory/_pslist.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Callbacks -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingCallbacks">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseCallbacks" aria-expanded="false" aria-controls="collapseCallbacks">
+                                        Callbacks <small>(Listing registered callbacks)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseCallbacks" class="collapse" aria-labelledby="headingCallbacks" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.callbacks %}
+                                        {% include "sections/memory/_callbacks.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Messagehooks -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingMessagehooks">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseMessagehooks" aria-expanded="false" aria-controls="collapseMessagehooks">
+                                        Messagehooks <small>(Registered Messagehooks)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseMessagehooks" class="collapse" aria-labelledby="headingMessagehooks" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.messagehooks %}
+                                        {% include "sections/memory/_messagehooks.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Devicetree -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingDevicetree">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDevicetree" aria-expanded="false" aria-controls="collapseDevicetree">
+                                        Devicetree <small>(Listing devices and drivers)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseDevicetree" class="collapse" aria-labelledby="headingDevicetree" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.devicetree %}
+                                        {% include "sections/memory/_devicetree.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Svcscan -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingSvcscan">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSvcscan" aria-expanded="false" aria-controls="collapseSvcscan">
+                                        Svcscan <small>(Scanning for services)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseSvcscan" class="collapse" aria-labelledby="headingSvcscan" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.svcscan %}
+                                        {% include "sections/memory/_svcscan.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Modscan -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingModscan">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseModscan" aria-expanded="false" aria-controls="collapseModscan">
+                                        Modscan <small>(Scan for (hidden) kernel drivers)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseModscan" class="collapse" aria-labelledby="headingModscan" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.modscan %}
+                                        {% include "sections/memory/_modscan.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- idt -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingIdt">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseIdt" aria-expanded="false" aria-controls="collapseIdt">
+                                        IDT <small>(Listing IDTs)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseIdt" class="collapse" aria-labelledby="headingIdt" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.idt %}
+                                        {% include "sections/memory/_idt.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- timers -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingTimers">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTimers" aria-expanded="false" aria-controls="collapseTimers">
+                                        Timers <small>(Listing timers)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseTimers" class="collapse" aria-labelledby="headingTimers" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.timers %}
+                                        {% include "sections/memory/_timers.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- gdt -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingGdt">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseGdt" aria-expanded="false" aria-controls="collapseGdt">
+                                        GDT <small>(Listing GDTs)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseGdt" class="collapse" aria-labelledby="headingGdt" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.gdt %}
+                                        {% include "sections/memory/_gdt.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- SSDT -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingSsdt">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSsdt" aria-expanded="false" aria-controls="collapseSsdt">
+                                        SSDT <small>(Listing SSDT)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseSsdt" class="collapse" aria-labelledby="headingSsdt" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.ssdt %}
+                                        {% include "sections/memory/_ssdt.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- netscan -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingNetscan">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseNetscan" aria-expanded="false" aria-controls="collapseNetscan">
+                                        Netscan <small>(Listing netscan)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseNetscan" class="collapse" aria-labelledby="headingNetscan" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.netscan %}
+                                        {% include "sections/memory/_netscan.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- sockscan -->
+                        <div class="card mt-2">
+                            <div class="card-header" id="headingSockscan">
+                                <h6 class="mb-0">
+                                    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSockscan" aria-expanded="false" aria-controls="collapseSockscan">
+                                        Sockscan <small>(Listing sockscan)</small>
+                                    </button>
+                                </h6>
+                            </div>
+                            <div id="collapseSockscan" class="collapse" aria-labelledby="headingSockscan" data-bs-parent="#accordionVolatility">
+                                <div class="card-body">
+                                    {% if results.memory.sockscan %}
+                                        {% include "sections/memory/_sockscan.html" %}
+                                    {% else %}
+                                        <p>Nothing to display.</p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                {% else %}
+                    <p>Nothing to display.</p>
+                {% endif %}
+            </div>
+        </div>
     </div>
-
-    {% if results.memory %}
-
-        <!-- Malfind -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_malfind');"><b>Malfind</b></a>
-            <small>
-                Scanning for injections
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#malfind" target="_blank">help</a>)
-            </small>
-            <div id="volatility_malfind" style="display: none;">
-                {% if results.memory.malfind %}
-                    {% include "sections/memory/_malfind.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Yarascan -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_yarascan');"><b>Yarascan</b></a>
-            <small>
-                Scanning for rule matches
-                (<a href="https://code.google.com/p/volatility/wiki/CommandReferenceMal23#yarascan" target="_blank">help</a>)
-            </small>
-            <div id="volatility_yarascan" style="display: none;">
-                {% if results.memory.yarascan %}
-                    {% include "sections/memory/_yarascan.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- APIHooks -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_apihooks');"><b>Apihooks</b></a>
-            <small>
-                Listing API hooks
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#apihooks" target="_blank">help</a>)
-            </small>
-            <div id="volatility_apihooks" style="display: none;">
-                {% if results.memory.apihooks %}
-                    {% include "sections/memory/_apihooks.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Pslist -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_pslist');"><b>PSList</b></a>
-            <small>
-                Listing processes
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReference23#pslist" target="_blank">help</a>)
-            </small>
-            <div id="volatility_pslist" style="display: none;">
-                {% if results.memory.pslist %}
-                    {% include "sections/memory/_pslist.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Callbacks -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_callbacks');"><b>Callbacks</b></a>
-            <small>
-                Listing registered callbacks
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#callbacks" target="_blank">help</a>)
-            </small>
-            <div id="volatility_callbacks" style="display: none;">
-                {% if results.memory.callbacks %}
-                    {% include "sections/memory/_callbacks.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Messagehooks -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_messagehooks');"><b>Messagehooks</b></a>
-            <small>
-                Registered Messagehooks
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceGui23#messagehooks" target="_blank">help</a>)
-            </small>
-            <div id="volatility_messagehooks" style="display: none;">
-                {% if results.memory.messagehooks %}
-                    {% include "sections/memory/_messagehooks.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Devicetree -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_devicetree');"><b>Devicetree</b></a>
-            <small>
-                Listing devices and drivers
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#devicetree" target="_blank">help</a>)
-            </small>
-            <div id="volatility_devicetree" style="display: none;">
-                {% if results.memory.devicetree %}
-                    {% include "sections/memory/_devicetree.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Svcscan -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_svcscan');"><b>Svcscan</b></a>
-            <small>
-                Scanning for services
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#svcscan" target="_blank">help</a>)
-            </small>
-            <div id="volatility_svcscan" style="display: none;">
-                {% if results.memory.svcscan %}
-                    {% include "sections/memory/_svcscan.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- Modscan -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_modscan');"><b>Modscan</b></a>
-            <small>
-                Scan for (hidden) kernel drivers
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReference23#modscan" target="_blank">help</a>)
-            </small>
-            <div id="volatility_modscan" style="display: none;">
-                {% if results.memory.modscan %}
-                    {% include "sections/memory/_modscan.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- idt -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_idt');"><b>IDT</b></a>
-            <small>
-                Listing IDTs
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#idt" target="_blank">help</a>)
-            </small>
-            <div id="volatility_idt" style="display: none;">
-                {% if results.memory.idt %}
-                    {% include "sections/memory/_idt.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- timers -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_timers');"><b>Timers</b></a>
-            <small>
-                Listing timers
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#timers" target="_blank">help</a>)
-            </small>
-            <div id="volatility_timers" style="display: none;">
-                {% if results.memory.timers %}
-                    {% include "sections/memory/_timers.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- gdt -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_gdt');"><b>GDT</b></a>
-            <small>
-                Listing GDTs
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#gdt" target="_blank">help</a>)
-            </small>
-            <div id="volatility_gdt" style="display: none;">
-                {% if results.memory.gdt %}
-                    {% include "sections/memory/_gdt.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-            <!-- SSDT -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_ssdt');"><b>SSDT</b></a>
-            <small>
-                Listing SSDT
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#ssdt" target="_blank">help</a>)
-            </small>
-            <div id="volatility_ssdt" style="display: none;">
-                {% if results.memory.ssdt %}
-                    {% include "sections/memory/_ssdt.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- netscan -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_netscan');"><b>Netscan</b></a>
-            <small>
-                Listing netscan
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#netscan" target="_blank">help</a>)
-            </small>
-            <div id="volatility_netscan" style="display: none;">
-                {% if results.memory.netscan %}
-                    {% include "sections/memory/_netscan.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-        <!-- sockscan -->
-        <div class="card card-body">
-            <a href="javascript:showHide('volatility_sockscan');"><b>Sockscan</b></a>
-            <small>
-                Listing sockscan
-                (<a href="http://code.google.com/p/volatility/wiki/CommandReferenceMal23#sockscan" target="_blank">help</a>)
-            </small>
-            <div id="volatility_sockscan" style="display: none;">
-                {% if results.memory.sockscan %}
-                    {% include "sections/memory/_sockscan.html" %}
-                {% else %}
-                    Nothing to display.
-                {% endif %}
-            </div>
-        </div>
-
-    {% else %}
-        Nothing to display.
-    {% endif %}
-</section>
+</div>
 {% endif %}

@@ -1,5 +1,4 @@
 <section id="hosts">
-    <h4>Hosts</h4>
     {% if analysis.network.hosts %}
         <table class="table table-striped table-bordered">
             <tr>
@@ -9,8 +8,8 @@
                 <th>ASN</th>
             </tr>
             {% for host in analysis.network.hosts %}
-            <tr>
-                {% if host.ip|slice:":7" != "192.168" %}
+            {% if host.ip|slice:":7" != "192.168" %}
+                <tr>
                     {% if "hostname" in host and host.hostname == "" %}
                         <td>Y</td>
                     {% elif "hostname" in host %}
@@ -30,8 +29,8 @@
                     {% if host.asn %}
                         <td><a href="/analysis/search/asn:{{host.asn}}"><span title="{{host.asn_name}}" style="font-weight: bold;">{{host.asn}}</span></a></td>
                     {% endif %}
-                {% endif %}
-            </tr>
+                </tr>
+            {% endif %}
             {% endfor %}
         </table>
     {% else %}

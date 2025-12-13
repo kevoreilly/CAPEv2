@@ -1,63 +1,77 @@
 {% if debugger %}
 <script>
 function show_tab_dbg(id, callback) {
-        // First, see if tab is already active. If it is, just run the callback
-        if ($('#' + id).hasClass('active')) {
-            typeof callback === 'function' && callback();
-        }
-        // Else, show the tab and run the callback once the tab is shown
-        else {
-            // Wait for tab to be shown
-            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
-                if ($(e.target).attr('href') == '#' + id) {
-                    $('a[data-toggle="tab"]').off('shown.bs.tab');
-                    typeof callback === 'function' && callback();
-                }
-            });
-
-            // Show the tab
-            $('a[href="#' + id + '"]').tab('show');
-        }
+    if ($('#' + id).hasClass('active')) {
+        typeof callback === 'function' && callback();
+    } else {
+        $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
+            if ($(e.target).attr('href') == '#' + id) {
+                $('a[data-bs-toggle="pill"]').off('shown.bs.tab');
+                typeof callback === 'function' && callback();
+            }
+        });
+        $('a[href="#' + id + '"]').tab('show');
     }
+}
 </script>
-<h4>Debugger Output</h4>
-<ul>
-    {% for process in debugger.processtree|proctreetolist %}
-        {% if process.startchildren %}
-        <ul>
-        {% elif process.endchildren %}
-        </ul>
-        {% else %}
-        <li>
-        <strong><a href="javascript:show_tab_dbg('dbg_{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
-        {% if process.commandline %}
-          <i>{{ process.commandline }}</i>
-        {% endif %}
-        </li>
-        {% endif %}
-    {% endfor %}
-    </ul>
 
-<ul class="nav nav-tabs">
-    {% for process in debugger.processes %}
-        {% for key, value in debugger_logs.items %}
-                {% if key == process.process_id %}
-                    <li class="nav-item"><a class="nav-link {% if forloop.counter == 1%} active {% endif %}" href="#dbg_{{process.process_id}}" data-toggle="tab"><span class="fa fa-cogs"></span> {{process.process_name}} ({{process.process_id}})</a></li>
-                {% endif %}
-        {% endfor %}
-    {% endfor %}
-</ul>
-
-<div class="tab-content">
-    {% for process in debugger.processes %}
-        {% for key, value in debugger_logs.items %}
-            {% if key == process.process_id %}
-            <div class="tab-pane fade {% if forloop.counter == 1 %} show active {% endif %}" id="dbg_{{key}}">
-                <div class="alert alert-danger center"><a class="btn btn-secondary btn-small" href="{% url "file" "debugger_log" id key %}"><i class="fas fa-download"></i> Log</a></div>
-                <pre>{{value}}</pre>
-            </div>
+<div class="card bg-dark border-secondary mb-4">
+    <div class="card-header border-secondary">
+        <h5 class="mb-0 text-white"><i class="fas fa-bug me-2 text-warning"></i> Debugger Output</h5>
+    </div>
+    <div class="card-body">
+        <h6 class="text-white border-bottom pb-1 mb-2" style="font-size: 0.9rem;">Process Tree</h6>
+        <ul class="list-unstyled mb-0 ps-2" style="font-family: monospace; font-size: 0.8rem; line-height: 1.2;">
+        {% for process in debugger.processtree|proctreetolist %}
+            {% if process.startchildren %}
+            <ul class="ps-3 border-left border-secondary ms-1">
+            {% elif process.endchildren %}
+            </ul>
+            {% else %}
+            <li class="mb-1">
+                <i class="text-muted me-1"></i>
+                <strong><a href="javascript:show_tab_dbg('dbg_{{process.pid}}');" class="text-white">{{process.name}}</a></strong>
+                <span class="text-muted ms-1">({{process.pid}})</span>
+            </li>
             {% endif %}
         {% endfor %}
-    {% endfor %}
+        </ul>
+    </div>
+</div>
+
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <ul class="nav nav-pills card-header-pills">
+            {% for process in debugger.processes %}
+                {% for key, value in debugger_logs.items %}
+                    {% if key == process.process_id %}
+                        <li class="nav-item">
+                            <a class="nav-link {% if forloop.counter == 1 %}active{% endif %}" href="#dbg_{{process.process_id}}" data-bs-toggle="pill">
+                                <i class="fas fa-cogs me-1"></i> {{process.process_name}} <small>({{process.process_id}})</small>
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </ul>
+    </div>
+    <div class="card-body p-0">
+        <div class="tab-content">
+            {% for process in debugger.processes %}
+                {% for key, value in debugger_logs.items %}
+                    {% if key == process.process_id %}
+                    <div class="tab-pane fade {% if forloop.counter == 1 %}show active{% endif %}" id="dbg_{{key}}">
+                        <div class="bg-secondary p-2 text-end border-bottom border-dark">
+                            <a class="btn btn-sm btn-outline-light" href="{% url "file" "debugger_log" id key %}">
+                                <i class="fas fa-download me-1"></i> Download Log
+                            </a>
+                        </div>
+                        <pre class="m-0 p-3 text-white bg-dark" style="overflow-y: auto; font-size: 0.85rem;">{{value}}</pre>
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+        </div>
+    </div>
 </div>
 {% endif %}

@@ -1,7 +1,14 @@
 {% if behavior %}
-    {% include "analysis/behavior/_tree.html" %}
-    <hr />
-    {% include "analysis/behavior/_processes.html" %}
+    <div class="mb-4">
+        {% include "analysis/behavior/_tree.html" %}
+    </div>
+    
+    <div class="mb-4">
+        {% include "analysis/behavior/_processes.html" %}
+    </div>
 {% else %}
-    <div class="alert alert-primary"><b>Sorry!</b> No behavior.</div>
+    <div class="alert alert-info text-center shadow-sm">
+        <i class="fas fa-info-circle fa-2x mb-3"></i>
+        <p class="mb-0">No behavioral analysis data available.</p>
+    </div>
 {% endif %}

@@ -1,0 +1,23 @@
+{% if results.network.dns %}
+<table class="table table-striped table-bordered">
+    <tr>
+        <th>Name</th>
+        <th>Response</th>
+    </tr>
+    {% for dns in results.network.dns %}
+    <tr>
+        <td><span class="mono">{{dns.request}}</span></td>
+        <td>
+            {% for a in dns.answers %}
+                <span class="mono">{{a.type}} {{a.data}}</span>
+                {%  if not loop.last %}
+                <br>
+                {% endif %}
+            {% endfor %}
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nothing to display.</p>
+{% endif %}

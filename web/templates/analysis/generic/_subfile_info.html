@@ -1,439 +1,420 @@
-<!--this file is identical copy of _file_info.html but just changes "file." to "sub_file." to allow show the same info as subtab-->
+<!-- Identical copy of _file_info.html adapted for sub_file -->
 {% load key_tags %}
-<div class="panel panel-default">
-    <table class="table table-striped table-bordered" style="table-layout: fixed;width: 50%;margin-left: auto;margin-right: auto;">
-        {% if sub_file.note %}
-            <tr>
-                <th style="border-top: 0; width: 15%;">Note</th>
-                <td style="border-top: 0; word-wrap: break-word;"><b>{{sub_file.note}}</b></td>
-            </tr>
+
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-white"><i class="fas fa-file-invoice me-2 text-info"></i> Subfile Information</h5>
+        {% if sub_file.dropdir %}
+            <a href="{% url "file" tab_name id sub_file.dropdir %}" class="btn btn-sm btn-outline-light"><i class="fas fa-download"></i> Download</a>
+        {% else %}
+            <div class="btn-group btn-group-sm">
+                {% if not config.zipped_download %}
+                    {% if tab_name == "static" %}
+                        <a href="{% url "file" "dropped" id sub_file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download"><i class="fas fa-download"></i></a>
+                    {% else %}
+                        <a href="{% url "file" tab_name id sub_file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download"><i class="fas fa-download"></i></a>
+                    {% endif %}
+                {% endif %}
+                {% if tab_name == "static" %}
+                     <a href="{% url "file" "droppedzip" id sub_file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download Archive"><i class="fas fa-file-archive"></i></a>
+                {% else %}
+                    <a href="{% url "file" tab_name|add:"zip" id sub_file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download Archive"><i class="fas fa-file-archive"></i></a>
+                {% endif %}
+                <a href="/submit/resubmit/{{id}}/{{sub_file.sha256}}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Resubmit"><i class="fas fa-sync"></i></a>
+                {% if config.vtupload and analysis.info.tlp != "Red" %}
+                    <a href="{% url "vtupload" tab_name id sub_file.name sub_file.sha256 %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Upload to VirusTotal"><i class="fas fa-cloud-upload-alt"></i> VT</a>
+                {% endif %}
+            </div>
         {% endif %}
-        {% if sub_file.cape_type %}
+    </div>
+
+    <div class="table-responsive">
+        <table class="table table-dark table-striped mb-0" style="table-layout: fixed;">
+            {% if sub_file.note %}
             <tr>
-                <th style="border-top: 0; width: 15%;">Type</th>
-                <td style="border-top: 0; word-wrap: break-word;"><b>{{sub_file.cape_type}}</b></td>
+                <th style="width: 15%;">Note</th>
+                <td class="text-break"><strong>{{sub_file.note}}</strong></td>
             </tr>
-        {% endif %}
-        <tr>
-            <th style="border-top: 0; width: 15%;">Filename</th>
-            <td>
-                {% for name in sub_file.name|str2list %}
-                <div style="border-top: 0; word-wrap: break-word;"><b>{{name|safe}}</b></div>
-                {% endfor %}
-            </td>
-        </tr>
-        {% if sub_file.type %}
+            {% endif %}
+
+            {% if sub_file.cape_type %}
             <tr>
-                <th style="border-top: 0; width: 15%;">File Type</th>
-                <td style="border-top: 0; word-wrap: break-word;"><b>{{sub_file.type}}</b></td>
+                <th style="width: 15%;">Type</th>
+                <td><strong>{{sub_file.cape_type}}</strong></td>
             </tr>
-        {% endif %}
-        {% if sub_file.guest_paths %}
+            {% endif %}
+
             <tr>
-                <th style="border-top: 0; width: 15%;">Associated Filenames</th>
-                <td style="border-top: 0; word-wrap: break-word;">
+                <th style="width: 15%;">Filename</th>
+                <td class="text-break">
+                    {% for name in sub_file.name|str2list %}
+                    <div><strong>{{name|safe}}</strong></div>
+                    {% endfor %}
+                </td>
+            </tr>
+
+            {% if sub_file.type %}
+            <tr>
+                <th style="width: 15%;">File Type</th>
+                <td>{{sub_file.type}}</td>
+            </tr>
+            {% endif %}
+
+            {% if sub_file.guest_paths %}
+            <tr>
+                <th style="width: 15%;">Associated Filenames</th>
+                <td class="text-break">
                     {% for path in sub_file.guest_paths|str2list %}
                         <div>{{path}}</div>
                     {% endfor %}
                 </td>
             </tr>
-        {% endif %}
-        <tr>
-            <th style="border-top: 0; width: 15%;">File Size</th>
-            <td style="border-top: 0; word-wrap: break-word;"><b>{{sub_file.size}} bytes</b></td>
-        </tr>
-        {% if sub_file.module_path and sub_file.process_path != sub_file.module_path %}
+            {% endif %}
+
             <tr>
-                <th>Module Path</th>
-                <td>{{sub_file.module_path}}</td>
+                <th style="width: 15%;">File Size</th>
+                <td>{{sub_file.size}} bytes</td>
             </tr>
-        {% endif %}
-        {% if sub_file.cape_type_code == 8 or sub_file.cape_type_code == 9 %}
+
+            {% if sub_file.module_path and sub_file.process_path != sub_file.module_path %}
+            <tr>
+                <th style="width: 15%;">Module Path</th>
+                <td class="text-break">{{sub_file.module_path}}</td>
+            </tr>
+            {% endif %}
+
+            {% if sub_file.cape_type_code == 8 or sub_file.cape_type_code == 9 %}
                 <tr>
-                    <th>Virtual Address</th>
+                    <th style="width: 15%;">Virtual Address</th>
                     <td>{{sub_file.virtual_address}}</td>
                 </tr>
             {% endif %}
             {% if sub_file.cape_type_code == 5 %}
                 <tr>
-                    <th>Section Handle</th>
+                    <th style="width: 15%;">Section Handle</th>
                     <td>{{sub_file.section_handle}}</td>
                 </tr>
             {% endif %}
             {% if sub_file.cape_type_code == 3 or sub_file.cape_type_code == 4 %}
                 <tr>
-                    <th>Target Process</th>
-                    <td>{{sub_file.target_process}}</td>
+                    <th style="width: 15%;">Target Process</th>
+                    <td>{{sub_file.target_process}} (PID: {{sub_file.target_pid}})</td>
                 </tr>
                 <tr>
-                    <th>Target PID</th>
-                    <td>{{sub_file.target_pid}}</td>
+                    <th style="width: 15%;">Target Path</th>
+                    <td class="text-break">{{sub_file.target_path}}</td>
                 </tr>
                 <tr>
-                    <th>Target Path</th>
-                    <td>{{sub_file.target_path}}</td>
+                    <th style="width: 15%;">Injecting Process</th>
+                    <td>{{sub_file.process_name}} (PID: {{sub_file.pid}})</td>
                 </tr>
                 <tr>
-                    <th>Injecting Process</th>
-                    <td>{{sub_file.process_name}}</td>
-                </tr>
-                <tr>
-                    <th>Injecting PID</th>
-                    <td>{{sub_file.pid}}</td>
-                </tr>
-                <tr>
-                    <th>Path</th>
-                    <td>{{sub_file.process_path}}</td>
+                    <th style="width: 15%;">Path</th>
+                    <td class="text-break">{{sub_file.process_path}}</td>
                 </tr>
             {% else %}
                 {% if sub_file.process_name %}
                 <tr>
-                    <th>Process</th>
-                    <td>{{sub_file.process_name}}</td>
-                </tr>
-                {% endif %}
-                {% if sub_file.pid %}
-                <tr>
-                    <th>PID</th>
-                    <td>{{sub_file.pid}}</td>
+                    <th style="width: 15%;">Process</th>
+                    <td>{{sub_file.process_name}} {% if sub_file.pid %}(PID: {{sub_file.pid}}){% endif %}</td>
                 </tr>
                 {% endif %}
                 {% if sub_file.process_path %}
                 <tr>
-                    <th>Path</th>
-                    <td>{{sub_file.process_path}}</td>
+                    <th style="width: 15%;">Path</th>
+                    <td class="text-break">{{sub_file.process_path}}</td>
                 </tr>
                 {% endif %}
             {% endif %}
-        {% if sub_file.timestamp %}
+
             <tr>
-                <th>PE timestamp</th>
-                <td style="word-wrap: break-word;">{{sub_file.timestamp}}</td>
+                <th style="width: 15%;">MD5</th>
+                <td class="text-monospace">{{sub_file.md5}}</td>
             </tr>
-        {% endif %}
-        <tr>
-            <th>MD5</th>
-            <td style="word-wrap: break-word;">{{sub_file.md5}}</td>
-        </tr>
-        <tr>
-            <th>SHA1</th>
-            <td style="word-wrap: break-word;">{{sub_file.sha1}}</td>
-        </tr>
-        <tr>
-            <th>SHA256</th>
-            <td style="word-wrap: break-word;">{{sub_file.sha256}}
-                <a href="https://www.virustotal.com/gui/file/{{sub_file.sha256}}/" style="color: #e74c3c">[VT]</a>
-                <a href="https://mwdb.cert.pl/file/{{sub_file.sha256}}" style="color: #e74c3c">[MWDB]</a>
-                <a href="https://bazaar.abuse.ch/sample/{{sub_file.sha256}}/" style="color: #e74c3c">[Bazaar]</a>
-            </td>
-        </tr>
-        {% if sub_file.sha3_384 %}
-        <tr>
-            <th>SHA3-384</th>
-            <td style="word-wrap: break-word;">{{sub_file.sha3_384}}</td>
-        </tr>
-        {% endif %}
-        {% if sub_file.rh_hash %}
             <tr>
-                <th>RichHeader Hash</th>
-                <td style="word-wrap: break-word;">{{sub_file.rh_hash}}</td>
+                <th style="width: 15%;">SHA1</th>
+                <td class="text-monospace">{{sub_file.sha1}}</td>
             </tr>
-        {% endif %}
-        <tr>
-            <th>CRC32</th>
-            <td>{{sub_file.crc32}}</td>
-        </tr>
-        {% if sub_file.tlsh %}
-        <tr>
-            <th>TLSH</th>
-            <td style="word-wrap: break-word;">{{sub_file.tlsh}}</td>
-        </tr>
-        {% endif %}
-        <tr>
-            <th>Ssdeep</th>
-            <td style="word-wrap: break-word;">{{sub_file.ssdeep}}</td>
-        </tr>
-        {% if sub_file.clamav %}
-        <tr>
-            <th>ClamAV</th>
-            <td>
-                <ul style="margin-bottom: 0;">
-                {% for sign in sub_file.clamav %}
-                    <li>{{sign}}</li>
-                {% endfor %}
-                </ul>
-            </td>
-        </tr>
-        {% endif %}
-        {% if sub_file.yara %}
-        <tr>
-            <th>
-            {% if config.yara_detail %}
-                <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#yara_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="yara_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Yara details"><span class="fas fa-file-lines"></span> Yara</a>
-            {% else %}
-                Yara
+            <tr>
+                <th style="width: 15%;">SHA256</th>
+                <td class="text-monospace">
+                    {{sub_file.sha256}}
+                    <span class="ms-2">
+                        <a href="https://www.virustotal.com/gui/file/{{sub_file.sha256}}/" class="badge bg-danger" target="_blank">VT</a>
+                        <a href="https://mwdb.cert.pl/file/{{sub_file.sha256}}" class="badge bg-warning" target="_blank">MWDB</a>
+                        <a href="https://bazaar.abuse.ch/sample/{{sub_file.sha256}}/" class="badge bg-info" target="_blank">Bazaar</a>
+                    </span>
+                </td>
+            </tr>
+            {% if sub_file.sha3_384 %}
+            <tr>
+                <th style="width: 15%;">SHA3-384</th>
+                <td class="text-monospace text-break">{{sub_file.sha3_384}}</td>
+            </tr>
             {% endif %}
-            </th>
-            <td>
-                <ul style="margin-bottom: 0;">
-                {% for sign in sub_file.yara %}
-                    <li>
-                    <a href="/analysis/search/yaraname:{{sign.name}}">{{sign.name}}</a>  - {{sign.meta.description}}
-                    {% if sign.meta.author %}
-                        - Author: {{sign.meta.author}}
-                    {% endif %}
-                    </li>
-                {% endfor %}
-                </ul>
-            </td>
-        </tr>
-        {% endif %}
-        {% if sub_file.cape_yara %}
-        <tr>
-            <th>
-            {% if config.yara_detail %}
-                <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#capeyara_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="capeyara_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display CAPE Yara details"><span class="fas fa-file-lines"></span> CAPE Yara</a>
-            {% else %}
-                CAPE Yara
+            {% if sub_file.rh_hash %}
+            <tr>
+                <th style="width: 15%;">RichHeader Hash</th>
+                <td class="text-monospace">{{sub_file.rh_hash}}</td>
+            </tr>
             {% endif %}
-            </th>
-            <td>
-                <ul style="margin-bottom: 0;">
-                {% for sign in sub_file.cape_yara %}
-                    <li>
-                    <a href="/analysis/search/capeyara:{{sign.name}}">{{sign.name}}</a>
-                    {% if sign.meta.cape_type %} - {{sign.meta.cape_type}}
-                    {% elif sign.meta.description %} - {{sign.meta.description}}
-                    {% endif %}
-                    {% if sign.meta.author %} - Author: {{sign.meta.author}}{% endif %}
-                    </li>
-                {% endfor %}
-                </ul>
-            </td>
-        </tr>
-        {% endif %}
-        {% if sub_file.trid %}
-        <tr>
-            <th>TriD</th>
-            <td>
-            <ul style="margin-top: 0;margin-bottom: 0;">
-                {% for str in sub_file.trid %}
-                    <li>{{str}}</li>
-                {% endfor %}
-            </ul>
-            </td>
-        </tr>
-        {% endif %}
-
-        {% if sub_file.die %}
-        <tr>
-            <th>Detect It Easy</th>
-            <td>
-            <ul style="margin-top: 0;margin-bottom: 0;">
-                {% for str in sub_file.die %}
-                    <li>{{str}}</li>
-                {% endfor %}
-            </ul>
-            </td>
-        </tr>
-        {% endif %}
-
-        {% if sub_file.dropdir %}
-        <tr>
-            <th></th>
-            <td><a href="{% url "file" tab_name id sub_file.dropdir %}" class="btn btn-secondary btn-sm">Download</a>
-            </td>
-        </tr>
-        {% else %}
-        <tr>
-            <th>
-                {% if sub_file.pe %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pe_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>{% endif %}
-                {% if sub_file.dotnet %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#dotnet_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display DotNet info"><span class="fas fa-file-lines"></span> DotNET</a>{% endif %}
-                {% if sub_file.pdf %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pdf_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="pdf_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display PDF info"><span class="fas fa-file-lines"></span> PDF</a>{% endif %}
-                {% if sub_file.lnk %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#lnk_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display LNK info"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
-                {% if sub_file.java %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#java_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Java info"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
-                {% if sub_file.office %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#office_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="office_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Office info"><span class="fas fa-file-lines"></span> Office</a>{% endif %}
-                <!--ToDo missed URL-->
-            </th>
-
-            </th>
-            <td>
-                {% if not config.zipped_download %}
-                    {% if tab_name == "static" %}
-                        <a href="{% url "file" "dropped" id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
-                    {% else %}
-                        <a href="{% url "file" tab_name id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download file"><span class="fas fa-download"></span></a>
-                    {% endif %}
-                {% endif %}
-                {% if tab_name == "static" %}
-                     <a href="{% url "file" "droppedzip" id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
-                {% else %}
-                    <a href="{% url "file" tab_name|add:"zip" id sub_file.sha256 %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span></a>
-                {% endif %}
-                    <a class="btn btn-secondary btn-sm" href="/submit/resubmit/{{id}}/{{sub_file.sha256}}" data-bs-toggle="tooltip" title="Re-submit file for analysis"><span class="fas fa-sync"></span> File</a>
-                {% if config.flare_capa %}
-                    {% if not sub_file.flare_capa and on_demand.flare_capa %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "flare_capa" id tab_name sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate CAPA findings"><span class="fas fa-cogs"></span> CAPA</a>
-                    {% elif sub_file.flare_capa %}
-                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display CAPA"><span class="fas fa-envelope-open-text"></span> FLARE CAPA</a>
-                    {% endif %}
-                {% endif %}
-                {% if config.strings %}
-                    {% if "strings" not in sub_file %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "strings" id "static" sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate strings"><span class="fas fa-cogs"></span> Strings</a>
-                    {% elif sub_file.strings %}
-                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
-                    {% endif %}
-                {% endif %}
-                {% if sub_file.dotnet_strings %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#dotnet_strings_{{file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_strings_{{file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> DotNet Strings</a>
-                {% endif %}
-                {% if config.floss %}
-                    {% if not sub_file.floss %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "floss" id "static" sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate floss strings"><span class="fas fa-cogs"></span> Floss</a>
-                    {% else %}
-                        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#floss_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
-                    {% endif %}
-                {% endif %}
-
-                {% if config.bingraph %}
-                    {% if not graphs.bingraph.content|getkey:sub_file.sha256 and on_demand.bingraph %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "bingraph" id tab_name sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate Bingraph"><span class="fas fa-cogs"></span> Bingraph</a>
-                    {% elif graphs.bingraph.content|getkey:sub_file.sha256 %}
-                        <a href="{% url "file_nl" "bingraph" id sub_file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> BinGraph</a>
-                    {% endif %}
-                {% endif %}
-                <!--add type check-->
-                {% if graphs.vba2graph.enabled %}
-                    {% if not graphs.vba2graph.content|getkey:sub_file.sha256 and on_demand.vba2graph %}
-                        <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "vba2graph" id "static" sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Generate vba2Graph"><span class="fas fa-cogs"></span> Vba2Graph</a>
-                    {% elif graphs.vba2graph.content|getkey:sub_file.sha256 %}
-                        <a href="{% url "file_nl" "vba2graph" id sub_file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"> Vba2Graph</a>
-                    {% endif %}
-                {% endif %}
-                {% if config.virustotal and not sub_file.virustotal and on_demand.virustotal %}
-                    <a class="btn btn-secondary btn-sm" href="{% url "on_demand" "virustotal" id tab_name sub_file.sha256 %}" role="button" data-bs-toggle="tooltip" title="Fetch VirusTotal results"><span class="fas fa-cogs"></span> VirusTotal</a>
-                {% endif %}
-                {% if config.vtupload and analysis.info.tlp != "Red" %}
-                    <a class="btn btn-secondary btn-sm" href="{% url "vtupload" tab_name id sub_file.name sub_file.sha256 %}"><span class="fas fa-exclamation-triangle"></span> <span class="fas fa-upload"></span> VirusTotal</a>
-                {% endif %}
-                {% if sub_file.data %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
-                {% endif %}
-                {% if sub_file.decoded_files %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{sub_file.decoded_files_tool}}</a>
-                {% endif %}
-                {% if sub_file.extracted_files %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{sub_file.extracted_files_tool}}</a>
-                {% endif %}
-            </td>
-        </tr>
-        {% endif %}
-    </table>
-    {% if sub_file.flare_capa %}
             <tr>
-                <th></th><td>
-                <div class="collapse" id="flare_capa_{{sub_file.sha256}}">
-                    <div>
-                    <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
-                    {% if file.flare_capa.CAPABILITY or file.flare_capa.ATTCK or file.flare_capa.MBC %}
-                        {% if file.flare_capa.CAPABILITY %}
-                            {{ file.flare_capa|flare_capa_capability }}
-                        {% endif %}
-                        {% if file.flare_capa.ATTCK %}
-                            {{ file.flare_capa|flare_capa_attck }}
-                        {% endif %}
-                        {% if file.flare_capa.MBC %}
-                            {{ file.flare_capa|flare_capa_mbc }}
-                        {% endif %}
-                    {% else %}
-                        No results
-                    {% endif %}
-                    </div>
-                </div>
-            </td>
+                <th style="width: 15%;">CRC32</th>
+                <td class="text-monospace">{{sub_file.crc32}}</td>
             </tr>
-            </br>
-        {% endif %}
-        {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:sub_file.sha256 %}
-            <tr><th></th>
-                <td>{{ graphs.vba2graph.content|getkey:sub_file.sha256|safe }}</td>
-            </tr>
-        {% endif %}
-        {% if sub_file.virustotal %}
+            {% if sub_file.tlsh %}
             <tr>
-                <th></th>
-                <td>{% include "analysis/generic/_virustotal.html" %}</td>
+                <th style="width: 15%;">TLSH</th>
+                <td class="text-monospace text-break">{{sub_file.tlsh}}</td>
             </tr>
-        {% endif %}
-        {% if sub_file.strings %}
+            {% endif %}
             <tr>
-                <th></th><td>
-                <div class="collapse" id="strings_{{sub_file.sha256}}">
-                    <div>
-                    {{sub_file.strings|safe}}
-                    </div>
-                </div>
-            </td>
+                <th style="width: 15%;">Ssdeep</th>
+                <td class="text-monospace text-break">{{sub_file.ssdeep}}</td>
             </tr>
-        {% endif %}
-        {% if sub_file.dotnet_strings %}
+
+            {% if sub_file.clamav %}
             <tr>
-                <th></th><td>
-                <div class="collapse" id="dotnet_strings_{{file.sha256}}">
-                    <div>
-                    {% for string in sub_file.dotnet_strings %}
-                        <div>{{string|safe}}</div>
+                <th style="width: 15%;">ClamAV</th>
+                <td>
+                    <ul class="list-unstyled mb-0">
+                    {% for sign in sub_file.clamav %}
+                        <li><span class="badge bg-danger">{{sign}}</span></li>
                     {% endfor %}
-                    </div>
-                </div>
-            </td>
+                    </ul>
+                </td>
             </tr>
-        {% endif %}
-        {% if sub_file.data %}
+            {% endif %}
+
+            {% if sub_file.yara %}
             <tr>
-                <th></th><td>
-                <div class="collapse" id="text_{{sub_file.sha256}}">
-                    <div>
-                    <pre>{{sub_file.data|escape}}</pre>
-                    </div>
-                </div>
-            </td>
+                <th style="width: 15%;">
+                    {% if config.yara_detail %}
+                        <a class="btn btn-sm btn-outline-light" data-bs-toggle="collapse" href="#yara_{{sub_file.sha256}}" role="button"><i class="fas fa-file-code"></i> Yara</a>
+                    {% else %}
+                        Yara
+                    {% endif %}
+                </th>
+                <td>
+                    <ul class="list-unstyled mb-0">
+                    {% for sign in sub_file.yara %}
+                        <li>
+                            <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a>
+                            <span class="text-muted">- {{sign.meta.description}}</span>
+                            {% if sign.meta.author %} <small class="text-muted">({{sign.meta.author}})</small>{% endif %}
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </td>
             </tr>
-        {% endif %}
-        {% if sub_file.decoded_files %}
+            {% endif %}
+
+            {% if sub_file.cape_yara %}
             <tr>
-                <th></th><td>
-                <div class="collapse" id="decoded_files_{{sub_file.sha256}}">
-                    <div>
-                    <p>{{sub_file.decoded_files|escape}}</p>
-                    </div>
-                </div>
-            </td>
+                <th style="width: 15%;">
+                    {% if config.yara_detail %}
+                        <a class="btn btn-sm btn-outline-light" data-bs-toggle="collapse" href="#capeyara_{{sub_file.sha256}}" role="button"><i class="fas fa-file-signature"></i> CAPE Yara</a>
+                    {% else %}
+                        CAPE Yara
+                    {% endif %}
+                </th>
+                <td>
+                    <ul class="list-unstyled mb-0">
+                    {% for sign in sub_file.cape_yara %}
+                        <li>
+                            <a href="/analysis/search/capeyara:{{sign.name}}" class="text-info font-weight-bold">{{sign.name}}</a>
+                            {% if sign.meta.cape_type %} <span class="badge bg-secondary">{{sign.meta.cape_type}}</span>{% endif %}
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </td>
             </tr>
-        {% endif %}
-        {% if sub_file.extracted_files %}
+            {% endif %}
+
+            {% if sub_file.trid %}
             <tr>
-                <th></th><td>
-                <div class="collapse" id="extracted_files_{{sub_file.sha256}}">
-                    <div>
-                        {% for sub_file in sub_file.extracted_files %}
-                            {% include "analysis/generic/_subfile_info.html" %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </td>
+                <th style="width: 15%;">TriD</th>
+                <td>
+                    <ul class="list-unstyled mb-0">
+                        {% for str in sub_file.trid %}<li>{{str}}</li>{% endfor %}
+                    </ul>
+                </td>
             </tr>
-            </br>
-        {% endif %}
-    {% if config.yara_detail and sub_file.yara %} <div class="collapse" id="yara_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_subfile_yara.html" %}</div></div></br>{% endif %}
-    {% if config.yara_detail and sub_file.cape_yara %} <div class="collapse" id="capeyara_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_subfile_capeyara.html" %}</div></div></br>{% endif %}
-    {% if sub_file.pe %} <div class="collapse" id="pe_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pe.html" %}</div></div></br>{% endif %}
-    {% if sub_file.dotnet %} <div class="collapse" id="dotnet_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_dotnet.html" %}</div></div></br>{% endif %}
-    {% if sub_file.pdf %} <div class="collapse" id="pdf_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_pdf.html" %}</div></div></br>{% endif %}
-    {% if sub_file.lnk %} <div class="collapse" id="lnk_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_lnk.html" %}</div></div></br>{% endif %}
-    {% if sub_file.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_java.html" %}</div></div></br>{% endif %}
-    {% if sub_file.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_office.html" %}</div></div></br>{% endif %}
-    {% if sub_file.floss %} <div class="collapse" id="floss_{{sub_file.sha256}}"> <div> {% include "analysis/generic/_floss.html" %}</div></div></br>{% endif %}
-    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</td></center></br>{% endif %}
+            {% endif %}
+
+            {% if sub_file.die %}
+            <tr>
+                <th style="width: 15%;">Detect It Easy</th>
+                <td>
+                    <ul class="list-unstyled mb-0">
+                        {% for str in sub_file.die %}<li>{{str}}</li>{% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endif %}
+        </table>
+    </div>
+
+    <!-- Tools & Actions -->
+    {% if not sub_file.dropdir %}
+    <div class="card-footer bg-dark border-secondary">
+        <div class="d-flex flex-wrap justify-content-start align-items-center">
+            <span class="me-3 text-muted mb-2">Tools:</span>
+            
+            {% if sub_file.pe %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#pe_{{sub_file.sha256}}">PE</a>{% endif %}
+            {% if sub_file.dotnet %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#dotnet_{{sub_file.sha256}}">.NET</a>{% endif %}
+            {% if sub_file.pdf %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#pdf_{{sub_file.sha256}}">PDF</a>{% endif %}
+            {% if sub_file.lnk %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#lnk_{{sub_file.sha256}}">LNK</a>{% endif %}
+            {% if sub_file.java %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#java_{{sub_file.sha256}}">Java</a>{% endif %}
+            {% if sub_file.office %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#office_{{sub_file.sha256}}">Office</a>{% endif %}
+            
+            {% if config.flare_capa %}
+                {% if not sub_file.flare_capa and on_demand.flare_capa %}
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "flare_capa" id tab_name sub_file.sha256 %}">Gen CAPA</a>
+                {% elif sub_file.flare_capa %}
+                    <a class="btn btn-sm btn-outline-warning me-2 mb-2" data-bs-toggle="collapse" href="#flare_capa_{{sub_file.sha256}}">View CAPA</a>
+                {% endif %}
+            {% endif %}
+
+            {% if config.strings %}
+                {% if "strings" not in sub_file %}
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "strings" id "static" sub_file.sha256 %}">Gen Strings</a>
+                {% elif sub_file.strings %}
+                    <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#strings_{{sub_file.sha256}}">Strings</a>
+                {% endif %}
+            {% endif %}
+
+            {% if config.floss %}
+                {% if not sub_file.floss %}
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "floss" id "static" sub_file.sha256 %}">Gen Floss</a>
+                {% else %}
+                    <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#floss_{{sub_file.sha256}}">Floss</a>
+                {% endif %}
+            {% endif %}
+
+            {% if config.bingraph %}
+                {% if not graphs.bingraph.content|getkey:sub_file.sha256 and on_demand.bingraph %}
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "bingraph" id tab_name sub_file.sha256 %}">Gen BinGraph</a>
+                {% elif graphs.bingraph.content|getkey:sub_file.sha256 %}
+                    <a class="btn btn-sm btn-outline-light me-2 mb-2" href="{% url "file_nl" "bingraph" id sub_file.sha256 %}">BinGraph</a>
+                {% endif %}
+            {% endif %}
+
+            {% if sub_file.data %}
+                <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#text_{{sub_file.sha256}}">Text</a>
+            {% endif %}
+
+            {% if sub_file.decoded_files %}
+                <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#decoded_files_{{sub_file.sha256}}">{{sub_file.decoded_files_tool}}</a>
+            {% endif %}
+
+            {% if sub_file.extracted_files %}
+                <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#extracted_files_{{sub_file.sha256}}">{{sub_file.extracted_files_tool}}</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Collapsible Content -->
+<div class="mb-4">
+    {% if sub_file.flare_capa %}
+        <div class="collapse mb-3" id="flare_capa_{{sub_file.sha256}}">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header border-secondary"><h6 class="mb-0 text-white">CAPA Results</h6></div>
+                <div class="card-body">
+                    {% if file.flare_capa.CAPABILITY or file.flare_capa.ATTCK or file.flare_capa.MBC %}
+                        {% if file.flare_capa.CAPABILITY %}{{ file.flare_capa|flare_capa_capability }}{% endif %}
+                        {% if file.flare_capa.ATTCK %}{{ file.flare_capa|flare_capa_attck }}{% endif %}
+                        {% if file.flare_capa.MBC %}{{ file.flare_capa|flare_capa_mbc }}{% endif %}
+                    {% else %}
+                        No significant results.
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:sub_file.sha256 %}
+        <div class="card bg-dark border-secondary mb-3">
+            <div class="card-body text-center">{{ graphs.vba2graph.content|getkey:sub_file.sha256|safe }}</div>
+        </div>
+    {% endif %}
+
+    {% if sub_file.virustotal %}
+        <div class="mb-3">{% include "analysis/generic/_virustotal.html" %}</div>
+    {% endif %}
+
+    {% if sub_file.strings %}
+        <div class="collapse mb-3" id="strings_{{sub_file.sha256}}">
+            <div class="card bg-secondary text-white">
+                <div class="card-header"><h6 class="mb-0">Strings</h6></div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {{sub_file.strings|safe}}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if sub_file.dotnet_strings %}
+        <div class="collapse mb-3" id="dotnet_strings_{{file.sha256}}">
+            <div class="card bg-secondary text-white">
+                <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% for string in sub_file.dotnet_strings %}<div>{{string|safe}}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if sub_file.data %}
+        <div class="collapse mb-3" id="text_{{sub_file.sha256}}">
+            <div class="card bg-secondary text-white">
+                <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
+                <div class="card-body">
+                    <pre class="mb-0 text-light small">{{sub_file.data|escape}}</pre>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if sub_file.decoded_files %}
+        <div class="collapse mb-3" id="decoded_files_{{sub_file.sha256}}">
+            <div class="card bg-secondary text-white">
+                <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
+                <div class="card-body">
+                    <pre class="mb-0 text-light small">{{sub_file.decoded_files|escape}}</pre>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if sub_file.extracted_files %}
+        <div class="collapse mb-3" id="extracted_files_{{sub_file.sha256}}">
+            <div class="card bg-dark border-secondary">
+                <div class="card-header border-secondary"><h6 class="mb-0 text-white">Extracted Files</h6></div>
+                <div class="card-body">
+                    {% for sub_file in sub_file.extracted_files %}
+                        {% include "analysis/generic/_subfile_info.html" %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if config.yara_detail and sub_file.yara %} <div class="collapse mb-3" id="yara_{{sub_file.sha256}}"> {% include "analysis/generic/_subfile_yara.html" %}</div>{% endif %}
+    {% if config.yara_detail and sub_file.cape_yara %} <div class="collapse mb-3" id="capeyara_{{sub_file.sha256}}"> {% include "analysis/generic/_subfile_capeyara.html" %}</div>{% endif %}
+    {% if sub_file.pe %} <div class="collapse mb-3" id="pe_{{sub_file.sha256}}"> {% include "analysis/generic/_pe.html" %}</div>{% endif %}
+    {% if sub_file.dotnet %} <div class="collapse mb-3" id="dotnet_{{sub_file.sha256}}"> {% include "analysis/generic/_dotnet.html" %}</div>{% endif %}
+    {% if sub_file.pdf %} <div class="collapse mb-3" id="pdf_{{sub_file.sha256}}"> {% include "analysis/generic/_pdf.html" %}</div>{% endif %}
+    {% if sub_file.lnk %} <div class="collapse mb-3" id="lnk_{{sub_file.sha256}}"> {% include "analysis/generic/_lnk.html" %}</div>{% endif %}
+    {% if sub_file.java %} <div class="collapse mb-3" id="java_{{sub_file.sha256}}"> {% include "analysis/generic/_java.html" %}</div>{% endif %}
+    {% if sub_file.office %} <div class="collapse mb-3" id="office_{{sub_file.sha256}}"> {% include "analysis/generic/_office.html" %}</div>{% endif %}
+    {% if sub_file.floss %} <div class="collapse mb-3" id="floss_{{sub_file.sha256}}"> {% include "analysis/generic/_floss.html" %}</div>{% endif %}
+
+    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}
+        <div class="card bg-dark border-secondary mb-3">
+            <div class="card-body text-center">{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</div>
+        </div>
+    {% endif %}
 </div>

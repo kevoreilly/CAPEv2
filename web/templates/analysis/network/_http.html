@@ -1,6 +1,10 @@
-<h4>HTTP Requests</h4>
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <h5 class="mb-0 text-white"><i class="fas fa-sitemap me-2 text-info"></i>HTTP Requests</h5>
+    </div>
 {% if network.http_ex or network.https_ex %}
-<table class="table table-striped table-bordered" style="table-layout: fixed;">
+<div class="card-body">
+<table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
     <tr>
         <th>URI</th>
         <th>Details</th>
@@ -9,7 +13,7 @@
     <tr>
         <td style="word-wrap: break-word;">{{http.protocol }}://{{http.host}}{{http.uri}}</td>
         <td style="word-wrap: break-word;">
-            <table class="table table-striped table-bordered">
+            <table class="table table-dark table-striped table-bordered">
             {% if http.request %}
                 <tr><td>
                     {% if http.req.sha256 %}
@@ -47,8 +51,10 @@
     </tr>
     {% endfor %}
 </table>
+</div>
 {% elif network.http %}
-    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+    <div class="card-body">
+    <table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
         <tr>
             <th>URI</th>
             <th>Data</th>
@@ -60,6 +66,10 @@
         </tr>
         {% endfor %}
     </table>
+    </div>
 {% else %}
-    <p>No HTTP(s) requests performed.</p>
+    <div class="card-body">
+    <div class="alert alert-info">No HTTP(s) requests performed.</div>
+    </div>
 {% endif %}
+</div>

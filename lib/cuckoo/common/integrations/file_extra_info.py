@@ -407,7 +407,7 @@ def _extracted_files_metadata(
                 except OSError:
                     # Fallback to copy on error
                     shutil.copy(master_file_path, dest_path)
-            
+
             # Update files.json for UI/Reporting to correctly reference the symlinked file
             print(
                 json.dumps(

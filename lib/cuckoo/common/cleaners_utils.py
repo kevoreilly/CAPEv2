@@ -745,7 +745,7 @@ def files_clean_before(timerange: str):
                     path_delete(file_path)
             except Exception as e:
                 log.warning("Error checking/deleting file %s: %s", file_path, e)
-        
+
         # Try to remove empty directories (except the root files_folder)
         if root != files_folder:
             try:

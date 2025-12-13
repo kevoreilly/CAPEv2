@@ -25,6 +25,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import (
     generate_fake_name,
+    get_files_storage_path,
     get_ip_address,
     get_options,
     get_user_filename,
@@ -1118,10 +1119,27 @@ def category_all_files(task_id: str, category: str, base_path: str):
     #    analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
 
     if analysis:
+        files = []
         if query_category == "CAPE":
-            return [os.path.join(base_path, block["sha256"]) for block in analysis.get(query_category, {}).get("payloads", [])]
+            for block in analysis.get(query_category, {}).get("payloads", []):
+                p = os.path.join(base_path, block["sha256"])
+                if path_exists(p):
+                    files.append(p)
+                else:
+                    p = get_files_storage_path(block["sha256"])
+                    if path_exists(p):
+                        files.append(p)
         else:
-            return [os.path.join(base_path, block["sha256"]) for block in analysis.get(category, [])]
+            for block in analysis.get(category, []):
+                p = os.path.join(base_path, block["sha256"])
+                if path_exists(p):
+                    files.append(p)
+                else:
+                    p = get_files_storage_path(block["sha256"])
+                    if path_exists(p):
+                        files.append(p)
+
+        return files
 
 
 def validate_task(tid, status=TASK_REPORTED):

@@ -498,11 +498,14 @@ def cuckoo_clean_before(args: dict):
         category = "url"
 
     tags_tasks_like = args.get("tags_tasks_filter", False)
+    delete_pending = args.get("delete_pending", False)
 
-    old_tasks = db.list_tasks(added_before=added_before,
-                              category=category,
-                              not_status=TASK_PENDING,
-                              tags_tasks_like=tags_tasks_like)
+    old_tasks = db.list_tasks(
+        added_before=added_before,
+        category=category,
+        not_status=False if delete_pending else TASK_PENDING,
+        tags_tasks_like=tags_tasks_like
+    )
 
     # We need this to cleanup file system and MongoDB calls collection
     id_arr = [e.id for e in old_tasks]

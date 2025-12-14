@@ -66,6 +66,9 @@ if __name__ == "__main__":
         "-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true"
     )
     parser.add_argument(
+        "-dp", "--delete-pending", help="Delete also pending tasks. By default keep", required=False, default=False, action="store_true"
+    )
+    parser.add_argument(
         "-duf",
         "--delete-unused-file-data-in-mongo",
         help="Delete data from the 'files' collection in mongo that is no longer needed.",

@@ -1063,7 +1063,7 @@ class ProcessTree:
             p["children"] = []
 
         for p in self.processes:
-            parent_pid = p["parent_id"]
+            parent_pid = p.get("parent_id")
 
             # Check if parent exists and is not self (self-parenting treated as root)
             if parent_pid in node_lookup and parent_pid != p["pid"]:

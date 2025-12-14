@@ -2,7 +2,6 @@ import pytest
 import os
 import hashlib
 import tempfile
-import shutil
 
 # Ideally, this function would be imported from your application code
 def check_completion_logic(config):

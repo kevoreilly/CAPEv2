@@ -1077,12 +1077,12 @@ class ProcessTree:
                 max_depth = 100 
 
                 while depth < max_depth:
-                    if curr == p:
+                    if curr is p:
                         is_cycle = True
                         break
                     
                     # Move up to the next parent
-                    curr_parent_pid = curr["parent_id"]
+                    curr_parent_pid = curr.get("parent_id")
                     if curr_parent_pid in node_lookup and curr_parent_pid != curr["pid"]:
                         curr = node_lookup[curr_parent_pid]
                         depth += 1

@@ -668,12 +668,11 @@ class Analyzer:
                 ANALYSIS_TIMED_OUT = True
                 break
 
-            for complete_analysis_pattern in complete_analysis_patterns:
-                if os.path.isdir(complete_analysis_pattern):
-                    log.info("Analysis termination requested by user")
-                    ANALYSIS_TIMED_OUT = True
-                    break
-            
+            if any(os.path.isdir(p) for p in complete_analysis_patterns):
+                log.info("Analysis termination requested by user")
+                ANALYSIS_TIMED_OUT = True
+                break
+
             if ANALYSIS_TIMED_OUT:
                 break
 

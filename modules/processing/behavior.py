@@ -1074,13 +1074,13 @@ class ProcessTree:
                 is_cycle = False
                 # Use a simple counter or set to avoid infinite checks if the map has internal loops
                 depth = 0
-                max_depth = 100 
+                max_depth = 100
 
                 while depth < max_depth:
                     if curr is p:
                         is_cycle = True
                         break
-                    
+
                     # Move up to the next parent
                     curr_parent_pid = curr.get("parent_id")
                     if curr_parent_pid in node_lookup and curr_parent_pid != curr["pid"]:
@@ -1089,7 +1089,7 @@ class ProcessTree:
                     else:
                         # Reached a root or unknown parent
                         break
-                
+
                 if not is_cycle:
                     parent["children"].append(p)
                 else:

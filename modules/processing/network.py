@@ -776,8 +776,6 @@ class Pcap:
                     offset = file.tell()
                     continue
 
-                self._add_hosts(connection)
-
                 if ip.p == dpkt.ip.IP_PROTO_TCP:
                     tcp = ip.data
                     if not isinstance(tcp, dpkt.tcp.TCP):
@@ -843,6 +841,7 @@ class Pcap:
                     self._icmp_dissect(connection, icmp)
 
                 offset = file.tell()
+                self._add_hosts(connection)
             except AttributeError:
                 continue
             except dpkt.dpkt.NeedData:

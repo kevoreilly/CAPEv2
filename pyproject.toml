@@ -64,7 +64,7 @@ pymongo = ">=4.0.1"
 # ImageHash = "4.3.1"
 LnkParse3 = "1.5.0"
 cachetools = "^5.5.1"
-django-allauth = "65.3.1"  # https://django-allauth.readthedocs.io/en/latest/configuration.html
+django-allauth = "65.13.0"  # https://django-allauth.readthedocs.io/en/latest/configuration.html
 # socks5man = {git = "https://github.com/CAPESandbox/socks5man.git", rev = "7b335d027297b67abdf28f38cc7d5d42c9d810b5"}
 # httpreplay = {git = "https://github.com/CAPESandbox/httpreplay.git", rev = "0d5a5b3144ab15f93189b83ca8188afde43db134"}
 # bingraph = {git = "https://github.com/CAPESandbox/binGraph.git", rev = "552d1210ac6770f8b202d0d1fc4610cc14d878ec"}

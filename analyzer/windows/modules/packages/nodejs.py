@@ -58,6 +58,11 @@ def setup_node_environment():
             extract_path = os.path.join(node_bin_path, folder_name)
 
             if not os.path.exists(extract_path):
+                # Security: Check for path traversal before extraction.
+                for member in z.infolist():
+                    if member.filename.startswith("/") or ".." in member.filename:
+                        return None, f"Aborting extraction. Zip contains potentially malicious path: {member.filename}"
+
                 os.makedirs(extract_path)
                 log.info("Extracting to %s...", extract_path)
                 z.extractall(extract_path)

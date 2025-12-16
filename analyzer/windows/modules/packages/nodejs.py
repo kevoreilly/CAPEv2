@@ -85,7 +85,7 @@ def setup_node_environment():
         else:
             return None, "Extraction finished but node.exe not found on disk."
 
-    except Exception as e:
+    except (zipfile.BadZipFile, OSError) as e:
         return None, f"Exception during Node setup: {str(e)}"
 
 

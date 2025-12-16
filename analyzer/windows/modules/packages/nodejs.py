@@ -29,30 +29,63 @@ def setup_node_environment():
         # Look for zip in absolute path relative to current execution or fixed 'extras'
         # Assuming 'extras' is in the current working dir of the analyzer
         node_zip_path = os.path.abspath(os.path.join("extras", NODE_ZIP_NAME))
-
         node_bin_path = os.path.join(install_path, NODE_DIR_NAME)
-        node_exe = os.path.join(node_bin_path, "node.exe")
 
-        # 1. Check if we need to install
-        if not os.path.exists(node_exe):
-            if not os.path.exists(node_zip_path):
-                return None, f"Node zip not found at: {node_zip_path}"
+        if not os.path.exists(node_zip_path):
+            return None, f"Zip not found at {node_zip_path}"
 
-            if not os.path.exists(install_path):
-                os.makedirs(install_path)
+        if not os.path.exists(node_bin_path):
+            os.makedirs(node_bin_path)
 
-            log.info("Extracting Node.js to %s...", install_path)
-            with zipfile.ZipFile(node_zip_path, 'r') as zip_ref:
-                zip_ref.extractall(install_path)
+        node_exe_path = None
 
-        # 2. Update Environment Variable
-        current_path = os.environ.get("PATH", "")
-        # Prepend to ensure our node takes precedence
-        os.environ["PATH"] = f"{node_bin_path};{current_path}"
+        # 1. Open Zip and Find node.exe BEFORE extracting
+        with zipfile.ZipFile(node_zip_path, 'r') as z:
+            # list of all files in zip
+            file_list = z.namelist()
 
-        return node_exe, None
+            # Find the internal path to node.exe
+            # This works for both "node.exe" (root) and "node-v25.../node.exe" (subfolder)
+            node_internal_path = next((f for f in file_list if f.lower().endswith("node.exe")), None)
 
-    except Exception as e:
+            if not node_internal_path:
+                return None, "Archive does not contain node.exe"
+
+            # 2. Extract
+            # We extract to a specific folder to avoid cluttering if it's a "root-files" zip
+            # We use the zip name (minus extension) as a container folder
+            extract_path = node_bin_path
+
+            if not os.path.exists(extract_path):
+                # Security: Check for path traversal before extraction.
+                for member in z.infolist():
+                    if member.filename.startswith("/") or ".." in member.filename:
+                        return None, f"Aborting extraction. Zip contains potentially malicious path: {member.filename}"
+
+                os.makedirs(extract_path)
+                log.info("Extracting to %s...", extract_path)
+                z.extractall(extract_path)
+
+            # 3. Construct the full path
+            # extract_path + internal_path_inside_zip
+            # e.g. C:\Apps\node-v25\ + node-v25-win-x64/node.exe
+            node_exe_path = os.path.join(extract_path, node_internal_path)
+
+            # Normalizing path separators (fixes mix of / and \)
+            node_exe_path = os.path.normpath(node_exe_path)
+
+        # 4. Final Verification and Env Setup
+        if node_exe_path and os.path.exists(node_exe_path):
+            # Add the folder containing node.exe to PATH
+            node_dir = os.path.dirname(node_exe_path)
+            current_path = os.environ.get("PATH", "")
+            os.environ["PATH"] = f"{node_dir};{current_path}"
+
+            return node_exe_path, None
+        else:
+            return None, "Extraction finished but node.exe not found on disk."
+
+    except (zipfile.BadZipFile, OSError) as e:
         return None, f"Exception during Node setup: {str(e)}"
 
 

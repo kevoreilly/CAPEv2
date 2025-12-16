@@ -14,11 +14,6 @@ hwp = no
 # Number of workers for pool to run them in parallel
 max_workers = 6
 
-[mandiant_intel]
-enabled = no
-api_access =
-api_secret =
-
 # Create your apikey: https://threatfox.abuse.ch/api/#auth_key
 # MalwareBazaar uses this key too
 [abusech]

@@ -48,6 +48,7 @@ urlpatterns = [
     re_path(r"^tasks/get/procmemory/(?P<task_id>\d+)/(?P<pid>\d{1,5})/$", views.tasks_procmemory),
     re_path(r"^tasks/get/fullmemory/(?P<task_id>\d+)/$", views.tasks_fullmemory),
     re_path(r"^tasks/get/pcap/(?P<task_id>\d+)/$", views.tasks_pcap),
+    re_path(r"^tasks/get/tlspcap/(?P<task_id>\d+)/$", views.tasks_tlspcap),
     re_path(r"^tasks/get/evtx/(?P<task_id>\d+)/$", views.tasks_evtx),
     re_path(r"^tasks/get/dropped/(?P<task_id>\d+)/$", views.tasks_dropped),
     re_path(r"^tasks/get/surifile/(?P<task_id>\d+)/$", views.tasks_surifile),

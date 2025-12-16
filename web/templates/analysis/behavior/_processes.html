@@ -10,24 +10,25 @@
         }
 
         var out = "";
-        out += "<li class=\"page-item" + alert_current_page(1, page) + "><a class=\"page-link\" href=\"#\">1</a></li>";
+        out += "<li class=\"page-item" + alert_current_page(1, page) + "><a class=\"page-link bg-dark border-secondary text-white\" href=\"#\">1</a></li>";
 
-        if (page - 5 > 5) out += "<li><span>...</span></li>";
+        if (page - 5 > 5) out += "<li class='page-item disabled'><span class='page-link bg-dark border-secondary text-white'>...</span></li>";
 
         for (i = Math.max(2, page - 5); i <= Math.min(pages - 1, page + 5); i++) {
-            out += "<li class=\"page-item" + alert_current_page(i, page) + "><a class=\"page-link\" href=\"#\">" + i + "</a></li>";
+            out += "<li class=\"page-item" + alert_current_page(i, page) + "><a class=\"page-link bg-dark border-secondary text-white\" href=\"#\">" + i + "</a></li>";
         }
 
-        if (page + 5 < pages - 1) out += "<li><span>...</span></li>";
+        if (page + 5 < pages - 1) out += "<li class='page-item disabled'><span class='page-link bg-dark border-secondary text-white'>...</span></li>";
 
         if (pages > 1)
-            out += "<li class=\"page-item" + alert_current_page(pages, page) + "><a class=\"page-link\" href=\"#\">" + pages + "</a></li>";
+            out += "<li class=\"page-item" + alert_current_page(pages, page) + "><a class=\"page-link bg-dark border-secondary text-white\" href=\"#\">" + pages + "</a></li>";
         return out;
     }
+    // ... existing js functions ...
     function load_chunk(pid, pagenum, callback) {
         $("#process_" + pid + " div.calltable").load("/analysis/chunk/{{id}}/" + pid + "/" + pagenum + "/", function (data, status, xhr) {
             if (status == "error") {
-                $("#process_" + pid + " div.calltable").html("Error loading data. Please reload the page and if the error persists contact us.");
+                $("#process_" + pid + " div.calltable").html('<div class="alert alert-danger">Error loading data. Please reload the page.</div>');
             }
             else {
                 $("#process_" + pid + " ul.pagination").html(paginationbar(parseInt($("#process_" + pid).data("length")), pagenum));
@@ -39,59 +40,45 @@
             }
         });
 
-        // add pagination if removed
         $("#top_pagination").removeClass("d-none");
         $("#bottom_pagination").removeClass("d-none");
-
-        // Reset font sizes
-        $(".badge").css("font-size", "100%");
-
-        // add font increase for current chunk
-        $("#badge_default_" + pid).css("font-size", "125%");
+        $(".badge-filter").removeClass("badge-light text-dark").addClass("badge-dark");
+        $("#badge_default_" + pid).removeClass("badge-dark").addClass("badge-light text-dark");
     }
+
     function show_tab(id, callback) {
-        // First, see if tab is already active. If it is, just run the callback
         if ($('#' + id).hasClass('active')) {
             typeof callback === 'function' && callback();
-        }
-        // Else, show the tab and run the callback once the tab is shown
-        else {
-            // Wait for tab to be shown
-            $('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+        } else {
+            $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
                 if ($(e.target).attr('href') == '#' + id) {
-                    $('a[data-toggle="tab"]').off('shown.bs.tab');
+                    $('a[data-bs-toggle="pill"]').off('shown.bs.tab');
                     typeof callback === 'function' && callback();
                 }
             });
-
-            // Show the tab
             $('a[href="#' + id + '"]').tab('show');
         }
     }
+
     function go_to_api_call(pid, call_id) {
-        // Load corresponding chunk
         pagenum = Math.floor(call_id / 100) + 1;
         load_chunk(pid, pagenum, function () {
-            // Show behavior tab
             show_tab('behavior', function () {
-                // Show process tab
                 show_tab('process_' + pid, function () {
-                    // Scroll to call
                     $('#call_' + call_id).get(0).scrollIntoView(false);
                 });
             });
         });
     }
+
     function load_filtered_chunk(pid, category, caller, tid) {
-        // Trim leading and trailing spaces
         var inputValue = $("#apifilter_" + pid).val().trim();
-        // Split input by commas, trim spaces, and join back with commas
         var apis = inputValue.split(',').map(api => api.trim()).join(',');
         var encodedlist = (apis === "") ? encodeURI("!null") : encodeURI(apis);
 
         $("#process_" + pid + " div.calltable").load("/analysis/filtered/{{id}}/" + pid + "/" + category + "/" + encodedlist + "/" + caller + "/" + tid + "/", function (data, status, xhr) {
             if (status == "error") {
-                $("#process_" + pid + " div.calltable").html("Error loading data. Please reload the page and if the error persists contact us.");
+                $("#process_" + pid + " div.calltable").html('<div class="alert alert-danger">Error loading data.</div>');
             }
             else {
                 $("#process_" + pid + " div.pagination ul").html(paginationbar(0, 0));
@@ -102,164 +89,153 @@
             }
         });
 
-        // remove pagination
         $("#top_pagination").addClass("d-none");
         $("#bottom_pagination").addClass("d-none");
-
-        // Reset font sizes
-        $(".badge").css("font-size", "100%");
-
-        // add font increase for current chunk
-        $("#badge_" + category + "_" + pid).css("font-size", "125%");
+        $(".badge-filter").removeClass("badge-light text-dark").addClass("badge-dark");
+        $("#badge_" + category + "_" + pid).removeClass("badge-dark").addClass("badge-light text-dark");
     }
 </script>
 
-<div class="tabbable">
-    <ul class="nav nav-tabs">
-        <li class="nav-item"><a class="nav-link" href="#search" data-toggle="tab"><span class="fa fa-search"></span> Search</a></li>
-        {% for process in behavior.processes %}
-        <li {% if forloop.counter == 1 %} class="nav-item active" {% endif %}><a class="nav-link" href="#process_{{process.process_id}}"
-                data-toggle="tab"><span class="fa fa-cogs"></span> {{process.process_name}}
-                ({{process.process_id}})</a></li>
-        {% endfor %}
-    </ul>
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <ul class="nav nav-pills card-header-pills" id="processTabs" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link" id="search-tab" data-bs-toggle="pill" href="#search" role="tab" aria-controls="search" aria-selected="false">
+                    <i class="fas fa-search me-1"></i> Search
+                </a>
+            </li>
+            {% for process in behavior.processes %}
+            <li class="nav-item">
+                <a class="nav-link {% if forloop.counter == 1 %}active{% endif %}" id="process-{{process.process_id}}-tab" data-bs-toggle="pill" href="#process_{{process.process_id}}" role="tab" aria-controls="process_{{process.process_id}}" aria-selected="{% if forloop.counter == 1 %}true{% else %}false{% endif %}">
+                    <i class="fas fa-microchip me-1"></i> {{process.process_name}} <small>({{process.process_id}})</small>
+                </a>
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
 
-    <div class="tab-content">
-        {% include "analysis/behavior/_search.html" %}
-        {% for process in behavior.processes %}
-        <div class="tab-pane{% if forloop.counter == 1%} active{% endif %}" id="process_{{process.process_id}}"
-            data-pid="{{process.process_id}}" data-length="{{process.calls|length}}">
-            <div class="alert alert-primary" style="text-align: center;overflow-wrap: break-word;">
-                <b>{{process.process_name}}</b>, PID: <b>{{process.process_id}}</b>, Parent PID: {{process.parent_id}}
-                <br />Full Path: <b>{{process.module_path}}</b>
-                {% if process.environ.CommandLine %}
-                <br />Command Line: <b>{{ process.environ.CommandLine }}</b>
-                {% endif %}
-                {% if process.environ.DllBase %}
-                    <br />Dll Image Base: <b>{{ process.environ.DllBase }}</b>,
-                {% endif %}
-                {% if process.environ.MainExeBase %}
-                    <br />Image Base: <b>{{ process.environ.MainExeBase }}</b>,
-                {% endif %}
-                {% if process.environ.MainExeSize %}
-                    Image Size: <b>{{ process.environ.MainExeSize }}</b>,
-                {% endif %}
-                {% if process.environ.Bitness %}
-                    <b>{{ process.environ.Bitness }}</b>
-                {% endif %}
-            </div>
+    <div class="card-body">
+        <div class="tab-content" id="processTabsContent">
+            {% include "analysis/behavior/_search.html" %}
 
-            <div>
-                <div style="text-align: center; position:relative;">
-                    <div>
-                        <div id="currcategory" value="default"></div>
-                        <a id="badge_default_{{process.process_id}}" class="badge badge-primary default fs-1" role="button" style="color:black;">default</a>
-                        <a id="badge_registry_{{process.process_id}}" class="badge registry" role="button" style="color:black;">registry</a>
-                        <a id="badge_filesystem_{{process.process_id}}" class="badge filesystem" role="button" style="color:black;">filesystem</a>
-                        <a id="badge_network_{{process.process_id}}" class="badge network" role="button" style="color:black;">network</a>
-                        <a id="badge_process_{{process.process_id}}" class="badge process" role="button" style="color:black;">process</a>
-                        <a id="badge_threading_{{process.process_id}}" class="badge threading" role="button" style="color:black;">threading</a>
-                        <a id="badge_services_{{process.process_id}}" class="badge services" role="button" style="color:black;">services</a>
-                        <a id="badge_device_{{process.process_id}}" class="badge device" role="button" style="color:black;">device</a>
-                        <a id="badge_synchronization_{{process.process_id}}" class="badge synchronization" role="button" style="color:black;">synchronization</a>
-                        <a id="badge_crypto_{{process.process_id}}" class="badge crypto" role="button" style="color:black;">crypto</a>
-                        <a id="badge_browser_{{process.process_id}}" class="badge browser" role="button" style="color:black;">browser</a>
-                        <a id="badge_all_{{process.process_id}}" class="badge badge-light all" role="button" style="color:black;">all</a>
-                        <div class="form-group" style="display:inline-block; padding-left: 10px">
-                            <div class="input-group">
-                                <label class="sr-only" for="form_search">API Filter</label>
-                                <input type="text" class="form-control rounded-left" id="apifilter_{{process.process_id}}" name="apifilter" size=35 placeholder="API(list) separated by ',' Precede with '!' for exclusion" />
-                                <button class="btn btn-outline-secondary rounded-right" id="search_button_{{process.process_id}}" type="button">
-                                    <i class="fas fa-search"></i>
-                                </button>
+            {% for process in behavior.processes %}
+            <div class="tab-pane fade {% if forloop.counter == 1%}show active{% endif %}" id="process_{{process.process_id}}" role="tabpanel" aria-labelledby="process-{{process.process_id}}-tab" data-pid="{{process.process_id}}" data-length="{{process.calls|length}}">
+
+                <div class="alert alert-primary border-primary text-center shadow-sm mb-4">
+                    <h5 class="alert-heading fw-bold">{{process.process_name}}</h5>
+                    <p class="mb-0">
+                        PID: <strong>{{process.process_id}}</strong> | Parent PID: <strong>{{process.parent_id}}</strong>
+                        <br>Path: <code class="text-white">{{process.module_path}}</code>
+                        {% if process.environ.CommandLine %}<br>Cmd: <code class="text-white">{{ process.environ.CommandLine }}</code>{% endif %}
+                        <br>Image Base: <strong>{% if process.environ.MainExeBase %}{{ process.environ.MainExeBase }}{% else %}{{process.image_base}}{% endif %}</strong> |
+                        Size: <strong>{% if process.environ.MainExeSize %}{{ process.environ.MainExeSize }}{% else %}{{process.size}}{% endif %}</strong> |
+                        Bitness: <strong>{% if process.environ.Bitness %}{{ process.environ.Bitness }}{% else %}{{process.bitness}}{% endif %}</strong>
+                        {% if process.environ.DllBase %}<br />Dll Image Base: <b>{{ process.environ.DllBase }}</b>{% endif %}
+                    </p>
+                </div>
+
+                <div class="row mb-4 align-items-center justify-content-center">
+                    <div class="col-12 text-center">
+                        <div class="btn-group flex-wrap mb-3" role="group">
+                            <button id="badge_default_{{process.process_id}}" type="button" class="btn btn-outline-light badge-filter active">Default</button>
+                            <button id="badge_registry_{{process.process_id}}" type="button" class="btn btn-cat-registry badge-filter">Registry</button>
+                            <button id="badge_filesystem_{{process.process_id}}" type="button" class="btn btn-cat-filesystem badge-filter">Filesystem</button>
+                            <button id="badge_network_{{process.process_id}}" type="button" class="btn btn-cat-network badge-filter">Network</button>
+                            <button id="badge_process_{{process.process_id}}" type="button" class="btn btn-cat-process badge-filter">Process</button>
+                            <button id="badge_threading_{{process.process_id}}" type="button" class="btn btn-cat-threading badge-filter">Threading</button>
+                            <button id="badge_services_{{process.process_id}}" type="button" class="btn btn-cat-services badge-filter">Services</button>
+                            <button id="badge_sync_{{process.process_id}}" type="button" class="btn btn-cat-synchronization badge-filter">Sync</button>
+                            <button id="badge_crypto_{{process.process_id}}" type="button" class="btn btn-cat-crypto badge-filter">Crypto</button>
+                            <button id="badge_browser_{{process.process_id}}" type="button" class="btn btn-cat-browser badge-filter">Browser</button>
+                            <button id="badge_device_{{process.process_id}}" type="button" class="btn btn-cat-device badge-filter">Device</button>
+                            <button id="badge_all_{{process.process_id}}" type="button" class="btn btn-success badge-filter">All</button>
+                        </div>
+
+                        <div class="input-group mb-3 w-50 mx-auto">
+                            <input type="text" class="form-control bg-secondary text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
+                            <button class="btn btn-primary" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
+                        </div>
+
+                        <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#advFilter_{{process.process_id}}">
+                            Advanced Filters <i class="fas fa-chevron-down"></i>
+                        </button>
+
+                        <div class="collapse mt-2" id="advFilter_{{process.process_id}}">
+                            <div class="card card-body bg-secondary">
+                                <div class="row g-3">
+                                    <div class="col">
+                                        <input type="text" class="form-control bg-dark text-white border-0" id="callerfilter_{{process.process_id}}" placeholder="Caller">
+                                    </div>
+                                    <div class="col">
+                                        <input type="text" class="form-control bg-dark text-white border-0" id="tidfilter_{{process.process_id}}" placeholder="Thread ID">
+                                    </div>
+                                    <div class="col-auto">
+                                        <button id="submit_filter_{{process.process_id}}" class="btn btn-dark">Filter</button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <a class="filter-toggle" id="filter_toggle_{{process.process_id}}">
-                    <h4>Additional Filters</h4>
-                </a>
-                <div class="filter-box">
-                    <div class="form-group" id="calls">
-                        <label class="sr-only" for="form_search">API Filter1</label>
-                        <input type="text" class="form-control" id="callerfilter_{{process.process_id}}"
-                            name="callerfilter" size=25 placeholder="Calls" />
-                    </div>
-                    <div class="form-group" id="tid">
-                        <label class="sr-only" for="form_search">API Filter2</label>
-                        <input type="text" class="form-control" id="tidfilter_{{process.process_id}}" name="tidfilter" size=25 placeholder="TID" />
-                    </div>
-                    <button id="submit_filter_{{process.process_id}}" type="submit" class="btn btn-secondary">Filter</button>
-                </div>
-            </div>
+                <script type="text/javascript">
+                $(document).ready(function() {
+                    // Handlers for category buttons (simplified for brevity, replicate logic for all)
+                    $("#badge_default_{{process.process_id}}").click(function() { load_chunk({{process.process_id}}, 1); });
+                    $("#badge_registry_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "registry", "null", 0); });
+                    $("#badge_filesystem_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "filesystem", "null", 0); });
+                    $("#badge_network_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "network", "null", 0); });
+                    $("#badge_process_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "process", "null", 0); });
+                    $("#badge_threading_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "threading", "null", 0); });
+                    $("#badge_services_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "services", "null", 0); });
+                    $("#badge_sync_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "sync", "null", 0); });
+                    $("#badge_crypto_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "crypto", "null", 0); });
+                    $("#badge_browser_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "browser", "null", 0); });
+                    $("#badge_device_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "device", "null", 0); });
+                    // ... (Add other category handlers similarly) ...
+                    $("#badge_all_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "all", "null", 0); });
 
-            <script type="text/javascript">
-            $(document).ready(function()
-            {
-                $("#badge_default_{{process.process_id}}").click(function() { load_chunk({{process.process_id}}, 1); });
-                $("#badge_network_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "network", "null", 0); });
-                $("#badge_filesystem_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "filesystem", "null", 0); });
-                $("#badge_registry_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "registry", "null", 0); });
-                $("#badge_process_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "process", "null", 0); });
-                $("#badge_threading_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "threading", "null", 0); });
-                $("#badge_services_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "services", "null", 0); });
-                $("#badge_device_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "device", "null", 0); });
-                $("#badge_synchronization_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "synchronization", "null", 0); });
-                $("#badge_crypto_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "crypto", "null", 0); });
-                $("#badge_browser_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "browser", "null", 0); });
-                $("#badge_all_{{process.process_id}}").click(function() { load_filtered_chunk({{process.process_id}}, "all", "null", 0); });
-                $('.tab-content').on('click', '.call-link', function (event) {
-                    cid = $(this).attr('data-cid');
-                    pid = $(this).attr('data-pid');
-                    go_to_api_call(+pid, +cid);
+                    // Click handler for call links
+                    $('.tab-content').on('click', '.call-link', function (event) {
+                        event.preventDefault();
+                        var cid = $(this).attr('data-cid');
+                        var pid = $(this).attr('data-pid');
+                        go_to_api_call(+pid, +cid);
+                    });
 
-                    event.preventDefault();
-                });
-                // toggles additional filtering
-                $("#filter_toggle_{{process.process_id}}").click(function(){
-                    $(".filter-box").toggle()
-                })
-                // submits filters to backend
-                $("#submit_filter_{{process.process_id}}").click(function(){
-                    var pid = {{process.process_id}};
-                    var caller = ($("#callerfilter_"+pid).val() == "") ? "null" : $("#callerfilter_"+pid).val();
-                    var tid = ($("#tidfilter_"+pid).val() == "") ? 0 : $("#tidfilter_"+pid).val();
-                    console.log(caller, tid)
-                    load_filtered_chunk(pid, "all", caller, tid);
-                })
+                    // Search/Filter handlers
+                    $("#submit_filter_{{process.process_id}}").click(function(){
+                        var pid = {{process.process_id}};
+                        var caller = ($("#callerfilter_"+pid).val() == "") ? "null" : $("#callerfilter_"+pid).val();
+                        var tid = ($("#tidfilter_"+pid).val() == "") ? 0 : $("#tidfilter_"+pid).val();
+                        load_filtered_chunk(pid, "all", caller, tid);
+                    });
 
-                // Filter on enter key in input field
-                $("#apifilter_{{process.process_id}}").keypress(function(e) {
-                    if (e.which == 13) {
+                    $("#apifilter_{{process.process_id}}").keypress(function(e) {
+                        if (e.which == 13) { load_filtered_chunk({{process.process_id}}, "all", "null", 0); }
+                    });
+
+                    $("#search_button_{{process.process_id}}").click(function() {
                         load_filtered_chunk({{process.process_id}}, "all", "null", 0);
-                    }
-                })
+                    });
+                });
+                </script>
 
-                // Filter on search button click
-                $("#search_button_{{process.process_id}}").click(function() {
-                    var pid = {{process.process_id}};
-                    var apiFilterValue = $("#apifilter_" + pid).val();
-                    load_filtered_chunk(pid, "all", "null", 0);
-                })
-            });
-            </script>
+                <nav id="top_pagination" aria-label="Page navigation" class="mb-3">
+                    <ul class="pagination justify-content-center"></ul>
+                </nav>
 
-            <nav id="top_pagination" aria-label="Page navigation">
-                <ul class="pagination justify-content-center">
-                </ul>
-            </nav>
-
-            <nav aria-label="Page navigation">
                 <div class="calltable"></div>
-                <ul id="bottom_pagination" class="pagination justify-content-center pagination_{{process.process_id}}">
-                </ul>
-            </nav>
 
-            <script type="text/javascript">
-                load_chunk({{ process.process_id }}, 1);
-            </script>
+                <nav aria-label="Page navigation" class="mt-3">
+                    <ul id="bottom_pagination" class="pagination justify-content-center pagination_{{process.process_id}}"></ul>
+                </nav>
+
+                <script type="text/javascript">
+                    load_chunk({{ process.process_id }}, 1);
+                </script>
+            </div>
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 </div>

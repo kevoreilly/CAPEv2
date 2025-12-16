@@ -101,7 +101,7 @@ class Package:
         self.timeout = kwargs.get("timeout")
         # Command-line arguments for the target.
 
-        self.args = self.options.get("args", [])
+        self.args = self.options.get("arguments", [])
         # Choose an analysis method (or fallback to apicalls)
         self.method = self.options.get("method", "apicalls")
         # Should our target be launched as root or not
@@ -202,7 +202,11 @@ class Package:
 
         target_cmd = f"{self.target}"
         if "args" in kwargs:
-            target_cmd += f' {" ".join(kwargs["args"])}'
+            args = kwargs["args"]
+            if not isinstance(args, str):
+                args = " ".join(args)
+            target_cmd += f" {args}"
+
 
         # eg: strace_args=-e trace=!recvfrom;epoll_pwait
         strace_args = self.options.get("strace_args", "").replace(";", ",")

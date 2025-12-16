@@ -1,14 +1,13 @@
-<section id="url">
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th><h4>URL Details</h4></th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td><span class="mono">{{analysis.url_analysis.url}}</span></td>
-                </tr>
-            </tbody>
-        </table>
+<section id="url" class="mb-4">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-info"></i> URL Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="d-flex align-items-center">
+                <i class="fas fa-link me-3 text-muted"></i>
+                <code class="text-info text-break" style="font-size: 1.1rem;">{{analysis.url_analysis.url}}</code>
+            </div>
+        </div>
+    </div>
 </section>

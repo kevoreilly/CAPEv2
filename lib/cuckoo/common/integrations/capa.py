@@ -49,10 +49,13 @@ if integrations_conf.flare_capa.enabled:
             from capa.rules import InvalidRule, InvalidRuleSet, InvalidRuleWithPath
             from pydantic_core._pydantic_core import ValidationError
 
-            # Disable vivisect logging
-            logging.getLogger("vivisect").setLevel(logging.NOTSET)
-            logging.getLogger("vivisect.base").setLevel(logging.NOTSET)
-            logging.getLogger("vivisect.impemu").setLevel(logging.NOTSET)
+            # Reduce vivisect logging verbosity
+            logging.getLogger("vivisect").setLevel(logging.INFO)
+            logging.getLogger("vivisect.base").setLevel(logging.CRITICAL)
+            logging.getLogger("vivisect.impemu").setLevel(logging.CRITICAL)
+            logging.getLogger("vivisect.parsers").setLevel(logging.CRITICAL)
+            logging.getLogger("vivisect.tools").setLevel(logging.CRITICAL)
+            logging.getLogger("vivisect.analysis").setLevel(logging.CRITICAL)
 
             rules_path = os.path.join(CUCKOO_ROOT, "data", "capa-rules")
             if path_exists(rules_path):

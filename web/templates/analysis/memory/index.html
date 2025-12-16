@@ -5,28 +5,28 @@
     </div>
     <div class="tabbable tabs">
         <ul class="nav nav-tabs" style="margin-bottom: 0;">
-            {% if memory.pslist %}<li class="nav-item active"><a class="nav-link" href="#memory_pslist" data-toggle="tab">Process List</a></li>{% endif %}
-            {% if memory.psscan %}<li class="nav-item"><a class="nav-link" href="#memory_psscan" data-toggle="tab">Process Scan</a></li>{% endif %}
-            {% if memory.psscan and memory.pslist %}<li class="nav-item"><a class="nav-link" href="#memory_rootkit" data-toggle="tab">Rootkits</a></li>{% endif %}
-            {% if memory.svcscan %}<li class="nav-item"><a class="nav-link" href="#memory_svcscan" data-toggle="tab">Services</a></li>{% endif %}
-            {% if memory.modscan %}<li class="nav-item"><a class="nav-link" href="#memory_modscan" data-toggle="tab">Kernel Modules</a></li>{% endif %}
-            {% if memory.devicetree %}<li class="nav-item"><a class="nav-link" href="#memory_devicetree" data-toggle="tab">Device Tree</a></li>{% endif %}
-            {% if memory.malfind %}<li class="nav-item"><a class="nav-link" href="#memory_malfind" data-toggle="tab">Code Injection</a></li>{% endif %}
-            {% if memory.timers %}<li class="nav-item"><a class="nav-link" href="#memory_timers" data-toggle="tab">Timers</a></li>{% endif %}
-            {% if memory.messagehooks %}<li class="nav-item"><a class="nav-link" href="#memory_messagehooks" data-toggle="tab">Messagehooks</a></li>{% endif %}
-            {% if memory.apihooks %}<li class="nav-item"><a class="nav-link" href="#memory_apihooks" data-toggle="tab">API Hooks</a></li>{% endif %}
-            {% if memory.callbacks %}<li class="nav-item"><a class="nav-link" href="#memory_callbacks" data-toggle="tab">Callbacks</a></li>{% endif %}
-            {% if memory.yarascan %}<li class="nav-item"><a class="nav-link" href="#memory_yarascan" data-toggle="tab">Yarascan</a></li>{% endif %}
-            {% if memory.ssdt %}<li class="nav-item"><a class="nav-link" href="#memory_ssdt" data-toggle="tab">SSDT</a></li>{% endif %}
-            {% if memory.idt %}<li class="nav-item"><a class="nav-link" href="#memory_idt" data-toggle="tab">IDT</a></li>{% endif %}
-            {% if memory.gdt %}<li class="nav-item"><a class="nav-link" href="#memory_gdt" data-toggle="tab">GDT</a></li>{% endif %}
-            {% if memory.privs %}<li class="nav-item"><a class="nav-link" href="#memory_privs" data-toggle="tab">Privilege</a></li>{% endif %}
-            {% if memory.handles %}<li class="nav-item"><a class="nav-link" href="#memory_handles" data-toggle="tab">Handles</a></li>{% endif %}
-            {% if memory.getsids %}<li class="nav-item"><a class="nav-link" href="#memory_getsids" data-toggle="tab">Sid by Process</a></li>{% endif %}
-            {% if memory.dlllist %}<li class="nav-item"><a class="nav-link" href="#memory_dlllist" data-toggle="tab">Dll List</a></li>{% endif %}
-            {% if memory.mutantscan %}<li class="nav-item"><a class="nav-link" href="#memory_mutantscan" data-toggle="tab">Mutex</a></li>{% endif %}
+            {% if memory.pslist %}<li class="nav-item active"><a class="nav-link" href="#memory_pslist" data-bs-toggle="tab">Process List</a></li>{% endif %}
+            {% if memory.psscan %}<li class="nav-item"><a class="nav-link" href="#memory_psscan" data-bs-toggle="tab">Process Scan</a></li>{% endif %}
+            {% if memory.psscan and memory.pslist %}<li class="nav-item"><a class="nav-link" href="#memory_rootkit" data-bs-toggle="tab">Rootkits</a></li>{% endif %}
+            {% if memory.svcscan %}<li class="nav-item"><a class="nav-link" href="#memory_svcscan" data-bs-toggle="tab">Services</a></li>{% endif %}
+            {% if memory.modscan %}<li class="nav-item"><a class="nav-link" href="#memory_modscan" data-bs-toggle="tab">Kernel Modules</a></li>{% endif %}
+            {% if memory.devicetree %}<li class="nav-item"><a class="nav-link" href="#memory_devicetree" data-bs-toggle="tab">Device Tree</a></li>{% endif %}
+            {% if memory.malfind %}<li class="nav-item"><a class="nav-link" href="#memory_malfind" data-bs-toggle="tab">Code Injection</a></li>{% endif %}
+            {% if memory.timers %}<li class="nav-item"><a class="nav-link" href="#memory_timers" data-bs-toggle="tab">Timers</a></li>{% endif %}
+            {% if memory.messagehooks %}<li class="nav-item"><a class="nav-link" href="#memory_messagehooks" data-bs-toggle="tab">Messagehooks</a></li>{% endif %}
+            {% if memory.apihooks %}<li class="nav-item"><a class="nav-link" href="#memory_apihooks" data-bs-toggle="tab">API Hooks</a></li>{% endif %}
+            {% if memory.callbacks %}<li class="nav-item"><a class="nav-link" href="#memory_callbacks" data-bs-toggle="tab">Callbacks</a></li>{% endif %}
+            {% if memory.yarascan %}<li class="nav-item"><a class="nav-link" href="#memory_yarascan" data-bs-toggle="tab">Yarascan</a></li>{% endif %}
+            {% if memory.ssdt %}<li class="nav-item"><a class="nav-link" href="#memory_ssdt" data-bs-toggle="tab">SSDT</a></li>{% endif %}
+            {% if memory.idt %}<li class="nav-item"><a class="nav-link" href="#memory_idt" data-bs-toggle="tab">IDT</a></li>{% endif %}
+            {% if memory.gdt %}<li class="nav-item"><a class="nav-link" href="#memory_gdt" data-bs-toggle="tab">GDT</a></li>{% endif %}
+            {% if memory.privs %}<li class="nav-item"><a class="nav-link" href="#memory_privs" data-bs-toggle="tab">Privilege</a></li>{% endif %}
+            {% if memory.handles %}<li class="nav-item"><a class="nav-link" href="#memory_handles" data-bs-toggle="tab">Handles</a></li>{% endif %}
+            {% if memory.getsids %}<li class="nav-item"><a class="nav-link" href="#memory_getsids" data-bs-toggle="tab">Sid by Process</a></li>{% endif %}
+            {% if memory.dlllist %}<li class="nav-item"><a class="nav-link" href="#memory_dlllist" data-bs-toggle="tab">Dll List</a></li>{% endif %}
+            {% if memory.mutantscan %}<li class="nav-item"><a class="nav-link" href="#memory_mutantscan" data-bs-toggle="tab">Mutex</a></li>{% endif %}
             {% if memory.sockscan or memory.netscan %}
-            <li class="nav-item"><a class="nav-link" href="#memory_sockets" data-toggle="tab">Sockets</a></li>
+            <li class="nav-item"><a class="nav-link" href="#memory_sockets" data-bs-toggle="tab">Sockets</a></li>
             {% endif %}
         </ul>
 

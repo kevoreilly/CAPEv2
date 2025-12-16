@@ -1221,6 +1221,7 @@ search_term_map = {
     "suriurl": "suricata.http.uri",
     "suriua": "suricata.http.ua",
     "surireferrer": "suricata.http.referrer",
+    "surihost": "suricata.http.hostname",
     "suritlssubject": "suricata.tls.subject",
     "suritlsissuerdn": "suricata.tls.issuer",
     "suritlsfingerprint": "suricata.tls.fingerprint",
@@ -1397,15 +1398,29 @@ def perform_search(
         search_term_map[term] = f"CAPE.configs.{value}"
         query_val = {"$exists": True}
 
+    retval = []
     if repconf.mongodb.enabled and query_val:
         if term in hash_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
-            file_docs = list(mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_task_ids": 1}))
-            if not file_docs:
-                return []
-            ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
-            term = "ids"
-            mongo_search_query = {"info.id": {"$in": ids}}
+            split_by = "," if "," in query_val else " "
+            query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            pipeline = [
+                # Stages 1-5: Find, unwind, group, sort, limit IDs
+                {"$match": {hash_searches[term]: query_filter_list}},
+                {"$unwind": "$_task_ids"},
+                {"$group": {"_id": "$_task_ids"}},
+                {"$sort": {"_id": -1}},
+                {"$limit": search_limit},
+                # Stage 6: Join with the tasks collection
+                {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
+                # Stage 7: Unpack the joined doc
+                {"$unwind": "$task_doc"},
+                # Stage 8: Make the task doc the new root
+                {"$replaceRoot": {"newRoot": "$task_doc"}},
+                # Stage 9: Add your custom projection
+                {"$project": perform_search_filters},
+            ]
+            retval = list(mongo_aggregate(FILES_COLL, pipeline))
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         elif isinstance(search_term_map[term], list):

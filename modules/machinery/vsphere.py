@@ -113,8 +113,9 @@ class vSphere(Machinery):
                         raise CuckooCriticalError(
                             f"Snapshot for machine {machine.label} not in powered-on state, please create one"
                         )
-        except Exception:
-            raise CuckooCriticalError("Couldn't connect to vSphere host")
+        except Exception as e:
+            logging.exception("Couldn't connect to vSphere host")
+            raise CuckooCriticalError(f"Couldn't connect to vSphere host: {e}")
 
         super(vSphere, self)._initialize_check()
 

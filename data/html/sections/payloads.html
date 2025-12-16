@@ -1,22 +1,27 @@
-
-<section id="payloads">
+<div class="mt-4">
     <div class="section-title">
         <h4>Payloads</h4>
     </div>
     {% if "CAPE" in results and results.CAPE.payloads %}
+        <div id="accordionPayloads">
         {% for file in results.CAPE.payloads %}
-            <div>
-                {% if summary_report %}
-                    <h4>{{file.name}}</h4>
-                    <div id="payload_{{loop.index}}">
-                {% else %}
-                    <h4><a href="javascript:showHide('payload_{{loop.index}}');">{{file.name}}</a></h4>
-                    <div id="payload_{{loop.index}}" style="display: none;">
-                    {% include "generic/_file_info.html" %}
-                {% endif %}
+            <div class="card mt-2">
+                <div class="card-header" id="headingPayload{{loop.index}}">
+                    <h5 class="mb-0">
+                        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapsePayload{{loop.index}}" aria-expanded="true" aria-controls="collapsePayload{{loop.index}}">
+                            {% for name in file.name%}{{name}}{% endfor %}
+                        </button>
+                    </h5>
+                </div>
+                <div id="collapsePayload{{loop.index}}" class="collapse show" aria-labelledby="headingPayload{{loop.index}}" data-bs-parent="#accordionPayloads">
+                    <div class="card-body">
+                        {% include "generic/_file_info.html" %}
+                    </div>
+                </div>
             </div>
         {% endfor %}
+        </div>
     {% else %}
-        Nothing to display.
+        <p>Nothing to display.</p>
     {% endif %}
-</section>
+</div>

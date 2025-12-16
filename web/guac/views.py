@@ -1,22 +1,41 @@
 from base64 import urlsafe_b64decode
 from xml.etree import ElementTree as ET
-
 from django.shortcuts import render
-
 from lib.cuckoo.common.config import Config
 
 try:
     import libvirt
+
+    LIBVIRT_AVAILABLE = True
 except ImportError:
     print("Missed python-libvirt. Use extra/libvirt_installer.sh")
+    LIBVIRT_AVAILABLE = False
 
 machinery = Config().cuckoo.machinery
+machinery_available = ["kvm", "qemu"]
 machinery_dsn = getattr(Config(machinery), machinery).get("dsn", "qemu:///system")
 
 
 def index(request, task_id, session_data):
-    conn = libvirt.open(machinery_dsn)
+    if not LIBVIRT_AVAILABLE:
+        return render(
+            request,
+            "guac/error.html",
+            {"error_msg": "Libvirt not available", "error": "remote session", "task_id": task_id},
+        )
+
+    if machinery not in machinery_available:
+        return render(
+            request,
+            "guac/error.html",
+            {"error_msg": f"Machinery type '{machinery}' is not supported", "error": "remote session", "task_id": task_id},
+        )
+
+    conn = None
+    state = None
     recording_name = ""
+
+    conn = libvirt.open(machinery_dsn)
     if conn:
         try:
             session_id, label, guest_ip = urlsafe_b64decode(session_data).decode("utf8").split("|")

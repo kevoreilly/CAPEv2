@@ -1,34 +1,61 @@
 {% extends "base.html" %}
 {% block content %}
-<div class="card ">
-    <div class="card-header">Pending Tasks{% if count %}: {{count}} {% endif %}</div>
+<div class="card bg-dark shadow-sm border-secondary mb-4">
+    <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+        <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-warning"></i>Pending Tasks</h5>
+        {% if count %}
+        <span class="badge bg-warning">{{count}} pending</span>
+        {% else %}
+        <span class="badge bg-secondary">0 pending</span>
+        {% endif %}
+    </div>
     {% if tasks %}
-    <table class="table table-striped" style="table-layout: fixed;">
-        <thead>
-        <tr>
-            <th width="5%">ID</th>
-            <th width="14%">Timestamp (added on)</th>
-            <th width="6%">Category</th>
-            <th width="35%">Target</th>
-            <th width="30%">MD5/SHA256</th>
-            <th width="5%">Action</th>
-        </tr>
-        </thead>
-        <tbody>
-        {% for task in tasks %}
+    <div class="table-responsive">
+        <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
+            <thead class="thead-dark">
             <tr>
-                <td>{{task.id}}</td>
-                <td><span class="muted">{{task.added_on}}</span></td>
-                <td>{{task.category}}</td>
-                <td>{{task.target|filename}}</td>
-                <td>{{task.md5}}</br>{{task.sha256}}</td>
-                <td><a href="/apiv2/tasks/delete/{{task.id}}/pending"><i class="fas fa-trash-alt"></i></a></td>
+                <th width="5%" class="border-top-0">ID</th>
+                <th width="15%" class="border-top-0">Timestamp</th>
+                <th width="10%" class="border-top-0 text-center">Category</th>
+                <th width="30%" class="border-top-0">Target</th>
+                <th width="30%" class="border-top-0">Hashes</th>
+                <th width="10%" class="border-top-0 text-center">Action</th>
             </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+            </thead>
+            <tbody>
+            {% for task in tasks %}
+                <tr>
+                    <td><span class="font-weight-bold">{{task.id}}</span></td>
+                    <td><span class="text-muted small">{{task.added_on|date:"Y-m-d H:i:s"}}</span></td>
+                    <td class="text-center">
+                        <span class="badge bg-info">{{task.category|upper}}</span>
+                    </td>
+                    <td class="text-truncate" title="{{task.target|filename}}">
+                        <span class="text-light">{{task.target|filename}}</span>
+                    </td>
+                    <td class="small">
+                        <div class="text-truncate mb-1" title="MD5: {{task.md5}}">
+                            <span class="text-muted me-1">MD5:</span> <span class="text-monospace">{{task.md5}}</span>
+                        </div>
+                        <div class="text-truncate" title="SHA256: {{task.sha256}}">
+                            <span class="text-muted me-1">SHA256:</span> <span class="text-monospace">{{task.sha256}}</span>
+                        </div>
+                    </td>
+                    <td class="text-center">
+                        <a href="/apiv2/tasks/delete/{{task.id}}/pending" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Delete Task">
+                            <i class="fas fa-trash-alt"></i>
+                        </a>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
     {% else %}
-    <div class="card-body">No pending tasks.</div>
+    <div class="card-body text-center text-muted py-5">
+        <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
+        <p class="mb-0">No pending tasks. You're all caught up!</p>
+    </div>
     {% endif %}
-        </div>
+</div>
 {% endblock %}

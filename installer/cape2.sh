@@ -59,8 +59,8 @@ librenms_megaraid_enable=0
 MONGO_ENABLE=1
 
 DIE_VERSION="3.10"
-
 TOR_SOCKET_TIMEOUT="60"
+CAPE_ROOT="/opt/CAPEv2"
 
 # if a config file is present, read it in
 if [ -f "./cape-config.sh" ]; then
@@ -648,7 +648,7 @@ function distributed() {
     sudo apt-get install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
     sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run pip install flask flask-restful flask-sqlalchemy requests'
 
-    sudo cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
+    sudo cp $CAPE_ROOT/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
     sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
 
     sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}dist\"";
@@ -690,65 +690,67 @@ EOL
 
 function install_suricata() {
     echo '[+] Installing Suricata'
-    sudo add-apt-repository -y ppa:oisf/suricata-stable
-    sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata suricata-update
+    # Suricata 8 has many breaking changes. We don't have time to make it compatible
+    # sudo add-apt-repository -y ppa:oisf/suricata-stable
+    sudo add-apt-repository ppa:oisf/suricata-7.0
+    sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata
     touch /etc/suricata/threshold.config
 
     # Download etupdate to update Emerging Threats Open IDS rules:
     mkdir -p "/etc/suricata/rules"
     if ! crontab -l | grep -q -F '15 * * * * /usr/bin/suricata-update'; then
-        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/suricatasc -c reload-rules /tmp/suricata-command.socket &>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ &>/dev/null"; } | crontab -
     fi
     if [ -d /usr/share/suricata/rules/ ]; then
-        # copy files if rules folder contains files
+        # copy files if rules folder contains files
         if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
             cp "/usr/share/suricata/rules/"* "/etc/suricata/rules/"
         fi
     fi
     if [ -d /var/lib/suricata/rules/ ]; then
-        # copy files if rules folder contains files
+        # copy files if rules folder contains files
         if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
             cp "/var/lib/suricata/rules/"* "/etc/suricata/rules/"
         fi
     fi
 
-    # ToDo this is not the best solution but i don't have time now to investigate proper one
-    sed -i 's|CapabilityBoundingSet=CAP_NET_ADMIN|#CapabilityBoundingSet=CAP_NET_ADMIN|g' /lib/systemd/system/suricata.service
-    systemctl daemon-reload
+    cat > /etc/suricata/cape.yaml <<EOF
+%YAML 1.1
+---
 
-    #change suricata yaml
-    sed -i 's|#default-rule-path: /etc/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/default/suricata
-    sed -i 's|default-rule-path: /var/lib/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/suricata/suricata.yaml
-    sed -i 's/#rule-files:/rule-files:/g' /etc/suricata/suricata.yaml
-    sed -i 's/# - suricata.rules/ - suricata.rules/g' /etc/suricata/suricata.yaml
-    sed -i 's/RUN=yes/RUN=no/g' /etc/default/suricata
-    sed -i 's/mpm-algo: ac/mpm-algo: hs/g' /etc/suricata/suricata.yaml
-    sed -i 's/mpm-algo: auto/mpm-algo: hs/g' /etc/suricata/suricata.yaml
-    sed -i 's/#run-as:/run-as:/g' /etc/suricata/suricata.yaml
-    sed -i "s/#  user: suri/   user: ${USER}/g" /etc/suricata/suricata.yaml
-    sed -i "s/#  group: suri/   group: ${USER}/g" /etc/suricata/suricata.yaml
-    sed -i 's/    depth: 1mb/    depth: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/request-body-limit: 100kb/request-body-limit: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/response-body-limit: 100kb/response-body-limit: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/EXTERNAL_NET: "!$HOME_NET"/EXTERNAL_NET: "ANY"/g' /etc/suricata/suricata.yaml
-    sed -i 's|#pid-file: /var/run/suricata.pid|pid-file: /tmp/suricata.pid|g' /etc/suricata/suricata.yaml
-    sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml
-    #-k none
-    sed -i 's/#checksum-validation: none/checksum-validation: none/g' /etc/suricata/suricata.yaml
-    sed -i 's/checksum-checks: auto/checksum-checks: no/g' /etc/suricata/suricata.yaml
+default-rule-path: /etc/suricata/rules
+rule-files: suricata.rules
+mpm-algo: hs
+stream.reassembly.depth: 0
+stream.checksum-validation:  none
+netmap.checksum-checks: no
+pcap-file.checksum-checks: no
+app-layer.protocols.http.libhtp.default-config.request-body-limit: 0
+app-layer.protocols.http.libhtp.default-config.response-body-limit: 0
+app-layer.protocols.tls.ja3-fingerprints: yes
 
-    # https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
-    sed -i 's|limit-noproc: true|limit-noproc: false|g' /etc/suricata/suricata.yaml
+vars.address-groups.EXTERNAL_NET: "ANY"
+# pid-file: /run/suricata.pid
+# https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
+security.limit-noproc: false
 
-    # enable eve-log
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'eve-log:\n      enabled: no\n', b'eve-log:\n      enabled: yes\n');open(pa, 'wb').write(q);"
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'unix-command:\n  enabled: auto\n  #filename: custom.socket', b'unix-command:\n  enabled: yes\n  filename: /tmp/suricata-command.socket');open(pa, 'wb').write(q);"
-    # file-store
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'file-store:\n  version: 2\n  enabled: no', b'file-store:\n  version: 2\n  enabled: yes');open(pa, 'wb').write(q);"
+outputs.1.eve-log.enabled: yes
+file-store.enabled: yes
+EOF
 
-    chown ${USER}:${USER} -R /etc/suricata
-    chown ${USER}:${USER} -R /var/log/suricata
+    sed -i '$a include:\n  - cape.yaml\n' /etc/suricata/suricata.yaml
+    usermod -aG pcap suricata
+    usermod -aG suricata "${USER}"
+    # sudo chmod -R g+w /var/log/suricata/
+    # sudo chmod -R g+w /var/run/suricata/
+    # sudo chmod -R g+w /etc/suricata
     systemctl restart suricata
+
+    # How to verify config options
+    # suricata --dump-config
+    # sudo suricata -T -c /etc/suricata/suricata.yaml
+    # echo "Important: For this change to take effect, you must log out and then log back in, or open a new shell with newgrp suricata."
+
 }
 
 function install_yara_x() {
@@ -762,7 +764,7 @@ function install_yara_x() {
     sudo -u ${USER} git clone https://github.com/VirusTotal/yara-x
     cd yara-x || return
     sudo -u ${USER} bash -c 'source "$HOME/.cargo/env" ; cargo install --path cli'
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install yara-x
+    /etc/poetry/bin/poetry --directory $CAPE_ROOT/ run pip install yara-x
 }
 
 function install_yara() {
@@ -797,7 +799,7 @@ function install_yara() {
     ldconfig
 
     # Run yara installer script
-    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run /opt/CAPEv2/extra/yara_installer.sh
+    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run extra/yara_installer.sh
 
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
@@ -825,22 +827,26 @@ function install_mongo(){
         sudo apt-get install -y libpcre3-dev numactl cron
         sudo apt-get install -y mongodb-org
 
-        # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
-        PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
-        if [ "$PIP_VERSION" -ge 23 ]; then
-            pip3 install pymongo -U --break-system-packages
-        else
-            pip3 install pymongo -U
-        fi
+        PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install pymongo -U --break-system-packages
 
-        sudo apt-get install -y ntp
-        systemctl start ntp.service && sudo systemctl enable ntp.service
+        # sudo apt-get install -y ntp
+        # systemctl start ntp.service && sudo systemctl enable ntp.service
+cat >> /lib/systemd/system/enable-transparent-huge-pages.service <<EOF
+# https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/
+[Unit]
+Description=Enable Transparent Hugepages (THP)
+DefaultDependencies=no
+After=sysinit.target local-fs.target
+Before=mongod.service
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo always | tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null && echo defer+madvise | tee /sys/kernel/mm/transparent_hugepage/defrag > /dev/null && echo 0 | tee /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none > /dev/null && echo 1 | tee /proc/sys/vm/overcommit_memory > /dev/null'
+[Install]
+WantedBy=basic.target
+EOF
 
-        if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
-            sudo apt-get install -y sysfsutils
-            echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
-            echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
-        fi
+        systemctl daemon-reload
+        sudo systemctl enable enable-transparent-huge-pages
 
         if [ -f /lib/systemd/system/mongod.service ]; then
             systemctl stop mongod.service
@@ -852,13 +858,14 @@ function install_mongo(){
 
         if [ ! -f /lib/systemd/system/mongodb.service ]; then
             crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
-            cat >> /lib/systemd/system/mongodb.service <<EOF
+            cat >> /lib/systemd/system/mongodb.service << EOF
 [Unit]
 Description=High-performance, schema-free document-oriented database
 Wants=network.target
 After=network.target
 [Service]
 PermissionsStartOnly=true
+Environment="GLIBC_TUNABLES=glibc.pthread.rseq=0"
 #ExecStartPre=/bin/mkdir -p /data/{config,}db && /bin/chown mongodb:mongodb /data -R
 # https://www.tutorialspoint.com/mongodb/mongodb_replication.htm
 ExecStart=/usr/bin/numactl --interleave=all /usr/bin/mongod --setParameter "tcmallocReleaseRate=5.0"
@@ -883,11 +890,9 @@ EOF
         systemctl enable mongodb.service
         systemctl restart mongodb.service
 
-        if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
-            crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
-        fi
-
         echo "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
+        echo "net.ipv4.tcp_fastopen = 3" | sudo tee /etc/sysctl.d/30-tcp_fastopen.conf
+
     else
         echo "[+] Skipping MongoDB"
     fi
@@ -905,14 +910,7 @@ function install_elastic() {
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
     sudo apt-get update && sudo apt-get install -y elasticsearch
-
-    # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
-    PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
-    if [ "$PIP_VERSION" -ge 23 ]; then
-        pip3 install elasticsearch --break-system-packages
-    else
-        pip3 install elasticsearch
-    fi
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install elasticsearch
 
     systemctl enable elasticsearch
 }
@@ -944,7 +942,7 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install .
+    /etc/poetry/bin/poetry --directory $CAPE_ROOT/ run pip install /tmp/capa
     cd /opt/CAPEv2
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa
@@ -1238,7 +1236,7 @@ EOF
     chown root:root /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
     chmod 644 /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
     usermod -a -G ${USER} clamav
-    echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
+    echo "$CAPE_ROOT/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
     sudo apparmor_parser -r /etc/apparmor.d/usr.sbin.clamd
     sudo systemctl enable clamav-daemon
     sudo systemctl start clamav-daemon
@@ -1253,11 +1251,16 @@ function install_CAPE() {
     if [ ! -d CAPEv2 ]; then
         git clone https://github.com/kevoreilly/CAPEv2/
     fi
-    chown ${USER}:${USER} -R /opt/CAPEv2/
+    chown ${USER}:${USER} -R $CAPE_ROOT/
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
-    cd "/opt/CAPEv2/" || return
+
+    if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
+        crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+    fi
+
+    cd "$CAPE_ROOT/" || return
     sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 /etc/poetry/bin/poetry install'
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
@@ -1268,7 +1271,7 @@ function install_CAPE() {
 
     #packages are needed for build options in extra/yara_installer.sh
     sudo apt-get install -y libjansson-dev libmagic1 libmagic-dev
-    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run /opt/CAPEv2/extra/yara_installer.sh'
+    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run $CAPE_ROOT/extra/yara_installer.sh'
 
     if [ -d /tmp/yara-python ]; then
         sudo rm -rf /tmp/yara-python
@@ -1283,7 +1286,7 @@ function install_CAPE() {
     # sed -i "/machinery =/cmachinery = kvm" conf/cuckoo.conf
     sed -i "/interface =/cinterface = ${NETWORK_IFACE}" conf/auxiliary.conf
 
-    chown ${USER}:${USER} -R "/opt/CAPEv2/"
+    chown ${USER}:${USER} -R "$CAPE_ROOT/"
 
     if [ "$MONGO_ENABLE" -ge 1 ]; then
         crudini --set conf/reporting.conf mongodb enabled yes
@@ -1302,7 +1305,8 @@ function install_CAPE() {
 if [ ! -f /etc/sudoers.d/cape ]; then
     cat >> /etc/sudoers.d/cape << EOF
 Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
-${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
+Cmnd_Alias UFW_STATUS = /usr/sbin/ufw status
+${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES, UFW_STATUS
 EOF
 fi
 if [ ! -f /etc/sudoers.d/ip_netns ]; then
@@ -1324,11 +1328,11 @@ fi
 
 function install_systemd() {
     echo "[+] Installing systemd configuration"
-    cp /opt/CAPEv2/systemd/cape.service /lib/systemd/system/cape.service
-    cp /opt/CAPEv2/systemd/cape-processor.service /lib/systemd/system/cape-processor.service
-    cp /opt/CAPEv2/systemd/cape-web.service /lib/systemd/system/cape-web.service
-    cp /opt/CAPEv2/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
-    cp /opt/CAPEv2/systemd/suricata.service /lib/systemd/system/suricata.service
+    cp $CAPE_ROOT/systemd/cape.service /lib/systemd/system/cape.service
+    cp $CAPE_ROOT/systemd/cape-processor.service /lib/systemd/system/cape-processor.service
+    cp $CAPE_ROOT/systemd/cape-web.service /lib/systemd/system/cape-web.service
+    cp $CAPE_ROOT/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
+    cp $CAPE_ROOT/systemd/suricata.service /lib/systemd/system/suricata.service
     systemctl daemon-reload
     cape_web_enable_string=''
     if [ "$MONGO_ENABLE" -ge 1 ]; then
@@ -1455,8 +1459,8 @@ function install_guacamole() {
     fi
 
     if [ ! -f "/opt/lib/systemd/system/guac-web.service" ] ; then
-        cp /opt/CAPEv2/systemd/guacd.service /lib/systemd/system/guacd.service
-        cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
+        cp $CAPE_ROOT/systemd/guacd.service /lib/systemd/system/guacd.service
+        cp $CAPE_ROOT/systemd/guac-web.service /lib/systemd/system/guac-web.service
     fi
 
     poetry_path="/etc/poetry/bin/poetry"
@@ -1464,7 +1468,7 @@ function install_guacamole() {
         sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
 
-    if [ ! -d "/opt/CAPEv2/storage/guacrecordings" ] ; then
+    if [ ! -d "$CAPE_ROOT/storage/guacrecordings" ] ; then
         sudo mkdir -p opt/CAPEv2/storage/guacrecordings && chown ${USER}:${USER} opt/CAPEv2/storage/guacrecordings
     fi
 
@@ -1499,6 +1503,56 @@ function install_postgres_pg_activity() {
     # amazing tool for monitoring https://github.com/dalibo/pg_activity
     # sudo -u postgres pg_activity -U postgres
     sudo apt-get install -y pg-activity
+}
+
+function install_polarproxy() {
+    echo "[+] Installing PolarProxy"
+
+    cd "/opt/" || return
+
+    if [ ! -d PolarProxy ]; then
+        mkdir PolarProxy
+    fi
+
+    cd PolarProxy
+    curl -o PolarProxy.tar.gz https://www.netresec.com/?download=PolarProxy
+    tar xf PolarProxy.tar.gz
+    chmod a+x PolarProxy
+
+    local KEY_PEM=PolarProxy-key.pem
+    local CRT_PEM=PolarProxy-crt.pem
+    local CRT_P12=PolarProxy-key-crt.p12
+    local CRT_CRT=PolarProxy-crt.crt
+
+    # Generate key
+    openssl req -x509 \
+        -newkey rsa:4096 \
+        -passin pass:$PASSWD \
+        -keyout $KEY_PEM \
+        -subj "/C=US/ST=California/L=San Diego/O=Development/OU=Dev/CN=CAPEv2 PolarProxy" \
+        -out $CRT_PEM \
+        -nodes \
+        -days 365
+
+    # Generate certificate
+    openssl x509 \
+        -inform PEM \
+        -passin pass:$PASSWD \
+        -in $CRT_PEM \
+        -out $CRT_CRT
+
+    # Bundle key and cert for PolarProxy
+    openssl pkcs12 \
+        -in $CRT_PEM \
+        -inkey $KEY_PEM \
+        -out $CRT_P12 \
+        -export \
+        -password pass:$PASSWD \
+        -name PolarProxy
+
+    chown -R $USER:$USER /opt/PolarProxy
+
+    chmod 600 $CRT_P12
 }
 
 function install_passivedns() {
@@ -1573,12 +1627,12 @@ case "$COMMAND" in
     install_suricata
     install_jemalloc
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
-        crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "@reboot cd $CAPE_ROOT/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
     fi
     # Disabled due to frequent CAPA updates and it breaks it. Users should care about this subject
     # Update FLARE CAPA rules and community every X hours
     # if ! crontab -l | grep -q 'community.py -waf -cr'; then
-    #    crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    #    crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     # fi
     if ! crontab -l | grep -q 'echo signal newnym'; then
         crontab -l | { cat; echo "00 */1 * * * (echo authenticate '""'; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null"; } | crontab -
@@ -1598,15 +1652,15 @@ case "$COMMAND" in
     install_logrotate
     install_mitmproxy
     #socksproxies is to start redsocks stuff
-    if [ -f /opt/CAPEv2/socksproxies.sh ]; then
-        crontab -l | { cat; echo "@reboot /opt/CAPEv2/socksproxies.sh"; } | crontab -
+    if [ -f $CAPE_ROOT/socksproxies.sh ]; then
+        crontab -l | { cat; echo "@reboot $CAPE_ROOT/socksproxies.sh"; } | crontab -
     fi
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
-        crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "@reboot cd $CAPE_ROOT/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
     fi
     # Update FLARE CAPA rules once per day
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
-        crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && poetry --directory /opt/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && sudo -u ${USER} /etc/poetry/bin/poetry --directory $CAPE_ROOT/ run python3 community.py -waf -cr && poetry --directory $CAPE_ROOT/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
     install_librenms
     if [ "$clamav_enable" -ge 1 ]; then
@@ -1653,6 +1707,8 @@ case "$COMMAND" in
     librenms_sneck_config;;
 'mitmproxy')
     install_mitmproxy;;
+'polarproxy')
+    install_polarproxy;;
 'issues')
     issues;;
 'nginx')

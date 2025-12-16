@@ -1,116 +1,131 @@
-<section id="static_analysis">
+<section id="static_analysis_office" class="mb-4">
     {% load key_tags %}
-        {% if file.office %}
+    {% if file.office %}
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-file-word me-2 text-primary"></i> Office Document Information</h5>
+        </div>
+        <div class="card-body">
+            
             {% if file.mmbot %}
-                <div>
-                    <div id="mmbot_results">
-                        <h4>Malicious Macro Bot Results</h4>
-                        <table class="table table-striped table-bordered">
-                            <colgroup>
-                                <col width="250" />
-                                <col width="*" />
-                            </colgroup>
-                            {% for key, value in file.mmbot.items|dictsort:0 %}
-                                <tr>
-                                    <td>{{key}}</td>
-                                    <td>{{value}}</td>
-                                </tr>
-                            {% endfor %}
-                        </table>
-                    </div>
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">Malicious Macro Bot Results</h6>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th style="width: 30%;">Key</th>
+                                <th>Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        {% for key, value in file.mmbot.items|dictsort:0 %}
+                            <tr>
+                                <td>{{key}}</td>
+                                <td>{{value}}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
                 </div>
+            </div>
             {% endif %}
+
             {% if file.office.Metadata %}
                 {% if file.office.Metadata.SummaryInformation %}
-                <div>
-                    <div id="si_metadata">
-                        <h4>SummaryInformation Metadata</h4>
-                        <table class="table table-striped table-bordered">
-                            <colgroup>
-                                <col width="250" />
-                                <col width="*" />
-                            </colgroup>
+                <div class="mb-4">
+                    <h6 class="text-white border-bottom pb-2 mb-3">SummaryInformation Metadata</h6>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-sm mb-0">
                             {% for key, value in file.office.Metadata.SummaryInformation.items|dictsort:0 %}
                                 <tr>
-                                    <td>{{key}}</td>
+                                    <td style="width: 30%;"><strong>{{key}}</strong></td>
                                     <td>{{value}}</td>
                                 </tr>
                             {% endfor %}
                         </table>
                     </div>
                 </div>
-                <hr />
                 {% endif %}
+                
                 {% if file.office.Metadata.DocumentSummaryInformation %}
-                <div>
-                    <div id="dsi_metadata">
-                        <h4>DocumentSummaryInformation Metadata</h4>
-                        <table class="table table-striped table-bordered">
-                            <colgroup>
-                                <col width="250" />
-                                <col width="*" />
-                            </colgroup>
+                <div class="mb-4">
+                    <h6 class="text-white border-bottom pb-2 mb-3">DocumentSummaryInformation Metadata</h6>
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-sm mb-0">
                             {% for key, value in file.office.Metadata.DocumentSummaryInformation.items|dictsort:0 %}
                                 <tr>
-                                    <td>{{key}}</td>
+                                    <td style="width: 30%;"><strong>{{key}}</strong></td>
                                     <td>{{value}}</td>
                                 </tr>
                             {% endfor %}
                         </table>
                     </div>
                 </div>
-                <hr />
                 {% endif %}
             {% endif %}
+
             {% if file.office.Macro %}
                 {% if file.office.Macro.Analysis %}
-                    <div id="analysis_sigs">
-                        <h4>File Analysis (Signatures)</h4>
+                <div class="mb-4">
+                    <h6 class="text-white border-bottom pb-2 mb-3">Macro Analysis (Signatures)</h6>
+                    <div class="accordion" id="macroSignaturesAccordion">
                         {% for detection in file.office.Macro.Analysis %}
-                        <div>
-                            <div class="panel" id="accordion" style="margin-top: 20px;">
-                            <div class="card-header">
-                                <a class="accordion-toggle" data-parent="#analysis_sigs" data-toggle="collapse" href="#{{detection}}" aria-expanded="false"><i class="icon icon-cog"></i>{{detection}}</a>
+                        <div class="card bg-dark border-bottom border-secondary rounded-0">
+                            <div class="card-header p-0" id="headingMacroSig{{forloop.counter}}">
+                                <h2 class="mb-0">
+                                    <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_sig_{{detection|slugify}}" aria-expanded="false" aria-controls="macro_sig_{{detection|slugify}}">
+                                        <i class="fas fa-exclamation-triangle me-2 text-warning"></i> {{detection}}
+                                    </button>
+                                </h2>
                             </div>
-                            <div id="{{detection}}" class="panel-collapse collapse" style="text-align: left;">
-                                <table class="table table-striped table-bordered">
-                                <colgroup>
-                                    <col width="200">
-                                    <col width="*">
-                                </colgroup>
-                                <th colspan="2">{{detection}}</th>
-                                {% for indicator, description in file.office.Macro.Analysis|getkey:detection %}
-                                    <tr>
-                                        <td>{{indicator}}</td>
-                                        <td>{{description}}</td>
-                                    </tr>
-                                {% endfor %}
-                                </table>
+                            <div id="macro_sig_{{detection|slugify}}" class="collapse" aria-labelledby="headingMacroSig{{forloop.counter}}" data-bs-parent="#macroSignaturesAccordion">
+                                <div class="card-body bg-secondary text-white">
+                                    <div class="table-responsive">
+                                        <table class="table table-dark table-sm table-striped mb-0">
+                                            <thead>
+                                                <tr>
+                                                    <th>Indicator</th>
+                                                    <th>Description</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                            {% for indicator, description in file.office.Macro.Analysis|getkey:detection %}
+                                                <tr>
+                                                    <td>{{indicator}}</td>
+                                                    <td>{{description}}</td>
+                                                </tr>
+                                            {% endfor %}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
                             </div>
-                            </div>
+                        </div>
                         {% endfor %}
                     </div>
                 </div>
-                <hr />
                 {% endif %}
+
                 {% if file.office.Macro.Code and not file.office.XLMMacroDeobfuscator %}
-                <div>
-                    <div id="macro">
-                    <h4>Extracted Macros</h4>
+                <div class="mb-4">
+                    <h6 class="text-white border-bottom pb-2 mb-3">Extracted Macros</h6>
+                    <div class="accordion" id="macroCodeAccordion">
                     {% for macrodata in file.office.Macro.Code %}
-                    <table class="table table-striped table-bordered">
-                        <col style="width:20%">
-                        <col style="width:60%">
-                        <col style="width:20%">
                         {% for name, code in file.office.Macro.Code|getkey:macrodata %}
-                        <tr>
-                            <td>VBA Filename</td>
-                            <td>{{name}}</td>
-                            <td><a class="accordion-toggle" data-toggle="collapse" href="#{{macrodata}}">Extracted Macro</a></td>
-                        </tr>
-                        </table>
-                        <div id="{{macrodata}}" class="collapse">
-                            <pre>{{code}}</pre>
+                        <div class="card bg-dark border-bottom border-secondary rounded-0">
+                            <div class="card-header p-0" id="headingMacroCode{{forloop.parentloop.counter0}}-{{forloop.counter0}}">
+                                <h2 class="mb-0">
+                                    <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" aria-expanded="false">
+                                        <i class="fas fa-code me-2 text-info"></i> {{name}}
+                                    </button>
+                                </h2>
+                            </div>
+                            <div id="macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" class="collapse" data-bs-parent="#macroCodeAccordion">
+                                <div class="card-body bg-secondary text-white">
+                                    <pre class="mb-0 text-light small" style="max-height: 400px; overflow-y: auto;">{{code}}</pre>
+                                </div>
+                            </div>
                         </div>
                         {% endfor %}
                     {% endfor %}
@@ -118,54 +133,57 @@
                 </div>
                 {% endif %}
             {% endif %}
-        {% endif %}
-        {% if file.office.rtf %}
-            <div>
-                <div id="si_metadata">
-                    <h4>RTF document details</h4>
-                    <table class="table table-striped table-bordered">
-                        {% for key, value in file.office.rtf.items %}
-                            <h5>Object ID: {{key}}</h5>
-                            <tr>
-                                <th width=10%>Filename</th>
-                                <td>Size</td>
-                                <th>Index</th>
-                                <td>Class Name</td>
-                                <td>Type Embed</td>
-                                <th>CVE</th>
-                            </tr>
-                            {% for block in value %}
-                                <tr>
-                                    {% if block.sha256 %}
-                                        <td><a href={% url "file" "rtf" id block.sha256 %} class="btn btn-secondary btn-small">{{block.filename}}</a></td>
-                                    {% else %}
-                                        <td>{{block.filename}}</td>
-                                    {% endif %}
-                                    <td>{{block.size}}</td>
-                                    <td>{{block.index}}</td>
-                                    <td>{{block.class_name}}</td>
-                                    <td>{{block.type_embed}}</td>
-                                    <td>{{block.CVE}}</td>
-                                </tr>
-                            {% endfor %}
-                        {% endfor %}
-                    </table>
-                </div>
+
+            {% if file.office.rtf %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">RTF Document Details</h6>
+                {% for key, value in file.office.rtf.items %}
+                    <div class="mb-3">
+                        <strong class="text-info">Object ID: {{key}}</strong>
+                        <div class="table-responsive mt-2">
+                            <table class="table table-dark table-striped table-sm mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Filename</th>
+                                        <th>Size</th>
+                                        <th>Index</th>
+                                        <th>Class Name</th>
+                                        <th>Type Embed</th>
+                                        <th>CVE</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                {% for block in value %}
+                                    <tr>
+                                        <td>
+                                            {% if block.sha256 %}
+                                                <a href="{% url "file" "rtf" id block.sha256 %}" class="btn btn-sm btn-outline-info">{{block.filename}}</a>
+                                            {% else %}
+                                                {{block.filename}}
+                                            {% endif %}
+                                        </td>
+                                        <td>{{block.size}}</td>
+                                        <td>{{block.index}}</td>
+                                        <td>{{block.class_name}}</td>
+                                        <td>{{block.type_embed}}</td>
+                                        <td>{{block.CVE}}</td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                {% endfor %}
             </div>
-            <hr />
-        {% endif %}
-        {% if file.office.dde %}
-        <div id="si_metadata">
-        <table class="table table-striped table-bordered">
-            <colgroup>
-                <col width="200" />
-                <col width="*" />
-            </colgroup>
-            <tr>
-                <td><h4>DDE Detected</h4></td>
-                <td>{{file.dde}}</td>
-            </tr>
-        </table>
+            {% endif %}
+
+            {% if file.office.dde %}
+            <div class="alert alert-warning">
+                <strong>DDE Detected:</strong> {{file.dde}}
+            </div>
+            {% endif %}
+
         </div>
-{% endif %}
+    </div>
+    {% endif %}
 </section>

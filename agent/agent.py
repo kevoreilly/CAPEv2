@@ -92,6 +92,8 @@ class Status(enum.IntEnum):
         return None
 
 
+TERMINAL_STATUSES = [Status.COMPLETE, Status.FAILED, Status.EXCEPTION]
+
 AGENT_BROWSER_EXT_PATH = ""
 AGENT_BROWSER_LOCK = Lock()
 ANALYZER_FOLDER = ""
@@ -494,6 +496,11 @@ def put_status():
     except ValueError:
         return json_error(400, "No valid status has been provided")
 
+    # If the new status is terminal, unset the async subprocess so /status reports
+    # the final analysis state rather than the child process state.
+    if status in TERMINAL_STATUSES:
+        state["async_subprocess"] = None
+
     state["status"] = status
     state["description"] = request.form.get("description")
     return json_success("Analysis status updated")
@@ -566,7 +573,7 @@ def do_mkdtemp():
     try:
         dirpath = tempfile.mkdtemp(suffix=suffix, prefix=prefix, dir=dirpath)
         if sys.platform == "win32":
-            subprocess.call(["icacls", dirpath, "/inheritance:e", "/grant", "BUILTIN\\Users:(OI)(CI)(RX)"])
+            subprocess.call(["icacls", dirpath, "/inheritance:e", "/grant", "*S-1-5-32-545:(OI)(CI)(RX)"])
     except Exception:
         return json_exception("Error creating temporary directory")
 

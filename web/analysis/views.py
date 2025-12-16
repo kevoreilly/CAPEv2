@@ -28,6 +28,7 @@ from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
+from lib.cuckoo.common.pcap_utils import PcapToNg
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
@@ -1852,8 +1853,14 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
         cd = "application/vnd.tcpdump.pcap"
     elif category == "pcapng":
-        file_name += ".pcapng"
+        analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
+        pcap_path = os.path.join(analysis_path, "dump.pcap")
+        tls_log_path = os.path.join(analysis_path, "tlsdump", "tlsdump.log")
+        ssl_key_log_path = os.path.join(analysis_path, "aux", "sslkeylogfile", "sslkeys.log")
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcapng")
+        pcapng = PcapToNg(pcap_path, tls_log_path, ssl_key_log_path)
+        pcapng.generate(path)
+        file_name += ".pcapng"
         cd = "application/vnd.tcpdump.pcap"
     elif category == "debugger_log":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")
@@ -1957,7 +1964,7 @@ def file(request, category, task_id, dlfile):
                 return resp
             else:
                 mem_zip = BytesIO()
-                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
                     zf.setpassword(settings.ZIP_PWD)
                     if not isinstance(path, list):
                         path = [path]
@@ -2025,7 +2032,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
                 s.seek(0)
                 if zipped and HAVE_PYZIPPER:
                     mem_zip = BytesIO()
-                    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
                         zf.setpassword(settings.ZIP_PWD)
                         zf.writestr(file_name, s.getvalue())
                     file_name += ".zip"
@@ -2172,15 +2179,17 @@ def search(request, searched=""):
 
         if not term:
             value = value.lower()
-            if re.match(r"^([a-fA-F\d]{32})$", value):
-                term = "md5"
-            elif re.match(r"^([a-fA-F\d]{40})$", value):
-                term = "sha1"
-            elif re.match(r"^([a-fA-F\d]{64})$", value):
+            split_by = "," if "," in value else " "
+            tmp_value = value.split(split_by)[0]
+            if len(tmp_value) == 64 and re.match(r"^([a-fA-F\d]{64})$", tmp_value):
                 term = "sha256"
-            elif re.match(r"^([a-fA-F\d]{96})$", value):
+            elif len(tmp_value) == 32 and re.match(r"^([a-fA-F\d]{32})$", tmp_value):
+                term = "md5"
+            elif len(tmp_value) == 40 and re.match(r"^([a-fA-F\d]{40})$", tmp_value):
+                term = "sha1"
+            elif len(tmp_value) == 96 and re.match(r"^([a-fA-F\d]{96})$", tmp_value):
                 term = "sha3"
-            elif re.match(r"^([a-fA-F\d]{128})$", value):
+            elif len(tmp_value) == 128 and re.match(r"^([a-fA-F\d]{128})$", tmp_value):
                 term = "sha512"
 
         if term == "ids":

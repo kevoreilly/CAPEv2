@@ -26,7 +26,7 @@ rule FormhookB
         $new_remap = {8B (86 [2] 00 00|46 ??|06) 5F 5E 5B 8B E5 5D C3}
         $code = {8B 4E 18 50 6A 00 51 57 56 E8 9A 18 00 00 8B 55 10 8B 45 0C 8B 0F 83 C4 1C 52 50 FF D1 5F 5E 5D C3}
     condition:
-        any of them
+        2 of them
 }
 
 rule FormconfA
@@ -67,7 +67,7 @@ rule FormconfB
     strings:
         $c2_1 = {44 0F B6 5D ?? 45 84 DB 74 ?? 48 8D 4D [1-5] 41 80 FB 2F 74 11 0F B6 41 01 48 FF C1 FF C3 44 0F B6 D8 84 C0 75}
         $c2_2 = {40 53 48 83 EC 20 48 8B DA 48 85 C9 74 28 80 39 00 74 23 48 85 D2 74 1E 48 8B D1 41 B8 04 00 00 00 48 8B CB E8}
-        $decoy = {45 3B B5 [2] 00 00 [0-7] 44 8D 1C 33 48 8D 7D [1-5] 42 C6 44 [2] 00 [0-4] 48 8B CF E8}
+        $decoy = {44 8D 1C 33 [0-13] 48 8D 7D [1-5] 42 C6 44 [2] 00 [0-4] 48 8B CF E8}
         $config = {40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 [4] 48 81 EC [2] 00 00 45 33 F6 33 C0 4C 8B E9 4C 89 75}
         $sleep = {B9 88 13 00 00 FF D7 44 8B 9B [4] 41 81 FB 00 01 00 00 75 ?? 48 39 B3 [4] 74 ?? 8B 83 [4] 05 00 20 00 00 39 B0}
     condition:

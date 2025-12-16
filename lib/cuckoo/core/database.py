@@ -11,7 +11,7 @@ import logging
 import os
 import sys
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Union, Tuple, Dict
 
 # Sflock does a good filetype recon
@@ -210,7 +210,7 @@ class SampleAssociation(Base):
     child_id: Mapped[int] = mapped_column(ForeignKey("samples.id"), primary_key=True)
 
     # This is the crucial column that links to the specific child's task
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), primary_key=True)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True)
 
     # Relationships from the association object itself
     parent: Mapped["Sample"] = relationship(foreign_keys=[parent_id], back_populates="child_links")
@@ -471,8 +471,16 @@ class Task(Base):
     platform: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     memory: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     enforce_timeout: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    clock: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
-    added_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now(), nullable=False)
+    clock: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        nullable=False,
+    )
+    added_on: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        nullable=False,
+    )
     started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     completed_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     status: Mapped[str] = mapped_column(
@@ -529,7 +537,7 @@ class Task(Base):
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
 
     # The Task is linked to one specific parent/child association event
-    association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task")
+    association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task", cascade="all, delete-orphan")
 
     __table_args__ = (
         Index("category_index", "category"),
@@ -1601,7 +1609,7 @@ class _Database:
         # extract files from the (potential) archive
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
         # check if len is 1 and the same file, if diff register file, and set parent
-        if extracted_files and (file_path, platform) not in extracted_files:
+        if extracted_files and not any(file_path == path for path, _ in extracted_files):
             parent_sample = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
                 path_delete(file_path.decode())
@@ -2215,7 +2223,7 @@ class _Database:
             return
 
         # Calculate the cutoff time before which tasks are considered timed out.
-        timeout_threshold = datetime.now() - timedelta(seconds=timeout)
+        timeout_threshold = datetime.utcnow() - timedelta(seconds=timeout)
 
         # Build a single, efficient DELETE statement that filters in the database.
         delete_stmt = delete(Task).where(Task.status == TASK_PENDING).where(Task.added_on < timeout_threshold)

@@ -1,23 +1,31 @@
 {% load generic_tags %}
 {% load analysis_tags %}
 
-<h4>Process Tree</h4>
-<ul>
-{% for process in behavior.processtree|proctreetolist %}
-    {% if process.startchildren %}
-      <ul>
-    {% elif process.endchildren %}
-      </ul>
-    {% else %}
-      <li>
-    <strong><a href="javascript:show_tab('process_{{process.pid}}');">{{process.name}}</a></strong> {{process.pid}}
-      {% if process.commandline %}
-        <i>{{ process.commandline }}</i>
-      {% endif %}
-      {% if detections2pid|get_detection_by_pid:process.pid %}
-        <i style="color:red">{{ detections2pid|get_detection_by_pid:process.pid }}</i>
-      {% endif %}
-     </li>
-    {% endif %}
-{% endfor %}
-</ul>
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary">
+        <h5 class="mb-0 text-white"><i class="fas fa-sitemap me-2 text-info"></i> Process Tree</h5>
+    </div>
+    <div class="card-body">
+        <ul class="list-unstyled mb-0" style="font-family: monospace;">
+        {% for process in behavior.processtree|proctreetolist %}
+            {% if process.startchildren %}
+              <ul class="ps-4 border-left border-secondary ms-2">
+            {% elif process.endchildren %}
+              </ul>
+            {% else %}
+              <li class="mb-1">
+                <i class="text-muted me-1"></i>
+                <strong><a href="javascript:show_tab('process_{{process.pid}}');" class="text-white">{{process.name}}</a></strong>
+                <span class="text-muted ms-1">({{process.pid}})</span>
+                {% if process.commandline %}
+                    <span class="text-light small ms-2">{{ process.commandline }}</span>
+                {% endif %}
+                {% if detections2pid|get_detection_by_pid:process.pid %}
+                    <span class="badge bg-danger ms-2">{{ detections2pid|get_detection_by_pid:process.pid }}</span>
+                {% endif %}
+            </li>
+            {% endif %}
+        {% endfor %}
+        </ul>
+    </div>
+</div>

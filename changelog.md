@@ -1,3 +1,82 @@
+### [24.11.2025]
+* Monitor update: Fix issue with RESUME: monitor message from NtResumeProcess hook
+
+### [17.11.2025]
+* Monitor update: Add config option for monitor injection into supplied pid or "explorer" for shell: monitor=<pid/"explorer">
+
+### [06.11.2025]
+* Monitor updates:
+    * path_from_object_attributes(): fix issue with memcpy from bad ObjectName->Buffer (e.g. 0a9d9b402fb39cf8df21ca4e68b84577c39b3ecf00415c999b28fcc92a695663)
+    * Fix/improve exception handling code which queries current SEH handler
+    * Harden our_stackwalk() against invalid stack pointers (hooking_64)
+    * Add exported function name logging to thread hooks: NtCreateThreadEx, CreateThread, NtQueueApcThread, NtQueueApcThreadEx
+
+### [03.11.2025]
+* Rhadamanthys:
+    * static config extraction - thanks @YungBinary
+    * anti-anti detonation bypass
+
+### [22.10.2025]
+* Add monitor injection to previously unused RESUME: monitor message handler _handle_resume()
+* Remove obsolete 'suspended' parameter from PROCESS monitor message
+* Monitor updates:
+    * WriteMemoryHandler: prevent analysis log spam for small PE writes
+    * Cap per-process messages to prevent detonation slow-down & failure in e.g. 9f8333d81c13ea426953b758140836cff2cf7e7f32e36738f118c6257c6efd34
+    * Experimental debugger action 'guard' to trap on guard violation
+    * YaraHarness: write rules canary detection to analysis log & simplify 'dump' option
+    * Deprecate Win7 wow64 breakpoint workaround
+    * Implement Gemini suggestions from #111
+    * Merge pull request #111 from StephanTLavavej/unordered_map
+    * Improve NtContinueHandler debug register stealth/protection to allow detonation of e.g. 8443224de889424012ba57ec075fec219104fffa8c3ae13a2db27b4ba9d71a3b
+
+### [13.10.2025]
+* Monitor updates:
+    * Fix debug output for dump-limit config setting
+    * Expand 'DumpImage' debugger action to handle target imagebase address e.g. action0=dumpimage:0x400000,action1=dumpimage:ecx+0x280
+    * GetFunctionByName: bug fixess and improvements (thanks @heck-gd)
+    * Trace: fix issue with long conditional jump target calculation in InstructionHandler()
+
+### [06.10.2025]
+* Monitor update: Improve debugger breakpoint protection, fixes instruction counting anti-debug detection in CheckPoint ShowStopper (thanks @cccs-mog)
+
+### [03.10.2025]
+* Monitor update: Fix issue with hook_restore config setting being ignored (fixes #2715 - thanks @federicofantini)
+
+### [23.09.2025]
+* Monitor updates:
+    * unhook: attempt restoration of detected hook modifications
+    * config: fix issue parsing multiple sysbp addresses supplied via submission option
+    * Trace: don't step over named exported functions if trace-all set
+    * Tweak tracking of regions from syscall capture (InstrCallback.c)
+    * Enhance VerifyHeaders() to include EP bytes to detect shellcode overwrites (e.g. HijackLoader)
+
+### [2.09.2025]
+* Loader update: set patched import directory size to allow RestoreHeaders() to work properly, and hence VMProtect binaries
+
+### [1.09.2025]
+* Monitor update: CoCreateInstance hook: remove disable_sleep_skip() breaking e.g. 493b6a86546ac79b7647bd6f3c3523dd910e6a56e427c45197e957e268df8df2
+* Tweak StealcV2 date check bypass sig to improve coverage
+
+### [27.08.2025]
+* Monitor updates:
+    * FindFixAndRun hook: Internal cmd.exe hook targeting 'Exorcism' api FindFixAndRun for batch deobfuscation (thanks @KingKDot and @KillerInstinct)
+    * Remove Scylla code preventing dumping of MEW executables (thanks @shuiyc)
+
+### [18.08.2025]
+* Monitor update: YaraHarness: fix issue with ParseOptionLine() adding imagebase to sysbps (thanks @ClaudioWayne)
+
+### [13.08.2025]
+* Monitor update: Fix internal WMI_GetObjectAsync yara
+
+### [05.08.2025]
+* Monitor updates:
+    * Enhance dynamic patching capability: new PatchBytes() function, submission/yara option patch=<address>:<bytes>
+    * Create DumpStrings debugger action for corresponding function
+    * Standalone mode improvements (thanks heck-gd)
+    * Improve NtGetContextThread & NtSetContextThread hooks to handle e.g. a2d4e1c831808d0a791608db40cd1e4df598e5fee4bac1b239d4f8194f8e2d4a
+    * Debugger: add flag changes to trace output
+* Stealc V2 detection, dynamic strings & config extraction (requires accompanying CAPE-parsers update)
+
 ### [11.06.2025]
 * __Action required!__ For users of Python 3.12+ in guest, update the agent to solve #2621 affecting e.g. MSI detonation
 * Agent update: Fix issue with analyzer directory creation lacking required ACLs for Python 3.12, remove predictable "tmp" prefix for directory name(s) (fixes #2621)
@@ -6,7 +85,7 @@
 * Monitor update: WMI hooks: add handling for VT_NULL and enable WMI_Get logging
 
 ### [06.06.2025]
-* Monitor updates: 
+* Monitor updates:
     * WMI hooks
     * Fix format string vulnerability in debugger StringsOutput() function
 

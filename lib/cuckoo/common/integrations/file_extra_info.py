@@ -114,11 +114,14 @@ if integration_conf.UnAutoIt_extract.binary:
     unautoit_binary = os.path.join(CUCKOO_ROOT, integration_conf.UnAutoIt_extract.binary)
 if integration_conf.Inno_extract.binary:
     innoextact_binary = os.path.join(CUCKOO_ROOT, integration_conf.Inno_extract.binary)
-sevenzip_binary = "/usr/bin/7z"
+sevenzip_binary = os.path.join(CUCKOO_ROOT, "data/7zz")
 if integration_conf.SevenZip_unpack.binary:
     tmp_sevenzip_binary = os.path.join(CUCKOO_ROOT, integration_conf.SevenZip_unpack.binary)
     if path_exists(tmp_sevenzip_binary):
         sevenzip_binary = tmp_sevenzip_binary
+# fallback
+if not path_exists(sevenzip_binary):
+    sevenzip_binary = "/usr/bin/7z"
 
 if processing_conf.trid.enabled:
     trid_binary = os.path.join(CUCKOO_ROOT, processing_conf.trid.identifier)
@@ -140,12 +143,6 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
     from lib.cuckoo.common.integrations.virustotal import vt_lookup
 
     HAVE_VIRUSTOTAL = True
-
-HAVE_MANDIANT_INTEL = False
-if integration_conf.mandiant_intel.enabled:
-    from lib.cuckoo.common.integrations.mandiant_intel import mandiant_lookup
-
-    HAVE_MANDIANT_INTEL = True
 
 exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
@@ -264,11 +261,6 @@ def static_file_info(
             vt_details = vt_lookup("file", file_path, results)
             if vt_details:
                 data_dictionary["virustotal"] = vt_details
-
-        if HAVE_MANDIANT_INTEL and processing_conf.mandiant_intel.enabled:
-            mandiant_intel_details = mandiant_lookup("file", file_path, results)
-            if mandiant_intel_details:
-                data_dictionary["mandiant_intel"] = mandiant_intel_details
 
     generic_file_extractors(
         file_path,
@@ -688,7 +680,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
         return
 
     extracted_files = []
-    # sudo apt install msitools or 7z
+    # sudo apt install msitools
     with extractor_ctx(file, "MsiExtract", prefix="msidump_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         output = False
@@ -707,7 +699,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
             ]
         else:
             output = run_tool(
-                ["7z", "e", f"-o{tempdir}", "-y", file],
+                [sevenzip_binary, "e", f"-o{tempdir}", "-y", file],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )

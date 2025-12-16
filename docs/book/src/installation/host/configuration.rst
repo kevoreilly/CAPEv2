@@ -53,16 +53,6 @@ want to pay more attention to are:
 .. _`SQLAlchemy`: http://www.sqlalchemy.org/
 .. _`Database Urls`: http://docs.sqlalchemy.org/en/latest/core/engines.html#database-urls
 
-.. warning:: Check your interface for resultserver IP! Some virtualization software (for example Virtualbox)
-    doesn't bring up the virtual networking interfaces until a virtual machine is started.
-    CAPE needs to have the interface where you bind the resultserver up before the start, so please
-    check your network setup. If you are not sure about how to get the interface up, a good trick is to manually start
-    and stop an analysis virtual machine, this will bring virtual networking up.
-    If you are using NAT/PAT in your network, you can set up the resultserver IP
-    to 0.0.0.0 to listen on all interfaces, then use the specific options `resultserver_ip` and `resultserver_port`
-    in *<machinery>.conf* to specify the address and port as every machine sees them. Note that if you set
-    resultserver IP to 0.0.0.0 in cuckoo.conf you have to set `resultserver_ip` for all your virtual machines.
-
 .. note:: Default freespace value is 50GB
     It is worth mentioning that the default ``freespace`` value in ``cuckoo.conf`` is 50000 MB aka 50 GB.
 

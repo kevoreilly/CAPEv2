@@ -1,20 +1,30 @@
-<section id="file">
-    <div class="section-title">
-        <h4>File Details  {% if results.info.parent_sample %} -
-        <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#static_parent_file" role="button" aria-expanded="false" aria-controls="static_parent_file"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Parent file</a>
-        {% endif %}
-        </h4>
-        {% if results.info.parent_sample %}
-        <div class="collapse" id="static_parent_file">
-            {% for file in results.info.parent_sample|parentfixup|dict2list %}
-                {% include "generic/_file_info.html" %}
-            {% endfor %}
+<div class="mt-4">
+    <div class="card">
+        <div class="card-header">
+            <h4>File Details
+            {% if results.info.parent_sample %}
+                <button class="btn btn-secondary btn-sm float-end" type="button" data-bs-toggle="collapse" data-bs-target="#static_parent_file_collapse" aria-expanded="false" aria-controls="static_parent_file_collapse">
+                    <span class="fas fa-envelope-open-text"></span> Parent file
+                </button>
+            {% endif %}
+            </h4>
         </div>
-        {% endif %}
+        <div class="card-body">
+            {% set tab_name = 'static' %}
+            {% if results.target.file %}
+                {% set file = results.target.file %}
+                {% include "generic/_file_info.html" %}
+            {% endif %}
+
+            {% if results.info.parent_sample %}
+            <div id="static_parent_file_collapse" class="collapse mt-3">
+                {% for _file_item in results.info.parent_sample|parentfixup|dict2list %}
+                    {% set file = _file_item %}
+                    {% set tab_name = 'static' %}
+                    {% include "generic/_file_info.html" %}
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
     </div>
-    {% set tab_name = 'static' %}
-    {% if results.target.file %}
-        {% set file = results.target.file %}
-        {% include "generic/_file_info.html" %}
-    {% endif %}
-</section>
+</div>

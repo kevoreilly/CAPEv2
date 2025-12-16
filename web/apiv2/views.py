@@ -738,8 +738,10 @@ def ext_tasks_search(request):
 
         if term == "tags_tasks":
             value = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=int(search_limit))]
+            term = "ids"
         elif term == "options":
             value = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
+            term = "ids"
         elif term == "ids":
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
@@ -1148,8 +1150,11 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
 
+    allow_dl = False
+    if hasattr(request.user, "userprofile") and request.user.userprofile.reports:
+        allow_dl = True
     # check if allowed to download to all + if no if user has permissions
-    if not settings.ALLOW_DL_REPORTS_TO_ALL and not request.user.userprofile.reports:
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and allow_dl is False:
         return render(
             request,
             "error.html",
@@ -1641,6 +1646,36 @@ def tasks_pcap(request, task_id):
 
     else:
         resp = {"error": True, "error_value": "PCAP does not exist"}
+        return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_tlspcap(request, task_id):
+    if not apiconf.tasktlspcap.get("enabled"):
+        resp = {"error": True, "error_value": "TLS PCAP download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
+    if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
+    if path_exists(srcfile):
+        fname = "%s_tls.pcap" % task_id
+        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
+        resp["Content-Length"] = os.path.getsize(srcfile)
+        resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
+    else:
+        resp = {"error": True, "error_value": "TLS PCAP does not exist"}
         return Response(resp)
 
 

@@ -305,6 +305,7 @@ def init_modules():
 
     # Import machine manager.
     import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
+    check_snapshot_state()
 
     for category, entries in list_plugins().items():
         log.debug('Imported "%s" modules:', category)
@@ -314,6 +315,95 @@ def init_modules():
                 log.debug("\t `-- %s", entry.__name__)
             else:
                 log.debug("\t |-- %s", entry.__name__)
+
+
+def check_snapshot_state():
+    """Checks the state of snapshots and machine architecture for KVM/QEMU machinery."""
+    if cuckoo.cuckoo.machinery not in ("kvm", "qemu"):
+        return
+
+    try:
+        import libvirt
+        from xml.etree import ElementTree
+    except ImportError:
+        raise CuckooStartupError(
+            "The 'libvirt-python' library is required for KVM/QEMU machinery but is not installed. "
+            "Please install it (e.g., 'cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/libvirt_installer.sh')."
+        )
+
+    machinery_config = Config(cuckoo.cuckoo.machinery)
+    dsn = machinery_config.get(cuckoo.cuckoo.machinery).get("dsn")
+    conn = None
+
+    try:
+        conn = libvirt.open(dsn)
+    except libvirt.libvirtError as e:
+        raise CuckooStartupError(f"Failed to connect to libvirt with DSN '{dsn}'. Error: {e}")
+
+    if conn is None:
+        raise CuckooStartupError(f"Failed to connect to libvirt with DSN '{dsn}'. Please check your configuration and libvirt service.")
+
+    try:
+        for machine_name in machinery_config.get(cuckoo.cuckoo.machinery).machines.split(","):
+            machine_name = machine_name.strip()
+            if not machine_name:
+                continue
+
+            snapshot_name = ""
+            try:
+                machine_config = machinery_config.get(machine_name)
+                machine_name = machine_config.get("label")
+                domain = conn.lookupByName(machine_name)
+                # Check for valid architecture configuration.
+                arch = machine_config.get("arch")
+                if not arch:
+                    raise CuckooStartupError(f"Missing 'arch' configuration for VM '{machine_name}'. Please specify a valid architecture (e.g., x86, x64).")
+
+                if arch == "x86_64":
+                    raise CuckooStartupError(
+                        f"Invalid architecture '{arch}' for VM '{machine_name}'. Please use 'x64' instead of 'x86_64'."
+                    )
+
+                if arch != arch.lower():
+                    raise CuckooStartupError(
+                        f"Invalid architecture '{arch}' for VM '{machine_name}'. Architecture must be all lowercase."
+                    )
+
+                # Check snapshot state.
+                snapshot_name = machine_config.get("snapshot")
+                snapshot = None
+
+                if snapshot_name:
+                    snapshot = domain.snapshotLookupByName(snapshot_name)
+                else:
+                    if domain.hasCurrentSnapshot(0):
+                        snapshot = domain.snapshotCurrent(0)
+                        snapshot_name = snapshot.getName()
+                        log.info("No snapshot name configured for VM '%s', checking latest: '%s'", machine_name, snapshot_name)
+                    else:
+                        log.warning("No snapshot configured or found for VM '%s'. Skipping check.", machine_name)
+                        continue
+
+                xml_desc = snapshot.getXMLDesc(0)
+                root = ElementTree.fromstring(xml_desc)
+                state_element = root.find("state")
+
+                if state_element is None or state_element.text != "running":
+                    state = state_element.text if state_element is not None else "unknown"
+                    raise CuckooStartupError(
+                        f"Snapshot '{snapshot_name}' for VM '{machine_name}' is not in a 'running' state (current state: '{state}'). "
+                        "Please ensure you take snapshots of running VMs."
+                    )
+
+            except libvirt.libvirtError as e:
+                # It's possible a snapshot name is provided but doesn't exist, which is a config error.
+                snapshot_identifier = f"with snapshot '{snapshot_name}'" if snapshot_name else ""
+                raise CuckooStartupError(
+                    f"Error checking snapshot state for VM '{machine_name}' {snapshot_identifier}. Libvirt error: {e}"
+                )
+    finally:
+        if conn:
+            conn.close()
 
 
 def init_rooter():
@@ -374,6 +464,30 @@ def init_rooter():
     rooter("state_enable")
 
     # ToDo check if ip_forward is on
+
+    # Check if UFW is enabled. If it is, it could interfere with routing.
+    # We use subprocess.run for better error handling and stdout capture.
+    try:
+        ufw_proc = subprocess.run(["ufw", "status"], capture_output=True, text=True, check=False)
+
+        if ufw_proc.returncode == 0:
+            if "Status: active" in ufw_proc.stdout:
+                log.warning(
+                    "UFW (Uncomplicated Firewall) is active. This might interfere with CAPEv2's network routing/analysis. "
+                    "Please ensure UFW is configured to allow all necessary traffic for CAPEv2 or consider disabling it for analysis. "
+                    "You can check UFW rules with 'sudo ufw status verbose'."
+                )
+            else:
+                log.debug("UFW is not active, which is ideal for CAPEv2's routing setup.")
+        else:
+            log.debug(
+                "Could not check UFW status (command exited with code %d). "
+                "Output: %s. Error: %s", ufw_proc.returncode, ufw_proc.stdout, ufw_proc.stderr
+            )
+    except FileNotFoundError:
+        log.debug("UFW command not found. Assuming UFW is not in use.")
+    except Exception as e:
+        log.debug("An unexpected error occurred while checking UFW status: %s", e)
 
 
 def init_routing():

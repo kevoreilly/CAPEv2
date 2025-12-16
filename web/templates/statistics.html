@@ -2,191 +2,263 @@
 {% block content %}
 {% if statistics %}
 
-<h4>Information for {{days}} days. Total number of tasks: {{statistics.total}}, Average per day: {{statistics.average}}</h4>
-
-{% if statistics.detections %}
-  <table class="table table-striped table-bordered">
-    {% for block in statistics.detections.items %}
-      {% if block.family %}
-        <td>{{block.total}}: <a href="/analysis/search/detections:{{block.family}}"><span style="color:#EE1B2F;font-weight: bold;">{{block.family}}</span></a></td>
-      {% endif %}
-      {% if forloop.counter|divisibleby:"5" %}
-          </tr>
-      {% elif forloop.last %}
-          </tr>
-      {% endif %}
-
-    {% endfor %}
-</table>
-{% endif %}
-
-{% if statistics.asns %}
-  <center><h4>Top ASN</h4></center>
-  <table class="table table-striped table-hover" style="table-layout: fixed; width: 50%; text-align: center;margin-left: auto;margin-right: auto;">
-    {% for block in statistics.asns %}
-      {% if block.asn %}
-        <td>{{block.total}}: <a href="/analysis/search/asn:{{block.asn}}"><span style="color:#EE1B2F;font-weight: bold;">{{block.asn}}</span></a></td>
-      {% endif %}
-      {% if forloop.counter|divisibleby:"5" %}
-          </tr>
-      {% elif forloop.last %}
-          </tr>
-      {% endif %}
-
-    {% endfor %}
-</table>
-{% endif %}
-
-<h4>Tasks per day</h4>
-<table class="table table-striped table-hover">
-    <thead>
-      <tr>
-        <th scope="col">Day</th>
-        <th scope="col">Tasks Added</th>
-        <th scope="col">Tasks Reported</th>
-        <th scope="col">Tasks Failed</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for day, block in statistics.tasks.items %}
-        <tr>
-            <th scope="row">{{day}}</th>
-            <td>{{block.added}}</td>
-            <td>{{block.reported}}</td>
-            <td>{{block.failed}}</td>
-        </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-
-
-<hr />
-
-  {% if statistics.custom_statistics %}
-  <h4>Custom Signatures data only for Volatility/static extraction</h4>
-  <table class="table table-striped table-hover">
-    <thead>
-      <tr>
-        <th scope="col">Name</th>
-        <th scope="col">Total time in minutes</th>
-        <th scope="col">Runs</th>
-        <th scope="col">Extracted </th>
-        <th scope="col">Average time in minutes(Total/runs)</th>
-      </tr>
-    </thead>
-    <tbody>
-    {% for name, time in statistics.custom_statistics.items %}
-        <tr>
-            <td>{{name}}</td>
-            <td>{{time.total}}</td>
-            <td>{{time.runs}}</td>
-            <td>{{time.successful}}</td>
-            <td>{{time.average}}</td>
-        </tr>
-    {% endfor %}
-    </tbody>
-  </table>
-{% endif %}
-<h4>Time per module</h4>
-<div class="container">
-    <div class="row">
-        {% if statistics.processing %}
-        <div class="col-sm">
-            <h4>Processing</h4>
-            <table class="table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Total time in minutes</th>
-                  <th scope="col">Runs</th>
-                  <th scope="col">Average time in minutes(Total/runs)</th>
-                </tr>
-              </thead>
-              <tbody>
-              {% for name, time in statistics.processing.items %}
-                  <tr>
-                      <td>{{name}}</td>
-                      <td>{{time.total}}</td>
-                      <td>{{time.runs}}</td>
-                      <td>{{time.average}}</td>
-                  </tr>
-              {% endfor %}
-              </tbody>
-            </table>
+<!-- Summary Card -->
+<div class="card bg-dark shadow-sm border-secondary mb-4">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0 text-white"><i class="fas fa-chart-line me-2 text-info"></i>Statistics Overview</h5>
+    </div>
+    <div class="card-body">
+        <div class="row text-center">
+            <div class="col-md-4">
+                <h6 class="text-muted text-uppercase">Timeframe</h6>
+                <h3 class="text-white">{{days}} <small class="text-muted">days</small></h3>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted text-uppercase">Total Tasks</h6>
+                <h3 class="text-white">{{statistics.total}}</h3>
+            </div>
+            <div class="col-md-4">
+                <h6 class="text-muted text-uppercase">Average per Day</h6>
+                <h3 class="text-white">{{statistics.average}}</h3>
+            </div>
         </div>
-        {% endif %}
-        {% if statistics.signatures %}
-        <div class="col-sm">
-            <h4>Signatures</h4>
-            <table class="table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Total time in minutes</th>
-                  <th scope="col">Runs</th>
-                  <th scope="col">Average time in minutes(Total/runs)</th>
-                </tr>
-              </thead>
-              <tbody>
-              {% for name, time in statistics.signatures.items %}
-                  <tr>
-                      <td>{{name}}</td>
-                      <td>{{time.total}}</td>
-                      <td>{{time.runs}}</td>
-                      <td>{{time.average}}</td>
-                  </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-        </div>
-        {% endif %}
-        {% if statistics.reporting %}
-        <div class="col-sm">
-            <h4>Reporting</h4>
-            <table class="table table-striped table-hover">
-              <thead>
-                <tr>
-                  <th scope="col">Name</th>
-                  <th scope="col">Total time in minutes</th>
-                  <th scope="col">Runs</th>
-                  <th scope="col">Average time in minutes(Total/runs)</th>
-                </tr>
-              </thead>
-              <tbody>
-              {% for name, time in statistics.reporting.items %}
-                  <tr>
-                      <td>{{name}}</td>
-                      <td>{{time.total}}</td>
-                      <td>{{time.runs}}</td>
-                      <td>{{time.average}}</td>
-                  </tr>
-              {% endfor %}
-              </tbody>
-            </table>
-        </div>
-        {% endif %}
     </div>
 </div>
 
-{% else %}
-    <div class="alert alert-primary">No statistics found.</div>
+<!-- Top Detections -->
+{% if statistics.detections %}
+<div class="card bg-dark shadow-sm border-secondary mb-4">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0 text-white"><i class="fas fa-bug me-2 text-danger"></i>Top Detections</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-center align-items-center">
+        {% for block in statistics.detections.items %}
+            {% if block.family %}
+            <a href="/analysis/search/detections:{{block.family}}" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
+                <span class="badge bg-danger me-2 p-2">{{block.total}}</span>
+                <span class="font-weight-bold" style="font-size: 1rem;">{{block.family}}</span>
+            </a>
+            {% endif %}
+        {% endfor %}
+        </div>
+    </div>
+</div>
 {% endif %}
 
-{% if statistics.distributed_tasks %}
-<h4>Cluster details</h4>
-<div class="container">
-    <div class="row">
-        {% for day, block in statistics.distributed_tasks.items %}
-        <div class="col-2">
-            <th scope="row">{{day}}</th>
-            <td>
-            {% for name, tasks in block.items %}
-              <li>Node: {{name}} - Tasks {{tasks}}</li>
-            {% endfor %}
-          </td>
-
-        </div>
+<!-- Top ASN -->
+{% if statistics.asns %}
+<div class="card bg-dark shadow-sm border-secondary mb-4">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-warning"></i>Top ASNs</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-center align-items-center">
+        {% for block in statistics.asns %}
+            {% if block.asn %}
+            <a href="/analysis/search/asn:{{block.asn}}" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
+                <span class="badge bg-warning me-2 p-2">{{block.total}}</span>
+                <span class="font-weight-bold" style="font-size: 1rem;">{{block.asn}}</span>
+            </a>
+            {% endif %}
         {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Tasks per Day -->
+<div class="card bg-dark shadow-sm border-secondary mb-4">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0 text-white"><i class="fas fa-calendar-alt me-2 text-success"></i>Tasks per Day</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-dark table-striped table-hover mb-0">
+            <thead class="thead-dark">
+              <tr>
+                <th scope="col" class="border-top-0">Day</th>
+                <th scope="col" class="border-top-0 text-end">Added</th>
+                <th scope="col" class="border-top-0 text-end">Reported</th>
+                <th scope="col" class="border-top-0 text-end">Failed</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for day, block in statistics.tasks.items %}
+                <tr>
+                    <th scope="row" class="text-light">{{day}}</th>
+                    <td class="text-end"><span class="badge bg-secondary">{{block.added}}</span></td>
+                    <td class="text-end"><span class="badge bg-success">{{block.reported}}</span></td>
+                    <td class="text-end"><span class="badge bg-danger">{{block.failed}}</span></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Custom Stats -->
+{% if statistics.custom_statistics %}
+<div class="card bg-dark shadow-sm border-secondary mb-4">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-primary"></i>Custom Signatures (Volatility/Static)</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-dark table-striped table-hover mb-0">
+            <thead class="thead-dark">
+              <tr>
+                <th scope="col" class="border-top-0">Name</th>
+                <th scope="col" class="border-top-0 text-end">Total Time (min)</th>
+                <th scope="col" class="border-top-0 text-end">Runs</th>
+                <th scope="col" class="border-top-0 text-end">Extracted</th>
+                <th scope="col" class="border-top-0 text-end">Avg Time (min)</th>
+              </tr>
+            </thead>
+            <tbody>
+            {% for name, time in statistics.custom_statistics.items %}
+                <tr>
+                    <td>{{name}}</td>
+                    <td class="text-end">{{time.total}}</td>
+                    <td class="text-end">{{time.runs}}</td>
+                    <td class="text-end">{{time.successful}}</td>
+                    <td class="text-end">{{time.average}}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- Module Performance -->
+<div class="row">
+    {% if statistics.processing %}
+    <div class="col-lg-4 mb-4">
+        <div class="card bg-dark shadow-sm border-secondary h-100">
+            <div class="card-header border-secondary bg-transparent">
+                <h5 class="mb-0 text-white"><i class="fas fa-microchip me-2 text-info"></i>Processing</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-dark table-sm table-striped table-hover mb-0">
+                  <thead class="thead-dark">
+                    <tr>
+                      <th class="border-top-0">Name</th>
+                      <th class="border-top-0 text-end">Total</th>
+                      <th class="border-top-0 text-end">Runs</th>
+                      <th class="border-top-0 text-end">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {% for name, time in statistics.processing.items %}
+                      <tr>
+                          <td class="text-truncate" style="max-width: 120px;" title="{{name}}">{{name}}</td>
+                          <td class="text-end">{{time.total}}</td>
+                          <td class="text-end">{{time.runs}}</td>
+                          <td class="text-end">{{time.average}}</td>
+                      </tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if statistics.signatures %}
+    <div class="col-lg-4 mb-4">
+        <div class="card bg-dark shadow-sm border-secondary h-100">
+            <div class="card-header border-secondary bg-transparent">
+                <h5 class="mb-0 text-white"><i class="fas fa-file-signature me-2 text-warning"></i>Signatures</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-dark table-sm table-striped table-hover mb-0">
+                  <thead class="thead-dark">
+                    <tr>
+                      <th class="border-top-0">Name</th>
+                      <th class="border-top-0 text-end">Total</th>
+                      <th class="border-top-0 text-end">Runs</th>
+                      <th class="border-top-0 text-end">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {% for name, time in statistics.signatures.items %}
+                      <tr>
+                          <td class="text-truncate" style="max-width: 120px;" title="{{name}}">{{name}}</td>
+                          <td class="text-end">{{time.total}}</td>
+                          <td class="text-end">{{time.runs}}</td>
+                          <td class="text-end">{{time.average}}</td>
+                      </tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if statistics.reporting %}
+    <div class="col-lg-4 mb-4">
+        <div class="card bg-dark shadow-sm border-secondary h-100">
+            <div class="card-header border-secondary bg-transparent">
+                <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-success"></i>Reporting</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-dark table-sm table-striped table-hover mb-0">
+                  <thead class="thead-dark">
+                    <tr>
+                      <th class="border-top-0">Name</th>
+                      <th class="border-top-0 text-end">Total</th>
+                      <th class="border-top-0 text-end">Runs</th>
+                      <th class="border-top-0 text-end">Avg</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                  {% for name, time in statistics.reporting.items %}
+                      <tr>
+                          <td class="text-truncate" style="max-width: 120px;" title="{{name}}">{{name}}</td>
+                          <td class="text-end">{{time.total}}</td>
+                          <td class="text-end">{{time.runs}}</td>
+                          <td class="text-end">{{time.average}}</td>
+                      </tr>
+                  {% endfor %}
+                  </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% else %}
+    <div class="alert alert-info text-center shadow-sm">
+        <i class="fas fa-info-circle fa-2x mb-3"></i>
+        <p>No statistics found.</p>
+    </div>
+{% endif %}
+
+<!-- Cluster Details -->
+{% if statistics.distributed_tasks %}
+<div class="card bg-dark shadow-sm border-secondary mb-4">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0 text-white"><i class="fas fa-server me-2 text-primary"></i>Cluster Details</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            {% for day, block in statistics.distributed_tasks.items %}
+            <div class="col-md-3 mb-3">
+                <div class="card bg-secondary text-white h-100 border-0">
+                    <div class="card-header font-weight-bold">{{day}}</div>
+                    <ul class="list-group list-group-flush text-dark">
+                        {% for name, tasks in block.items %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            {{name}}
+                            <span class="badge bg-primary badge-pill">{{tasks}}</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
     </div>
 </div>
 {% endif %}

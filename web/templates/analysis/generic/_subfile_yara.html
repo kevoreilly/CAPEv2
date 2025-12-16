@@ -1,50 +1,60 @@
-<section id="static_analysis">
+<section id="static_analysis_subfile_yara" class="mb-4">
     {% load key_tags %}
-    <div>
-        <h4>Yara Details</h4>
-        <p></p>
-        <div id="yara_details">
-            {% for hit in sub_file.yara %}
-            <div class="card">
-                <div class="card-header">
-                    <h5>
-                        <a class="accordion-toggle" data-toggle="collapse" href="#{{hit.name}}"
-                            data-target="#{{hit.name}}" aria-expanded="false">
-                            {{hit.name}}</a>
-                    </h5>
-                </div>
-                <div id="{{hit.name}}" class="collapse">
-                    <div class="card-body">
-                        <table class="table table-striped table-bordered" style="table-layout: fixed;">
-                            {% if hit.strings %}
-                            <tr>
-                                <th style="border-top: 0; width: 15%;">Strings</th>
-                                <td>
-                                    <ul style="margin-bottom: 0;">
-                                        {% for string in hit.strings %}
-                                        <li>{{string}}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </td>
-                            </tr>
-                            {% endif %}
-                            {% if hit.addresses %}
-                            <tr>
-                                <th style="border-top: 0; width: 15%;">String Name: Address</th>
-                                <td>
-                                    <ul style="margin-bottom: 0;">
-                                        {% for key, value in hit.addresses.items %}
-                                        <li>{{key}}: {{value}}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </td>
-                            </tr>
-                            {% endif %}
-                        </table>
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-success"></i> Yara Details</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if sub_file.yara %}
+                <div class="accordion" id="subFileYaraAccordion">
+                {% for hit in sub_file.yara %}
+                    <div class="card bg-dark border-bottom border-secondary rounded-0">
+                        <div class="card-header p-0" id="headingSubYara{{forloop.counter}}">
+                            <h2 class="mb-0">
+                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sub_yara_{{hit.name}}" aria-expanded="false" aria-controls="sub_yara_{{hit.name}}">
+                                    <i class="fas fa-search me-2 text-info"></i> {{hit.name}}
+                                    <i class="fas fa-chevron-down float-end mt-1 text-muted"></i>
+                                </button>
+                            </h2>
+                        </div>
+                        <div id="sub_yara_{{hit.name}}" class="collapse" aria-labelledby="headingSubYara{{forloop.counter}}" data-bs-parent="#subFileYaraAccordion">
+                            <div class="card-body bg-secondary text-white">
+                                <div class="table-responsive">
+                                    <table class="table table-dark table-sm table-striped mb-0" style="table-layout: fixed;">
+                                        {% if hit.strings %}
+                                        <tr>
+                                            <th style="width: 20%;">Strings</th>
+                                            <td class="text-break">
+                                                <ul class="list-unstyled mb-0">
+                                                    {% for string in hit.strings %}
+                                                    <li><code>{{string}}</code></li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if hit.addresses %}
+                                        <tr>
+                                            <th style="width: 20%;">Address Matches</th>
+                                            <td class="text-break">
+                                                <ul class="list-unstyled mb-0">
+                                                    {% for key, value in hit.addresses.items %}
+                                                    <li><span class="text-info">{{key}}</span>: <code>{{value}}</code></li>
+                                                    {% endfor %}
+                                                </ul>
+                                            </td>
+                                        </tr>
+                                        {% endif %}
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+                {% endfor %}
                 </div>
-            </div>
-            {% endfor %}
+            {% else %}
+                <div class="p-3 text-muted text-center">No Yara hits.</div>
+            {% endif %}
         </div>
     </div>
 </section>

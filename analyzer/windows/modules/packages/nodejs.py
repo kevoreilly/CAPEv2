@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 NODE_ZIP_NAME = "nodejs.zip"
 NODE_DIR_NAME = "nodejs"
 
+
 def setup_node_environment():
     """
     Attempts to unzip a portable Node environment.
@@ -40,7 +41,7 @@ def setup_node_environment():
             if not os.path.exists(install_path):
                 os.makedirs(install_path)
 
-            log.info(f"Extracting Node.js to {install_path}...")
+            log.info("Extracting Node.js to %s...", install_path)
             with zipfile.ZipFile(node_zip_path, 'r') as zip_ref:
                 zip_ref.extractall(install_path)
 
@@ -97,9 +98,9 @@ class NodeJS(Package):
             custom_bin, error = setup_node_environment()
             if custom_bin:
                 binary = custom_bin
-                log.info(f"Using Custom Node.js: {binary}")
+                log.info("Using Custom Node.js: %s", binary)
             else:
-                log.error(f"Failed to setup Custom Node: {error}")
+                log.error("Failed to setup Custom Node: %s", error)
                 # Do NOT return here, fall through to system node
 
         # 2. Fallback to System Node if custom failed or zip missing

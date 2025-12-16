@@ -202,7 +202,11 @@ class Package:
 
         target_cmd = f"{self.target}"
         if "args" in kwargs:
-            target_cmd += f' {" ".join(kwargs["args"])}'
+            args = kwargs["args"]
+            if not isinstance(args, str):
+                args = " ".join(args)
+            target_cmd += f" {args}"
+
 
         # eg: strace_args=-e trace=!recvfrom;epoll_pwait
         strace_args = self.options.get("strace_args", "").replace(";", ",")

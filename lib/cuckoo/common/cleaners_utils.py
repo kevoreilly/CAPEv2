@@ -56,7 +56,6 @@ if repconf.mongodb.enabled:
         mongo_update_one,
         mongo_update_many,
         mongo_delete_calls_by_task_id_in_range,
-        mongo_delete_data_range,
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
@@ -470,9 +469,9 @@ def tmp_clean_before(timerange: str):
 
 
 def cuckoo_clean_before(args: dict):
-    """Clean up failed tasks
+    """Clean up old tasks
     It deletes all stored data from file system and configured databases (SQL
-    and MongoDB for tasks completed before now - time range.
+    and optionally MongoDB) for tasks completed before now - time range.
     """
     # Init logging.
     # This need to init a console logger handler, because the standard
@@ -498,7 +497,15 @@ def cuckoo_clean_before(args: dict):
         log.info("url filter applied")
         category = "url"
 
-    old_tasks = db.list_tasks(added_before=added_before, category=category, not_status=TASK_PENDING)
+    tags_tasks_like = args.get("tags_tasks_filter", False)
+    delete_pending = args.get("delete_pending", False)
+
+    old_tasks = db.list_tasks(
+        added_before=added_before,
+        category=category,
+        not_status=False if delete_pending else TASK_PENDING,
+        tags_tasks_like=tags_tasks_like
+    )
 
     # We need this to cleanup file system and MongoDB calls collection
     id_arr = [e.id for e in old_tasks]
@@ -535,10 +542,11 @@ def cuckoo_clean_before(args: dict):
             response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
             if response.lower() in ("n", "not"):
                 sys.exit()
-        mongo_delete_data_range(range_end=highest_id)
-        # cleanup_files_collection_by_id(highest_id)
+        mongo_delete_data(id_arr)
 
-    db.delete_tasks(added_before=added_before, category=category)
+    db.delete_tasks(added_before=added_before,
+                    category=category,
+                    tags_tasks_like=tags_tasks_like)
 
 
 def cuckoo_clean_sorted_pcap_dump():

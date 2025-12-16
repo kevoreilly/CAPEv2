@@ -657,7 +657,10 @@ class Analyzer:
 
         emptytime = None
         complete_folder = hashlib.md5(f"cape-{self.config.id}".encode()).hexdigest()
-        complete_analysis_pattern = os.path.join(os.environ["TMP"], complete_folder)
+        complete_analysis_patterns = [os.path.join(os.environ["TMP"], complete_folder)]
+        if "SystemRoot" in os.environ:
+            complete_analysis_patterns.append(os.path.join(os.environ["SystemRoot"], "Temp", complete_folder))
+
         while self.do_run:
             self.time_counter = timeit.default_timer() - time_start
             if self.time_counter >= int(self.config.timeout):
@@ -665,9 +668,12 @@ class Analyzer:
                 ANALYSIS_TIMED_OUT = True
                 break
 
-            if os.path.isdir(complete_analysis_pattern):
+            if any(os.path.isdir(p) for p in complete_analysis_patterns):
                 log.info("Analysis termination requested by user")
                 ANALYSIS_TIMED_OUT = True
+                break
+
+            if ANALYSIS_TIMED_OUT:
                 break
 
             # If the process lock is locked, it means that something is

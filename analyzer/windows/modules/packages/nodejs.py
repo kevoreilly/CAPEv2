@@ -54,8 +54,7 @@ def setup_node_environment():
             # 2. Extract
             # We extract to a specific folder to avoid cluttering if it's a "root-files" zip
             # We use the zip name (minus extension) as a container folder
-            folder_name = os.path.splitext(os.path.basename(node_zip_path))[0]
-            extract_path = os.path.join(node_bin_path, folder_name)
+            extract_path = node_bin_path
 
             if not os.path.exists(extract_path):
                 # Security: Check for path traversal before extraction.

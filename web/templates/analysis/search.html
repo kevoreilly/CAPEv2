@@ -170,9 +170,9 @@
                             </td>
                             <td>
                             {% if analysis.status == "reported" %}
-                                {{analysis.completed_on|date:"Y-m-d H:i"}}
+                                {{analysis.completed_on}}
                             {% else %}
-                                <span class="text-muted small">{{analysis.added_on|date:"Y-m-d H:i"}} (added)</span>
+                                <span class="text-muted small">{{analysis.added_on}} (added)</span>
                             {% endif %}
                             </td>
                             <td>

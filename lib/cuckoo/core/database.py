@@ -99,6 +99,7 @@ sandbox_packages = (
     "msix",
     "ps1",
     "msg",
+    "nodejs",
     "eml",
     "js",
     "html",

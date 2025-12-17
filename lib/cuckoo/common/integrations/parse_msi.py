@@ -1,4 +1,63 @@
-import pymsi
+import logging
+from contextlib import suppress
+
+HAVE_PYMSI = False
+with suppress(ImportError):
+    import pymsi
+    HAVE_PYMSI = True
+
+log = logging.getLogger(__name__)
+
+type_dll = 0x00000001  # msidbCustomActionTypeDll
+type_exe = 0x00000002  # msidbCustomActionTypeExe
+type_text_data = 0x00000003  # msidbCustomActionTypeTextData
+type_jscript = 0x00000005  # msidbCustomActionTypeJScript
+type_vbscript = 0x00000006  # msidbCustomActionTypeVBScript
+type_install = 0x00000007  # msidbCustomActionTypeInstall
+type_binary_data = 0x00000000  # msidbCustomActionTypeBinaryData
+type_source_file = 0x00000010  # msidbCustomActionTypeSourceFile
+type_directory = 0x00000020  # msidbCustomActionTypeDirectory
+type_property = 0x00000030  # msidbCustomActionTypeProperty
+type_continue = 0x00000040  # msidbCustomActionTypeContinue (Async/Sync ignore return)
+type_async = 0x00000080  # msidbCustomActionTypeAsync
+type_first_sequence = 0x00000100  # msidbCustomActionTypeFirstSequence
+type_once_per_process = 0x00000200  # msidbCustomActionTypeOncePerProcess
+type_client_repeat = 0x00000300  # msidbCustomActionTypeClientRepeat
+type_in_script = 0x00000400  # msidbCustomActionTypeInScript (Deferred)
+type_rollback = 0x00000100  # msidbCustomActionTypeRollback
+type_commit = 0x00000200  # msidbCustomActionTypeCommit
+type_no_impersonate = 0x00000800  # msidbCustomActionTypeNoImpersonate
+type_64bit_script = 0x00001000  # msidbCustomActionType64BitScript
+type_hide_target = 0x00002000  # msidbCustomActionTypeHideTarget
+type_ts_aware = 0x00004000  # msidbCustomActionTypeTSAware
+type_patch_uninstall = 0x00008000  # msidbCustomActionTypePatchUninstall
+
+mask_basic_type = 0x7
+mask_source_type = 0x30
+mask_return_type = 0xC0
+mask_execution = 0xF00
+
+# Mask of all known bits to calculate remainder / check for bogus data
+mask_all_known = (
+    mask_basic_type |
+    mask_source_type |
+    mask_return_type |
+    mask_execution |
+    type_64bit_script |
+    type_hide_target |
+    type_ts_aware |
+    type_patch_uninstall
+)
+
+basic_type_map = {
+    type_dll: "DLL (msidbCustomActionTypeDll)",
+    type_exe: "EXE (msidbCustomActionTypeExe)",
+    type_text_data: "Text Data (msidbCustomActionTypeTextData)",
+    type_jscript: "JScript (msidbCustomActionTypeJScript)",
+    type_vbscript: "VBScript (msidbCustomActionTypeVBScript)",
+    type_install: "Install (msidbCustomActionTypeInstall)",
+    0: "None/Error (0)",
+}
 
 def parse_msi_action_type(input_int):
     """
@@ -9,47 +68,6 @@ def parse_msi_action_type(input_int):
     # =========================================================================
     if not input_int:
         return {}
-
-    type_dll = 0x00000001  # msidbCustomActionTypeDll
-    type_exe = 0x00000002  # msidbCustomActionTypeExe
-    type_text_data = 0x00000003  # msidbCustomActionTypeTextData
-    type_jscript = 0x00000005  # msidbCustomActionTypeJScript
-    type_vbscript = 0x00000006  # msidbCustomActionTypeVBScript
-    type_install = 0x00000007  # msidbCustomActionTypeInstall
-    type_binary_data = 0x00000000  # msidbCustomActionTypeBinaryData
-    type_source_file = 0x00000010  # msidbCustomActionTypeSourceFile
-    type_directory = 0x00000020  # msidbCustomActionTypeDirectory
-    type_property = 0x00000030  # msidbCustomActionTypeProperty
-    type_continue = 0x00000040  # msidbCustomActionTypeContinue (Async/Sync ignore return)
-    type_async = 0x00000080  # msidbCustomActionTypeAsync
-    type_first_sequence = 0x00000100  # msidbCustomActionTypeFirstSequence
-    type_once_per_process = 0x00000200  # msidbCustomActionTypeOncePerProcess
-    type_client_repeat = 0x00000300  # msidbCustomActionTypeClientRepeat
-    type_in_script = 0x00000400  # msidbCustomActionTypeInScript (Deferred)
-    type_rollback = 0x00000100  # msidbCustomActionTypeRollback
-    type_commit = 0x00000200  # msidbCustomActionTypeCommit
-    type_no_impersonate = 0x00000800  # msidbCustomActionTypeNoImpersonate
-    type_64bit_script = 0x00001000  # msidbCustomActionType64BitScript
-    type_hide_target = 0x00002000  # msidbCustomActionTypeHideTarget
-    type_ts_aware = 0x00004000  # msidbCustomActionTypeTSAware
-    type_patch_uninstall = 0x00008000  # msidbCustomActionTypePatchUninstall
-
-    mask_basic_type = 0x7
-    mask_source_type = 0x30
-    mask_return_type = 0xC0
-    mask_execution = 0xF00
-
-    # Mask of all known bits to calculate remainder / check for bogus data
-    mask_all_known = (
-        mask_basic_type |
-        mask_source_type |
-        mask_return_type |
-        mask_execution |
-        type_64bit_script |
-        type_hide_target |
-        type_ts_aware |
-        type_patch_uninstall
-    )
 
     try:
         val = int(input_int)
@@ -67,22 +85,7 @@ def parse_msi_action_type(input_int):
 
     # Basic Type
     b_type = val & mask_basic_type
-    if b_type == type_dll:
-        result["basic_type"] = "DLL (msidbCustomActionTypeDll)"
-    elif b_type == type_exe:
-        result["basic_type"] = "EXE (msidbCustomActionTypeExe)"
-    elif b_type == type_text_data:
-        result["basic_type"] = "Text Data (msidbCustomActionTypeTextData)"
-    elif b_type == type_jscript:
-        result["basic_type"] = "JScript (msidbCustomActionTypeJScript)"
-    elif b_type == type_vbscript:
-        result["basic_type"] = "VBScript (msidbCustomActionTypeVBScript)"
-    elif b_type == type_install:
-        result["basic_type"] = "Install (msidbCustomActionTypeInstall)"
-    elif b_type == 0:
-        result["basic_type"] = "None/Error (0)"
-    else:
-        result["basic_type"] = "Unknown Type (%d)" % b_type
+    result["basic_type"] = basic_type_map.get(b_type, "Unknown Type (%d)" % b_type)
 
     # Source Location
     s_loc = val & mask_source_type
@@ -163,15 +166,20 @@ def parse_msi_action_type(input_int):
 
 def parse_msi(msi_path: str):
     msi = {}
-    with pymsi.Package(msi_path) as package:
-        if "CustomAction" in package.tables:
-            current_table_obj = package.get("CustomAction")
-            msi = {
-                "rows": [row for row in current_table_obj.rows],
-                "columns": [column.name for column in current_table_obj.columns],
-            }
-            for row in msi["rows"]:
-                row["Enrich"] = parse_msi_action_type(row["Type"])
+    if not HAVE_PYMSI:
+        return msi
+    try:
+        with pymsi.Package(msi_path) as package:
+            if "CustomAction" in package.tables:
+                current_table_obj = package.get("CustomAction")
+                msi = {
+                    "rows": [row for row in current_table_obj.rows],
+                    "columns": [column.name for column in current_table_obj.columns],
+                }
+                for row in msi["rows"]:
+                    row["Enrich"] = parse_msi_action_type(row["Type"])
+    except Exception as e:
+        log.error("parse_msi: %s", e)
     return msi
 
 
@@ -179,4 +187,4 @@ if __name__ == "__main__":
     import sys
     from pprint import pprint as pp
     pp(parse_msi(sys.argv[1]))
-# pymsi uses CamelCase for their dict keys, and my function does not. so if you want it to be clean feel free to make it CamelCase
+    # pymsi uses CamelCase for their dict keys, and my function does not. so if you want it to be clean feel free to make it CamelCase

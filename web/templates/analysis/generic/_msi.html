@@ -1,0 +1,65 @@
+{% load key_tags %}
+<section id="msi_info">
+    {% if file.msi.rows %}
+    <div>
+        <h4>MSI Information</h4>
+        <div id="msi_information">
+            <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                <thead>
+                    <tr>
+                        {% for column_name in file.msi.columns %}
+                            <th style="width: 
+                                {% if column_name == 'Target' %}25%{% elif column_name == 'ExtendedType' %}10%{% else %}15%{% endif %}
+                            ;">{{ column_name }}</th>
+                        {% endfor %}
+                        <th style="width: 20%;">Enrichment</th> {# Header for enrich details #}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in file.msi.rows %}
+                    <tr>
+                        {% for column_name in file.msi.columns %}
+                            <td style="word-wrap: break-word;">
+                                {% if column_name == "Type" %}
+                                    {{ row.Type }}
+                                    {% if row.Enrich.basic_type %}
+                                        <br><small class="text-muted">{{ row.Enrich.basic_type }}</small>
+                                    {% endif %}
+                                {% elif column_name == "Source" %}
+                                    {{ row.Source }}
+                                    {% if row.Enrich.source %}
+                                        <br><small class="text-muted">{{ row.Enrich.source }}</small>
+                                    {% endif %}
+                                {% else %}
+                                    {{ row|getkey:column_name }}
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        <td style="word-wrap: break-word;">
+                            {% if row.Enrich %}
+                                <ul style="margin-bottom: 0; padding-left: 1.2em;">
+                                    {% if row.Enrich.execution %}
+                                        <li><strong>Exec:</strong> {{ row.Enrich.execution }}</li>
+                                    {% endif %}
+                                    {% if row.Enrich.return_processing %}
+                                        <li><strong>Ret:</strong> {{ row.Enrich.return_processing }}</li>
+                                    {% endif %}
+                                    {% if row.Enrich.flags %}
+                                        <li><strong>Flags:</strong> {{ row.Enrich.flags|join:", " }}</li>
+                                    {% endif %}
+                                    {% if row.Enrich.remainder %}
+                                        <li><strong>Remainder:</strong> {{ row.Enrich.remainder }}</li>
+                                    {% endif %}
+                                </ul>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+        Nothing to display.
+    {% endif %}
+</section>

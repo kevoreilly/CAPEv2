@@ -32,7 +32,7 @@ SFlock2 = {version = ">=0.3.76", extras = ["shellcode","linux"]}
 # volatility3 = "2.11.0"
 # XLMMacroDeobfuscator = "0.2.7"
 pyzipper = "0.3.6"
-flare-capa = "9.1.0"
+flare-capa = "9.3.1"
 
 Cython = "3.0.11"
 Django = ">=4.2.18"
@@ -80,6 +80,7 @@ setuptools = "78.1.1"
 # command line config manipulation
 crudini = "0.9.5"
 python-dateutil = "2.9.0.post0"
+python-msi = ">=0.0.0a3"
 
 # guac-session
 pyguacamole = "^0.11"

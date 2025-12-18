@@ -42,40 +42,39 @@
                 </thead>
                 <tbody>
                     {% for row in file.msi.rows %}
-                        <tr class="active">
-                            {% for column_name in file.msi.columns %}
-                                <td style="word-wrap: break-word;">
-                                    {{ row|getkey:column_name }}
-                                </td>
-                            {% endfor %}
-                        </tr>
-                        {% if row.Enrich %}
-                        <tr>
-                            <td colspan="{{ file.msi.columns|length }}" style="padding: 10px 20px; background-color: #2b2b2b;">
-                                <div style="font-size: 0.9em;">
-                                {% with enrich_details=[
-                                    ("Basic Type", row.Enrich.basic_type),
-                                    ("Source Type", row.Enrich.source),
-                                    ("Return Processing", row.Enrich.return_processing),
-                                    ("Execution", row.Enrich.execution),
-                                    ("Flags", row.Enrich.flags),
-                                    ("Remainder", row.Enrich.remainder)
-                                ] %}
-                                {% for label, value in enrich_details %}
-                                    {% if value %}
-                                    <tr>
-                                        <td class="text-right" style="padding-right: 15px;"><strong>{{ label }}</strong></td>
-                                        <td>
-                                            {% if label == "Flags" %}{{ value|join:", " }}{% else %}{{ value }}{% endif %}
-                                        </td>
-                                    </tr>
-                                    {% endif %}
-                                {% endfor %}
-                                {% endwith %}
-                                </div>
+                    <tr class="active">
+                        {% for column_name in file.msi.columns %}
+                            <td style="word-wrap: break-word;">
+                                {{ row|getkey:column_name }}
                             </td>
-                        </tr>
-                        {% endif %}
+                        {% endfor %}
+                    </tr>
+                    {% if row.Enrich %}
+                    <tr>
+                        <td colspan="{{ file.msi.columns|length }}" style="padding: 10px 20px; background-color: #2b2b2b;">
+                             <div style="font-size: 0.9em;">
+                                {% if row.Enrich.basic_type %}
+                                <div><strong class="text-muted">Basic Type:</strong> {{ row.Enrich.basic_type }}</div>
+                                {% endif %}
+                                {% if row.Enrich.source %}
+                                <div><strong class="text-muted">Source Type:</strong> {{ row.Enrich.source }}</div>
+                                {% endif %}
+                                {% if row.Enrich.return_processing %}
+                                <div><strong class="text-muted">Return Processing:</strong> {{ row.Enrich.return_processing }}</div>
+                                {% endif %}
+                                {% if row.Enrich.execution %}
+                                <div><strong class="text-muted">Execution:</strong> {{ row.Enrich.execution }}</div>
+                                {% endif %}
+                                {% if row.Enrich.flags %}
+                                <div><strong class="text-muted">Flags:</strong> {{ row.Enrich.flags|join:", " }}</div>
+                                {% endif %}
+                                {% if row.Enrich.remainder %}
+                                <div><strong class="text-muted">Remainder:</strong> {{ row.Enrich.remainder }}</div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
                     {% endfor %}
                 </tbody>
             </table>

@@ -1,65 +1,108 @@
 {% load key_tags %}
 <section id="msi_info">
+    {% if file.msi %}
+    
+    {% if file.msi.metadata %}
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h4 class="panel-title">SummaryInformation Metadata</h4>
+        </div>
+        <table class="table table-striped table-bordered" style="table-layout: fixed;">
+            <colgroup>
+                <col width="200" />
+                <col width="*" />
+            </colgroup>
+            <tbody>
+                {% for key, value in file.msi.metadata.items %}
+                <tr>
+                    <th>{{ key }}</th>
+                    <td>{{ value }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
     {% if file.msi.rows %}
-    <div>
-        <h4>MSI Information</h4>
+    <div class="panel panel-default">
+        <div class="panel-heading">
+            <h4 class="panel-title">Custom Actions ({{ file.msi.rows|length }})</h4>
+        </div>
         <div id="msi_information">
-            <table class="table table-striped table-bordered" style="table-layout: fixed;">
+            <table class="table table-bordered" style="table-layout: fixed;">
                 <thead>
                     <tr>
                         {% for column_name in file.msi.columns %}
                             <th style="width: 
-                                {% if column_name == 'Target' %}25%{% elif column_name == 'ExtendedType' %}10%{% else %}15%{% endif %}
+                                {% if column_name == 'Target' %}40%{% elif column_name == 'ExtendedType' %}10%{% else %}15%{% endif %}
                             ;">{{ column_name }}</th>
                         {% endfor %}
-                        <th style="width: 20%;">Enrichment</th> {# Header for enrich details #}
                     </tr>
                 </thead>
                 <tbody>
                     {% for row in file.msi.rows %}
-                    <tr>
+                    <tr class="active">
                         {% for column_name in file.msi.columns %}
                             <td style="word-wrap: break-word;">
-                                {% if column_name == "Type" %}
-                                    {{ row.Type }}
-                                    {% if row.Enrich.basic_type %}
-                                        <br><small class="text-muted">{{ row.Enrich.basic_type }}</small>
-                                    {% endif %}
-                                {% elif column_name == "Source" %}
-                                    {{ row.Source }}
-                                    {% if row.Enrich.source %}
-                                        <br><small class="text-muted">{{ row.Enrich.source }}</small>
-                                    {% endif %}
-                                {% else %}
-                                    {{ row|getkey:column_name }}
-                                {% endif %}
+                                {{ row|getkey:column_name }}
                             </td>
                         {% endfor %}
-                        <td style="word-wrap: break-word;">
-                            {% if row.Enrich %}
-                                <ul style="margin-bottom: 0; padding-left: 1.2em;">
-                                    {% if row.Enrich.execution %}
-                                        <li><strong>Exec:</strong> {{ row.Enrich.execution }}</li>
-                                    {% endif %}
-                                    {% if row.Enrich.return_processing %}
-                                        <li><strong>Ret:</strong> {{ row.Enrich.return_processing }}</li>
-                                    {% endif %}
-                                    {% if row.Enrich.flags %}
-                                        <li><strong>Flags:</strong> {{ row.Enrich.flags|join:", " }}</li>
-                                    {% endif %}
-                                    {% if row.Enrich.remainder %}
-                                        <li><strong>Remainder:</strong> {{ row.Enrich.remainder }}</li>
-                                    {% endif %}
-                                </ul>
-                            {% endif %}
+                    </tr>
+                    {% if row.Enrich %}
+                    <tr>
+                        <td colspan="{{ file.msi.columns|length }}" style="background-color: #fff; padding: 10px 20px;">
+                             <table style="background-color: transparent;">
+                                <colgroup>
+                                    <col width="150" />
+                                    <col width="*" />
+                                </colgroup>
+                                {% if row.Enrich.basic_type %}
+                                <tr>
+                                    <td class="text-right" style="padding-right: 15px;"><strong>Basic Type</strong></td>
+                                    <td>{{ row.Enrich.basic_type }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if row.Enrich.source %}
+                                <tr>
+                                    <td class="text-right" style="padding-right: 15px;"><strong>Source Type</strong></td>
+                                    <td>{{ row.Enrich.source }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if row.Enrich.return_processing %}
+                                <tr>
+                                    <td class="text-right" style="padding-right: 15px;"><strong>Return Processing</strong></td>
+                                    <td>{{ row.Enrich.return_processing }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if row.Enrich.execution %}
+                                <tr>
+                                    <td class="text-right" style="padding-right: 15px;"><strong>Execution</strong></td>
+                                    <td>{{ row.Enrich.execution }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if row.Enrich.flags %}
+                                <tr>
+                                    <td class="text-right" style="padding-right: 15px;"><strong>Flags</strong></td>
+                                    <td>{{ row.Enrich.flags|join:", " }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if row.Enrich.remainder %}
+                                <tr>
+                                    <td class="text-right" style="padding-right: 15px;"><strong>Remainder</strong></td>
+                                    <td>{{ row.Enrich.remainder }}</td>
+                                </tr>
+                                {% endif %}
+                             </table>
                         </td>
                     </tr>
+                    {% endif %}
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
-    {% else %}
-        Nothing to display.
+    {% endif %}
+
     {% endif %}
 </section>

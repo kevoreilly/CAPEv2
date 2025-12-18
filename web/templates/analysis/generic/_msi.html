@@ -3,9 +3,9 @@
     {% if file.msi %}
     
     {% if file.msi.metadata %}
-    <div class="panel panel-default">
-        <div class="panel-heading">
-            <h4 class="panel-title">SummaryInformation Metadata</h4>
+    <div class="card mb-3"> {# panel panel-default -> card mb-3 #}
+        <div class="card-header"> {# panel-heading -> card-header #}
+            <h4 class="card-title mb-0">SummaryInformation Metadata</h4> {# panel-title -> card-title mb-0 #}
         </div>
         <table class="table table-striped table-bordered table-dark" style="table-layout: fixed;">
             <colgroup>
@@ -25,12 +25,12 @@
     {% endif %}
 
     {% if file.msi.rows %}
-    <div class="panel panel-default">
-        <div class="panel-heading">
-            <h4 class="panel-title">Custom Actions ({{ file.msi.rows|length }})</h4>
+    <div class="card"> {# panel panel-default -> card #}
+        <div class="card-header"> {# panel-heading -> card-header #}
+            <h4 class="card-title mb-0">Custom Actions ({{ file.msi.rows|length }})</h4> {# panel-title -> card-title mb-0 #}
         </div>
-        <div id="msi_information">
-            <table class="table table-bordered table-dark" style="table-layout: fixed;">
+        <div id="msi_information" class="card-body p-0"> {# Added card-body p-0 #}
+            <table class="table table-bordered table-dark mb-0" style="table-layout: fixed;"> {# mb-0 to remove bottom margin #}
                 <thead>
                     <tr>
                         {% for column_name in file.msi.columns %}

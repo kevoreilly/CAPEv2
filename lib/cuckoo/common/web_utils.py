@@ -1399,6 +1399,7 @@ def perform_search(
         query_val = {"$exists": True}
 
     retval = []
+    mongo_search_query = None
     if repconf.mongodb.enabled and query_val:
         if term in hash_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
@@ -1437,7 +1438,7 @@ def perform_search(
             projection[f"target.file.{FILE_REF_KEY}"] = 1
         if term in search_term_map_repetetive_blocks:
             mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
-        if not retval:
+        if not retval and mongo_search_query:
             retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})

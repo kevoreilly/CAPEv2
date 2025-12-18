@@ -18,7 +18,7 @@
             </div>
         {% endif %}
     </div>
-    
+
     <div class="table-responsive">
         <table class="table table-dark table-striped mb-0" style="table-layout: fixed;">
             {% if source_url %}
@@ -27,7 +27,7 @@
                 <td class="text-break">{{source_url|escape}}</td>
             </tr>
             {% endif %}
-            
+
             {% if file.note %}
             <tr>
                 <th style="width: 15%;">Note</th>
@@ -200,7 +200,7 @@
                     <ul class="list-unstyled mb-0">
                     {% for sign in file.yara %}
                         <li>
-                            <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a> 
+                            <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a>
                             <span class="text-muted">- {{sign.meta.description}}</span>
                             {% if sign.meta.author %} <small class="text-muted">({{sign.meta.author}})</small>{% endif %}
                         </li>
@@ -261,7 +261,7 @@
     <div class="card-footer bg-dark border-secondary">
         <div class="d-flex flex-wrap justify-content-start align-items-center">
             <span class="me-3 text-muted mb-2">Tools:</span>
-            
+
             {% if file.pe %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#pe_{{file.sha256}}">PE</a>{% endif %}
             {% if file.dotnet %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#dotnet_{{file.sha256}}">.NET</a>{% endif %}
             {% if file.pdf %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#pdf_{{file.sha256}}">PDF</a>{% endif %}
@@ -269,7 +269,8 @@
             {% if file.rdp %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#rdp_{{file.sha256}}">RDP</a>{% endif %}
             {% if file.java %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#java_{{file.sha256}}">Java</a>{% endif %}
             {% if file.office %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#office_{{file.sha256}}">Office</a>{% endif %}
-            
+            {% if file.msi %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#msi_{{file.sha256}}"> MSI</a>{% endif %}
+
             {% if config.flare_capa %}
                 {% if not file.flare_capa and on_demand.flare_capa %}
                     <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}">Gen CAPA</a>
@@ -305,11 +306,11 @@
             {% if file.data %}
                 <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#text_{{file.sha256}}">Text</a>
             {% endif %}
-            
+
             {% if file.decoded_files %}
                 <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}">{{file.decoded_files_tool}}</a>
             {% endif %}
-            
+
             {% if file.selfextract %}
                 {% for name, details in file.selfextract.items %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#selfextract_{{name}}">Extract: {{name}}</a>
@@ -427,7 +428,8 @@
     {% if file.office %} <div class="collapse mb-3" id="office_{{file.sha256}}"> {% include "analysis/generic/_office.html" %}</div>{% endif %}
     {% if file.office.XLMMacroDeobfuscator %} <div class="collapse mb-3" id="xlmmacro_{{file.sha256}}"> {% include "analysis/generic/_xlmmacro.html" %}</div>{% endif %}
     {% if file.floss %} <div class="collapse mb-3" id="floss_{{file.sha256}}"> {% include "analysis/generic/_floss.html" %}</div>{% endif %}
-    
+    {% if file.msi %} <div class="collapse mb-3" id="msi_{{file.sha256}}"> {% include "analysis/generic/_msi.html" %}</div></br>{% endif %}
+
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
         <div class="card bg-dark border-secondary mb-3">
             <div class="card-body text-center">{{ graphs.bingraph.content|getkey:file.sha256|safe }}</div>

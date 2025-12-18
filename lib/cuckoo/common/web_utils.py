@@ -1437,7 +1437,7 @@ def perform_search(
             projection[f"target.file.{FILE_REF_KEY}"] = 1
         if term in search_term_map_repetetive_blocks:
             or_conditions = []
-            for path, condition in search_term_map_repetetive_blocks.items():
+            for path, condition in mongo_search_query.items():
                 or_conditions.append({path: condition})
             mongo_search_query = {"$or": or_conditions}
         if not retval:

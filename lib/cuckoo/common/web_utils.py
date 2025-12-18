@@ -1430,16 +1430,17 @@ def perform_search(
             print(f"Unknown search {term}:{value}")
             return []
 
-        # Allow to overwrite perform_search_filters for custom results
-        if not projection:
-            projection = perform_search_filters
-        if "target.file.sha256" in projection:
-            projection = dict(**projection)
-            projection[f"target.file.{FILE_REF_KEY}"] = 1
-        if term in search_term_map_repetetive_blocks:
-            mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
         if not retval and mongo_search_query:
+            # Allow to overwrite perform_search_filters for custom results
+            if not projection:
+                projection = perform_search_filters
+            if "target.file.sha256" in projection:
+                projection = dict(**projection)
+                projection[f"target.file.{FILE_REF_KEY}"] = 1
+            if term in search_term_map_repetetive_blocks:
+                mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
             retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
+
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})
             if FILE_REF_KEY in target_file and "sha256" not in target_file:

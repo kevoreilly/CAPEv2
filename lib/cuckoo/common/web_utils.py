@@ -1440,7 +1440,8 @@ def perform_search(
             for path, condition in search_term_map_repetetive_blocks.items():
                 or_conditions.append({path: condition})
             mongo_search_query = {"$or": or_conditions}
-        retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
+        if not retval:
+            retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})
             if FILE_REF_KEY in target_file and "sha256" not in target_file:

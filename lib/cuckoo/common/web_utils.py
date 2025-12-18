@@ -1436,10 +1436,7 @@ def perform_search(
             projection = dict(**projection)
             projection[f"target.file.{FILE_REF_KEY}"] = 1
         if term in search_term_map_repetetive_blocks:
-            or_conditions = []
-            for path, condition in mongo_search_query.items():
-                or_conditions.append({path: condition})
-            mongo_search_query = {"$or": or_conditions}
+            mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
         if not retval:
             retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
         for doc in retval:

@@ -13,8 +13,9 @@ rule Rhadamanthys
         $anti = {50 68 [4] 68 [4] E8 [4] 83 C4 0C A3 [4] 85 C0 74}
         $dnr = {99 52 50 8D 45 ?? 99 52 50 8B C7 99 52 50 8B C3 99 52 50}
         $sys = {83 E4 F0 6A 33 E8 00 00 00 00 83 04 24 05 CB}
+        $cape_string = "cape_options"
     condition:
-        2 of them
+        2 of them and not $cape_string
 }
 
 rule RhadamanthysLoader

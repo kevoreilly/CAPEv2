@@ -33,7 +33,7 @@
         <div class="card-header border-secondary d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-primary"></i> Analysis Details</h5>
             {% if settings.REPROCESS_TASKS %}
-                <a class="btn btn-sm btn-outline-secondary" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess Task">
+                <a class="btn btn-sm btn-outline-light" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess Task">
                     <i class="fas fa-redo"></i>
                 </a>
             {% endif %}

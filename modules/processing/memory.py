@@ -37,7 +37,7 @@ try:
     # from volatility3.plugins.windows import pslist
     HAVE_VOLATILITY = True
 except ImportError:
-    print("Missed dependency: poetry run pip install volatility3 -U")
+    log.error("Missed dependency: poetry run pip install volatility3 -U")
     HAVE_VOLATILITY = False
 
 log = logging.getLogger()
@@ -143,47 +143,7 @@ class VolatilityAPI:
             return {}
 
 
-""" keeping at the moment to see if we want to integrate more
-    {'windows.statistics.Statistics': <class 'volatility3.plugins.windows.statistics.Statistics'>,
-    'timeliner.Timeliner': <class 'volatility3.plugins.timeliner.Timeliner'>,
-    'windows.pslist.PsList': <class 'volatility3.plugins.windows.pslist.PsList'>,
-    'windows.handles.Handles': <class 'volatility3.plugins.windows.handles.Handles'>,
-    'windows.poolscanner.PoolScanner': <class 'volatility3.plugins.windows.poolscanner.PoolScanner'>,
-    'windows.bigpools.BigPools': <class 'volatility3.plugins.windows.bigpools.BigPools'>,
-    'windows.registry.hivescan.HiveScan': <class 'volatility3.plugins.windows.registry.hivescan.HiveScan'>,
-    'windows.registry.hivelist.HiveList': <class 'volatility3.plugins.windows.registry.hivelist.HiveList'>,
-    'windows.registry.printkey.PrintKey': <class 'volatility3.plugins.windows.registry.printkey.PrintKey'>,
-    'windows.registry.certificates.Certificates': <class 'volatility3.plugins.windows.registry.certificates.Certificates'>,
-    'banners.Banners': <class 'volatility3.plugins.banners.Banners'>,
-    'frameworkinfo.FrameworkInfo': <class 'volatility3.plugins.frameworkinfo.FrameworkInfo'>,
-    'yarascan.YaraScan': <class 'volatility3.plugins.yarascan.YaraScan'>,
-    'layerwriter.LayerWriter': <class 'volatility3.plugins.layerwriter.LayerWriter'>,
-    'isfinfo.IsfInfo': <class 'volatility3.plugins.isfinfo.IsfInfo'>,
-    'configwriter.ConfigWriter': <class 'volatility3.plugins.configwriter.ConfigWriter'>,
-    'windows.info.Info': <class 'volatility3.plugins.windows.info.Info'>,
-    'windows.psscan.PsScan': <class 'volatility3.plugins.windows.psscan.PsScan'>,
-    'windows.cmdline.CmdLine': <class 'volatility3.plugins.windows.cmdline.CmdLine'>,
-    'windows.envars.Envars': <class 'volatility3.plugins.windows.envars.Envars'>,
-    'windows.hashdump.Hashdump': <class 'volatility3.plugins.windows.hashdump.Hashdump'>,
-    'windows.lsadump.Lsadump': <class 'volatility3.plugins.windows.lsadump.Lsadump'>,
-    'windows.cachedump.Cachedump': <class 'volatility3.plugins.windows.cachedump.Cachedump'>,
-    'windows.pstree.PsTree': <class 'volatility3.plugins.windows.pstree.PsTree'>,
-    'windows.memmap.Memmap': <class 'volatility3.plugins.windows.memmap.Memmap'>,
-    'windows.vadyarascan.VadYaraScan': <class 'volatility3.plugins.windows.vadyarascan.VadYaraScan'>,
-    'windows.vadinfo.VadInfo': <class 'volatility3.plugins.windows.vadinfo.VadInfo'>,
-    'windows.modules.Modules': <class 'volatility3.plugins.windows.modules.Modules'>,
-    'windows.driverscan.DriverScan': <class 'volatility3.plugins.windows.driverscan.DriverScan'>,
-    'windows.driverirp.DriverIrp': <class 'volatility3.plugins.windows.driverirp.DriverIrp'>,
-    'windows.verinfo.VerInfo': <class 'volatility3.plugins.windows.verinfo.VerInfo'>,
-    'windows.symlinkscan.SymlinkScan': <class 'volatility3.plugins.windows.symlinkscan.SymlinkScan'>,
-    'windows.strings.Strings': <class 'volatility3.plugins.windows.strings.Strings'>,
-    'windows.virtmap.VirtMap': <class 'volatility3.plugins.windows.virtmap.VirtMap'>,
-    'windows.dumpfiles.DumpFiles': <class 'volatility3.plugins.windows.dumpfiles.DumpFiles'>,
-    'windows.filescan.FileScan': <class 'volatility3.plugins.windows.filescan.FileScan'>,
-    'windows.getservicesids.GetServiceSIDs': <class 'volatility3.plugins.windows.getservicesids.GetServiceSIDs'>,
-    'windows.svcscan.SvcScan': <class 'volatility3.plugins.windows.svcscan.SvcScan'>,
-    'windows.registry.userassist.UserAssist': <class 'volatility3.plugins.windows.registry.userassist.UserAssist'>,
-"""
+
 
 
 class VolatilityManager:
@@ -239,40 +199,67 @@ class VolatilityManager:
         vol_logger = logging.getLogger("volatility3")
         vol_logger.setLevel(logging.WARNING)
 
-        # ToDo rewrite this to for loop and key and names be in dict
-        # if self.options.psxview.enabled:
-        #    results["pstree"] = vol3.run("windows.pstree.PsTree")
-        if self.options.psscan.enabled:
-            results["psscan"] = vol3.run("windows.psscan.PsScan")
-        if self.options.pslist.enabled:
-            try:
-                results["pslist"] = vol3.run("windows.pslist.PsList")
-            except UnsatisfiedException:
-                vol_logger.error("Failing PsList")
-        if self.options.callbacks.enabled:
-            results["callbacks"] = vol3.run("windows.callbacks.Callbacks")
-        if self.options.ssdt.enabled:
-            results["ssdt"] = vol3.run("windows.ssdt.SSDT")
-        if self.options.getsids.enabled:
-            results["getsids"] = vol3.run("windows.getsids.GetSIDs")
-        if self.options.privs.enabled:
-            results["privs"] = vol3.run("windows.privileges.Privs")
-        if self.options.malfind.enabled:
-            results["malfind"] = vol3.run("windows.malfind.Malfind")
-        if self.options.dlllist.enabled:
-            results["dlllist"] = vol3.run("windows.dlllist.DllList")
-        if self.options.handles.enabled:
-            results["handles"] = vol3.run("windows.handles.Handles")
-        if self.options.mutantscan.enabled:
-            results["mutantscan"] = vol3.run("windows.mutantscan.MutantScan")
-        if self.options.svcscan.enabled:
-            results["svcscan"] = vol3.run("windows.svcscan.SvcScan")
-        if self.options.modscan.enabled:
-            results["modscan"] = vol3.run("windows.modscan.ModScan")
-        if self.options.yarascan.enabled:
-            results["yarascan"] = vol3.run("yarascan.YaraScan")
-        if self.options.netscan.enabled:
-            results["netscan"] = vol3.run("windows.netscan.NetScan")
+        plugins_map = {
+            "psscan": "windows.psscan.PsScan",
+            "pslist": "windows.pslist.PsList",
+            "pstree": "windows.pstree.PsTree",
+            "psxview": "windows.psxview.PsXView",
+            "callbacks": "windows.callbacks.Callbacks",
+            "ssdt": "windows.ssdt.SSDT",
+            "getsids": "windows.getsids.GetSIDs",
+            "privs": "windows.privileges.Privs",
+            "malfind": "windows.malfind.Malfind",
+            "dlllist": "windows.dlllist.DllList",
+            "handles": "windows.handles.Handles",
+            "mutantscan": "windows.mutantscan.MutantScan",
+            "svcscan": "windows.svcscan.SvcScan",
+            "modscan": "windows.modscan.ModScan",
+            "yarascan": "yarascan.YaraScan",
+            "netscan": "windows.netscan.NetScan",
+            "info": "windows.info.Info",
+            "ldrmodules": "windows.ldrmodules.LdrModules",
+            "cmdline": "windows.cmdline.CmdLine",
+            "envars": "windows.envars.Envars",
+            "modules": "windows.modules.Modules",
+            "driverscan": "windows.driverscan.DriverScan",
+            "driverirp": "windows.driverirp.DriverIrp",
+            "verinfo": "windows.verinfo.VerInfo",
+            "filescan": "windows.filescan.FileScan",
+            "vadinfo": "windows.vadinfo.VadInfo",
+            "timers": "windows.timers.Timers",
+            "hivelist": "windows.registry.hivelist.HiveList",
+            "hashdump": "windows.hashdump.Hashdump",
+            "lsadump": "windows.lsadump.Lsadump",
+            "cachedump": "windows.cachedump.Cachedump",
+            "symlinkscan": "windows.symlinkscan.SymlinkScan",
+            "thrdscan": "windows.thrdscan.ThrdScan",
+            "hollowprocesses": "windows.hollowprocesses.HollowProcesses",
+            "processghosting": "windows.processghosting.ProcessGhosting",
+            "suspiciousthreads": "windows.suspicious_threads.SuspiciousThreads",
+            "devicetree": "windows.devicetree.DeviceTree",
+            "consoles": "windows.consoles.Consoles",
+            "cmdscan": "windows.cmdscan.CmdScan",
+            "amcache": "windows.amcache.Amcache",
+            "shimcache": "windows.shimcachemem.ShimcacheMem",
+            "userassist": "windows.registry.userassist.UserAssist",
+            "unloadedmodules": "windows.unloadedmodules.UnloadedModules",
+            "iat": "windows.iat.IAT",
+            "skeletonkey": "windows.skeleton_key_check.Skeleton_Key_Check",
+            "unhookedsyscalls": "windows.unhooked_system_calls.unhooked_system_calls",
+            "etwpatch": "windows.etwpatch.EtwPatch",
+            "mftscan": "windows.mftscan.MFTScan",
+            "svclist": "windows.svclist.SvcList",
+            "svcdiff": "windows.svcdiff.SvcDiff",
+        }
+
+        for conf_key, plugin_name in plugins_map.items():
+            if getattr(self.options, conf_key, None) and self.options.get(conf_key).enabled:
+                try:
+                    results[conf_key] = vol3.run(plugin_name)
+                except UnsatisfiedException:
+                    vol_logger.error("Failing %s", plugin_name)
+                except Exception as e:
+                    vol_logger.error("Error running %s: %s", plugin_name, e)
 
         self.find_taint(results)
 

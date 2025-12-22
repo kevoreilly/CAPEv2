@@ -71,7 +71,7 @@
                         <th width="10%" class="border-top-0">Machine</th>
                         <th width="8%" class="border-top-0">Package</th>
                         <th width="33%" class="border-top-0">Filename</th>
-                        <th width="18%" class="border-top-0">MD5</th>
+                        <th width="18%" class="border-top-0">Hashes</th>
                         <th width="7%" class="border-top-0">Detections</th>
 
                         {% if config.display_task_tags %}
@@ -145,14 +145,27 @@
                                 {{analysis.filename}}
                                 {% endif %}
                             </td>
-                            <td class="text-monospace small text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
-                                {% if analysis.status in "reported,recovered" %}
-                                    <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.sample.md5}}</a>
-                                {% elif analysis.status in "running,completed,distributed" %}
-                                    <a href="{% url "submission_status" analysis.id %}" class="text-warning">{{analysis.sample.md5}}</a>
-                                {% else %}
-                                    {{analysis.sample.md5}}
-                                {% endif %}
+                            <td class="small">
+                                <div class="text-truncate mb-1" title="MD5: {{analysis.sample.md5}}">
+                                    <span class="text-muted me-1">MD5:</span>
+                                    {% if analysis.status in "reported,recovered" %}
+                                        <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
+                                    {% elif analysis.status in "running,completed,distributed" %}
+                                        <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    {% else %}
+                                        <span class="text-monospace">{{analysis.sample.md5}}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-truncate" title="SHA256: {{analysis.sample.sha256}}">
+                                    <span class="text-muted me-1">SHA256:</span>
+                                    {% if analysis.status in "reported,recovered" %}
+                                        <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% elif analysis.status in "running,completed,distributed" %}
+                                        <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% else %}
+                                        <span class="text-monospace">{{analysis.sample.sha256}}</span>
+                                    {% endif %}
+                                </div>
                             </td>
                             <td>
                                 {% if analysis.detections|is_string %}
@@ -352,7 +365,7 @@
                         <th width="5%" class="border-top-0">ID</th>
                         <th width="10%" class="border-top-0">Timestamp</th>
                         <th width="33%" class="border-top-0">Filename</th>
-                        <th width="18%" class="border-top-0">MD5</th>
+                        <th width="18%" class="border-top-0">Hashes</th>
                         <th width="7%" class="border-top-0">Detections</th>
                         {% if config.display_task_tags %}
                         <th width="7%" class="border-top-0">Task tags</th>
@@ -398,14 +411,27 @@
                             <td class="text-truncate" title="{{analysis.filename}}">
                             {{analysis.filename}}
                             </td>
-                            <td class="text-monospace small text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
-                                {% if analysis.status in "reported,recovered" %}
-                                    <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.sample.md5}}</a>
-                                {% elif analysis.status in "running,completed,distributed" %}
-                                    <a href="{% url "submission_status" analysis.id %}" class="text-warning">{{analysis.sample.md5}}</a>
-                                {% else %}
-                                    {{analysis.sample.md5}}
-                                {% endif %}
+                            <td class="small">
+                                <div class="text-truncate mb-1" title="MD5: {{analysis.sample.md5}}">
+                                    <span class="text-muted me-1">MD5:</span>
+                                    {% if analysis.status in "reported,recovered" %}
+                                        <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
+                                    {% elif analysis.status in "running,completed,distributed" %}
+                                        <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    {% else %}
+                                        <span class="text-monospace">{{analysis.sample.md5}}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-truncate" title="SHA256: {{analysis.sample.sha256}}">
+                                    <span class="text-muted me-1">SHA256:</span>
+                                    {% if analysis.status in "reported,recovered" %}
+                                        <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% elif analysis.status in "running,completed,distributed" %}
+                                        <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% else %}
+                                        <span class="text-monospace">{{analysis.sample.sha256}}</span>
+                                    {% endif %}
+                                </div>
                             </td>
                             <td>
                                 <!--1 detection we show the name, more detection we show multi and add tooltip-->
@@ -824,7 +850,7 @@
                         <th width="5%" class="border-top-0">ID</th>
                         <th width="10%" class="border-top-0">Timestamp</th>
                         <th width="20%" class="border-top-0">Filename</th>
-                        <th width="15%" class="border-top-0">MD5</th>
+                        <th width="15%" class="border-top-0">Hashes</th>
                         {% if config.moloch %}
                         <th width="5%" class="border-top-0">Moloch</th>
                         {% endif %}
@@ -841,7 +867,7 @@
                         <th width="5%" class="border-top-0">ID</th>
                         <th width="12%" class="border-top-0">Timestamp</th>
                         <th width="37%" class="border-top-0">Filename</th>
-                        <th width="20%" class="border-top-0">MD5</th>
+                        <th width="20%" class="border-top-0">Hashes</th>
                         {% if config.moloch %}
                         <th width="5%" class="border-top-0">Moloch</th>
                         {% endif %}
@@ -871,14 +897,27 @@
                         <td class="text-truncate" title="{{analysis.filename}}">
                             {{analysis.filename}}
                         </td>
-                        <td class="text-monospace small text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
-                            {% if analysis.status in "reported,recovered" %}
-                            <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.sample.md5}}</a>
-                            {% elif analysis.status in "running,completed,distributed" %}
-                            <a href="{% url "submission_status" analysis.id %}" class="text-warning">{{analysis.sample.md5}}</a>
-                            {% else %}
-                            {{analysis.sample.md5}}
-                            {% endif %}
+                        <td class="small">
+                            <div class="text-truncate mb-1" title="MD5: {{analysis.sample.md5}}">
+                                <span class="text-muted me-1">MD5:</span>
+                                {% if analysis.status in "reported,recovered" %}
+                                    <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
+                                {% elif analysis.status in "running,completed,distributed" %}
+                                    <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                {% else %}
+                                    <span class="text-monospace">{{analysis.sample.md5}}</span>
+                                {% endif %}
+                            </div>
+                            <div class="text-truncate" title="SHA256: {{analysis.sample.sha256}}">
+                                <span class="text-muted me-1">SHA256:</span>
+                                {% if analysis.status in "reported,recovered" %}
+                                    <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.sha256}}</a>
+                                {% elif analysis.status in "running,completed,distributed" %}
+                                    <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                {% else %}
+                                    <span class="text-monospace">{{analysis.sample.sha256}}</span>
+                                {% endif %}
+                            </div>
                         </td>
                         {% if config.moloch %}
                         <td>

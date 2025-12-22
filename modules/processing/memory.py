@@ -23,8 +23,8 @@ try:
 except ImportError:
     import re
 
-
 JsonRenderer = ""
+log = logging.getLogger()
 
 try:
     import volatility3.plugins
@@ -40,7 +40,6 @@ except ImportError:
     log.error("Missed dependency: poetry run pip install volatility3 -U")
     HAVE_VOLATILITY = False
 
-log = logging.getLogger()
 yara_rules_path = os.path.join(CUCKOO_ROOT, "data", "yara", "index_memory.yarc")
 if not os.path.exists(yara_rules_path):
     from lib.cuckoo.common.objects import File

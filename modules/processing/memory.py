@@ -142,9 +142,6 @@ class VolatilityAPI:
             return {}
 
 
-
-
-
 class VolatilityManager:
     """Handle several volatility results."""
 
@@ -173,28 +170,6 @@ class VolatilityManager:
             return
 
         vol3 = VolatilityAPI(self.memfile)
-        """
-        if self.options.idt.enabled:
-            try:
-                results["idt"] = vol.idt()
-            except Exception:
-                pass
-        if self.options.gdt.enabled:
-            try:
-                results["gdt"] = vol.gdt()
-            except Exception:
-                pass
-        if self.options.timers.enabled:
-            results["timers"] = vol.timers()
-        if self.options.messagehooks.enabled:
-            results["messagehooks"] = vol.messagehooks()
-        if self.options.apihooks.enabled:
-            results["apihooks"] = vol.apihooks()
-        if self.options.ldrmodules.enabled:
-            results["ldrmodules"] = vol.ldrmodules()
-        if self.options.devicetree.enabled:
-            results["devicetree"] = vol.devicetree()
-        """
         vol_logger = logging.getLogger("volatility3")
         vol_logger.setLevel(logging.WARNING)
 
@@ -343,3 +318,24 @@ class Memory(Processing):
             log.error("Memory dump not found: to run volatility you have to enable memory_dump")
 
         return results
+
+
+if __name__ == "__main__":
+    try:
+        from volatility3 import framework
+        from volatility3 import plugins
+        from volatility3.framework import contexts
+        import volatility3.plugins.windows
+
+        # Initialize context to ensure plugins are loaded
+        ctx = contexts.Context()
+        framework.import_files(volatility3.plugins, True)
+
+        print("Available Plugins:")
+        plugin_list = framework.list_plugins()
+        for plugin in plugin_list:
+            print(plugin)
+    except ImportError:
+        print("Volatility3 not installed")
+    except Exception as e:
+        print(f"Error: {e}")

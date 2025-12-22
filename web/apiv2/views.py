@@ -2437,7 +2437,7 @@ def tasks_download_services(request):
     if opt_apikey:
         details["apikey"] = opt_apikey
 
-    details = download_from_3rdparty(hashes, details, opt_filename)
+    details = download_from_3rdparty(hashes, opt_filename, details)
     if isinstance(details.get("task_ids"), list):
         tasks_count = len(details["task_ids"])
     else:

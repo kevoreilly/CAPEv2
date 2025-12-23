@@ -1,70 +1,53 @@
-<section id="static_analysis_rdp">
-{% if file.rdp %}
-    <h4>RDP file details</h4>
-    <div id="rdp_information">
-        <table class="table table-striped table-bordered" style="table-layout: fixed;">
-            <tr>
-                <th style="border-top: 0; width: 15%;">Name</th>
-                <td style="border-top: 0; word-wrap: break-word;"><b>Value </td>
-            </tr>
-        {% for key, value in file.rdp.items %}
-            {% if key != "certificates" %}
-                <tr>
-                    <td><strong>{{key}}</strong></td>
-                    <td>{{value}}</td>
-                </tr>
-            {% else %}
-                </table>
-                {% for cert in value %}
-                    <table class="table table-striped table-bordered" style="table-layout: fixed;">
-                    <tr>
-                        <th style="border-top: 0; width: 15%;">Certificate</th>
-                        <td style="border-top: 0; word-wrap: break-word;"><b>Value </td>
-                    </tr>
-                    {% if cert.subject %}
-                        <th>Subject Organization Name</th> <td>{{cert.subject}}</td>
-                    {% endif %}
-                    {% if cert.issuer %}
-                    <tr>
-                        <th>Issuer</th>
-                        <td>{{cert.issuer}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.not_before %}
-                    <tr>
-                        <th>Not valid before</th>
-                        <td>{{cert.not_before}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.not_after %}
-                    <tr>
-                        <th>Not valid after</th>
-                        <td>{{cert.not_after}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.serial_number %}
-                    <tr>
-                        <th>Serial number</th>
-                        <td>{{cert.serial_number}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.fingerprint_sha256 %}
-                    <tr>
-                        <th>Cert's sha256 fingerprint</th>
-                        <td>{{cert.fingerprint_sha256}}</td>
-                    </tr>
-                    {% endif %}
-                    {% if cert.fingerprint_sha1 %}
-                    <tr>
-                        <th>Cert's sha1 fingerprint</th>
-                        <td>{{cert.fingerprint_sha1}}</td>
-                    </tr>
-                    {% endif %}
+<section id="static_analysis_rdp" class="mb-4">
+    {% if file.rdp %}
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-desktop me-2 text-info"></i> RDP File Details</h5>
+        </div>
+        <div class="card-body">
+            
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">General Settings</h6>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-sm mb-0">
+                        {% for key, value in file.rdp.items %}
+                            {% if key != "certificates" %}
+                                <tr>
+                                    <td style="width: 30%;"><strong>{{key}}</strong></td>
+                                    <td class="text-break">{{value}}</td>
+                                </tr>
+                            {% endif %}
+                        {% endfor %}
                     </table>
+                </div>
+            </div>
+
+            {% if file.rdp.certificates %}
+            <div class="mb-4">
+                <h6 class="text-white border-bottom pb-2 mb-3">Certificates</h6>
+                {% for cert in file.rdp.certificates %}
+                <div class="card bg-secondary text-white border-0 mb-3">
+                    <div class="card-body p-2">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped table-sm mb-0">
+                                {% if cert.subject %}<tr><td style="width: 30%;"><strong>Subject</strong></td><td>{{cert.subject}}</td></tr>{% endif %}
+                                {% if cert.issuer %}<tr><td><strong>Issuer</strong></td><td>{{cert.issuer}}</td></tr>{% endif %}
+                                {% if cert.not_before %}<tr><td><strong>Valid From</strong></td><td>{{cert.not_before}}</td></tr>{% endif %}
+                                {% if cert.not_after %}<tr><td><strong>Valid To</strong></td><td>{{cert.not_after}}</td></tr>{% endif %}
+                                {% if cert.serial_number %}<tr><td><strong>Serial</strong></td><td>{{cert.serial_number}}</td></tr>{% endif %}
+                                {% if cert.fingerprint_sha256 %}<tr><td><strong>SHA256 Fingerprint</strong></td><td class="text-break">{{cert.fingerprint_sha256}}</td></tr>{% endif %}
+                                {% if cert.fingerprint_sha1 %}<tr><td><strong>SHA1 Fingerprint</strong></td><td class="text-break">{{cert.fingerprint_sha1}}</td></tr>{% endif %}
+                            </table>
+                        </div>
+                    </div>
+                </div>
                 {% endfor %}
+            </div>
             {% endif %}
-        {% endfor %}
-{% else %}
-    Nothing to display.
-{% endif %}
+
+        </div>
+    </div>
+    {% else %}
+        <div class="text-muted">Nothing to display.</div>
+    {% endif %}
 </section>

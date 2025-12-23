@@ -422,7 +422,6 @@ class AnalysisManager(threading.Thread):
             options["clock"] = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")
         guest_manager.start_analysis(options)
-
         try:
             if guest_manager.get_status_from_db() == "starting":
                 guest_manager.set_status_in_db("running")

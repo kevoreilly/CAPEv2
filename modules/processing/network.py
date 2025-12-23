@@ -41,6 +41,7 @@ from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
+log = logging.getLogger(__name__)
 
 try:
     import re2 as re
@@ -60,7 +61,7 @@ try:
     IS_DPKT = True
 except ImportError:
     IS_DPKT = False
-    print("Missed dependency: poetry run pip install")
+    log.error("Missed dependency: poetry run pip install")
 
 HAVE_HTTPREPLAY = False
 try:
@@ -70,9 +71,9 @@ try:
     if httpreplay.__version__ == "0.3":
         HAVE_HTTPREPLAY = True
 except ImportError:
-    print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/CAPESandbox/httpreplay")
+    log.error("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/CAPESandbox/httpreplay")
 except SystemError as e:
-    print("httpreplay: %s", str(e))
+    log.error("httpreplay: %s", str(e))
 
 # required to work webgui
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
@@ -81,10 +82,12 @@ sys.path.append(CUCKOO_ROOT)
 TLS_HANDSHAKE = 22
 PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30 * 1024 * 1024
 
+DOMAIN_FILTERS = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
+DOMAIN_FILTERS_RE = [re.compile(filter) for filter in DOMAIN_FILTERS]
+
 Keyed = namedtuple("Keyed", ["key", "obj"])
 Packet = namedtuple("Packet", ["raw", "ts"])
 
-log = logging.getLogger(__name__)
 cfg = Config()
 proc_cfg = Config("processing")
 routing_cfg = Config("routing")
@@ -535,11 +538,7 @@ class Pcap:
         """Add a domain to unique list.
         @param domain: domain name.
         """
-        # ToDo global filter here right?
-        filters = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
-
-        regexps = [re.compile(filter) for filter in filters]
-        for regexp in regexps:
+        for regexp in DOMAIN_FILTERS_RE:
             if regexp.match(domain):
                 return
 
@@ -1106,7 +1105,7 @@ class NetworkAnalysis(Processing):
                         if "ja3_hash" in ja3 and "desc" in ja3:
                             ja3_fprints[ja3["ja3_hash"]] = ja3["desc"]
                     except Exception as e:
-                        print(e)
+                        log.error(e)
 
         return ja3_fprints
 

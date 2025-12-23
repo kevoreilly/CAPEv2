@@ -1,14 +1,17 @@
 {% if analysis.capa_summary %}
     {% load analysis_tags %}
-    <div class="card-header">
-        <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#capa_summary"><i class="fas fa-rectangle-list"></i> CAPA analysis summary</a></center>
-    </div>
-    <div id="capa_summary" class="collapse">
-        <tr>
-            <th></th><td>
-            <div class="collapse" id="capa_summary">
-                <div>
-                <!--Inspired by @snemes trick, code placed in web/views/templateatgs/analysis_tags.py-->
+    <div class="card bg-dark border-secondary mb-3">
+        <div class="card-header border-secondary" id="headingCapa">
+            <h5 class="mb-0">
+                <button class="btn btn-link btn-block text-start text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#capa_summary" aria-expanded="false" aria-controls="capa_summary">
+                    <i class="fas fa-rectangle-list me-2 text-info"></i> CAPA Analysis Summary
+                    <i class="fas fa-chevron-down float-end mt-1"></i>
+                </button>
+            </h5>
+        </div>
+        <div id="capa_summary" class="collapse" aria-labelledby="headingCapa">
+            <div class="card-body">
+                <!--Inspired by @snemes trick, code placed in web/views/templatetags/analysis_tags.py-->
                 {% if analysis.capa_summary.CAPABILITY %}
                     {{analysis.capa_summary|flare_capa_capability}}
                 {% endif %}
@@ -18,10 +21,7 @@
                 {% if analysis.capa_summary.MBC %}
                     {{analysis.capa_summary|flare_capa_mbc}}
                 {% endif %}
-                </div>
             </div>
-        </td>
-        </tr>
-        </br>
+        </div>
     </div>
 {% endif %}

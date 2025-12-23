@@ -1,0 +1,38 @@
+{% if results.mitre_attck %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>MITRE ATT&CK</h4>
+    </div>
+    <div class="card-body">
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    {% for category in results.mitre_attck %}
+                    <th>{{ category }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    {% for category, ttps in results.mitre_attck.items %}
+                    <td>
+                        <ul style="padding-left: 1rem">
+                            {% for ttp in ttps %}
+                                <li style="margin-bottom: 1rem">
+                                    <a href="https://attack.mitre.org/techniques/{{ttp.t_id}}/" title="{{ttp.description}}"> {{ttp.t_id}}</a> - {{ ttp.ttp_name }}
+                                    <ul>
+                                    {% for signature in ttp.signature %}
+                                        <li>{{signature}}</li>
+                                    {% endfor %}
+                                    </ul>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </td>
+                    {% endfor %}
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}

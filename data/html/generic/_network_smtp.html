@@ -1,0 +1,16 @@
+{% if results.network.smtp %}
+<table class="table table-striped table-bordered">
+    <tr>
+        <th>Destination</th>
+        <th>Data</th>
+    </tr>
+    {% for smtp in results.network.smtp %}
+    <tr>
+        <td><span class="mono">{{smtp.dst}}</span></td>
+        <td><span class="mono"><pre>{{smtp.raw}}</pre></span></td>
+    </tr>
+    {% endfor %}
+</table>
+{% else %}
+<p>Nothing to display.</p>
+{% endif %}

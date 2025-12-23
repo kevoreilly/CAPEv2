@@ -1,11 +1,9 @@
-html {
-    background: #1c1c1c;
-}
 body {
     font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
     font-size: 14px;
-    padding-top: 60px;
-    background: #1c1c1c repeat-x;
+    padding-top: 20px;
+    background: #1c1c1c;
+    color: #fff;
 }
 @media print {
     html {
@@ -28,28 +26,12 @@ body {
     }
 }
 
-a {
-    color: white
-}
-
-.navbar-collapse.in {
-    display: block !important;
-}
-
 .nav-link {
-    padding: .5rem 1rem;
+    color: white;
 }
 
-element.style {
-    font-size: 14px;
-}
-
-.card-body {
-    padding: 1.0rem;
-}
-
-a:hover {
-    color: #EE1B2F
+.nav-link:hover {
+    color: #EE1B2F;
 }
 
 .btn-link {
@@ -62,18 +44,6 @@ a:hover {
 
 .page-link {
     background-color: #444
-}
-
-.page-link-active {
-    background-color: #EE1B2F;
-}
-
-.text-success {
-    color: #62c462!important
-}
-
-.text-sucess:hover {
-    color: #62c462
 }
 
 .page-item.active .page-link {
@@ -119,15 +89,6 @@ footer a:hover {
 .mono {
     font-family: monospace;
     font-size: medium;
-}
-.content {
-    background-color: white;
-    padding: 40px;
-    padding-top: 15px;
-    -moz-border-radius-bottomleft: 15px;
-    -moz-border-radius-bottomright: 15px;
-    -webkit-border-bottom-left-radius: 15px;
-    -webkit-border-bottom-right-radius: 15px;
 }
 .section-title {
     border-bottom: 1px solid #eee;
@@ -214,17 +175,13 @@ h4, .h4 {
     background-color: #ffc5ee;
     color: black;
 }
-.page-header {
-    margin-bottom: 10px;
-}
+
 .filter-box {
     display : none;
     padding-top: 15px;
 	height : auto;
 	width : 40%;
 }
-/* Fix the icon tab override */
-.nav-tabs > .active > a > [class^="icon-"],.nav-tabs>.active>a>[class*=" icon-"] { background-image:url("../img/glyphicons-halflings.png") !important; }
 
 td {
     word-wrap: break-word;
@@ -243,6 +200,7 @@ pre {
     white-space: -pre-wrap;
     white-space: -o-pre-wrap;
     word-wrap: break-word;
+    color: #fff !important;
 }
 
 .tcp-flow {
@@ -256,7 +214,6 @@ pre {
 .tcp-out pre {
     padding: 0;
     border: 0;
-    /*background-color: white;*/
     color: #d9534f;
 }
 .tcp-in {
@@ -265,15 +222,9 @@ pre {
 .tcp-in pre {
     padding: 0;
     border: 0;
-    /*background-color: white;*/
     color: #5bc0de;
 }
 #filter-toggle {
     display: inline-block;
     cursor: pointer;
-}
-
-.form-control {
-    background-color: darkgray;
-    color:black;
 }

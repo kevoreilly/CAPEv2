@@ -1,0 +1,46 @@
+{% macro render_tree(processes) %}
+    <ul class="list-unstyled mb-0">
+    {% for process in processes %}
+        <li class="mb-1">
+            <div class="d-flex flex-column">
+                <div>
+                    <a class="btn btn-link p-0 text-decoration-none fw-bold" data-bs-toggle="collapse" href="#collapseProcess{{process.pid}}" role="button" aria-expanded="false" aria-controls="collapseProcess{{process.pid}}">
+                        {{process.name}}
+                    </a>
+                    <span class="badge bg-secondary ms-1 p-1">PID: {{process.pid}}</span>
+                    <span class="badge bg-light text-dark border ms-1 p-1">PPID: {{process.parent_id}}</span>
+                </div>
+                
+                {% if proctree_details %}
+                    {% if process.module_path %}
+                    <div class="small text-break ms-1"><span class="text-muted fw-bold">Path:</span> {{process.module_path}}</div>
+                    {% endif %}
+                    
+                    {% if process.command_line %}
+                        <div class="small text-break ms-1"><span class="text-muted fw-bold">Cmd:</span> <code>{{process.command_line}}</code></div>
+                    {% elif process.environ and process.environ.CommandLine %}
+                        <div class="small text-break ms-1"><span class="text-muted fw-bold">Cmd:</span> <code>{{process.environ.CommandLine}}</code></div>
+                    {% endif %}
+                {% endif %}
+            </div>
+            
+            {% if process.children %}
+                <div class="ms-2 border-start ps-2 border-secondary mt-1">
+                    {{ render_tree(process.children) }}
+                </div>
+            {% endif %}
+        </li>
+    {% endfor %}
+    </ul>
+{% endmacro %}
+
+{% if results.behavior.processtree %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Process Tree</h4>
+    </div>
+    <div class="card-body">
+        {{ render_tree(results.behavior.processtree) }}
+    </div>
+</div>
+{% endif %}

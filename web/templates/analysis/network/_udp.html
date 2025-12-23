@@ -1,32 +1,41 @@
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
 <section id="udp" class="tcpudp">
-    {% if network.udp %}
-        <div class="row">
-            <div class="col-md-6">
-                <table class="table table-bordered">
-                    <tr>
-                        <th>Source</th>
-                        <th>Source Port</th>
-                        <th>Destination</th>
-                        <th>Destination Port</th>
-                    </tr>
-                    {% for p in network.udp %}
-                        <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},udp">
-                            <td>{{p.src}}</td>
-                            <td>{{p.sport}}</td>
-                            <td>{{p.dst}}
-                                {% if network.iplookups %}
-                                    {{ network.iplookups|get_item:p.dst }}
-                                {% endif %}
-                                </td>
-                            <td>{{p.dport}}</td>
-                        </tr>
-                    {% endfor %}
-                </table>
-            </div>
-            <div class="stream col-md-6"></div>
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-info"></i>UDP Connections</h5>
         </div>
-    {% else %}
-        <p>No UDP connections recorded.</p>
-    {% endif %}
+        {% if network.udp %}
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <table class="table table-dark table-striped table-bordered">
+                            <tr>
+                                <th>Source</th>
+                                <th>Source Port</th>
+                                <th>Destination</th>
+                                <th>Destination Port</th>
+                            </tr>
+                            {% for p in network.udp %}
+                                <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},udp">
+                                    <td>{{p.src}}</td>
+                                    <td>{{p.sport}}</td>
+                                    <td>{{p.dst}}
+                                        {% if network.iplookups %}
+                                            {{ network.iplookups|get_item:p.dst }}
+                                        {% endif %}
+                                        </td>
+                                    <td>{{p.dport}}</td>
+                                </tr>
+                            {% endfor %}
+                        </table>
+                    </div>
+                    <div class="stream col-md-6"></div>
+                </div>
+            </div>
+        {% else %}
+            <div class="card-body">
+                <div class="alert alert-info">No UDP connections recorded.</div>
+            </div>
+        {% endif %}
+    </div>
 </section>

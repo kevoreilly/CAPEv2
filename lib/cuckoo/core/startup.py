@@ -465,6 +465,30 @@ def init_rooter():
 
     # ToDo check if ip_forward is on
 
+    # Check if UFW is enabled. If it is, it could interfere with routing.
+    # We use subprocess.run for better error handling and stdout capture.
+    try:
+        ufw_proc = subprocess.run(["ufw", "status"], capture_output=True, text=True, check=False)
+
+        if ufw_proc.returncode == 0:
+            if "Status: active" in ufw_proc.stdout:
+                log.warning(
+                    "UFW (Uncomplicated Firewall) is active. This might interfere with CAPEv2's network routing/analysis. "
+                    "Please ensure UFW is configured to allow all necessary traffic for CAPEv2 or consider disabling it for analysis. "
+                    "You can check UFW rules with 'sudo ufw status verbose'."
+                )
+            else:
+                log.debug("UFW is not active, which is ideal for CAPEv2's routing setup.")
+        else:
+            log.debug(
+                "Could not check UFW status (command exited with code %d). "
+                "Output: %s. Error: %s", ufw_proc.returncode, ufw_proc.stdout, ufw_proc.stderr
+            )
+    except FileNotFoundError:
+        log.debug("UFW command not found. Assuming UFW is not in use.")
+    except Exception as e:
+        log.debug("An unexpected error occurred while checking UFW status: %s", e)
+
 
 def init_routing():
     """Initialize and check whether the routing information is correct."""

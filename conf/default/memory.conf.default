@@ -10,80 +10,76 @@ delete_memdump = no
 # Delete memory dump in the event of a volatility exception
 delete_memdump_on_exception = no
 
+# Masks. Data that should not be logged
+# Just get this information from your plain VM Snapshot (without running malware)
+# This will filter out unwanted information in the logs
+[mask]
+enabled = no
+pid_generic =
+
+
 # List of available modules
 # enabled: enable this module
 # filter: use filters to remove benign system data from the logs
 # Filters are defined in the mask section at below
 
 # Scans for hidden/injected code and dlls
-# http://code.google.com/p/volatility/wiki/CommandReferenceMal23#malfind
 [malfind]
 enabled = no
 filter = on
 
 # Lists official processes. Does not detect hidden processes
-# https://github.com/volatilityfoundation/volatility/wiki/Command-Reference#pslist
 [pslist]
 enabled = no
 filter = off
 
 # Process listing in tree form. Does not detect hidden processes (Don't work currently in CAPE)
-# https://github.com/volatilityfoundation/volatility/wiki/Command-Reference#pstree
 [pstree]
 enabled = no
 filter = off
 
 # Lists hidden processes. Enumerate processes in the Kernel memory using pool tag scanning _POOL_HEADER
-# https://github.com/volatilityfoundation/volatility/wiki/Command-Reference#psscan
 [psscan]
 enabled = no
 filter = off
 
 
 # Show callbacks
-# http://code.google.com/p/volatility/wiki/CommandReferenceMal23#callbacks
 [callbacks]
 enabled = no
 filter = off
 
 # Show sids
-# http://code.google.com/p/volatility/wiki/CommandReference23#getsids
 [getsids]
 enabled = no
 filter = off
 
 # Show privileges
-# http://code.google.com/p/volatility/wiki/CommandReference23#privs
 [privs]
 enabled = no
 filter = off
 
 # Display processes' loaded DLLs- Does not display hidden DLLs
-# http://code.google.com/p/volatility/wiki/CommandReference23#dlllist
 [dlllist]
 enabled = no
 filter = on
 
 # List open handles of processes
-# http://code.google.com/p/volatility/wiki/CommandReference23#handles
 [handles]
 enabled = no
 filter = on
 
 # Scan for Mutexes (whole system)
-# http://code.google.com/p/volatility/wiki/CommandReference23#mutantscan
 [mutantscan]
 enabled = no
 filter = on
 
 # Scan for services
-# http://code.google.com/p/volatility/wiki/CommandReferenceMal23#svcscan
 [svcscan]
 enabled = no
 filter = on
 
 # Scan for kernel drivers (includes hidden, unloaded)
-# http://code.google.com/p/volatility/wiki/CommandReference23#modscan
 [modscan]
 enabled = no
 filter = on
@@ -106,9 +102,144 @@ filter = off
 enabled = no
 filter = off
 
-# Masks. Data that should not be logged
-# Just get this information from your plain VM Snapshot (without running malware)
-# This will filter out unwanted information in the logs
-[mask]
+# Not tested module below
+
+[info]
 enabled = no
-pid_generic =
+filter = off
+
+[psxview]
+enabled = no
+filter = off
+
+[ldrmodules]
+enabled = no
+filter = off
+
+[cmdline]
+enabled = no
+filter = off
+
+[envars]
+enabled = no
+filter = off
+
+[modules]
+enabled = no
+filter = off
+
+[driverscan]
+enabled = no
+filter = off
+
+[driverirp]
+enabled = no
+filter = off
+
+[verinfo]
+enabled = no
+filter = off
+
+[filescan]
+enabled = no
+filter = off
+
+[vadinfo]
+enabled = no
+filter = off
+
+[timers]
+enabled = no
+filter = off
+
+[hivelist]
+enabled = no
+filter = off
+
+[hashdump]
+enabled = no
+filter = off
+
+[lsadump]
+enabled = no
+filter = off
+
+[cachedump]
+enabled = no
+filter = off
+
+[symlinkscan]
+enabled = no
+filter = off
+
+[thrdscan]
+enabled = no
+filter = off
+
+[hollowprocesses]
+enabled = no
+filter = off
+
+[processghosting]
+enabled = no
+filter = off
+
+[suspiciousthreads]
+enabled = no
+filter = off
+
+[devicetree]
+enabled = no
+filter = off
+
+[consoles]
+enabled = no
+filter = off
+
+[cmdscan]
+enabled = no
+filter = off
+
+[amcache]
+enabled = no
+filter = off
+
+[shimcache]
+enabled = no
+filter = off
+
+[userassist]
+enabled = no
+filter = off
+
+[unloadedmodules]
+enabled = no
+filter = off
+
+[iat]
+enabled = no
+filter = off
+
+[skeletonkey]
+enabled = no
+filter = off
+
+[unhookedsyscalls]
+enabled = no
+filter = off
+
+[etwpatch]
+enabled = no
+filter = off
+
+[mftscan]
+enabled = no
+filter = off
+
+[svclist]
+enabled = no
+filter = off
+
+[svcdiff]
+enabled = no
+filter = off

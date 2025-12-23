@@ -1,12 +1,21 @@
-<section id="screenshots">
-    <div class="section-title">
-        <h4>Screenshots</h4>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <h4>Screenshots</h4>
+        </div>
+        <div class="card-body">
+            {% if results.shots %}
+            <div class="row">
+                {% for shot in results.shots %}
+                <div class="col-md-4 mb-4">
+                    <a href="data:image/jpeg;base64,{{shot.data}}" data-lightbox="screenshots">
+                        <img src="data:image/jpeg;base64,{{shot.data}}" class="img-fluid rounded" alt="Screenshot" />
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p>No screenshots available.</p>
+            {% endif %}
+        </div>
     </div>
-    {% if results.shots %}
-        {% for shot in results.shots %}
-            <a href="data:image/jpeg;base64,{{shot.data}}"><img class="opaque" src="data:image/jpeg;base64,{{shot.data}}" height="300px" width="450px" /></a>
-        {% endfor %}
-    {% else %}
-        No screenshots available.
-    {% endif %}
-</section>

@@ -1,0 +1,68 @@
+{% if results.curtain %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Curtain <small>(Advanced Behavioral Analysis)</small></h4>
+    </div>
+    <div class="card-body">
+        <ul class="nav nav-tabs" id="curtain-tab" role="tablist">
+            <li class="nav-item">
+                <a class="nav-link active" id="curtain-orig-tab" data-bs-toggle="tab" href="#curtain-orig" role="tab" aria-controls="curtain-orig" aria-selected="true">Original Events</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="curtain-altr-tab" data-bs-toggle="tab" href="#curtain-altr" role="tab" aria-controls="curtain-altr" aria-selected="false">Altered Events</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="curtain-filt-tab" data-bs-toggle="tab" href="#curtain-filt" role="tab" aria-controls="curtain-filt" aria-selected="false">Filtered Events</a>
+            </li>
+        </ul>
+        <div class="tab-content" id="curtain-tabContent">
+            <div class="tab-pane fade show active" id="curtain-orig" role="tabpanel" aria-labelledby="curtain-orig-tab">
+                {% for pid, dict in results.curtain.items() %}
+                <div class="card mt-3">
+                    <div class="card-header">
+                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge bg-secondary">{{ entry }}</span>{% endfor %}
+                    </div>
+                    <div class="card-body">
+                        {% for entry in dict.events %} {% for event, message in entry.items() %}
+                        <b>Event: {{ event }}</b>
+                        <p>{{ message.original }}</p>
+                        {% endfor %} {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="tab-pane fade" id="curtain-altr" role="tabpanel" aria-labelledby="curtain-altr-tab">
+                {% for pid, dict in results.curtain.items() %}
+                <div class="card mt-3">
+                    <div class="card-header">
+                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge bg-secondary">{{ entry }}</span>{% endfor %}
+                    </div>
+                    <div class="card-body">
+                        {% for entry in dict.events %} {% for event, message in entry.items() %}
+                        <b>Event: {{ event }}</b>
+                        <p>{{ message.altered }}</p>
+                        {% endfor %} {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="tab-pane fade" id="curtain-filt" role="tabpanel" aria-labelledby="curtain-filt-tab">
+                {% for pid, dict in results.curtain.items() %}
+                <div class="card mt-3">
+                    <div class="card-header">
+                        PID: {{pid}} - {% for entry in dict.behaviors %}<span class="badge bg-secondary">{{ entry }}</span>{% endfor %}
+                    </div>
+                    <div class="card-body">
+                        {% for entry in dict.filter %}
+                        {% for event, message in entry.items() %}
+                        <b>Event: {{ event }}</b>
+                        <p>{{ message }}</p>
+                        {% endfor %} {% endfor %}
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}

@@ -1,5 +1,5 @@
 <!--this file is identical copy of _file_info.html but just changes "file." to "sub_file." to allow show the same info as subtab-->
-<div class="panel panel-default">
+<div class="card">
     <table class="table table-striped table-bordered" style="table-layout: fixed;width: 50%;margin-left: auto;margin-right: auto;">
         {% if sub_file.cape_type %}
             <tr>
@@ -34,7 +34,7 @@
         <tr>
             <th style="border-top: 0; width: 15%;">File Size</th>
             <td style="border-top: 0; word-wrap: break-word;"><b>{{sub_file.size}} bytes</b></td>
-        </tr>
+            </tr>
         {% if sub_file.module_path and sub_file.process_path != sub_file.module_path %}
             <tr>
                 <th>Module Path</th>
@@ -227,33 +227,33 @@
         {% else %}
         <tr>
             <th>
-                {% if file.pe %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pe_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>{% endif %}
-                {% if file.dotnet %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#dotnet_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display DotNet info"><span class="fas fa-file-lines"></span> DotNET</a>{% endif %}
-                {% if file.pdf %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#pdf_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="pdf_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display PDF info"><span class="fas fa-file-lines"></span> PDF</a>{% endif %}
-                {% if file.lnk %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#lnk_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display LNK info"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
-                {% if file.java %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#java_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Java info"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
-                {% if file.office %}<a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#office_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="office_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Office info"><span class="fas fa-file-lines"></span> Office</a>{% endif %}
+                {% if file.pe %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#pe_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="pe_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display PE info"><span class="fas fa-file-lines"></span> PE</a>{% endif %}
+                {% if file.dotnet %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#dotnet_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="dotnet_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display DotNet info"><span class="fas fa-file-lines"></span> DotNET</a>{% endif %}
+                {% if file.pdf %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#pdf_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="pdf_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display PDF info"><span class="fas fa-file-lines"></span> PDF</a>{% endif %}
+                {% if file.lnk %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#lnk_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="lnk_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display LNK info"><span class="fas fa-file-lines"></span> LNK</a>{% endif %}
+                {% if file.java %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#java_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="java_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Java info"><span class="fas fa-file-lines"></span> Java</a>{% endif %}
+                {% if file.office %}<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#office_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="office_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display Office info"><span class="fas fa-file-lines"></span> Office</a>{% endif %}
             </th>
 
             </th>
             <td>
                 {% if sub_file.flare_capa %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#flare_capa_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{sub_file.sha256}}">FLARE CAPA</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#flare_capa_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="flare_capa_{{sub_file.sha256}}">FLARE CAPA</a>
                 {% endif %}
                 {% if sub_file.strings %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#strings_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#strings_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="strings_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display strings"><span class="fas fa-envelope-open-text"></span> Strings</a>
                 {% endif %}
                 {% if sub_file.floss %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#floss_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#floss_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="floss_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display floss strings"><span class="fas fa-envelope-open-text"></span> Floss</a>
                 {% endif %}
                 {% if sub_file.data %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#text_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#text_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="text_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> Text</a>
                 {% endif %}
                 {% if sub_file.decoded_files %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#decoded_files_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{sub_file.decoded_files_tool}}</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#decoded_files_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="decoded_files_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display text"><span class="fas fa-envelope-open-text"></span> {{sub_file.decoded_files_tool}}</a>
                 {% endif %}
                 {% if sub_file.extracted_files %}
-                    <a class="btn btn-secondary btn-sm" data-toggle="collapse" href="#extracted_files_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{sub_file.extracted_files_tool}}</a>
+                    <a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" href="#extracted_files_{{sub_file.sha256}}" role="button" aria-expanded="false" aria-controls="extracted_files_{{sub_file.sha256}}"  data-bs-toggle="tooltip" title="Display extracted files"><span class="fas fa-archive"></span> {{sub_file.extracted_files_tool}}</a>
                 {% endif %}
             </td>
         </tr>
@@ -348,6 +348,8 @@
         {% if sub_file.java %} <div class="collapse" id="java_{{sub_file.sha256}}"> <div> {% include "generic/_java.html" %}</div></div></br>{% endif %}
         {% if sub_file.office %} <div class="collapse" id="office_{{sub_file.sha256}}"> <div> {% include "generic/_office.html" %}</div></div></br>{% endif %}
         {% if sub_file.floss %} <div class="collapse" id="floss_{{sub_file.sha256}}"> <div> {% include "generic/_floss.html" %}</div></div></br>{% endif %}
-        {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}<center><td>{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</td></center></br>{% endif %}
     #}
+<div class="d-flex justify-content-center mt-4">
+{% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}{% endif %}
+</div>
 </div>

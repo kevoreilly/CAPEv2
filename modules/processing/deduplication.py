@@ -7,25 +7,25 @@ import logging
 import os
 import re
 
+log = logging.getLogger()
+
 HAVE_IMAGEHASH = False
 try:
     import imagehash
 
     HAVE_IMAGEHASH = True
 except ImportError:
-    print("Missed dependency: poetry run pip install ImageHash")
+    log.error("Missed dependency: poetry run pip install ImageHash")
 
 try:
     from PIL import Image
 
     Image.logger.setLevel(logging.WARNING)
 except ImportError:
-    print("Missed dependency: poetry install")
+    log.error("Missed dependency: poetry install")
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.path_utils import path_exists
-
-log = logging.getLogger()
 
 
 def reindex_screenshots(shots_path):

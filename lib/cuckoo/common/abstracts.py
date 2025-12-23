@@ -20,7 +20,7 @@ from typing import Dict, List
 try:
     import dns.resolver
 except ImportError:
-    print("Missed dependency -> poetry install")
+    logging.error("Missed dependency -> poetry install")
 
 import PIL
 import requests
@@ -453,11 +453,14 @@ class LibVirtMachinery(Machinery):
         # currently still active.
         super()._initialize_check()
 
-    def start(self, label):
+    def start(self, label=None):
         """Starts a virtual machine.
         @param label: virtual machine name.
         @raise CuckooMachineError: if unable to start virtual machine.
         """
+        if not label:
+            raise CuckooMachineError("Machine label required")
+
         log.debug("Starting machine %s", label)
 
         vm_info = self.db.view_machine_by_label(label)
@@ -502,11 +505,14 @@ class LibVirtMachinery(Machinery):
         # Check state.
         self._wait_status(label, self.RUNNING)
 
-    def stop(self, label):
+    def stop(self, label=None):
         """Stops a virtual machine. Kill them all.
         @param label: virtual machine name.
         @raise CuckooMachineError: if unable to stop virtual machine.
         """
+        if not label:
+            raise CuckooMachineError("Machine label required")
+
         log.debug("Stopping machine %s", label)
 
         if self._status(label) == self.POWEROFF:
@@ -785,6 +791,9 @@ class Processing:
         timediff = timeit.default_timer() - pretime
         value = round(timediff, 3)
 
+        if "temp_processing_stats" not in self.results:
+            self.results["temp_processing_stats"] = {}
+
         if name not in self.results["temp_processing_stats"]:
             self.results["temp_processing_stats"][name] = {}
 
@@ -1050,11 +1059,11 @@ class Signature:
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
         except dns.name.NeedAbsoluteNameOrOrigin:
-            print(
+            log.warning(
                 "An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin"
             )
         except dns.resolver.NoAnswer:
-            print("IPs: Impossible to get response")
+            log.warning("IPs: Impossible to get response")
         except Exception as e:
             log.info(str(e))
 
@@ -1078,7 +1087,7 @@ class Signature:
             if url_validator(url):
                 return url
         except Exception as e:
-            print(e)
+            log.error(e)
 
         if all_checks:
             last = url.rfind("://")
@@ -1089,7 +1098,7 @@ class Signature:
             if url_validator(f"http://{url}"):
                 return f"http://{url}"
         except Exception as e:
-            print(e)
+            log.error(e)
 
     def _check_value(self, pattern, subject, regex=False, all=False, ignorecase=True):
         """Checks a pattern against a given subject.

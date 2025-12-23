@@ -1,22 +1,24 @@
-<table class="table table-striped table-bordered table-sm">
-    <thead>
-        <tr>
-            <th>ID</th>
-            <th>Name</th>
-            <th>MD5</th>
-            <th>Machine</th>
-            <th>Completed On</th>
-            <th>Duration</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td>{{record.info.id}}</td>
-            <td>{{record.target.file.name|slice:":40" }} {% if record.target.file.name|length > 40 %}...{% endif %}</td>
-            <td><a href="{% url "report" record.info.id %}">{{record.target.file.md5}}</a></td>
-            <td>{{record.info.machine.label}}</td>
-            <td>{{record.info.ended}}</td>
-            <td>{{record.info.duration}} seconds</td>
-        </tr>
-    </tbody>
-</table>
+<div class="table-responsive">
+    <table class="table table-dark table-striped table-bordered mb-0 table-sm">
+        <thead class=" ">
+            <tr>
+                <th class="text-center" width="5%">ID</th>
+                <th width="35%">Name</th>
+                <th width="30%">MD5</th>
+                <th width="10%">Machine</th>
+                <th width="15%">Completed On</th>
+                <th width="5%">Dur.</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td class="text-center font-weight-bold">{{record.info.id}}</td>
+                <td class="text-truncate" title="{{record.target.file.name}}">{{record.target.file.name|truncatechars:40}}</td>
+                <td><a href="{% url "report" record.info.id %}" class="text-info text-monospace">{{record.target.file.md5}}</a></td>
+                <td><span class="badge bg-secondary">{{record.info.machine.label}}</span></td>
+                <td class="small">{{record.info.ended}}</td>
+                <td class="text-end">{{record.info.duration}}s</td>
+            </tr>
+        </tbody>
+    </table>
+</div>

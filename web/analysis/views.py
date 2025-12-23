@@ -993,7 +993,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                     else:
                         filtered_process["calls"].append(call)
 
-        if record["info"]["machine"]["platform"] == "linux":
+        if record.get("info", {}).get("machine", {}).get("platform", "") == "linux":
             return render(request, "analysis/strace/_chunk.html", {"chunk": filtered_process})
         else:
             return render(request, "analysis/behavior/_chunk.html", {"chunk": filtered_process})

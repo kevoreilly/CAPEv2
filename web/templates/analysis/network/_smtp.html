@@ -1,6 +1,10 @@
-<h4>SMTP traffic</h4>
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <h5 class="mb-0 text-white"><i class="fas fa-envelope me-2 text-info"></i>SMTP Traffic</h5>
+    </div>
 {% if network.smtp_ex %}
-<table class="table table-striped table-bordered" style="table-layout: fixed;">
+<div class="card-body">
+<table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
     <tr>
         <th>Destination</th>
         <th>Data</th>
@@ -9,7 +13,7 @@
     <tr>
         <td style="word-wrap: break-word;">{{req.dst}}:{{req.dport}}</td>
         <td style="word-wrap: break-word;">
-            <table class="table table-striped table-bordered">
+            <table class="table table-dark table-striped table-bordered">
             {% if req %}
                 <tr><td>
                     Request:
@@ -41,8 +45,10 @@
     </tr>
     {% endfor %}
 </table>
+</div>
 {% elif network.smtp %}
-<table class="table table-striped table-bordered" style="table-layout: fixed;">
+<div class="card-body">
+<table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
     <tr>
         <th>Destination</th>
         <th>Data</th>
@@ -54,6 +60,10 @@
     </tr>
     {% endfor %}
 </table>
+</div>
 {% else %}
-<p>No SMTP traffic performed.</p>
+<div class="card-body">
+<div class="alert alert-info">No SMTP traffic performed.</div>
+</div>
 {% endif %}
+</div>

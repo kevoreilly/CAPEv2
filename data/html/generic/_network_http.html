@@ -1,0 +1,64 @@
+{% if results.network.http_ex or results.network.https_ex %}
+<table class="table table-striped table-bordered" style="table-layout: fixed;">
+    <tr>
+        <th>URI</th>
+        <th>Details</th>
+    </tr>
+    {% for http in (results.network.http_ex|list + results.network.https_ex|list) %}
+    <tr>
+        <td style="word-wrap: break-word;">{{http.protocol }}://{{http.host}}{{http.uri}}</td>
+        <td style="word-wrap: break-word;">
+            <table class="table table-striped table-bordered">
+            {% if http.request %}
+                <tr><td>
+                    {% if http.req.sha256 %}
+                        <button type="button" class="btn btn-secondary btn-sm" disabled><span class="fas fa-download"></span> Request content</button>
+                    {% else %}
+                        Request:
+                    {% endif %}
+                    {% for value in http.request|network_rn %}
+                        <li>{{value}}</li>
+                    {% endfor %}
+                </td></tr>
+            {% endif %}
+            <tr><td>
+            {% if http.response %}
+                {% if http.resp.sha256 %}
+                    <button type="button" class="btn btn-secondary btn-sm" disabled><span class="fas fa-download"></span> Response content</button>
+                {% else %}
+                    Response:
+                {% endif %}
+                {% for value in http.response|network_rn %}
+                    <li>{{value}}</li>
+                {% endfor %}
+                </br>Response preview:
+                {% if http.resp.preview %}
+                    {% for line in http.resp.preview %}
+                        <li>{{line}}</li>
+                    {% endfor %}
+                {% endif %}
+            {% else %}
+                No response
+            {% endif %}
+            </td></tr>
+            </table>
+        </td>
+    </tr>
+    {% endfor %}
+</table>
+{% elif results.network.http %}
+    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+        <tr>
+            <th>URI</th>
+            <th>Data</th>
+        </tr>
+        {% for request in results.network.http %}
+        <tr>
+            <td style="word-wrap: break-word;">{{request.uri}}</td>
+            <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
+        </tr>
+        {% endfor %}
+    </table>
+{% else %}
+    <p>No HTTP(s) requests performed.</p>
+{% endif %}

@@ -1,0 +1,28 @@
+<div class="mt-4">
+    <div class="section-title">
+        <h4>Process Dumps</h4>
+    </div>
+    {% set tab_name = 'procdump' %}
+    {% if results.procdump %}
+        <div id="accordionProcDumps">
+        {% for file in results.procdump %}
+            <div class="card mt-2">
+                <div class="card-header" id="headingProcDump{{loop.index}}">
+                    <h5 class="mb-0">
+                        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseProcDump{{loop.index}}" aria-expanded="true" aria-controls="collapseProcDump{{loop.index}}">
+                            {% for name in file.name%}{{name}}{% endfor %}
+                        </button>
+                    </h5>
+                </div>
+                <div id="collapseProcDump{{loop.index}}" class="collapse show" aria-labelledby="headingProcDump{{loop.index}}" data-bs-parent="#accordionProcDumps">
+                    <div class="card-body">
+                        {% include "generic/_file_info.html" %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+    {% else %}
+        <p>Nothing to display.</p>
+    {% endif %}
+</div>

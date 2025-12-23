@@ -732,7 +732,30 @@ class LibVirtMachinery(Machinery):
         return snapshot
 
 
-class Processing:
+class PathSetter:
+    def set_path(self, analysis_path):
+        """Set analysis folder path."""
+        self.analysis_path = analysis_path
+        self.conf_path = os.path.join(self.analysis_path, "analysis.conf")
+        self.file_path = os.path.realpath(os.path.join(self.analysis_path, "binary"))
+        self.dropped_path = os.path.join(self.analysis_path, "files")
+        self.procdump_path = os.path.join(self.analysis_path, "procdump")
+        self.CAPE_path = os.path.join(self.analysis_path, "CAPE")
+        self.reports_path = os.path.join(self.analysis_path, "reports")
+        self.shots_path = os.path.join(self.analysis_path, "shots")
+        self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
+        self.pmemory_path = os.path.join(self.analysis_path, "memory")
+        self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
+        self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
+        self.files_metadata = os.path.join(self.analysis_path, "files.json")
+
+        try:
+            create_folder(folder=self.reports_path)
+        except CuckooOperationalError as e:
+            raise CuckooReportError(e) from e
+
+
+class Processing(PathSetter):
     """Base abstract class for processing module."""
 
     order = 1
@@ -746,59 +769,250 @@ class Processing:
         self.results = results
 
     def set_options(self, options):
-        """Set report options.
-        @param options: report options dict.
-        """
+        """Set report options."""
         self.options = options
 
     def set_task(self, task):
-        """Add task information.
-        @param task: task dictionary.
-        """
+        """Add task information."""
         self.task = task
 
     def set_path(self, analysis_path):
-        """Set paths.
-        @param analysis_path: analysis folder path.
-        """
-        self.analysis_path = analysis_path
+        """Set paths."""
+        super().set_path(analysis_path)
         self.aux_path = os.path.join(self.analysis_path, "aux")
         self.log_path = os.path.join(self.analysis_path, "analysis.log")
         self.package_files = os.path.join(self.analysis_path, "package_files")
-        self.file_path = os.path.realpath(os.path.join(self.analysis_path, "binary"))
-        self.dropped_path = os.path.join(self.analysis_path, "files")
-        self.files_metadata = os.path.join(self.analysis_path, "files.json")
-        self.procdump_path = os.path.join(self.analysis_path, "procdump")
-        self.CAPE_path = os.path.join(self.analysis_path, "CAPE")
         self.logs_path = os.path.join(self.analysis_path, "logs")
-        self.shots_path = os.path.join(self.analysis_path, "shots")
-        self.pcap_path = os.path.join(self.analysis_path, "dump.pcap")
-        self.pmemory_path = os.path.join(self.analysis_path, "memory")
-        self.memory_path = get_memdump_path(analysis_path.rsplit("/", 1)[-1])
-        # self.memory_path = os.path.join(self.analysis_path, "memory.dmp")
         self.network_path = os.path.join(self.analysis_path, "network")
         self.tlsmaster_path = os.path.join(self.analysis_path, "tlsmaster.txt")
-        self.self_extracted = os.path.join(self.analysis_path, "selfextracted")
-        self.reports_path = os.path.join(self.analysis_path, "reports")
 
     def add_statistic_tmp(self, name, field, pretime):
         timediff = timeit.default_timer() - pretime
         value = round(timediff, 3)
 
-        if name not in self.results["temp_processing_stats"]:
-            self.results["temp_processing_stats"][name] = {}
-
-        # To be able to add yara/capa and others time summary over all processing modules
-        if field in self.results["temp_processing_stats"][name]:
-            self.results["temp_processing_stats"][name][field] += value
-        else:
-            self.results["temp_processing_stats"][name][field] = value
+        self.results.setdefault("temp_processing_stats", {}).setdefault(name, {})
+        self.results["temp_processing_stats"][name][field] = self.results["temp_processing_stats"][name].get(field, 0) + value
 
     def run(self):
-        """Start processing.
-        @raise NotImplementedError: this method is abstract.
-        """
+        """Start processing."""
         raise NotImplementedError
+
+
+class SignatureChecker:
+    def __init__(self, signature):
+        self.signature = signature
+        self.results = signature.results
+
+    def _check_value(self, pattern, subject, regex=False, all=False, ignorecase=True):
+        """Checks a pattern against a given subject."""
+        if regex:
+            try:
+                exp = re.compile(pattern, re.IGNORECASE if ignorecase else 0)
+            except re.error:
+                return None
+
+            matches = set()
+            items = subject if isinstance(subject, list) else [subject]
+            for item in items:
+                if exp.match(item):
+                    if not all:
+                        return item
+                    matches.add(item)
+            return matches if all and matches else None
+
+        if ignorecase:
+            pattern = pattern.lower()
+
+        items = subject if isinstance(subject, list) else [subject]
+        for item in items:
+            item_to_check = item.lower() if ignorecase else item
+            if item_to_check == pattern:
+                return item
+        return None
+
+    def check_process_name(self, pattern, all=False):
+        if "behavior" in self.results and "processes" in self.results["behavior"]:
+            for process in self.results["behavior"]["processes"]:
+                if re.findall(pattern, process["process_name"], re.I):
+                    return process if all else True
+        return False
+
+    def check_file(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("files", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_read_file(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("read_files", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_write_file(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("write_files", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_delete_file(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("delete_files", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_key(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("keys", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_read_key(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("read_keys", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_write_key(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("write_keys", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_delete_key(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("delete_keys", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_mutex(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("mutexes", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=False)
+
+    def check_started_service(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("started_services", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_created_service(self, pattern, regex=False, all=False):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("created_services", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
+
+    def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
+        subject = self.results.get("behavior", {}).get("summary", {}).get("executed_commands", [])
+        return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=ignorecase)
+
+    def check_api(self, pattern, process=None, regex=False, all=False):
+        retset = set()
+        for item in self.results["behavior"]["processes"]:
+            if process and item["process_name"] != process:
+                continue
+            for call in item["calls"]:
+                ret = self._check_value(pattern=pattern, subject=call["api"], regex=regex, all=all, ignorecase=False)
+                if ret:
+                    if not all:
+                        return call["api"]
+                    retset.update(ret)
+        return retset if all and retset else None
+
+    def check_argument_call(self, call, pattern, name=None, api=None, category=None, regex=False, all=False, ignorecase=False):
+        retset = set()
+        if (api and call["api"] != api) or (category and call["category"] != category):
+            return False
+
+        for argument in call["arguments"]:
+            if name and argument["name"] != name:
+                continue
+            ret = self._check_value(pattern=pattern, subject=argument["value"], regex=regex, all=all, ignorecase=ignorecase)
+            if ret:
+                if not all:
+                    return argument["value"]
+                retset.update(ret)
+        return retset if all and retset else False
+
+    def check_argument(self, pattern, name=None, api=None, category=None, process=None, regex=False, all=False, ignorecase=False):
+        retset = set()
+        for item in self.results["behavior"]["processes"]:
+            if process and item["process_name"] != process:
+                continue
+            for call in item["calls"]:
+                r = self.check_argument_call(call, pattern, name, api, category, regex, all, ignorecase)
+                if r:
+                    if not all:
+                        return r
+                    retset.update(r)
+        return retset if all and retset else None
+
+    def check_ip(self, pattern, regex=False, all=False):
+        retset = set()
+        if "network" not in self.results:
+            return None
+        hosts = self.results["network"].get("hosts", [])
+        for item in hosts:
+            ret = self._check_value(pattern=pattern, subject=item["ip"], regex=regex, all=all, ignorecase=False)
+            if ret:
+                if not all:
+                    return item["ip"]
+                retset.update(ret)
+        return retset if all and retset else None
+
+    def check_domain(self, pattern, regex=False, all=False):
+        retset = set()
+        if "network" not in self.results:
+            return None
+        domains = self.results["network"].get("domains", [])
+        for item in domains:
+            ret = self._check_value(pattern=pattern, subject=item["domain"], regex=regex, all=all)
+            if ret:
+                if not all:
+                    return item["domain"]
+                retset.update(ret)
+        return retset if all and retset else None
+
+    def check_url(self, pattern, regex=False, all=False):
+        retset = set()
+        if "network" not in self.results:
+            return None
+        httpitems = self.results["network"].get("http", [])
+        for item in httpitems:
+            ret = self._check_value(pattern=pattern, subject=item["uri"], regex=regex, all=all, ignorecase=False)
+            if ret:
+                if not all:
+                    return item["uri"]
+                retset.update(ret)
+        return retset if all and retset else None
+
+
+class Signature(PathSetter):
+    """Base class for Cuckoo signatures."""
+
+    name = ""
+    description = ""
+    severity = 1
+    confidence = 100
+    weight = 1
+    categories = []
+    families = []
+    authors = []
+    references = []
+    alert = False
+    enabled = True
+    minimum = None
+    maximum = None
+    ttps = []
+    mbcs = []
+    order = 0
+    evented = False
+    filter_processnames = set()
+    filter_apinames = set()
+    filter_categories = set()
+    filter_analysistypes = set()
+    banned_suricata_sids = ()
+
+    def __init__(self, results=None):
+        self.data = []
+        self.new_data = []
+        self.results = results
+        self._current_call_cache = None
+        self._current_call_dict = None
+        self._current_call_raw_cache = None
+        self._current_call_raw_dict = None
+        self.hostname2ips = {}
+        self.machinery_conf = machinery_conf
+        self.matched = False
+        self.checker = SignatureChecker(self)
+
+        self.pid = None
+        self.cid = None
+        self.call = None
+
+    def __getattr__(self, name):
+        if name.startswith("check_"):
+            return getattr(self.checker, name)
+        raise AttributeError(f"'{self.__class__.__name__}' object has no attribute '{name}'")
 
 
 class Signature:
@@ -1426,7 +1640,7 @@ class Signature:
         try:
             response = requests.post(
                 "https://threatfox-api.abuse.ch/api/v1/",
-                json={"query": "search_ioc", "search_term": searchterm,  "exact_match": True},
+                json={"query": "search_ioc", "search_term": searchterm, "exact_match": True},
                 headers={"Auth-Key": integrations_conf.abusech.apikey, "User-Agent": "CAPE Sandbox"},
             )
             return response.json()

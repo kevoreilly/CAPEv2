@@ -32,6 +32,7 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.setLevel(logging.INFO)
 
+
 class s:
     iptables = None
     iptables_save = None
@@ -110,13 +111,11 @@ def check_tuntap(vm_name, main_iface):
 
 
 def run_iptables(*args, **kwargs):
-    if kwargs and kwargs.get('netns'):
-        netns = kwargs.get('netns')
+    iptables_args = [s.iptables]
+    if netns := kwargs.get("netns"):
         iptables_args = ["/usr/sbin/ip", "netns", "exec", netns, s.iptables]
-    else:
-        iptables_args = [s.iptables]
 
-    iptables_args.extend(list(args))
+    iptables_args.extend(args)
     iptables_args.extend(["-m", "comment", "--comment", "CAPE-rooter"])
     return run(*iptables_args)
 
@@ -243,153 +242,30 @@ def disable_nat(interface):
     run_iptables("-t", "nat", "-D", "POSTROUTING", "-o", interface, "-j", "MASQUERADE")
 
 
+def _toggle_mitmdump_rule(action, interface, client, port, netns):
+    iptables_args = ["-t", "nat", action, "PREROUTING"]
+    if netns:
+        iptables_args.extend(["-p", "tcp", "--dport", "443", "-j", "REDIRECT", "--to-port", port])
+        run_iptables(*iptables_args, netns=netns)
+        iptables_args[5] = "80"
+        run_iptables(*iptables_args, netns=netns)
+    else:
+        iptables_args.extend(["-i", interface, "-s", client, "-p", "tcp", "--dport", "443", "-j", "REDIRECT", "--to-port", port])
+        run_iptables(*iptables_args)
+        iptables_args[9] = "80"
+        run_iptables(*iptables_args)
+
+
 def enable_mitmdump(interface, client, port, netns):
     """Enable mitmdump on this interface."""
-
     log.info("enable_mitmdump client: %s port: %s netns: %s", client, port, netns)
-
-    if netns:
-        # assume all traffic in network namespace can be captured
-        run_iptables(
-            "-t",
-            "nat",
-            "-I",
-            "PREROUTING",
-            "-p",
-            "tcp",
-            "--dport",
-            "443",
-            "-j",
-            "REDIRECT",
-            "--to-port",
-            port,
-            netns=netns,
-        )
-        run_iptables(
-            "-t",
-            "nat",
-            "-I",
-            "PREROUTING",
-            "-p",
-            "tcp",
-            "--dport",
-            "80",
-            "-j",
-            "REDIRECT",
-            "--to-port",
-            port,
-            netns=netns,
-        )
-    else:
-        run_iptables(
-            "-t",
-            "nat",
-            "-I",
-            "PREROUTING",
-            "-i",
-            interface,
-            "-s",
-            client,
-            "-p",
-            "tcp",
-            "--dport",
-            "443",
-            "-j",
-            "REDIRECT",
-            "--to-port",
-            port,
-        )
-        run_iptables(
-            "-t",
-            "nat",
-            "-I",
-            "PREROUTING",
-            "-i",
-            interface,
-            "-s",
-            client,
-            "-p",
-            "tcp",
-            "--dport",
-            "80",
-            "-j",
-            "REDIRECT",
-            "--to-port",
-            port
-        )
+    _toggle_mitmdump_rule("-I", interface, client, port, netns)
 
 
 def disable_mitmdump(interface, client, port, netns):
     """Disable mitmdump on this interface."""
+    _toggle_mitmdump_rule("-D", interface, client, port, netns)
 
-    if netns:
-        run_iptables(
-            "-t",
-            "nat",
-            "-D",
-            "PREROUTING",
-            "-p",
-            "tcp",
-            "--dport",
-            "443",
-            "-j",
-            "REDIRECT",
-            "--to-port",
-            port,
-            netns=netns,
-        )
-        run_iptables(
-            "-t",
-            "nat",
-            "-D",
-            "PREROUTING",
-            "-p",
-            "tcp",
-            "--dport",
-            "80",
-            "-j",
-            "REDIRECT",
-            "--to-port",
-            port,
-            netns=netns,
-        )
-    else:
-        run_iptables(
-            "-t",
-            "nat",
-            "-D",
-            "PREROUTING",
-            "-i",
-            interface,
-            "-s",
-            client,
-            "-p",
-            "tcp",
-            "--dport",
-            "443",
-            "-j",
-            "REDIRECT",
-            "--to-port",
-            port,
-        )
-        run_iptables(
-            "-t",
-            "nat",
-            "-D",
-            "PREROUTING",
-            "-i",
-            interface,
-            "-s",
-            client,
-            "-p",
-            "tcp",
-            "--dport",
-            "80",
-            "-j",
-            "REDIRECT",
-            "--to-port",
-            port,
-        )
 
 def polarproxy_enable(interface, client, tls_port, proxy_port):
     log.info("Enabling polarproxy route.")
@@ -410,24 +286,12 @@ def polarproxy_enable(interface, client, tls_port, proxy_port):
         "-j",
         "REDIRECT",
         "--to",
-        proxy_port
+        proxy_port,
     )
     run_iptables(
-        "-A",
-        "INPUT",
-        "-i",
-        interface,
-        "-p",
-        "tcp",
-        "--dport",
-        proxy_port,
-        "-m",
-        "state",
-        "--state",
-        "NEW",
-        "-j",
-        "ACCEPT"
+        "-A", "INPUT", "-i", interface, "-p", "tcp", "--dport", proxy_port, "-m", "state", "--state", "NEW", "-j", "ACCEPT"
     )
+
 
 def polarproxy_disable(interface, client, tls_port, proxy_port):
     log.info("Disabling polarproxy route.")
@@ -447,24 +311,12 @@ def polarproxy_disable(interface, client, tls_port, proxy_port):
         "-j",
         "REDIRECT",
         "--to",
-        proxy_port
+        proxy_port,
     )
     run_iptables(
-        "-D",
-        "INPUT",
-        "-i",
-        interface,
-        "-p",
-        "tcp",
-        "--dport",
-        proxy_port,
-        "-m",
-        "state",
-        "--state",
-        "NEW",
-        "-j",
-        "ACCEPT"
+        "-D", "INPUT", "-i", interface, "-p", "tcp", "--dport", proxy_port, "-m", "state", "--state", "NEW", "-j", "ACCEPT"
     )
+
 
 def init_rttable(rt_table, interface):
     """Initialise routing table for this interface using routes

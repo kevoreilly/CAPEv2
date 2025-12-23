@@ -5,6 +5,12 @@
 import datetime
 import logging
 import struct
+from contextlib import suppress
+
+from lib.cuckoo.common.logtbl import table as LOGTBL
+from lib.cuckoo.common.path_utils import path_get_filename
+from lib.cuckoo.common.utils import default_converter
+
 
 try:
     import bson
@@ -28,144 +34,17 @@ else:
     else:
         HAVE_BSON = False
 
-try:
+capemon_pb2 = None
+HAVE_PROTOBUF = False
+
+with suppress(ImportError):
     import google.protobuf  # noqa: F401
-
-    try:
-        # Ensure this module exists in your python path (generated from .proto)
-        import monitor_pb2
-    except ImportError:
-        monitor_pb2 = None
-
+    # Generated from data/capemon_pb.proto
+    # Try relative import first (if running as package)
+    import capemon_pb2
     HAVE_PROTOBUF = True
-except ImportError:
-    HAVE_PROTOBUF = False
-
-
-# ... (rest of imports)
-from lib.cuckoo.common.logtbl import table as LOGTBL
-from lib.cuckoo.common.path_utils import path_get_filename
-from lib.cuckoo.common.utils import default_converter
 
 log = logging.getLogger(__name__)
-
-
-class ProtobufParser:
-    def __init__(self, fd, task_id=None):
-        self.fd = fd
-        self.task_id = task_id
-        self.infomap = {}
-        if not HAVE_PROTOBUF:
-            log.critical("Starting ProtobufParser, but protobuf is not available!")
-        if HAVE_PROTOBUF and not monitor_pb2:
-            log.warning("ProtobufParser: monitor_pb2 module not found. Protobuf parsing will fail.")
-
-    def read_next_message(self):
-        while True:
-            data = self.fd.read(4)
-            if not data:
-                return
-
-            if len(data) != 4:
-                log.critical("ProtobufParser lacking data (header)")
-                return
-
-            blen = struct.unpack("I", data)[0]
-            if blen > MAX_MESSAGE_LENGTH:
-                log.critical("Protobuf message larger than MAX_MESSAGE_LENGTH, stopping handler")
-                return False
-
-            data = self.fd.read(blen)
-            if len(data) < blen:
-                log.critical("ProtobufParser lacking data (payload)")
-                return
-
-            if not monitor_pb2:
-                # Cannot parse without the definition
-                continue
-
-            try:
-                # Adjust 'LogMessage' to the main message class name in your .proto
-                msg = monitor_pb2.LogMessage()
-                msg.ParseFromString(data)
-                self.process_message(msg)
-            except Exception as e:
-                log.exception("Protobuf decoding error: %s", e)
-                return False
-
-            return True
-
-    def process_message(self, msg):
-        """
-        Translates a Protobuf message into Cuckoo's internal log format.
-        Assumes 'msg' has fields corresponding to the BSON structure.
-        Adjust field names (e.g., msg.process_id) to match your .proto definition.
-        """
-        # Standard Context: [index, repeated, is_success, retval, tid, time, caller, parent_caller]
-        # You might need to adjust default values if your proto doesn't have them
-        context = [
-            getattr(msg, "index", -1),
-            getattr(msg, "repeated", 0),
-            1,  # is_success (default)
-            0,  # retval (default)
-            getattr(msg, "thread_id", 0),
-            getattr(msg, "timestamp", 0),
-            getattr(msg, "return_address", 0),
-            getattr(msg, "parent_return_address", 0),
-        ]
-
-        msg_type = msg.WhichOneof("payload")  # valid for proto3 oneof fields
-
-        if msg_type == "info":
-            # Handle API Info mapping
-            info = msg.info
-            name = info.name
-            category = info.category or "unknown"
-
-            # Reconstruct arginfo from proto repeated fields
-            # Assuming info.args is a list of objects with name/type
-            arginfo = []
-            for arg in info.args:
-                arginfo.append((arg.name, arg.type))
-
-            argnames, converters = check_names_for_typeinfo(arginfo)
-            self.infomap[context[0]] = name, arginfo, argnames, converters, category
-
-        elif msg_type == "debug":
-            log.info("Debug message from monitor: %s", msg.debug.message)
-
-        elif msg_type == "new_process":
-            proc = msg.new_process
-            vmtime = datetime.datetime.fromtimestamp(proc.timestamp)
-            self.fd.log_process(context, vmtime, None, 0, "DUMMY", proc.name)
-
-        elif msg_type == "call":
-            if context[0] not in self.infomap:
-                log.warning("Got Protobuf API with unknown index: %s", context[0])
-                return
-
-            apiname, _, argnames, converters, category = self.infomap[context[0]]
-            call = msg.call
-
-            # Map arguments
-            # Assuming call.arguments is a repeated field of values corresponding to argnames order
-            # Or map generic values if your proto structure differs
-
-            # Example: assuming call.arguments matches the order of argnames
-            arguments = []
-            if len(call.arguments) == len(argnames):
-                for i, val in enumerate(call.arguments):
-                    # You might need helper to extract value from a 'Variant' proto type
-                    # e.g. val.int_value or val.string_value
-                    raw_val = val  # Simplify for example
-                    arguments.append((argnames[i], converters[i](raw_val)))
-
-            context[2] = getattr(call, "is_success", 1)
-            context[3] = getattr(call, "retval", 0)
-
-            self.fd.log_call(context, apiname, category, arguments)
-
-        # Handle other types (__process__, __thread__, etc.) similarly
 
 ###############################################################################
 # Generic BSON based protocol - by rep
@@ -453,5 +332,99 @@ class BsonParser:
                 self.fd.log_call(context, apiname, category, arguments)
 
             return True
+
+
+class ProtobufParser:
+    def __init__(self, fd, task_id=None):
+        self.fd = fd
+        self.task_id = task_id
+        self.infomap = {}
+        if not HAVE_PROTOBUF:
+            log.critical("Starting ProtobufParser, but protobuf is not available!")
+        if HAVE_PROTOBUF and not capemon_pb2:
+            log.warning("ProtobufParser: capemon_pb2 module not found. Protobuf parsing will fail.")
+
+    def read_next_message(self):
+        while True:
+            data = self.fd.read(4)
+            if not data:
+                return
+
+            if len(data) != 4:
+                log.critical("ProtobufParser lacking data (header)")
+                return
+
+            blen = struct.unpack("I", data)[0]
+            if blen > MAX_MESSAGE_LENGTH:
+                log.critical("Protobuf message larger than MAX_MESSAGE_LENGTH, stopping handler")
+                return False
+
+            data = self.fd.read(blen)
+            if len(data) < blen:
+                log.critical("ProtobufParser lacking data (payload)")
+                return
+
+            if not HAVE_PROTOBUF or not capemon_pb2:
+                # Cannot parse without the definition
+                continue
+
+            try:
+                msg = capemon_pb2.HookEvent()
+                msg.ParseFromString(data)
+                self.process_message(msg)
+            except Exception as e:
+                log.exception("Protobuf decoding error: %s", e)
+                return False
+
+            return True
+
+    def process_message(self, msg):
+        # Context: [index, repeated, is_success, retval, tid, time, caller, parent_caller]
+        context = [-1, 0, 1, 0, 0, 0, 0, 0]
+
+        msg_type = msg.WhichOneof("payload")
+
+        if msg_type == "info":
+            info = msg.info
+            name = info.name
+            category = info.category or "unknown"
+
+            arginfo = []
+            for arg in info.args:
+                arginfo.append((arg.name, arg.type))
+
+            argnames, converters = check_names_for_typeinfo(arginfo)
+            self.infomap[info.index] = name, arginfo, argnames, converters, category
+
+        elif msg_type == "debug":
+            log.info("Debug message from monitor: %s", msg.debug.message)
+
+        elif msg_type == "new_process":
+            proc = msg.new_process
+            vmtime = datetime.datetime.fromtimestamp(proc.timestamp)
+            self.fd.log_process(context, vmtime, proc.pid, proc.ppid, proc.module_path, proc.proc_name)
+
+        elif msg_type == "call":
+            call = msg.call
+            if call.index not in self.infomap:
+                log.warning("Got Protobuf API with unknown index: %s", call.index)
+                return
+
+            apiname, _, argnames, converters, category = self.infomap[call.index]
+
+            context[0] = call.index
+            context[2] = 1 if call.is_success else 0
+            context[3] = call.retval
+            context[4] = call.thread_id
+            context[5] = call.timestamp
+            context[6] = call.return_address
+            context[7] = call.parent_return_address
+
+            arguments = []
+            if len(call.arguments) == len(argnames):
+                 for i, val in enumerate(call.arguments):
+                     arguments.append((argnames[i], converters[i](val)))
+
+            self.fd.log_call(context, apiname, category, arguments)
 
 

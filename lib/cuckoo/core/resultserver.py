@@ -19,7 +19,7 @@ with suppress(ImportError):
 
 HAVE_PROTOBUF = False
 with suppress(ImportError):
-    import google.protobuf
+    import google.protobuf  # noqa: F401
 
     HAVE_PROTOBUF = True
 

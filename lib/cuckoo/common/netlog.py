@@ -29,7 +29,7 @@ else:
         HAVE_BSON = False
 
 try:
-    import google.protobuf
+    import google.protobuf # noqa F401
 
     try:
         # Ensure this module exists in your python path (generated from .proto)
@@ -43,6 +43,12 @@ except ImportError:
 
 
 # ... (rest of imports)
+from lib.cuckoo.common.logtbl import table as LOGTBL
+from lib.cuckoo.common.path_utils import path_get_filename
+from lib.cuckoo.common.utils import default_converter
+
+log = logging.getLogger(__name__)
+
 
 class ProtobufParser:
     def __init__(self, fd, task_id=None):
@@ -115,7 +121,7 @@ class ProtobufParser:
             info = msg.info
             name = info.name
             category = info.category or "unknown"
-            
+
             # Reconstruct arginfo from proto repeated fields
             # Assuming info.args is a list of objects with name/type
             arginfo = []
@@ -140,32 +146,26 @@ class ProtobufParser:
 
             apiname, _, argnames, converters, category = self.infomap[context[0]]
             call = msg.call
-            
+
             # Map arguments
             # Assuming call.arguments is a repeated field of values corresponding to argnames order
             # Or map generic values if your proto structure differs
-            
+
             # Example: assuming call.arguments matches the order of argnames
             arguments = []
             if len(call.arguments) == len(argnames):
-                 for i, val in enumerate(call.arguments):
-                     # You might need helper to extract value from a 'Variant' proto type
-                     # e.g. val.int_value or val.string_value
-                     raw_val = val  # Simplify for example
-                     arguments.append((argnames[i], converters[i](raw_val)))
-            
+                for i, val in enumerate(call.arguments):
+                    # You might need helper to extract value from a 'Variant' proto type
+                    # e.g. val.int_value or val.string_value
+                    raw_val = val  # Simplify for example
+                    arguments.append((argnames[i], converters[i](raw_val)))
+
             context[2] = getattr(call, "is_success", 1)
             context[3] = getattr(call, "retval", 0)
 
             self.fd.log_call(context, apiname, category, arguments)
 
         # Handle other types (__process__, __thread__, etc.) similarly
-
-from lib.cuckoo.common.logtbl import table as LOGTBL
-from lib.cuckoo.common.path_utils import path_get_filename
-from lib.cuckoo.common.utils import default_converter
-
-log = logging.getLogger(__name__)
 
 ###############################################################################
 # Generic BSON based protocol - by rep

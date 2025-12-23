@@ -29,7 +29,7 @@ else:
         HAVE_BSON = False
 
 try:
-    import google.protobuf # noqa F401
+    import google.protobuf  # noqa: F401
 
     try:
         # Ensure this module exists in your python path (generated from .proto)

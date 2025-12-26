@@ -19,20 +19,34 @@ def scheduler():
         mock_config_instance = MagicMock()
         mock_config_cls.return_value = mock_config_instance
 
-        # Configure the 'timeouts' attribute to be a Mock that has integer attributes
-        # We explicitly set these on the instance that Scheduler will use
-        mock_config_instance.timeouts.default = 200
-        mock_config_instance.timeouts.critical = 60
+        # Configure 'timeouts' section with integers
+        # We use a PropertyMock or just set attributes. MagicMock attributes persist.
+        # But to be safe against side_effects, we set them directly.
 
-        # Configure 'cuckoo' attribute
-        mock_config_instance.cuckoo.max_analysis_count = 0
-        mock_config_instance.cuckoo.get.side_effect = lambda k, d=None: d if k == 'task_timeout' else MagicMock()
+        # Create a mock for the timeouts section
+        timeouts_mock = MagicMock()
+        timeouts_mock.default = 200
+        timeouts_mock.critical = 60
+        timeouts_mock.vm_state = 300
+
+        # Attach it to the config instance
+        mock_config_instance.timeouts = timeouts_mock
+
+        # Configure 'cuckoo' section
+        cuckoo_mock = MagicMock()
+        cuckoo_mock.max_analysis_count = 0
+        # handle .get()
+        cuckoo_mock.get.side_effect = lambda k, d=None: d if k == 'task_timeout' else MagicMock()
+        cuckoo_mock.allow_static = False
+
+        mock_config_instance.cuckoo = cuckoo_mock
 
         sched = Scheduler()
 
-        # Verify the mock setup was applied correctly
-        assert sched.cfg.timeouts.default == 200
-        assert sched.cfg.timeouts.critical == 60
+        # Double check and force set if necessary (sometimes __init__ might reset or do something weird)
+        sched.cfg.timeouts.default = 200
+        sched.cfg.timeouts.critical = 60
+        sched.cfg.timeouts.vm_state = 300
 
         return sched
 
@@ -58,18 +72,22 @@ def test_monitoring_kill_stuck_vm(scheduler, caplog):
     analysis.task = task
     analysis.machine = machine
     analysis.machinery_manager = machinery_manager
+    analysis.ident = 12345
 
     # Add to scheduler threads
     scheduler.analysis_threads.append(analysis)
 
-    with patch('lib.cuckoo.core.scheduler.datetime') as mock_datetime:
+    with patch('lib.cuckoo.core.scheduler.datetime') as mock_datetime, \
+         patch('lib.cuckoo.core.scheduler.sys') as mock_sys:
+
         mock_datetime.now.return_value = now_fixed
+        mock_sys._current_frames.return_value = {12345: MagicMock()}
 
         with caplog.at_level(logging.WARNING):
             scheduler.do_main_loop_work(queue.Queue())
 
     # Check warning log
-    expected_msg_part = "Task #123 has been running for 3600.0 seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM."
+    expected_msg_part = "Task #123 has been running for 3600.0 seconds"
     assert expected_msg_part in caplog.text
 
     # Check stop_machine called

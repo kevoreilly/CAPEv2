@@ -6,7 +6,6 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
-HAVE_BSON = False
 try:
     import bson
 
@@ -14,11 +13,23 @@ try:
 except ImportError:
     HAVE_BSON = False
 else:
-    def bson_decode(d):
-        return bson.decode(d)
-    def bson_encode(d):
-        return bson.encode(d)
-
+    if hasattr(bson, "decode"):
+        def bson_decode(d):
+            return bson.decode(d)
+        def bson_encode(d):
+            return bson.encode(d)
+    elif hasattr(bson, "BSON"):
+        def bson_decode(d):
+            return bson.BSON(d).decode()
+        def bson_encode(d):
+            return bson.BSON.encode(d)
+    elif hasattr(bson, "loads"):
+        def bson_decode(d):
+            return bson.loads(d)
+        def bson_encode(d):
+            return bson.dumps(d)
+    else:
+        HAVE_BSON = False
 
 
 class NGram:

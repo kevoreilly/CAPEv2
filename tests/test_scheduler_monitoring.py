@@ -23,17 +23,17 @@ def test_monitoring_kill_stuck_vm(scheduler, caplog):
     task.timeout = 200
     # Started 1 hour ago
     task.started_on = datetime.now() - timedelta(seconds=3600)
-    
+
     machine = MagicMock(spec=Machine)
     machine.label = "vm1"
 
     machinery_manager = MagicMock()
-    
+
     analysis = MagicMock(spec=AnalysisManager)
     analysis.task = task
     analysis.machine = machine
     analysis.machinery_manager = machinery_manager
-    
+
     # Add to scheduler threads
     scheduler.analysis_threads.append(analysis)
 
@@ -57,17 +57,17 @@ def test_monitoring_dont_kill_healthy_vm(scheduler, caplog):
     task.timeout = 200
     # Started 10 seconds ago
     task.started_on = datetime.now() - timedelta(seconds=10)
-    
+
     machine = MagicMock(spec=Machine)
     machine.label = "vm2"
 
     machinery_manager = MagicMock()
-    
+
     analysis = MagicMock(spec=AnalysisManager)
     analysis.task = task
     analysis.machine = machine
     analysis.machinery_manager = machinery_manager
-    
+
     # Add to scheduler threads
     scheduler.analysis_threads.append(analysis)
 

@@ -204,6 +204,9 @@ critical = 60
 # shutting down a vm. Default is 300 seconds.
 vm_state = 300
 
+# Will kill VM if: Task time = timeout + critical + stuck_seconds
+stuck_seconds = 100
+
 [tmpfs]
 # only if you using volatility to speedup IO
 # mkdir -p /mnt/tmpfs

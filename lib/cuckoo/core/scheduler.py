@@ -92,8 +92,9 @@ class Scheduler:
                     continue
 
                 stuck_seconds = self.cfg.timeouts.get("stuck_seconds", 100)
+                vm_state = self.cfg.timeouts.get("vm_state", 100)
                 timeout = analysis.task.timeout or self.cfg.timeouts.default
-                max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds
+                max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds + vm_state
                 duration = (datetime.now() - analysis.task.started_on).total_seconds()
                 if duration > max_runtime:
                     log.warning(
@@ -101,7 +102,7 @@ class Scheduler:
                         analysis.task.id,
                         duration,
                     )
-                    
+
                     # Log stack trace of the stuck thread
                     try:
                         frame = sys._current_frames().get(analysis.ident)

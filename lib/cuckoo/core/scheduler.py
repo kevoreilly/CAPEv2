@@ -11,6 +11,7 @@ import signal
 import sys
 import threading
 import time
+import traceback
 from collections import defaultdict
 from datetime import datetime
 from typing import DefaultDict, List, Optional, Tuple
@@ -96,11 +97,22 @@ class Scheduler:
                 duration = (datetime.now() - analysis.task.started_on).total_seconds()
                 if duration > max_runtime:
                     log.warning(
-                        "Task #%d running for %.2fs, which is over the max of %ds. Killing VM.",
+                        "Task #%s has been running for %s seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM.",
                         analysis.task.id,
                         duration,
-                        max_runtime,
                     )
+                    
+                    # Log stack trace of the stuck thread
+                    try:
+                        frame = sys._current_frames().get(analysis.ident)
+                        if frame:
+                            stack_trace = "".join(traceback.format_stack(frame))
+                            log.warning("Stack trace of stuck thread (Task #%s):\n%s", analysis.task.id, stack_trace)
+                        else:
+                            log.warning("Could not retrieve stack trace for thread %s (Task #%s)", analysis.ident, analysis.task.id)
+                    except Exception:
+                        log.exception("Failed to log stack trace for stuck thread (Task #%s)", analysis.task.id)
+
                     try:
                         if analysis.machinery_manager and analysis.machine:
                             analysis.machinery_manager.stop_machine(analysis.machine)

@@ -22,7 +22,8 @@ def scheduler():
 
         sched = Scheduler()
 
-        # Set the specific values needed for the monitoring logic
+        # Explicitly set the mock values for timeouts to be integers
+        # We need to access the mock object that was returned by Config() inside Scheduler
         sched.cfg.timeouts.default = 200
         sched.cfg.timeouts.critical = 60
 

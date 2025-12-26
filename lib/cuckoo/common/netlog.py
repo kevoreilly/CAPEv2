@@ -13,18 +13,15 @@ try:
 except ImportError:
     HAVE_BSON = False
 else:
-    # The BSON module provided by pymongo works through its "BSON" class.
-    if hasattr(bson, "BSON"):
-
+    if hasattr(bson, "decode"):
         def bson_decode(d):
             return bson.decode(d)
-
-    # The BSON module provided by "pip3 install bson" works through the "loads" function (just like pickle etc.)
+    elif hasattr(bson, "BSON"):
+        def bson_decode(d):
+            return bson.decode(d)
     elif hasattr(bson, "loads"):
-
         def bson_decode(d):
             return bson.loads(d)
-
     else:
         HAVE_BSON = False
 

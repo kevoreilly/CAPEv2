@@ -6,6 +6,7 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+HAVE_BSON = False
 try:
     import bson
 
@@ -13,21 +14,11 @@ try:
 except ImportError:
     HAVE_BSON = False
 else:
-    # The BSON module provided by pymongo works through its "BSON" class.
-    if hasattr(bson, "BSON"):
+    def bson_decode(d):
+        return bson.decode(d)
+    def bson_encode(d):
+        return bson.encode(d)
 
-        def bson_decode(d):
-            return bson.BSON(d).decode()
-
-    # The BSON module provided by "pip3 install bson" works through the
-    # "loads" function (just like pickle etc.)
-    elif hasattr(bson, "loads"):
-
-        def bson_decode(d):
-            return bson.loads(d)
-
-    else:
-        HAVE_BSON = False
 
 
 class NGram:
@@ -167,7 +158,7 @@ class CuckooBsonCompressor:
         if final and os.path.isfile(compressed_path):
             for d in final:
                 d.pop("order")
-                edata = bson.BSON.encode(d)
+                edata = bson_encode(d)
                 fd.write(edata)
 
             os.rename(file_path, f"{file_path}.raw")
@@ -182,9 +173,7 @@ class CuckooBsonCompressor:
         # this value is used for identifying a call setup.
 
         index = msg.get("I", -1)
-        args = "".join([str(c) for c in msg["args"]])
-        content = [str(index), str(msg["T"]), str(msg["R"]), args, str(self.category), str(msg["P"])]
+        args = "".join(map(str, msg["args"]))
+        content = f"{index}{msg['T']}{msg['R']}{args}{self.category}{msg['P']}"
 
-        content = "".join(content)
-
-        return binascii.crc32(bytes(content, "utf8"))
+        return binascii.crc32(content.encode("utf8"))

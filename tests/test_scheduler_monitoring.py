@@ -14,25 +14,32 @@ def scheduler():
     with patch('lib.cuckoo.core.scheduler.Database'), \
          patch('lib.cuckoo.core.scheduler.load_categories', return_value=([], False)), \
          patch('lib.cuckoo.core.scheduler.Config') as mock_config_cls:
-
-        # Setup mock config
-        mock_config = mock_config_cls.return_value
-        mock_config.cuckoo.max_analysis_count = 0
-        mock_config.cuckoo.get.side_effect = lambda k, d=None: d if k == 'task_timeout' else MagicMock()
-
+        
+        # Create a specific mock for the config instance
+        mock_config_instance = MagicMock()
+        mock_config_cls.return_value = mock_config_instance
+        
+        # Configure the 'timeouts' attribute to be a Mock that has integer attributes
+        # We explicitly set these on the instance that Scheduler will use
+        mock_config_instance.timeouts.default = 200
+        mock_config_instance.timeouts.critical = 60
+        
+        # Configure 'cuckoo' attribute
+        mock_config_instance.cuckoo.max_analysis_count = 0
+        mock_config_instance.cuckoo.get.side_effect = lambda k, d=None: d if k == 'task_timeout' else MagicMock()
+        
         sched = Scheduler()
-
-        # Explicitly set the mock values for timeouts to be integers
-        # We need to access the mock object that was returned by Config() inside Scheduler
-        sched.cfg.timeouts.default = 200
-        sched.cfg.timeouts.critical = 60
-
+        
+        # Verify the mock setup was applied correctly
+        assert sched.cfg.timeouts.default == 200
+        assert sched.cfg.timeouts.critical == 60
+        
         return sched
 
 def test_monitoring_kill_stuck_vm(scheduler, caplog):
     # Fixed current time
     now_fixed = datetime(2023, 1, 1, 12, 0, 0)
-
+    
     # Setup stuck task
     task = MagicMock(spec=Task)
     task.id = 123
@@ -41,23 +48,23 @@ def test_monitoring_kill_stuck_vm(scheduler, caplog):
     # Config: timeout=200, critical=60. Max runtime = 200 + 60 + 100 = 360s.
     # 3600s > 360s, so it should kill.
     task.started_on = now_fixed - timedelta(seconds=3600)
-
+    
     machine = MagicMock(spec=Machine)
     machine.label = "vm1"
 
     machinery_manager = MagicMock()
-
+    
     analysis = MagicMock(spec=AnalysisManager)
     analysis.task = task
     analysis.machine = machine
     analysis.machinery_manager = machinery_manager
-
+    
     # Add to scheduler threads
     scheduler.analysis_threads.append(analysis)
 
     with patch('lib.cuckoo.core.scheduler.datetime') as mock_datetime:
         mock_datetime.now.return_value = now_fixed
-
+        
         with caplog.at_level(logging.WARNING):
             scheduler.do_main_loop_work(queue.Queue())
 
@@ -71,30 +78,30 @@ def test_monitoring_kill_stuck_vm(scheduler, caplog):
 def test_monitoring_dont_kill_healthy_vm(scheduler, caplog):
     # Fixed current time
     now_fixed = datetime(2023, 1, 1, 12, 0, 0)
-
+    
     # Setup healthy task
     task = MagicMock(spec=Task)
     task.id = 124
     task.timeout = 200
     # Started 10 seconds ago
     task.started_on = now_fixed - timedelta(seconds=10)
-
+    
     machine = MagicMock(spec=Machine)
     machine.label = "vm2"
 
     machinery_manager = MagicMock()
-
+    
     analysis = MagicMock(spec=AnalysisManager)
     analysis.task = task
     analysis.machine = machine
     analysis.machinery_manager = machinery_manager
-
+    
     # Add to scheduler threads
     scheduler.analysis_threads.append(analysis)
 
     with patch('lib.cuckoo.core.scheduler.datetime') as mock_datetime:
         mock_datetime.now.return_value = now_fixed
-
+        
         with caplog.at_level(logging.WARNING):
             scheduler.do_main_loop_work(queue.Queue())
 

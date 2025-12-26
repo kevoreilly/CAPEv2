@@ -6,30 +6,13 @@ from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+# bson from pymongo is C so is faster
 try:
     import bson
 
     HAVE_BSON = True
 except ImportError:
     HAVE_BSON = False
-else:
-    if hasattr(bson, "decode"):
-        def bson_decode(d):
-            return bson.decode(d)
-        def bson_encode(d):
-            return bson.encode(d)
-    elif hasattr(bson, "BSON"):
-        def bson_decode(d):
-            return bson.BSON(d).decode()
-        def bson_encode(d):
-            return bson.BSON.encode(d)
-    elif hasattr(bson, "loads"):
-        def bson_decode(d):
-            return bson.loads(d)
-        def bson_encode(d):
-            return bson.dumps(d)
-    else:
-        HAVE_BSON = False
 
 
 class NGram:
@@ -101,7 +84,7 @@ class CuckooBsonCompressor:
         _size = struct.unpack("I", data)[0]
         data += self.fd_in.read(_size - 4)
         self.raw_data = data
-        return (data, bson_decode(data))
+        return (data, bson.decode(data))
 
     def run(self, file_path):
         if not os.path.isfile(file_path) and os.stat(file_path).st_size:
@@ -169,7 +152,7 @@ class CuckooBsonCompressor:
         if final and os.path.isfile(compressed_path):
             for d in final:
                 d.pop("order")
-                edata = bson_encode(d)
+                edata = bson.encode(d)
                 fd.write(edata)
 
             os.rename(file_path, f"{file_path}.raw")

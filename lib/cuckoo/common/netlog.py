@@ -6,24 +6,13 @@ import datetime
 import logging
 import struct
 
+# bson from pymongo is C so is faster
 try:
     import bson
 
     HAVE_BSON = True
 except ImportError:
     HAVE_BSON = False
-else:
-    if hasattr(bson, "decode"):
-        def bson_decode(d):
-            return bson.decode(d)
-    elif hasattr(bson, "BSON"):
-        def bson_decode(d):
-            return bson.decode(d)
-    elif hasattr(bson, "loads"):
-        def bson_decode(d):
-            return bson.loads(d)
-    else:
-        HAVE_BSON = False
 
 from lib.cuckoo.common.logtbl import table as LOGTBL
 from lib.cuckoo.common.path_utils import path_get_filename
@@ -205,7 +194,7 @@ class BsonParser:
                 return
 
             try:
-                dec = bson_decode(data)
+                dec = bson.decode(data)
             except Exception as e:
                 log.warning("BsonParser decoding problem %s on data[:50] %s", e, data[:50])
                 return False

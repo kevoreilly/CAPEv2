@@ -12,6 +12,7 @@ import sys
 import threading
 import time
 from collections import defaultdict
+from datetime import datetime
 from typing import DefaultDict, List, Optional, Tuple
 
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
@@ -83,6 +84,28 @@ class Scheduler:
 
     def do_main_loop_work(self, error_queue: queue.Queue) -> SchedulerCycleDelay:
         """Return the number of seconds to sleep after returning."""
+        # Monitor and kill stuck VMs
+        with self.analysis_threads_lock:
+            for analysis in self.analysis_threads:
+                if not analysis.machine or not analysis.task or not analysis.task.started_on:
+                    continue
+
+                timeout = analysis.task.timeout or self.cfg.timeouts.default
+                max_runtime = timeout + self.cfg.timeouts.critical + 100
+                duration = (datetime.now() - analysis.task.started_on).total_seconds()
+
+                if duration > max_runtime:
+                    log.warning(
+                        "Task #%s has been running for %s seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM.",
+                        analysis.task.id,
+                        duration,
+                    )
+                    try:
+                        if analysis.machinery_manager and analysis.machine:
+                            analysis.machinery_manager.stop_machine(analysis.machine)
+                    except Exception as e:
+                        log.error("Failed to kill stuck VM for task #%s: %s", analysis.task.id, e)
+
         if self.loop_state == LoopState.STOPPING:
             # This blocks the main loop until the analyses are finished.
             self.wait_for_running_analyses_to_finish()

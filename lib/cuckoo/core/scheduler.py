@@ -90,15 +90,16 @@ class Scheduler:
                 if not analysis.machine or not analysis.task or not analysis.task.started_on:
                     continue
 
+                stuck_seconds = self.cfg.timeouts.get("stuck_seconds", 100)
                 timeout = analysis.task.timeout or self.cfg.timeouts.default
-                max_runtime = timeout + self.cfg.timeouts.critical + 100
+                max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds
                 duration = (datetime.now() - analysis.task.started_on).total_seconds()
-
                 if duration > max_runtime:
                     log.warning(
-                        "Task #%s has been running for %s seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM.",
+                        "Task #%d running for %.2fs, which is over the max of %ds. Killing VM.",
                         analysis.task.id,
                         duration,
+                        max_runtime,
                     )
                     try:
                         if analysis.machinery_manager and analysis.machine:

@@ -1,5 +1,6 @@
 import binascii
 import logging
+import mmap
 import os
 import struct
 from pathlib import Path
@@ -76,50 +77,105 @@ class CuckooBsonCompressor:
         self.callmap = {}
         self.head = []
         self.ccounter = 0
+        self.category = None
 
-    def __next_message(self):
-        data = self.fd_in.read(4)
-        if not data:
-            return (False, False)
-        _size = struct.unpack("I", data)[0]
-        data += self.fd_in.read(_size - 4)
-        self.raw_data = data
-        return (data, bson.decode(data))
+    def _process_message(self, msg, data):
+        mtype = msg.get("type")  # message type [debug, new_process, info]
+        if mtype in {"debug", "new_process", "info"}:
+            self.category = msg.get("category", "None")
+            self.head.append(data)
+
+        elif self.category and self.category.startswith("__"):
+            self.head.append(data)
+        else:
+            tid = msg.get("T", -1)
+            time = msg.get("t", 0)
+
+            if tid not in self.threads:
+                self.threads[tid] = Compressor(100)
+
+            csum = self.checksum(msg)
+            self.ccounter += 1
+            v = (csum, self.ccounter, time)
+            self.threads[tid].add(v)
+
+            if csum not in self.callmap:
+                self.callmap[csum] = msg
 
     def run(self, file_path):
-        if not os.path.isfile(file_path) and os.stat(file_path).st_size:
+        if not os.path.isfile(file_path) or not os.stat(file_path).st_size:
             log.warning("File %s does not exists or it is invalid", file_path)
             return False
 
-        self.fd_in = open(file_path, "rb")
+        with open(file_path, "rb") as f:
+            try:
+                mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            except ValueError:
+                return False
 
-        msg = "---"
-        while msg:
-            data, msg = self.__next_message()
+            offset = 0
+            size_mm = len(mm)
 
-            if msg:
-                mtype = msg.get("type")  # message type [debug, new_process, info]
-                if mtype in {"debug", "new_process", "info"}:
-                    self.category = msg.get("category", "None")
-                    self.head.append(data)
+            while offset < size_mm:
+                # Read size (4 bytes)
+                if offset + 4 > size_mm:
+                    break
 
-                elif self.category.startswith("__"):
-                    self.head.append(data)
-                else:
-                    tid = msg.get("T", -1)
-                    time = msg.get("t", 0)
+                # Slicing mmap returns bytes
+                size_bytes = mm[offset : offset + 4]
+                _size = struct.unpack("I", size_bytes)[0]
 
-                    if tid not in self.threads:
-                        self.threads[tid] = Compressor(100)
+                if offset + _size > size_mm:
+                    break
 
-                    csum = self.checksum(msg)
-                    self.ccounter += 1
-                    v = (csum, self.ccounter, time)
-                    self.threads[tid].add(v)
+                data = mm[offset : offset + _size]
+                offset += _size
 
-                    if csum not in self.callmap:
-                        self.callmap[csum] = msg
-        self.fd_in.close()
+                try:
+                    msg = bson.decode(data)
+                except Exception:
+                    break
+
+                if msg:
+                    self._process_message(msg, data)
+
+            mm.close()
+
+        return self.flush(file_path)
+
+    def run_standard(self, file_path):
+        if not os.path.isfile(file_path) or not os.stat(file_path).st_size:
+            log.warning("File %s does not exists or it is invalid", file_path)
+            return False
+
+        with open(file_path, "rb") as f:
+            while True:
+                size_bytes = f.read(4)
+                if len(size_bytes) < 4:
+                    break
+
+                try:
+                    _size = struct.unpack("I", size_bytes)[0]
+                except struct.error:
+                    break
+
+                remaining = _size - 4
+                if remaining < 0:
+                    break
+
+                data_body = f.read(remaining)
+                if len(data_body) < remaining:
+                    break
+
+                data = size_bytes + data_body
+
+                try:
+                    msg = bson.decode(data)
+                except Exception:
+                    break
+
+                if msg:
+                    self._process_message(msg, data)
 
         return self.flush(file_path)
 
@@ -171,3 +227,71 @@ class CuckooBsonCompressor:
         content = f"{index}{msg['T']}{msg['R']}{args}{self.category}{msg['P']}"
 
         return binascii.crc32(content.encode("utf8"))
+
+
+if __name__ == "__main__":
+    import argparse
+    import shutil
+    import tempfile
+    import time
+    import sys
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file", help="Path to BSON file to compress")
+    args = parser.parse_args()
+
+    if not os.path.exists(args.file):
+        print(f"File {args.file} not found.")
+        sys.exit(1)
+
+    print(f"Testing compression on {args.file}")
+
+    # Prepare temp files
+    fd1, temp_mmap = tempfile.mkstemp()
+    os.close(fd1)
+    fd2, temp_std = tempfile.mkstemp()
+    os.close(fd2)
+
+    try:
+        shutil.copy(args.file, temp_mmap)
+        shutil.copy(args.file, temp_std)
+        
+        # Test mmap
+        print("Running with mmap...")
+        start_mmap = time.time()
+        compressor_mmap = CuckooBsonCompressor()
+        res_mmap = compressor_mmap.run(temp_mmap)
+        end_mmap = time.time()
+        
+        if res_mmap:
+            print(f"mmap version took: {end_mmap - start_mmap:.4f} seconds")
+        else:
+            print("mmap version failed.")
+
+        # Test standard
+        print("Running without mmap...")
+        start_std = time.time()
+        compressor_std = CuckooBsonCompressor()
+        res_std = compressor_std.run_standard(temp_std)
+        end_std = time.time()
+
+        if res_std:
+            print(f"Standard version took: {end_std - start_std:.4f} seconds")
+        else:
+            print("Standard version failed.")
+
+    finally:
+        # Cleanup
+        if os.path.exists(temp_mmap):
+            os.remove(temp_mmap)
+        if os.path.exists(f"{temp_mmap}.compressed"):
+            os.remove(f"{temp_mmap}.compressed")
+        if os.path.exists(f"{temp_mmap}.raw"):
+            os.remove(f"{temp_mmap}.raw")
+
+        if os.path.exists(temp_std):
+            os.remove(temp_std)
+        if os.path.exists(f"{temp_std}.compressed"):
+            os.remove(f"{temp_std}.compressed")
+        if os.path.exists(f"{temp_std}.raw"):
+            os.remove(f"{temp_std}.raw")

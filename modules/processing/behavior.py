@@ -91,8 +91,8 @@ class ParseProcessLog(list):
         try:
             self.mm = mmap.mmap(self.fd.fileno(), 0, access=mmap.ACCESS_READ)
             self.use_mmap = True
-        except Exception:
-            pass
+        except (ValueError, OSError) as e:
+            log.debug("mmap failed, falling back to standard file reading: %s", e)
 
         self.parser = BsonParser(self)
 

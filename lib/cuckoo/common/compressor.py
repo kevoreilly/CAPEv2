@@ -83,10 +83,10 @@ class CuckooBsonCompressor:
         mtype = msg.get("type")  # message type [debug, new_process, info]
         if mtype in {"debug", "new_process", "info"}:
             self.category = msg.get("category", "None")
-            self.head.append(data)
+            self.head.append(data.tobytes() if isinstance(data, memoryview) else data)
 
         elif self.category and self.category.startswith("__"):
-            self.head.append(data)
+            self.head.append(data.tobytes() if isinstance(data, memoryview) else data)
         else:
             tid = msg.get("T", -1)
             time = msg.get("t", 0)
@@ -110,6 +110,7 @@ class CuckooBsonCompressor:
         with open(file_path, "rb") as f:
             try:
                 mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+                mv = memoryview(mm)
             except ValueError:
                 return False
 
@@ -121,14 +122,14 @@ class CuckooBsonCompressor:
                 if offset + 4 > size_mm:
                     break
 
-                # Slicing mmap returns bytes
-                size_bytes = mm[offset : offset + 4]
+                # Slicing memoryview returns memoryview
+                size_bytes = mv[offset : offset + 4]
                 _size = struct.unpack("I", size_bytes)[0]
 
                 if offset + _size > size_mm:
                     break
 
-                data = mm[offset : offset + _size]
+                data = mv[offset : offset + _size]
                 offset += _size
 
                 try:

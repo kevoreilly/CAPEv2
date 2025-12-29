@@ -129,8 +129,13 @@ class CuckooBsonCompressor:
 
                 if msg:
                     self._process_message(msg, data)
-    
-    def run(self, file_path):
+
+    def run(self, file_path, use_mmap=False):
+        if use_mmap:
+            return self._run_mmap(file_path)
+        return self._run_standard(file_path)
+
+    def _run_mmap(self, file_path):
         if not os.path.isfile(file_path) or not os.stat(file_path).st_size:
             log.warning("File %s does not exists or it is invalid", file_path)
             return False
@@ -148,7 +153,7 @@ class CuckooBsonCompressor:
 
         return self.flush(file_path)
 
-    def run_standard(self, file_path):
+    def _run_standard(self, file_path):
         if not os.path.isfile(file_path) or not os.stat(file_path).st_size:
             log.warning("File %s does not exists or it is invalid", file_path)
             return False
@@ -236,67 +241,27 @@ class CuckooBsonCompressor:
 
 if __name__ == "__main__":
     import argparse
-    import shutil
-    import tempfile
     import time
     import sys
 
     parser = argparse.ArgumentParser()
     parser.add_argument("file", help="Path to BSON file to compress")
+    parser.add_argument("--mmap", action="store_true", help="Use mmap for compression")
     args = parser.parse_args()
 
     if not os.path.exists(args.file):
         print(f"File {args.file} not found.")
         sys.exit(1)
 
-    print(f"Testing compression on {args.file}")
+    print(f"Compressing {args.file}...")
+    start = time.time()
 
-    # Prepare temp files
-    fd1, temp_mmap = tempfile.mkstemp()
-    os.close(fd1)
-    fd2, temp_std = tempfile.mkstemp()
-    os.close(fd2)
+    compressor = CuckooBsonCompressor()
+    result = compressor.run(args.file, use_mmap=args.mmap)
 
-    try:
-        shutil.copy(args.file, temp_mmap)
-        shutil.copy(args.file, temp_std)
+    end = time.time()
 
-        # Test mmap
-        print("Running with mmap...")
-        start_mmap = time.time()
-        compressor_mmap = CuckooBsonCompressor()
-        res_mmap = compressor_mmap.run(temp_mmap)
-        end_mmap = time.time()
-
-        if res_mmap:
-            print(f"mmap version took: {end_mmap - start_mmap:.4f} seconds")
-        else:
-            print("mmap version failed.")
-
-        # Test standard
-        print("Running without mmap...")
-        start_std = time.time()
-        compressor_std = CuckooBsonCompressor()
-        res_std = compressor_std.run_standard(temp_std)
-        end_std = time.time()
-
-        if res_std:
-            print(f"Standard version took: {end_std - start_std:.4f} seconds")
-        else:
-            print("Standard version failed.")
-
-    finally:
-        # Cleanup
-        if os.path.exists(temp_mmap):
-            os.remove(temp_mmap)
-        if os.path.exists(f"{temp_mmap}.compressed"):
-            os.remove(f"{temp_mmap}.compressed")
-        if os.path.exists(f"{temp_mmap}.raw"):
-            os.remove(f"{temp_mmap}.raw")
-
-        if os.path.exists(temp_std):
-            os.remove(temp_std)
-        if os.path.exists(f"{temp_std}.compressed"):
-            os.remove(f"{temp_std}.compressed")
-        if os.path.exists(f"{temp_std}.raw"):
-            os.remove(f"{temp_std}.raw")
+    if result:
+        print(f"Compression successful. Took {end - start:.4f} seconds.")
+    else:
+        print("Compression failed.")

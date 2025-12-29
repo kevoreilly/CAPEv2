@@ -62,6 +62,7 @@ class ParseProcessLog(list):
         self.call_id = 0
         self.conversion_cache = {}
         self.options = options
+        self.options.ram_mmap = self.options.ram_mmap if self.options.ram_mmap else False
         # Limit of API calls per process
         self.api_limit = self.options.analysis_call_limit
 
@@ -78,6 +79,20 @@ class ParseProcessLog(list):
                     self.api_call_cache.append(i)
             self.api_call_cache.append(None)
 
+            # Close mmap and file descriptor after reading all data into cache
+            self.close()
+
+    def close(self):
+        if hasattr(self, "mv") and self.mv:
+            self.mv.release()
+            self.mv = None
+        if hasattr(self, "mm") and self.mm:
+            self.mm.close()
+            self.mm = None
+        if self.fd:
+            self.fd.close()
+            self.fd = None
+
     def parse_first_and_reset(self):
         """Open file and init Bson Parser. Read till first process"""
         if not self._log_path.endswith(".bson"):
@@ -87,12 +102,16 @@ class ParseProcessLog(list):
 
         self.use_mmap = False
         self.mm = None
+        self.mv = None
         self.mm_pos = 0
-        try:
-            self.mm = mmap.mmap(self.fd.fileno(), 0, access=mmap.ACCESS_READ)
-            self.use_mmap = True
-        except (ValueError, OSError) as e:
-            log.debug("mmap failed, falling back to standard file reading: %s", e)
+
+        if self.options.ram_mmap:
+            try:
+                self.mm = mmap.mmap(self.fd.fileno(), 0, access=mmap.ACCESS_READ)
+                self.mv = memoryview(self.mm)
+                self.use_mmap = True
+            except (ValueError, OSError) as e:
+                log.debug("mmap failed, falling back to standard file reading: %s", e)
 
         self.parser = BsonParser(self)
 
@@ -122,7 +141,7 @@ class ParseProcessLog(list):
         if self.use_mmap:
             if self.mm_pos + length > len(self.mm):
                 raise EOFError()
-            buf = self.mm[self.mm_pos : self.mm_pos + length]
+            buf = self.mv[self.mm_pos : self.mm_pos + length]
             self.mm_pos += length
             return buf
 
@@ -465,7 +484,7 @@ class Processes:
     def compress_log_file(self, file_path):
         if file_path.endswith(".bson") and os.stat(file_path).st_size:
             try:
-                if not CuckooBsonCompressor().run(file_path):
+                if not CuckooBsonCompressor().run(file_path, use_mmap=self.options.ram_mmap):
                     log.debug("Could not execute loop detection analysis")
                 else:
                     log.debug("BSON was compressed successfully")

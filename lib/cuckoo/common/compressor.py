@@ -255,14 +255,14 @@ if __name__ == "__main__":
     try:
         shutil.copy(args.file, temp_mmap)
         shutil.copy(args.file, temp_std)
-        
+
         # Test mmap
         print("Running with mmap...")
         start_mmap = time.time()
         compressor_mmap = CuckooBsonCompressor()
         res_mmap = compressor_mmap.run(temp_mmap)
         end_mmap = time.time()
-        
+
         if res_mmap:
             print(f"mmap version took: {end_mmap - start_mmap:.4f} seconds")
         else:

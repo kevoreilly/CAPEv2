@@ -84,7 +84,7 @@ class ParseProcessLog(list):
             return
 
         self.fd = open(self._log_path, "rb")
-        
+
         self.use_mmap = False
         self.mm = None
         self.mm_pos = 0
@@ -118,14 +118,14 @@ class ParseProcessLog(list):
         """
         if not length or length < 0:
             return b""
-        
+
         if self.use_mmap:
             if self.mm_pos + length > len(self.mm):
                 raise EOFError()
             buf = self.mm[self.mm_pos : self.mm_pos + length]
             self.mm_pos += length
             return buf
-        
+
         buf = self.fd.read(length)
         if not buf or len(buf) != length:
             raise EOFError()
@@ -498,7 +498,7 @@ class Summary:
         self.executed_commands = []
         self.resolved_apis = []
         self.options = options
-        
+
         self.dispatch = {
             "NtCreateKey": self._handle_NtCreateKey,
             "NtDeleteValueKey": self._handle_NtDeleteKey,

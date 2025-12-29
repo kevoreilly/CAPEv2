@@ -265,7 +265,7 @@ class Sniffer(Auxiliary):
 
                 subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path], timeout=300)
                 subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2], timeout=30)
-            except Exception as e:
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
                 log.error("Error stopping remote sniffer: %s", e)
             return
 

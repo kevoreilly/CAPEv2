@@ -102,6 +102,34 @@ class CuckooBsonCompressor:
             if csum not in self.callmap:
                 self.callmap[csum] = msg
 
+    def _process_mmap_content(self, mm):
+        with memoryview(mm) as mv:
+            offset = 0
+            size_mm = len(mm)
+
+            while offset < size_mm:
+                # Read size (4 bytes)
+                if offset + 4 > size_mm:
+                    break
+
+                # Slicing memoryview returns memoryview
+                size_bytes = mv[offset : offset + 4]
+                _size = struct.unpack("I", size_bytes)[0]
+
+                if offset + _size > size_mm:
+                    break
+
+                data = mv[offset : offset + _size]
+                offset += _size
+
+                try:
+                    msg = bson.decode(data)
+                except Exception:
+                    break
+
+                if msg:
+                    self._process_message(msg, data)
+    
     def run(self, file_path):
         if not os.path.isfile(file_path) or not os.stat(file_path).st_size:
             log.warning("File %s does not exists or it is invalid", file_path)
@@ -113,40 +141,10 @@ class CuckooBsonCompressor:
             except ValueError:
                 return False
 
-            with memoryview(mm) as mv:
-                offset = 0
-                size_mm = len(mm)
-
-                while offset < size_mm:
-                    # Read size (4 bytes)
-                    if offset + 4 > size_mm:
-                        break
-
-                    # Slicing memoryview returns memoryview
-                    size_bytes = mv[offset : offset + 4]
-                    _size = struct.unpack("I", size_bytes)[0]
-
-                    if offset + _size > size_mm:
-                        break
-
-                    data = mv[offset : offset + _size]
-                    offset += _size
-
-                    try:
-                        msg = bson.decode(data)
-                    except Exception:
-                        break
-
-                    if msg:
-                        self._process_message(msg, data)
-                
-                # Explicitly release references to memoryviews to allow mmap to close
-                if "data" in locals():
-                    del data
-                if "size_bytes" in locals():
-                    del size_bytes
-
-            mm.close()
+            try:
+                self._process_mmap_content(mm)
+            finally:
+                mm.close()
 
         return self.flush(file_path)
 

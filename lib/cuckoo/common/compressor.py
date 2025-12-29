@@ -110,35 +110,35 @@ class CuckooBsonCompressor:
         with open(file_path, "rb") as f:
             try:
                 mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
-                mv = memoryview(mm)
             except ValueError:
                 return False
 
-            offset = 0
-            size_mm = len(mm)
+            with memoryview(mm) as mv:
+                offset = 0
+                size_mm = len(mm)
 
-            while offset < size_mm:
-                # Read size (4 bytes)
-                if offset + 4 > size_mm:
-                    break
+                while offset < size_mm:
+                    # Read size (4 bytes)
+                    if offset + 4 > size_mm:
+                        break
 
-                # Slicing memoryview returns memoryview
-                size_bytes = mv[offset : offset + 4]
-                _size = struct.unpack("I", size_bytes)[0]
+                    # Slicing memoryview returns memoryview
+                    size_bytes = mv[offset : offset + 4]
+                    _size = struct.unpack("I", size_bytes)[0]
 
-                if offset + _size > size_mm:
-                    break
+                    if offset + _size > size_mm:
+                        break
 
-                data = mv[offset : offset + _size]
-                offset += _size
+                    data = mv[offset : offset + _size]
+                    offset += _size
 
-                try:
-                    msg = bson.decode(data)
-                except Exception:
-                    break
+                    try:
+                        msg = bson.decode(data)
+                    except Exception:
+                        break
 
-                if msg:
-                    self._process_message(msg, data)
+                    if msg:
+                        self._process_message(msg, data)
 
             mm.close()
 

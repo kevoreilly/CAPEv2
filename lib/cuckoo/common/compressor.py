@@ -139,6 +139,12 @@ class CuckooBsonCompressor:
 
                     if msg:
                         self._process_message(msg, data)
+                
+                # Explicitly release references to memoryviews to allow mmap to close
+                if "data" in locals():
+                    del data
+                if "size_bytes" in locals():
+                    del size_bytes
 
             mm.close()
 

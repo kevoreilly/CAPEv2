@@ -120,6 +120,8 @@ class GCS(Report):
                     continue
 
                 local_path = os.path.join(root, filename)
+                if not os.path.exists(local_path):
+                    continue
                 relative_path = os.path.relpath(local_path, source_directory)
                 yield local_path, relative_path
 
@@ -130,7 +132,6 @@ class GCS(Report):
             zip_name = "%s_tlp_%s.zip" % analysis_id, tlp
         else:
             zip_name = "%s.zip" % analysis_id
-
         blob_name = zip_name
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
@@ -138,7 +139,6 @@ class GCS(Report):
             with zipfile.ZipFile(tmp_zip_file, "w", zipfile.ZIP_DEFLATED) as archive:
                 for local_path, relative_path in self._iter_files_to_upload(source_directory, exclude_dirs, exclude_files):
                     archive.write(local_path, relative_path)
-
         try:
             log.debug("Uploading '%s' to '%s'", tmp_zip_file_name, blob_name)
             blob = bucket.blob(blob_name)
@@ -153,7 +153,6 @@ class GCS(Report):
         folder_name = analysis_id
         if tlp:
             folder_name = "%s_tlp_%s" % analysis_id, tlp
-
         for local_path, relative_path in self._iter_files_to_upload(source_directory, exclude_dirs, exclude_files):
             blob_name = f"{folder_name}/{relative_path}"
             log.debug("Uploading '%s' to '%s'", local_path, blob_name)

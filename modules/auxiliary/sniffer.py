@@ -191,27 +191,43 @@ class Sniffer(Auxiliary):
                 f.write(f"echo $PID > /tmp/{self.task.id}.pid")
                 f.write("\n")
 
-            subprocess.check_output(
-                ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"],
-            )
-            subprocess.check_output(
-                ["ssh", remote_host, "nohup", "/bin/bash", f"/tmp/{self.task.id}.sh", ">", "/tmp/log", "2>", "/tmp/err"],
-            )
+            try:
+                subprocess.check_output(
+                    ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"], timeout=30
+                )
+                subprocess.check_output(
+                    [
+                        "ssh",
+                        remote_host,
+                        "nohup",
+                        "/bin/bash",
+                        f"/tmp/{self.task.id}.sh",
+                        ">",
+                        "/tmp/log",
+                        "2>",
+                        "/tmp/err",
+                    ],
+                    timeout=30,
+                )
 
-            self.pid = subprocess.check_output(
-                ["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=subprocess.DEVNULL
-            ).strip()
-            log.info(
-                "Started remote sniffer @ %s with (interface=%s, host=%s, dump path=%s, pid=%s)",
-                remote_host,
-                interface,
-                host,
-                file_path,
-                self.pid,
-            )
-            subprocess.check_output(
-                ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"],
-            )
+                self.pid = subprocess.check_output(
+                    ["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=subprocess.DEVNULL, timeout=30
+                ).strip()
+                log.info(
+                    "Started remote sniffer @ %s with (interface=%s, host=%s, dump path=%s, pid=%s)",
+                    remote_host,
+                    interface,
+                    host,
+                    file_path,
+                    self.pid,
+                )
+                subprocess.check_output(
+                    ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"], timeout=30
+                )
+            except subprocess.TimeoutExpired:
+                log.error("Timeout connecting to remote host %s", remote_host)
+            except subprocess.CalledProcessError as e:
+                log.error("Error connecting to remote host %s: %s", remote_host, e)
 
         else:
             try:
@@ -220,7 +236,13 @@ class Sniffer(Auxiliary):
                 log.exception("Failed to start sniffer (interface=%s, host=%s, dump path=%s)", interface, host, file_path)
                 return
 
-            log.info("Started sniffer with PID %d (interface=%s, host=%s, dump path=%s)", self.proc.pid, interface, host, file_path)
+            log.info(
+                "Started sniffer with PID %d (interface=%s, host=%s, dump path=%s)",
+                self.proc.pid,
+                interface,
+                host,
+                file_path,
+            )
 
     def stop(self):
         """Stop sniffing.
@@ -235,13 +257,16 @@ class Sniffer(Auxiliary):
             remote_host = self.options.get("host", "")
             remote_args = ["ssh", remote_host, "kill", "-2", self.pid]
 
-            subprocess.check_output(remote_args)
+            try:
+                subprocess.check_output(remote_args, timeout=30)
 
-            file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
-            file_path2 = f"/tmp/tcp.dump.{self.task.id}"
+                file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
+                file_path2 = f"/tmp/tcp.dump.{self.task.id}"
 
-            subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path])
-            subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2])
+                subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path], timeout=300)
+                subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2], timeout=30)
+            except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
+                log.error("Error stopping remote sniffer: %s", e)
             return
 
         if self.proc and not self.proc.poll():
@@ -249,8 +274,9 @@ class Sniffer(Auxiliary):
                 # We must kill the child process that sudo spawned. We won't
                 # have permission to kill the parent process because it's owned by root.
                 try:
-                    pid = int(subprocess.check_output(["ps", "--ppid", str(self.proc.pid), "-o", "pid="]).decode())
-                except (subprocess.CalledProcessError, TypeError, ValueError):
+                    output = subprocess.check_output(["ps", "--ppid", str(self.proc.pid), "-o", "pid="]).decode().strip()
+                    pid = int(output.split()[0])
+                except (subprocess.CalledProcessError, TypeError, ValueError, IndexError):
                     log.exception("Failed to get child pid of sudo process to stop the sniffer.")
                     return
                 term_func = functools.partial(os.kill, pid, signal.SIGTERM)
@@ -261,14 +287,14 @@ class Sniffer(Auxiliary):
                 pid = self.proc.pid
             try:
                 term_func()
-                _, _ = self.proc.communicate()
+                _, _ = self.proc.communicate(timeout=5)
             except Exception as e:
                 log.error("Unable to stop the sniffer (first try) with pid %d: %s", pid, e)
                 try:
                     if not self.proc.poll():
                         log.debug("Killing sniffer")
                         kill_func()
-                        _, _ = self.proc.communicate()
+                        _, _ = self.proc.communicate(timeout=5)
                 except OSError as e:
                     log.debug("Error killing sniffer: %s, continuing", e)
                 except Exception as e:

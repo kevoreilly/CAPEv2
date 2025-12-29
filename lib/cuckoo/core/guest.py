@@ -107,11 +107,11 @@ class GuestManager:
 
             try:
                 r = session.get(url, *args, **kwargs)
-            except requests.ConnectionError:
+            except requests.ConnectionError as e:
                 raise CuckooGuestError(
-                    "CAPE Agent failed without error status, please try "
-                    "upgrading to the latest version of agent.py (>= 0.10) and "
-                    "notify us if the issue persists"
+                    f"CAPE Agent failed without error status, please try "
+                    f"upgrading to the latest version of agent.py (>= 0.10) and "
+                    f"notify us if the issue persists. Error: {e}"
                 )
 
         do_raise and r.raise_for_status()
@@ -134,11 +134,11 @@ class GuestManager:
 
         try:
             r = session.post(url, *args, **kwargs)
-        except requests.ConnectionError:
+        except requests.ConnectionError as e:
             raise CuckooGuestError(
-                "CAPE Agent failed without error status, please try "
-                "upgrading to the latest version of agent.py (>= 0.10) and "
-                "notify us if the issue persists"
+                f"CAPE Agent failed without error status, please try "
+                f"upgrading to the latest version of agent.py (>= 0.10) and "
+                f"notify us if the issue persists. Error: {e}"
             )
 
         r.raise_for_status()
@@ -377,14 +377,15 @@ class GuestManager:
 
             try:
                 status = self.get("/status", timeout=5).json()
-            except (CuckooGuestError, requests.exceptions.ReadTimeout):
+            except (CuckooGuestError, requests.exceptions.ReadTimeout) as e:
                 # this might fail due to timeouts or just temporary network
                 # issues thus we don't want to abort the analysis just yet and
                 # wait for things to recover
                 log.warning(
-                    "Task #%s: Virtual Machine %s /status failed. This can indicate the guest losing network connectivity",
+                    "Task #%s: Virtual Machine %s /status failed. This can indicate the guest losing network connectivity. Error: %s",
                     self.task_id,
                     self.vmid,
+                    e,
                 )
                 continue
             except Exception as e:

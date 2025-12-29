@@ -30,18 +30,21 @@ if __name__ == "__main__":
     parser.add_argument("--pcap-sorted-clean", help="Remove sorted pcap from jobs", action="store_true", required=False)
     parser.add_argument(
         "--suricata-zero-alert-filter",
-        help="only remove events with zero suri alerts DELETE AFTER ONLY",
+        help="only remove events with zero suri alerts (DELETE-OLDER-THAN ONLY)",
         action="store_true",
         required=False,
     )
     parser.add_argument(
-        "--urls-only-filter", help="only remove url events filter DELETE AFTER ONLY", action="store_true", required=False
+        "--urls-only-filter", help="only remove url events filter (DELETE-OLDER-THAN ONLY)", action="store_true", required=False
     )
     parser.add_argument(
-        "--files-only-filter", help="only remove files events filter DELETE AFTER ONLY", action="store_true", required=False
+        "--files-only-filter", help="only remove files events filter (DELETE-OLDER-THAN ONLY)", action="store_true", required=False
     )
     parser.add_argument(
-        "--custom-include-filter", help="Only include jobs that match the custom field DELETE AFTER ONLY", required=False
+        "--custom-include-filter", help="Only include jobs that match the custom field (DELETE-OLDER-THAN ONLY)", required=False
+    )
+    parser.add_argument(
+        "--tags-tasks-filter", help="Only include jobs whose tags_tasks contains this string (DELETE-OLDER-THAN ONLY)", required=False
     )
     parser.add_argument(
         "--bson-suri-logs-clean", help="clean bson and suri logs from analysis dirs", required=False, action="store_true"
@@ -61,6 +64,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-dm", "--delete-mongo", help="Delete data in mongo. By default keep", required=False, default=False, action="store_true"
+    )
+    parser.add_argument(
+        "-dp", "--delete-pending", help="Delete also pending tasks. By default keep", required=False, default=False, action="store_true"
     )
     parser.add_argument(
         "-duf",

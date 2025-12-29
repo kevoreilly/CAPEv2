@@ -32,6 +32,7 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_rdp import parse_rdp_file
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
+from lib.cuckoo.common.integrations.parse_msi import parse_msi
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
@@ -180,6 +181,9 @@ def static_file_info(
         and package in {"doc", "ppt", "xls", "pub"}
     ):
         log.info("Missed dependencies: pip3 install oletools")
+
+    if "MSI Installer" in data_dictionary["type"]:
+        data_dictionary["msi"] = parse_msi(file_path)
 
     # ToDo we need type checking as it wont work for most of static jobs
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
@@ -709,6 +713,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
     if "MSI Installer" not in filetype:
         return
 
+    # ToDo replace MsiExtract with pymsi
     extracted_files = []
     # sudo apt install msitools
     with extractor_ctx(file, "MsiExtract", prefix="msidump_", folder=tools_folder) as ctx:

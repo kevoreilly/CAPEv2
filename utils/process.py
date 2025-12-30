@@ -213,11 +213,13 @@ def init_worker():
             log.warning("Failed to restore Syslog handler in worker: %s", e)
 
     # Restore File Handler using WatchedFileHandler to support rotation
-    with suppress(PermissionError):
+    try:
         path = os.path.join(CUCKOO_ROOT, "log", "process.log")
         fh = logging.handlers.WatchedFileHandler(path)
         fh.setFormatter(FORMATTER)
         log.addHandler(fh)
+    except PermissionError as e:
+        log.warning("Failed to restore File handler in worker due to permissions: %s", e)
 
 
 def get_formatter_fmt(task_id=None, main_task_id=None):

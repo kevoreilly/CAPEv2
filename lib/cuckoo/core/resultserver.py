@@ -479,10 +479,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             for ctx in ctxs:
                 log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
-            # ToDo just reinforce cleanup
             task_log_stop_force(task_id)
-
-        task_log_stop_force(task_id)
 
     def create_folders(self):
         for folder in list(RESULT_UPLOADABLE) + [b"logs"]:

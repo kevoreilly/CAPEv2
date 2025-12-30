@@ -192,6 +192,31 @@ def init_worker():
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
     db.engine.dispose(close=False)
 
+    # Fix for open file handles on rotated logs in workers
+    for h in log.handlers[:]:
+        if isinstance(h, logging.FileHandler):
+            h.close()
+        log.removeHandler(h)
+
+    # Restore Console Handler
+    ch = ConsoleHandler()
+    ch.setFormatter(FORMATTER)
+    log.addHandler(ch)
+
+    # Restore Syslog Handler if enabled
+    if logconf.logger.syslog_process:
+        with suppress(Exception):
+            slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
+            slh.setFormatter(FORMATTER)
+            log.addHandler(slh)
+
+    # Restore File Handler using WatchedFileHandler to support rotation
+    with suppress(PermissionError):
+        path = os.path.join(CUCKOO_ROOT, "log", "process.log")
+        fh = logging.handlers.WatchedFileHandler(path)
+        fh.setFormatter(FORMATTER)
+        log.addHandler(fh)
+
 
 def get_formatter_fmt(task_id=None, main_task_id=None):
     """

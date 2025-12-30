@@ -162,8 +162,8 @@ def task_log_stop_force(task_id):
                 _, fp = _tasks[first_key]
                 try:
                     fp.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.warning("Failed to force-close log for task %d: %s", task_id, e)
 
         # Cleanup all references
         for thread_key in _task_threads[task_id]:

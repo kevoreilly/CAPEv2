@@ -1605,54 +1605,54 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
     """
     list_of_files = []
     for sample in samples:
-        # Error if there was only one submitted sample, and it's empty.
-        # But if there are multiple and one was empty, just ignore it.
-        if not sample.size:
-            details["errors"].append({sample.name: "You uploaded an empty file."})
-            continue
+        with sample:
+            # Error if there was only one submitted sample, and it's empty.
+            # But if there are multiple and one was empty, just ignore it.
+            if not sample.size:
+                details["errors"].append({sample.name: "You uploaded an empty file."})
+                continue
 
-        size = sample.size
-        if size > web_cfg.general.max_sample_size and not (
-            web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
-        ):
-            if not web_cfg.general.enable_trim:
+            size = sample.size
+            if size > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
+            ):
+                if not web_cfg.general.enable_trim:
+                    details["errors"].append(
+                        {
+                            sample.name: f"Uploaded file exceeds the maximum allowed size in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is: {web_cfg.general.max_sample_size / float(1 << 20):,.0f}"
+                        }
+                    )
+                    continue
+
+            data = sample.read()
+
+            if opt_filename:
+                filename = opt_filename
+            else:
+                filename = sanitize_filename(sample.name)
+
+            # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
+            try:
+                path = store_temp_file(data, filename)
+                target_file = File(path)
+                sha256 = target_file.get_sha256()
+            except OSError:
                 details["errors"].append(
-                    {
-                        sample.name: f"Uploaded file exceeds the maximum allowed size in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is: {web_cfg.general.max_sample_size / float(1 << 20):,.0f}"
-                    }
+                    {filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."}
                 )
                 continue
 
-        data = sample.read()
+            if (
+                not request.user.is_staff
+                and (web_cfg.uniq_submission.enabled or unique)
+                and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
+            ):
+                details["errors"].append(
+                    {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
+                )
+                continue
 
-        if opt_filename:
-            filename = opt_filename
-        else:
-            filename = sanitize_filename(sample.name)
-
-        # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
-        try:
-            path = store_temp_file(data, filename)
-            target_file = File(path)
-            sha256 = target_file.get_sha256()
-        except OSError:
-            details["errors"].append(
-                {filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."}
-            )
-            continue
-
-        if (
-            not request.user.is_staff
-            and (web_cfg.uniq_submission.enabled or unique)
-            and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
-        ):
-            details["errors"].append(
-                {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
-            )
-            continue
-
-        list_of_files.append((data, path, sha256))
-        sample.close()
+            list_of_files.append((data, path, sha256))
 
     return list_of_files, details
 

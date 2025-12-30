@@ -205,10 +205,12 @@ def init_worker():
 
     # Restore Syslog Handler if enabled
     if logconf.logger.syslog_process:
-        with suppress(Exception):
+        try:
             slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
             slh.setFormatter(FORMATTER)
             log.addHandler(slh)
+        except Exception as e:
+            log.warning("Failed to restore Syslog handler in worker: %s", e)
 
     # Restore File Handler using WatchedFileHandler to support rotation
     with suppress(PermissionError):

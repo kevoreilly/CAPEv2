@@ -1652,6 +1652,7 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
             continue
 
         list_of_files.append((data, path, sha256))
+        sample.close()
 
     return list_of_files, details
 
@@ -1732,9 +1733,11 @@ def submit_task(
             "filename": filename,
         }
 
-        multipart_file = [("file", (os.path.basename(target), open(target, "rb")))]
         try:
-            res = requests.post(server_url, files=multipart_file, data=options)
+            with open(target, "rb") as f:
+                multipart_file = [("file", (os.path.basename(target), f))]
+                res = requests.post(server_url, files=multipart_file, data=options)
+
             if res and res.ok:
                 task_id = res.json()["data"]["task_ids"][0]
         except Exception as e:

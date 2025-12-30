@@ -826,7 +826,7 @@ class Retriever(threading.Thread):
                                     # node_data.enabled = False
                                     # db.commit()
                 db.commit()
-                # time.sleep(5)
+                time.sleep(5)
 
     def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
         """

@@ -92,14 +92,12 @@ def check_working_directory():
     """Checks if working directories are ready.
     @raise CuckooStartupError: if directories are not properly configured.
     """
-    if not path_exists(CUCKOO_ROOT):
+    if not Path(CUCKOO_ROOT).exists():
         raise CuckooStartupError(f"You specified a non-existing root directory: {CUCKOO_ROOT}")
 
-    cwd = Path.cwd() / "cuckoo.py"
-    if not path_exists(cwd):
-        raise CuckooStartupError("You are not running Cuckoo from it's root directory")
+    if not (Path.cwd() / "cuckoo.py").exists():
+        raise CuckooStartupError("You are not running Cuckoo from its root directory")
 
-    # Check permission for tmpfs if enabled
     if cuckoo.tmpfs.enabled and not os.access(cuckoo.tmpfs.path, os.W_OK):
         raise CuckooStartupError(f"Fix permission on tmpfs path: chown cape:cape {cuckoo.tmpfs.path}")
 
@@ -108,25 +106,14 @@ def check_webgui_mongo():
     if repconf.mongodb.enabled:
         from dev_utils.mongodb import connect_to_mongo, mongo_create_index
 
-        client = connect_to_mongo()
-        if not client:
+        if not connect_to_mongo():
             sys.exit(
                 "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration\nrun `systemctl status mongodb` for more info"
             )
 
-        # Create an index based on the info.id dict key. Increases overall scalability
-        # with large amounts of data.
-        # Note: Silently ignores the creation if the index already exists.
         mongo_create_index("analysis", "info.id", name="info.id_1")
-        # Some indexes that can be useful for some users
         mongo_create_index("files", "md5", name="file_md5")
         mongo_create_index("files", [("_task_ids", 1)])
-
-        # side indexes as ideas
-        """
-            mongo_create_index("analysis", "detections", name="detections_1")
-            mongo_create_index("analysis", "target.file.name", name="name_1")
-        """
 
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check
@@ -138,13 +125,13 @@ def check_configs():
     @raise CuckooStartupError: if config files do not exist.
     """
     configs = [
-        os.path.join(CUCKOO_ROOT, "conf", "default", "cuckoo.conf.default"),
-        os.path.join(CUCKOO_ROOT, "conf", "default", "reporting.conf.default"),
-        os.path.join(CUCKOO_ROOT, "conf", "default", "auxiliary.conf.default"),
+        Path(CUCKOO_ROOT) / "conf" / "default" / "cuckoo.conf.default",
+        Path(CUCKOO_ROOT) / "conf" / "default" / "reporting.conf.default",
+        Path(CUCKOO_ROOT) / "conf" / "default" / "auxiliary.conf.default",
     ]
 
     for config in configs:
-        if not path_exists(config):
+        if not config.exists():
             raise CuckooStartupError(f"Config file does not exist at path: {config}")
 
     if cuckoo.resultserver.ip in ("127.0.0.1", "localhost"):
@@ -200,44 +187,45 @@ def check_linux_dist():
     with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
-            log.info("[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS %s", ubuntu_versions)
+            log.info(
+                "[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS %s",
+                ubuntu_versions,
+            )
 
 
 def init_logging(level: int):
-    """Initializes logging.
-    @param level: The logging level for the console logs
-    """
-
-    # Pyattck creates root logger which we don't want. So we must use this dirty hack to remove it
-    # If basicConfig was already called by something and had a StreamHandler added,
-    # replace it with a ConsoleHandler.
-    for h in log.handlers[:]:
-        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
-            log.removeHandler(h)
-            h.close()
+    """Initializes logging."""
+    logging.getLogger("urllib3").setLevel(logging.WARNING)
 
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 
+    # Remove existing stderr stream handlers to avoid duplicate logs
+    for handler in log.handlers[:]:
+        if isinstance(handler, logging.StreamHandler) and handler.stream == sys.stderr:
+            log.removeHandler(handler)
+            handler.close()
+
+    # Initialize console, database, and task loggers
     init_logger("console", level)
     init_logger("database")
-
-    if logconf.logger.syslog_cape:
-        fh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
-        fh.setFormatter(formatter)
-        log.addHandler(fh)
-
-    path = os.path.join(CUCKOO_ROOT, "log", "cuckoo.log")
-    if logconf.log_rotation.enabled:
-        days = logconf.log_rotation.backup_count or 7
-        fh = logging.handlers.TimedRotatingFileHandler(path, when="midnight", backupCount=int(days))
-    else:
-        fh = logging.handlers.WatchedFileHandler(path)
-    fh.setFormatter(formatter)
-    log.addHandler(fh)
-
     init_logger("task")
 
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
+    # Syslog handler
+    if logconf.logger.syslog_cape:
+        syslog_handler = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
+        syslog_handler.setFormatter(formatter)
+        log.addHandler(syslog_handler)
+
+    # File handler with optional rotation
+    log_path = os.path.join(CUCKOO_ROOT, "log", "cuckoo.log")
+    if logconf.log_rotation.enabled:
+        days = logconf.log_rotation.backup_count or 7
+        file_handler = logging.handlers.TimedRotatingFileHandler(log_path, when="midnight", backupCount=int(days))
+    else:
+        file_handler = logging.handlers.WatchedFileHandler(log_path)
+
+    file_handler.setFormatter(formatter)
+    log.addHandler(file_handler)
 
 
 def init_console_logging():
@@ -275,46 +263,48 @@ def init_tasks():
             db.set_status(task.id, TASK_FAILED_ANALYSIS)
             log.info("Updated running task ID %s status to failed_analysis", task.id)
 
+    try:
+        import_package(path)
+    except ImportError as e:
+        log.warning("Failed to import %s: %s", path, str(e))
+
 
 def init_modules():
     """Initializes plugins."""
     log.debug("Importing modules...")
 
-    # Import all auxiliary modules.
-    import_package(modules.auxiliary)
-    # Import all processing modules.
-    import_package(modules.processing)
-    # Import all signatures.
-    import_package(modules.signatures.all)
-    import_package(modules.signatures.windows)
-    import_package(modules.signatures.linux)
-    # Import all private signatures
-    import_package(custom.signatures)
+    # A list of all plugin packages to be imported
+    plugin_packages = [
+        modules.auxiliary,
+        modules.processing,
+        modules.signatures.all,
+        modules.signatures.windows,
+        modules.signatures.linux,
+        custom.signatures,
+        modules.reporting,
+        modules.feeds,
+    ]
+
     if HAS_CUSTOM_SIGNATURES_ALL:
-        import_package(custom.signatures.all)
+        plugin_packages.append(custom.signatures.all)
     if HAS_CUSTOM_SIGNATURES_LINUX:
-        import_package(custom.signatures.linux)
+        plugin_packages.append(custom.signatures.linux)
     if HAS_CUSTOM_SIGNATURES_WINDOWS:
-        import_package(custom.signatures.windows)
+        plugin_packages.append(custom.signatures.windows)
+
+    for package in plugin_packages:
+        lazy_import(package)
+
     if len(os.listdir(os.path.join(CUCKOO_ROOT, "modules", "signatures"))) < 5:
         log.warning("Suggestion: looks like you didn't install community, execute: poetry run python utils/community.py -h")
-    # Import all reporting modules.
-    import_package(modules.reporting)
-    # Import all feeds modules.
-    import_package(modules.feeds)
 
-    # Import machine manager.
     import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
     check_snapshot_state()
 
     for category, entries in list_plugins().items():
         log.debug('Imported "%s" modules:', category)
-
         for entry in entries:
-            if entry == entries[-1]:
-                log.debug("\t `-- %s", entry.__name__)
-            else:
-                log.debug("\t |-- %s", entry.__name__)
+            log.debug("\t %s", entry.__name__)
 
 
 def check_snapshot_state():
@@ -609,7 +599,9 @@ def check_tcpdump_permissions():
 
     if pcap_permissions_error:
         print(
-            f"""\nPcap generation wan't work till you fix the permission problems. Please run following command to fix it!
+            f"""
+
+Pcap generation wan\'t work till you fix the permission problems. Please run following command to fix it!
 
             groupadd pcap
             usermod -a -G pcap {user}
@@ -652,3 +644,56 @@ def check_vms_n_resultserver_networking():
         # is there are better way to check networkrange without range CIDR?
         if not resultserver_block.startswith(vm_ip) or (vm_rs and not vm_rs.startswith(vm_ip)):
             log.error("Your resultserver and VM: %s are in different nework ranges. This might give you: CuckooDeadMachine", vm)
+
+
+def check_network_settings():
+    """Checks network settings for resultserver, VMs and firewall."""
+    log.debug("Checking network settings...")
+
+    # Check resultserver IP
+    if cuckoo.resultserver.ip in ("0.0.0.0", "127.0.0.1", "localhost"):
+        raise CuckooStartupError(
+            f"Resultserver IP address cannot be {cuckoo.resultserver.ip}, please change it in cuckoo.conf to an IP address reachable from the guest."
+        )
+
+    # Check VM IPs
+    machinery_manager = cuckoo.cuckoo.machinery
+    machineries = [machinery_manager]
+    if machinery_manager == "multi":
+        machineries = Config(machinery_manager).multi.machinery.split(",")
+
+    for machinery in machineries:
+        machinery_config = Config(machinery)
+        for machine_name in machinery_config.get(machinery).machines.split(","):
+            machine_name = machine_name.strip()
+            if not machine_name:
+                continue
+            machine_opts = machinery_config.get(machine_name)
+            if hasattr(machine_opts, "resultserver_ip") and machine_opts.resultserver_ip == "0.0.0.0":
+                raise CuckooStartupError(
+                    f"VM resultserver_ip address for machine '{machine_name}' cannot be 0.0.0.0, please change it in the machinery configuration."
+                )
+
+    # Check firewall
+    port = cuckoo.resultserver.port
+    with suppress(FileNotFoundError):  # ufw not installed
+        # Check with ufw
+        proc = subprocess.run(["ufw", "status"], capture_output=True, text=True, check=False)
+        if proc.returncode == 0 and "Status: active" in proc.stdout:
+            if f" {port} " not in proc.stdout and f" {port}/tcp " not in proc.stdout:
+                log.warning(
+                    "UFW is active and port %d is not explicitly allowed. This might block communication from the guest.", port
+                )
+
+    try:
+        # Check with firewalld
+        proc = subprocess.run(["firewall-cmd", "--state"], capture_output=True, text=True, check=False)
+        if proc.returncode == 0 and "running" in proc.stdout:
+            proc = subprocess.run(["firewall-cmd", "--list-ports"], capture_output=True, text=True, check=False)
+            if f"{port}/tcp" not in proc.stdout:
+                log.warning(
+                    "firewalld is active and port %d/tcp is not in the list of allowed ports. This might block communication from the guest.",
+                    port,
+                )
+    except FileNotFoundError:
+        pass  # firewalld not installed

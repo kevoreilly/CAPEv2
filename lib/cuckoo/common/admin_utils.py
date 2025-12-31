@@ -34,7 +34,6 @@ try:
     )
     from scp import SCPClient, SCPException
 
-
     conf = SSHConfig()
     conf.parse(open(os.path.expanduser("~/.ssh/config")))
 

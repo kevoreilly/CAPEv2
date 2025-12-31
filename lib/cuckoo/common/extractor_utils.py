@@ -72,7 +72,7 @@ def function_offset_from_VA(addr: int, blob: bytes, pe: pefile.PE):
             - function_addr (int): The calculated function address.
             - offset (int): The offset of the next instruction after the function call.
     """
-    shift_pos = blob.find(b"\xE8") + 1
+    shift_pos = blob.find(b"\xe8") + 1
     function_addr = pe.get_rva_from_offset(addr + shift_pos) + pe.OPTIONAL_HEADER.ImageBase
     # print(f"Getting offset for function: {hex(function_addr)}")
     next_instruction = pe.get_rva_from_offset(addr + shift_pos) + pe.OPTIONAL_HEADER.ImageBase + 5
@@ -95,7 +95,7 @@ def function_offset_from_offset(addr: int, binary: bytes, pe: pefile.PE):
             - subfunc_file_offset (int): The file offset of the subfunction being called.
     """
     # where our subcall starts - example: 8
-    shift_pos = binary[addr:].find(b"\xE8")
+    shift_pos = binary[addr:].find(b"\xe8")
     call_file_offset = addr + shift_pos
     # convert file offset to RVA + add address image base
     # print(pe.get_rva_from_offset(call_file_offset))

@@ -20,8 +20,6 @@ if os.geteuid() == 0 and os.getenv("CAPE_AS_ROOT", "0") != "1":
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError
 
 try:
-    import bson
-
     from lib.cuckoo.common.constants import CUCKOO_ROOT, CUCKOO_VERSION
     from lib.cuckoo.common.logo import logo
     from lib.cuckoo.core.resultserver import ResultServer
@@ -29,6 +27,7 @@ try:
     from lib.cuckoo.core.startup import (
         check_configs,
         check_linux_dist,
+        check_network_settings,
         check_tcpdump_permissions,
         check_webgui_mongo,
         check_working_directory,
@@ -40,7 +39,6 @@ try:
         init_tasks,
     )
 
-    bson  # Pretend like it's actually being used (for static checkers.)
 except (CuckooDependencyError, ImportError) as e:
     print(f"ERROR: Missing dependency: {e}")
     sys.exit()
@@ -57,6 +55,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     logo()
     check_working_directory()
     check_configs()
+    check_network_settings()
     create_structure()
     init_database()
 
@@ -70,13 +69,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
         except KeyboardInterrupt:
             return
 
-    if quiet:
-        level = logging.WARN
-    elif debug:
-        level = logging.DEBUG
-    else:
-        level = logging.INFO
-    log.setLevel(level)
+    level = logging.WARN if quiet else logging.DEBUG if debug else logging.INFO
     init_logging(level)
 
     check_webgui_mongo()
@@ -87,7 +80,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     init_routing()
     check_tcpdump_permissions()
 
-    # This is just a temporary hack, we need an actual test suite to integrate with Travis-CI.
+    # ToDo remove This is just a temporary hack, we need an actual test suite to integrate with Travis-CI.
     if test:
         return
 
@@ -98,7 +91,6 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
 def cuckoo_main(max_analysis_count=0):
     cur_path = Path.cwd()
     os.chdir(CUCKOO_ROOT)
-
     sched = Scheduler(max_analysis_count)
     try:
         sched.start()
@@ -106,9 +98,7 @@ def cuckoo_main(max_analysis_count=0):
         log.info("Received keyboard interrupt, stopping.")
     finally:
         sched.shutdown_machinery()
-
     os.chdir(cur_path)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()

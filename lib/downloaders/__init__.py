@@ -1,4 +1,3 @@
-
 import logging
 import os
 
@@ -29,10 +28,11 @@ class Downloaders(object):
             Attempts to download a sample using the available downloaders in the specified order.
             Returns the sample and the downloader's name if successful, otherwise returns False, False.
     """
+
     def __init__(self, destination_folder=None):
         self.downloaders = load_downloaders(CUCKOO_ROOT)
         if integrations_cfg.downloaders.order:
-            order_list = [item.strip() for item in integrations_cfg.downloaders.order.split(',')]
+            order_list = [item.strip() for item in integrations_cfg.downloaders.order.split(",")]
             self.downloaders_order = [k for k in order_list if k in self.downloaders.keys()]
         else:
             self.downloaders_order = list(self.downloaders.keys())
@@ -73,8 +73,10 @@ class Downloaders(object):
         if not sample:
             return False, False
 
+
 if __name__ == "__main__":
     import sys
+
     dl = Downloaders()
     sample, service = dl.download(sys.argv[1])
     if sample:

@@ -364,7 +364,13 @@ def processing_finished(future):
 
 
 def autoprocess(
-    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False, disable_memory_limit: bool = False
+    parallel=1,
+    failed_processing=False,
+    maxtasksperchild=7,
+    memory_debugging=False,
+    processing_timeout=300,
+    debug: bool = False,
+    disable_memory_limit: bool = False,
 ):
     """
     Automatically processes analysis data using a process pool.
@@ -616,7 +622,7 @@ def main():
             memory_debugging=args.memory_debugging,
             processing_timeout=args.processing_timeout,
             debug=args.debug,
-            disable_memory_limit= args.disable_memory_limit,
+            disable_memory_limit=args.disable_memory_limit,
         )
     else:
         for start, end in args.id:

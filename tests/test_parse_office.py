@@ -51,7 +51,6 @@ class TestParseOffice(unittest.TestCase):
         }
         self.assertEqual(result, expected_result)
 
-
     @pytest.mark.skipif(not data_dir.exists(), reason="Required data file is not present")
     @pytest.mark.skipif(not rtf_path.exists(), reason="Required data file is not present")
     def test_parse_real_rtf(self):

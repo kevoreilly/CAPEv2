@@ -23,7 +23,8 @@ try:
 except ImportError as e:
     log.debug(
         "Could not load auxiliary module WMI_ETW due to '%s'\nIn order to use WMI_ETW functionality, it "
-        "is required to have pywintrace setup in python", str(e)
+        "is required to have pywintrace setup in python",
+        str(e),
     )
 
 __author__ = "[Andrea Oliveri starting from code of Canadian Centre for Cyber Security]"

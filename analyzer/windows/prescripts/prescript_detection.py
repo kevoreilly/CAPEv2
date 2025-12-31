@@ -690,7 +690,9 @@ def main(args):
                     overwrite=bool(params_dict[ACTIONS_PARAMETERS[parsed_action][2]]),
                 )
                 log.info(
-                    "Adding file from %s to %s", params_dict[ACTIONS_PARAMETERS[parsed_action][0]], params_dict[ACTIONS_PARAMETERS[parsed_action][1]]
+                    "Adding file from %s to %s",
+                    params_dict[ACTIONS_PARAMETERS[parsed_action][0]],
+                    params_dict[ACTIONS_PARAMETERS[parsed_action][1]],
                 )
                 # print(
                 #    f"Adding file from {params_dict[ACTIONS_PARAMETERS[parsed_action][0]]} to {params_dict[ACTIONS_PARAMETERS[parsed_action][1]]}"

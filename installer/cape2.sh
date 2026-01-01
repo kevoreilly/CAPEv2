@@ -314,7 +314,7 @@ function install_modsecurity() {
     if [ ! -d nginx-"$nginx_version" ]; then
         wget http://nginx.org/download/nginx-"$nginx_version".tar.gz
         wget http://nginx.org/download/nginx-"$nginx_version".tar.gz.asc
-        gpg --verify "nginx-"$nginx_version".tar.gz.asc"
+        gpg --verify "nginx-${nginx_version}.tar.gz.asc"
         tar zxf nginx-"$nginx_version".tar.gz
     fi
 

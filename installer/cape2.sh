@@ -1754,7 +1754,7 @@ case "$COMMAND" in
     install_logrotate
     install_mitmproxy
     #socksproxies is to start redsocks stuff
-    if [ -f $CAPE_ROOT/socksproxies.sh ]; then
+    if [ -f "$CAPE_ROOT/socksproxies.sh" ]; then
         crontab -l | { cat; echo "@reboot $CAPE_ROOT/socksproxies.sh"; } | crontab -
     fi
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then

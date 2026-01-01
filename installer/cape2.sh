@@ -435,7 +435,7 @@ function install_nginx() {
                 --with-http_v3_module
 
 
-    # checkinstall -D --pkgname="nginx-"$nginx_version"" --pkgversion="$nginx_version" --default
+    # checkinstall -D --pkgname="nginx-${nginx_version}" --pkgversion="$nginx_version" --default
     mkdir -p /tmp/nginx_builded/DEBIAN
     make -j"$(nproc)"
     echo -e "Package: nginx\nVersion: $nginx_version\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: nginx-$nginx_version" > /tmp/nginx_builded/DEBIAN/control

@@ -823,8 +823,8 @@ function install_yara() {
 
     cd /tmp || return
     yara_info=$(curl -s https://api.github.com/repos/VirusTotal/yara/releases/latest)
-    yara_version=$(echo "$yara_info" |jq .tag_name|sed "s/"//g")
-    yara_repo_url=$(echo "$yara_info" | jq ".zipball_url" | sed "s/"//g")
+    yara_version=$(echo "$yara_info" | jq -r .tag_name)
+    yara_repo_url=$(echo "$yara_info" | jq -r .zipball_url)
     if [ ! -f "$yara_version" ]; then
         wget -q "$yara_repo_url"
         unzip -o -q "$yara_version"

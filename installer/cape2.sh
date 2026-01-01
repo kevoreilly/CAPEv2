@@ -1566,7 +1566,7 @@ function install_guacamole() {
     fi
 
     poetry_path="$PYTHON_MGR"
-    if ! grep -q $poetry_path /lib/systemd/system/guac-web.service ; then
+    if ! grep -q "$poetry_path" /lib/systemd/system/guac-web.service ; then
         sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
 

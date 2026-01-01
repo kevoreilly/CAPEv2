@@ -841,7 +841,7 @@ function install_yara() {
     make -j"$(nproc)" install DESTDIR=/tmp/yara_builded
     dpkg-deb --build --root-owner-group /tmp/yara_builded
     dpkg -i --force-overwrite /tmp/yara_builded.deb
-    # checkinstall -D --pkgname="yara-"$yara_version"" --pkgversion="$yara_version_only" --default
+    # checkinstall -D --pkgname="yara-${yara_version}" --pkgversion="$yara_version_only" --default
     ldconfig
 
     # Run yara installer function (integrated)

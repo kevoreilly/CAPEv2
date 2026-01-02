@@ -1,5 +1,5 @@
 #!/bin/bash
-set -ex
+# set -ex
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
 # Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
@@ -57,21 +57,16 @@ librenms_megaraid_enable=0
 
 # disabling this will result in the web interface being disabled
 MONGO_ENABLE=1
-LIB_VERSION=11.1.0
+# Must match libvirt version!
+LIB_VERSION=11.9.0
 DIE_VERSION="3.10"
 TOR_SOCKET_TIMEOUT="60"
 CAPE_ROOT="${CAPE_ROOT:-/opt/CAPEv2}"
 
 USE_UV=${USE_UV:-false}
-if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-    PYTHON_MGR="/usr/local/bin/uv"
-    PYTHON_MGR_CMD="run"
-    PYTHON_MGR_INSTALL="sync --no-install-project"
-else
-    PYTHON_MGR="/etc/poetry/bin/poetry"
-    PYTHON_MGR_CMD="run"
-    PYTHON_MGR_INSTALL="install"
-fi
+PYTHON_MGR="/etc/poetry/bin/poetry"
+PYTHON_MGR_CMD="run"
+PYTHON_MGR_INSTALL="install"
 
 # if a config file is present, read it in
 if [ -f "./cape-config.sh" ]; then
@@ -84,9 +79,7 @@ MAINTAINER="$(whoami) "_"$(hostname)"
 ARCH="$(dpkg --print-architecture)"
 
 function issues() {
-cat << EOI
-    No known problems yet
-EOI
+    cat "No known problems yet"
 }
 
 function usage() {
@@ -797,7 +790,7 @@ function install_yara_python() {
 
     # Install from PyPI
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install yara-python \
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR pip install yara-python \
             --no-binary :all: \
             --config-settings=\"--global-option=build\" \
             --config-settings=\"--global-option=--enable-cuckoo\" \
@@ -871,6 +864,7 @@ function install_yara() {
 function install_libvirt() {
     # Refactored from extra/libvirt_installer.sh
     echo '[+] Installing libvirt-python'
+    :'
     cd /tmp || return
 
     if [ ! -f v${LIB_VERSION}.zip ]; then
@@ -882,7 +876,8 @@ function install_libvirt() {
     fi
 
     cd "libvirt-python-${LIB_VERSION}"
-
+    sudo chown -R ${USER}:${USER} "/tmp/libvirt-python-${LIB_VERSION}"
+    '
     temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
     temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
     libvirt_so_path="${temp_libvirt_so_path%/*}/"
@@ -897,9 +892,10 @@ function install_libvirt() {
     # Run build and install within the project environment
     # We use sudo -u cape ... to install into the user's environment managed by poetry/uv
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install ."
+        # sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install /tmp/libvirt-python-${LIB_VERSION}"
+        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install libvirt-python==${LIB_VERSION}"
     else
-        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install ."
+        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install libvirt-python==${LIB_VERSION}"
     fi
 }
 
@@ -1123,8 +1119,8 @@ function dependencies() {
 
     sudo apt-get install -y apparmor-utils
     TCPDUMP_PATH=`which tcpdump`
-    aa-complain ${TCPDUMP_PATH} || true
-    aa-disable ${TCPDUMP_PATH} || true
+    aa-complain ${TCPDUMP_PATH} # || true
+    aa-disable ${TCPDUMP_PATH} # || true
 
     if id "${USER}" &>/dev/null; then
         echo "user ${USER} already exist"
@@ -1372,7 +1368,7 @@ function install_CAPE() {
         echo "[-] pyproject.toml not found in $CAPE_ROOT"
         return
     fi
-    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; cd $CAPE_ROOT && CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR $PYTHON_MGR_INSTALL"
+    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; cd $CAPE_ROOT && CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR pip install -r pyproject.toml"
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
         # Integrated libvirt install
@@ -1390,6 +1386,7 @@ function install_CAPE() {
         sudo rm -rf /tmp/yara-python
     fi
 
+    cd "$CAPE_ROOT/" || return
     # copy *.conf.default to *.conf so we have all properly updated fields, as we can't ignore old configs in repository
     for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done
 
@@ -1401,11 +1398,11 @@ function install_CAPE() {
 
     chown ${USER}:${USER} -R "$CAPE_ROOT/"
 
-    if [ "$MONGO_ENABLE" -ge 1 ]; then
+    if [ "${MONGO_ENABLE:-0}" -eq 1 ]; then
         crudini --set conf/reporting.conf mongodb enabled yes
     fi
 
-    if [ "$librenms_enable" -ge 1 ]; then
+    if [ "${librenms_enable:-0}" -eq 1 ]; then
         crudini --set conf/reporting.conf litereport enabled yes
         crudini --set conf/reporting.conf runstatistics enabled yes
     fi
@@ -1753,7 +1750,7 @@ for i in "$@"; do
         USE_UV="true"
         PYTHON_MGR="/usr/local/bin/uv"
         PYTHON_MGR_CMD="run"
-        PYTHON_MGR_INSTALL="sync"
+        PYTHON_MGR_INSTALL=""
     fi
 done
 

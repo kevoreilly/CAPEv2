@@ -128,6 +128,13 @@ cat << EndOfHelp
         --use-uv - Use uv instead of poetry
         --disable-mongodb-avx-check - Disable check of AVX CPU feature for MongoDB
         --disable-libvirt - Disable libvirt related packages installation
+
+    Examples:
+        sudo bash cape2.sh all | tee cape2.log
+            Default install - poetry, /opt/CAPEv2
+        sudo CAPE_ROOT=/mnt/sandbox/CAPEv2 USE_UV=True bash cape2.sh all | tee cape2.log
+            * Custom install folder, use UV instead of poetry
+
     Useful links - THEY CAN BE OUTDATED; RTFM!!!
         * https://cuckoo.sh/docs/introduction/index.html
         * https://medium.com/@seifreed/how-to-deploy-cuckoo-sandbox-431a6e65b848
@@ -1354,7 +1361,7 @@ function install_CAPE() {
         mkdir -p "$(dirname "$CAPE_ROOT")"
         git clone https://github.com/kevoreilly/CAPEv2/ "$CAPE_ROOT"
     fi
-    chown ${USER}:${USER} -R $CAPE_ROOT/
+    chown ${USER}:${USER} -R "$CAPE_ROOT"/
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder

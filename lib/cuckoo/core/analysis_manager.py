@@ -257,9 +257,8 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = file_obj.get_name()
             options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            pe = PortableExecutable(self.task.target)
-            options["exports"] = pe.get_dll_exports()
-            pe.close()
+            with PortableExecutable(self.task.target) as pe:
+                options["exports"] = pe.get_dll_exports()
             del file_obj
 
         # options from auxiliary.conf

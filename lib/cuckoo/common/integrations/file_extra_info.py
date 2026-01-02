@@ -187,7 +187,8 @@ def static_file_info(
 
     # ToDo we need type checking as it wont work for most of static jobs
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
-        data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
+        with PortableExecutable(file_path) as pe:
+            data_dictionary["pe"] = pe.run(task_id)
 
         if HAVE_FLARE_CAPA:
             # https://github.com/mandiant/capa/issues/2620

@@ -5,6 +5,7 @@
 import datetime
 import json
 import logging
+import mmap
 import os
 import struct
 from contextlib import suppress
@@ -61,6 +62,7 @@ class ParseProcessLog(list):
         self.call_id = 0
         self.conversion_cache = {}
         self.options = options
+        self.options.ram_mmap = self.options.ram_mmap if self.options.ram_mmap else False
         # Limit of API calls per process
         self.api_limit = self.options.analysis_call_limit
 
@@ -77,12 +79,40 @@ class ParseProcessLog(list):
                     self.api_call_cache.append(i)
             self.api_call_cache.append(None)
 
+            # Close mmap and file descriptor after reading all data into cache
+            self.close()
+
+    def close(self):
+        if hasattr(self, "mv") and self.mv:
+            self.mv.release()
+            self.mv = None
+        if hasattr(self, "mm") and self.mm:
+            self.mm.close()
+            self.mm = None
+        if self.fd:
+            self.fd.close()
+            self.fd = None
+
     def parse_first_and_reset(self):
         """Open file and init Bson Parser. Read till first process"""
         if not self._log_path.endswith(".bson"):
             return
 
         self.fd = open(self._log_path, "rb")
+
+        self.use_mmap = False
+        self.mm = None
+        self.mv = None
+        self.mm_pos = 0
+
+        if self.options.ram_mmap:
+            try:
+                self.mm = mmap.mmap(self.fd.fileno(), 0, access=mmap.ACCESS_READ)
+                self.mv = memoryview(self.mm)
+                self.use_mmap = True
+            except (ValueError, OSError) as e:
+                log.debug("mmap failed, falling back to standard file reading: %s", e)
+
         self.parser = BsonParser(self)
 
         # Get the process information from file
@@ -95,7 +125,10 @@ class ParseProcessLog(list):
         while not self.process_id:
             self.parser.read_next_message()
 
-        self.fd.seek(0)
+        if self.use_mmap:
+            self.mm_pos = 0
+        else:
+            self.fd.seek(0)
 
     def read(self, length):
         """Read data from log file
@@ -104,6 +137,14 @@ class ParseProcessLog(list):
         """
         if not length or length < 0:
             return b""
+
+        if self.use_mmap:
+            if self.mm_pos + length > len(self.mm):
+                raise EOFError()
+            buf = self.mv[self.mm_pos : self.mm_pos + length]
+            self.mm_pos += length
+            return buf
+
         buf = self.fd.read(length)
         if not buf or len(buf) != length:
             raise EOFError()
@@ -123,7 +164,10 @@ class ParseProcessLog(list):
 
     def reset(self):
         """Reset fd"""
-        self.fd.seek(0)
+        if self.use_mmap:
+            self.mm_pos = 0
+        else:
+            self.fd.seek(0)
         self.api_count = 0
         self.lastcall = None
         self.call_id = 0
@@ -440,7 +484,7 @@ class Processes:
     def compress_log_file(self, file_path):
         if file_path.endswith(".bson") and os.stat(file_path).st_size:
             try:
-                if not CuckooBsonCompressor().run(file_path):
+                if not CuckooBsonCompressor().run(file_path, use_mmap=self.options.ram_mmap):
                     log.debug("Could not execute loop detection analysis")
                 else:
                     log.debug("BSON was compressed successfully")
@@ -474,6 +518,26 @@ class Summary:
         self.resolved_apis = []
         self.options = options
 
+        self.dispatch = {
+            "NtCreateKey": self._handle_NtCreateKey,
+            "NtDeleteValueKey": self._handle_NtDeleteKey,
+            "NtDeleteKey": self._handle_NtDeleteKey,
+            "NtQueryValueKey": self._handle_NtQueryValueKey,
+            "NtQueryMultipleValueKey": self._handle_NtQueryValueKey,
+            "SHGetFileInfoW": self._handle_SHGetFileInfoW,
+            "ShellExecuteExW": self._handle_ShellExecuteExW,
+            "NtSetInformationFile": self._handle_NtSetInformationFile,
+            "NtDeleteFile": self._handle_DeleteFile,
+            "LdrGetProcedureAddress": self._handle_LdrGetProcedureAddress,
+            "MoveFileWithProgressW": self._handle_MoveFile,
+            "MoveFileWithProgressTransactedW": self._handle_MoveFile,
+            "CreateProcessInternalW": self._handle_CreateProcess,
+            "NtCreateUserProcess": self._handle_CreateProcess,
+            "CreateProcessWithTokenW": self._handle_CreateProcess,
+            "CreateProcessWithLogonW": self._handle_CreateProcess,
+            "NtSetValueKey": self._handle_RegSetValue,
+        }
+
     def get_argument(self, call, argname, strip=False):
         return next(
             (arg["value"].strip() if strip else arg["value"] for arg in call["arguments"] if arg["name"] == argname),
@@ -500,107 +564,124 @@ class Summary:
         if self.options.file_activities:
             process["file_activities"][key].append(filename)
 
-    def event_apicall(self, call, process):
-        """Generate processes list from streamed calls/processes.
-        @return: None.
-        """
-        if call["api"].startswith("RegOpenKeyEx"):
-            name = self.get_argument(call, "FullName")
-            if name and name not in self.keys:
-                self._filtering_helper(self.keys, name)
-        elif call["api"].startswith("RegSetValue") or call["api"] == "NtSetValueKey":
-            name = self.get_argument(call, "FullName")
-            if name and name not in self.keys:
-                self._filtering_helper(self.keys, name)
-            if name and name not in self.write_keys:
-                self._filtering_helper(self.write_keys, name)
-        elif call["api"] == "NtCreateKey" or call["api"].startswith("RegCreateKeyEx"):
-            name = self.get_argument(call, "ObjectAttributes" if call["api"] == "NtCreateKey" else "FullName")
-            disposition = int(self.get_argument(call, "Disposition"))
-            if name and name not in self.keys:
-                self._filtering_helper(self.keys, name)
-            # if disposition == 1 then we created a new key
-            if name and disposition == 1 and name not in self.write_keys:
-                self.write_keys.append(name)
+    def _handle_RegOpenKey(self, call, process):
+        name = self.get_argument(call, "FullName")
+        if name and name not in self.keys:
+            self._filtering_helper(self.keys, name)
 
-        elif call["api"] in ("NtDeleteValueKey", "NtDeleteKey") or call["api"].startswith("RegDeleteValue"):
-            name = self.get_argument(call, "FullName")
-            if name and name not in self.keys:
-                self._filtering_helper(self.keys, name)
-            if name and name not in self.delete_keys:
-                self.delete_keys.append(name)
-        elif call["api"].startswith("NtOpenKey"):
-            name = self.get_argument(call, "ObjectAttributes")
-            if name and name not in self.keys:
-                self._filtering_helper(self.keys, name)
-        elif call["api"] in ("NtQueryValueKey", "NtQueryMultipleValueKey") or call["api"].startswith("RegQueryValue"):
-            name = self.get_argument(call, "FullName")
-            if name and name not in self.keys:
-                self._filtering_helper(self.keys, name)
-            if name and name not in self.read_keys:
-                self._filtering_helper(self.read_keys, name)
-        elif call["api"] == "SHGetFileInfoW":
-            filename = self.get_argument(call, "Path")
-            if filename and (len(filename) < 2 or filename[1] != ":"):
-                filename = None
-            if filename and filename not in self.files:
-                self._filtering_helper(self.files, filename)
-        elif call["api"] == "ShellExecuteExW":
-            filename = self.get_argument(call, "FilePath")
-            if len(filename) < 2 or filename[1] != ":":
-                filename = None
-            if filename and filename not in self.files:
-                self._filtering_helper(self.files, filename)
-            path = self.get_argument(call, "FilePath", strip=True)
-            params = self.get_argument(call, "Parameters", strip=True)
-            cmdline = f"{path} {params}" if path else None
-            if cmdline and cmdline not in self.executed_commands:
-                self._filtering_helper(self.executed_commands, cmdline)
-        elif call["api"] == "NtSetInformationFile":
-            filename = self.get_argument(call, "HandleName")
-            infoclass = int(self.get_argument(call, "FileInformationClass"))
-            fileinfo = self.get_raw_argument(call, "FileInformation")
-            if filename and infoclass and infoclass == 13 and fileinfo and len(fileinfo) > 0:
-                if not isinstance(fileinfo, bytes):
-                    fileinfo = fileinfo.encode()
-                disp = struct.unpack_from("B", fileinfo)[0]
-                if disp and filename not in self.delete_files:
-                    self._filtering_helper(self.delete_files, filename)
-                    self._add_file_activity(process, "delete_files", filename)
-        elif call["api"].startswith("DeleteFile") or call["api"] == "NtDeleteFile" or call["api"].startswith("RemoveDirectory"):
-            filename = self.get_argument(call, "FileName")
-            if not filename:
-                filename = self.get_argument(call, "DirectoryName")
-            if filename:
-                if filename not in self.files:
-                    self._filtering_helper(self.files, filename)
-                if filename not in self.delete_files:
-                    self._filtering_helper(self.delete_files, filename)
-                    self._add_file_activity(process, "delete_files", filename)
-        elif call["api"].startswith("StartService"):
-            servicename = self.get_argument(call, "ServiceName", strip=True)
-            if servicename and servicename not in self.started_services:
-                self._filtering_helper(self.started_services, servicename)
-        elif call["api"].startswith("CreateService"):
-            servicename = self.get_argument(call, "ServiceName", strip=True)
-            if servicename and servicename not in self.created_services:
-                self._filtering_helper(self.created_services, servicename)
-        elif call["api"] in ("CreateProcessInternalW", "NtCreateUserProcess", "CreateProcessWithTokenW", "CreateProcessWithLogonW"):
-            cmdline = self.get_argument(call, "CommandLine", strip=True)
-            appname = self.get_argument(call, "ApplicationName", strip=True)
-            if appname and cmdline:
-                base = appname.rsplit("\\", 1)[-1].rsplit(".", 1)[0]
-                firstarg = ""
-                if cmdline[0] == '"':
-                    firstarg = cmdline[1:].split('"', 1)[0]
-                else:
-                    firstarg = cmdline.split(" ", 1)[0]
-                if base not in firstarg:
-                    cmdline = f"{appname} {cmdline}"
-            if cmdline and cmdline not in self.executed_commands:
-                self._filtering_helper(self.executed_commands, cmdline)
+    def _handle_RegSetValue(self, call, process):
+        name = self.get_argument(call, "FullName")
+        if name and name not in self.keys:
+            self._filtering_helper(self.keys, name)
+        if name and name not in self.write_keys:
+            self._filtering_helper(self.write_keys, name)
 
-        elif call["api"] == "LdrGetProcedureAddress" and call["status"]:
+    def _handle_NtCreateKey(self, call, process):
+        name = self.get_argument(call, "ObjectAttributes")
+        disposition = int(self.get_argument(call, "Disposition"))
+        if name and name not in self.keys:
+            self._filtering_helper(self.keys, name)
+        # if disposition == 1 then we created a new key
+        if name and disposition == 1 and name not in self.write_keys:
+            self.write_keys.append(name)
+
+    def _handle_RegCreateKey(self, call, process):
+        name = self.get_argument(call, "FullName")
+        disposition = int(self.get_argument(call, "Disposition"))
+        if name and name not in self.keys:
+            self._filtering_helper(self.keys, name)
+        # if disposition == 1 then we created a new key
+        if name and disposition == 1 and name not in self.write_keys:
+            self.write_keys.append(name)
+
+    def _handle_NtDeleteKey(self, call, process):
+        name = self.get_argument(call, "FullName")
+        if name and name not in self.keys:
+            self._filtering_helper(self.keys, name)
+        if name and name not in self.delete_keys:
+            self.delete_keys.append(name)
+
+    def _handle_NtOpenKey(self, call, process):
+        name = self.get_argument(call, "ObjectAttributes")
+        if name and name not in self.keys:
+            self._filtering_helper(self.keys, name)
+
+    def _handle_NtQueryValueKey(self, call, process):
+        name = self.get_argument(call, "FullName")
+        if name and name not in self.keys:
+            self._filtering_helper(self.keys, name)
+        if name and name not in self.read_keys:
+            self._filtering_helper(self.read_keys, name)
+
+    def _handle_SHGetFileInfoW(self, call, process):
+        filename = self.get_argument(call, "Path")
+        if filename and (len(filename) < 2 or filename[1] != ":"):
+            filename = None
+        if filename and filename not in self.files:
+            self._filtering_helper(self.files, filename)
+
+    def _handle_ShellExecuteExW(self, call, process):
+        filename = self.get_argument(call, "FilePath")
+        if len(filename) < 2 or filename[1] != ":":
+            filename = None
+        if filename and filename not in self.files:
+            self._filtering_helper(self.files, filename)
+        path = self.get_argument(call, "FilePath", strip=True)
+        params = self.get_argument(call, "Parameters", strip=True)
+        cmdline = f"{path} {params}" if path else None
+        if cmdline and cmdline not in self.executed_commands:
+            self._filtering_helper(self.executed_commands, cmdline)
+
+    def _handle_NtSetInformationFile(self, call, process):
+        filename = self.get_argument(call, "HandleName")
+        infoclass = int(self.get_argument(call, "FileInformationClass"))
+        fileinfo = self.get_raw_argument(call, "FileInformation")
+        if filename and infoclass and infoclass == 13 and fileinfo and len(fileinfo) > 0:
+            if not isinstance(fileinfo, bytes):
+                fileinfo = fileinfo.encode()
+            disp = struct.unpack_from("B", fileinfo)[0]
+            if disp and filename not in self.delete_files:
+                self._filtering_helper(self.delete_files, filename)
+                self._add_file_activity(process, "delete_files", filename)
+
+    def _handle_DeleteFile(self, call, process):
+        filename = self.get_argument(call, "FileName")
+        if not filename:
+            filename = self.get_argument(call, "DirectoryName")
+        if filename:
+            if filename not in self.files:
+                self._filtering_helper(self.files, filename)
+            if filename not in self.delete_files:
+                self._filtering_helper(self.delete_files, filename)
+                self._add_file_activity(process, "delete_files", filename)
+
+    def _handle_StartService(self, call, process):
+        servicename = self.get_argument(call, "ServiceName", strip=True)
+        if servicename and servicename not in self.started_services:
+            self._filtering_helper(self.started_services, servicename)
+
+    def _handle_CreateService(self, call, process):
+        servicename = self.get_argument(call, "ServiceName", strip=True)
+        if servicename and servicename not in self.created_services:
+            self._filtering_helper(self.created_services, servicename)
+
+    def _handle_CreateProcess(self, call, process):
+        cmdline = self.get_argument(call, "CommandLine", strip=True)
+        appname = self.get_argument(call, "ApplicationName", strip=True)
+        if appname and cmdline:
+            base = appname.rsplit("\\", 1)[-1].rsplit(".", 1)[0]
+            firstarg = ""
+            if cmdline[0] == '"':
+                firstarg = cmdline[1:].split('"', 1)[0]
+            else:
+                firstarg = cmdline.split(" ", 1)[0]
+            if base not in firstarg:
+                cmdline = f"{appname} {cmdline}"
+        if cmdline and cmdline not in self.executed_commands:
+            self._filtering_helper(self.executed_commands, cmdline)
+
+    def _handle_LdrGetProcedureAddress(self, call, process):
+        if call["status"]:
             dllname = self.get_argument(call, "ModuleName").lower()
             funcname = self.get_argument(call, "FunctionName")
             if not funcname:
@@ -609,27 +690,57 @@ class Summary:
             if combined not in self.resolved_apis:
                 self.resolved_apis.append(combined)
 
-        elif call["api"].startswith("NtCreateProcess"):
-            cmdline = self.get_argument(call, "FileName")
-            if cmdline and cmdline not in self.executed_commands:
-                self._filtering_helper(self.executed_commands, cmdline)
+    def _handle_NtCreateProcess(self, call, process):
+        cmdline = self.get_argument(call, "FileName")
+        if cmdline and cmdline not in self.executed_commands:
+            self._filtering_helper(self.executed_commands, cmdline)
 
-        elif call["api"] in ("MoveFileWithProgressW", "MoveFileWithProgressTransactedW"):
-            origname = self.get_argument(call, "ExistingFileName")
-            newname = self.get_argument(call, "NewFileName")
-            if origname:
-                if origname not in self.files:
-                    self._filtering_helper(self.files, origname)
-                if origname not in self.delete_files:
-                    self._filtering_helper(self.delete_files, origname)
-                    self._add_file_activity(process, "delete_files", origname)
-            if newname:
-                if newname not in self.files:
-                    self._filtering_helper(self.files, newname)
-                if newname not in self.write_files:
-                    self._filtering_helper(self.write_files, newname)
-                    self._add_file_activity(process, "write_files", newname)
+    def _handle_MoveFile(self, call, process):
+        origname = self.get_argument(call, "ExistingFileName")
+        newname = self.get_argument(call, "NewFileName")
+        if origname:
+            if origname not in self.files:
+                self._filtering_helper(self.files, origname)
+            if origname not in self.delete_files:
+                self._filtering_helper(self.delete_files, origname)
+                self._add_file_activity(process, "delete_files", origname)
+        if newname:
+            if newname not in self.files:
+                self._filtering_helper(self.files, newname)
+            if newname not in self.write_files:
+                self._filtering_helper(self.write_files, newname)
+                self._add_file_activity(process, "write_files", newname)
 
+    def event_apicall(self, call, process):
+        """Generate processes list from streamed calls/processes.
+        @return: None.
+        """
+        api = call["api"]
+        handler = self.dispatch.get(api)
+        if handler:
+            handler(call, process)
+            return
+
+        if api.startswith("RegOpenKeyEx"):
+            self._handle_RegOpenKey(call, process)
+        elif api.startswith("RegSetValue"):
+            self._handle_RegSetValue(call, process)
+        elif api.startswith("RegCreateKeyEx"):
+            self._handle_RegCreateKey(call, process)
+        elif api.startswith("RegDeleteValue"):
+            self._handle_NtDeleteKey(call, process)
+        elif api.startswith("NtOpenKey"):
+            self._handle_NtOpenKey(call, process)
+        elif api.startswith("RegQueryValue"):
+            self._handle_NtQueryValueKey(call, process)
+        elif api.startswith("DeleteFile") or api.startswith("RemoveDirectory"):
+            self._handle_DeleteFile(call, process)
+        elif api.startswith("StartService"):
+            self._handle_StartService(call, process)
+        elif api.startswith("CreateService"):
+            self._handle_CreateService(call, process)
+        elif api.startswith("NtCreateProcess"):
+            self._handle_NtCreateProcess(call, process)
         elif call["category"] == "filesystem":
             filename = self.get_argument(call, "FileName")
             if not filename:
@@ -709,78 +820,7 @@ class Enhanced:
         self.modules = {}
         self.procedures = {}
         self.events = []
-
-    def _add_procedure(self, mbase, name, base):
-        """
-        Add a procedure address
-        """
-        self.procedures[base] = f"{self._get_loaded_module(mbase)}:{name}"
-
-    def _add_loaded_module(self, name, base):
-        """
-        Add a loaded module to the internal database
-        """
-        self.modules[base] = name
-
-    def _get_loaded_module(self, base):
-        """
-        Get the name of a loaded module from the internal db
-        """
-        return self.modules.get(base, "")
-
-    def _process_call(self, call):
-        """Gets files calls
-        @return: information list
-        """
-
-        def _load_args(call):
-            """
-            Load arguments from call
-            """
-            return {argument["name"]: argument["value"] for argument in call["arguments"]}
-
-        def _generic_handle_details(self, call, item):
-            """
-            Generic handling of api calls
-            @call: the call dict
-            @item: Generic item to process
-            """
-            event = None
-            if call["api"] in item["apis"]:
-                args = _load_args(call)
-                self.eid += 1
-
-                event = {
-                    "event": item["event"],
-                    "object": item["object"],
-                    "timestamp": call["timestamp"],
-                    "eid": self.eid,
-                    "data": {},
-                }
-
-                for logname, dataname in item["args"]:
-                    event["data"][logname] = args.get(dataname)
-                return event
-
-        def _generic_handle(self, data, call):
-            """Generic handling of api calls."""
-            for item in data:
-                event = _generic_handle_details(self, call, item)
-                if event:
-                    return event
-
-            return None
-
-        def _get_service_action(control_code):
-            """@see: http://msdn.microsoft.com/en-us/library/windows/desktop/ms682108%28v=vs.85%29.aspx"""
-            codes = {1: "stop", 2: "pause", 3: "continue", 4: "info"}
-
-            default = "user" if int(control_code) >= 128 else "notify"
-            return codes.get(control_code, default)
-
-        event = None
-
-        gendat = [
+        self.gendat = [
             {
                 "event": "move",
                 "object": "file",
@@ -933,6 +973,63 @@ class Enhanced:
             },
             {"event": "delete", "object": "service", "apis": ["DeleteService"], "args": [("service", "ServiceName")]},
         ]
+        self.api_map = {}
+        for item in self.gendat:
+            for api in item["apis"]:
+                self.api_map[api] = item
+
+    def _add_procedure(self, mbase, name, base):
+        """
+        Add a procedure address
+        """
+        self.procedures[base] = f"{self._get_loaded_module(mbase)}:{name}"
+
+    def _add_loaded_module(self, name, base):
+        """
+        Add a loaded module to the internal database
+        """
+        self.modules[base] = name
+
+    def _get_loaded_module(self, base):
+        """
+        Get the name of a loaded module from the internal db
+        """
+        return self.modules.get(base, "")
+
+    def _process_call(self, call):
+        """Gets files calls
+        @return: information list
+        """
+
+        def _load_args(call):
+            """
+            Load arguments from call
+            """
+            return {argument["name"]: argument["value"] for argument in call["arguments"]}
+
+        def _get_service_action(control_code):
+            """@see: http://msdn.microsoft.com/en-us/library/windows/desktop/ms682108%28v=vs.85%29.aspx"""
+            codes = {1: "stop", 2: "pause", 3: "continue", 4: "info"}
+
+            default = "user" if int(control_code) >= 128 else "notify"
+            return codes.get(control_code, default)
+
+        event = None
+        item = self.api_map.get(call["api"])
+        if item:
+            args = _load_args(call)
+            self.eid += 1
+
+            event = {
+                "event": item["event"],
+                "object": item["object"],
+                "timestamp": call["timestamp"],
+                "eid": self.eid,
+                "data": {},
+            }
+
+            for logname, dataname in item["args"]:
+                event["data"][logname] = args.get(dataname)
 
         # Not sure I really want this, way too noisy anyway and doesn't bring much value.
         # if self.details:
@@ -942,7 +1039,6 @@ class Enhanced:
         #           "args": [("name", "FunctionName"), ("ordinal", "Ordinal")]
         #          },]
 
-        event = _generic_handle(self, gendat, call)
         args = _load_args(call)
 
         if event:

@@ -54,6 +54,9 @@ ram_boost = no
 replace_patterns = no
 file_activities = no
 
+# process behavior files in ram to speedup processing a little bit?
+ram_mmap = no
+
 [tracee]
 enabled = no
 

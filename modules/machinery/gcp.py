@@ -189,11 +189,12 @@ class GCP(Machinery):
                 self._wait_and_check_operation(operation, label, "unable to detach disk")
 
                 # Delete old disk
-                log.debug("Deleting disk %s", old_disk.device_name)
+                disk_name = old_disk.source.split("/")[-1]
+                log.debug("Deleting disk %s", disk_name)
                 request = compute_v1.DeleteDiskRequest(
                         project=self.project,
                         zone=self.zone,
-                        disk=old_disk.device_name
+                        disk=disk_name
                 )
                 operation = self.disks_client.delete(request=request)
                 self._wait_and_check_operation(operation, label, "unable to delete disk")

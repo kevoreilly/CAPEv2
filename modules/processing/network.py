@@ -1159,8 +1159,9 @@ class NetworkAnalysis(Processing):
         if not path_exists(dump_tls_log):
             return tlsmaster
 
-        for entry in open(dump_tls_log, "r").readlines() or []:
-            try:
+        with open(dump_tls_log, "r") as f:
+            for entry in f:
+                try:
                 for m in re.finditer(
                     r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
                     entry,

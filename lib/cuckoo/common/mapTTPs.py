@@ -8,7 +8,8 @@ ttpDict = {}
 ttps_map_file = os.path.join(CUCKOO_ROOT, "data", "mitre", "TTPs.json")
 if os.path.exists(ttps_map_file):
     try:
-        ttpDict = json.loads(open(ttps_map_file, "r").read())
+        with open(ttps_map_file, "r") as f:
+            ttpDict = json.load(f)
     except Exception as e:
         print("Can't load TTPs.json file", e)
 

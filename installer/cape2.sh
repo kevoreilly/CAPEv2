@@ -1109,20 +1109,10 @@ function dependencies() {
         return
     fi
 
-    # if broken sudo python -m pip uninstall pip && sudo apt-get install -y --reinstall python-pip
-    #pip3 install --upgrade pip
-    # /usr/bin/pip
-    # from pip import __main__
-    # if __name__ == '__main__':
-    #     sys.exit(__main__._main())
-
-    # re2 - dead on py3.11
+    # re2
     # sudo apt-get install -y libre2-dev
-    #re2 for py3
-    # pip3 install cython
-    # pip3 install git+https://github.com/andreasvc/pyre2.git
 
-    # install_postgresql
+    install_postgresql
 
     sudo apt-get install -y apparmor-utils
     TCPDUMP_PATH=`which tcpdump`
@@ -1375,7 +1365,7 @@ function install_CAPE() {
         echo "[-] pyproject.toml not found in $CAPE_ROOT"
         return
     fi
-    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; cd $CAPE_ROOT && CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR pip install -r pyproject.toml"
+    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR pip install -r pyproject.toml"
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
         # Integrated libvirt install

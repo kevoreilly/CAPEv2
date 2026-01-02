@@ -163,13 +163,15 @@ def saz_to_pcap(sazpath):
                     src = m.group("clientip")
                 elif m and m.group("hostip"):
                     dst = m.group("hostip")
-            req = open(f"{fiddler_raw_dir}{fid}_c.txt").read()
+            with open(f"{fiddler_raw_dir}{fid}_c.txt") as f:
+                req = f.read()
             m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
             if m and m.group("verb") != "CONNECT":
                 req = req.replace(m.group("host_and_port"), "", 1)
                 if m.group("dport") and int(m.group("dport")) <= 65535:
                     dport = int(m.group("dport"))
-            resp = open(f"{fiddler_raw_dir}{fid}_s.txt").read()
+            with open(f"{fiddler_raw_dir}{fid}_s.txt") as f:
+                resp = f.read()
             (seq, ack) = build_handshake(src, dst, sport, dport, pktdump, smac, dmac)
             (seq, ack) = make_pkts(src, dst, sport, dport, seq, ack, req, pktdump, smac, dmac)
             (seq, ack) = make_pkts(dst, src, dport, sport, seq, ack, resp, pktdump, dmac, smac)
@@ -192,13 +194,15 @@ def saz_to_pcap(sazpath):
                     log.error("Failed to find fiddler ID tag")
                     return None
 
-                req = open(f"{fiddler_raw_dir}{fid}_c.txt").read()
+                with open(f"{fiddler_raw_dir}{fid}_c.txt") as f:
+                    req = f.read()
                 m = re.match(r"^(?P<verb>[^\r\n\s]+)\s+(?P<host_and_port>https?\:\/\/[^\/\r\n\:]+(\:(?P<dport>\d{1,5}))?)\/", req)
                 if m and m.group("verb") != "CONNECT":
                     req = req.replace(m.group("host_and_port"), "", 1)
                     if m.group("dport") and int(m.group("dport")) <= 65535:
                         dport = int(m.group("dport"))
-                resp = open(f"{fiddler_raw_dir}{fid}_s.txt").read()
+                with open(f"{fiddler_raw_dir}{fid}_s.txt") as f:
+                    resp = f.read()
                 (seq, ack) = build_handshake(src, dst, sport, dport, pktdump, smac, dmac)
                 (seq, ack) = make_pkts(src, dst, sport, dport, seq, ack, req, pktdump, smac, dmac)
                 (seq, ack) = make_pkts(dst, src, dport, sport, seq, ack, resp, pktdump, dmac, smac)

@@ -211,3 +211,8 @@ One example procedure is as follow:
 
 .. image:: ../_images/screenshots/debugger2disassembler.png
     :align: center
+    
+
+The Art of Detonation Debugging: A Strategic Guide for CAPE Sandbox
+===================================================================
+Coming soon

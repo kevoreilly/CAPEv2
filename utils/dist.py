@@ -445,7 +445,8 @@ def node_submit_task(task_id, node_id, main_task_id):
 
         # encoding problem
         if r.status_code == 500 and task.category == "file":
-            r = requests.post(url, data=data, files={"file": ("file", open(task.path, "rb").read())}, verify=False)
+            with open(task.path, "rb") as f:
+                r = requests.post(url, data=data, files={"file": ("file", f.read())}, verify=False)
 
         # Zip files preprocessed, so only one id
         if r and r.status_code == 200:
@@ -826,7 +827,7 @@ class Retriever(threading.Thread):
                                     # node_data.enabled = False
                                     # db.commit()
                 db.commit()
-                # time.sleep(5)
+                time.sleep(5)
 
     def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
         """
@@ -971,7 +972,8 @@ class Retriever(threading.Thread):
 
                         if sample_sha256 is None:
                             # keep fallback for now
-                            sample = open(t.path, "rb").read()
+                            with open(t.path, "rb") as f:
+                                sample = f.read()
                             sample_sha256 = hashlib.sha256(sample).hexdigest()
 
                         destination = os.path.join(binaries_folder, sample_sha256)
@@ -1129,7 +1131,8 @@ class Retriever(threading.Thread):
                                     sample_sha256 = samples[0].sample.sha256
                             if sample_sha256 is None:
                                 # keep fallback for now
-                                sample = open(t.path, "rb").read()
+                                with open(t.path, "rb") as f:
+                                    sample = f.read()
                                 sample_sha256 = hashlib.sha256(sample).hexdigest()
 
                             destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")

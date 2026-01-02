@@ -750,4 +750,5 @@ class MaecReport(Report):
 
 if __name__ == "__main__":
     mr = MaecReport()
-    mr.run(json.loads(open(sys.argv[1], "rb").read()))
+    with open(sys.argv[1], "rb") as f:
+        mr.run(json.load(f))

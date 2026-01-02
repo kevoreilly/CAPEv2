@@ -813,6 +813,9 @@ class RunReporting:
         self.task = task
 
         if results.get("pefiles"):
+            for pe in results["pefiles"].values():
+                with suppress(Exception):
+                    pe.close()
             del results["pefiles"]
 
         # remove unwanted/duplicate information from reporting

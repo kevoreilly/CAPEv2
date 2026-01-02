@@ -1159,22 +1159,23 @@ class NetworkAnalysis(Processing):
         if not path_exists(dump_tls_log):
             return tlsmaster
 
-        for entry in open(dump_tls_log, "r").readlines() or []:
-            try:
-                for m in re.finditer(
-                    r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
-                    entry,
-                    re.I,
-                ):
-                    try:
-                        client_random = binascii.a2b_hex(m.group("client_random").strip())
-                        server_random = binascii.a2b_hex(m.group("server_random").strip())
-                        master_secret = binascii.a2b_hex(m.group("master_secret").strip())
-                        tlsmaster[client_random, server_random] = master_secret
-                    except Exception as e:
-                        log.warning("Problem dealing with tlsdump error: %s line: %s", e, m.group(0))
-            except Exception as e:
-                log.warning("Problem dealing with tlsdump error: %s line: %s", e, entry)
+        with open(dump_tls_log, "r") as f:
+            for entry in f:
+                try:
+                    for m in re.finditer(
+                        r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
+                        entry,
+                        re.I,
+                    ):
+                        try:
+                            client_random = binascii.a2b_hex(m.group("client_random").strip())
+                            server_random = binascii.a2b_hex(m.group("server_random").strip())
+                            master_secret = binascii.a2b_hex(m.group("master_secret").strip())
+                            tlsmaster[client_random, server_random] = master_secret
+                        except Exception as e:
+                            log.warning("Problem dealing with tlsdump error: %s line: %s", e, m.group(0))
+                except Exception as e:
+                    log.warning("Problem dealing with tlsdump error: %s line: %s", e, entry)
 
         return tlsmaster
 

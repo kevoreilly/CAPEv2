@@ -1,5 +1,5 @@
 #!/bin/bash
-# set -ex
+set -ex
 # By @doomedraven - https://twitter.com/D00m3dR4v3n
 # Copyright (C) 2011-2023 doomedraven.
 # See the file 'LICENSE.md' for copying permission.
@@ -66,7 +66,7 @@ USE_UV=${USE_UV:-false}
 if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
     PYTHON_MGR="/usr/local/bin/uv"
     PYTHON_MGR_CMD="run"
-    PYTHON_MGR_INSTALL="sync"
+    PYTHON_MGR_INSTALL="sync --no-install-project"
 else
     PYTHON_MGR="/etc/poetry/bin/poetry"
     PYTHON_MGR_CMD="run"
@@ -132,6 +132,7 @@ cat << EndOfHelp
         modsecurity - install Nginx ModSecurity plugin
         Issues - show some known possible bugs/solutions
     Options:
+        --use-uv - Use uv instead of poetry
         --disable-mongodb-avx-check - Disable check of AVX CPU feature for MongoDB
         --disable-libvirt - Disable libvirt related packages installation
     Useful links - THEY CAN BE OUTDATED; RTFM!!!
@@ -555,7 +556,7 @@ server {
     location / {
         try_files $uri $uri/ =404;
     }
-}: 
+}:
 EOF
     fi
 
@@ -657,7 +658,11 @@ function redsocks2() {
 function distributed() {
     echo "[+] Configure distributed configuration"
     sudo apt-get install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
-    sudo -u ${USER} bash -c "$PYTHON_MGR $PYTHON_MGR_CMD pip install flask flask-restful flask-sqlalchemy requests"
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install flask flask-restful flask-sqlalchemy requests"
+    else
+        sudo -u ${USER} bash -c "$PYTHON_MGR $PYTHON_MGR_CMD pip install flask flask-restful flask-sqlalchemy requests"
+    fi
 
     sudo cp $CAPE_ROOT/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
     sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
@@ -703,7 +708,7 @@ function install_suricata() {
     echo '[+] Installing Suricata'
     # Suricata 8 has many breaking changes. We don't have time to make it compatible
     # sudo add-apt-repository -y ppa:oisf/suricata-stable
-    sudo add-apt-repository ppa:oisf/suricata-7.0
+    sudo add-apt-repository -y ppa:oisf/suricata-7.0
     sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata
     touch /etc/suricata/threshold.config
 
@@ -775,13 +780,13 @@ function install_yara_x() {
     sudo -u ${USER} git clone https://github.com/VirusTotal/yara-x
     cd yara-x || return
     sudo -u ${USER} bash -c 'source "$HOME/.cargo/env" ; cargo install --path cli'
-    $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install yara-x
+    sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install yara-x
 }
 
 function install_yara_python() {
     # Refactored from extra/yara_installer.sh
     echo '[+] Installing yara-python'
-    
+
     # Git clone method (commented out for now, prefer PyPI)
     # if [ ! -d /tmp/yara-python ]; then
     #     git clone --recursive https://github.com/VirusTotal/yara-python /tmp/yara-python
@@ -789,15 +794,25 @@ function install_yara_python() {
 
     # Build and install using the modern pip interface with config-settings
     # This replaces the legacy setup.py build approach
-    
+
     # Install from PyPI
-    sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install yara-python \
-        --no-binary :all: \
-        --config-settings="--global-option=build" \
-        --config-settings="--global-option=--enable-cuckoo" \
-        --config-settings="--global-option=--enable-magic" \
-        --config-settings="--global-option=--enable-profiling" \
-        --config-settings="--global-option=--dynamic-linking"
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install yara-python \
+            --no-binary :all: \
+            --config-settings=\"--global-option=build\" \
+            --config-settings=\"--global-option=--enable-cuckoo\" \
+            --config-settings=\"--global-option=--enable-magic\" \
+            --config-settings=\"--global-option=--enable-profiling\" \
+            --config-settings=\"--global-option=--dynamic-linking\""
+    else
+        sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install yara-python \
+            --no-binary :all: \
+            --config-settings="--global-option=build" \
+            --config-settings="--global-option=--enable-cuckoo" \
+            --config-settings="--global-option=--enable-magic" \
+            --config-settings="--global-option=--enable-profiling" \
+            --config-settings="--global-option=--dynamic-linking"
+    fi
 
     # Install from local source (commented out)
     # sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install /tmp/yara-python \
@@ -881,7 +896,11 @@ function install_libvirt() {
 
     # Run build and install within the project environment
     # We use sudo -u cape ... to install into the user's environment managed by poetry/uv
-    sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install ."
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install ."
+    else
+        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install ."
+    fi
 }
 
 function install_mongo(){
@@ -1004,6 +1023,11 @@ function install_postgresql() {
     sudo systemctl enable postgresql.service
     sudo systemctl start postgresql.service
 
+    sudo -u postgres -H sh -c "psql -c \"CREATE USER ${USER} WITH PASSWORD '$PASSWD'\"";
+    sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}\"";
+    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER} to ${USER};\""
+    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE ${USER} OWNER TO ${USER};\""
+
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE cape REFRESH COLLATION VERSION;\""
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE postgres REFRESH COLLATION VERSION;\""
 }
@@ -1019,7 +1043,11 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install /tmp/capa
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install /tmp/capa"
+    else
+        sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install /tmp/capa
+    fi
     cd $CAPE_ROOT
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa
@@ -1028,6 +1056,9 @@ function install_capa() {
 
 function dependencies() {
     echo "[+] Installing dependencies"
+
+    sudo locale-gen en_US.UTF-8
+    sudo update-locale LANG=en_US.UTF-8
 
     timedatectl set-timezone UTC
     export LANGUAGE=en_US.UTF-8
@@ -1054,7 +1085,7 @@ function dependencies() {
     else
         curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -
         echo "PATH=$PATH:/etc/poetry/bin/" >> /etc/bash.bashrc
-        source /etc/bash.bashrc
+        export PATH=$PATH:/etc/poetry/bin/
         poetry self add poetry-plugin-shell
     fi
 
@@ -1088,17 +1119,12 @@ function dependencies() {
     # pip3 install cython
     # pip3 install git+https://github.com/andreasvc/pyre2.git
 
-    install_postgresql
-
-    sudo -u postgres -H sh -c "psql -c \"CREATE USER ${USER} WITH PASSWORD '$PASSWD'\"";
-    sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}\"";
-    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER} to ${USER};\""
-    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE ${USER} OWNER TO ${USER};\""
+    # install_postgresql
 
     sudo apt-get install -y apparmor-utils
     TCPDUMP_PATH=`which tcpdump`
-    aa-complain ${TCPDUMP_PATH}
-    aa-disable ${TCPDUMP_PATH}
+    aa-complain ${TCPDUMP_PATH} || true
+    aa-disable ${TCPDUMP_PATH} || true
 
     if id "${USER}" &>/dev/null; then
         echo "user ${USER} already exist"
@@ -1342,7 +1368,11 @@ function install_CAPE() {
     fi
 
     cd "$CAPE_ROOT/" || return
-    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR $PYTHON_MGR_INSTALL"
+    if [ ! -f "pyproject.toml" ]; then
+        echo "[-] pyproject.toml not found in $CAPE_ROOT"
+        return
+    fi
+    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; cd $CAPE_ROOT && CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR $PYTHON_MGR_INSTALL"
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
         # Integrated libvirt install
@@ -1495,8 +1525,19 @@ function install_node_exporter() {
 function install_volatility3() {
     echo "[+] Installing volatility3"
     sudo apt-get install -y unzip
-    sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD pip3 install git+https://github.com/volatilityfoundation/volatility3
-    vol_path=$(sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install git+https://github.com/volatilityfoundation/volatility3"
+        vol_path=$(sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR run python3 -c \"import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))\"")
+    else
+        sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD pip3 install git+https://github.com/volatilityfoundation/volatility3
+        vol_path=$(sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    fi
+
+    if [ -z "$vol_path" ]; then
+        echo "[-] Could not find volatility3 path"
+        return
+    fi
+
     cd $vol_path || return
     wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
     unzip -o windows.zip
@@ -1686,7 +1727,7 @@ COMMAND=$(echo "$1"|tr "{A-Z}" "{a-z}")
 case $COMMAND in
     '-h')
         usage
-        exit 0;; 
+        exit 0;;
 esac
 
 if [ $# -eq 3 ]; then
@@ -1708,6 +1749,11 @@ for i in "$@"; do
     elif [ "$i" == "--disable-libvirt" ]; then
         # Disable libvirt installation
         DISABLE_LIBVIRT=1
+    elif [ "$i" == "--use-uv" ] || [ "$i" == "USE_UV=true" ] || [ "$i" == "USE_UV=True" ]; then
+        USE_UV="true"
+        PYTHON_MGR="/usr/local/bin/uv"
+        PYTHON_MGR_CMD="run"
+        PYTHON_MGR_INSTALL="sync"
     fi
 done
 
@@ -1762,7 +1808,7 @@ case "$COMMAND" in
     fi
     # Update FLARE CAPA rules once per day
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
-        crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD python3 community.py -waf -cr && $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD python3 community.py -waf -cr && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
     install_librenms
     if [ "$clamav_enable" -ge 1 ]; then
@@ -1770,77 +1816,77 @@ case "$COMMAND" in
     fi
     ;;
 'systemd')
-    install_systemd;; 
+    install_systemd;;
 'suricata')
-    install_suricata;; 
+    install_suricata;;
 'yara')
-    install_yara;; 
+    install_yara;;
 'yara-x')
-    install_yara_x;; 
+    install_yara_x;;
 'volatility3')
-    install_volatility3;; 
+    install_volatility3;;
 'postgresql')
-    install_postgresql;; 
+    install_postgresql;;
 'postgresql_utility')
-    install_postgres_pg_activity;; 
+    install_postgres_pg_activity;;
 'elastic')
-    install_elastic;; 
+    install_elastic;;
 'sandbox')
-    install_CAPE;; 
+    install_CAPE;;
 'dist')
-    distributed;; 
+    distributed;;
 'fail2ban')
-    install_fail2ban;; 
+    install_fail2ban;;
 'mongo')
-    install_mongo;; 
+    install_mongo;;
 'redsocks2')
-    redsocks2;; 
+    redsocks2;;
 'dependencies')
-    dependencies;; 
+    dependencies;;
 'logrotate')
-    install_logrotate;; 
+    install_logrotate;;
 'librenms')
-    install_librenms;; 
+    install_librenms;;
 'librenms_cron_config')
-    librenms_cron_config;; 
+    librenms_cron_config;;
 'librenms_snmpd_config')
-    librenms_snmpd_config;; 
+    librenms_snmpd_config;;
 'librenms_sneck_config')
-    librenms_sneck_config;; 
+    librenms_sneck_config;;
 'mitmproxy')
-    install_mitmproxy;; 
+    install_mitmproxy;;
 'polarproxy')
-    install_polarproxy;; 
+    install_polarproxy;;
 'issues')
-    issues;; 
+    issues;;
 'nginx')
-    install_nginx;; 
+    install_nginx;;
 'letsencrypt')
-    install_letsencrypt;; 
+    install_letsencrypt;;
 'clamav')
-    install_clamav;; 
+    install_clamav;;
 'prometheus')
-    install_prometheus_grafana;; 
+    install_prometheus_grafana;;
 'node_exporter')
-    install_node_exporter;; 
+    install_node_exporter;;
 'jemalloc')
-    install_jemalloc;; 
+    install_jemalloc;;
 'guacamole')
-    install_guacamole;; 
+    install_guacamole;;
 'docker')
-    install_docker;; 
+    install_docker;;
 'modsecurity')
-    install_modsecurity;; 
+    install_modsecurity;;
 'crowdsecurity')
-    install_crowdsecurity;; 
+    install_crowdsecurity;;
 'die')
-    install_DIE;; 
+    install_DIE;;
 'fluentd')
-    install_fluentd;; 
+    install_fluentd;;
 'passivedns')
-    install_passivedns;; 
+    install_passivedns;;
 *)
-    usage;; 
+    usage;;
 esac
 
 echo "[+] cape2.sh - Done"

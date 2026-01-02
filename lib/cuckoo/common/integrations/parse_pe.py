@@ -164,6 +164,10 @@ class PortableExecutable:
             log.debug("PE type not recognised: %s", e)
         # self.results = results
 
+    def close(self):
+        if self.pe:
+            self.pe.close()
+
     @property
     def file_data(self):
         if not self._file_data and path_exists(self.file_path):

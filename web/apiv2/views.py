@@ -220,22 +220,23 @@ def tasks_create_static(request):
     extra_details = {}
     task_ids = []
     for sample in files:
-        tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
-        try:
-            task_id, extra_details = db.demux_sample_and_add_to_db(
-                tmp_path,
-                options=options,
-                priority=priority,
-                static=1,
-                only_extraction=True,
-                user_id=request.user.id or 0,
-            )
-            task_ids.extend(task_id)
-            if extra_details.get("erros"):
-                resp["errors"].extend(extra_details["errors"])
-        except CuckooDemuxError as e:
-            resp = {"error": True, "error_value": e}
-            return Response(resp)
+        with sample:
+            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+            try:
+                task_id, extra_details = db.demux_sample_and_add_to_db(
+                    tmp_path,
+                    options=options,
+                    priority=priority,
+                    static=1,
+                    only_extraction=True,
+                    user_id=request.user.id or 0,
+                )
+                task_ids.extend(task_id)
+                if extra_details.get("erros"):
+                    resp["errors"].extend(extra_details["errors"])
+            except CuckooDemuxError as e:
+                resp = {"error": True, "error_value": e}
+                return Response(resp)
 
     resp["data"] = {}
     resp["data"]["task_ids"] = task_ids

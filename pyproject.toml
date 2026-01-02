@@ -73,7 +73,7 @@ dependencies = [
     "paramiko==3.5.0",
     "psutil==6.1.1",
     "peepdf-3==5.0.0",
-    "pyre2-updated>=0.3.8",
+    "pyre2>=0.3.10",
     "Werkzeug==3.1.4",
     "packaging==24.2",
     "setuptools==78.1.1",

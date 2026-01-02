@@ -4245,34 +4245,34 @@ full = ["Pillow (>=8.0.0)", "cryptography"]
 image = ["Pillow (>=8.0.0)"]
 
 [[package]]
-name = "pyre2-updated"
-version = "0.3.8"
-description = "Python wrapper for Google's RE2 using Cython"
+name = "pyre2"
+version = "0.3.10"
+description = "Python wrapper for Google RE2 library using Cython"
 optional = false
-python-versions = ">=3.7"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "pyre2-updated-0.3.8.tar.gz", hash = "sha256:6d6aaa2f41a085095993b2d09562511cf40d4aedfc5bd00d78f53112be051e19"},
-    {file = "pyre2_updated-0.3.8-cp310-cp310-macosx_10_15_universal2.whl", hash = "sha256:65e67527eb472cd5045966df42414205cbfc187633a844ba7d9f59480f46e748"},
-    {file = "pyre2_updated-0.3.8-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ab79cd5c663d20eca146361f2b2b7cf23c631109e43064d4bb35a43cb0607ffd"},
-    {file = "pyre2_updated-0.3.8-cp310-cp310-win_amd64.whl", hash = "sha256:b0820d8420caca762184f5eebe57631be5b985e405c53e807aac24897daa892a"},
-    {file = "pyre2_updated-0.3.8-cp311-cp311-macosx_10_15_universal2.whl", hash = "sha256:2bda9bf4d59568152e085450ffc1c08fcf659000d06766861f7ff340ba601c3e"},
-    {file = "pyre2_updated-0.3.8-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:54de291bb8b3aa2223f864293e0a9e62ea2877fea72a632fe5cd36a60012f7bc"},
-    {file = "pyre2_updated-0.3.8-cp311-cp311-win_amd64.whl", hash = "sha256:45c0940dbda4a2c45652e69ab52946c2395171f3e3a96bce456a8ddb45b337e1"},
-    {file = "pyre2_updated-0.3.8-cp312-cp312-macosx_10_15_universal2.whl", hash = "sha256:4db83d0f148d91f9b67b71eb3fd04a7e1d09397e7ecea75972632cd46c27ba6e"},
-    {file = "pyre2_updated-0.3.8-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:53d27f552fac2149c9dbe45faf1f6236c55fba42ea579799a07cdc853e3732d6"},
-    {file = "pyre2_updated-0.3.8-cp312-cp312-win_amd64.whl", hash = "sha256:648196c6fe7b115431f2bedc48660333a61f6628bde7efefc14098d67f86b7b4"},
-    {file = "pyre2_updated-0.3.8-cp37-cp37m-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:802dec5801912c76b21dcc3d91810ae9ff0cc308e78fb0aa32d93e921783f5d8"},
-    {file = "pyre2_updated-0.3.8-cp37-cp37m-win_amd64.whl", hash = "sha256:daf366a83b70b08cc4c59477455a28b2a108484d282824d350217a8a7378d229"},
-    {file = "pyre2_updated-0.3.8-cp38-cp38-macosx_10_15_universal2.whl", hash = "sha256:f1c406e30aed02699888ae6938b83058f0845650991cd97db09e1686ce8a181a"},
-    {file = "pyre2_updated-0.3.8-cp38-cp38-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:8331fc7bb1fa57d2654046ed189631d70db1170d935264ce82a7291413ce60e4"},
-    {file = "pyre2_updated-0.3.8-cp38-cp38-win_amd64.whl", hash = "sha256:407ca7082e2049aeae0b2c716cc53cd92217d17886694fe0047ce5d636161155"},
-    {file = "pyre2_updated-0.3.8-cp39-cp39-macosx_10_15_universal2.whl", hash = "sha256:99942f75a252691117880fc60941f20170d35bcb3ccb72aff9a1bbce951d4db0"},
-    {file = "pyre2_updated-0.3.8-cp39-cp39-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:ff764613bd436689cf5e4d3c14a25cf8465474e1db9f2a39738bbf481dd07300"},
-    {file = "pyre2_updated-0.3.8-cp39-cp39-win_amd64.whl", hash = "sha256:350be9580700b67af87f5227453d1123bc9f4513f0bcc60450574f1bc46cb24f"},
+    {file = "pyre2-0.3.10-cp310-cp310-macosx_14_0_arm64.whl", hash = "sha256:29312fbb22b7d3cf3e522c43267098162e98ec8b4fc202c9260e22df671b42e1"},
+    {file = "pyre2-0.3.10-cp310-cp310-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4d5f140e011885a93a1799fc7e51b48e105742e5fd20242f1ba38c34e73deaaf"},
+    {file = "pyre2-0.3.10-cp310-cp310-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d1bf2337fe958007623086e6783ff126650032e56733f223fcf987c5812c7af6"},
+    {file = "pyre2-0.3.10-cp310-cp310-win_amd64.whl", hash = "sha256:73037ab0a221896d3d12dace196d31cd9966c59e639cec33e1adbeeae5bba09a"},
+    {file = "pyre2-0.3.10-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:f6e1ee8205d0ff103e6835841a642220a185478b33d8870e99de850db53e133a"},
+    {file = "pyre2-0.3.10-cp311-cp311-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:aa7bfbc86c93cc1b5603d91ee1847da722fe5ebcd4d2b201b82ea3d70a6fde68"},
+    {file = "pyre2-0.3.10-cp311-cp311-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:3e03e47cc9f36503502d75fccd8d2a5b7883d5f5941817dd4c82470df55ec533"},
+    {file = "pyre2-0.3.10-cp311-cp311-win_amd64.whl", hash = "sha256:99a190fdcffcf46fb3763fffefd3f6643825d9dec941d9b4190be6968bd9e497"},
+    {file = "pyre2-0.3.10-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:ca09d74121f3c2cf7605c4c560a990c18b78ae2def2d147bf35c45d2342696f8"},
+    {file = "pyre2-0.3.10-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:3cc9592d5d46b452a0847916c816c0ec85127af50aab3bb043557c85d9c6ec4a"},
+    {file = "pyre2-0.3.10-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:c5afc0d6b4c0dfa9e760c9b98168ab1a441230d729e8b03ebdcce66744c153a1"},
+    {file = "pyre2-0.3.10-cp312-cp312-win_amd64.whl", hash = "sha256:604b0a12520a119948dd74ae053db558313f5812ea841d36edf13d7b852a2e8a"},
+    {file = "pyre2-0.3.10-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:a54066c20731bf3c4db13f248ec4a55e05a2b2dee712a15d4ccb6d3e348a654d"},
+    {file = "pyre2-0.3.10-cp313-cp313-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:c7c0d11a66d992133c401b48da7b33532d8ec20022745f433503becb58302902"},
+    {file = "pyre2-0.3.10-cp313-cp313-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:528ac7a181a9ab8224df5f1351a63ac8093b7423e613b1d768eaf968955449a8"},
+    {file = "pyre2-0.3.10-cp313-cp313-win_amd64.whl", hash = "sha256:2771bc0a3a5f3fd1d34fe8ae80debd1fe59a1cdcecdbeb60818bff8deb247e56"},
+    {file = "pyre2-0.3.10.tar.gz", hash = "sha256:91803818ec15e75d0dfdfe588282f28f46fff5eef9a2c893cac95327f443c585"},
 ]
 
 [package.extras]
+doc = ["sphinx", "sphinx_rtd_theme", "sphinxcontrib-apidoc"]
 perf = ["regex"]
 test = ["pytest"]
 
@@ -5335,9 +5335,6 @@ files = [
     {file = "stpyv8-13.1.201.22-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:6cb5e8751aee2487cc3b5f21eac6d459041a7180a779941b64db5736e27276ee"},
     {file = "stpyv8-13.1.201.22-cp313-cp313-manylinux_2_31_x86_64.whl", hash = "sha256:834b9761bb7f49da8b887847c7647495a2cf6c45f69e2124ae0e3f024493bc15"},
     {file = "stpyv8-13.1.201.22-cp313-cp313-win_amd64.whl", hash = "sha256:c8189b8c4d87579f353705441757f11e2f2260578b82000925dadf0ed59a47e3"},
-    {file = "stpyv8-13.1.201.22-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:c4bf3048c96a6a1561861da0c74be842c79a71373d3bec0d53c4e8f6eaa7b6e8"},
-    {file = "stpyv8-13.1.201.22-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:6fdbc3a8b1aa941064ec0976a5a85761f50e9090468ce275c22d0774293d2668"},
-    {file = "stpyv8-13.1.201.22-cp314-cp314-manylinux_2_35_x86_64.whl", hash = "sha256:c0b258c7c5a79c5f19e636b93eece90d3cf9109af9a11c5394bdb807ed68e04a"},
     {file = "stpyv8-13.1.201.22-cp39-cp39-macosx_13_0_x86_64.whl", hash = "sha256:05c3ecaaf2dd8dbe06bdb70f3192b7e6161337ee04e6830a57b58eb4be7c70bd"},
     {file = "stpyv8-13.1.201.22-cp39-cp39-manylinux_2_31_x86_64.whl", hash = "sha256:bf51578ec84dba6519d75ca81a154a070910e638da0ec384f4bf6d535f9b5218"},
     {file = "stpyv8-13.1.201.22-cp39-cp39-win_amd64.whl", hash = "sha256:d00a220268d63d68490682b571d082d5b197de1f19d6f478a88357c61da94f7a"},
@@ -6307,4 +6304,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "b21cd6d88ce59a1ddf16983304dd92419e09e603e3a4062bb8928e477f2fa5b2"
+content-hash = "38be4ec266be131d67644ba02abb029e1c64a62f51a4eb600a16a4f8133a681c"

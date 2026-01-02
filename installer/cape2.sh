@@ -1110,7 +1110,7 @@ function dependencies() {
     fi
 
     # re2
-    # sudo apt-get install -y libre2-dev
+    sudo apt-get install -y libre2-dev
 
     install_postgresql
 

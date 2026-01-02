@@ -37,22 +37,22 @@ class TLSMasterSecrets(Processing):
         with open(dump_tls_log, "r") as f:
             for entry in f:
                 try:
-                for m in re.finditer(
-                    r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
-                    entry,
-                    re.I,
-                ):
-                    try:
-                        server_random = binascii.a2b_hex(m.group("server_random").strip())
-                        master_secret = binascii.a2b_hex(m.group("master_secret").strip())
-                        if server_random not in metakeys:
-                            log.debug("Was unable to extract TLS master secret for server random %s, skipping it", server_random)
-                            continue
-                        results[metakeys[server_random]] = master_secret
-                    except Exception as e:
-                        log.warning("Problem dealing with tlsdump error: %s line: %s", e, m.group(0))
-            except Exception as e:
-                log.warning("Problem dealing with tlsdump error: %s line: %s", e, entry)
+                    for m in re.finditer(
+                        r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
+                        entry,
+                        re.I,
+                    ):
+                        try:
+                            server_random = binascii.a2b_hex(m.group("server_random").strip())
+                            master_secret = binascii.a2b_hex(m.group("master_secret").strip())
+                            if server_random not in metakeys:
+                                log.debug("Was unable to extract TLS master secret for server random %s, skipping it", server_random)
+                                continue
+                            results[metakeys[server_random]] = master_secret
+                        except Exception as e:
+                            log.warning("Problem dealing with tlsdump error: %s line: %s", e, m.group(0))
+                except Exception as e:
+                    log.warning("Problem dealing with tlsdump error: %s line: %s", e, entry)
 
         if results:
             # Write the TLS master secrets file.

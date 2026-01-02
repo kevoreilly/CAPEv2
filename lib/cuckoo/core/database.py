@@ -1654,7 +1654,8 @@ class _Database:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
 
                 if package == "dll" and "function" not in options:
-                    dll_export = PortableExecutable(file.decode()).choose_dll_export()
+                    with PortableExecutable(file.decode()) as pe:
+                        dll_export = pe.choose_dll_export()
                     if dll_export == "DllRegisterServer":
                         package = "regsvr"
                     elif dll_export == "xlAutoOpen":

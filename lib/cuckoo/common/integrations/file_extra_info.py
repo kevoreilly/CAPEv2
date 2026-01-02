@@ -181,7 +181,8 @@ def static_file_info(
 
     # ToDo we need type checking as it wont work for most of static jobs
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
-        data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
+        with PortableExecutable(file_path) as pe:
+            data_dictionary["pe"] = pe.run(task_id)
 
         if HAVE_FLARE_CAPA:
             # https://github.com/mandiant/capa/issues/2620
@@ -954,7 +955,13 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
 
 @time_tracker
 def office_one(file, **_) -> ExtractorReturnType:
-    if not HAVE_ONE or open(file, "rb").read(16) not in (
+    if not HAVE_ONE:
+        return
+
+    with open(file, "rb") as f:
+        header = f.read(16)
+
+    if header not in (
         b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3",
         b"\xA1\x2F\xFF\x43\xD9\xEF\x76\x4C\x9E\xE2\x10\xEA\x57\x22\x76\x5F",
     ):

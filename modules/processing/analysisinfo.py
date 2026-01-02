@@ -60,7 +60,8 @@ class AnalysisInfo(Processing):
             package = package["name"]
         if not package and path_exists(self.log_path):
             try:
-                analysis_log = codecs.open(self.log_path, "rb", "utf-8").read()
+                with codecs.open(self.log_path, "rb", "utf-8") as f:
+                    analysis_log = f.read()
             except ValueError as e:
                 raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}") from e
             except (IOError, OSError) as e:

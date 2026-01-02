@@ -25,7 +25,8 @@ rt_table = {rt}
     for index, file in enumerate(files):
         if file.endswith(".ovpn"):
             path = os.path.join(folder, file)
-            tmp = open(path, "rt").read()
+            with open(path, "rt") as f:
+                tmp = f.read()
             write = 0
 
             # rt_table
@@ -75,9 +76,8 @@ rt_table = {rt}
 
             if write:
                 # updating config
-                tmp2 = open(path, "wt")
-                tmp2.write(tmp)
-                tmp2.close()
+                with open(path, "wt") as tmp2:
+                    tmp2.write(tmp)
 
     if vpns:
         print("\n\n\n[+] VPNs for CAPE's routing.conf")

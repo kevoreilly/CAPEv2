@@ -164,6 +164,16 @@ class PortableExecutable:
             log.debug("PE type not recognised: %s", e)
         # self.results = results
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        if self.pe:
+            self.pe.close()
+
     @property
     def file_data(self):
         if not self._file_data and path_exists(self.file_path):

@@ -191,8 +191,6 @@ def get_files_storage_path(sha256: str) -> str:
     Uses sharding (e.g., storage/files/ab/cd/abcdef...) to avoid
     too many files in a single directory.
     """
-    if not sha256 or len(sha256) < 4:
-        return os.path.join(CUCKOO_ROOT, "storage", "files", sha256)
 
     return os.path.join(CUCKOO_ROOT, "storage", "files", sha256[:2], sha256[2:4], sha256)
 

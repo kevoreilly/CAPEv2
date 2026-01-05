@@ -85,7 +85,6 @@ def test_get_ppid():
     process = Process(**ARGS)
     assert 24 == process.get_parent_pid()
 
-@pytest.mark.skipif(sys.platform != "linux", reason="Requires Linux")
 @patch("builtins.open", side_effect=FileNotFoundError)
 def test_get_ppid_file_not_exists(bopen):
     process = Process(**ARGS)

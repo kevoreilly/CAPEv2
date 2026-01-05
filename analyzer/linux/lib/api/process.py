@@ -30,7 +30,10 @@ class Process:
         return True
 
     def get_parent_pid(self):
-        return int(self.get_proc_status().get("PPid"))
+        try:
+            return int(self.get_proc_status().get("PPid"))
+        except (TypeError, ValueError):
+            return None
 
     def get_proc_status(self):
         try:

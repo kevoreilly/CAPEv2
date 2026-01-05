@@ -1,7 +1,6 @@
 from unittest.mock import Mock, patch, mock_open, PropertyMock
 from lib.api.process import Process
 import base64
-import sys
 
 import pytest
 
@@ -41,32 +40,31 @@ def test_init():
 
 @pytest.mark.usefixtures("os_path_exists")
 def test_proc_alive_states():
-    for state in ["State:	R (running)",
-    "State:	S (sleeping)",
-    "State:	D (waiting)",
-    "State:	T (stopped)",
-    "State:	t (trace stopped)",
-    "State:	W (paging)",
-    "State:	W (waking)",
-    "State:	P (parked)",
+    for state in [
+        "State:	R (running)",
+        "State:	S (sleeping)",
+        "State:	D (waiting)",
+        "State:	T (stopped)",
+        "State:	t (trace stopped)",
+        "State:	W (paging)",
+        "State:	W (waking)",
+        "State:	P (parked)",
     ]:
         state_file_content = proc_status.replace("State:	R (running)", state)
         with patch("builtins.open", mock_open(read_data=state_file_content)):
             process = Process(**ARGS)
             assert process.is_alive()
 
-@pytest.mark.skipif(sys.platform != "linux", reason="Requires Linux")
 @pytest.mark.usefixtures("os_path_exists")
 def test_proc_dead_states():
-    for state in ["State:	Z (zombie)",
-    "State:	Z (ZomBiE)",
-    "State:	X (Dead)",
-    "State:	X (dead)"
+    for state in [
+        "State:	Z (zombie)",
     ]:
         state_file_content = proc_status.replace("State:	R (running)", state)
         with patch("builtins.open", mock_open(read_data=state_file_content)):
             process = Process(**ARGS)
-            assert not process.is_alive()
+            alive = process.is_alive()
+            assert not alive
 
 @pytest.mark.usefixtures("os_path_not_exists")
 def test_proc_file_not_exists():

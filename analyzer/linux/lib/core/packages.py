@@ -105,13 +105,12 @@ class Package:
         # Command-line arguments for the target.
 
         def _args():
-            retval = []
             args = self.options.get("arguments")
             if isinstance(args, list):
-                retval = args
-            elif isinstance(args, str):
-                retval = args.split()
-            return retval
+                return args
+            if isinstance(args, str):
+                return args.split()
+            return []
 
         self.args = _args()
 

@@ -98,8 +98,3 @@ def test_execute(popen):
     assert process.execute(["echo", "this is a test message"])
     assert ARGS["pid"] ==  process.pid
     assert popen.called
-
-@pytest.mark.skip(reason="placeholder")
-def test_dump_memory():
-    process = Process(**ARGS)
-    process.dump_memory()

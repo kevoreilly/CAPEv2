@@ -32,9 +32,3 @@ class TestAnalyzer(unittest.TestCase):
         """Test add_pids with an invalid type"""
         with self.assertRaises(TypeError):
             analyzer.add_pids(analyzer.add_pids)
-
-    @pytest.mark.skip(reason="Requires Linux")
-    def test_dump_files(self):
-        """Test dump_files"""
-        FILES_LIST.add("TEST_FILE")
-        analyzer.dump_files()

@@ -101,9 +101,17 @@ class Package:
         self.timeout = kwargs.get("timeout")
         # Command-line arguments for the target.
 
-        _args = self.options.get("arguments", [])
-        if isinstance(_args, str):
-            self.args = _args.split()
+        def _args():
+            retval = []
+            args = self.options.get("arguments")
+            if isinstance(args, list):
+                retval = args
+            elif isinstance(args, str):
+                retval = args.split()
+            return retval
+
+        self.args = _args()
+
         # Choose an analysis method (or fallback to apicalls)
         self.method = self.options.get("method", "apicalls")
         # Should our target be launched as root or not

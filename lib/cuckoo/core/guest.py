@@ -119,9 +119,9 @@ class GuestManager:
 
     def get_status_from_db(self) -> str:
         # Force SQLAlchemy to dump its cache and look at the real DB
-        db.session.expire_all()
-
-        status = db.guest_get_status(self.task_id)
+         with db.session.begin():
+            db.session.expire_all()
+            status = db.guest_get_status(self.task_id)
 
         # Handle the case where the task was already deleted by race condition
         if status is None:

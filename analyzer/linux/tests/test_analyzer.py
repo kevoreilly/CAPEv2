@@ -5,7 +5,7 @@ import pytest
 
 if os.name == "Linux":
     import analyzer
-    from analyzer import PROCESS_LIST, SEEN_LIST, FILES_LIST
+    from analyzer import PROCESS_LIST, SEEN_LIST
 
 @pytest.mark.skipif(os.name != "Linux", reason="Requires Linux")
 class TestAnalyzer(unittest.TestCase):

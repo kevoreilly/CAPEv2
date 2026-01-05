@@ -115,8 +115,8 @@ Modify ``wait_for_completion`` to calculate a hard deadline based on configurati
 .. code-block:: python
 
     # Calculate Hard Limit
-    effective_timeout = self.timeout if self.timeout else cfg.cuckoo.timeouts.default
-    hard_limit = effective_timeout + cfg.cuckoo.timeouts.critical
+    effective_timeout = self.timeout if self.timeout else cfg.timeouts.default
+    hard_limit = effective_timeout + cfg.timeouts.critical
 
     while self.do_run:
         # Check Hard Limit

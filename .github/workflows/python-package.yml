@@ -49,7 +49,7 @@ jobs:
         run: poetry run python -m pytest --import-mode=append
 
       - name: Run Linux analyzer unit tests
-        run: poetry --project . --directory "analyzer/linux" run python -m pytest
+        run: poetry --project . --directory "analyzer/linux" run python -m pytest -v
 
       # see the mypy configuration in pyproject.toml
       - name: Run mypy

@@ -56,22 +56,25 @@ def _found_target_class(module, name):
 
 
 def _guess_package_name(file_type, file_name):
-    if "Bourne-Again" in file_type or "bash" in file_type:
-        return "bash"
-    elif "Zip archive" in file_type:
-        return "zip"
-    elif "gzip compressed data" in file_type:
-        return "zip"
-    elif "PDF document" in file_type or file_name.endswith(".pdf"):
-        return "pdf"
-    elif "Composite Document File V2 Document" in file_type or file_name.endswith(".doc"):
-        return "doc"
-    elif "Microsoft Word" in file_type or file_name.endswith(".docx"):
-        return "doc"
-    elif "ELF" in file_type:
-        return "generic"
-    elif "Unicode text" in file_type or file_name.endswith(".js"):
-        return "js"
+    try:
+        if "Bourne-Again" in file_type or "bash" in file_type:
+            return "bash"
+        elif "Zip archive" in file_type:
+            return "zip"
+        elif "gzip compressed data" in file_type:
+            return "zip"
+        elif "PDF document" in file_type or file_name.endswith(".pdf"):
+            return "pdf"
+        elif "Composite Document File V2 Document" in file_type or file_name.endswith(".doc"):
+            return "doc"
+        elif "Microsoft Word" in file_type or file_name.endswith(".docx"):
+            return "doc"
+        elif "ELF" in file_type:
+            return "generic"
+        elif "Unicode text" in file_type or file_name.endswith(".js"):
+            return "js"
+    except (TypeError, AttributeError):
+        pass
     return None
 
 

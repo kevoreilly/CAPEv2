@@ -1,13 +1,13 @@
-import os
+import sys
 import unittest
 
 import pytest
 
-if os.name == "Linux":
+if sys.platform == "linux":
     import analyzer
     from analyzer import PROCESS_LIST, SEEN_LIST
 
-@pytest.mark.skipif(os.name != "Linux", reason="Requires Linux")
+@pytest.mark.skipif(sys.platform != "linux", reason="Requires Linux")
 class TestAnalyzer(unittest.TestCase):
 
     def test_add_pids(self):

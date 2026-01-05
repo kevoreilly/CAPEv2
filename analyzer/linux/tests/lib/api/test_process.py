@@ -1,7 +1,7 @@
 from unittest.mock import Mock, patch, mock_open, PropertyMock
 from lib.api.process import Process
 import base64
-import os
+import sys
 
 import pytest
 
@@ -55,7 +55,7 @@ def test_proc_alive_states():
             process = Process(**ARGS)
             assert process.is_alive()
 
-@pytest.mark.skipif(os.name != "Linux", reason="Requires Linux")
+@pytest.mark.skipif(sys.platform != "linux", reason="Requires Linux")
 @pytest.mark.usefixtures("os_path_exists")
 def test_proc_dead_states():
     for state in ["State:	Z (zombie)",
@@ -85,7 +85,7 @@ def test_get_ppid():
     process = Process(**ARGS)
     assert 24 == process.get_parent_pid()
 
-@pytest.mark.skipif(os.name != "Linux", reason="Requires Linux")
+@pytest.mark.skipif(sys.platform != "linux", reason="Requires Linux")
 @patch("builtins.open", side_effect=FileNotFoundError)
 def test_get_ppid_file_not_exists(bopen):
     process = Process(**ARGS)

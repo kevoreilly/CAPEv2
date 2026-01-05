@@ -32,7 +32,7 @@ from lib.cuckoo.common.path_utils import path_exists, path_get_filename
 
 # from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import Singleton, create_folder, default_converter, load_categories
-from lib.cuckoo.core.log import task_log_start, task_log_stop
+from lib.cuckoo.core.log import task_log_start, task_log_stop, task_log_stop_force
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -479,10 +479,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             for ctx in ctxs:
                 log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
-            # ToDo just reinforce cleanup
-            task_log_stop(task_id)
-
-        task_log_stop(task_id)
+            task_log_stop_force(task_id)
 
     def create_folders(self):
         for folder in list(RESULT_UPLOADABLE) + [b"logs"]:

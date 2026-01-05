@@ -429,9 +429,8 @@ class GuestManager:
 
                 # If we fail 10 times in a row (approx 10-15 seconds), give up.
                 if consecutive_failures > 10:
-                    log.error("Task #%s: Agent is dead. Killing analysis.", self.task_id)
+                    log.error("Task #%s: Agent is dead. Virtual Machine %s /status failed. This can indicate the guest losing network connectivity. Killing analysis.", self.task_id, self.vmid)
                     return # Or raise exception
-
                 continue
             except Exception as e:
                 log.exception("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e)

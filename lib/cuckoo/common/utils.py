@@ -602,10 +602,11 @@ def store_temp_file(filedata: bytes, filename: str, path=None) -> bytes:
     with open(tmp_file_path, "wb") as tmp_file:
         # If filedata is file object, do chunked copy.
         if hasattr(filedata, "read"):
-            chunk = filedata.read(1024)
-            while chunk:
-                tmp_file.write(chunk)
+            with filedata:
                 chunk = filedata.read(1024)
+                while chunk:
+                    tmp_file.write(chunk)
+                    chunk = filedata.read(1024)
         else:
             tmp_file.write(filedata)
 

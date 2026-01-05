@@ -1,3 +1,12 @@
+### [02.01.2026]
+* CAPE installer:
+    *  now support custom destination folder env variable:
+        * `CAPE_ROOT=<path>/CAPEv2`
+    * UV support with env variable:
+        * `USE_UV=True`
+    * Example:
+        * `USE_UV=True CAPE_ROOT=/mnt/external/CAPEv2 bash cape2.sh all | tee cape2.log`
+
 ### [24.11.2025]
 * Monitor update: Fix issue with RESUME: monitor message from NtResumeProcess hook
 

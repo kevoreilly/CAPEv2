@@ -36,3 +36,4 @@ Contents
     integrations/index
     development/index
     finalremarks/index
+    Issues/index

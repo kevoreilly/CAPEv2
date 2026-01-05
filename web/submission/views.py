@@ -383,6 +383,19 @@ def index(request, task_id=None, resubmit_hash=None):
         }
         if opt_apikey:
             details["apikey"] = opt_apikey
+
+        if web_conf.pre_script.enabled and "pre_script" in request.FILES:
+            pre_script = request.FILES["pre_script"]
+            details["pre_script_name"] = pre_script.name
+            details["pre_script_content"] = pre_script.read()
+            pre_script.close()
+
+        if web_conf.during_script.enabled and "during_script" in request.FILES:
+            during_script = request.FILES["during_script"]
+            details["during_script_name"] = during_script.name
+            details["during_script_content"] = during_script.read()
+            during_script.close()
+
         task_category = False
         samples = []
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
@@ -485,16 +498,6 @@ def index(request, task_id=None, resubmit_hash=None):
 
         if task_category == "resubmit":
             for content, path, sha256 in list_of_tasks:
-                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
-                    pre_script = request.FILES["pre_script"]
-                    details["pre_script_name"] = request.FILES["pre_script"].name
-                    details["pre_script_content"] = pre_script.read()
-
-                if web_conf.during_script.enabled and "during_script" in request.FILES:
-                    during_script = request.FILES["during_script"]
-                    details["during_script_name"] = request.FILES["during_script"].name
-                    details["during_script_content"] = during_script.read()
-
                 details["path"] = path
                 details["content"] = content
                 status, tasks_details = download_file(**details)
@@ -513,16 +516,6 @@ def index(request, task_id=None, resubmit_hash=None):
         elif task_category == "sample":
             details["service"] = "WebGUI"
             for content, path, sha256 in list_of_tasks:
-                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
-                    pre_script = request.FILES["pre_script"]
-                    details["pre_script_name"] = request.FILES["pre_script"].name
-                    details["pre_script_content"] = pre_script.read()
-
-                if web_conf.during_script.enabled and "during_script" in request.FILES:
-                    during_script = request.FILES["during_script"]
-                    details["during_script_name"] = request.FILES["during_script"].name
-                    details["during_script_content"] = during_script.read()
-
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 

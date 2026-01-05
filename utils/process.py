@@ -131,66 +131,97 @@ def process(
     set_formatter_fmt(task_id, main_task_id)
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
-    if memory_debugging:
-        gc.collect()
-        log.info("(1) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-    if memory_debugging:
-        gc.collect()
-        log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-    with db.session.begin():
-        RunProcessing(task=task_dict, results=results).run()
-    if memory_debugging:
-        gc.collect()
-        log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-
-    RunSignatures(task=task_dict, results=results).run()
-    if memory_debugging:
-        gc.collect()
-        log.info("(4) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-
-    if report:
-        if auto or capeproc:
-            reprocess = False
-        else:
-            reprocess = report
-
-        error_count = RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
-        status = TASK_REPORTED if error_count == 0 else TASK_FAILED_REPORTING
+    try:
+        if memory_debugging:
+            gc.collect()
+            log.info("(1) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
+        if memory_debugging:
+            gc.collect()
+            log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
         with db.session.begin():
-            db.set_status(task_id, status)
+            RunProcessing(task=task_dict, results=results).run()
+        if memory_debugging:
+            gc.collect()
+            log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
 
-        if auto:
-            # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
-            if cfg.cuckoo.delete_original and target and path_exists(target):
-                path_delete(target)
+        RunSignatures(task=task_dict, results=results).run()
+        if memory_debugging:
+            gc.collect()
+            log.info("(4) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
 
-            if cfg.cuckoo.delete_bin_copy and task.category != "url":
-                copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
-                if path_exists(copy_path):
-                    with db.session.begin():
-                        is_still_used = db.sample_still_used(sample_sha256, task_id)
-                    if not is_still_used:
-                        path_delete(copy_path)
+        if report:
+            if auto or capeproc:
+                reprocess = False
+            else:
+                reprocess = report
 
-    if memory_debugging:
-        gc.collect()
-        log.info("(5) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-        for i, obj in enumerate(gc.garbage):
-            log.info("(garbage) GC object #%d: type=%s", i, type(obj).__name__)
+            error_count = RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
+            status = TASK_REPORTED if error_count == 0 else TASK_FAILED_REPORTING
+            with db.session.begin():
+                db.set_status(task_id, status)
 
-    log.removeHandler(per_analysis_handler)
+            if auto:
+                # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
+                if cfg.cuckoo.delete_original and target and path_exists(target):
+                    path_delete(target)
 
-    # Remove the SQLAlchemy session to ensure the next task pulls objects from
-    # the database, instead of relying on a potentially outdated object cache.
-    # Stale data can prevent SQLAlchemy from querying the database or issuing
-    # statements, resulting in unexpected errors and inconsistencies.
-    db.session.remove()
+                if cfg.cuckoo.delete_bin_copy and task.category != "url":
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
+                    if path_exists(copy_path):
+                        with db.session.begin():
+                            is_still_used = db.sample_still_used(sample_sha256, task_id)
+                        if not is_still_used:
+                            path_delete(copy_path)
+
+        if memory_debugging:
+            gc.collect()
+            log.info("(5) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
+            for i, obj in enumerate(gc.garbage):
+                log.info("(garbage) GC object #%d: type=%s", i, type(obj).__name__)
+    finally:
+        per_analysis_handler.close()
+        log.removeHandler(per_analysis_handler)
+
+        # Remove the SQLAlchemy session to ensure the next task pulls objects from
+        # the database, instead of relying on a potentially outdated object cache.
+        # Stale data can prevent SQLAlchemy from querying the database or issuing
+        # statements, resulting in unexpected errors and inconsistencies.
+        db.session.remove()
 
 
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
     db.engine.dispose(close=False)
+
+    # Fix for open file handles on rotated logs in workers
+    for h in log.handlers[:]:
+        if isinstance(h, logging.FileHandler):
+            h.close()
+        log.removeHandler(h)
+
+    # Restore Console Handler
+    ch = ConsoleHandler()
+    ch.setFormatter(FORMATTER)
+    log.addHandler(ch)
+
+    # Restore Syslog Handler if enabled
+    if logconf.logger.syslog_process:
+        try:
+            slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
+            slh.setFormatter(FORMATTER)
+            log.addHandler(slh)
+        except Exception as e:
+            log.warning("Failed to restore Syslog handler in worker: %s", e)
+
+    # Restore File Handler using WatchedFileHandler to support rotation
+    try:
+        path = os.path.join(CUCKOO_ROOT, "log", "process.log")
+        fh = logging.handlers.WatchedFileHandler(path)
+        fh.setFormatter(FORMATTER)
+        log.addHandler(fh)
+    except PermissionError as e:
+        log.warning("Failed to restore File handler in worker due to permissions: %s", e)
 
 
 def get_formatter_fmt(task_id=None, main_task_id=None):

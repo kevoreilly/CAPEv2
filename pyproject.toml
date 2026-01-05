@@ -1,118 +1,121 @@
-[tool.poetry]
+[project]
 name = "CAPEv2"
 version = "0.1.0"
 description = "CAPE: Malware Configuration And Payload Extraction"
-authors = ["Kevin O'Reilly <kev@capesandbox.com>", "doomedraven <doomedraven@capesandbox.com>"]
-license = "MIT"
-package-mode = false
+authors = [
+    { name = "Kevin O'Reilly", email = "kev@capesandbox.com" },
+    { name = "doomedraven", email = "doomedraven@capesandbox.com" },
+]
+license = { text = "MIT" }
+requires-python = ">=3.10, <4.0"
+dependencies = [
+    "alembic==1.9.4",
+    "gevent==24.2.1",
+    "greenlet==3.0.3",
+    "Pebble==5.1.0",
+    # "pymisp==2.4.144",
+    "cryptography>=44.0.1",
+    "requests[security,socks]==2.32.4",
+    # "pyOpenSSL==24.0.0",
+    "pefile",
+    "tldextract>=5.1.2",
+    "oletools==0.60.2",
+    "olefile==0.47",
+    # "mixbox==1.0.5",
+    "capstone==5.0.5",
+    "pycryptodomex>=3.20.0",
+    # "xmltodict==0.12.0",
+    "requests-file>=1.5.1",
+    "orjson>=3.9.15",
+    # "maec==4.1.0.17",
+    # "regex==2021.7.6",
+    "SFlock2[linux,shellcode]>=0.3.76",
+    # "volatility3==2.11.0",
+    # "XLMMacroDeobfuscator==0.2.7",
+    "pyzipper==0.3.6",
+    "flare-capa==9.3.1",
+    "Cython==3.0.11",
+    "Django>=4.2.18",
+    "SQLAlchemy==2.0.41",
+    "SQLAlchemy-Utils==0.41.1",
+    "Jinja2>=3.1.6",
+    "chardet==4.0.0",
+    "pygal==2.4.0",
+    "dpkt==1.9.6",
+    "dnspython==2.7.0",
+    "pytz==2021.1",
+    "maxminddb==2.6.3",
+    "Pillow>=8.2.0",
+    "python-whois==0.9.5",
+    "bs4==0.0.1",
+    "pydeep2==0.5.1",
+    "django-recaptcha==4.0.0",  # https://pypi.org/project/django-recaptcha/
+    "django-crispy-forms==2.3",
+    "crispy-bootstrap4==2024.10",
+    "django-settings-export==1.2.1",
+    "django-csp==3.8",
+    "django-extensions==3.2.3",
+    "django-ratelimit==4.1.0",
+    # "qrcode==7.2",
+    "python-tlsh==4.5.0",
+    "djangorestframework==3.15.2",
+    "yara-python==4.5.1",
+    "pymongo>=4.0.1",
+    # "ImageHash==4.3.1",
+    "LnkParse3==1.5.0",
+    "cachetools>=5.5.1",
+    "django-allauth==65.13.0",  # https://django-allauth.readthedocs.io/en/latest/configuration.html
+    # "socks5man @ git+https://github.com/CAPESandbox/socks5man.git@7b335d027297b67abdf28f38cc7d5d42c9d810b5",
+    # "httpreplay @ git+https://github.com/CAPESandbox/httpreplay.git@0d5a5b3144ab15f93189b83ca8188afde43db134",
+    # "bingraph @ git+https://github.com/CAPESandbox/binGraph.git@552d1210ac6770f8b202d0d1fc4610cc14d878ec",
+    "psycopg2-binary>=2.9.10",
+    "ruff>=0.7.2",
+    "paramiko==3.5.0",
+    "psutil==6.1.1",
+    "peepdf-3==5.0.0",
+    "pyre2>=0.3.10",
+    "Werkzeug==3.1.4",
+    "packaging==24.2",
+    "setuptools==78.1.1",
+    # command line config manipulation
+    "crudini==0.9.5",
+    "python-dateutil==2.9.0.post0",
+    "python-msi>=0.0.0a3",
+    # guac-session
+    "pyguacamole>=0.11",
+    "uvicorn[standard]>=0.18.2",
+    "gunicorn>=23.0.0",
+    "channels>=3.0.5",
+    "setproctitle==1.3.2",
+    "CAPE-parsers>=0.1.36",
+    "maco==1.1.8",
+]
 
-[tool.poetry.dependencies]
-python = ">=3.10, <4.0"
-alembic = "1.9.4"
-gevent = "24.2.1"
-greenlet = "3.0.3"
-Pebble = "5.1.0"
-# pymisp = "2.4.144"
-cryptography = ">=44.0.1"
-requests = {version = "2.32.4", extras = ["security", "socks"]}
-# pyOpenSSL = "24.0.0"
-pefile = "*"
-tldextract = ">=5.1.2"
-oletools = "0.60.2"
-olefile = "0.47"
-# mixbox = "1.0.5"
-capstone = "5.0.5"
-pycryptodomex = ">=3.20.0"
-# xmltodict = "0.12.0"
-requests-file = ">=1.5.1"
-orjson = ">=3.9.15"
-# maec = "4.1.0.17"
-# regex = "2021.7.6"
-SFlock2 = {version = ">=0.3.76", extras = ["shellcode","linux"]}
-# volatility3 = "2.11.0"
-# XLMMacroDeobfuscator = "0.2.7"
-pyzipper = "0.3.6"
-flare-capa = "9.3.1"
-
-Cython = "3.0.11"
-Django = ">=4.2.18"
-SQLAlchemy = "2.0.41"
-SQLAlchemy-Utils = "0.41.1"
-Jinja2 = "^3.1.6"
-chardet = "4.0.0"
-pygal = "2.4.0"
-dpkt = "1.9.6"
-dnspython = "2.7.0"
-pytz = "2021.1"
-maxminddb = "2.6.3"
-Pillow = ">=8.2.0"
-python-whois = "0.9.5"
-bs4 = "0.0.1"
-pydeep2 = "0.5.1"
-django-recaptcha = "4.0.0"  # https://pypi.org/project/django-recaptcha/
-django-crispy-forms = "2.3"
-crispy-bootstrap4 = "2024.10"
-django-settings-export = "1.2.1"
-django-csp = "3.8"
-django-extensions = "3.2.3"
-django-ratelimit = "4.1.0"
-# qrcode = "7.2"
-python-tlsh = "4.5.0"
-djangorestframework = "3.15.2"
-yara-python = "4.5.1"
-pymongo = ">=4.0.1"
-# ImageHash = "4.3.1"
-LnkParse3 = "1.5.0"
-cachetools = "^5.5.1"
-django-allauth = "65.13.0"  # https://django-allauth.readthedocs.io/en/latest/configuration.html
-# socks5man = {git = "https://github.com/CAPESandbox/socks5man.git", rev = "7b335d027297b67abdf28f38cc7d5d42c9d810b5"}
-# httpreplay = {git = "https://github.com/CAPESandbox/httpreplay.git", rev = "0d5a5b3144ab15f93189b83ca8188afde43db134"}
-# bingraph = {git = "https://github.com/CAPESandbox/binGraph.git", rev = "552d1210ac6770f8b202d0d1fc4610cc14d878ec"}
-psycopg2-binary = "^2.9.10"
-ruff = ">=0.7.2"
-paramiko = "3.5.0"
-psutil = "6.1.1"
-peepdf-3 = "5.0.0"
-pyre2-updated = ">=0.3.8"
-Werkzeug = "3.1.4"
-packaging = "24.2"
-setuptools = "78.1.1"
-# command line config manipulation
-crudini = "0.9.5"
-python-dateutil = "2.9.0.post0"
-python-msi = ">=0.0.0a3"
-
-# guac-session
-pyguacamole = "^0.11"
-uvicorn = {extras = ["standard"], version = "^0.18.2"}
-gunicorn = "^23.0.0"
-channels = "^3.0.5"
-setproctitle = "1.3.2"
-
-CAPE-parsers = ">=0.1.36"
-maco = "1.1.8"
-
-[tool.poetry.extras]
+[project.optional-dependencies]
 maco = ["maco"]
 
-[tool.poetry.group.dev.dependencies]
-black = "^24.3.0"
-isort = "^5.10.1"
-mypy = "1.14.1"
-pytest = "7.2.2"
-pytest-pretty = "1.1.0"
-pytest-cov = "3.0.0"
-pytest-mock = "3.7.0"
-pytest-django = "4.5.2"
-pytest_asyncio = "0.18.3"
-pytest-xdist = "3.6.1"
-pytest-asyncio = "0.18.3"
-pytest-freezer = "0.4.8"
-tenacity = "8.1.0"
-types-requests = "^2.32"
-httpretty = "^1.1.4"
-func-timeout = "^4.3.5"
-pre-commit = "^2.19.0"
+[dependency-groups]
+dev = [
+    "black>=24.3.0",
+    "isort>=5.10.1",
+    "mypy==1.14.1",
+    "pytest==7.2.2",
+    "pytest-pretty==1.1.0",
+    "pytest-cov==3.0.0",
+    "pytest-mock==3.7.0",
+    "pytest-django==4.5.2",
+    "pytest-asyncio==0.18.3",
+    "pytest-xdist==3.6.1",
+    "pytest-freezer==0.4.8",
+    "tenacity==8.1.0",
+    "types-requests>=2.32",
+    "httpretty>=1.1.4",
+    "func-timeout>=4.3.5",
+    "pre-commit>=2.19.0",
+]
+
+[tool.poetry]
+package-mode = false
 
 [tool.black]
 line-length = 132
@@ -139,7 +142,6 @@ asyncio_mode = "auto"
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
-requires-poetry = ">=2.0"
 
 [tool.ruff]
 line-length = 132

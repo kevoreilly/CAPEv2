@@ -29,6 +29,15 @@ def scheduler():
         timeouts_mock.critical = 60
         timeouts_mock.vm_state = 300
 
+        def timeouts_get_side_effect(key, default=None):
+            if key == "stuck_seconds":
+                return 100
+            if key == "vm_state":
+                return 300
+            return default
+
+        timeouts_mock.get.side_effect = timeouts_get_side_effect
+
         # Attach it to the config instance
         mock_config_instance.timeouts = timeouts_mock
 

@@ -802,16 +802,14 @@ function install_yara_python() {
             --config-settings=\"--global-option=build\" \
             --config-settings=\"--global-option=--enable-cuckoo\" \
             --config-settings=\"--global-option=--enable-magic\" \
-            --config-settings=\"--global-option=--enable-profiling\" \
-            --config-settings=\"--global-option=--dynamic-linking\""
+            --config-settings=\"--global-option=--enable-profiling\""
     else
         sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install yara-python \
             --no-binary :all: \
             --config-settings="--global-option=build" \
             --config-settings="--global-option=--enable-cuckoo" \
             --config-settings="--global-option=--enable-magic" \
-            --config-settings="--global-option=--enable-profiling" \
-            --config-settings="--global-option=--dynamic-linking"
+            --config-settings="--global-option=--enable-profiling"
     fi
 
     # Install from local source (commented out)

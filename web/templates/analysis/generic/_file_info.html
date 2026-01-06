@@ -319,120 +319,120 @@
         </div>
     </div>
     {% endif %}
-</div>
 
-<!-- Collapsible Sections -->
-<div class="mb-4">
-    {% if file.flare_capa %}
-        <div class="collapse mb-3" id="flare_capa_{{file.sha256}}">
-            <div class="card bg-dark border-secondary">
-                <div class="card-header border-secondary"><h6 class="mb-0 text-white">CAPA Results</h6></div>
-                <div class="card-body">
-                    {% if file.flare_capa.CAPABILITY or file.flare_capa.ATTCK or file.flare_capa.MBC %}
-                        {% if file.flare_capa.CAPABILITY %}{{ file.flare_capa|flare_capa_capability }}{% endif %}
-                        {% if file.flare_capa.ATTCK %}{{ file.flare_capa|flare_capa_attck }}{% endif %}
-                        {% if file.flare_capa.MBC %}{{ file.flare_capa|flare_capa_mbc }}{% endif %}
-                    {% else %}
-                        No significant results.
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    {% endif %}
-
-    {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:file.sha256 %}
-        <div class="card bg-dark border-secondary mb-3">
-            <div class="card-body text-center">{{ graphs.vba2graph.content|getkey:file.sha256|safe }}</div>
-        </div>
-    {% endif %}
-
-    {% if file.virustotal %}
-        <div class="mb-3">{% include "analysis/generic/_virustotal.html" %}</div>
-    {% endif %}
-
-    {% if file.misp.event_link %}
-        <div class="mb-3">{% include "analysis/generic/_misp.html" %}</div>
-    {% endif %}
-
-    {% if file.strings %}
-        <div class="collapse mb-3" id="strings_{{file.sha256}}">
-            <div class="card bg-secondary text-white">
-                <div class="card-header"><h6 class="mb-0">Strings</h6></div>
-                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                    <pre class="mb-0 text-light small">{% for string in file.strings %}{{string}}<br>{% endfor %}</pre>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-
-    {% if file.dotnet_strings %}
-        <div class="collapse mb-3" id="dotnet_strings_{{file.sha256}}">
-            <div class="card bg-secondary text-white">
-                <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
-                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                    <pre class="mb-0 text-light small">{% for string in file.dotnet_strings %}{{string}}<br>{% endfor %}</pre>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-
-    {% if file.data %}
-        <div class="collapse mb-3" id="text_{{file.sha256}}">
-            <div class="card bg-secondary text-white">
-                <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
-                <div class="card-body">
-                    <pre class="mb-0 text-light small">{{file.data|escape}}</pre>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-
-    {% if file.decoded_files %}
-        <div class="collapse mb-3" id="decoded_files_{{file.sha256}}">
-            <div class="card bg-secondary text-white">
-                <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
-                <div class="card-body">
-                    <pre class="mb-0 text-light small">{{file.decoded_files|escape}}</pre>
-                </div>
-            </div>
-        </div>
-    {% endif %}
-
-    {% if file.selfextract %}
-        {% for name, details in file.selfextract.items %}
-            <div class="collapse mb-3" id="selfextract_{{name}}">
+    <!-- Collapsible Sections -->
+    <div class="mb-4">
+        {% if file.flare_capa %}
+            <div class="collapse mb-3" id="flare_capa_{{file.sha256}}">
                 <div class="card bg-dark border-secondary">
-                    <div class="card-header border-secondary"><h6 class="mb-0 text-white">Archive: {{name}}</h6></div>
+                    <div class="card-header border-secondary"><h6 class="mb-0 text-white">CAPA Results</h6></div>
                     <div class="card-body">
-                        {% if details.password %}
-                            <div class="alert alert-info">Password: <strong>{{details.password}}</strong></div>
+                        {% if file.flare_capa.CAPABILITY or file.flare_capa.ATTCK or file.flare_capa.MBC %}
+                            {% if file.flare_capa.CAPABILITY %}{{ file.flare_capa|flare_capa_capability }}{% endif %}
+                            {% if file.flare_capa.ATTCK %}{{ file.flare_capa|flare_capa_attck }}{% endif %}
+                            {% if file.flare_capa.MBC %}{{ file.flare_capa|flare_capa_mbc }}{% endif %}
+                        {% else %}
+                            No significant results.
                         {% endif %}
-                        {% for sub_file in details.extracted_files %}
-                            {% include "analysis/generic/_subfile_info.html" %}
-                        {% endfor %}
                     </div>
                 </div>
             </div>
-        {% endfor %}
-    {% endif %}
+        {% endif %}
 
-    <!-- Collapsible Includes -->
-    {% if config.yara_detail and file.yara %} <div class="collapse mb-3" id="yara_{{file.sha256}}"> {% include "analysis/generic/_yara.html" %}</div>{% endif %}
-    {% if config.yara_detail and file.cape_yara %} <div class="collapse mb-3" id="capeyara_{{file.sha256}}"> {% include "analysis/generic/_capeyara.html" %}</div>{% endif %}
-    {% if file.pe %} <div class="collapse mb-3" id="pe_{{file.sha256}}"> {% include "analysis/generic/_pe.html" %}</div>{% endif %}
-    {% if file.dotnet %} <div class="collapse mb-3" id="dotnet_{{file.sha256}}"> {% include "analysis/generic/_dotnet.html" %}</div>{% endif %}
-    {% if file.pdf %} <div class="collapse mb-3" id="pdf_{{file.sha256}}"> {% include "analysis/generic/_pdf.html" %}</div>{% endif %}
-    {% if file.lnk %} <div class="collapse mb-3" id="lnk_{{file.sha256}}"> {% include "analysis/generic/_lnk.html" %}</div>{% endif %}
-    {% if file.rdp %} <div class="collapse mb-3" id="rdp_{{file.sha256}}"> {% include "analysis/generic/_rdp.html" %}</div>{% endif %}
-    {% if file.java %} <div class="collapse mb-3" id="java_{{file.sha256}}"> {% include "analysis/generic/_java.html" %}</div>{% endif %}
-    {% if file.office %} <div class="collapse mb-3" id="office_{{file.sha256}}"> {% include "analysis/generic/_office.html" %}</div>{% endif %}
-    {% if file.office.XLMMacroDeobfuscator %} <div class="collapse mb-3" id="xlmmacro_{{file.sha256}}"> {% include "analysis/generic/_xlmmacro.html" %}</div>{% endif %}
-    {% if file.floss %} <div class="collapse mb-3" id="floss_{{file.sha256}}"> {% include "analysis/generic/_floss.html" %}</div>{% endif %}
-    {% if file.msi %} <div class="collapse mb-3" id="msi_{{file.sha256}}"> {% include "analysis/generic/_msi.html" %}</div></br>{% endif %}
+        {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:file.sha256 %}
+            <div class="card bg-dark border-secondary mb-3">
+                <div class="card-body text-center">{{ graphs.vba2graph.content|getkey:file.sha256|safe }}</div>
+            </div>
+        {% endif %}
 
-    {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
-        <div class="card bg-dark border-secondary mb-3">
-            <div class="card-body text-center">{{ graphs.bingraph.content|getkey:file.sha256|safe }}</div>
-        </div>
-    {% endif %}
+        {% if file.virustotal %}
+            <div class="mb-3">{% include "analysis/generic/_virustotal.html" %}</div>
+        {% endif %}
+
+        {% if file.misp.event_link %}
+            <div class="mb-3">{% include "analysis/generic/_misp.html" %}</div>
+        {% endif %}
+
+        {% if file.strings %}
+            <div class="collapse mb-3" id="strings_{{file.sha256}}">
+                <div class="card bg-secondary text-white">
+                    <div class="card-header"><h6 class="mb-0">Strings</h6></div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        <pre class="mb-0 text-light small">{% for string in file.strings %}{{string}}<br>{% endfor %}</pre>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if file.dotnet_strings %}
+            <div class="collapse mb-3" id="dotnet_strings_{{file.sha256}}">
+                <div class="card bg-secondary text-white">
+                    <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
+                    <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                        <pre class="mb-0 text-light small">{% for string in file.dotnet_strings %}{{string}}<br>{% endfor %}</pre>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if file.data %}
+            <div class="collapse mb-3" id="text_{{file.sha256}}">
+                <div class="card bg-secondary text-white">
+                    <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
+                    <div class="card-body">
+                        <pre class="mb-0 text-light small">{{file.data|escape}}</pre>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if file.decoded_files %}
+            <div class="collapse mb-3" id="decoded_files_{{file.sha256}}">
+                <div class="card bg-secondary text-white">
+                    <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
+                    <div class="card-body">
+                        <pre class="mb-0 text-light small">{{file.decoded_files|escape}}</pre>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {% if file.selfextract %}
+            {% for name, details in file.selfextract.items %}
+                <div class="collapse mb-3" id="selfextract_{{name}}">
+                    <div class="card bg-dark border-secondary">
+                        <div class="card-header border-secondary"><h6 class="mb-0 text-white">Archive: {{name}}</h6></div>
+                        <div class="card-body">
+                            {% if details.password %}
+                                <div class="alert alert-info">Password: <strong>{{details.password}}</strong></div>
+                            {% endif %}
+                            {% for sub_file in details.extracted_files %}
+                                {% include "analysis/generic/_subfile_info.html" %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Collapsible Includes -->
+        {% if config.yara_detail and file.yara %} <div class="collapse mb-3" id="yara_{{file.sha256}}"> {% include "analysis/generic/_yara.html" %}</div>{% endif %}
+        {% if config.yara_detail and file.cape_yara %} <div class="collapse mb-3" id="capeyara_{{file.sha256}}"> {% include "analysis/generic/_capeyara.html" %}</div>{% endif %}
+        {% if file.pe %} <div class="collapse mb-3" id="pe_{{file.sha256}}"> {% include "analysis/generic/_pe.html" %}</div>{% endif %}
+        {% if file.dotnet %} <div class="collapse mb-3" id="dotnet_{{file.sha256}}"> {% include "analysis/generic/_dotnet.html" %}</div>{% endif %}
+        {% if file.pdf %} <div class="collapse mb-3" id="pdf_{{file.sha256}}"> {% include "analysis/generic/_pdf.html" %}</div>{% endif %}
+        {% if file.lnk %} <div class="collapse mb-3" id="lnk_{{file.sha256}}"> {% include "analysis/generic/_lnk.html" %}</div>{% endif %}
+        {% if file.rdp %} <div class="collapse mb-3" id="rdp_{{file.sha256}}"> {% include "analysis/generic/_rdp.html" %}</div>{% endif %}
+        {% if file.java %} <div class="collapse mb-3" id="java_{{file.sha256}}"> {% include "analysis/generic/_java.html" %}</div>{% endif %}
+        {% if file.office %} <div class="collapse mb-3" id="office_{{file.sha256}}"> {% include "analysis/generic/_office.html" %}</div>{% endif %}
+        {% if file.office.XLMMacroDeobfuscator %} <div class="collapse mb-3" id="xlmmacro_{{file.sha256}}"> {% include "analysis/generic/_xlmmacro.html" %}</div>{% endif %}
+        {% if file.floss %} <div class="collapse mb-3" id="floss_{{file.sha256}}"> {% include "analysis/generic/_floss.html" %}</div>{% endif %}
+        {% if file.msi %} <div class="collapse mb-3" id="msi_{{file.sha256}}"> {% include "analysis/generic/_msi.html" %}</div></br>{% endif %}
+
+        {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
+            <div class="card bg-dark border-secondary mb-3">
+                <div class="card-body text-center">{{ graphs.bingraph.content|getkey:file.sha256|safe }}</div>
+            </div>
+        {% endif %}
+    </div>
 </div>

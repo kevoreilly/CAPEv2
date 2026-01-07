@@ -24,7 +24,7 @@ import tempfile
 import time
 import traceback
 from io import StringIO
-from threading import Lock
+from threading import Lock, Thread
 from typing import Iterable
 from zipfile import ZipFile
 
@@ -782,6 +782,45 @@ def do_browser_ext():
             ext_fd.write(network_data)
     AGENT_BROWSER_LOCK.release()
     return json_success("OK")
+
+
+@app.route("/update", methods=["POST"])
+def do_update():
+    # Security: Prevent malware inside the VM (localhost) from triggering updates/restarts
+    if request.client_ip in ("127.0.0.1", "::1"):
+        return json_error(403, "Updates from localhost are not allowed")
+
+    if "agent" not in request.files:
+        return json_error(400, "No agent file provided")
+
+    try:
+        # Get the content of the uploaded file
+        new_content = request.files["agent"].read()
+
+        current_script = os.path.abspath(__file__)
+
+        if sys.platform == "win32":
+            # Rename current script to allow overwriting
+            backup_script = current_script + f".bak_{int(time.time())}"
+            try:
+                os.rename(current_script, backup_script)
+            except OSError as e:
+                return json_error(500, f"Failed to rename current script: {e}")
+
+        with open(current_script, "wb") as f:
+            f.write(new_content)
+
+    except Exception as ex:
+        return json_exception(f"Error updating agent: {ex}")
+
+    def restart():
+        time.sleep(1)
+        python = sys.executable
+        os.execv(python, [python] + sys.argv)
+
+    Thread(target=restart).start()
+
+    return json_success("Agent updated successfully. Restarting...")
 
 
 @app.route("/pinning")

@@ -796,31 +796,14 @@ def do_update():
     try:
         # Get the content of the uploaded file
         new_content = request.files["agent"].read()
-
         current_script = os.path.abspath(__file__)
-
-        if sys.platform == "win32":
-            # Rename current script to allow overwriting
-            backup_script = current_script + f".bak_{int(time.time())}"
-            try:
-                os.rename(current_script, backup_script)
-            except OSError as e:
-                return json_error(500, f"Failed to rename current script: {e}")
-
         with open(current_script, "wb") as f:
             f.write(new_content)
 
     except Exception as ex:
         return json_exception(f"Error updating agent: {ex}")
 
-    def restart():
-        time.sleep(1)
-        python = sys.executable
-        os.execv(python, [python] + sys.argv)
-
-    Thread(target=restart).start()
-
-    return json_success("Agent updated successfully. Restarting...")
+    return json_success("Agent updated successfully. Reboot and take snapshot...")
 
 
 @app.route("/pinning")

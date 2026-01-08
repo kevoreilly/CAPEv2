@@ -161,8 +161,7 @@
                                 {% if resubmit %}
                                 <div class="mb-3">
                                     <label for="form_job_category" class="text-white-50">Task Category</label>
-                                    <select class="form-select bg-dark text-white border-secondary" id="form_job_category"
-                                            name="job_category">
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_job_category" name="job_category">
                                         <option value="hash" selected>Resubmit</option>
                                         <option value="sample">Files</option>
                                         <option value="static">Static analysis</option>
@@ -176,8 +175,7 @@
 
                                 <div class="mb-3">
                                     <label for="form_package" class="text-white-50">Analysis Package</label>
-                                    <select class="form-select bg-dark text-white border-secondary" id="form_package"
-                                            name="package">
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_package" name="package">
                                         <option value="" title="">Detect Automatically</option>
                                         {% for package in packages %}
                                         <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{
@@ -191,8 +189,7 @@
                                 {% if not config.dist_master_storage_only %}
                                 <div class="mb-3">
                                     <label for="form_machine" class="text-white-50">Machine</label>
-                                    <select class="form-select bg-dark text-white border-secondary" id="form_machine"
-                                            name="machine">
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_machine" name="machine">
                                         {% for id,label in machines %}
                                         <option value="{{id}}">{{label}}</option>
                                         {% endfor %}
@@ -204,8 +201,7 @@
                                 <div class="mb-3">
                                     <label for="form_tags" class="text-white-50">Machine Tags</label>
                                     <div class="input-group">
-                                        <input type="text" class="form-control bg-dark text-white border-secondary" id="form_tags"
-                                               name="tags" placeholder="tag1,tag2"/>
+                                        <input type="text" class="form-control bg-dark text-white border-secondary" id="form_tags" name="tags" placeholder="tag1,tag2"/>
                                         <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse"
                                                 data-bs-target="#tagshelp"><i class="fas fa-question"></i></button>
                                     </div>
@@ -293,8 +289,7 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="form_priority" class="text-white-50">Priority</label>
-                                    <select class="form-select bg-dark text-white border-secondary" id="form_priority"
-                                            name="priority">
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_priority" name="priority">
                                         <option value="1">Low</option>
                                         <option value="2" selected>Medium</option>
                                         <option value="3">High</option>

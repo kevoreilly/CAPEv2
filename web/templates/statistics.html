@@ -10,15 +10,15 @@
     <div class="card-body">
         <div class="row text-center">
             <div class="col-md-4">
-                <h6 class="text-muted text-uppercase">Timeframe</h6>
-                <h3 class="text-white">{{days}} <small class="text-muted">days</small></h3>
+                <h6 class="text-white-50 text-uppercase">Timeframe</h6>
+                <h3 class="text-white">{{days}} <small class="text-white-50">days</small></h3>
             </div>
             <div class="col-md-4">
-                <h6 class="text-muted text-uppercase">Total Tasks</h6>
+                <h6 class="text-white-50 text-uppercase">Total Tasks</h6>
                 <h3 class="text-white">{{statistics.total}}</h3>
             </div>
             <div class="col-md-4">
-                <h6 class="text-muted text-uppercase">Average per Day</h6>
+                <h6 class="text-white-50 text-uppercase">Average per Day</h6>
                 <h3 class="text-white">{{statistics.average}}</h3>
             </div>
         </div>
@@ -86,7 +86,7 @@
             {% for day, block in statistics.tasks.items %}
                 <tr>
                     <th scope="row" class="text-light">{{day}}</th>
-                    <td class="text-end"><span class="badge bg-secondary">{{block.added}}</span></td>
+                    <td class="text-end"><span class="badge bg-dark">{{block.added}}</span></td>
                     <td class="text-end"><span class="badge bg-success">{{block.reported}}</span></td>
                     <td class="text-end"><span class="badge bg-danger">{{block.failed}}</span></td>
                 </tr>
@@ -245,7 +245,7 @@
         <div class="row">
             {% for day, block in statistics.distributed_tasks.items %}
             <div class="col-md-3 mb-3">
-                <div class="card bg-secondary text-white h-100 border-0">
+                <div class="card bg-dark text-white h-100 border-0">
                     <div class="card-header font-weight-bold">{{day}}</div>
                     <ul class="list-group list-group-flush text-dark">
                         {% for name, tasks in block.items %}

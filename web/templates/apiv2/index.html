@@ -3,7 +3,7 @@
 
 <div class="card bg-dark shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-        <h3 class="mb-0 text-white"><i class="fas fa-server me-2 text-muted"></i>API Documentation</h3>
+        <h3 class="mb-0 text-white"><i class="fas fa-server me-2 text-white-50"></i>API Documentation</h3>
         <a href="https://capev2.readthedocs.io/en/latest/usage/api.html#current-rest-api" class="btn btn-sm btn-outline-info" target="_blank">
             <i class="fas fa-external-link-alt me-1"></i> Authentication Guide
         </a>
@@ -33,7 +33,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.filecreate.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.filecreate.rpm }}</span></li>
               </ul>
@@ -45,7 +45,7 @@
                 </button>
             </td>
           </tr>
-          <tr class="collapse bg-secondary" id="filecreate">
+          <tr class="collapse bg-dark" id="filecreate">
               <td colspan="5" class="p-3">
                 <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" {{ config.api.url }}/apiv2/tasks/create/file/
 # In case of PCAP you need to add -F pcap=1
@@ -64,7 +64,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.downloading_services.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.downloading_services.rpm }}</span></li>
               </ul>
@@ -72,7 +72,7 @@
             <td>Download a file from VT or MalwareBazaar or other service for analysis. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#vtdl">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="vtdl">
+          <tr class="collapse bg-dark" id="vtdl">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl -F vtdl=hash -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" -F apikey="[VT API key]" {{ config.api.url }}/apiv2/tasks/create/vtdl/
 # Note: machine is optional. Header depends of the config if Token auth is enabled</pre>
@@ -90,7 +90,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.urlcreate.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.urlcreate.rpm }}</span></li>
               </ul>
@@ -98,7 +98,7 @@
             <td>Submit a URL task to be analyzed by CAPE. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#urlcreate">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="urlcreate">
+          <tr class="collapse bg-dark" id="urlcreate">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl -F url="somebadness.tld" {{ config.api.url }}/apiv2/tasks/create/url/</pre>
             </td>
@@ -115,7 +115,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.dlnexeccreate.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.dlnexeccreate.rpm }}</span></li>
               </ul>
@@ -123,7 +123,7 @@
             <td>Submit a URL, it will download and add as file task to be analyzed by CAPE. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#dlnexeccreate">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="dlnexeccreate">
+          <tr class="collapse bg-dark" id="dlnexeccreate">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl -X POST -F dlnexec="https://somebadness.tld/supermalware.exe" {{ config.api.url }}/apiv2/tasks/create/dlnexec/</pre>
             </td>
@@ -140,7 +140,7 @@
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.staticextraction.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.staticextraction.rpm }}</span></li>
               </ul>
@@ -148,7 +148,7 @@
             <td>Submit a file to try static extractors on it, file won't be submitted to Virtual Machine. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#staticextraction">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="staticextraction">
+          <tr class="collapse bg-dark" id="staticextraction">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl -F file=@/path/to/file -F machine="VM-Name" -H "Authorization: Token YOU_TOKEN" {{ config.api.url }}/apiv2/tasks/create/static/</pre>
             </td>
@@ -164,11 +164,11 @@
                     <span class="badge bg-danger">No</span>
                     {% endif %}
                 </td>
-                <td><ul class="list-unstyled mb-0 small text-muted"><li>RPS: <span class="text-light">{{ config.fileview.rps }}</span></li><li>RPM: <span class="text-light">{{ config.fileview.rpm }}</span></li></ul></td>
+                <td><ul class="list-unstyled mb-0 small text-white-50"><li>RPS: <span class="text-light">{{ config.fileview.rps }}</span></li><li>RPM: <span class="text-light">{{ config.fileview.rpm }}</span></li></ul></td>
                 <td>View information about a specific sample that's in CAPE's database. Return object will be JSON.</td>
                 <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#fileview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
             </tr>
-            <tr class="collapse bg-secondary" id="fileview">
+            <tr class="collapse bg-dark" id="fileview">
               <td colspan="5" class="p-3"><pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/files/view/md5/[md5 hash]/
 curl {{ config.api.url }}/apiv2/files/view/sha1/[sha1 hash]/
 curl {{ config.api.url }}/apiv2/files/view/sha256/[sha256 hash]/
@@ -187,7 +187,7 @@ curl {{ config.api.url }}/apiv2/files/view/id/[sample id]/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.tasksearch.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.tasksearch.rpm }}</span></li>
               </ul>
@@ -195,7 +195,7 @@ curl {{ config.api.url }}/apiv2/files/view/id/[sample id]/</pre>
             <td>View information about a specific Task that's in CAPE's database by Hash or ID. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tasksearch">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="tasksearch">
+          <tr class="collapse bg-dark" id="tasksearch">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/search/md5/[md5 hash]/
 curl {{ config.api.url }}/apiv2/tasks/search/sha1/[sha1 hash]/
@@ -214,7 +214,7 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.extendedtasksearch.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.extendedtasksearch.rpm }}</span></li>
               </ul>
@@ -222,7 +222,7 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
             <td>Search for Task ID's that's in MongoDB by various options. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#extendedtasksearch">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="extendedtasksearch">
+          <tr class="collapse bg-dark" id="extendedtasksearch">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl -d "option=[option]&argument=[argument]" {{ config.api.url }}/apiv2/tasks/extendedsearch/
 
@@ -273,7 +273,7 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.tasklist.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.tasklist.rpm }}</span></li>
               </ul>
@@ -281,7 +281,7 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
             <td>View information about a range of Task ID's. Return object will be JSON</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tasklist">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="tasklist">
+          <tr class="collapse bg-dark" id="tasklist">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/list/
 curl {{ config.api.url }}/apiv2/tasks/list/[limit]/ (specify a limit of tasks to return)
@@ -301,7 +301,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskview.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskview.rpm }}</span></li>
               </ul>
@@ -309,7 +309,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
             <td>View information about a specific task including VM, sample, and error information. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskview">
+          <tr class="collapse bg-dark" id="taskview">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/view/[task id]/</pre>
             </td>
@@ -326,7 +326,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskresched.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskresched.rpm }}</span></li>
               </ul>
@@ -334,7 +334,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
             <td>Reschedule an analysis task to run again. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskresched">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskresched">
+          <tr class="collapse bg-dark" id="taskresched">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/reschedule/[task id]/</pre>
             </td>
@@ -351,7 +351,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                   {% endif %}
               </td>
               <td>
-                  <ul class="list-unstyled mb-0 small text-muted">
+                  <ul class="list-unstyled mb-0 small text-white-50">
                       <li>RPS: <span class="text-light">{{ config.taskreprocess.rps }}</span></li>
                       <li>RPM: <span class="text-light">{{ config.taskreprocess.rpm }}</span></li>
                   </ul>
@@ -359,7 +359,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
               <td>Mark an analysis task as ready to be processed. Return object will be JSON.</td>
               <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskreprocess">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskreprocess">
+          <tr class="collapse bg-dark" id="taskreprocess">
               <td colspan="5" class="p-3">
                   <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/reprocess/[task id]/</pre>
               </td>
@@ -376,7 +376,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskdelete.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskdelete.rpm }}</span></li>
               </ul>
@@ -384,7 +384,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
             <td>Delete a task from the database. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskdelete">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskdelete">
+          <tr class="collapse bg-dark" id="taskdelete">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/delete/[task id]/[status]
 curl {{ config.api.url }}/apiv2/tasks/delete/[task id],[task id]/[status]
@@ -404,7 +404,7 @@ curl {{ config.api.url }}/apiv2/tasks/delete/[start_task_id]-[end_task_id]/[stat
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskstatus.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskstatus.rpm }}</span></li>
               </ul>
@@ -412,7 +412,7 @@ curl {{ config.api.url }}/apiv2/tasks/delete/[start_task_id]-[end_task_id]/[stat
             <td>Query the status of a Task by ID. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskstatus">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskstatus">
+          <tr class="collapse bg-dark" id="taskstatus">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/status/[task id]/</pre>
             </td>
@@ -429,7 +429,7 @@ curl {{ config.api.url }}/apiv2/tasks/delete/[start_task_id]-[end_task_id]/[stat
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskreport.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskreport.rpm }}</span></li>
               </ul>
@@ -437,7 +437,7 @@ curl {{ config.api.url }}/apiv2/tasks/delete/[start_task_id]-[end_task_id]/[stat
             <td>Download a report generated for a specific task. Return object will be JSON, XML, or application/zip (zip).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskreport">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskreport">
+          <tr class="collapse bg-dark" id="taskreport">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/
 curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/[format]/
@@ -458,7 +458,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/[format]/zip/
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskiocs.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskiocs.rpm }}</span></li>
               </ul>
@@ -466,7 +466,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/[format]/zip/
             <td>View objects of the task report that may contain potential IOCs. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskiocs">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskiocs">
+          <tr class="collapse bg-dark" id="taskiocs">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/
 curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/detailed/</pre>
@@ -484,7 +484,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/detailed/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskscreenshot.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskscreenshot.rpm }}</span></li>
               </ul>
@@ -492,7 +492,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/detailed/</pre>
             <td>View/Download screenshots of a Task by ID. Return object will be image/jpeg or application/zip (.zip).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskscreenshot">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskscreenshot">
+          <tr class="collapse bg-dark" id="taskscreenshot">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/    (Downloads all screenshots)
 curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot number]/</pre>
@@ -510,7 +510,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskpcap.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskpcap.rpm }}</span></li>
               </ul>
@@ -518,7 +518,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
             <td>Download the PCAP dump of a Task by ID. Return object will be application/vnd.tcpdump.pcap. (.pcap)</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskpcap">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskpcap">
+          <tr class="collapse bg-dark" id="taskpcap">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/pcap/[task id]/</pre>
             </td>
@@ -535,7 +535,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskdropped.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskdropped.rpm }}</span></li>
               </ul>
@@ -543,7 +543,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
             <td>Download the dropped files associated with a Task by ID. Return object will be application/zip (.zip).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskdropped">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskdropped">
+          <tr class="collapse bg-dark" id="taskdropped">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/dropped/[task id]/</pre>
             </td>
@@ -560,7 +560,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.tasksurifile.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.tasksurifile.rpm }}</span></li>
               </ul>
@@ -568,7 +568,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
             <td>Download the Suricata captured files associated with a Task by ID. Return object will be octet-stream (.zip).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tasksurifile">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="tasksurifile">
+          <tr class="collapse bg-dark" id="tasksurifile">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/surifile/[task id]/</pre>
             </td>
@@ -585,7 +585,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskprocmemory.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskprocmemory.rpm }}</span></li>
               </ul>
@@ -593,7 +593,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
             <td>Download a process memory dump from a Task by ID and PID. Return object will be application/zip (.zip).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskprocmemory">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskprocmemory">
+          <tr class="collapse bg-dark" id="taskprocmemory">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/    (Downloads all process memory dumps)
 curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
@@ -611,7 +611,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.taskfullmemory.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.taskfullmemory.rpm }}</span></li>
               </ul>
@@ -619,7 +619,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
             <td>Download a full memory dump of a Task by ID. Return object will be octet-stream (.dmp).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskfullmemory">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="taskfullmemory">
+          <tr class="collapse bg-dark" id="taskfullmemory">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/fullmemory/[task id]/</pre>
             </td>
@@ -636,7 +636,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.sampledl.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.sampledl.rpm }}</span></li>
               </ul>
@@ -644,7 +644,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
             <td>Download a sample by Task ID/MD5/SHA1/SHA256. Supports encryption. Return object octet-stream/zip.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#sampledl">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="sampledl">
+          <tr class="collapse bg-dark" id="sampledl">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/files/get/task/[task id]/
 curl {{ config.api.url }}/apiv2/files/get/md5/[md5 hash]/
@@ -669,7 +669,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.machinelist.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.machinelist.rpm }}</span></li>
               </ul>
@@ -677,7 +677,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>View basic statistics of available/total virtual machines. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#machinelist">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="machinelist">
+          <tr class="collapse bg-dark" id="machinelist">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/machines/list/</pre>
             </td>
@@ -694,7 +694,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.machineview.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.machineview.rpm }}</span></li>
               </ul>
@@ -702,7 +702,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>View information about a specific virtual machine. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#machineview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="machineview">
+          <tr class="collapse bg-dark" id="machineview">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/machines/view/[vm-name]/</pre>
             </td>
@@ -719,7 +719,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.tasks_latest.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.tasks_latest.rpm }}</span></li>
               </ul>
@@ -727,7 +727,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>View ids of tasks finished on latest X hours.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#latests_ids">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="latests_ids">
+          <tr class="collapse bg-dark" id="latests_ids">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/latests/1/</pre>
             </td>
@@ -744,7 +744,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.cuckoostatus.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.cuckoostatus.rpm }}</span></li>
               </ul>
@@ -752,7 +752,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>View the current status of the CAPE host. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#capestatus">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="capestatus">
+          <tr class="collapse bg-dark" id="capestatus">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/cuckoo/status/</pre>
             </td>
@@ -769,7 +769,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.capeconfig.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.capeconfig.rpm }}</span></li>
               </ul>
@@ -777,7 +777,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>View the CAPE extracted sample config associated with a task by ID. Return object will be JSON.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#capeconfig">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="capeconfig">
+          <tr class="collapse bg-dark" id="capeconfig">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/config/[task_id]/</pre>
             </td>
@@ -794,7 +794,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.payloadfiles.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.payloadfiles.rpm }}</span></li>
               </ul>
@@ -802,7 +802,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>Download the CAPE payload files associated with a task by ID. Return object will be octet-stream (.zip).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#capepayloadfiles">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="capepayloadfiles">
+          <tr class="collapse bg-dark" id="capepayloadfiles">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/payloadfiles/[task_id]/</pre>
             </td>
@@ -819,7 +819,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.configfiles.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.configfiles.rpm }}</span></li>
               </ul>
@@ -827,7 +827,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>Download the procdump files associated with a task by ID. Return object will be octet-stream (.zip).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#capeprocdumpfiles">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="capeprocdumpfiles">
+          <tr class="collapse bg-dark" id="capeprocdumpfiles">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/procdumpfiles/[task_id]/</pre>
             </td>
@@ -844,7 +844,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.statistics.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.statistics.rpm }}</span></li>
               </ul>
@@ -852,7 +852,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>Details about tasks and time spend on different modules (TOP 30).</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#statistircs">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="statistircs">
+          <tr class="collapse bg-dark" id="statistircs">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/[days]/</pre>
             </td>
@@ -869,7 +869,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
                 {% endif %}
             </td>
             <td>
-              <ul class="list-unstyled mb-0 small text-muted">
+              <ul class="list-unstyled mb-0 small text-white-50">
                 <li>RPS: <span class="text-light">{{ config.mitmdump.rps }}</span></li>
                 <li>RPM: <span class="text-light">{{ config.mitmdump.rpm }}</span></li>
               </ul>
@@ -877,7 +877,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
             <td>Download the HAR file of mitmdump given a Task ID. Return will be a HAR file.</td>
             <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#mitmdump">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
-          <tr class="collapse bg-secondary" id="mitmdump">
+          <tr class="collapse bg-dark" id="mitmdump">
             <td colspan="5" class="p-3">
               <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/mitmdump/[task id]/</pre>
             </td>

@@ -2,7 +2,7 @@
     <div class="alert alert-primary center"><a class="btn btn-secondary btn-sm" href="{% url "file" "zip" id "files" %}"><span class="fas fa-download"></span> Suri Extracted</a></div>
     {% for file in suricata.files %}
         <div class="table">
-            <table class="table table-striped">
+            <table class="table table-dark table-striped">
                 <tr>
                     <th style="border-top: 0;" width="15%">File name</th>
                     <td style="border-top: 0;"><b>{{file.filename}}</b></td>

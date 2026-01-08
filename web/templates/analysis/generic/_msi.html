@@ -54,22 +54,22 @@
                         <td colspan="{{ file.msi.columns|length }}" style="padding: 10px 20px; background-color: #2b2b2b;">
                              <div style="font-size: 0.9em;">
                                 {% if row.Enrich.basic_type %}
-                                <div><strong class="text-muted">Basic Type:</strong> {{ row.Enrich.basic_type }}</div>
+                                <div><strong class="text-white-50">Basic Type:</strong> {{ row.Enrich.basic_type }}</div>
                                 {% endif %}
                                 {% if row.Enrich.source %}
-                                <div><strong class="text-muted">Source Type:</strong> {{ row.Enrich.source }}</div>
+                                <div><strong class="text-white-50">Source Type:</strong> {{ row.Enrich.source }}</div>
                                 {% endif %}
                                 {% if row.Enrich.return_processing %}
-                                <div><strong class="text-muted">Return Processing:</strong> {{ row.Enrich.return_processing }}</div>
+                                <div><strong class="text-white-50">Return Processing:</strong> {{ row.Enrich.return_processing }}</div>
                                 {% endif %}
                                 {% if row.Enrich.execution %}
-                                <div><strong class="text-muted">Execution:</strong> {{ row.Enrich.execution }}</div>
+                                <div><strong class="text-white-50">Execution:</strong> {{ row.Enrich.execution }}</div>
                                 {% endif %}
                                 {% if row.Enrich.flags %}
-                                <div><strong class="text-muted">Flags:</strong> {{ row.Enrich.flags|join:", " }}</div>
+                                <div><strong class="text-white-50">Flags:</strong> {{ row.Enrich.flags|join:", " }}</div>
                                 {% endif %}
                                 {% if row.Enrich.remainder %}
-                                <div><strong class="text-muted">Remainder:</strong> {{ row.Enrich.remainder }}</div>
+                                <div><strong class="text-white-50">Remainder:</strong> {{ row.Enrich.remainder }}</div>
                                 {% endif %}
                             </div>
                         </td>

@@ -201,8 +201,8 @@
                     {% for sign in file.yara %}
                         <li>
                             <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a>
-                            <span class="text-muted">- {{sign.meta.description}}</span>
-                            {% if sign.meta.author %} <small class="text-muted">({{sign.meta.author}})</small>{% endif %}
+                            <span class="text-white-50">- {{sign.meta.description}}</span>
+                            {% if sign.meta.author %} <small class="text-white-50">({{sign.meta.author}})</small>{% endif %}
                         </li>
                     {% endfor %}
                     </ul>
@@ -224,7 +224,7 @@
                     {% for sign in file.cape_yara %}
                         <li>
                             <a href="/analysis/search/capeyara:{{sign.name}}" class="text-info font-weight-bold">{{sign.name}}</a>
-                            {% if sign.meta.cape_type %} <span class="badge bg-secondary">{{sign.meta.cape_type}}</span>{% endif %}
+                            {% if sign.meta.cape_type %} <span class="badge bg-dark">{{sign.meta.cape_type}}</span>{% endif %}
                         </li>
                     {% endfor %}
                     </ul>
@@ -260,7 +260,7 @@
     {% if not file.dropdir %}
     <div class="card-footer bg-dark border-secondary">
         <div class="d-flex flex-wrap justify-content-start align-items-center">
-            <span class="me-3 text-muted mb-2">Tools:</span>
+            <span class="me-3 text-white-50 mb-2">Tools:</span>
 
             {% if file.pe %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#pe_{{file.sha256}}">PE</a>{% endif %}
             {% if file.dotnet %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#dotnet_{{file.sha256}}">.NET</a>{% endif %}
@@ -355,8 +355,8 @@
 
         {% if file.strings %}
             <div class="collapse mb-3" id="strings_{{file.sha256}}">
-                <div class="card bg-secondary text-white">
-                    <div class="card-header"><h6 class="mb-0">Strings</h6></div>
+                <div class="card bg-dark border-secondary text-white">
+                    <div class="card-header"><h6 class="mb-0 text-white-50">Strings</h6></div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.strings %}{{string}}<br>{% endfor %}</pre>
                     </div>
@@ -366,7 +366,7 @@
 
         {% if file.dotnet_strings %}
             <div class="collapse mb-3" id="dotnet_strings_{{file.sha256}}">
-                <div class="card bg-secondary text-white">
+                <div class="card bg-dark text-white">
                     <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.dotnet_strings %}{{string}}<br>{% endfor %}</pre>
@@ -377,7 +377,7 @@
 
         {% if file.data %}
             <div class="collapse mb-3" id="text_{{file.sha256}}">
-                <div class="card bg-secondary text-white">
+                <div class="card bg-dark text-white">
                     <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
                     <div class="card-body">
                         <pre class="mb-0 text-light small">{{file.data|escape}}</pre>
@@ -388,7 +388,7 @@
 
         {% if file.decoded_files %}
             <div class="collapse mb-3" id="decoded_files_{{file.sha256}}">
-                <div class="card bg-secondary text-white">
+                <div class="card bg-dark text-white">
                     <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
                     <div class="card-body">
                         <pre class="mb-0 text-light small">{{file.decoded_files|escape}}</pre>

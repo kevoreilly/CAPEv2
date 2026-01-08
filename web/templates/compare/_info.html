@@ -15,7 +15,7 @@
                 <td class="text-center font-weight-bold">{{record.info.id}}</td>
                 <td class="text-truncate" title="{{record.target.file.name}}">{{record.target.file.name|truncatechars:40}}</td>
                 <td><a href="{% url "report" record.info.id %}" class="text-info text-monospace">{{record.target.file.md5}}</a></td>
-                <td><span class="badge bg-secondary">{{record.info.machine.label}}</span></td>
+                <td><span class="badge bg-dark">{{record.info.machine.label}}</span></td>
                 <td class="small">{{record.info.ended}}</td>
                 <td class="text-end">{{record.info.duration}}s</td>
             </tr>

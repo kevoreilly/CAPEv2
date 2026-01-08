@@ -13,12 +13,12 @@
                             <h2 class="mb-0">
                                 <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#cape_yara_{{hit.name}}" aria-expanded="false" aria-controls="cape_yara_{{hit.name}}">
                                     <i class="fas fa-search me-2 text-info"></i> {{hit.name}}
-                                    <i class="fas fa-chevron-down float-end mt-1 text-muted"></i>
+                                    <i class="fas fa-chevron-down float-end mt-1 text-white-50"></i>
                                 </button>
                             </h2>
                         </div>
                         <div id="cape_yara_{{hit.name}}" class="collapse" aria-labelledby="headingCapeYara{{forloop.counter}}" data-bs-parent="#capeYaraAccordion">
-                            <div class="card-body bg-secondary text-white">
+                            <div class="card-body bg-dark text-white">
                                 <div class="table-responsive">
                                     <table class="table table-dark table-sm table-striped mb-0" style="table-layout: fixed;">
                                         {% if hit.strings %}
@@ -53,7 +53,7 @@
                 {% endfor %}
                 </div>
             {% else %}
-                <div class="p-3 text-muted text-center">No CAPE Yara hits.</div>
+                <div class="p-3 text-white-50 text-center">No CAPE Yara hits.</div>
             {% endif %}
         </div>
     </div>

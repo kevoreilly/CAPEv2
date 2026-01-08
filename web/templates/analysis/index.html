@@ -133,7 +133,7 @@
                                 {{analysis.filename}}
                                 {% endif %}
                             </td>
-                            <td class="text-monospace text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
+                            <td class="font-monospace text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
                                 {% if analysis.status in "reported,recovered" %}
                                     <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.sample.md5}}</a>
                                 {% elif analysis.status in "running,completed,distributed" %}
@@ -179,7 +179,7 @@
                             {% endif %}
                             {% if config.suricata %}
                             <td>
-                                <span class="text-monospace" style="margin-left: 5ch;">
+                                <span class="font-monospace" style="margin-left: 5ch;">
                                 {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
                                 {% else %}
@@ -367,7 +367,7 @@
                             <td class="text-truncate" title="{{analysis.filename}}">
                             {{analysis.filename}}
                             </td>
-                            <td class="text-monospace text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
+                            <td class="font-monospace text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
                                 {% if analysis.status in "reported,recovered" %}
                                     <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.sample.md5}}</a>
                                 {% elif analysis.status in "running,completed,distributed" %}
@@ -620,7 +620,7 @@
                             {% endif %}
                             {% if config.suricata %}
                             <td>
-                                <span class="text-monospace" style="margin-left: 5ch;">
+                                <span class="font-monospace" style="margin-left: 5ch;">
                                     {% if analysis.suri_alert_cnt %}
                                     <a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
                                     {% else %}
@@ -808,7 +808,7 @@
                         <td class="text-truncate" title="{{analysis.filename}}">
                             {{analysis.filename}}
                         </td>
-                        <td class="text-monospace text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
+                        <td class="font-monospace text-truncate" style="max-width: 150px;" title="{{analysis.sample.md5}}">
                             {% if analysis.status in "reported,recovered" %}
                             <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.sample.md5}}</a>
                             {% elif analysis.status in "running,completed,distributed" %}
@@ -828,7 +828,7 @@
                         {% endif %}
                         {% if config.suricata %}
                         <td>
-                            <span class="text-monospace" style="margin-left: 5ch;">
+                            <span class="font-monospace" style="margin-left: 5ch;">
                                 {% if analysis.suri_alert_cnt %}
                                 <a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
                                 {% else %}

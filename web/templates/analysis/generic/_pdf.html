@@ -88,7 +88,7 @@
             {% if file.pdf.Annot_URLs %}
             <div class="mb-4">
                 <h6 class="text-white border-bottom pb-2 mb-3">Link Annotation URLs</h6>
-                <div class="card bg-secondary text-white border-0">
+                <div class="card bg-dark text-white border-0">
                     <div class="card-body p-2">
                         <ul class="list-unstyled mb-0">
                         {% for url in file.pdf.Annot_URLs %}
@@ -103,7 +103,7 @@
             {% if file.pdf.JS_URLs %}
             <div class="mb-4">
                 <h6 class="text-white border-bottom pb-2 mb-3">Javascript URLs</h6>
-                <div class="card bg-secondary text-white border-0">
+                <div class="card bg-dark text-white border-0">
                     <div class="card-body p-2">
                         <ul class="list-unstyled mb-0">
                         {% for url in file.pdf.JS_URLs %}
@@ -129,7 +129,7 @@
                             </h2>
                         </div>
                         <div id="JSStream_{{obj|getkey:'Object ID'}}" class="collapse" data-bs-parent="#jsStreamsAccordion">
-                            <div class="card-body bg-secondary text-white">
+                            <div class="card-body bg-dark text-white">
                                 <p class="mb-1"><strong>Size:</strong> {{obj.Size}} bytes</p>
                                 <p class="mb-2"><strong>Offset:</strong> {{obj.Offset}}</p>
                                 <pre class="mb-0 text-light small border p-2 rounded bg-dark">{{obj.Data|linebreaksbr}}</pre>
@@ -144,6 +144,6 @@
         </div>
     </div>
     {% else %}
-        <div class="text-muted">Nothing to display.</div>
+        <div class="text-white-50">Nothing to display.</div>
     {% endif %}
 </section>

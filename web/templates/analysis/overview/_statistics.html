@@ -4,7 +4,7 @@
         <div class="card-header border-secondary" id="headingStatistics">
             <h5 class="mb-0">
                 <button class="btn btn-link btn-block text-start text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#statistics" aria-expanded="false" aria-controls="statistics">
-                    <i class="fas fa-stopwatch me-2 text-info"></i> Statistics {% if stats_total.total %}<span class="badge bg-secondary ms-2">{{stats_total.total}}s</span>{% endif %}
+                    <i class="fas fa-stopwatch me-2 text-info"></i> Statistics {% if stats_total.total %}<span class="badge bg-dark ms-2">{{stats_total.total}}s</span>{% endif %}
                     <i class="fas fa-chevron-down float-end mt-1"></i>
                 </button>
             </h5>
@@ -22,7 +22,7 @@
                 
                 <div class="row">
                     <div class="col-lg-4 mb-3">
-                        <div class="card bg-secondary h-100">
+                        <div class="card bg-dark h-100">
                             <div class="card-header border-dark font-weight-bold">
                                 Processing <span class="badge text-white bg-dark float-end">{{ stats_total.processing }}s</span>
                             </div>
@@ -40,7 +40,7 @@
                     </div>
                     
                     <div class="col-lg-4 mb-3">
-                        <div class="card bg-secondary h-100">
+                        <div class="card bg-dark h-100">
                             <div class="card-header border-dark font-weight-bold">
                                 Signatures <span class="badge text-white bg-dark float-end">{{ stats_total.signatures }}s</span>
                             </div>
@@ -58,7 +58,7 @@
                     </div>
                     
                     <div class="col-lg-4 mb-3">
-                        <div class="card bg-secondary h-100">
+                        <div class="card bg-dark h-100">
                             <div class="card-header border-dark font-weight-bold">
                                 Reporting <span class="badge text-white bg-dark float-end">{{ stats_total.reporting }}s</span>
                             </div>

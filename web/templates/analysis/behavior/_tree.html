@@ -14,9 +14,9 @@
               </ul>
             {% else %}
               <li class="mb-1">
-                <i class="text-muted me-1"></i>
+                <i class="text-white-50 me-1"></i>
                 <strong><a href="javascript:show_tab('process_{{process.pid}}');" class="text-white">{{process.name}}</a></strong>
-                <span class="text-muted ms-1">({{process.pid}})</span>
+                <span class="text-white-50 ms-1">({{process.pid}})</span>
                 {% if process.commandline %}
                     <span class="text-light small ms-2">{{ process.commandline }}</span>
                 {% endif %}

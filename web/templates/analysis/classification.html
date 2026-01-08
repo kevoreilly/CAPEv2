@@ -15,7 +15,7 @@
             To compute a numeric matching score, the API call graph is exploded into sub-graphs. Let <code>SG(A)</code> be the set of subgraphs for process A. The score relies on the Jaccard index:
             <code>size(SG(A) &cap; SG(B)) / size(SG(A) &cup; SG(B))</code>.
         </p>
-        <p class="card-text text-muted small mb-0">
+        <p class="card-text text-white-50 small mb-0">
             Note: Family names are indicative only and extracted from CAPE sandboxing references, which may be subject to error. Always consider the context of discriminative processes.
         </p>
     </div>
@@ -56,7 +56,7 @@
         {% if analysis.classification.details %}
             <div class="accordion" id="classificationDetails">
             {% for block in analysis.classification.details %}
-                <div class="card bg-secondary mb-2 mx-2 mt-2">
+                <div class="card bg-dark mb-2 mx-2 mt-2">
                     <div class="card-header p-2" id="heading{{forloop.counter}}">
                         <h5 class="mb-0">
                             <button class="btn btn-link text-white text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{forloop.counter}}" aria-expanded="true" aria-controls="collapse{{forloop.counter}}">
@@ -92,7 +92,7 @@
                                 {% endfor %}
                                 </ul>
                             {% else %}
-                                <span class="text-muted">No details available.</span>
+                                <span class="text-white-50">No details available.</span>
                             {% endif %}
                         </div>
                     </div>
@@ -104,7 +104,7 @@
             <div class="accordion" id="classificationLegacy">
             {% for block in analysis.classification %}
                 {% if block.meta %}
-                <div class="card bg-secondary mb-2 mx-2 mt-2">
+                <div class="card bg-dark mb-2 mx-2 mt-2">
                     <div class="card-header p-2">
                         <h5 class="mb-0">
                             <button class="btn btn-link text-white text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLegacy{{forloop.counter}}">

@@ -55,7 +55,7 @@
                                                                                 </a>
                                                                             </td>
                                                                         {% else %}
-                                                                            <td colspan="2" class="text-muted text-uppercase small fw-bold">{{sign.type}}</td>
+                                                                            <td colspan="2" class="text-white-50 text-uppercase small fw-bold">{{sign.type}}</td>
                                                                             <td colspan="7">
                                                                                 {% if sign.value|is_dict %}
                                                                                     {% for key, value in  sign.value.items %}
@@ -104,7 +104,7 @@
                 {% endfor %}
                 </div>
             {% else %}
-                <div class="p-3 text-center text-muted">
+                <div class="p-3 text-center text-white-50">
                     <i class="fas fa-check-circle fa-2x mb-2"></i>
                     <p class="mb-0">No suspicious signatures detected.</p>
                 </div>

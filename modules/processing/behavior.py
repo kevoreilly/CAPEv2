@@ -166,7 +166,7 @@ class ParseProcessLog(list):
         """Reset fd"""
         if self.use_mmap:
             self.mm_pos = 0
-        else:
+        elif self.fd:
             self.fd.seek(0)
         self.api_count = 0
         self.lastcall = None

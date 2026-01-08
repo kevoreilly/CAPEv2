@@ -13,7 +13,7 @@
                 <thead class=" ">
                     <tr>
                     {% for category in analysis.mitre_attck %}
-                        <th class="text-center text-dark font-weight-bold bg-secondary border-secondary text-white">{{ category }}</th>
+                        <th class="text-center text-dark font-weight-bold bg-dark border-secondary text-white">{{ category }}</th>
                     {% endfor %}
                     </tr>
                 </thead>
@@ -28,7 +28,7 @@
                                             {{ttp.t_id}}
                                         </a> 
                                         - <span class="text-light">{{ ttp.ttp_name }}</span>
-                                        <ul class="mt-1 text-muted small">
+                                        <ul class="mt-1 text-white-50 small">
                                         {% for signature in ttp.signature %}
                                             <li><i class="fas fa-check me-1 text-success"></i> {{signature}}</li>
                                         {% endfor %}

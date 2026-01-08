@@ -23,7 +23,7 @@ $(function () {
         <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-primary"></i> Execution Graph</h5>
     </div>
     <div class="card-body">
-        <p class="text-muted">This graph visualizes the behavioral events by category. Larger blocks indicate higher activity in that category.</p>
+        <p class="text-white-50">This graph visualizes the behavioral events by category. Larger blocks indicate higher activity in that category.</p>
         
         <div class="mb-4 text-center">
             <span class="badge text-white bg-dark text-white border border-secondary registry">registry</span>
@@ -38,14 +38,14 @@ $(function () {
 
         <div class="row">
             <div class="col-md-6 border-right border-secondary d-flex justify-content-center">
-                <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-secondary">
+                <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-dark">
                     {% for cat, count in left_counts.items %}
                         <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="right" title="{{count}}% {{cat}}"></div>
                     {% endfor %}
                 </div>
             </div>
             <div class="col-md-6 d-flex justify-content-center">
-                <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-secondary">
+                <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-dark">
                     {% for cat, count in right_counts.items %}
                         <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="left" title="{{count}}% {{cat}}"></div>
                     {% endfor %}
@@ -81,94 +81,94 @@ $(function () {
             <div class="col-md-9">
                 <div class="tab-content" id="v-pills-tabContent">
                     <div class="tab-pane fade show active" id="summary_compare_files">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.files %}
                                 <ul class="list-unstyled mb-0">{% for file in summary.files %}<li>{{file}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_read_files">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.read_files %}
                                 <ul class="list-unstyled mb-0">{% for file in summary.read_files %}<li>{{file}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_write_files">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.write_files %}
                                 <ul class="list-unstyled mb-0">{% for file in summary.write_files %}<li>{{file}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_delete_files">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.delete_files %}
                                 <ul class="list-unstyled mb-0">{% for file in summary.delete_files %}<li>{{file}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_keys">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.keys %}
                                 <ul class="list-unstyled mb-0">{% for key in summary.keys %}<li>{{key}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_read_keys">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.read_keys %}
                                 <ul class="list-unstyled mb-0">{% for key in summary.read_keys %}<li>{{key}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_write_keys">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.write_keys %}
                                 <ul class="list-unstyled mb-0">{% for key in summary.write_keys %}<li>{{key}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_delete_keys">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.delete_keys %}
                                 <ul class="list-unstyled mb-0">{% for key in summary.delete_keys %}<li>{{key}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_resolved_apis">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.resolved_apis %}
                                 <ul class="list-unstyled mb-0">{% for api in summary.resolved_apis %}<li>{{api}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_executed_commands">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.executed_commands %}
                                 <ul class="list-unstyled mb-0">{% for cmd in summary.executed_commands %}<li>{{cmd}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_mutexes">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.mutexes %}
                                 <ul class="list-unstyled mb-0">{% for mutex in summary.mutexes %}<li>{{mutex}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_created_services">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.created_services %}
                                 <ul class="list-unstyled mb-0">{% for service in summary.created_services %}<li>{{service}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_started_services">
-                        <div class="card card-body bg-secondary text-white">
+                        <div class="card card-body bg-dark text-white">
                             {% if summary.started_services %}
                                 <ul class="list-unstyled mb-0">{% for service in summary.started_services %}<li>{{service}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-muted">No similarities found.</span>{% endif %}
+                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                 </div>

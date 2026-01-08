@@ -6,7 +6,7 @@
         {% if count %}
         <span class="badge bg-warning">{{count}} pending</span>
         {% else %}
-        <span class="badge bg-secondary">0 pending</span>
+        <span class="badge bg-dark">0 pending</span>
         {% endif %}
     </div>
     {% if tasks %}
@@ -26,7 +26,7 @@
             {% for task in tasks %}
                 <tr>
                     <td><span class="font-weight-bold">{{task.id}}</span></td>
-                    <td><span class="text-muted small">{{task.added_on|date:"Y-m-d H:i:s"}}</span></td>
+                    <td><span class="text-white-50 small">{{task.added_on|date:"Y-m-d H:i:s"}}</span></td>
                     <td class="text-center">
                         <span class="badge bg-info">{{task.category|upper}}</span>
                     </td>
@@ -35,10 +35,10 @@
                     </td>
                     <td class="small">
                         <div class="text-truncate mb-1" title="MD5: {{task.md5}}">
-                            <span class="text-muted me-1">MD5:</span> <span class="text-monospace">{{task.md5}}</span>
+                            <span class="text-white-50 me-1">MD5:</span> <span class="text-monospace">{{task.md5}}</span>
                         </div>
                         <div class="text-truncate" title="SHA256: {{task.sha256}}">
-                            <span class="text-muted me-1">SHA256:</span> <span class="text-monospace">{{task.sha256}}</span>
+                            <span class="text-white-50 me-1">SHA256:</span> <span class="text-monospace">{{task.sha256}}</span>
                         </div>
                     </td>
                     <td class="text-center">
@@ -52,7 +52,7 @@
         </table>
     </div>
     {% else %}
-    <div class="card-body text-center text-muted py-5">
+    <div class="card-body text-center text-white-50 py-5">
         <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
         <p class="mb-0">No pending tasks. You're all caught up!</p>
     </div>

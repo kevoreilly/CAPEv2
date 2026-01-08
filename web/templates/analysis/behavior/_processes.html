@@ -121,7 +121,7 @@
             {% for process in behavior.processes %}
             <div class="tab-pane fade {% if forloop.counter == 1%}show active{% endif %}" id="process_{{process.process_id}}" role="tabpanel" aria-labelledby="process-{{process.process_id}}-tab" data-pid="{{process.process_id}}" data-length="{{process.calls|length}}">
 
-                <div class="alert alert-primary border-primary text-center shadow-sm mb-4">
+                <div class="alert alert-primary text-info border-primary text-center shadow-sm mb-4">
                     <h5 class="alert-heading fw-bold">{{process.process_name}}</h5>
                     <p class="mb-0">
                         PID: <strong>{{process.process_id}}</strong> | Parent PID: <strong>{{process.parent_id}}</strong>
@@ -152,22 +152,22 @@
                         </div>
 
                         <div class="input-group mb-3 w-50 mx-auto">
-                            <input type="text" class="form-control bg-secondary text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
+                            <input type="text" class="form-control bg-dark text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
                             <button class="btn btn-primary" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
                         </div>
 
-                        <button class="btn btn-sm btn-link text-muted" type="button" data-bs-toggle="collapse" data-bs-target="#advFilter_{{process.process_id}}">
+                        <button class="btn btn-sm btn-link text-white-50" type="button" data-bs-toggle="collapse" data-bs-target="#advFilter_{{process.process_id}}">
                             Advanced Filters <i class="fas fa-chevron-down"></i>
                         </button>
 
                         <div class="collapse mt-2" id="advFilter_{{process.process_id}}">
-                            <div class="card card-body bg-secondary">
+                            <div class="card card-body bg-dark">
                                 <div class="row g-3">
                                     <div class="col">
-                                        <input type="text" class="form-control bg-dark text-white border-0" id="callerfilter_{{process.process_id}}" placeholder="Caller">
+                                        <input type="text" class="form-control text-white bg-dark border-1" id="callerfilter_{{process.process_id}}" placeholder="Caller">
                                     </div>
                                     <div class="col">
-                                        <input type="text" class="form-control bg-dark text-white border-0" id="tidfilter_{{process.process_id}}" placeholder="Thread ID">
+                                        <input type="text" class="form-control text-white bg-dark border-1" id="tidfilter_{{process.process_id}}" placeholder="Thread ID">
                                     </div>
                                     <div class="col-auto">
                                         <button id="submit_filter_{{process.process_id}}" class="btn btn-dark">Filter</button>

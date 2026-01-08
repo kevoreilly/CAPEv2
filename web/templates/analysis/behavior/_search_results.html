@@ -7,7 +7,7 @@
         <div class="card-body">
             <div class="text-center mb-3">
                 <span class="badge bg-primary mx-1">network</span>
-                <span class="badge bg-secondary mx-1">filesystem</span>
+                <span class="badge bg-dark mx-1">filesystem</span>
                 <span class="badge bg-success mx-1">registry</span>
                 <span class="badge bg-danger mx-1">process</span>
                 <span class="badge bg-warning mx-1">threading</span>
@@ -36,7 +36,7 @@
                         </thead>
                         <tbody>
                             {% for match in results %}
-                                <tr class="bg-secondary font-weight-bold">
+                                <tr class="bg-dark font-weight-bold">
                                     <td colspan="9" class="text-white ps-3">
                                         <i class="fas fa-microchip me-2"></i> Process: {{match.process.process_name}} ({{match.process.process_id}})
                                     </td>

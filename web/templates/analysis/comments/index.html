@@ -2,7 +2,7 @@
 <form role="form" method="post" action="/analysis/{{analysis.info.id}}/comments/">{% csrf_token %}
 <div class="row">
   <div class="form group col-lg-10">
-      <textarea class="form-control" rows="7" name="commentbox" placeholder="Add comment ..."></textarea>
+      <textarea class="form-control bg-dark text-white border-secondary" rows="7" name="commentbox" placeholder="Add comment ..."></textarea>
       <div style="margin-top: 5px;">
         <button class="btn btn-secondary float-end" type="submit">Submit</button>
       </div>
@@ -12,8 +12,8 @@
 <hr>
 {% if analysis.info.comments %}
 {% for comment in analysis.info.comments %}
-<div class="alert alert-primary"><b>[{{comment.Timestamp}}]</b><br />{{comment.Data|safe}}</div>
+<div class="alert alert-primary text-white fs-6"><b>[{{comment.Timestamp}}]</b><br />{{comment.Data|safe}}</div>
 {% endfor %}
 {% else %}
-<div class="alert alert-primary center">No comments posted</div>
+<div class="alert alert-primary text-white-50 fs-6 center">No comments posted</div>
 {% endif %}

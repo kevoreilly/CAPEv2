@@ -1,6 +1,6 @@
 <section id="domains">
     {% if analysis.network.dns %}
-        <table class="table table-striped table-bordered">
+        <table class="table  table-dark table-striped table-bordered">
             <tr>
                 <th>Name</th>
                 <th>Response</th>
@@ -52,6 +52,6 @@
             {% endfor %}
         </table>
     {% else %}
-        <p>No domains contacted.</p>
+        <p class="text-white">No domains contacted.</p>
     {% endif %}
 </section>

@@ -362,3 +362,120 @@ pre {
 .btn-cat-browser:hover { color: black; }
 .btn-cat-crypto { background-color: #f0f2c5; color: black; border-color: #f0f2c5; }
 .btn-cat-crypto:hover { color: black; }
+
+/* Remove default underline, add on hover (exclude buttons if needed) */
+a:not(.btn, [class*="btn"]) {
+    text-decoration: none !important;
+}
+a:not(.btn, [class*="btn"]):hover {
+    text-decoration: underline !important;
+}
+
+.bg-dark::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* Make category background apply to table cells in BS5 */
+.table tbody tr.filesystem > td,
+.table tbody tr.filesystem > th,
+.table tbody tr.registry > td,
+.table tbody tr.registry > th,
+.table tbody tr.process > td,
+.table tbody tr.process > th,
+.table tbody tr.threading > td,
+.table tbody tr.threading > th,
+.table tbody tr.services > td,
+.table tbody tr.services > th,
+.table tbody tr.device > td,
+.table tbody tr.device > th,
+.table tbody tr.network > td,
+.table tbody tr.network > th,
+.table tbody tr.socket > td,
+.table tbody tr.socket > th,
+.table tbody tr.synchronization > td,
+.table tbody tr.synchronization > th,
+.table tbody tr.browser > td,
+.table tbody tr.browser > th,
+.table tbody tr.crypto > td,
+.table tbody tr.crypto > th,
+.table tbody tr.kernel > td,
+.table tbody tr.kernel > th,
+.table tbody tr.fs > td,
+.table tbody tr.fs > th,
+.table tbody tr.mm > td,
+.table tbody tr.mm > th,
+.table tbody tr.net > td,
+.table tbody tr.net > th,
+.table tbody tr.ipc > td,
+.table tbody tr.ipc > th,
+.table tbody tr.security > td,
+.table tbody tr.security > th,
+.table tbody tr.drivers > td,
+.table tbody tr.drivers > th,
+.table tbody tr.io_uring > td,
+.table tbody tr.io_uring > th,
+.table tbody tr.block > td,
+.table tbody tr.block > th,
+.table tbody tr.system > td,
+.table tbody tr.system > th,
+.table tbody tr.windows > td,
+.table tbody tr.windows > th {
+  background-color: inherit; /* inherit the TR background-color */
+  color: inherit;            /* inherit the TR text color */
+}
+
+/* Dark-theme file input (Bootstrap 5) */
+.form-control[type="file"]{
+  background-color: #212529;                 /* bg-dark */
+  color: rgba(255,255,255,.85);              /* readable on dark */
+  border: 1px solid #6c757d;                 /* border-secondary */
+}
+
+/* Placeholder-ish text (some browsers show filename text differently) */
+.form-control[type="file"]::placeholder{
+  color: rgba(255,255,255,.6);
+}
+
+/* The “Browse” button part */
+.form-control[type="file"]::file-selector-button{
+  background-color: #343a40;                 /* dark button */
+  color: rgba(255,255,255,.9);
+  border: 0;
+  border-right: 1px solid #6c757d;           /* border-secondary */
+  padding: .375rem .75rem;
+  margin-right: .75rem;                      /* spacing before filename */
+}
+
+/* Hover/focus states */
+.form-control[type="file"]::file-selector-button:hover{
+  background-color: #3f474e;
+}
+
+.form-control[type="file"]:focus{
+  border-color: #adb5bd;                     /* slightly brighter */
+  box-shadow: 0 0 0 .25rem rgba(108,117,125,.25);
+}
+
+/* Disabled */
+.form-control[type="file"]:disabled{
+  background-color: #1c1f23;
+  color: rgba(255,255,255,.5);
+}
+.form-control[type="file"]:disabled::file-selector-button{
+  background-color: #2b3035;
+  color: rgba(255,255,255,.5);
+}
+
+.bg-dark .form-check-label {
+  color: #fff;
+}
+
+.bg-dark .form-check-input {
+  background-color: #212529;
+  border-color: #6c757d;
+}
+
+.bg-dark .form-check-input:checked {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
+}

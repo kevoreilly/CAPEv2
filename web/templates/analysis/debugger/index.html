@@ -29,9 +29,9 @@ function show_tab_dbg(id, callback) {
             </ul>
             {% else %}
             <li class="mb-1">
-                <i class="text-muted me-1"></i>
+                <i class="text-white-50 me-1"></i>
                 <strong><a href="javascript:show_tab_dbg('dbg_{{process.pid}}');" class="text-white">{{process.name}}</a></strong>
-                <span class="text-muted ms-1">({{process.pid}})</span>
+                <span class="text-white-50 ms-1">({{process.pid}})</span>
             </li>
             {% endif %}
         {% endfor %}
@@ -61,7 +61,7 @@ function show_tab_dbg(id, callback) {
                 {% for key, value in debugger_logs.items %}
                     {% if key == process.process_id %}
                     <div class="tab-pane fade {% if forloop.counter == 1 %}show active{% endif %}" id="dbg_{{key}}">
-                        <div class="bg-secondary p-2 text-end border-bottom border-dark">
+                        <div class="bg-dark p-2 text-end border-bottom border-dark">
                             <a class="btn btn-sm btn-outline-light" href="{% url "file" "debugger_log" id key %}">
                                 <i class="fas fa-download me-1"></i> Download Log
                             </a>

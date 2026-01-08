@@ -176,7 +176,7 @@
                                 <span class="text-white-50">-</span>
                             {% endif %}
                             </td>
-                            <td class="text-truncate text-monospace small" title="{% if analysis.category == 'url' %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}">
+                            <td class="text-truncate font-monospace small" title="{% if analysis.category == 'url' %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}">
                                 {% if analysis.status == "reported" %}
                                     <a href="{% url "report" analysis.id %}" class="text-light">
                                     {% if analysis.category == "url" %}

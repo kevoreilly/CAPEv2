@@ -37,8 +37,8 @@ from lib.common.defines import (
     ULONG_PTR,
 )
 
-if sys.platform == "win32":
-    from lib.common.constants import (
+
+from lib.common.constants import (
         CAPEMON32_NAME,
         CAPEMON64_NAME,
         LOADER32_NAME,
@@ -53,14 +53,15 @@ if sys.platform == "win32":
         SIDELOADER32_NAME,
         SIDELOADER64_NAME,
     )
-    from lib.common.defines import (
+from lib.common.defines import (
         KERNEL32,
         NTDLL,
         PSAPI,
     )
-    # Set return value to signed 32bit integer.
-    NTDLL.NtQueryInformationProcess.restype = c_int
-    from lib.core.log import LogServer
+
+# Set return value to signed 32bit integer.
+NTDLL.NtQueryInformationProcess.restype = c_int
+from lib.core.log import LogServer
 
 from lib.common.constants import OPT_CURDIR, OPT_EXECUTIONDIR
 from lib.common.errors import get_error_string
@@ -242,12 +243,12 @@ class Process:
 
         offset = 2 * sizeof(ULONG_PTR)
         offset = 4 + sizeof(ULONG_PTR)
-            try:
-                fbuf = pbi.raw[offset:]
-                fbuf = fbuf[: fbuf.find(b"\0\0") + 1]
-                return fbuf.decode("utf16", errors="ignore")
-            except Exception as e:
-                log.info(e)
+        try:
+            fbuf = pbi.raw[offset:]
+            fbuf = fbuf[: fbuf.find(b"\0\0") + 1]
+            return fbuf.decode("utf16", errors="ignore")
+        except Exception as e:
+            log.info(e)
 
         return ""
 

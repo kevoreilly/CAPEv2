@@ -589,7 +589,7 @@ class Process:
             bit_str = "32-bit"
 
         try:
-            result = subprocess.run(
+            _ = subprocess.run(
                 [os.path.join(Path.cwd(), ttd_name), "-accepteula", "-stop", str(self.pid)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -802,7 +802,7 @@ class Process:
             return True
 
         try:
-            ret = subprocess.run(
+            result = subprocess.run(
                 [
                     os.path.join(Path.cwd(), ttd_name),
                     "-accepteula",
@@ -816,6 +816,10 @@ class Process:
                 text=True,
                 timeout=1,
             )
+            if result.stdout:
+                log.info(" ".join(result.stdout.split()))
+            if result.stderr:
+                log.error(" ".join(result.stderr.split()))
         except subprocess.TimeoutExpired as e:
             if e.stdout:
                 log.info(" ".join(e.stdout.split()))

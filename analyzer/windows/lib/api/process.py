@@ -241,7 +241,7 @@ class Process:
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
 
         offset = 2 * sizeof(ULONG_PTR)
-        if NT_SUCCESS(ret) and size.value > offset:
+        offset = 4 + sizeof(ULONG_PTR)
             try:
                 fbuf = pbi.raw[offset:]
                 fbuf = fbuf[: fbuf.find(b"\0\0") + 1]

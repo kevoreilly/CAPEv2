@@ -104,7 +104,7 @@ def dump_memory(pid):
         with open(f"/proc/{pid}/maps", "r") as maps_file, open(f"/proc/{pid}/mem", "rb", 0) as mem_file, open(
             f"{MEM_PATH}/{pid}.dmp", "wb"
         ) as output_file:
-            for line in maps_file.readlines():
+            for line in maps_file:
                 # Reference: https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
                 m = re.match(r"^([0-9a-f]+)-([0-9a-f]+) ([-rwxsp]{4}) ([0-9a-f]+) (\d\d:\d\d) (\d+) *(.*)$", line)
                 if not m:

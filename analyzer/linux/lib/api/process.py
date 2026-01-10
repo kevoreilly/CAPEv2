@@ -39,7 +39,11 @@ class Process:
         try:
             with open(f"/proc/{self.pid}/status") as f:
                 status = f.readlines()
-            status_values = dict([tuple(map(str.strip, j.split(':',1))) for j in status])
+            status_values = {}
+            for line in status:
+                if ":" in line:
+                    key, value = line.split(":", 1)
+                    status_values[key.strip()] = value.strip()
             return status_values
         except Exception:
             log.critical("Could not get process status for pid %s", self.pid)

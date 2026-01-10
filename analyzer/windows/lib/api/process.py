@@ -37,6 +37,9 @@ from lib.common.defines import (
     ULONG_PTR,
 )
 
+# Set return value to signed 32bit integer.
+NTDLL.NtQueryInformationProcess.restype = c_int
+
 if sys.platform == "win32":
     from lib.common.constants import (
         CAPEMON32_NAME,
@@ -236,14 +239,12 @@ class Process:
         pbi = create_string_buffer(530)
         size = c_int()
 
-        # Set return value to signed 32bit integer.
-        NTDLL.NtQueryInformationProcess.restype = c_int
-
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
 
-        if NT_SUCCESS(ret) and size.value > 8:
+        offset = 2 * sizeof(ULONG_PTR)
+        if NT_SUCCESS(ret) and size.value > offset:
             try:
-                fbuf = pbi.raw[8:]
+                fbuf = pbi.raw[offset:]
                 fbuf = fbuf[: fbuf.find(b"\0\0") + 1]
                 return fbuf.decode("utf16", errors="ignore")
             except Exception as e:
@@ -296,9 +297,6 @@ class Process:
 
         pbi = (ULONG_PTR * 6)()
         size = c_ulong()
-
-        # Set return value to signed 32bit integer.
-        NTDLL.NtQueryInformationProcess.restype = c_int
 
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 0, byref(pbi), sizeof(pbi), byref(size))
 
@@ -529,12 +527,7 @@ class Process:
 
         # Use the custom execution directory if provided, otherwise launch in the same location
         # where the sample resides (default %TEMP%)
-        if OPT_EXECUTIONDIR in self.options.keys():
-            execution_directory = self.options[OPT_EXECUTIONDIR]
-        elif OPT_CURDIR in self.options.keys():
-            execution_directory = self.options[OPT_CURDIR]
-        else:
-            execution_directory = os.getenv("TEMP")
+        execution_directory = self.options.get(OPT_EXECUTIONDIR) or self.options.get(OPT_CURDIR) or os.getenv("TEMP")
 
         # Try to create the custom directories so that the execution path is deemed valid
         create_custom_folders(execution_directory)

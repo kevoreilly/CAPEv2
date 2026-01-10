@@ -37,9 +37,6 @@ from lib.common.defines import (
     ULONG_PTR,
 )
 
-# Set return value to signed 32bit integer.
-NTDLL.NtQueryInformationProcess.restype = c_int
-
 if sys.platform == "win32":
     from lib.common.constants import (
         CAPEMON32_NAME,
@@ -61,6 +58,8 @@ if sys.platform == "win32":
         NTDLL,
         PSAPI,
     )
+    # Set return value to signed 32bit integer.
+    NTDLL.NtQueryInformationProcess.restype = c_int
     from lib.core.log import LogServer
 
 from lib.common.constants import OPT_CURDIR, OPT_EXECUTIONDIR

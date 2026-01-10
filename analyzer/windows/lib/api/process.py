@@ -589,13 +589,17 @@ class Process:
             bit_str = "32-bit"
 
         try:
-            _ = subprocess.run(
+            result = subprocess.run(
                 [os.path.join(Path.cwd(), ttd_name), "-accepteula", "-stop", str(self.pid)],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
                 timeout=1,
             )
+            if result.stdout:
+                log.info(" ".join(result.stdout.split()))
+            if result.stderr:
+                log.error(" ".join(result.stderr.split()))
         except subprocess.TimeoutExpired as e:
             if e.stdout:
                 log.info(" ".join(e.stdout.split()))
@@ -603,11 +607,6 @@ class Process:
                 log.error(" ".join(e.stderr.split()))
         except Exception as e:
             log.error("Exception attempting TTD stop for %s process with pid %d: %s", bit_str, self.pid, e)
-
-        if result.stdout:
-            log.info(" ".join(result.stdout.split()))
-        if result.stderr:
-            log.error(" ".join(result.stderr.split()))
 
         log.info("Stopped TTD for %s process with pid %d", bit_str, self.pid)
 

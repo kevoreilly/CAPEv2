@@ -239,9 +239,8 @@ class Process:
         pbi = create_string_buffer(530)
         size = c_int()
 
-        ret = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
+        _ = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
 
-        offset = 2 * sizeof(ULONG_PTR)
         offset = 4 + sizeof(ULONG_PTR)
         try:
             fbuf = pbi.raw[offset:]

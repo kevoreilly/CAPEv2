@@ -469,6 +469,10 @@ class Analyzer:
             (LOADER64, LOADER64_NAME, "loader_x64.exe"),
         ]:
             if source_name is not None:
+            if source_name is not None:
+                if os.path.basename(source_name) != source_name:
+                    log.warning("Path traversal attempt detected in source_name: '%s'", source_name)
+                    return
                 source_path = os.path.join("dll" if "loader" not in dest_name else "bin", source_name)
             else:
                 source_path = os.path.join("dll" if "loader" not in dest_name else "bin", default_name)

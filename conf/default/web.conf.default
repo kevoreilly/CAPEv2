@@ -29,6 +29,7 @@ disposable_email_disable = yes
 disposable_domain_list = data/safelist/disposable_domain_list.txt
 
 [general]
+timezone = UTC
 # Prescan new file tasks with YARA for sample identification and custom execution
 # Useful to set options, tags, timeout, etc for packers/obfuscators/cryptors
 yara_recon = no

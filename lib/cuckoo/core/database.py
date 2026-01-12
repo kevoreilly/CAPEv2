@@ -14,6 +14,12 @@ from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Union, Tuple, Dict
 
+
+def _utcnow_naive():
+    """Returns the current time in UTC as a naive datetime object."""
+    return datetime.now(timezone.utc).replace(tzinfo=None)
+
+
 # Sflock does a good filetype recon
 from sflock.abstracts import File as SflockFile
 from sflock.ident import identify as sflock_identify
@@ -308,7 +314,7 @@ class Guest(Base):
     manager: Mapped[str] = mapped_column(nullable=False)
 
     started_on: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False
+        DateTime(timezone=False), default=_utcnow_naive, nullable=False
     )
     shutdown_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="cascade"), nullable=False, unique=True)
@@ -476,12 +482,12 @@ class Task(Base):
     enforce_timeout: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     clock: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
-        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        default=_utcnow_naive,
         nullable=False,
     )
     added_on: Mapped[datetime] = mapped_column(
         DateTime(timezone=False),
-        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),
+        default=_utcnow_naive,
         nullable=False,
     )
     started_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
@@ -823,10 +829,10 @@ class _Database:
         if row.clock == datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None):
             if row.category == "file":
                 # datetime.now(timezone.utc)
-                row.clock = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=self.cfg.cuckoo.daydelta)
+                row.clock = _utcnow_naive() + timedelta(days=self.cfg.cuckoo.daydelta)
             else:
                 # datetime.now(timezone.utc)
-                row.clock = datetime.now(timezone.utc).replace(tzinfo=None)
+                row.clock = _utcnow_naive()
         return row.clock
 
     def set_task_status(self, task: Task, status) -> Task:
@@ -834,9 +840,9 @@ class _Database:
             task.status = status
 
         if status in (TASK_RUNNING, TASK_DISTRIBUTED):
-            task.started_on = datetime.now(timezone.utc).replace(tzinfo=None)
+            task.started_on = _utcnow_naive()
         elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
-            task.completed_on = datetime.now(timezone.utc).replace(tzinfo=None)
+            task.completed_on = _utcnow_naive()
 
         self.session.add(task)
         return task
@@ -967,7 +973,7 @@ class _Database:
         """
         guest = self.session.get(Guest, guest_id)
         if guest:
-            guest.shutdown_on = datetime.now(timezone.utc).replace(tzinfo=None)
+            guest.shutdown_on = _utcnow_naive()
 
     @staticmethod
     def filter_machines_by_arch(statement: Select, arch: list) -> Select:
@@ -1063,7 +1069,7 @@ class _Database:
         @return: locked machine
         """
         machine.locked = True
-        machine.locked_changed_on = datetime.now(timezone.utc).replace(tzinfo=None)
+        machine.locked_changed_on = _utcnow_naive()
         self.set_machine_status(machine, MACHINE_RUNNING)
         self.session.add(machine)
 
@@ -1075,7 +1081,7 @@ class _Database:
         @return: unlocked machine
         """
         machine.locked = False
-        machine.locked_changed_on = datetime.now(timezone.utc).replace(tzinfo=None)
+        machine.locked_changed_on = _utcnow_naive()
         self.session.merge(machine)
         return machine
 
@@ -1121,7 +1127,7 @@ class _Database:
 
         if machine:
             machine.status = status
-            machine.status_changed_on = datetime.now(timezone.utc).replace(tzinfo=None)
+            machine.status_changed_on = _utcnow_naive()
             # No need for session.add() here; the ORM tracks changes to loaded objects.
 
     def add_error(self, message, task_id):
@@ -1252,7 +1258,7 @@ class _Database:
 
             if isinstance(obj, (PCAP, Static)):
                 # since no VM will operate on this PCAP
-                task.started_on = datetime.now(timezone.utc).replace(tzinfo=None)
+                task.started_on = _utcnow_naive()
 
         elif isinstance(obj, URL):
             task = Task(obj.url)
@@ -1984,7 +1990,7 @@ class _Database:
         # sha256 is unique.
         uniq = False
         if hours and sha256:
-            date_since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=hours)
+            date_since = _utcnow_naive() - timedelta(hours=hours)
 
             stmt = (
                 select(Task)
@@ -2227,7 +2233,7 @@ class _Database:
             return
 
         # Calculate the cutoff time before which tasks are considered timed out.
-        timeout_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=timeout)
+        timeout_threshold = _utcnow_naive() - timedelta(seconds=timeout)
 
         # Build a single, efficient DELETE statement that filters in the database.
         delete_stmt = delete(Task).where(Task.status == TASK_PENDING).where(Task.added_on < timeout_threshold)

@@ -1422,6 +1422,8 @@ def perform_search(
                 {"$project": perform_search_filters},
             ]
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
+            if not retval:
+                return []
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         elif isinstance(search_term_map[term], list):

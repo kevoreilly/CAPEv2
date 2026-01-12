@@ -307,7 +307,9 @@ class Guest(Base):
     platform: Mapped[str] = mapped_column(nullable=False)
     manager: Mapped[str] = mapped_column(nullable=False)
 
-    started_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=datetime.now, nullable=False)
+    started_on: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False), default=lambda: datetime.now(timezone.utc).replace(tzinfo=None), nullable=False
+    )
     shutdown_on: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=False), nullable=True)
     task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="cascade"), nullable=False, unique=True)
     task: Mapped["Task"] = relationship(back_populates="guest")
@@ -818,13 +820,13 @@ class _Database:
         if not row:
             return
         # datetime.fromtimestamp(0, tz=timezone.utc)
-        if row.clock == datetime.utcfromtimestamp(0):
+        if row.clock == datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None):
             if row.category == "file":
                 # datetime.now(timezone.utc)
-                row.clock = datetime.utcnow() + timedelta(days=self.cfg.cuckoo.daydelta)
+                row.clock = datetime.now(timezone.utc).replace(tzinfo=None) + timedelta(days=self.cfg.cuckoo.daydelta)
             else:
                 # datetime.now(timezone.utc)
-                row.clock = datetime.utcnow()
+                row.clock = datetime.now(timezone.utc).replace(tzinfo=None)
         return row.clock
 
     def set_task_status(self, task: Task, status) -> Task:
@@ -832,9 +834,9 @@ class _Database:
             task.status = status
 
         if status in (TASK_RUNNING, TASK_DISTRIBUTED):
-            task.started_on = datetime.now()
+            task.started_on = datetime.now(timezone.utc).replace(tzinfo=None)
         elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
-            task.completed_on = datetime.now()
+            task.completed_on = datetime.now(timezone.utc).replace(tzinfo=None)
 
         self.session.add(task)
         return task
@@ -965,7 +967,7 @@ class _Database:
         """
         guest = self.session.get(Guest, guest_id)
         if guest:
-            guest.shutdown_on = datetime.now()
+            guest.shutdown_on = datetime.now(timezone.utc).replace(tzinfo=None)
 
     @staticmethod
     def filter_machines_by_arch(statement: Select, arch: list) -> Select:
@@ -1061,7 +1063,7 @@ class _Database:
         @return: locked machine
         """
         machine.locked = True
-        machine.locked_changed_on = datetime.now()
+        machine.locked_changed_on = datetime.now(timezone.utc).replace(tzinfo=None)
         self.set_machine_status(machine, MACHINE_RUNNING)
         self.session.add(machine)
 
@@ -1073,7 +1075,7 @@ class _Database:
         @return: unlocked machine
         """
         machine.locked = False
-        machine.locked_changed_on = datetime.now()
+        machine.locked_changed_on = datetime.now(timezone.utc).replace(tzinfo=None)
         self.session.merge(machine)
         return machine
 
@@ -1119,7 +1121,7 @@ class _Database:
 
         if machine:
             machine.status = status
-            machine.status_changed_on = datetime.now()
+            machine.status_changed_on = datetime.now(timezone.utc).replace(tzinfo=None)
             # No need for session.add() here; the ORM tracks changes to loaded objects.
 
     def add_error(self, message, task_id):
@@ -1250,7 +1252,7 @@ class _Database:
 
             if isinstance(obj, (PCAP, Static)):
                 # since no VM will operate on this PCAP
-                task.started_on = datetime.now()
+                task.started_on = datetime.now(timezone.utc).replace(tzinfo=None)
 
         elif isinstance(obj, URL):
             task = Task(obj.url)
@@ -1292,12 +1294,12 @@ class _Database:
                     task.clock = datetime.strptime(clock, "%m-%d-%Y %H:%M:%S")
                 except ValueError:
                     log.warning("The date you specified has an invalid format, using current timestamp")
-                    task.clock = datetime.utcfromtimestamp(0)
+                    task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
 
             else:
                 task.clock = clock
         else:
-            task.clock = datetime.utcfromtimestamp(0)
+            task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
 
         task.user_id = user_id
 
@@ -1982,7 +1984,7 @@ class _Database:
         # sha256 is unique.
         uniq = False
         if hours and sha256:
-            date_since = datetime.now() - timedelta(hours=hours)
+            date_since = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(hours=hours)
 
             stmt = (
                 select(Task)
@@ -2225,7 +2227,7 @@ class _Database:
             return
 
         # Calculate the cutoff time before which tasks are considered timed out.
-        timeout_threshold = datetime.utcnow() - timedelta(seconds=timeout)
+        timeout_threshold = datetime.now(timezone.utc).replace(tzinfo=None) - timedelta(seconds=timeout)
 
         # Build a single, efficient DELETE statement that filters in the database.
         delete_stmt = delete(Task).where(Task.status == TASK_PENDING).where(Task.added_on < timeout_threshold)
@@ -2246,7 +2248,7 @@ class _Database:
 
         if min_val and max_val:
             # .timestamp() is the modern way to get a unix timestamp.
-            return int(min_val.timestamp()), int(max_val.timestamp())
+            return int(min_val.replace(tzinfo=timezone.utc).timestamp()), int(max_val.replace(tzinfo=timezone.utc).timestamp())
 
         return 0, 0
 

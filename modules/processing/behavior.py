@@ -127,7 +127,7 @@ class ParseProcessLog(list):
 
         if self.use_mmap:
             self.mm_pos = 0
-        else:
+        elif self.fd:
             self.fd.seek(0)
 
     def read(self, length):

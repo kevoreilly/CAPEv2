@@ -5335,6 +5335,9 @@ files = [
     {file = "stpyv8-13.1.201.22-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:6cb5e8751aee2487cc3b5f21eac6d459041a7180a779941b64db5736e27276ee"},
     {file = "stpyv8-13.1.201.22-cp313-cp313-manylinux_2_31_x86_64.whl", hash = "sha256:834b9761bb7f49da8b887847c7647495a2cf6c45f69e2124ae0e3f024493bc15"},
     {file = "stpyv8-13.1.201.22-cp313-cp313-win_amd64.whl", hash = "sha256:c8189b8c4d87579f353705441757f11e2f2260578b82000925dadf0ed59a47e3"},
+    {file = "stpyv8-13.1.201.22-cp314-cp314-macosx_13_0_x86_64.whl", hash = "sha256:c4bf3048c96a6a1561861da0c74be842c79a71373d3bec0d53c4e8f6eaa7b6e8"},
+    {file = "stpyv8-13.1.201.22-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:6fdbc3a8b1aa941064ec0976a5a85761f50e9090468ce275c22d0774293d2668"},
+    {file = "stpyv8-13.1.201.22-cp314-cp314-manylinux_2_35_x86_64.whl", hash = "sha256:c0b258c7c5a79c5f19e636b93eece90d3cf9109af9a11c5394bdb807ed68e04a"},
     {file = "stpyv8-13.1.201.22-cp39-cp39-macosx_13_0_x86_64.whl", hash = "sha256:05c3ecaaf2dd8dbe06bdb70f3192b7e6161337ee04e6830a57b58eb4be7c70bd"},
     {file = "stpyv8-13.1.201.22-cp39-cp39-manylinux_2_31_x86_64.whl", hash = "sha256:bf51578ec84dba6519d75ca81a154a070910e638da0ec384f4bf6d535f9b5218"},
     {file = "stpyv8-13.1.201.22-cp39-cp39-win_amd64.whl", hash = "sha256:d00a220268d63d68490682b571d082d5b197de1f19d6f478a88357c61da94f7a"},
@@ -5949,14 +5952,14 @@ files = [
 
 [[package]]
 name = "werkzeug"
-version = "3.1.4"
+version = "3.1.5"
 description = "The comprehensive WSGI web application library."
 optional = false
 python-versions = ">=3.9"
 groups = ["main"]
 files = [
-    {file = "werkzeug-3.1.4-py3-none-any.whl", hash = "sha256:2ad50fb9ed09cc3af22c54698351027ace879a0b60a3b5edf5730b2f7d876905"},
-    {file = "werkzeug-3.1.4.tar.gz", hash = "sha256:cd3cd98b1b92dc3b7b3995038826c68097dcb16f9baa63abe35f20eafeb9fe5e"},
+    {file = "werkzeug-3.1.5-py3-none-any.whl", hash = "sha256:5111e36e91086ece91f93268bb39b4a35c1e6f1feac762c9c822ded0a4e322dc"},
+    {file = "werkzeug-3.1.5.tar.gz", hash = "sha256:6a548b0e88955dd07ccb25539d7d0cc97417ee9e179677d22c7041c8f078ce67"},
 ]
 
 [package.dependencies]
@@ -6304,4 +6307,4 @@ maco = ["maco"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "38be4ec266be131d67644ba02abb029e1c64a62f51a4eb600a16a4f8133a681c"
+content-hash = "dd1c44947748c4558ae69d6990e5334e314b62504a3f671757327fc103df10b3"

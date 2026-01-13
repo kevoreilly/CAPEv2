@@ -146,7 +146,7 @@
                                             <strong>Hash: {{sha256}}</strong>
                                             <ul class="mb-0 ps-3">
                                                 {% for block in details %}
-                                                <li>Task <a href="{% url " report" block.info.id %}"
+                                                <li>Task <a href="{% url "report" block.info.id %}"
                                                     class="alert-link">{{block.info.id}}</a> {% if block.family %} - <span
                                                             class="text-danger">{{block.malfamily}}</span>{% endif %}
                                                 </li>

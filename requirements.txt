@@ -543,9 +543,9 @@ editorconfig==0.17.0 ; python_version >= "3.10" and python_version < "4.0" \
 exceptiongroup==1.2.2 ; python_version == "3.10" \
     --hash=sha256:3111b9d131c238bec2f8f516e123e14ba243563fb135d3fe885990585aa7795b \
     --hash=sha256:47c2edf7c6738fafb49fd34290706d1a1a2f4d1c6df275526b62cbb4aa5393cc
-filelock==3.17.0 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:533dc2f7ba78dc2f0f531fc6c4940addf7b70a481e269a5a3b93be94ffbe8338 \
-    --hash=sha256:ee4e77401ef576ebb38cd7f13b9b28893194acc20a8e68e18730ba9c0e54660e
+filelock==3.20.3 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:18c57ee915c7ec61cff0ecf7f0f869936c7c30191bb0cf406f1341778d0834e1 \
+    --hash=sha256:4b0dda527ee31078689fc205ec4f1c1bf7d56cf88b6dc9426c4f230e46c2dce1
 flare-capa==9.3.1 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:5d3ad6445e500f9baf2eaea87498bfaf6746397b649b025dbec6dc4af8b5ead9 \
     --hash=sha256:caf59bfeb5e2b5d4ab9111e79cce153b585d0839419f36b9e63141bad9f92424

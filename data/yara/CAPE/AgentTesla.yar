@@ -68,7 +68,7 @@ rule AgentTeslaV2 {
 
 rule AgentTeslaV3 {
     meta:
-        author = "ditekshen (cleaned by Gemini)"
+        author = "ditekshen"
         description = "AgentTeslaV3 infostealer payload"
         cape_type = "AgentTesla payload"
     strings:

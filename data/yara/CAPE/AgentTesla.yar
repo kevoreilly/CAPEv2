@@ -99,16 +99,18 @@ rule AgentTeslaV3 {
         $s_generic4 = "set_RedirectStandardOutput" fullword ascii
 
     condition:
-        uint16(0) == 0x5a4d and 
         (
             // 1. Strongest: Match any of the unique config blobs
-            2 of ($m*) or 
-            
-            // 2. Strong: Match specific malware function names
-            5 of ($s_specific*) or
-            
-            // 3. Combined: The Typo + Generic email/process functions
-            ($s_typo and 4 of ($s_generic*))
+            2 of ($m*)
+        ) or (
+            uint16(0) == 0x5a4d and
+            (
+                // 2. Strong: Match specific malware function names
+                5 of ($s_specific*) or
+                
+                // 3. Combined: The Typo + Generic email/process functions
+                ($s_typo and 4 of ($s_generic*))
+            )
         )
 }
 

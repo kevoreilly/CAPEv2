@@ -42,22 +42,19 @@
         <nav aria-label="Page navigation" class="mb-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_file_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.files_page_range %}
                 {% for page in paging.files_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_file_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
@@ -114,11 +111,9 @@
                         <tr>
                             <td>
                                 {% if analysis.status in "reported,recovered" %}
-                                <a href="{% url "report" analysis.id %}"
-                                    class="text-white font-weight-bold">{{analysis.id}}</a>
+                                <a href="{% url "report" analysis.id %}" class="text-white font-weight-bold">{{analysis.id}}</a>
                                 {% elif analysis.status in "running,completed,distributed" %}
-                                <a href="{% url "submission_status" analysis.id %}"
-                                    class="text-warning font-weight-bold">{{analysis.id}}</a>
+                                <a href="{% url "submission_status" analysis.id %}" class="text-warning font-weight-bold">{{analysis.id}}</a>
                                 {% else %}
                                 <span class="text-white-50">{{analysis.id}}</span>
                                 {% endif %}
@@ -138,8 +133,7 @@
                                 {% if analysis.status in "reported,recovered" %}
                                 <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.filename}}</a>
                                 {% elif analysis.status in "running,completed,distributed" %}
-                                <a href="{% url "submission_status" analysis.id %}"
-                                    class="text-warning">{{analysis.filename}}</a>
+                                <a href="{% url "submission_status" analysis.id %}" class="text-warning">{{analysis.filename}}</a>
                                 {% else %}
                                 {{analysis.filename}}
                                 {% endif %}
@@ -148,11 +142,9 @@
                                 <div class="text-truncate mb-1" title="MD5: {{analysis.sample.md5}}">
                                     <span class="text-white-50 me-1">MD5:</span>
                                     {% if analysis.status in "reported,recovered" %}
-                                    <a href="{% url "report" analysis.id %}"
-                                        class="text-light text-monospace">{{analysis.sample.md5}}</a>
+                                    <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
-                                    <a href="{% url "submission_status" analysis.id %}"
-                                        class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.md5}}</span>
                                     {% endif %}
@@ -160,8 +152,7 @@
                                 <div class="text-truncate" title="SHA256: {{analysis.sample.sha256}}">
                                     <span class="text-white-50 me-1">SHA256:</span>
                                     {% if analysis.status in "reported,recovered" %}
-                                    <a href="{% url "report" analysis.id %}"
-                                        class="text-light text-monospace">{{analysis.sample.sha256}}</a>
+                                    <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.sha256}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}"
                                         class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
@@ -244,8 +235,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                <a href="{% url "antivirus" analysis.id %}" target="_blank"
-                                    class="badge bg-dark">{{analysis.virustotal_summary}}</a>
+                                <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-dark">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                 -
                                 {% endif %}
@@ -254,8 +244,7 @@
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                <span
-                                    class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
+                                <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                     {% if analysis.detections %}title="{{analysis.detections}}" {% endif %}>
                                     {{analysis.malscore|floatformat:1}}
                                 </span>
@@ -308,8 +297,7 @@
         <nav aria-label="Page navigation" class="mt-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_file_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.files_page_range %}
                 {% for page in paging.files_page_range %}
@@ -411,11 +399,9 @@
                                 <div class="text-truncate mb-1" title="MD5: {{analysis.sample.md5}}">
                                     <span class="text-white-50 me-1">MD5:</span>
                                     {% if analysis.status in "reported,recovered" %}
-                                    <a href="{% url "report" analysis.id %}"
-                                        class="text-light text-monospace">{{analysis.sample.md5}}</a>
+                                    <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
-                                    <a href="{% url "submission_status" analysis.id %}"
-                                        class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.md5}}</span>
                                     {% endif %}
@@ -423,11 +409,9 @@
                                 <div class="text-truncate" title="SHA256: {{analysis.sample.sha256}}">
                                     <span class="text-white-50 me-1">SHA256:</span>
                                     {% if analysis.status in "reported,recovered" %}
-                                    <a href="{% url "report" analysis.id %}"
-                                        class="text-light text-monospace">{{analysis.sample.sha256}}</a>
+                                    <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.sha256}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
-                                    <a href="{% url "submission_status" analysis.id %}"
-                                        class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.sha256}}</span>
                                     {% endif %}
@@ -716,8 +700,7 @@
                             {% if config.virustotal %}
                             <td>
                                 {% if analysis.virustotal_summary %}
-                                <a href="{% url "antivirus" analysis.id %}" target="_blank"
-                                    class="badge bg-dark">{{analysis.virustotal_summary}}</a>
+                                <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-dark">{{analysis.virustotal_summary}}</a>
                                 {% else %}
                                 -
                                 {% endif %}
@@ -774,22 +757,19 @@
         <nav aria-label="Page navigation" class="mt-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_url_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.urls_page_range %}
                 {% for page in paging.urls_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_url_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
@@ -896,8 +876,7 @@
                                 <div class="text-truncate" title="SHA256: {{analysis.sample.sha256}}">
                                     <span class="text-white-50 me-1">SHA256:</span>
                                     {% if analysis.status in "reported,recovered" %}
-                                    <a href="{% url "report" analysis.id %}"
-                                        class="text-light text-monospace">{{analysis.sample.sha256}}</a>
+                                    <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.sha256}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}"
                                         class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
@@ -919,8 +898,7 @@
                             <td>
                                 <span class="font-monospace" style="margin-left: 5ch;">
                                     {% if analysis.suri_alert_cnt %}
-                                    <a href="{% url "surialert" analysis.id %}" target="_blank"
-                                        class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
+                                    <a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
                                 {% else %}
                                 <span class="text-white-50">0</span><!--
                                 {% endif %}
@@ -965,8 +943,7 @@
                             <td>
                                 <span class="mono">
                                     {% if analysis.pcap_sha256 %}
-                                    <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank"
-                                        class="text-info"><i class="fas fa-download"></i></a>
+                                    <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank" class="text-info"><i class="fas fa-download"></i></a>
                                     {% else %}
                                     -
                                     {% endif %}
@@ -1006,22 +983,19 @@
         <nav aria-label="Page navigation" class="mt-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_pcap_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.pcap_page_range %}
                 {% for page in paging.pcap_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_pcap_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis"
-                        %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>

@@ -119,9 +119,9 @@ class GuestManager:
 
     def get_status_from_db(self) -> str:
         # Force SQLAlchemy to dump its cache and look at the real DB
-        db.session.expire_all()
-
-        status = db.guest_get_status(self.task_id)
+        with db.session.begin():
+            db.session.expire_all()
+            status = db.guest_get_status(self.task_id)
 
         # Handle the case where the task was already deleted by race condition
         if status is None:
@@ -371,11 +371,11 @@ class GuestManager:
         #    This prevents "infinite patience" if the task submission was malformed.
         effective_timeout = self.timeout
         if not effective_timeout:
-            effective_timeout = cfg.cuckoo.timeouts.default
+            effective_timeout = cfg.timeouts.default
 
         # 2. Add Critical Buffer: This is the "Grace Period" for shutdown/reporting.
         #    e.g., 200s (analysis) + 60s (critical) = 260s Hard Limit.
-        hard_limit = effective_timeout + cfg.cuckoo.timeouts.critical
+        hard_limit = effective_timeout + cfg.timeouts.critical
 
         while self.do_run:
             # FORCE REFRESH: Tell SQLAlchemy to expire the cache and fetch fresh data

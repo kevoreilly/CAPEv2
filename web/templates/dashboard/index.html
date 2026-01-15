@@ -51,28 +51,32 @@
 </div>
 {% endif %}
 
-<div class="card bg-dark text-white shadow-sm border-secondary mb-5">
-    <div class="card-header border-secondary bg-transparent">
-        <h5 class="mb-0"><i class="fas fa-chart-bar me-2 text-info"></i> Analysis States</h5>
-    </div>
-    <div class="card-body p-0">
-        <div class="table-responsive">
-            <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
-                <thead class="thead-dark">
-                <tr>
-                    <th class="text-uppercase border-top-0 ps-4">State</th>
-                    <th class="text-uppercase border-top-0 text-end pe-4">Count</th>
-                </tr>
-                </thead>
-                <tbody>
-                {% for state, count in report.states_count.items %}
-                    <tr>
-                        <td class="ps-4 border-secondary">{{state|title}}</td>
-                        <td class="text-end pe-4 border-secondary font-weight-bold">{{count}}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
+<div class="row">
+    <div class="col-md-6 mx-auto">
+        <div class="card bg-dark text-white shadow-sm border-secondary mb-5">
+            <div class="card-header border-secondary bg-transparent text-center">
+                <h5 class="mb-0"><i class="fas fa-chart-bar me-2 text-info"></i> Analysis States</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover table-striped mb-0">
+                        <thead class="thead-dark">
+                        <tr>
+                            <th class="text-uppercase border-top-0 text-end pe-4" width="50%">Count</th>
+                            <th class="text-uppercase border-top-0 ps-4" width="50%">State</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        {% for state, count in report.states_count.items %}
+                            <tr>
+                                <td class="text-end pe-4 border-secondary font-weight-bold text-primary">{{count}}</td>
+                                <td class="ps-4 border-secondary">{{state|title}}</td>
+                            </tr>
+                        {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>

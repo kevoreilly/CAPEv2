@@ -21,7 +21,8 @@ body {
 }
 
 a {
-    color: white
+    color: #5ebcf3;
+    text-decoration: none;
 }
 
 .navbar-collapse.in {
@@ -50,7 +51,61 @@ element.style {
 }
 
 a:hover {
-    color: #EE1B2F
+    color: #EE1B2F;
+    text-decoration: underline;
+}
+
+.btn-primary {
+    background-color: #325d88 !important;
+    border-color: #325d88 !important;
+    color: #fff !important;
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: #264768 !important;
+    border-color: #264768 !important;
+}
+
+.btn-info {
+    background-color: #29aba1 !important;
+    border-color: #29aba1 !important;
+    color: #fff !important;
+}
+
+.btn-info:hover, .btn-info:focus, .btn-info:active {
+    background-color: #1f8179 !important;
+    border-color: #1f8179 !important;
+}
+
+.btn-outline-info {
+    color: #29aba1 !important;
+    border-color: #29aba1 !important;
+}
+
+.btn-outline-info:hover {
+    background-color: #29aba1 !important;
+    border-color: #29aba1 !important;
+    color: #fff !important;
+}
+
+.text-info {
+    color: #4dd0e1 !important;
+}
+
+.bg-primary {
+    background-color: #325d88 !important;
+}
+
+.text-primary {
+    color: #5ebcf3 !important;
+}
+
+.bg-info {
+    background-color: #29aba1 !important;
+}
+
+.badge.bg-primary, .badge.bg-info, .badge.bg-danger, .badge.bg-success {
+    color: #fff !important;
 }
 
 .btn-link {

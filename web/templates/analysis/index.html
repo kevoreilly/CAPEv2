@@ -126,8 +126,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span
-                                    class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span>
+                                <span class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span>
                             </td>
                             <td class="text-truncate" title="{{analysis.filename}}">
                                 {% if analysis.status in "reported,recovered" %}
@@ -470,8 +469,7 @@
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                <span
-                                    class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
+                                <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                     {% if analysis.detections %}title="{{analysis.detections}}" {% endif %}>
                                     {{analysis.malscore|floatformat:1}}
                                 </span>
@@ -709,8 +707,7 @@
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                <span
-                                    class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
+                                <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                     {% if analysis.detections %}title="{{analysis.detections}}" {% endif %}>
                                     {{analysis.malscore|floatformat:1}}
                                 </span>
@@ -929,8 +926,7 @@
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                <span
-                                    class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
+                                <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
                                     {% if analysis.detections %}title="{{analysis.detections}}" {% endif %}>
                                     {{analysis.malscore|floatformat:1}}
                                 </span>

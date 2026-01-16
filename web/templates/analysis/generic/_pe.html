@@ -6,122 +6,148 @@
             <h5 class="mb-0 text-white"><i class="fab fa-windows me-2 text-info"></i> PE Information</h5>
         </div>
         <div class="card-body">
-            
-            <div class="mb-4">
-                <h6 class="text-white border-bottom pb-2 mb-3">General Information</h6>
-                <div class="table-responsive">
-                    <table class="table table-dark table-striped table-sm mb-0">
-                        <tr>
-                            {% if file.pe.imagebase %}
-                            <th>Image Base</th><td>{{file.pe.imagebase}}</td>
-                            {% endif %}
-                            {% if file.pe.entrypoint %}
-                            <th>Entry Point</th><td>{{file.pe.entrypoint}}</td>
-                            {% endif %}
-                            {% if file.pe.osversion %}
-                            <th>Min OS</th><td>{{file.pe.osversion}}</td>
-                            {% endif %}
-                        </tr>
-                        <tr>
-                            {% if file.pe.timestamp %}
-                            <th>Compile Time</th><td>{{file.pe.timestamp}}</td>
-                            {% endif %}
-                            {% if file.pe.pdbpath %}
-                            <th>PDB Path</th><td class="text-break">{{file.pe.pdbpath}}</td>
-                            {% endif %}
-                        </tr>
-                        <tr>
-                            {% if file.pe.imphash %}
-                            <th>Import Hash</th><td>{{file.pe.imphash}}</td>
-                            {% endif %}
-                            {% if file.pe.icon_hash %}
-                            <th>Icon Hash</th><td>{{file.pe.icon_hash}}</td>
-                            {% endif %}
-                        </tr>
-                    </table>
-                </div>
-            </div>
 
-            {% if file.pe.versioninfo %}
-            <div class="mb-4">
-                <h6 class="text-white border-bottom pb-2 mb-3">Version Info</h6>
-                <div class="table-responsive">
-                    <table class="table table-dark table-striped table-sm mb-0">
-                        {% for info in file.pe.versioninfo %}
-                        {% if info.name %}
-                            <tr>
-                                <th style="width: 30%;">{{info.name}}</th>
-                                <td class="text-break">{{info.value}}</td>
-                            </tr>
-                        {% endif %}
-                        {% endfor %}
-                    </table>
+            <!-- General Info Grid -->
+            <div class="row mb-3">
+                {% if file.pe.imagebase %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Image Base</small>
+                    <div class="text-white text-break">{{file.pe.imagebase}}</div>
                 </div>
+                {% endif %}
+                {% if file.pe.entrypoint %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Entry Point</small>
+                    <div class="text-white text-break">{{file.pe.entrypoint}}</div>
+                </div>
+                {% endif %}
+                {% if file.pe.osversion %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Min OS</small>
+                    <div class="text-white">{{file.pe.osversion}}</div>
+                </div>
+                {% endif %}
+                {% if file.pe.timestamp %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Compile Time</small>
+                    <div class="text-white">{{file.pe.timestamp}}</div>
+                </div>
+                {% endif %}
+                {% if file.pe.imphash %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Import Hash</small>
+                    <div class="text-white text-break font-monospace small">{{file.pe.imphash}}</div>
+                </div>
+                {% endif %}
+                {% if file.pe.icon_hash %}
+                <div class="col-md-3 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">Icon Hash</small>
+                    <div class="text-white text-break font-monospace small">{{file.pe.icon_hash}}</div>
+                </div>
+                {% endif %}
+                {% if file.pe.pdbpath %}
+                <div class="col-12 mb-2">
+                    <small class="text-white-50 text-uppercase fw-bold">PDB Path</small>
+                    <div class="text-white text-break font-monospace small">{{file.pe.pdbpath}}</div>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
 
             {% if file.pe.peid_signatures %}
-            <div class="mb-4">
-                <h6 class="text-white border-bottom pb-2 mb-3">PEiD Signatures</h6>
-                <ul class="list-group list-group-flush">
+            <div class="mb-3">
+                <h6 class="text-white border-bottom border-secondary pb-2 mb-2">PEiD Signatures</h6>
+                <div>
                 {% for sig in file.pe.peid_signatures %}
-                    <li class="list-group-item bg-dark text-white border-secondary">{{sig}}</li>
+                    <span class="badge bg-secondary border border-dark me-1 mb-1">{{sig}}</span>
                 {% endfor %}
-                </ul>
-            </div>
-            {% endif %}
-
-            {% if file.pe.sections %}
-            <div class="mb-4">
-                <h6 class="text-white border-bottom pb-2 mb-3">Sections</h6>
-                <div class="table-responsive">
-                    <table class="table table-dark table-striped table-sm mb-0">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>RAW Addr</th>
-                                <th>Virt Addr</th>
-                                <th>Virt Size</th>
-                                <th>Raw Size</th>
-                                <th>Characteristics</th>
-                                <th>Entropy</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        {% for section in file.pe.sections %}
-                            <tr>
-                                <td>{{section.name}}</td>
-                                <td>{{section.raw_address}}</td>
-                                <td>{{section.virtual_address}}</td>
-                                <td>{{section.virtual_size}}</td>
-                                <td>{{section.size_of_data}}</td>
-                                <td>{{section.characteristics}}</td>
-                                <td>{{section.entropy}}</td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
                 </div>
             </div>
             {% endif %}
 
-            {% if file.pe.resources %}
-            <div class="mb-4">
-                <div class="card bg-dark border-0">
-                    <div class="card-header p-0" id="headingResources">
-                        <h2 class="mb-0">
-                            <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pe_resources_{{file.sha256}}" aria-expanded="false">
-                                <i class="fas fa-box-open me-2"></i> Resources
-                            </button>
-                        </h2>
+            <div class="accordion" id="peDetailsAccordion">
+
+                {% if file.pe.versioninfo %}
+                <div class="accordion-item bg-dark border-secondary">
+                    <h2 class="accordion-header" id="headingVersion">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVersion" aria-expanded="false" aria-controls="collapseVersion">
+                            Version Info
+                        </button>
+                    </h2>
+                    <div id="collapseVersion" class="accordion-collapse collapse" aria-labelledby="headingVersion" data-bs-parent="#peDetailsAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-dark table-striped table-sm mb-0">
+                                    {% for info in file.pe.versioninfo %}
+                                    {% if info.name %}
+                                        <tr>
+                                            <th class="ps-3" style="width: 30%;">{{info.name}}</th>
+                                            <td class="text-break">{{info.value}}</td>
+                                        </tr>
+                                    {% endif %}
+                                    {% endfor %}
+                                </table>
+                            </div>
+                        </div>
                     </div>
-                    <div id="pe_resources_{{file.sha256}}" class="collapse">
-                        <div class="card-body bg-dark p-0">
+                </div>
+                {% endif %}
+
+                {% if file.pe.sections %}
+                <div class="accordion-item bg-dark border-secondary">
+                    <h2 class="accordion-header" id="headingSections">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSections" aria-expanded="false" aria-controls="collapseSections">
+                            Sections
+                        </button>
+                    </h2>
+                    <div id="collapseSections" class="accordion-collapse collapse" aria-labelledby="headingSections" data-bs-parent="#peDetailsAccordion">
+                        <div class="accordion-body p-0">
                             <div class="table-responsive">
                                 <table class="table table-dark table-striped table-sm mb-0">
                                     <thead>
                                         <tr>
-                                            <th>Name</th>
+                                            <th class="ps-3">Name</th>
+                                            <th>RAW Addr</th>
+                                            <th>Virt Addr</th>
+                                            <th>Virt Size</th>
+                                            <th>Raw Size</th>
+                                            <th>Characteristics</th>
+                                            <th>Entropy</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for section in file.pe.sections %}
+                                        <tr>
+                                            <td class="ps-3 font-monospace">{{section.name}}</td>
+                                            <td>{{section.raw_address}}</td>
+                                            <td>{{section.virtual_address}}</td>
+                                            <td>{{section.virtual_size}}</td>
+                                            <td>{{section.size_of_data}}</td>
+                                            <td>{{section.characteristics}}</td>
+                                            <td>{{section.entropy}}</td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if file.pe.resources %}
+                <div class="accordion-item bg-dark border-secondary">
+                    <h2 class="accordion-header" id="headingResources">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseResources" aria-expanded="false" aria-controls="collapseResources">
+                            Resources
+                        </button>
+                    </h2>
+                    <div id="collapseResources" class="accordion-collapse collapse" aria-labelledby="headingResources" data-bs-parent="#peDetailsAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-dark table-striped table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th class="ps-3">Name</th>
                                             <th>Offset</th>
                                             <th>Size</th>
                                             <th>Language</th>
@@ -132,7 +158,7 @@
                                     <tbody>
                                     {% for section in file.pe.resources %}
                                         <tr>
-                                            <td>{{section.name}}</td>
+                                            <td class="ps-3">{{section.name}}</td>
                                             <td>{{section.offset}}</td>
                                             <td>{{section.size}}</td>
                                             <td>{{section.language}}</td>
@@ -146,105 +172,114 @@
                         </div>
                     </div>
                 </div>
-            </div>
-            {% endif %}
+                {% endif %}
 
-            {% if file.pe.imports %}
-            <div class="mb-4">
-                <h6 class="text-white border-bottom pb-2 mb-3">Imports</h6>
-                <div class="accordion" id="peImportsAccordion">
-                {% for dll, library in file.pe.imports.items %}
-                    <div class="card bg-dark border-bottom border-secondary rounded-0">
-                        <div class="card-header p-0" id="headingImport{{forloop.counter}}">
-                            <h2 class="mb-0">
-                                <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#import_{{dll|slugify}}" aria-expanded="false">
-                                    <i class="fas fa-code-branch me-2 text-warning"></i> {{dll}}
-                                </button>
-                            </h2>
-                        </div>
-                        <div id="import_{{dll|slugify}}" class="collapse" data-bs-parent="#peImportsAccordion">
-                            <div class="card-body bg-dark text-white p-0">
-                                <div class="table-responsive">
-                                    <table class="table table-dark table-striped table-sm mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Name</th>
-                                                <th>Address</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                        {% for function in library.imports %}
-                                            <tr>
-                                                <td><a href="https://docs.microsoft.com/en-us/search/?terms={{function.name}}" target="_blank" class="text-info">{{function.name}}</a></td>
-                                                <td>{{function.address}}</td>
-                                            </tr>
-                                        {% endfor %}
-                                        </tbody>
-                                    </table>
+                {% if file.pe.imports %}
+                <div class="accordion-item bg-dark border-secondary">
+                    <h2 class="accordion-header" id="headingImports">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseImports" aria-expanded="false" aria-controls="collapseImports">
+                            Imports
+                        </button>
+                    </h2>
+                    <div id="collapseImports" class="accordion-collapse collapse" aria-labelledby="headingImports" data-bs-parent="#peDetailsAccordion">
+                        <div class="accordion-body p-2">
+                            <div class="accordion accordion-flush" id="peImportsSubAccordion">
+                            {% for dll, library in file.pe.imports.items %}
+                                <div class="accordion-item bg-dark border-bottom border-secondary">
+                                    <h2 class="accordion-header" id="headingImport{{forloop.counter}}">
+                                        <button class="accordion-button collapsed bg-dark text-light shadow-none py-2" type="button" data-bs-toggle="collapse" data-bs-target="#import_{{dll|slugify}}" aria-expanded="false">
+                                            <i class="fas fa-code-branch me-2 text-warning"></i> {{dll}}
+                                        </button>
+                                    </h2>
+                                    <div id="import_{{dll|slugify}}" class="accordion-collapse collapse" data-bs-parent="#peImportsSubAccordion">
+                                        <div class="accordion-body p-0">
+                                            <table class="table table-dark table-striped table-sm mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="ps-4" style="width: 150px;">Address</th>
+                                                        <th>Name</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                {% for function in library.imports %}
+                                                    <tr>
+                                                        <td class="ps-4 font-monospace small text-white-50">{{function.address}}</td>
+                                                        <td><a href="https://docs.microsoft.com/en-us/search/?terms={{function.name}}" target="_blank" class="text-info font-monospace">{{function.name}}</a></td>
+                                                    </tr>
+                                                {% endfor %}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
+                            {% endfor %}
                             </div>
                         </div>
                     </div>
-                {% endfor %}
                 </div>
-            </div>
-            {% endif %}
+                {% endif %}
 
-            {% if file.pe.exports %}
-            <div class="mb-4">
-                <h6 class="text-white border-bottom pb-2 mb-3">Exports</h6>
-                <div class="table-responsive">
-                    <table class="table table-dark table-striped table-sm mb-0">
-                        <thead>
-                            <tr>
-                                <th>Name</th>
-                                <th>Address</th>
-                                <th>Ordinal</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        {% for export in file.pe.exports %}
-                            <tr>
-                                <td>{{export.name}}</td>
-                                <td>{{export.address}}</td>
-                                <td>{{export.ordinal}}</td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            {% endif %}
-
-            {% if file.pe.digital_signers %}
-            <div class="mb-4">
-                <div class="card bg-dark border-0">
-                    <div class="card-header p-0">
-                        <h2 class="mb-0">
-                            <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#pe_digital_signers" aria-expanded="false">
-                                <i class="fas fa-certificate me-2 text-success"></i> Digital Signers
-                            </button>
-                        </h2>
+                {% if file.pe.exports %}
+                <div class="accordion-item bg-dark border-secondary">
+                    <h2 class="accordion-header" id="headingExports">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExports" aria-expanded="false" aria-controls="collapseExports">
+                            Exports
+                        </button>
+                    </h2>
+                    <div id="collapseExports" class="accordion-collapse collapse" aria-labelledby="headingExports" data-bs-parent="#peDetailsAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-dark table-striped table-sm mb-0">
+                                    <thead>
+                                        <tr>
+                                            <th class="ps-3" style="width: 100px;">Ordinal</th>
+                                            <th style="width: 150px;">Address</th>
+                                            <th>Name</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                    {% for export in file.pe.exports %}
+                                        <tr>
+                                            <td class="ps-3">{{export.ordinal}}</td>
+                                            <td class="font-monospace small text-white-50">{{export.address}}</td>
+                                            <td class="font-monospace text-info">{{export.name}}</td>
+                                        </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
                     </div>
-                    <div id="pe_digital_signers" class="collapse">
-                        <div class="card-body bg-dark text-white p-3">
+                </div>
+                {% endif %}
+
+                {% if file.pe.digital_signers %}
+                <div class="accordion-item bg-dark border-secondary">
+                    <h2 class="accordion-header" id="headingSigners">
+                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSigners" aria-expanded="false" aria-controls="collapseSigners">
+                            Digital Signers
+                        </button>
+                    </h2>
+                    <div id="collapseSigners" class="accordion-collapse collapse" aria-labelledby="headingSigners" data-bs-parent="#peDetailsAccordion">
+                        <div class="accordion-body">
                             {% for cert in file.pe.digital_signers %}
                             <div class="table-responsive mb-3">
-                                <table class="table table-dark table-striped table-sm mb-0">
-                                    {% if cert.subject_commonName %}<tr><th style="width: 30%;">Common Name</th><td>{{cert.subject_commonName}}</td></tr>{% endif %}
-                                    {% if cert.issuer_commonName %}<tr><th>Issuer</th><td>{{cert.issuer_commonName}}</td></tr>{% endif %}
-                                    {% if cert.serial_number %}<tr><th>Serial</th><td>{{cert.serial_number}}</td></tr>{% endif %}
-                                    {% if cert.not_before %}<tr><th>Valid From</th><td>{{cert.not_before}}</td></tr>{% endif %}
-                                    {% if cert.not_after %}<tr><th>Valid To</th><td>{{cert.not_after}}</td></tr>{% endif %}
-                                    {% if cert.sha1_fingerprint %}<tr><th>SHA1 Fingerprint</th><td class="text-break">{{cert.sha1_fingerprint}}</td></tr>{% endif %}
+                                <table class="table table-dark table-bordered table-sm mb-0">
+                                    {% if cert.subject_commonName %}<tr><th class="bg-secondary text-dark" style="width: 30%;">Common Name</th><td>{{cert.subject_commonName}}</td></tr>{% endif %}
+                                    {% if cert.issuer_commonName %}<tr><th class="bg-secondary text-dark">Issuer</th><td>{{cert.issuer_commonName}}</td></tr>{% endif %}
+                                    {% if cert.serial_number %}<tr><th class="bg-secondary text-dark">Serial</th><td>{{cert.serial_number}}</td></tr>{% endif %}
+                                    {% if cert.not_before %}<tr><th class="bg-secondary text-dark">Valid From</th><td>{{cert.not_before}}</td></tr>{% endif %}
+                                    {% if cert.not_after %}<tr><th class="bg-secondary text-dark">Valid To</th><td>{{cert.not_after}}</td></tr>{% endif %}
+                                    {% if cert.sha1_fingerprint %}<tr><th class="bg-secondary text-dark">SHA1 Fingerprint</th><td class="text-break font-monospace">{{cert.sha1_fingerprint}}</td></tr>{% endif %}
                                 </table>
                             </div>
                             {% endfor %}
                         </div>
                     </div>
                 </div>
+                {% endif %}
+
             </div>
-            {% endif %}
 
         </div>
     </div>

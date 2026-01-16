@@ -14,26 +14,28 @@ import sys
 import time
 from contextlib import suppress
 
+log = logging.getLogger()
+
 try:
     from setproctitle import getproctitle, setproctitle
 except ImportError:
-    sys.exit("Missed dependency. Run: poetry install")
+    log.critical("Missed setproctitle dependency. Run: poetry install")
+    sys.exit(1)
 
 if sys.version_info[:2] < (3, 8):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+    log.critical("You are running an incompatible version of Python, please use >= 3.8")
+    sys.exit(1)
 
 try:
     import pebble
 except ImportError:
-    sys.exit("Missed dependency. Run: poetry install")
-
-log = logging.getLogger()
+    log.critical("Missed pebble dependency. Run: poetry install")
+    sys.exit(1)
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from concurrent.futures import TimeoutError
 
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
-from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
@@ -86,7 +88,7 @@ def memory_limit(percentage: float = 0.8):
         None
     """
     if platform.system() != "Linux":
-        print("Only works on linux!")
+        log.debug("Only works on linux!")
         return
     _, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * percentage), hard))
@@ -316,7 +318,8 @@ def init_logging(debug=False):
         fh.setFormatter(FORMATTER)
         log.addHandler(fh)
     except PermissionError:
-        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
+        log.critical("PermissionError to create/access log. Probably executed with wrong user.")
+        sys.exit(1)
 
     if debug:
         log.setLevel(logging.DEBUG)
@@ -350,7 +353,8 @@ def init_per_analysis_logging(tid=0, debug=False):
         fhpa.setFormatter(FORMATTER)
         log.addHandler(fhpa)
     except PermissionError:
-        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
+        log.critical("PermissionError to create/access log. Probably executed with wrong user.")
+        sys.exit(1)
 
     if debug:
         log.setLevel(logging.DEBUG)
@@ -486,10 +490,12 @@ def autoprocess(
         # ToDo verify in finally
         # pool.terminate()
         raise
-    except (MemoryError, OSError):
+    except (MemoryError, OSError) as e:
         mem = get_memory() / 1024 / 1024
-        sys.stderr.write(
-            "\n\nERROR: Memory Exception\nRemain: %.2f GB\nYour system doesn't have enough FREE RAM to run processing!" % mem
+        log.critical(
+            "Memory Exception: Remain: %.2f GB. Your system doesn't have enough FREE RAM to run processing! Error: %s",
+            mem,
+            e,
         )
         sys.exit(1)
     except Exception:
@@ -534,7 +540,7 @@ def _load_report(task_id: int):
             if analyses:
                 return analyses[0]
         except ESRequestError as e:
-            print(e)
+            log.error(e)
 
     return False
 
@@ -655,13 +661,13 @@ def main():
                 set_formatter_fmt(num)
                 log.debug("Processing task")
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
-                    print(red(f"\n[{num}] Analysis folder doesn't exist anymore\n"))
+                    log.error("Analysis folder doesn't exist anymore for Task #%d", num)
                     continue
                 with db.session.begin():
                     task = db.view_task(num)
                     if task is None:
                         task = {"id": num, "target": None}
-                        print("Task not in database")
+                        log.warning("Task not in database")
                     else:
                         # Add sample lookup as we point to sample from TMP. Case when delete_original=on
                         if not path_exists(task.target):
@@ -695,9 +701,9 @@ def main():
                             RunSignatures(task=task, results=results).run(args.signature_name)
                         else:
                             RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
-                        # If you are only running a single signature, print that output
+                        # If you are only running a single signature, log that output
                         if args.signature_name and results["signatures"]:
-                            print(results["signatures"][0])
+                            log.info("Signature output: %s", results["signatures"][0])
                 else:
                     process(
                         task=task,

@@ -1,157 +1,231 @@
-<section id="information">
+<section id="information" class="mb-4">
 
+    <!-- Detections Badge Container -->
     {% if analysis.detections %}
-        <p  style="text-align:center; font-size: 18px;font-weight-bold";>Detection(s):
-        {% for block  in analysis.detections %}
-            <a href="/analysis/search/detections:{{block.family}}" data-toggle="tooltip" data-placement="top"><span class="badge badge-danger"  title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}&#013;{% endif %}{% endfor %}{% endfor %}">{{block.family}}</span></a>
-        {% endfor %}
-        </p>
+        <div class="text-center mb-3">
+            <h5 class="d-inline-block me-2 text-white-50 font-weight-bold">Detection(s):</h5>
+            {% for block in analysis.detections %}
+                <a href="/analysis/search/detections:{{block.family}}" class="badge bg-danger p-2 mb-1" data-bs-toggle="tooltip" data-placement="top" data-bs-html="true" title="{% for subblock in block.details %}{% for k,v in subblock.items %}{{k}}{% if v %} -> {{v}}<br>{% endif %}{% endfor %}{% endfor %}">
+                    {{block.family}}
+                </a>
+            {% endfor %}
+        </div>
     {% endif %}
 
+    <!-- Malstatus Badge Container -->
     {% if config.malscore and analysis.malstatus %}
-        <p  style="text-align:center; font-size: 18px;font-weight-bold";>Status:
+        <div class="text-center mb-3">
+            <h5 class="d-inline-block me-2 font-weight-bold">Status:</h5>
             {% if analysis.malstatus == "Malicious" %}
-                <span class="badge badge-danger">{{analysis.malstatus}}</span>
+                <span class="badge bg-danger p-2">{{analysis.malstatus}}</span>
             {% elif analysis.malstatus == "Suspicious" %}
-                <span class="badge badge-warning">{{analysis.malstatus}}</span>
+                <span class="badge bg-warning p-2">{{analysis.malstatus}}</span>
             {% elif analysis.malstatus == "Clean" %}
-                <span class="badge badge-success">{{analysis.malstatus}}</span>
+                <span class="badge bg-success p-2">{{analysis.malstatus}}</span>
             {% else %}
-                {{analysis.malstatus}}
-         {% endif %}
-        </p>
-    {% endif %}
-
-    <div class="panel panel-primary">
-        <div class="panel-heading">
-            <h4 class="panel-title">Analysis {% if settings.REPROCESS_TASKS %} <a class="btn btn-secondary btn-sm" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess the task"><span class="fa-solid fa-rotate"></span></a>{% endif %}</h4>
-        </div>
-        <table class="table table-striped">
-            <thead>
-                <tr>
-                    <th>Category</th>
-                    <th>Package</th>
-                    <th>Started</th>
-                    <th>Completed</th>
-                    <th>Duration</th>
-                    {% if analysis.info.options %}
-                        <th>Options</th>
-                    {% endif %}
-                    {% if user.is_staff and analysis.distributed %}
-                        <th>Distributed</th>
-                    {% endif %}
-                    <th>Log(s)</th>
-                    {% if analysis.debug.pre_script_log %}
-                        <th>Pre Script Logs</th>
-                    {% endif %}
-                    {% if analysis.debug.during_script_log %}
-                        <th>During Script Logs</th>
-                    {% endif %}
-                    {% if config.malscore and analysis.malscore %}
-                        <th>MalScore</th>
-                    {% endif %}
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>{{analysis.info.category|upper}}</td>
-                    <td>{{analysis.info.package}}</td>
-                    <td>{{analysis.info.started}}</td>
-                    <td>{{analysis.info.ended}}</td>
-                    <td>{{analysis.info.duration}} seconds</td>
-                    {% if analysis.info.options %}
-                        <td><a class="accordion-toggle" data-toggle="collapse" href="#options">Show Options</a></td>
-                    {% endif %}
-                    {% if user.is_staff and analysis.distributed %}
-                        <td>{{analysis.distributed.name}} - {{analysis.distributed.task_id}}</td>
-                    {% endif %}
-                    <td>
-                        Show <a class="accordion-toggle" data-toggle="collapse" href="#info-log">Analysis</a>
-                        {% if analysis.process_log %}
-                            | <a class="accordion-toggle" data-toggle="collapse" href="#process-log"> Process</a>
-                        {% endif %}
-                        Log
-                    </td>
-                    {% if analysis.debug.pre_script_log %}
-                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-pre-script-log">Show Pre Script</a></td>
-                    {% endif %}
-                    {% if analysis.debug.during_script_log %}
-                        <td><a class="accordion-toggle" data-toggle="collapse" href="#info-during-script-log">Show During Script</a></td>
-                    {% endif %}
-                    {% if config.malscore and analysis.malscore %}
-                    <td>
-                        {% if analysis.malscore > 6.0 %}
-                           <span class="badge badge-danger">{{analysis.malscore|floatformat:1}}</span>
-                            {% elif analysis.malscore > 2.0 %}
-                            <span class="badge badge-warning">{{analysis.malscore|floatformat:1}}</span>
-                            {% else %}
-                            <span class="badge badge-success">{{analysis.malscore|floatformat:1}}</span>
-                        {% endif %}
-                    </td>
-                    {% endif %}
-                </tr>
-            </tbody>
-        </table>
-    </div>
-
-    {% if analysis.debug.errors %}
-        <ul style="font-size: 16px;">
-        {% for error in analysis.debug.errors %}
-            <li class="text-info"><b>Info:</b> {{error}}</li>
-        {% endfor %}
-        </ul>
-    {% endif %}
-    {% if analysis.info.options %}
-        <div id="options" class="collapse">
-            <pre>{% for key, val in analysis.info.options.items %}{{ key }}={{ val }}<br>{% endfor %}</pre>
+                <span class="badge bg-dark p-2">{{analysis.malstatus}}</span>
+            {% endif %}
         </div>
     {% endif %}
-    <div id="info-log" class="collapse">
-        <pre>{{analysis.debug.log}}</pre>
-    </div>
-    <div id="process-log" class="collapse">
-        <pre>{{analysis.process_log}}</pre>
-    </div>
-    <div id="info-pre-script-log" class="collapse">
-        <pre>{{analysis.debug.pre_script_log}}</pre>
-    </div>
-    <div id="info-during-script-log" class="collapse">
-        <pre>{{analysis.debug.during_script_log}}</pre>
-    </div>
-</section>
 
-{% if analysis.info.machine and analysis.info.machine.name %}
-    <section id="machine">
-        <div class="panel panel-primary">
-            <div class="panel-heading">
-                <h4 class="panel-title">Machine</h4>
-            </div>
-            <table class="table table-striped">
+    <!-- Analysis Details Card -->
+    <div class="card bg-dark border-secondary mb-3">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-primary"></i> Analysis Details</h5>
+            {% if settings.REPROCESS_TASKS %}
+                <a class="btn btn-sm btn-outline-secondary" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess Task">
+                    <i class="fas fa-redo"></i>
+                </a>
+            {% endif %}
+        </div>
+        <div class="table-responsive">
+            <table class="table table-dark table-striped mb-0">
                 <thead>
                     <tr>
-                        <th>Name</th>
-                        <th>Label</th>
-                        <th>Manager</th>
-                        <th>Started On</th>
-                        <th>Shutdown On</th>
-                        {% if analysis.info.route %}
-                            <th>Route</th>
-                        {% endif %}
+                        <th>Category</th>
+                        <th>Package</th>
+                        <th>Started</th>
+                        <th>Completed</th>
+                        <th>Duration</th>
+                        {% if analysis.info.options %}<th>Options</th>{% endif %}
+                        {% if user.is_staff and analysis.distributed %}<th>Distributed</th>{% endif %}
+                        {% if analysis.debug.log or analysis.process_log %}<th>Logs</th>{% endif %}
+                        {% if analysis.debug.pre_script_log %}<th>Pre Script</th>{% endif %}
+                        {% if analysis.debug.during_script_log %}<th>During Script</th>{% endif %}
+                        {% if config.malscore and analysis.malscore %}<th>MalScore</th>{% endif %}
                     </tr>
                 </thead>
                 <tbody>
                     <tr>
-                        <td>{{analysis.info.machine.name}}</td>
-                        <td>{{analysis.info.machine.label}}</td>
-                        <td>{{analysis.info.machine.manager}}</td>
-                        <td>{{analysis.info.machine.started_on}}</td>
-                        <td>{{analysis.info.machine.shutdown_on}}</td>
-                        {% if analysis.info.route %}
-                            <td>{{analysis.info.route}}</td>
+                        <td><span class="badge bg-info">{{analysis.info.category|upper}}</span></td>
+                        <td>{{analysis.info.package}}</td>
+                        <td class="text-nowrap">{{analysis.info.started}}</td>
+                        <td class="text-nowrap">{{analysis.info.ended}}</td>
+                        <td>{{analysis.info.duration}}s</td>
+                        {% if analysis.info.options %}
+                            <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
+                        {% endif %}
+                        {% if user.is_staff and analysis.distributed %}
+                            <td>{{analysis.distributed.name}} <small class="text-white-50">({{analysis.distributed.task_id}})</small></td>
+                        {% endif %}
+                        {% if analysis.debug.log or analysis.process_log %}
+                        <td>
+                            <div class="btn-group btn-group-sm">
+                                {% if analysis.debug.log %}
+                                <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#info-log">Analysis</button>
+                                {% endif %}
+                                {% if analysis.process_log %}
+                                <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#process-log">Process</button>
+                                {% endif %}
+                            </div>
+                        </td>
+                        {% endif %}
+                        {% if analysis.debug.pre_script_log %}
+                            <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#info-pre-script-log">View</button></td>
+                        {% endif %}
+                        {% if analysis.debug.during_script_log %}
+                            <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#info-during-script-log">View</button></td>
+                        {% endif %}
+                        {% if config.malscore and analysis.malscore %}
+                        <td>
+                            {% if analysis.malscore > 6.0 %}
+                               <span class="badge bg-danger">{{analysis.malscore|floatformat:1}}</span>
+                            {% elif analysis.malscore > 2.0 %}
+                                <span class="badge bg-warning">{{analysis.malscore|floatformat:1}}</span>
+                            {% else %}
+                                <span class="badge bg-success">{{analysis.malscore|floatformat:1}}</span>
+                            {% endif %}
+                        </td>
                         {% endif %}
                     </tr>
+                    {% if reports_exist %}
+                        <tr>
+                            {% if config.jsondump and reports_exist.json or config.reporthtml and reports_exist.html or config.reporthtmlsummary and reports_exist.htmlsummary or config.reportpdf and reports_exist.pdf or config.maec41 and reports_exist.maec or config.maec5 and reports_exist.maec5 or config.mmdef and reports_exist.metadata or config.misp and reports_exist.misp or config.litereport and reports_exist.litereport or config.cents and reports_exist.cents %}
+                            <th class="align-middle">Reports</th>
+                            <td colspan="10">
+                                {% if config.jsondump and reports_exist.json %}
+                                <a href="{% url "filereport" analysis.info.id "json" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-code me-1"></i> JSON</a>
+                                {% endif %}
+                                {% if config.reporthtml and reports_exist.html %}
+                                <a href="{% url "filereport" analysis.info.id "html" %}" class="btn btn-sm btn-outline-light m-1"><i class="fab fa-html5 me-1"></i> HTML</a>
+                                {% endif %}
+                                {% if config.reporthtmlsummary and reports_exist.htmlsummary %}
+                                <a href="{% url "filereport" analysis.info.id "htmlsummary" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-file-invoice me-1"></i> HTML Summary</a>
+                                {% endif %}
+                                {% if config.reportpdf and reports_exist.pdf %}
+                                <a href="{% url "filereport" analysis.info.id "pdf" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-file-pdf me-1"></i> PDF</a>
+                                {% endif %}
+                                {% if config.maec41 and reports_exist.maec %}
+                                <a href="{% url "filereport" analysis.info.id "maec" %}" class="btn btn-sm btn-outline-light m-1">MAEC</a>
+                                {% endif %}
+                                {% if config.maec5 and reports_exist.maec5 %}
+                                <a href="{% url "filereport" analysis.info.id "maec5" %}" class="btn btn-sm btn-outline-light m-1">MAEC5</a>
+                                {% endif %}
+                                {% if config.mmdef and reports_exist.metadata %}
+                                <a href="{% url "filereport" analysis.info.id "metadata" %}" class="btn btn-sm btn-outline-light m-1">Metadata</a>
+                                {% endif %}
+                                {% if config.misp and reports_exist.misp %}
+                                <a href="{% url "filereport" analysis.info.id "misp" %}" class="btn btn-sm btn-outline-light m-1">MISP</a>
+                                {% endif %}
+                                {% if config.litereport and reports_exist.litereport %}
+                                <a href="{% url "filereport" analysis.info.id "litereport" %}" class="btn btn-sm btn-outline-light m-1">Lite</a>
+                                {% endif %}
+                                {% if config.cents and reports_exist.cents %}
+                                <a href="{% url "filereport" analysis.info.id "cents" %}" class="btn btn-sm btn-outline-light m-1">CENTS</a>
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                    {% endif %}
                 </tbody>
             </table>
+        </div>
+    </div>
+
+    <!-- Collapsible Sections -->
+    {% if analysis.debug.errors %}
+        <div class="alert alert-warning">
+            <h6 class="alert-heading font-weight-bold">Analysis Errors/Warnings:</h6>
+            <ul class="mb-0 ps-3">
+            {% for error in analysis.debug.errors %}
+                <li>{{error}}</li>
+            {% endfor %}
+            </ul>
+        </div>
+    {% endif %}
+
+    {% if analysis.info.options %}
+        <div id="options_collapse" class="collapse mb-3">
+            <div class="card card-body bg-dark text-white border-secondary">
+                <h6 class="card-title text-white-50">Options</h6>
+                <pre class="mb-0 text-light small">{% for key, val in analysis.info.options.items %}{{ key }}={{ val }}<br>{% endfor %}</pre>
+            </div>
+        </div>
+    {% endif %}
+
+    <div id="info-log" class="collapse mb-3">
+        <div class="card card-body bg-dark text-white border-secondary">
+            <h6 class="card-title text-white-50">Analysis Log</h6>
+            <pre class="mb-0 small" style="overflow-y: auto;">{{analysis.debug.log}}</pre>
+        </div>
+    </div>
+
+    <div id="process-log" class="collapse mb-3">
+        <div class="card card-body bg-dark text-white border-secondary">
+            <h6 class="card-title text-white-50">Process Log</h6>
+            <pre class="mb-0 small" style="overflow-y: auto;">{{analysis.process_log}}</pre>
+        </div>
+    </div>
+
+    <div id="info-pre-script-log" class="collapse mb-3">
+        <div class="card card-body bg-dark text-white border-secondary">
+            <h6 class="card-title text-white-50">Pre-Script Log</h6>
+            <pre class="mb-0 small">{{analysis.debug.pre_script_log}}</pre>
+        </div>
+    </div>
+
+    <div id="info-during-script-log" class="collapse mb-3">
+        <div class="card card-body bg-dark text-white border-secondary">
+            <h6 class="card-title text-white-50">During-Script Log</h6>
+            <pre class="mb-0 small">{{analysis.debug.during_script_log}}</pre>
+        </div>
+    </div>
+
+</section>
+
+<!-- Machine Details Card -->
+{% if analysis.info.machine and analysis.info.machine.name %}
+    <section id="machine" class="mb-4">
+        <div class="card bg-dark border-secondary">
+            <div class="card-header border-secondary">
+                <h5 class="mb-0 text-white"><i class="fas fa-desktop me-2 text-info"></i> Machine Information</h5>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-dark table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Label</th>
+                            <th>Manager</th>
+                            <th>Started On</th>
+                            <th>Shutdown On</th>
+                            {% if analysis.info.route %}<th>Route</th>{% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>{{analysis.info.machine.name}}</td>
+                            <td><span class="badge bg-dark">{{analysis.info.machine.label}}</span></td>
+                            <td>{{analysis.info.machine.manager}}</td>
+                            <td class="text-nowrap">{{analysis.info.machine.started_on}}</td>
+                            <td class="text-nowrap">{{analysis.info.machine.shutdown_on}}</td>
+                            {% if analysis.info.route %}
+                                <td><code>{{analysis.info.route}}</code></td>
+                            {% endif %}
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </section>
 {% endif %}

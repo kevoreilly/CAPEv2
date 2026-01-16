@@ -5,6 +5,12 @@
 import datetime
 import logging
 import struct
+from contextlib import suppress
+
+from lib.cuckoo.common.logtbl import table as LOGTBL
+from lib.cuckoo.common.path_utils import path_get_filename
+from lib.cuckoo.common.utils import default_converter
+
 
 # bson from pymongo is C so is faster
 try:
@@ -14,9 +20,15 @@ try:
 except ImportError:
     HAVE_BSON = False
 
-from lib.cuckoo.common.logtbl import table as LOGTBL
-from lib.cuckoo.common.path_utils import path_get_filename
-from lib.cuckoo.common.utils import default_converter
+capemon_pb2 = None
+HAVE_PROTOBUF = False
+
+with suppress(ImportError):
+    import google.protobuf  # noqa: F401
+    # Generated from data/capemon_pb.proto
+    # Try relative import first (if running as package)
+    import capemon_pb2
+    HAVE_PROTOBUF = True
 
 log = logging.getLogger(__name__)
 
@@ -306,3 +318,99 @@ class BsonParser:
                 self.fd.log_call(context, apiname, category, arguments)
 
             return True
+
+
+class ProtobufParser:
+    def __init__(self, fd, task_id=None):
+        self.fd = fd
+        self.task_id = task_id
+        self.infomap = {}
+        if not HAVE_PROTOBUF:
+            log.critical("Starting ProtobufParser, but protobuf is not available!")
+        if HAVE_PROTOBUF and not capemon_pb2:
+            log.warning("ProtobufParser: capemon_pb2 module not found. Protobuf parsing will fail.")
+
+    def read_next_message(self):
+        while True:
+            data = self.fd.read(4)
+            if not data:
+                return
+
+            if len(data) != 4:
+                log.critical("ProtobufParser lacking data (header)")
+                return
+
+            blen = struct.unpack("I", data)[0]
+            if blen > MAX_MESSAGE_LENGTH:
+                log.critical("Protobuf message larger than MAX_MESSAGE_LENGTH, stopping handler")
+                return False
+
+            data = self.fd.read(blen)
+            if len(data) < blen:
+                log.critical("ProtobufParser lacking data (payload)")
+                return
+
+            if not HAVE_PROTOBUF or not capemon_pb2:
+                # Cannot parse without the definition
+                continue
+
+            try:
+                msg = capemon_pb2.HookEvent()
+                msg.ParseFromString(data)
+                self.process_message(msg)
+            except Exception as e:
+                log.exception("Protobuf decoding error: %s", e)
+                return False
+
+            return True
+
+    def process_message(self, msg):
+        # Context: [index, repeated, is_success, retval, tid, time, caller, parent_caller]
+        context = [-1, 0, 1, 0, 0, 0, 0, 0]
+
+        msg_type = msg.WhichOneof("payload")
+
+        if msg_type == "info":
+            info = msg.info
+            name = info.name
+            category = info.category or "unknown"
+
+            arginfo = []
+            for arg in info.args:
+                arginfo.append((arg.name, arg.type))
+
+            argnames, converters = check_names_for_typeinfo(arginfo)
+            self.infomap[info.index] = name, arginfo, argnames, converters, category
+
+        elif msg_type == "debug":
+            log.info("Debug message from monitor: %s", msg.debug.message)
+
+        elif msg_type == "new_process":
+            proc = msg.new_process
+            vmtime = datetime.datetime.fromtimestamp(proc.timestamp)
+            self.fd.log_process(context, vmtime, proc.pid, proc.ppid, proc.module_path, proc.proc_name)
+
+        elif msg_type == "call":
+            call = msg.call
+            if call.index not in self.infomap:
+                log.warning("Got Protobuf API with unknown index: %s", call.index)
+                return
+
+            apiname, _, argnames, converters, category = self.infomap[call.index]
+
+            context[0] = call.index
+            context[2] = 1 if call.is_success else 0
+            context[3] = call.retval
+            context[4] = call.thread_id
+            context[5] = call.timestamp
+            context[6] = call.return_address
+            context[7] = call.parent_return_address
+
+            arguments = []
+            if len(call.arguments) == len(argnames):
+                 for i, val in enumerate(call.arguments):
+                     arguments.append((argnames[i], converters[i](val)))
+
+            self.fd.log_call(context, apiname, category, arguments)
+
+

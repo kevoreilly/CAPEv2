@@ -1,0 +1,37 @@
+{% if results.capa_summary %}
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>CAPA Analysis Summary</h4>
+    </div>
+    <div class="card-body">
+        {% if results.capa_summary.CAPABILITY or results.capa_summary.ATTCK or results.capa_summary.MBC %}
+            {% if results.capa_summary.CAPABILITY %}
+                <h5>Capabilities:</h5>
+                <ul>
+                {% for capability in results.capa_summary.CAPABILITY %}
+                    <li>{{ capability }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+            {% if results.capa_summary.ATTCK %}
+                <h5>ATT&CK Techniques:</h5>
+                <ul>
+                {% for attck in results.capa_summary.ATTCK %}
+                    <li>{{ attck.t_id }} - {{ attck.ttp_name }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+            {% if results.capa_summary.MBC %}
+                <h5>MBC Objectives:</h5>
+                <ul>
+                {% for mbc in results.capa_summary.MBC %}
+                    <li>{{ mbc }}</li>
+                {% endfor %}
+                </ul>
+            {% endif %}
+        {% else %}
+            <p>No CAPA results to display.</p>
+        {% endif %}
+    </div>
+</div>
+{% endif %}

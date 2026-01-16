@@ -2,7 +2,7 @@
     <div class="alert alert-primary center"><a class="btn btn-secondary btn-sm" href="{% url "file" "zip" id "files" %}"><span class="fas fa-download"></span> Suri Extracted</a></div>
     {% for file in suricata.files %}
         <div class="table">
-            <table class="table table-striped">
+            <table class="table table-dark table-striped">
                 <tr>
                     <th style="border-top: 0;" width="15%">File name</th>
                     <td style="border-top: 0;"><b>{{file.filename}}</b></td>
@@ -116,7 +116,7 @@
                     <th></th>
                     <td><a href="{% url "file" "suricata" id file.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span></a>
                     {% if file.file_info.data %}
-                    &emsp;<a class="btn btn-secondary btn-sm" data-toggle="collapse" data-target="#{{file.sha256}}">Display Text</a>
+                    &emsp;<a class="btn btn-secondary btn-sm" data-bs-toggle="collapse" data-bs-target="#{{file.sha256}}">Display Text</a>
                     {% endif %}
                     </td>
                 </tr>

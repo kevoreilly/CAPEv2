@@ -1,40 +1,45 @@
 {% load analysis_tags %}
-<div class="panel panel-default">
-    <table class="table table-striped table-bordered">
-        <tr>
-            <th>Task ID</th>
-            <td>{{analysis.info.id}} <a href="{% url "remove" analysis.info.id %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Delete task"><i class="fas fa-trash-alt"></i></a></td>
-        </tr>
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary text-white">Admin Information</div>
+    <div class="card-body">
+        <dl class="row mb-0">
+            <dt class="col-sm-3 text-white">Task ID</dt>
+            <dd class="col-sm-9 d-flex align-items-center text-white">
+                {{analysis.info.id}}
+                <a href="{% url "remove" analysis.info.id %}" class="btn btn-danger btn-sm ms-3" data-bs-toggle="tooltip" title="Delete task"><i class="fas fa-trash-alt me-1"></i> Delete</a>
+            </dd>
+        </dl>
+
         {% if config.mongodb %}
-        <tr>
-            <th>Mongo ID</th>
-            <td>{{analysis|mongo_id}}</td>
-        </tr>
+        <dl class="row mb-0">
+            <dt class="col-sm-3 text-white">Mongo ID</dt>
+            <dd class="col-sm-9 text-white">{{analysis|mongo_id}}</dd>
+        </dl>
         {% elif config.elasticsearchdb %}
-        <tr>
-            <th>ElasticSearch Index</th>
-            <td>{{analysis.es.index}}
-        </tr>
-        <tr>
-            <th>ElasticSearch ID</th>
-            <td>{{analysis.es.id}}
-        </tr>
+        <dl class="row mb-0">
+            <dt class="col-sm-3 text-white">ElasticSearch Index</dt>
+            <dd class="col-sm-9 text-white">{{analysis.es.index}}</dd>
+        </dl>
+        <dl class="row mb-0">
+            <dt class="col-sm-3 text-white">ElasticSearch ID</dt>
+            <dd class="col-sm-9 text-white">{{analysis.es.id}}</dd>
+        </dl>
         {% endif %}
-        <tr>
-            <th>Cuckoo release</th>
-            <td>{{analysis.info.version}}</td>
-        </tr>
+
+        <dl class="row mb-0">
+            <dt class="col-sm-3 text-white">CAPE release</dt>
+            <dd class="col-sm-9 text-white">{{analysis.info.version}}</dd>
+        </dl>
+
         {% if analysis.info.user_id %}
-        <tr>
-            <th>Task created by user id: <a href="{% url "admin:auth_user_change" analysis.info.user_id  %}">{{analysis.info.user_id}}</a></th>
-            <td>
-                <a href="{% url "ban_user" analysis.info.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="Ban user"><i class="fas fa-user-lock"></i></a>
-                or
-                <a href="{% url "ban_all_user_tasks" analysis.info.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="Ban all task of this user"><i class="fas fa-tasks"></i><i class="fas fa-user-lock"></i></a>
-
-            </td>
-        </tr>
-
+        <dl class="row mb-0">
+            <dt class="col-sm-3 text-white">Task created by user</dt>
+            <dd class="col-sm-9 d-flex align-items-center">
+                <a href="{% url "admin:auth_user_change" analysis.info.user_id  %}" class="text-info me-3">{{analysis.info.user_id}}</a>
+                <a href="{% url "ban_user" analysis.info.user_id  %}" class="btn btn-danger btn-sm me-2" data-bs-toggle="tooltip" title="Ban user"><i class="fas fa-user-lock me-1"></i> Ban User</a>
+                <a href="{% url "ban_all_user_tasks" analysis.info.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="Ban all tasks of this user"><i class="fas fa-tasks me-1"></i><i class="fas fa-user-lock me-1"></i> Ban All User Tasks</a>
+            </dd>
+        </dl>
         {% endif %}
-    </table>
+    </div>
 </div>

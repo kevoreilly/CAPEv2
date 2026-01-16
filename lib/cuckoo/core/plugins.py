@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import importlib
 import inspect
 import json
 import logging
@@ -50,7 +51,7 @@ if blocklist.get("signatures"):
 
 def import_plugin(name):
     try:
-        module = __import__(name, globals(), locals(), ["dummy"])
+        module = importlib.import_module(name)
     except (ImportError, SyntaxError) as e:
         print(f'Unable to import plugin "{name}": {e}')
         return
@@ -152,7 +153,6 @@ class RunAuxiliary:
         stop():
             Stops all enabled auxiliary modules.
     """
-    """Auxiliary modules manager."""
 
     def __init__(self, task, machine):
         self.task = task
@@ -801,12 +801,6 @@ class RunReporting:
             Returns:
                 int: A count of the reporting module errors.
     """
-    """Reporting Engine.
-
-    This class handles the loading and execution of the enabled reporting
-    modules. It receives the analysis results dictionary from the Processing
-    Engine and pass it over to the reporting modules before executing them.
-    """
 
     def __init__(self, task, results, reprocess=False):
         """@param analysis_path: analysis folder path."""
@@ -935,11 +929,6 @@ class GetFeeds:
             Runs all enabled feed modules.
             Returns:
                 None
-    """
-    """Feed Download and Parsing Engine
-
-    This class handles the downloading and modification of feed modules.
-    It then saves the parsed feed data to CUCKOO_ROOT/feeds/
     """
 
     def __init__(self, results):

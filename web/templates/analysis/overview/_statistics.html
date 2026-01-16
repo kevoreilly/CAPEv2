@@ -1,11 +1,10 @@
 {% if analysis.statistics %}
     {% load analysis_tags %}
     <div class="card bg-dark border-secondary mb-3">
-        <div class="card-header border-secondary" id="headingStatistics">
+        <div class="card-header border-secondary text-center" id="headingStatistics">
             <h5 class="mb-0">
-                <button class="btn btn-link btn-block text-start text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#statistics" aria-expanded="false" aria-controls="statistics">
+                <button class="btn btn-link btn-block text-center text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#statistics" aria-expanded="false" aria-controls="statistics">
                     <i class="fas fa-stopwatch me-2 text-info"></i> Statistics {% if stats_total.total %}<span class="badge bg-dark ms-2">{{stats_total.total}}s</span>{% endif %}
-                    <i class="fas fa-chevron-down float-end mt-1"></i>
                 </button>
             </h5>
         </div>
@@ -19,9 +18,10 @@
                         <hr class="border-secondary">
                     {% endif %}
                 {% endif %}
-                
+
                 <div class="row justify-content-center">
-                    <div class="col-lg-4 mb-3">
+                    {% if analysis.statistics.processing %}
+                    <div class="col-lg-2 mb-3" style="min-width: 250px;">
                         <div class="card bg-dark h-100">
                             <div class="card-header border-dark font-weight-bold">
                                 Processing <span class="badge text-white bg-dark float-end">{{ stats_total.processing }}s</span>
@@ -29,17 +29,18 @@
                             <ul class="list-group list-group-flush text-dark">
                                 {% for stat in analysis.statistics.processing|dictsortreversed:"time" %}
                                     {% if stat.time %}
-                                    <li class="list-group-item bg-dark text-white d-flex justify-content-between align-items-center border-secondary">
-                                        {{stat.name}}
-                                        <span class="badge bg-info badge-pill">{{stat.time}}s</span>
+                                    <li class="list-group-item bg-dark text-white border-secondary py-1 small">
+                                        <span class="text-info fw-bold me-2">{{stat.time}}s</span> {{stat.name}}
                                     </li>
                                     {% endif %}
                                 {% endfor %}
                             </ul>
                         </div>
                     </div>
-                    
-                    <div class="col-lg-4 mb-3">
+                    {% endif %}
+
+                    {% if analysis.statistics.signatures %}
+                    <div class="col-lg-2 mb-3" style="min-width: 250px;">
                         <div class="card bg-dark h-100">
                             <div class="card-header border-dark font-weight-bold">
                                 Signatures <span class="badge text-white bg-dark float-end">{{ stats_total.signatures }}s</span>
@@ -47,17 +48,18 @@
                             <ul class="list-group list-group-flush text-dark">
                                 {% for stat in analysis.statistics.signatures|dictsortreversed:"time" %}
                                     {% if stat.time %}
-                                    <li class="list-group-item bg-dark text-white d-flex justify-content-between align-items-center border-secondary">
-                                        {{stat.name}}
-                                        <span class="badge bg-warning badge-pill">{{stat.time}}s</span>
+                                    <li class="list-group-item bg-dark text-white border-secondary py-1 small">
+                                        <span class="text-warning fw-bold me-2">{{stat.time}}s</span> {{stat.name}}
                                     </li>
                                     {% endif %}
                                 {% endfor %}
                             </ul>
                         </div>
                     </div>
-                    
-                    <div class="col-lg-4 mb-3">
+                    {% endif %}
+
+                    {% if analysis.statistics.reporting %}
+                    <div class="col-lg-2 mb-3" style="min-width: 250px;">
                         <div class="card bg-dark h-100">
                             <div class="card-header border-dark font-weight-bold">
                                 Reporting <span class="badge text-white bg-dark float-end">{{ stats_total.reporting }}s</span>
@@ -65,15 +67,15 @@
                             <ul class="list-group list-group-flush text-dark">
                                 {% for stat in analysis.statistics.reporting|dictsortreversed:"time" %}
                                     {% if stat.time %}
-                                    <li class="list-group-item bg-dark text-white d-flex justify-content-between align-items-center border-secondary">
-                                        {{stat.name}}
-                                        <span class="badge bg-success badge-pill">{{stat.time}}s</span>
+                                    <li class="list-group-item bg-dark text-white border-secondary py-1 small">
+                                        <span class="text-success fw-bold me-2">{{stat.time}}s</span> {{stat.name}}
                                     </li>
                                     {% endif %}
                                 {% endfor %}
                             </ul>
                         </div>
                     </div>
+                    {% endif %}
                 </div>
             </div>
         </div>

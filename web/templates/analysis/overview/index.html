@@ -132,13 +132,6 @@
     {% include "analysis/overview/_url.html" %}
 {% endif %}
 
-<!-- Reports -->
-{% if reports_exist %}
-    <div class="mb-4">
-        {% include "analysis/overview/_reports.html" %}
-    </div>
-{% endif %}
-
 <!-- Additional Analysis Modules -->
 {% if analysis.capa_summary %}
     {% include "analysis/overview/_capa_summary.html" %}
@@ -171,7 +164,8 @@
 {% if analysis.network.hosts or analysis.network.dns %}
 <section id="network-overview" class="mb-4">
     <div class="row">
-        <div class="col-md-6">
+        {% if analysis.network.hosts %}
+        <div class="{% if analysis.network.dns %}col-md-6{% else %}col-md-12{% endif %} mb-3">
             <div class="card bg-dark border-secondary h-100">
                 <div class="card-header border-secondary"><h5 class="mb-0 text-white"><i class="fas fa-server me-2 text-primary"></i> Hosts</h5></div>
                 <div class="card-body p-0">
@@ -179,7 +173,9 @@
                 </div>
             </div>
         </div>
-        <div class="col-md-6">
+        {% endif %}
+        {% if analysis.network.dns %}
+        <div class="{% if analysis.network.hosts %}col-md-6{% else %}col-md-12{% endif %} mb-3">
             <div class="card bg-dark border-secondary h-100">
                 <div class="card-header border-secondary"><h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-info"></i> DNS</h5></div>
                 <div class="card-body p-0">
@@ -187,6 +183,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 </section>
 {% endif %}

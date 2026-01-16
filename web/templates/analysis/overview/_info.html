@@ -49,7 +49,7 @@
                         <th>Duration</th>
                         {% if analysis.info.options %}<th>Options</th>{% endif %}
                         {% if user.is_staff and analysis.distributed %}<th>Distributed</th>{% endif %}
-                        <th>Logs</th>
+                        {% if analysis.debug.log or analysis.process_log %}<th>Logs</th>{% endif %}
                         {% if analysis.debug.pre_script_log %}<th>Pre Script</th>{% endif %}
                         {% if analysis.debug.during_script_log %}<th>During Script</th>{% endif %}
                         {% if config.malscore and analysis.malscore %}<th>MalScore</th>{% endif %}
@@ -68,14 +68,18 @@
                         {% if user.is_staff and analysis.distributed %}
                             <td>{{analysis.distributed.name}} <small class="text-white-50">({{analysis.distributed.task_id}})</small></td>
                         {% endif %}
+                        {% if analysis.debug.log or analysis.process_log %}
                         <td>
                             <div class="btn-group btn-group-sm">
+                                {% if analysis.debug.log %}
                                 <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#info-log">Analysis</button>
+                                {% endif %}
                                 {% if analysis.process_log %}
                                 <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#process-log">Process</button>
                                 {% endif %}
                             </div>
                         </td>
+                        {% endif %}
                         {% if analysis.debug.pre_script_log %}
                             <td><button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#info-pre-script-log">View</button></td>
                         {% endif %}

@@ -1,3 +1,8 @@
+---
+name: cape-sandbox-developer
+description: Comprehensive guide for architecture, development patterns, and advanced troubleshooting in CAPE Sandbox (v2).
+---
+
 # CAPE Sandbox Developer Skills & Architecture Guide
 
 This document outlines the architectural structure, core concepts, and development patterns for the CAPE Sandbox (v2). It serves as a guide for extending functionality, debugging, and maintaining the codebase.

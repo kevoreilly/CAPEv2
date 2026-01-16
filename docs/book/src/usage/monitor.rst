@@ -8,7 +8,7 @@ What make CAPE's debugger unique among Windows debuggers is the fact that it has
 
 The debugger is not interactive, its actions are pre-determined upon submission and the results can be found in the debugger log which is presented in a dedicated tab in the UI.
 
-Th following is a quick guide on getting started with the debugger.
+The following is a quick guide on getting started with the debugger.
 
 Breakpoints: bp0, bp1, bp2, bp3
 ===============================

@@ -1,6 +1,25 @@
 {% extends "base.html" %}
 {% block content %}
 
+{% if report.top_detections %}
+<div class="card bg-dark text-white mb-4 shadow-sm border-secondary">
+    <div class="card-header border-secondary bg-transparent">
+        <h5 class="mb-0"><i class="fas fa-bug me-2 text-danger"></i> Top Detections</h5>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap justify-content-center align-items-center">
+            {% for block in report.top_detections %}
+            <a href="/analysis/search/detections:{{block.family}}"
+                class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
+                <span class="badge bg-danger me-2 p-2">{{block.total}}</span>
+                <span class="font-weight-bold" style="font-size: 1rem;"> {{block.family}}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="row mt-4 mb-4">
     <div class="col-12">
         <div class="alert alert-primary shadow-sm d-flex align-items-center justify-content-center" style="border: none; color: white;">
@@ -36,24 +55,6 @@
         </div>
     </div>
 </div>
-
-{% if report.top_detections %}
-<div class="card bg-dark text-white mb-4 shadow-sm border-secondary">
-    <div class="card-header border-secondary bg-transparent">
-        <h5 class="mb-0"><i class="fas fa-bug me-2 text-danger"></i> Top Detections</h5>
-    </div>
-    <div class="card-body">
-        <div class="d-flex flex-wrap justify-content-center align-items-center">
-            {% for block in report.top_detections %}
-            <a href="/analysis/search/detections:{{block.family}}" class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
-                <span class="badge bg-danger me-2 p-2">{{block.total}}</span>
-                <span class="font-weight-bold" style="font-size: 1rem;"> {{block.family}}</span>
-            </a>
-            {% endfor %}
-        </div>
-    </div>
-</div>
-{% endif %}
 
 <div class="row">
     <div class="col-md-6 mx-auto">

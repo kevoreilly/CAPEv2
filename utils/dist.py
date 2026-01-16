@@ -41,7 +41,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
 from lib.cuckoo.common.socket_utils import send_socket_command
-from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.utils import get_files_storage_path, get_options
 from lib.cuckoo.core.database import (
     TASK_BANNED,
     TASK_DISTRIBUTED,
@@ -302,6 +302,64 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
         return False
 
     return True
+
+
+def sync_sharded_files_nfs(worker_name, main_task_id):
+    """
+    Synchronize deduplicated files from worker to master using sharded storage.
+    """
+    analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(main_task_id))
+    files_json_path = os.path.join(analysis_path, "files.json")
+
+    if not path_exists(files_json_path):
+        return
+
+    try:
+        with open(files_json_path, "r") as f:
+            for line in f:
+                try:
+                    entry = json.loads(line)
+                    rel_path = entry.get("path")
+                    if not rel_path or "selfextracted" not in rel_path:
+                        continue
+
+                    # Extract SHA256 from path (e.g. selfextracted/SHA256)
+                    sha256 = os.path.basename(rel_path)
+                    if len(sha256) != 64:
+                        continue
+
+                    # Master destination (sharded)
+                    master_dest = get_files_storage_path(sha256)
+
+                    # If missing on master, fetch from worker
+                    if not path_exists(master_dest):
+                        worker_mount = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
+                        # Construct worker source path (sharded) manually relative to mount
+                        shard_rel = os.path.join("storage", "files", sha256[:2], sha256[2:4], sha256)
+                        worker_src = os.path.join(worker_mount, shard_rel)
+
+                        if path_exists(worker_src):
+                            path_mkdir(os.path.dirname(master_dest), exist_ok=True)
+                            shutil.copy2(worker_src, master_dest)
+
+                    # Ensure symlink in analysis folder is correct
+                    link_path = os.path.join(analysis_path, rel_path)
+
+                    # If it's a broken link or doesn't exist or is a full file (we want link)
+                    if path_exists(master_dest):
+                        if os.path.islink(link_path):
+                            # Check if it points to the right place?
+                            # For now, simpler to re-link if we want to enforce local storage path
+                            os.remove(link_path)
+                        elif path_exists(link_path):
+                            # It's a file, replace with link to save space
+                            path_delete(link_path)
+                        path_mkdir(os.path.dirname(link_path), exist_ok=True)
+                        os.symlink(master_dest, link_path)
+                except (json.JSONDecodeError, OSError) as e:
+                    log.error("Error syncing file for task %s: %s", main_task_id, e)
+    except Exception as e:
+        log.exception("Failed to sync sharded files for task %s: %s", main_task_id, e)
 
 
 def _delete_many(node, ids, nodes, db):
@@ -955,6 +1013,8 @@ class Retriever(threading.Thread):
                         node.name,
                         t.main_task_id,
                     )
+
+                    sync_sharded_files_nfs(node.name, t.main_task_id)
 
                     # this doesn't exist for some reason
                     if path_exists(t.path):

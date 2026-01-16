@@ -236,3 +236,5 @@ analysis = 0
 mongo = no
 # Clean orphan files in mongodb
 unused_files_in_mongodb = no
+# Deduplicated files
+files = no

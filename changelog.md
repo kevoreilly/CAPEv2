@@ -1,3 +1,15 @@
+### [16.01.2026] CAPE v2.5
+* Bootstrap 5 upgrade and some visual WEBGUI rewamp. Some improvements still might come soon!
+* htmlreport - rewamp!
+* cape2.sh - Libvirt + YARA python libraries install without external scripts.
+* Datatime UTC normalization on tasks/VMs changes.
+* Added check on startup for enable firewall.
+* Volatility3 - more modules added. Test them and let us know if you have any issue.
+* Filedescripts leaks fixed.
+* Stucked VM monitoring and kill. [PR](https://github.com/kevoreilly/CAPEv2/pull/2809)
+
+PS no changes required to CAPA library to support CAPE v2.5 ;)
+
 ### [02.01.2026]
 * CAPE installer:
     *  now support custom destination folder env variable:

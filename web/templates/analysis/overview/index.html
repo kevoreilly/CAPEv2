@@ -168,6 +168,7 @@
 {% include "analysis/overview/_playback.html" %}
 {% endif %}
 <!-- Network Overview -->
+{% if analysis.network.hosts or analysis.network.dns %}
 <section id="network-overview" class="mb-4">
     <div class="row">
         <div class="col-md-6">
@@ -188,8 +189,9 @@
         </div>
     </div>
 </section>
+{% endif %}
 
 <!-- Behavior Summary -->
-{% if analysis.info.category != "pcap" %}
+{% if analysis.behavior.summary %}
     {% include "analysis/overview/_summary.html" %}
 {% endif %}

@@ -17,7 +17,7 @@ import sys
 import timeit
 import traceback
 from contextlib import suppress
-from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
+from ctypes import byref, c_buffer, c_int, c_void_p, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
 from threading import Lock, Thread
@@ -50,6 +50,21 @@ from lib.common.defines import (
     SHELL32,
     USER32,
 )
+
+# Fix for 64-bit Python
+KERNEL32.OpenProcess.restype = c_void_p
+KERNEL32.CreateMutexA.restype = c_void_p
+KERNEL32.OpenEventA.restype = c_void_p
+ADVAPI32.OpenSCManagerA.restype = c_void_p
+ADVAPI32.OpenServiceW.restype = c_void_p
+USER32.GetShellWindow.restype = c_void_p
+KERNEL32.OpenThread.restype = c_void_p
+KERNEL32.CreateToolhelp32Snapshot.restype = c_void_p
+KERNEL32.CreateFileW.restype = c_void_p
+KERNEL32.CreateEventW.restype = c_void_p
+KERNEL32.OpenEventW.restype = c_void_p
+KERNEL32.GetCurrentProcess.restype = c_void_p
+
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -119,7 +134,7 @@ def pids_from_image_names(suffixlist):
         log.debug("psapi.EnumProcesses failed")
         return retpids
 
-    suffixlist = tuple([x.lower() for x in suffixlist])
+    suffixlist = tuple(x.lower() for x in suffixlist)
     num_processes = int(num_bytes.value / sizeof(wintypes.DWORD))
     pids = lpid_process_ptr[:num_processes]
 
@@ -431,51 +446,36 @@ class Analyzer:
             self.target = self.package.move_curdir(self.target)
         log.debug("New location of moved file: %s", self.target)
 
-        # Set the DLL to that specified by package
-        if self.package.options.get("dll") is not None:
-            MONITOR_DLL = self.package.options["dll"]
-            log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, self.package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a DLL option", self.package_name)
-
-        # Set the DLL_64 to that specified by package
-        if self.package.options.get("dll_64") is not None:
-            MONITOR_DLL_64 = self.package.options["dll_64"]
-            log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, self.package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a DLL_64 option", self.package_name)
-
-        # Set the loader to that specified by package
-        if self.package.options.get("loader") is not None:
-            LOADER32 = self.package.options["loader"]
-            log.info("Analyzer: Loader set to %s from package %s", LOADER32, self.package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a loader option", self.package_name)
-
-        # Set the loader_64 to that specified by package
-        if self.package.options.get("loader_64") is not None:
-            LOADER64 = self.package.options["loader_64"]
-            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, self.package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a loader_64 option", self.package_name)
+        # Set the DLL/loader to that specified by package
+        for key in ("dll", "dll_64", "loader", "loader_64"):
+            if (value := self.package.options.get(key)) is not None:
+                log.info("Analyzer: %s set to %s from package %s", key, value, self.package_name)
+                if key == "dll":
+                    MONITOR_DLL = value
+                elif key == "dll_64":
+                    MONITOR_DLL_64 = value
+                elif key == "loader":
+                    LOADER32 = value
+                elif key == "loader_64":
+                    LOADER64 = value
+            else:
+                log.info("Analyzer: Package %s does not specify a %s option", self.package_name, key)
 
         # randomize monitor DLL and loader executable names
-        if MONITOR_DLL is not None:
-            copy(os.path.join("dll", MONITOR_DLL), CAPEMON32_NAME)
-        else:
-            copy("dll\\capemon.dll", CAPEMON32_NAME)
-        if MONITOR_DLL_64 is not None:
-            copy(os.path.join("dll", MONITOR_DLL_64), CAPEMON64_NAME)
-        else:
-            copy("dll\\capemon_x64.dll", CAPEMON64_NAME)
-        if LOADER32 is not None:
-            copy(os.path.join("bin", LOADER32), LOADER32_NAME)
-        else:
-            copy("bin\\loader.exe", LOADER32_NAME)
-        if LOADER64 is not None:
-            copy(os.path.join("bin", LOADER64), LOADER64_NAME)
-        else:
-            copy("bin\\loader_x64.exe", LOADER64_NAME)
+        for source_name, dest_name, default_name in [
+            (MONITOR_DLL, CAPEMON32_NAME, "capemon.dll"),
+            (MONITOR_DLL_64, CAPEMON64_NAME, "capemon_x64.dll"),
+            (LOADER32, LOADER32_NAME, "loader.exe"),
+            (LOADER64, LOADER64_NAME, "loader_x64.exe"),
+        ]:
+            if source_name is not None:
+                if os.path.basename(source_name) != source_name:
+                    log.warning("Path traversal attempt detected in source_name: '%s'", source_name)
+                    return
+                source_path = os.path.join("dll" if "loader" not in dest_name else "bin", source_name)
+            else:
+                source_path = os.path.join("dll" if "loader" not in dest_name else "bin", default_name)
+            copy(source_path, dest_name)
 
         si = subprocess.STARTUPINFO()
         # STARTF_USESHOWWINDOW
@@ -845,6 +845,8 @@ class Files:
         "vmtoolsd.exe",
         "vmsrvc.exe",
         "python.exe",
+        "pythonw.exe",
+        "python3.exe",
         "perl.exe",
     ]
 

@@ -1129,29 +1129,6 @@ class ProcessTree:
 
     def __init__(self):
         self.processes = []
-        self.tree = []
-
-    def add_node(self, node, tree):
-        """Add a node to a process tree.
-        @param node: node to add.
-        @param tree: processes tree.
-        @return: boolean with operation success status.
-        """
-        # Walk through the existing tree.
-        ret = False
-        for process in tree:
-            # If the current process has the same ID of the parent process of
-            # the provided one, append it the children.
-            if process["pid"] == node["parent_id"]:
-                process["children"].append(node)
-                ret = True
-                break
-            # Otherwise try with the children of the current process.
-            else:
-                if self.add_node(node, process["children"]):
-                    ret = True
-                    break
-        return ret
 
     def event_apicall(self, call, process):
         for entry in self.processes:
@@ -1171,34 +1148,54 @@ class ProcessTree:
         )
 
     def run(self):
-        children = []
+        # Index processes by PID.
+        # This implementation uses an iterative approach to build the tree and detects cycles
+        # to prevent infinite recursion or excessive depth that causes JSON serialization issues.
+        node_lookup = {p["pid"]: p for p in self.processes}
+        roots = []
 
-        # Walk through the generated list of processes.
-        for process in self.processes:
-            has_parent = False
-            # Walk through the list again.
-            for process_again in self.processes:
-                if process_again == process:
-                    continue
-                # If we find a parent for the first process, we mark it as
-                # as a child.
-                if process_again["pid"] == process["parent_id"]:
-                    has_parent = True
-                    break
+        # Initialize children list for all processes
+        for p in self.processes:
+            p["children"] = []
 
-            # If the process has a parent, add it to the children list.
-            if has_parent:
-                children.append(process)
-            # Otherwise it's an orphan and we add it to the tree root.
+        for p in self.processes:
+            parent_pid = p.get("parent_id")
+
+            # Check if parent exists and is not self (self-parenting treated as root)
+            if parent_pid in node_lookup and parent_pid != p["pid"]:
+                parent = node_lookup[parent_pid]
+
+                # Cycle Detection: Traverse ancestry to ensure 'p' is not an ancestor of 'parent'
+                curr = parent
+                is_cycle = False
+                # Use a simple counter or set to avoid infinite checks if the map has internal loops
+                depth = 0
+                max_depth = 100
+
+                while depth < max_depth:
+                    if curr is p:
+                        is_cycle = True
+                        break
+
+                    # Move up to the next parent
+                    curr_parent_pid = curr.get("parent_id")
+                    if curr_parent_pid in node_lookup and curr_parent_pid != curr["pid"]:
+                        curr = node_lookup[curr_parent_pid]
+                        depth += 1
+                    else:
+                        # Reached a root or unknown parent
+                        break
+
+                if not is_cycle:
+                    parent["children"].append(p)
+                else:
+                    # Cycle detected or depth limit hit, treat as root to avoid breaking JSON
+                    log.warning("Cycle or deep nesting detected for process %s (parent %s). treating as root.", p["pid"], parent_pid)
+                    roots.append(p)
             else:
-                self.tree.append(process)
+                roots.append(p)
 
-        # Now we loop over the remaining child processes.
-        for process in children:
-            if not self.add_node(process, self.tree):
-                self.tree.append(process)
-
-        return self.tree
+        return roots
 
 
 class EncryptedBuffers:

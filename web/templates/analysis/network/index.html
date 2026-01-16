@@ -14,7 +14,7 @@
         {% endif %}
     </div>
 {% endif %}
-    <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
+    <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;" id="network-analysis-tabs">
         {% if network.hosts %}<li class="nav-item"><a class="nav-link" href="#network_hosts_tab" data-bs-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>{% endif %}
         {% if network.domains %}<li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-bs-toggle="tab">DNS ({{ network.domains|length }})</a></li>{% endif %}
         {% if network.tcp %}<li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-bs-toggle="tab">TCP ({{ network.tcp|length }})</a></li>{% endif %}
@@ -57,9 +57,6 @@
 <script type="text/javascript">
     $(document).ready(function() {
         // Set the first visible tab as active
-        $('.nav-tabs .nav-item:first a').addClass('active');
-        $('.nav-tabs .nav-item:first').addClass('active');
-        var firstTabId = $('.nav-tabs .nav-item:first a').attr('href');
-        $(firstTabId).addClass('show active');
+        $('#network-analysis-tabs a:first').tab('show');
     });
 </script>

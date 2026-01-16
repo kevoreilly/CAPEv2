@@ -17,42 +17,44 @@ from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof
 from pathlib import Path
 from shutil import copy
 
-from lib.common.defines import (
-    CREATE_NEW_CONSOLE,
-    CREATE_SUSPENDED,
-    EVENT_MODIFY_STATE,
-    GENERIC_READ,
-    GENERIC_WRITE,
-    MAX_PATH,
-    OPEN_EXISTING,
-    PROCESS_ALL_ACCESS,
-    PROCESS_INFORMATION,
-    PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESSENTRY32,
-    STARTUPINFO,
-    STILL_ACTIVE,
-    SYSTEM_INFO,
-    TH32CS_SNAPPROCESS,
-    THREAD_ALL_ACCESS,
-    ULONG_PTR,
-)
-
-
-from lib.common.constants import (
-        CAPEMON32_NAME,
-        CAPEMON64_NAME,
-        LOADER32_NAME,
-        LOADER64_NAME,
-        LOGSERVER_PREFIX,
-        PATHS,
-        PIPE,
-        SHUTDOWN_MUTEX,
-        TERMINATE_EVENT,
-        TTD32_NAME,
-        TTD64_NAME,
-        SIDELOADER32_NAME,
-        SIDELOADER64_NAME,
+if sys.platform.startswith("win"):
+    from lib.common.defines import (
+        CREATE_NEW_CONSOLE,
+        CREATE_SUSPENDED,
+        EVENT_MODIFY_STATE,
+        GENERIC_READ,
+        GENERIC_WRITE,
+        MAX_PATH,
+        OPEN_EXISTING,
+        PROCESS_ALL_ACCESS,
+        PROCESS_INFORMATION,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+        PROCESSENTRY32,
+        STARTUPINFO,
+        STILL_ACTIVE,
+        SYSTEM_INFO,
+        TH32CS_SNAPPROCESS,
+        THREAD_ALL_ACCESS,
+        ULONG_PTR,
     )
+
+
+    from lib.common.constants import (
+            CAPEMON32_NAME,
+            CAPEMON64_NAME,
+            LOADER32_NAME,
+            LOADER64_NAME,
+            LOGSERVER_PREFIX,
+            PATHS,
+            PIPE,
+            SHUTDOWN_MUTEX,
+            TERMINATE_EVENT,
+            TTD32_NAME,
+            TTD64_NAME,
+            SIDELOADER32_NAME,
+            SIDELOADER64_NAME,
+        )
+
 from lib.common.defines import (
         KERNEL32,
         NTDLL,
@@ -239,15 +241,15 @@ class Process:
         pbi = create_string_buffer(530)
         size = c_int()
 
-        _ = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
-
-        offset = 4 + sizeof(ULONG_PTR)
-        try:
-            fbuf = pbi.raw[offset:]
-            fbuf = fbuf[: fbuf.find(b"\0\0") + 1]
-            return fbuf.decode("utf16", errors="ignore")
-        except Exception as e:
-            log.info(e)
+        ret = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
+        if NT_SUCCESS(ret):
+            offset = 4 + sizeof(ULONG_PTR)
+            try:
+                fbuf = pbi.raw[offset:]
+                fbuf = fbuf[: fbuf.find(b"\0\0") + 1]
+                return fbuf.decode("utf16", errors="ignore")
+            except Exception as e:
+                log.info(e)
 
         return ""
 

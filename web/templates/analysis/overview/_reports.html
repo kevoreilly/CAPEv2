@@ -1,36 +1,41 @@
 <div class="card bg-dark border-secondary mb-3">
-    <div class="card-body d-flex align-items-center justify-content-center flex-wrap">
-        <h5 class="mb-0 me-3 text-white"><i class="far fa-file-alt me-2 text-info"></i> Reports:</h5>
-        
-        {% if config.jsondump %}
-            <a href="{% url "filereport" analysis.info.id "json" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-code me-1"></i> JSON</a>
-        {% endif %}
-        {% if config.reporthtml %}
-            <a href="{% url "filereport" analysis.info.id "html" %}" class="btn btn-sm btn-outline-light m-1"><i class="fab fa-html5 me-1"></i> HTML</a>
-        {% endif %}
-        {% if config.reporthtmlsummary %}
-             <a href="{% url "filereport" analysis.info.id "htmlsummary" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-file-invoice me-1"></i> HTML Summary</a>
-        {% endif %}
-        {% if config.reportpdf %}
-           <a href="{% url "filereport" analysis.info.id "pdf" %}" class="btn btn-sm btn-outline-light m-1"><i class="fas fa-file-pdf me-1"></i> PDF</a>
-        {% endif %}
-        {% if config.maec41 %}
-           <a href="{% url "filereport" analysis.info.id "maec" %}" class="btn btn-sm btn-outline-light m-1">MAEC</a>
-        {% endif %}
-        {% if config.maec5 %}
-           <a href="{% url "filereport" analysis.info.id "maec5" %}" class="btn btn-sm btn-outline-light m-1">MAEC5</a>
-        {% endif %}
-        {% if config.mmdef %}
-           <a href="{% url "filereport" analysis.info.id "metadata" %}" class="btn btn-sm btn-outline-light m-1">Metadata</a>
-        {% endif %}
-        {% if config.misp %}
-           <a href="{% url "filereport" analysis.info.id "misp" %}" class="btn btn-sm btn-outline-light m-1">MISP</a>
-        {% endif %}
-        {% if config.litereport %}
-           <a href="{% url "filereport" analysis.info.id "litereport" %}" class="btn btn-sm btn-outline-light m-1">Lite</a>
-        {% endif %}
-        {% if config.cents %}
-           <a href="{% url "filereport" analysis.info.id "cents" %}" class="btn btn-sm btn-outline-light m-1">CENTS</a>
-        {% endif %}
-    </div>
+   <div class="card-body d-flex align-items-center justify-content-center flex-wrap">
+      <h5 class="mb-0 me-3 text-white"><i class="far fa-file-alt me-2 text-info"></i> Reports:</h5>
+
+      {% if config.jsondump and reports_exist.json %}
+      <a href="{% url "filereport" analysis.info.id "json" %}" class="btn btn-sm btn-outline-light m-1"><i
+            class="fas fa-code me-1"></i> JSON</a>
+      {% endif %}
+      {% if config.reporthtml and reports_exist.html %}
+      <a href="{% url "filereport" analysis.info.id "html" %}" class="btn btn-sm btn-outline-light m-1"><i
+            class="fab fa-html5 me-1"></i> HTML</a>
+      {% endif %}
+      {% if config.reporthtmlsummary and reports_exist.htmlsummary %}
+      <a href="{% url "filereport" analysis.info.id "htmlsummary" %}" class="btn btn-sm btn-outline-light m-1"><i
+            class="fas fa-file-invoice me-1"></i> HTML Summary</a>
+      {% endif %}
+      {% if config.reportpdf and reports_exist.pdf %}
+      <a href="{% url "filereport" analysis.info.id "pdf" %}" class="btn btn-sm btn-outline-light m-1"><i
+            class="fas fa-file-pdf me-1"></i> PDF</a>
+      {% endif %}
+      {% if config.maec41 and reports_exist.maec %}
+      <a href="{% url "filereport" analysis.info.id "maec" %}" class="btn btn-sm btn-outline-light m-1">MAEC</a>
+      {% endif %}
+      {% if config.maec5 and reports_exist.maec5 %}
+      <a href="{% url "filereport" analysis.info.id "maec5" %}" class="btn btn-sm btn-outline-light m-1">MAEC5</a>
+      {% endif %}
+      {% if config.mmdef and reports_exist.metadata %}
+      <a href="{% url "filereport" analysis.info.id "metadata" %}"
+         class="btn btn-sm btn-outline-light m-1">Metadata</a>
+      {% endif %}
+      {% if config.misp and reports_exist.misp %}
+      <a href="{% url "filereport" analysis.info.id "misp" %}" class="btn btn-sm btn-outline-light m-1">MISP</a>
+      {% endif %}
+      {% if config.litereport and reports_exist.litereport %}
+      <a href="{% url "filereport" analysis.info.id "litereport" %}" class="btn btn-sm btn-outline-light m-1">Lite</a>
+      {% endif %}
+      {% if config.cents and reports_exist.cents %}
+      <a href="{% url "filereport" analysis.info.id "cents" %}" class="btn btn-sm btn-outline-light m-1">CENTS</a>
+      {% endif %}
+   </div>
 </div>

@@ -1,3 +1,4 @@
+{% if config.guacamole and analysis.info.options.interactive %}
 <link href="{{ STATIC_URL }}css/guac-playback.css" rel="stylesheet" type="text/css"/>
 <script src="{{ STATIC_URL }}js/guac-playback.js"></script>
 <script src="{{ STATIC_URL }}js/guacamole-1.4.0-all.min.js"></script>
@@ -53,3 +54,4 @@
         </div>
     </div>
 </div>
+{% endif %}

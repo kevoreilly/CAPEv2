@@ -21,21 +21,31 @@
         <li class="nav-item">
             <a class="nav-link active" id="info-tab" data-bs-toggle="tab" href="#info" role="tab" aria-controls="info" aria-selected="true">Overview</a>
         </li>
+        {% if results.behavior %}
         <li class="nav-item">
             <a class="nav-link" id="behavior-tab" data-bs-toggle="tab" href="#behavior" role="tab" aria-controls="behavior" aria-selected="false">Behavior</a>
         </li>
+        {% endif %}
+        {% if results.network %}
         <li class="nav-item">
             <a class="nav-link" id="network-tab" data-bs-toggle="tab" href="#network" role="tab" aria-controls="network" aria-selected="false">Network</a>
         </li>
+        {% endif %}
+        {% if results.dropped %}
         <li class="nav-item">
             <a class="nav-link" id="dropped-tab" data-bs-toggle="tab" href="#dropped" role="tab" aria-controls="dropped" aria-selected="false">Dropped</a>
         </li>
+        {% endif %}
+        {% if results.procdump %}
         <li class="nav-item">
             <a class="nav-link" id="procdump-tab" data-bs-toggle="tab" href="#procdump" role="tab" aria-controls="procdump" aria-selected="false">Process Dumps</a>
         </li>
+        {% endif %}
+        {% if results.CAPE and results.CAPE.payloads %}
         <li class="nav-item">
             <a class="nav-link" id="payloads-tab" data-bs-toggle="tab" href="#payloads" role="tab" aria-controls="payloads" aria-selected="false">Payloads</a>
         </li>
+        {% endif %}
         {% if debugger %}
         <li class="nav-item">
             <a class="nav-link" id="debugger-tab" data-bs-toggle="tab" href="#debugger" role="tab" aria-controls="debugger" aria-selected="false">Debugger</a>

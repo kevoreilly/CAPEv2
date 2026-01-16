@@ -156,10 +156,12 @@
     {% include "analysis/overview/_statistics.html" %}
 {% endif %}
 
-{% include "analysis/overview/_signatures.html" %}
+{% if analysis.signatures %}
+    {% include "analysis/overview/_signatures.html" %}
+{% endif %}
 
 {% if analysis.shots %}
-{% include "analysis/overview/_screenshots.html" %}
+    {% include "analysis/overview/_screenshots.html" %}
 {% endif %}
 
 {% if config.guacamole and analysis.info.options.interactive %}

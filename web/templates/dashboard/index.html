@@ -13,21 +13,25 @@
 </div>
 
 <div class="row mb-4">
-    <div class="col-md-6 mb-3">
-        <div class="card text-white bg-dark h-100 shadow-sm border-secondary">
-            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center p-5">
-                <h1 class="display-3 font-weight-bold text-primary">{{report.total_tasks}}</h1>
-                <h5 class="card-title text-white-50 text-uppercase letter-spacing-1">Total tasks</h5>
-                <i class="fas fa-tasks fa-3x text-white-50 mt-3"></i>
+    <div class="col-md-6 mx-auto">
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <div class="card text-white bg-dark h-100 shadow-sm border-secondary">
+                    <div class="card-body text-center d-flex flex-column justify-content-center align-items-center p-4">
+                        <h2 class="font-weight-bold text-primary mb-0">{{report.total_tasks}}</h2>
+                        <small class="text-white-50 text-uppercase letter-spacing-1">Tasks</small>
+                        <i class="fas fa-tasks fa-lg text-white-50 mt-2"></i>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-    <div class="col-md-6 mb-3">
-        <div class="card text-white bg-dark h-100 shadow-sm border-secondary">
-            <div class="card-body text-center d-flex flex-column justify-content-center align-items-center p-5">
-                <h1 class="display-3 font-weight-bold text-success">{{report.total_samples}}</h1>
-                <h5 class="card-title text-white-50 text-uppercase letter-spacing-1">Total samples</h5>
-                <i class="fas fa-vial fa-3x text-white-50 mt-3"></i>
+            <div class="col-md-6 mb-3">
+                <div class="card text-white bg-dark h-100 shadow-sm border-secondary">
+                    <div class="card-body text-center d-flex flex-column justify-content-center align-items-center p-4">
+                        <h2 class="font-weight-bold text-success mb-0">{{report.total_samples}}</h2>
+                        <small class="text-white-50 text-uppercase letter-spacing-1">Samples</small>
+                        <i class="fas fa-vial fa-lg text-white-50 mt-2"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

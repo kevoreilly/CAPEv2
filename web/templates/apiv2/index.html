@@ -40,7 +40,7 @@
             </td>
             <td>Submit a file task to be analyzed by CAPE. Return object will be JSON.</td>
             <td class="text-center">
-                <button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#filecreate" aria-expanded="false" aria-controls="filecreate">
+                <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#filecreate" aria-expanded="false" aria-controls="filecreate">
                     View <i class="fas fa-chevron-down ms-1"></i>
                 </button>
             </td>
@@ -70,7 +70,7 @@
               </ul>
             </td>
             <td>Download a file from VT or MalwareBazaar or other service for analysis. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#vtdl">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#vtdl">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="vtdl">
             <td colspan="5" class="p-3">
@@ -96,7 +96,7 @@
               </ul>
             </td>
             <td>Submit a URL task to be analyzed by CAPE. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#urlcreate">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#urlcreate">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="urlcreate">
             <td colspan="5" class="p-3">
@@ -121,7 +121,7 @@
               </ul>
             </td>
             <td>Submit a URL, it will download and add as file task to be analyzed by CAPE. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#dlnexeccreate">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#dlnexeccreate">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="dlnexeccreate">
             <td colspan="5" class="p-3">
@@ -146,7 +146,7 @@
               </ul>
             </td>
             <td>Submit a file to try static extractors on it, file won't be submitted to Virtual Machine. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#staticextraction">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#staticextraction">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="staticextraction">
             <td colspan="5" class="p-3">
@@ -166,7 +166,7 @@
                 </td>
                 <td><ul class="list-unstyled mb-0 small text-white-50"><li>RPS: <span class="text-light">{{ config.fileview.rps }}</span></li><li>RPM: <span class="text-light">{{ config.fileview.rpm }}</span></li></ul></td>
                 <td>View information about a specific sample that's in CAPE's database. Return object will be JSON.</td>
-                <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#fileview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+                <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#fileview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
             </tr>
             <tr class="collapse bg-dark" id="fileview">
               <td colspan="5" class="p-3"><pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/files/view/md5/[md5 hash]/
@@ -193,7 +193,7 @@ curl {{ config.api.url }}/apiv2/files/view/id/[sample id]/</pre>
               </ul>
             </td>
             <td>View information about a specific Task that's in CAPE's database by Hash or ID. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tasksearch">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#tasksearch">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="tasksearch">
             <td colspan="5" class="p-3">
@@ -220,7 +220,7 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
               </ul>
             </td>
             <td>Search for Task ID's that's in MongoDB by various options. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#extendedtasksearch">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#extendedtasksearch">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="extendedtasksearch">
             <td colspan="5" class="p-3">
@@ -279,7 +279,7 @@ curl {{ config.api.url }}/apiv2/tasks/search/sha256/[sha256 hash]/</pre>
               </ul>
             </td>
             <td>View information about a range of Task ID's. Return object will be JSON</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tasklist">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#tasklist">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="tasklist">
             <td colspan="5" class="p-3">
@@ -307,7 +307,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
               </ul>
             </td>
             <td>View information about a specific task including VM, sample, and error information. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskview">
             <td colspan="5" class="p-3">
@@ -332,7 +332,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
               </ul>
             </td>
             <td>Reschedule an analysis task to run again. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskresched">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskresched">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskresched">
             <td colspan="5" class="p-3">
@@ -357,7 +357,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
                   </ul>
               </td>
               <td>Mark an analysis task as ready to be processed. Return object will be JSON.</td>
-              <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskreprocess">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+              <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskreprocess">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskreprocess">
               <td colspan="5" class="p-3">
@@ -382,7 +382,7 @@ curl {{ config.api.url }}/apiv2/tasks/list/[limit]/[offset]/ (specify a limit of
               </ul>
             </td>
             <td>Delete a task from the database. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskdelete">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskdelete">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskdelete">
             <td colspan="5" class="p-3">
@@ -410,7 +410,7 @@ curl {{ config.api.url }}/apiv2/tasks/delete/[start_task_id]-[end_task_id]/[stat
               </ul>
             </td>
             <td>Query the status of a Task by ID. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskstatus">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskstatus">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskstatus">
             <td colspan="5" class="p-3">
@@ -435,7 +435,7 @@ curl {{ config.api.url }}/apiv2/tasks/delete/[start_task_id]-[end_task_id]/[stat
               </ul>
             </td>
             <td>Download a report generated for a specific task. Return object will be JSON, XML, or application/zip (zip).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskreport">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskreport">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskreport">
             <td colspan="5" class="p-3">
@@ -464,7 +464,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/report/[task id]/[format]/zip/
               </ul>
             </td>
             <td>View objects of the task report that may contain potential IOCs. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskiocs">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskiocs">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskiocs">
             <td colspan="5" class="p-3">
@@ -490,7 +490,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/iocs/[task id]/detailed/</pre>
               </ul>
             </td>
             <td>View/Download screenshots of a Task by ID. Return object will be image/jpeg or application/zip (.zip).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskscreenshot">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskscreenshot">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskscreenshot">
             <td colspan="5" class="p-3">
@@ -516,7 +516,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
               </ul>
             </td>
             <td>Download the PCAP dump of a Task by ID. Return object will be application/vnd.tcpdump.pcap. (.pcap)</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskpcap">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskpcap">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskpcap">
             <td colspan="5" class="p-3">
@@ -541,7 +541,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
               </ul>
             </td>
             <td>Download the dropped files associated with a Task by ID. Return object will be application/zip (.zip).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskdropped">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskdropped">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskdropped">
             <td colspan="5" class="p-3">
@@ -566,7 +566,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
               </ul>
             </td>
             <td>Download the Suricata captured files associated with a Task by ID. Return object will be octet-stream (.zip).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#tasksurifile">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#tasksurifile">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="tasksurifile">
             <td colspan="5" class="p-3">
@@ -591,7 +591,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
               </ul>
             </td>
             <td>Download a process memory dump from a Task by ID and PID. Return object will be application/zip (.zip).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskprocmemory">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskprocmemory">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskprocmemory">
             <td colspan="5" class="p-3">
@@ -617,7 +617,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
               </ul>
             </td>
             <td>Download a full memory dump of a Task by ID. Return object will be octet-stream (.dmp).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#taskfullmemory">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskfullmemory">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="taskfullmemory">
             <td colspan="5" class="p-3">
@@ -642,7 +642,7 @@ curl {{ config.api.url }}/apiv2/tasks/get/procmemory/[task id]/[pid]/</pre>
               </ul>
             </td>
             <td>Download a sample by Task ID/MD5/SHA1/SHA256. Supports encryption. Return object octet-stream/zip.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#sampledl">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#sampledl">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="sampledl">
             <td colspan="5" class="p-3">
@@ -675,7 +675,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>View basic statistics of available/total virtual machines. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#machinelist">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#machinelist">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="machinelist">
             <td colspan="5" class="p-3">
@@ -700,7 +700,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>View information about a specific virtual machine. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#machineview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#machineview">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="machineview">
             <td colspan="5" class="p-3">
@@ -725,7 +725,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>View ids of tasks finished on latest X hours.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#latests_ids">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#latests_ids">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="latests_ids">
             <td colspan="5" class="p-3">
@@ -750,7 +750,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>View the current status of the CAPE host. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#capestatus">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#capestatus">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="capestatus">
             <td colspan="5" class="p-3">
@@ -775,7 +775,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>View the CAPE extracted sample config associated with a task by ID. Return object will be JSON.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#capeconfig">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#capeconfig">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="capeconfig">
             <td colspan="5" class="p-3">
@@ -800,7 +800,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>Download the CAPE payload files associated with a task by ID. Return object will be octet-stream (.zip).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#capepayloadfiles">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#capepayloadfiles">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="capepayloadfiles">
             <td colspan="5" class="p-3">
@@ -825,7 +825,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>Download the procdump files associated with a task by ID. Return object will be octet-stream (.zip).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#capeprocdumpfiles">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#capeprocdumpfiles">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="capeprocdumpfiles">
             <td colspan="5" class="p-3">
@@ -850,7 +850,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>Details about tasks and time spend on different modules (TOP 30).</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#statistircs">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#statistircs">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="statistircs">
             <td colspan="5" class="p-3">
@@ -875,7 +875,7 @@ curl {{ config.api.url }}/apiv2/files/get/sha256/[sha256 hash]/?encrypted=1</pre
               </ul>
             </td>
             <td>Download the HAR file of mitmdump given a Task ID. Return will be a HAR file.</td>
-            <td class="text-center"><button class="btn btn-sm btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#mitmdump">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#mitmdump">View <i class="fas fa-chevron-down ms-1"></i></button></td>
           </tr>
           <tr class="collapse bg-dark" id="mitmdump">
             <td colspan="5" class="p-3">

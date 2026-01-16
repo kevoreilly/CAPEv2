@@ -1,5 +1,6 @@
 {% load analysis_tags %}
 
+{% if analysis.signatures %}
 <section id="signatures" class="mb-4">
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
@@ -112,3 +113,4 @@
         </div>
     </div>
 </section>
+{% endif %}

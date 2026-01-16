@@ -3,36 +3,54 @@
     <div class="tab-content" id="myTabContent">
         <div class="tab-pane fade show active" id="info" role="tabpanel" aria-labelledby="info-tab">
             {% include "sections/info.html" %}
-            {% include "sections/errors.html" %}
+            {% if results.errors %}
+                {% include "sections/errors.html" %}
+            {% endif %}
             {% if results.info.category == "file" %}
                 {% include "sections/file.html" %}
             {% elif results.info.category == "url" %}
                 {% include "sections/url.html" %}
             {% endif %}
-            {% include "sections/signatures.html" %}
-            {% include "sections/screenshots.html" %}
-            {% include "sections/_summary.html" %}
+            {% if results.signatures %}
+                {% include "sections/signatures.html" %}
+            {% endif %}
+            {% if results.shots %}
+                {% include "sections/screenshots.html" %}
+            {% endif %}
+            {% if results.behavior and results.behavior.summary %}
+                {% include "sections/_summary.html" %}
+            {% endif %}
         </div>
+        {% if results.behavior %}
         <div class="tab-pane fade" id="behavior" role="tabpanel" aria-labelledby="behavior-tab">
             {% include "sections/behavior.html" %}
         </div>
+        {% endif %}
+        {% if results.network %}
         <div class="tab-pane fade" id="network" role="tabpanel" aria-labelledby="network-tab">
             {% include "sections/network.html" %}
         </div>
+        {% endif %}
+        {% if results.dropped %}
         <div class="tab-pane fade" id="dropped" role="tabpanel" aria-labelledby="dropped-tab">
             {% include "sections/dropped.html" %}
         </div>
+        {% endif %}
+        {% if results.CAPE and results.CAPE.payloads %}
         <div class="tab-pane fade" id="payloads" role="tabpanel" aria-labelledby="payloads-tab">
             {% include "sections/payloads.html" %}
         </div>
+        {% endif %}
+        {% if results.procdump %}
         <div class="tab-pane fade" id="procdump" role="tabpanel" aria-labelledby="procdump-tab">
             {% include "sections/procdump.html" %}
         </div>
+        {% endif %}
+        {% if debugger %}
         <div class="tab-pane fade" id="debugger" role="tabpanel" aria-labelledby="debugger-tab">
-            {% if debugger %}
-                {% include "sections/debugger.html" %}
-            {% endif %}
+            {% include "sections/debugger.html" %}
         </div>
+        {% endif %}
         {% if results.memory %}
         <div class="tab-pane fade" id="volatility" role="tabpanel" aria-labelledby="volatility-tab">
                 {% include "sections/volatility.html" %}

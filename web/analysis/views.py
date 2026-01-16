@@ -1557,12 +1557,31 @@ def report(request, task_id):
     except Exception as e:
         print(e)
 
-    reports_exist = False
+    reports_exist = {}
     # check if we allow dl reports only to specific users
-    if settings.ALLOW_DL_REPORTS_TO_ALL:
-        reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
-        if path_exists(reporting_path) and os.listdir(reporting_path):
-            reports_exist = True
+    reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
+    if path_exists(reporting_path):
+        for f in os.listdir(reporting_path):
+            if f == "report.json":
+                reports_exist["json"] = True
+            elif f == "report.html":
+                reports_exist["html"] = True
+            elif f == "summary-report.html":
+                reports_exist["htmlsummary"] = True
+            elif f == "report.pdf":
+                reports_exist["pdf"] = True
+            elif f == "report.maec-4.1.xml":
+                reports_exist["maec"] = True
+            elif f == "report.maec-5.0.xml":
+                reports_exist["maec5"] = True
+            elif f == "report.metadata.xml":
+                reports_exist["metadata"] = True
+            elif f == "misp.json":
+                reports_exist["misp"] = True
+            elif f == "lite.json":
+                reports_exist["litereport"] = True
+            elif f == "cents.json":
+                reports_exist["cents"] = True
 
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
     if path_exists(debugger_log_path) and os.listdir(debugger_log_path):

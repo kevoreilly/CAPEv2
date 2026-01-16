@@ -181,9 +181,7 @@
                                         name="package">
                                         <option value="" title="">Detect Automatically</option>
                                         {% for package in packages %}
-                                        <option value="{{package.value}}" title="{{ package.description }}">
-                                            {{package.name}} - {{ package.summary }}
-                                        </option>
+                                        <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{ package.summary }}</option>
                                         {% endfor %}
                                     </select>
                                     <small id="package_description" class="form-text text-white-50"></small>

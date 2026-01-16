@@ -15,8 +15,8 @@
     </div>
 {% endif %}
     <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
-        <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-bs-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-bs-toggle="tab">DNS ({{ network.domains|length }})</a></li>
+        {% if network.hosts %}<li class="nav-item"><a class="nav-link" href="#network_hosts_tab" data-bs-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>{% endif %}
+        {% if network.domains %}<li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-bs-toggle="tab">DNS ({{ network.domains|length }})</a></li>{% endif %}
         {% if network.tcp %}<li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-bs-toggle="tab">TCP ({{ network.tcp|length }})</a></li>{% endif %}
         {% if network.udp %}<li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-bs-toggle="tab">UDP ({{ network.udp|length }})</a></li>{% endif %}
         {% if network.http_ex or network.https_ex or network.http %}
@@ -40,7 +40,7 @@
         {% endif %}
     </ul>
     <div class="tab-content">
-        <div class="tab-pane fade show active" id="network_hosts_tab">{% include "analysis/network/_hosts.html" %}</div>
+        <div class="tab-pane fade" id="network_hosts_tab">{% include "analysis/network/_hosts.html" %}</div>
         <div class="tab-pane fade" id="network_tcp_tab">{% include "analysis/network/_tcp.html" %}</div>
         <div class="tab-pane fade" id="network_udp_tab">{% include "analysis/network/_udp.html" %}</div>
         <div class="tab-pane fade" id="network_dns_tab">{% include "analysis/network/_dns.html" %}</div>
@@ -54,3 +54,12 @@
         <div class="tab-pane fade" id="network_suri_http_tab">{% include "analysis/network/_suricata_http.html" %}</div>
         <div class="tab-pane fade" id="network_suri_files">{% include "analysis/network/_suricata_files.html" %}</div>
     </div>
+<script type="text/javascript">
+    $(document).ready(function() {
+        // Set the first visible tab as active
+        $('.nav-tabs .nav-item:first a').addClass('active');
+        $('.nav-tabs .nav-item:first').addClass('active');
+        var firstTabId = $('.nav-tabs .nav-item:first a').attr('href');
+        $(firstTabId).addClass('show active');
+    });
+</script>

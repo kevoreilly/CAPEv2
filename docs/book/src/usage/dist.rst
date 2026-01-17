@@ -164,7 +164,7 @@ or::
 Submit a new analysis task
     The method of submission is always the same: by REST API or via web GUI, both only pointing to the "master node".
 
-Get the report of a task should be requested throw master node integrated /api/
+Get the report of a task should be requested through the master node integrated /api/
 
 Proposed setup
 ==============

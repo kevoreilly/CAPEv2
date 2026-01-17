@@ -2,7 +2,7 @@
 Installing the Linux guest
 ==========================
 
-Linux guests doesn't have official CAPAE support!
+Linux guests don't have official CAPE support!
 First, prepare the networking for your machinery platform on the host side.
 
 .. This has not been tested recently:

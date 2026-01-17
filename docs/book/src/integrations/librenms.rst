@@ -50,14 +50,13 @@ On the CAPEv2 side, you will need to make a few tweaks to ``reporting.conf``.
 ``litereport`` will need enabled and  ``keys_to_copy`` should include
 'signatures' and 'detections'.
 
-Finally will need to enable the extend for your
+Finally, you will need to enable the extend in your snmpd configuration file:
 
 ::
 
     extend cape /etc/snmp/extends/cape
 
-Once snmpd is restarted and the the device rediscovered via LibreNMS,
-you will then be able to
+Once snmpd is restarted and the device is rediscovered via LibreNMS, you will then be able to view the CAPE statistics.
 
 For more detailed monitoring, if using KVM, you will likely want to
 also considering using `HV::Monitor`, which will allow detailed

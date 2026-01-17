@@ -1,3 +1,4 @@
+<script src="{{ STATIC_URL }}js/hexdump.js"></script>
 <div class="card bg-dark border-secondary">
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-sitemap me-2 text-info"></i>HTTP Requests</h5>
@@ -21,6 +22,8 @@
                     {% else %}
                         Request:
                     {% endif %}
+                    <a href="javascript:void(0);" class="btn btn-secondary btn-sm btn-hexdump" data-raw="{{ http.request }}">Hexdump</a>
+                    <div class="hexdump-viewport" style="display:none;"></div>
                     {% for value in http.request|network_rn %}
                         <li>{{value}}</li>
                     {% endfor %}
@@ -33,6 +36,8 @@
                 {% else %}
                     Response:
                 {% endif %}
+                <a href="javascript:void(0);" class="btn btn-secondary btn-sm btn-hexdump" data-raw="{{ http.response }}">Hexdump</a>
+                <div class="hexdump-viewport" style="display:none;"></div>
                 {% for value in http.response|network_rn %}
                     <li>{{value}}</li>
                 {% endfor %}
@@ -62,7 +67,11 @@
         {% for request in network.http %}
         <tr>
             <td style="word-wrap: break-word;">{{request.uri}}</td>
-            <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
+            <td style="word-wrap: break-word;">
+                <a href="javascript:void(0);" class="btn btn-secondary btn-sm btn-hexdump" data-raw="{{ request.data }}">Hexdump</a>
+                <div class="hexdump-viewport" style="display:none;"></div>
+                <pre>{{request.data}}</pre>
+            </td>
         </tr>
         {% endfor %}
     </table>
@@ -73,3 +82,27 @@
     </div>
 {% endif %}
 </div>
+
+<script type="text/javascript">
+$(function () {
+    $(".btn-hexdump").on('click', function() {
+        var $viewport = $(this).next('.hexdump-viewport');
+        if ($viewport.is(':visible')) {
+            $viewport.hide();
+        } else {
+            var raw = $(this).attr('data-raw');
+            if (raw) {
+                try {
+                    var result = renderHex(raw, 16, false);
+                    var $pre = $("<pre class='hexdump-container'></pre>").text(result);
+                    $viewport.empty().append($pre).show();
+                } catch (e) {
+                    $viewport.html("<div class='alert alert-danger'>Error decoding base64 data</div>").show();
+                }
+            } else {
+                $viewport.html("<div class='alert alert-warning'>No data available</div>").show();
+            }
+        }
+    });
+});
+</script>

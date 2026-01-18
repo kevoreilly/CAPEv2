@@ -1512,7 +1512,7 @@ class Azure(Machinery):
                     current_vmss_operations -= 1
                 timediff = timeit.default_timer() - start_time
                 log.debug(
-                    "%successfully reimaging instances %s in %s took %ds", 'S' if reimaged else 'Uns', str(instance_ids), str(vmss_to_reimage), round(timediff)
+                    "%ssuccessfully reimaging instances %s in %s took %ds", 'S' if reimaged else 'Un', str(instance_ids), str(vmss_to_reimage), round(timediff)
                 )
             except Exception as e:
                 log.error("Exception occurred in the reimage thread: %s. Trying again...", str(e))

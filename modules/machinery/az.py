@@ -1589,7 +1589,7 @@ class Azure(Machinery):
                 with current_operations_lock:
                     current_vmss_operations -= 1
                 log.debug(
-                    "%successfully deleting instances %s in %s took %ss", 'S' if deleted else 'Uns', str(instance_ids), str(vmss_to_delete_from), str(round(timeit.default_timer() - start_time))
+                    "%ssuccessfully deleting instances %s in %s took %ss", 'S' if deleted else 'Un', str(instance_ids), str(vmss_to_delete_from), str(round(timeit.default_timer() - start_time))
                 )
             except Exception as e:
                 log.error("Exception occurred in the delete thread: %s. Trying again...", str(e))

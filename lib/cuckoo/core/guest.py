@@ -168,7 +168,7 @@ class GuestManager:
                             s.connect(sa)
                         connected = True
                         break
-                    except (socket.timeout, socket.error, OSError):
+                    except OSError:
                         continue
 
                 if connected:

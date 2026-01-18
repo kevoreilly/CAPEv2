@@ -73,12 +73,12 @@ class PipeForwarder(threading.Thread):
         if pid.value:
             sock = self.sockets.get(pid.value)
             if not sock:
-                sock = socket.create_connection(self.destination)
+                sock = socket.create_connection(self.destination, timeout=60)
                 self.sockets[pid.value] = sock
 
             self.active[pid.value] = True
         else:
-            sock = socket.create_connection(self.destination)
+            sock = socket.create_connection(self.destination, timeout=60)
 
         open_handles.add(sock)
 

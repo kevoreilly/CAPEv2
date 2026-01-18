@@ -168,7 +168,8 @@ class GuestManager:
                             s.connect(sa)
                         connected = True
                         break
-                    except OSError:
+                    except OSError as e:
+                        log.debug("Task #%s: %s is not ready yet (timeout). %s", self.task_id, self.vmid, str(e))
                         continue
 
                 if connected:
@@ -177,9 +178,7 @@ class GuestManager:
                 # If we reach here, we failed to connect to any resolved address
                 raise socket.error(f"Could not connect to {self.ipaddr}:{self.port}")
 
-            except socket.timeout:
-                log.debug("Task #%s: %s is not ready yet (timeout)", self.task_id, self.vmid)
-            except (socket.error, OSError, Exception) as e:
+            except (OSError, Exception) as e:
                 log.debug("Task #%s: %s is not ready yet (error: %s)", self.task_id, self.vmid, e)
                 time.sleep(1)
 

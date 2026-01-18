@@ -51,7 +51,7 @@ class KVM(LibVirtMachinery):
         graphics = xml.find("./devices/graphics")
         if graphics is not None:
             port = int(graphics.get("port", -1))
-            if port and port != -1:
+            if port > 0:
                 self.db.set_vnc_port(task_id, port)
                 return
 

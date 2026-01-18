@@ -856,10 +856,10 @@ class Azure(Machinery):
                         break
                     except (OSError):
                         continue
-                
+
                 if connected:
                     break
-                
+
                 # If we reach here, we failed to connect to any resolved address
                 raise socket.error(f"Could not connect to {machine_ip}:{CUCKOO_GUEST_PORT}")
 
@@ -867,7 +867,7 @@ class Azure(Machinery):
                 log.debug("%s: Initializing... (timeout)", machine_name)
             except (OSError, Exception) as e:
                 log.debug("%s: Initializing... (error: %s)", machine_name, e)
-            
+
             if (timeit.default_timer() - start) >= timeout:
                 # We didn't do it :(
                 raise CuckooGuestCriticalTimeout(

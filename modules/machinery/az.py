@@ -844,13 +844,30 @@ class Azure(Machinery):
         start = timeit.default_timer()
         while True:
             try:
-                socket.create_connection((machine_ip, CUCKOO_GUEST_PORT), 1).close()
-                # We did it!
-                break
+                # Support for DNS and IPv6 by resolving first
+                connected = False
+                for res in socket.getaddrinfo(machine_ip, CUCKOO_GUEST_PORT, socket.AF_UNSPEC, socket.SOCK_STREAM):
+                    af, socktype, proto, _, sa = res
+                    try:
+                        with socket.socket(af, socktype, proto) as s:
+                            s.settimeout(1)
+                            s.connect(sa)
+                        connected = True
+                        break
+                    except (OSError):
+                        continue
+
+                if connected:
+                    break
+
+                # If we reach here, we failed to connect to any resolved address
+                raise socket.error(f"Could not connect to {machine_ip}:{CUCKOO_GUEST_PORT}")
+
             except socket.timeout:
-                log.debug("%s: Initializing...", machine_name)
-            except socket.error:
-                log.debug("%s: Initializing...", machine_name)
+                log.debug("%s: Initializing... (timeout)", machine_name)
+            except (OSError, Exception) as e:
+                log.debug("%s: Initializing... (error: %s)", machine_name, e)
+
             if (timeit.default_timer() - start) >= timeout:
                 # We didn't do it :(
                 raise CuckooGuestCriticalTimeout(

@@ -613,7 +613,9 @@ class LibVirtMachinery(Machinery):
 
         conn = self._connect(label)
         try:
-            state = self.vms[label].state(flags=0)
+            vm = conn.lookupByName(label)
+            self.vms[label] = vm
+            state = vm.state(flags=0)
         except libvirt.libvirtError as e:
             raise CuckooMachineError(f"Error getting status for virtual machine {label}: {e}") from e
         finally:

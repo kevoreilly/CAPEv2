@@ -21,8 +21,7 @@ body {
 }
 
 a {
-    color: #5ebcf3;
-    text-decoration: none;
+    color: white
 }
 
 .navbar-collapse.in {
@@ -51,61 +50,7 @@ element.style {
 }
 
 a:hover {
-    color: #EE1B2F;
-    text-decoration: underline;
-}
-
-.btn-primary {
-    background-color: #325d88 !important;
-    border-color: #325d88 !important;
-    color: #fff !important;
-}
-
-.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
-    background-color: #264768 !important;
-    border-color: #264768 !important;
-}
-
-.btn-info {
-    background-color: #29aba1 !important;
-    border-color: #29aba1 !important;
-    color: #fff !important;
-}
-
-.btn-info:hover, .btn-info:focus, .btn-info:active {
-    background-color: #1f8179 !important;
-    border-color: #1f8179 !important;
-}
-
-.btn-outline-info {
-    color: #29aba1 !important;
-    border-color: #29aba1 !important;
-}
-
-.btn-outline-info:hover {
-    background-color: #29aba1 !important;
-    border-color: #29aba1 !important;
-    color: #fff !important;
-}
-
-.text-info {
-    color: #4dd0e1 !important;
-}
-
-.bg-primary {
-    background-color: #325d88 !important;
-}
-
-.text-primary {
-    color: #5ebcf3 !important;
-}
-
-.bg-info {
-    background-color: #29aba1 !important;
-}
-
-.badge.bg-primary, .badge.bg-info, .badge.bg-danger, .badge.bg-success {
-    color: #fff !important;
+    color: #EE1B2F
 }
 
 .btn-link {
@@ -290,11 +235,6 @@ pre {
     cursor: pointer;
 }
 
-.form-control {
-    background-color: darkgray;
-    color:black;
-}
-
 /* Windows API categories */
 .filesystem {
     background-color: #ffe3c5;
@@ -426,9 +366,6 @@ a:not(.btn, [class*="btn"]):hover {
     text-decoration: underline !important;
 }
 
-.bg-dark::placeholder {
-  color: rgba(255, 255, 255, 0.7);
-}
 
 /* Make category background apply to table cells in BS5 */
 .table tbody tr.filesystem > td,
@@ -479,58 +416,34 @@ a:not(.btn, [class*="btn"]):hover {
   color: inherit;            /* inherit the TR text color */
 }
 
-/* Dark-theme file input (Bootstrap 5) */
-.form-control[type="file"]{
-  background-color: #212529;                 /* bg-dark */
-  color: rgba(255,255,255,.85);              /* readable on dark */
-  border: 1px solid #6c757d;                 /* border-secondary */
-}
-
-/* Placeholder-ish text (some browsers show filename text differently) */
-.form-control[type="file"]::placeholder{
-  color: rgba(255,255,255,.6);
-}
-
-/* The “Browse” button part */
-.form-control[type="file"]::file-selector-button{
-  background-color: #343a40;                 /* dark button */
-  color: rgba(255,255,255,.9);
-  border: 0;
-  border-right: 1px solid #6c757d;           /* border-secondary */
-  padding: .375rem .75rem;
-  margin-right: .75rem;                      /* spacing before filename */
-}
-
 /* Hover/focus states */
 .form-control[type="file"]::file-selector-button:hover{
   background-color: #3f474e;
 }
 
-.form-control[type="file"]:focus{
-  border-color: #adb5bd;                     /* slightly brighter */
-  box-shadow: 0 0 0 .25rem rgba(108,117,125,.25);
+/* Mid-gray form controls for Darkly */
+:root {
+  --form-bg: #5c5c5c;                 /* ← adjust here (try #4f4f4f to #5c5c5c) */
+  --form-border: #666;
+  --form-text: #fff;
+  --form-placeholder: rgba(255,255,255,.55);
 }
 
-/* Disabled */
-.form-control[type="file"]:disabled{
-  background-color: #1c1f23;
-  color: rgba(255,255,255,.5);
-}
-.form-control[type="file"]:disabled::file-selector-button{
-  background-color: #2b3035;
-  color: rgba(255,255,255,.5);
+.form-control,
+.form-select {
+  background-color: var(--form-bg) !important;
+  color: var(--form-text) !important;
+  border-color: var(--form-border) !important;
 }
 
-.bg-dark .form-check-label {
-  color: #fff;
+.form-control::placeholder {
+  color: var(--form-placeholder) !important;
 }
 
-.bg-dark .form-check-input {
-  background-color: #212529;
-  border-color: #6c757d;
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--form-bg) !important;
+  border-color: #00bc8c !important;        /* Darkly success color */
+  box-shadow: 0 0 0 .25rem rgba(0,188,140,.25);
 }
 
-.bg-dark .form-check-input:checked {
-  background-color: #0d6efd;
-  border-color: #0d6efd;
-}

@@ -696,7 +696,7 @@ class LibVirtMachinery(Machinery):
             if hasattr(conn, "listAllDomains"):
                 # flags=0 returns all domains (active and inactive)
                 return [dom.name() for dom in conn.listAllDomains(0)]
-            
+
             # Fallback for older libvirt versions
             names = conn.listDefinedDomains()
             for vid in conn.listDomainsID():

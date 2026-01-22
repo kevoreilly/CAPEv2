@@ -1,176 +1,376 @@
 {% if analysis.behavior.summary %}
 <section id="summary" class="mb-4">
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-list-alt me-2 text-primary"></i> Summary</h5>
         </div>
         <div class="card-body">
             <div class="row">
+
+                <!-- Left column - Accordion navigation (all collapsed) -->
                 <div class="col-md-3 mb-3">
-                    <div class="nav flex-column nav-pills" id="summaryTabs" role="tablist" aria-orientation="vertical">
-                        {% if analysis.behavior.summary.files %}<a class="nav-link active" id="v-pills-files-tab" data-bs-toggle="pill" href="#summary_files" role="tab" aria-controls="summary_files" aria-selected="true"><i class="fas fa-file me-2"></i> Accessed Files</a>{% endif %}
-                        {% if analysis.behavior.summary.read_files %}<a class="nav-link" id="v-pills-read-files-tab" data-bs-toggle="pill" href="#summary_read_files" role="tab" aria-controls="summary_read_files" aria-selected="false"><i class="fas fa-file-alt me-2"></i> Read Files</a>{% endif %}
-                        {% if analysis.behavior.summary.write_files %}<a class="nav-link" id="v-pills-write-files-tab" data-bs-toggle="pill" href="#summary_write_files" role="tab" aria-controls="summary_write_files" aria-selected="false"><i class="fas fa-file-signature me-2"></i> Modified Files</a>{% endif %}
-                        {% if analysis.behavior.summary.delete_files %}<a class="nav-link" id="v-pills-delete-files-tab" data-bs-toggle="pill" href="#summary_delete_files" role="tab" aria-controls="summary_delete_files" aria-selected="false"><i class="fas fa-trash-alt me-2"></i> Deleted Files</a>{% endif %}
-                        {% if analysis.behavior.summary.keys %}<a class="nav-link" id="v-pills-keys-tab" data-bs-toggle="pill" href="#summary_keys" role="tab" aria-controls="summary_keys" aria-selected="false"><i class="fas fa-key me-2"></i> Registry Keys</a>{% endif %}
-                        {% if analysis.behavior.summary.read_keys %}<a class="nav-link" id="v-pills-read-keys-tab" data-bs-toggle="pill" href="#summary_read_keys" role="tab" aria-controls="summary_read_keys" aria-selected="false"><i class="fas fa-eye me-2"></i> Read Registry Keys</a>{% endif %}
-                        {% if analysis.behavior.summary.write_keys %}<a class="nav-link" id="v-pills-write-keys-tab" data-bs-toggle="pill" href="#summary_write_keys" role="tab" aria-controls="summary_write_keys" aria-selected="false"><i class="fas fa-edit me-2"></i> Modified Registry Keys</a>{% endif %}
-                        {% if analysis.behavior.summary.delete_keys %}<a class="nav-link" id="v-pills-delete-keys-tab" data-bs-toggle="pill" href="#summary_delete_keys" role="tab" aria-controls="summary_delete_keys" aria-selected="false"><i class="fas fa-eraser me-2"></i> Deleted Registry Keys</a>{% endif %}
-                        {% if analysis.behavior.summary.resolved_apis %}<a class="nav-link" id="v-pills-resolved-apis-tab" data-bs-toggle="pill" href="#summary_resolved_apis" role="tab" aria-controls="summary_resolved_apis" aria-selected="false"><i class="fas fa-cogs me-2"></i> Resolved APIs</a>{% endif %}
-                        {% if analysis.behavior.summary.executed_commands %}<a class="nav-link" id="v-pills-executed-commands-tab" data-bs-toggle="pill" href="#summary_executed_commands" role="tab" aria-controls="summary_executed_commands" aria-selected="false"><i class="fas fa-terminal me-2"></i> Executed Commands</a>{% endif %}
-                        {% if analysis.behavior.summary.mutexes %}<a class="nav-link" id="v-pills-mutexes-tab" data-bs-toggle="pill" href="#summary_mutexes" role="tab" aria-controls="summary_mutexes" aria-selected="false"><i class="fas fa-lock me-2"></i> Mutexes</a>{% endif %}
-                        {% if analysis.behavior.summary.created_services %}<a class="nav-link" id="v-pills-created-services-tab" data-bs-toggle="pill" href="#summary_created_services" role="tab" aria-controls="summary_created_services" aria-selected="false"><i class="fas fa-plus-square me-2"></i> Created Services</a>{% endif %}
-                        {% if analysis.behavior.summary.started_services %}<a class="nav-link" id="v-pills-started-services-tab" data-bs-toggle="pill" href="#summary_started_services" role="tab" aria-controls="summary_started_services" aria-selected="false"><i class="fas fa-play-circle me-2"></i> Started Services</a>{% endif %}
-                        {% if analysis.behavior.summary.reversing_labs %}<a class="nav-link" id="v-pills-reversing-labs-tab" data-bs-toggle="pill" href="#summary_reversing_labs" role="tab" aria-controls="summary_reversing_labs" aria-selected="false"><i class="fas fa-flask me-2"></i> Reversing Labs</a>{% endif %}
+                    <div class="accordion" id="summaryAccordion">
+
+                        {% if analysis.behavior.summary.files %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_files"
+                                        aria-expanded="false" aria-controls="summary_files">
+                                    <i class="fas fa-file me-2"></i> Accessed Files
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.read_files %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_read_files"
+                                        aria-expanded="false" aria-controls="summary_read_files">
+                                    <i class="fas fa-file-alt me-2"></i> Read Files
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.write_files %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_write_files"
+                                        aria-expanded="false" aria-controls="summary_write_files">
+                                    <i class="fas fa-file-signature me-2"></i> Modified Files
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.delete_files %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_delete_files"
+                                        aria-expanded="false" aria-controls="summary_delete_files">
+                                    <i class="fas fa-trash-alt me-2"></i> Deleted Files
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.keys %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_keys"
+                                        aria-expanded="false" aria-controls="summary_keys">
+                                    <i class="fas fa-key me-2"></i> Registry Keys
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.read_keys %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_read_keys"
+                                        aria-expanded="false" aria-controls="summary_read_keys">
+                                    <i class="fas fa-eye me-2"></i> Read Registry Keys
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.write_keys %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_write_keys"
+                                        aria-expanded="false" aria-controls="summary_write_keys">
+                                    <i class="fas fa-edit me-2"></i> Modified Registry Keys
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.delete_keys %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_delete_keys"
+                                        aria-expanded="false" aria-controls="summary_delete_keys">
+                                    <i class="fas fa-eraser me-2"></i> Deleted Registry Keys
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.resolved_apis %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_resolved_apis"
+                                        aria-expanded="false" aria-controls="summary_resolved_apis">
+                                    <i class="fas fa-cogs me-2"></i> Resolved APIs
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.executed_commands %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_executed_commands"
+                                        aria-expanded="false" aria-controls="summary_executed_commands">
+                                    <i class="fas fa-terminal me-2"></i> Executed Commands
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.mutexes %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_mutexes"
+                                        aria-expanded="false" aria-controls="summary_mutexes">
+                                    <i class="fas fa-lock me-2"></i> Mutexes
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.created_services %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_created_services"
+                                        aria-expanded="false" aria-controls="summary_created_services">
+                                    <i class="fas fa-plus-square me-2"></i> Created Services
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.started_services %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_started_services"
+                                        aria-expanded="false" aria-controls="summary_started_services">
+                                    <i class="fas fa-play-circle me-2"></i> Started Services
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
+                        {% if analysis.behavior.summary.reversing_labs %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#summary_reversing_labs"
+                                        aria-expanded="false" aria-controls="summary_reversing_labs">
+                                    <i class="fas fa-flask me-2"></i> Reversing Labs
+                                </button>
+                            </h2>
+                        </div>
+                        {% endif %}
+
                     </div>
                 </div>
+
+                <!-- Right column - Content (all collapsed initially) -->
                 <div class="col-md-9">
-                    <div class="tab-content" id="v-pills-tabContent">
-                        <div class="tab-pane fade show active" id="summary_files" role="tabpanel" aria-labelledby="v-pills-files-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.files %}
-                                    <ul class="list-unstyled mb-0">
+
+                    {% if analysis.behavior.summary.files %}
+                    <div id="summary_files" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for file in analysis.behavior.summary.files %}
                                         <li>{{file}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_read_files" role="tabpanel" aria-labelledby="v-pills-read-files-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.read_files %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.read_files %}
+                    <div id="summary_read_files" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for file in analysis.behavior.summary.read_files %}
                                         <li>{{file}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_write_files" role="tabpanel" aria-labelledby="v-pills-write-files-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.write_files %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.write_files %}
+                    <div id="summary_write_files" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for file in analysis.behavior.summary.write_files %}
                                         <li>{{file}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_delete_files" role="tabpanel" aria-labelledby="v-pills-delete-files-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.delete_files %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.delete_files %}
+                    <div id="summary_delete_files" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for file in analysis.behavior.summary.delete_files %}
                                         <li>{{file}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_keys" role="tabpanel" aria-labelledby="v-pills-keys-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.keys %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.keys %}
+                    <div id="summary_keys" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for key in analysis.behavior.summary.keys %}
                                         <li class="text-break">{{key}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_read_keys" role="tabpanel" aria-labelledby="v-pills-read-keys-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.read_keys %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.read_keys %}
+                    <div id="summary_read_keys" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for key in analysis.behavior.summary.read_keys %}
                                         <li class="text-break">{{key}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_write_keys" role="tabpanel" aria-labelledby="v-pills-write-keys-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.write_keys %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.write_keys %}
+                    <div id="summary_write_keys" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for key in analysis.behavior.summary.write_keys %}
                                         <li class="text-break">{{key}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_delete_keys" role="tabpanel" aria-labelledby="v-pills-delete-keys-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.delete_keys %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.delete_keys %}
+                    <div id="summary_delete_keys" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for key in analysis.behavior.summary.delete_keys %}
                                         <li class="text-break">{{key}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_resolved_apis" role="tabpanel" aria-labelledby="v-pills-resolved-apis-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.resolved_apis %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.resolved_apis %}
+                    <div id="summary_resolved_apis" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for api in analysis.behavior.summary.resolved_apis %}
                                         <li>{{api}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_executed_commands" role="tabpanel" aria-labelledby="v-pills-executed-commands-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.executed_commands %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.executed_commands %}
+                    <div id="summary_executed_commands" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for cmd in analysis.behavior.summary.executed_commands %}
                                         <li>{{cmd}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_mutexes" role="tabpanel" aria-labelledby="v-pills-mutexes-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.mutexes %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.mutexes %}
+                    <div id="summary_mutexes" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for mutex in analysis.behavior.summary.mutexes %}
                                         <li>{{mutex}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_created_services" role="tabpanel" aria-labelledby="v-pills-created-services-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.created_services %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.created_services %}
+                    <div id="summary_created_services" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for service in analysis.behavior.summary.created_services %}
                                         <li>{{service}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_started_services" role="tabpanel" aria-labelledby="v-pills-started-services-tab">
-                            <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
-                                {% if analysis.behavior.summary.started_services %}
-                                    <ul class="list-unstyled mb-0">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.started_services %}
+                    <div id="summary_started_services" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body p-0">
+                            <div class="card card-body border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                <ul class="list-unstyled mb-0">
                                     {% for service in analysis.behavior.summary.started_services %}
                                         <li>{{service}}</li>
                                     {% endfor %}
-                                    </ul>
-                                {% endif %}
+                                </ul>
                             </div>
                         </div>
-                        <div class="tab-pane fade" id="summary_reversing_labs" role="tabpanel" aria-labelledby="v-pills-reversing-labs-tab">
-                            <div class="card card-body bg-dark border-secondary text-white">
+                    </div>
+                    {% endif %}
+
+                    {% if analysis.behavior.summary.reversing_labs %}
+                    <div id="summary_reversing_labs" class="accordion-collapse collapse" data-bs-parent="#summaryAccordion">
+                        <div class="accordion-body">
+                            <div class="card card-body border-secondary text-white">
                                 {% if analysis.reversinglabs %}
                                 <div class="table-responsive">
                                     <table class="table table-dark table-sm table-striped mb-0">
@@ -204,6 +404,8 @@
                             </div>
                         </div>
                     </div>
+                    {% endif %}
+
                 </div>
             </div>
         </div>

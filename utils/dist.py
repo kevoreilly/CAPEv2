@@ -183,10 +183,11 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         if not r.ok:
             log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
             _ = path_write_file("/tmp/dist_error.html", r.content)
-            return []
+            return None
         return r.json().get("data", [])
     except Exception as e:
         log.critical("Error listing completed tasks (node %s): %s", url, e)
+        return None
 
     return []
 
@@ -769,8 +770,10 @@ class Retriever(threading.Thread):
             nodes = db.execute(select(Node.id, Node.name, Node.url, Node.apikey).where(Node.enabled.is_(True)))
             for node in nodes:
                 log.info("Checking for failed tasks on: %s", node.name)
-                for task in node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete"):
-                    task_stmt = select(Task).where(Task.task_id == task["id"], Task.node_id == node.id).order_by(Task.id.desc())
+                tasks = node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete")
+                if tasks:
+                    for task in tasks:
+                        task_stmt = select(Task).where(Task.task_id == task["id"], Task.node_id == node.id).order_by(Task.id.desc())
                     t = db.scalar(task_stmt)
                     if t is not None:
                         log.info("Cleaning failed for id: %d, node: %s: main_task_id: %d", t.id, t.node_id, t.main_task_id)
@@ -836,7 +839,17 @@ class Retriever(threading.Thread):
                         last_checks[node.name] = 0
                     limit = 0
                     task_ids = []
-                    for task in node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check):
+                    tasks = node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check)
+                    if tasks is None:
+                        self.status_count[node.name] += 1
+                        if self.status_count[node.name] == dead_count:
+                            log.info("[-] %s dead", node.name)
+                            node.enabled = False
+                            db.commit()
+                        continue
+
+                    self.status_count[node.name] = 0
+                    for task in tasks:
                         task_ids.append(task["id"])
 
                     if True:
@@ -1279,7 +1292,6 @@ class Retriever(threading.Thread):
                 node = nodes[node_id]
                 if node and details[node_id]:
                     ids = ",".join(list(set(details[node_id])))
-                    print(ids)
                     _delete_many(node_id, ids, nodes, db)
 
                 db.commit()
@@ -1521,7 +1533,6 @@ class StatusThread(threading.Thread):
                     """
                     # 4. Apply the limit and execute the query.
                     to_upload = db.scalars(stmt.limit(pend_tasks_num)).all()
-                    print(to_upload, node.name, pend_tasks_num)
 
                     if not to_upload:
                         db.commit()

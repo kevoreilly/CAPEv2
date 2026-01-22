@@ -12,7 +12,7 @@
                     <i class="fas fa-stopwatch me-2 text-info"></i>
                     Statistics
                     {% if stats_total.total %}
-                        <span class="badge ms-2">{{ stats_total.total }}s</span>
+                        <span class="badge bg-secondary ms-2">{{ stats_total.total }}s</span>
                     {% endif %}
                 </button>
             </h5>
@@ -38,7 +38,7 @@
                             <ul class="list-group list-group-flush">
                                 {% for stat in analysis.statistics.processing|dictsortreversed:"time" %}
                                     {% if stat.time %}
-                                    <li class="list-group-item text-white border-secondary py-1 small">
+                                    <li class="list-group-item bg-dark text-white border-secondary py-1 small">
                                         <span class="text-info fw-bold me-2">{{ stat.time }}s</span>
                                         {{ stat.name }}
                                     </li>
@@ -58,7 +58,7 @@
                             <ul class="list-group list-group-flush">
                                 {% for stat in analysis.statistics.signatures|dictsortreversed:"time" %}
                                     {% if stat.time %}
-                                    <li class="list-group-item text-white border-secondary py-1 small">
+                                    <li class="list-group-item bg-dark text-white border-secondary py-1 small">
                                         <span class="text-warning fw-bold me-2">{{ stat.time }}s</span>
                                         {{ stat.name }}
                                     </li>
@@ -78,7 +78,7 @@
                             <ul class="list-group list-group-flush">
                                 {% for stat in analysis.statistics.reporting|dictsortreversed:"time" %}
                                     {% if stat.time %}
-                                    <li class="list-group-item text-white border-secondary py-1 small">
+                                    <li class="list-group-item bg-dark text-white border-secondary py-1 small">
                                         <span class="text-success fw-bold me-2">{{ stat.time }}s</span>
                                         {{ stat.name }}
                                     </li>

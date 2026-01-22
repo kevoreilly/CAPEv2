@@ -1,4 +1,4 @@
-<div class="card bg-dark border-secondary mb-4">
+<div class="card border-secondary mb-4">
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-info"></i> About Classification</h5>
     </div>
@@ -22,7 +22,7 @@
 </div>
 
 {% if analysis.classification.family_top %}
-<div class="card bg-dark border-secondary mb-4">
+<div class="card border-secondary mb-4">
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-trophy me-2 text-warning"></i> Overall Classification</h5>
     </div>
@@ -48,7 +48,7 @@
 </div>
 {% endif %}
 
-<div class="card bg-dark border-secondary">
+<div class="card border-secondary">
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-primary"></i> Per Thread Classification</h5>
     </div>
@@ -56,7 +56,7 @@
         {% if analysis.classification.details %}
             <div class="accordion" id="classificationDetails">
             {% for block in analysis.classification.details %}
-                <div class="card bg-dark mb-2 mx-2 mt-2">
+                <div class="card mb-2 mx-2 mt-2">
                     <div class="card-header p-2" id="heading{{forloop.counter}}">
                         <h5 class="mb-0">
                             <button class="btn btn-link text-white text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{forloop.counter}}" aria-expanded="true" aria-controls="collapse{{forloop.counter}}">
@@ -70,7 +70,7 @@
                     </div>
 
                     <div id="collapse{{forloop.counter}}" class="collapse" aria-labelledby="heading{{forloop.counter}}" data-bs-parent="#classificationDetails">
-                        <div class="card-body bg-dark text-white">
+                        <div class="card-body text-white">
                             {% if block.results %}
                                 <ul class="list-unstyled">
                                 {% for sub_block in block.results %}
@@ -104,7 +104,7 @@
             <div class="accordion" id="classificationLegacy">
             {% for block in analysis.classification %}
                 {% if block.meta %}
-                <div class="card bg-dark mb-2 mx-2 mt-2">
+                <div class="card mb-2 mx-2 mt-2">
                     <div class="card-header p-2">
                         <h5 class="mb-0">
                             <button class="btn btn-link text-white text-decoration-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseLegacy{{forloop.counter}}">
@@ -117,7 +117,7 @@
                         </h5>
                     </div>
                     <div id="collapseLegacy{{forloop.counter}}" class="collapse">
-                        <div class="card-body bg-dark text-white">
+                        <div class="card-body text-white">
                             {% if block.results %}
                                 <ul class="list-unstyled">
                                 {% for sub_block in block.results %}

@@ -1,7 +1,7 @@
 <!-- Identical copy of _file_info.html adapted for sub_file -->
 {% load key_tags %}
 
-<div class="card bg-dark border-secondary mb-3">
+<div class="card border-secondary mb-3">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white"><i class="fas fa-file-invoice me-2 text-info"></i> Subfile Information</h5>
         {% if sub_file.dropdir %}
@@ -257,7 +257,7 @@
 
     <!-- Tools & Actions -->
     {% if not sub_file.dropdir %}
-    <div class="card-footer bg-dark border-secondary">
+    <div class="card-footer border-secondary">
         <div class="d-flex flex-wrap justify-content-start align-items-center">
             <span class="me-3 text-white-50 mb-2">Tools:</span>
             
@@ -320,7 +320,7 @@
 <div class="mb-4">
     {% if sub_file.flare_capa %}
         <div class="collapse mb-3" id="flare_capa_{{sub_file.sha256}}">
-            <div class="card bg-dark border-secondary">
+            <div class="card border-secondary">
                 <div class="card-header border-secondary"><h6 class="mb-0 text-white">CAPA Results</h6></div>
                 <div class="card-body">
                     {% if file.flare_capa.CAPABILITY or file.flare_capa.ATTCK or file.flare_capa.MBC %}
@@ -336,7 +336,7 @@
     {% endif %}
 
     {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:sub_file.sha256 %}
-        <div class="card bg-dark border-secondary mb-3">
+        <div class="card border-secondary mb-3">
             <div class="card-body text-center">{{ graphs.vba2graph.content|getkey:sub_file.sha256|safe }}</div>
         </div>
     {% endif %}
@@ -347,7 +347,7 @@
 
     {% if sub_file.strings %}
         <div class="collapse mb-3" id="strings_{{sub_file.sha256}}">
-            <div class="card bg-dark text-white">
+            <div class="card text-white">
                 <div class="card-header"><h6 class="mb-0">Strings</h6></div>
                 <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                     {{sub_file.strings|safe}}
@@ -358,7 +358,7 @@
 
     {% if sub_file.dotnet_strings %}
         <div class="collapse mb-3" id="dotnet_strings_{{file.sha256}}">
-            <div class="card bg-dark text-white">
+            <div class="card text-white">
                 <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
                 <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                     {% for string in sub_file.dotnet_strings %}<div>{{string|safe}}</div>{% endfor %}
@@ -369,7 +369,7 @@
 
     {% if sub_file.data %}
         <div class="collapse mb-3" id="text_{{sub_file.sha256}}">
-            <div class="card bg-dark text-white">
+            <div class="card text-white">
                 <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
                 <div class="card-body">
                     <pre class="mb-0 text-light small">{{sub_file.data|escape}}</pre>
@@ -380,7 +380,7 @@
 
     {% if sub_file.decoded_files %}
         <div class="collapse mb-3" id="decoded_files_{{sub_file.sha256}}">
-            <div class="card bg-dark text-white">
+            <div class="card text-white">
                 <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
                 <div class="card-body">
                     <pre class="mb-0 text-light small">{{sub_file.decoded_files|escape}}</pre>
@@ -391,7 +391,7 @@
 
     {% if sub_file.extracted_files %}
         <div class="collapse mb-3" id="extracted_files_{{sub_file.sha256}}">
-            <div class="card bg-dark border-secondary">
+            <div class="card border-secondary">
                 <div class="card-header border-secondary"><h6 class="mb-0 text-white">Extracted Files</h6></div>
                 <div class="card-body">
                     {% for sub_file in sub_file.extracted_files %}
@@ -413,7 +413,7 @@
     {% if sub_file.floss %} <div class="collapse mb-3" id="floss_{{sub_file.sha256}}"> {% include "analysis/generic/_floss.html" %}</div>{% endif %}
 
     {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:sub_file.sha256 %}
-        <div class="card bg-dark border-secondary mb-3">
+        <div class="card border-secondary mb-3">
             <div class="card-body text-center">{{ graphs.bingraph.content|getkey:sub_file.sha256|safe }}</div>
         </div>
     {% endif %}

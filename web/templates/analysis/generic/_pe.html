@@ -1,7 +1,7 @@
 <section id="static_analysis_pe" class="mb-4">
     {% load key_tags %}
     {% if file.pe %}
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fab fa-windows me-2 text-info"></i> PE Information</h5>
         </div>
@@ -67,9 +67,9 @@
             <div class="accordion" id="peDetailsAccordion">
 
                 {% if file.pe.versioninfo %}
-                <div class="accordion-item bg-dark border-secondary">
+                <div class="accordion-item border-secondary">
                     <h2 class="accordion-header" id="headingVersion">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVersion" aria-expanded="false" aria-controls="collapseVersion">
+                        <button class="accordion-button collapsed text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseVersion" aria-expanded="false" aria-controls="collapseVersion">
                             Version Info
                         </button>
                     </h2>
@@ -93,9 +93,9 @@
                 {% endif %}
 
                 {% if file.pe.sections %}
-                <div class="accordion-item bg-dark border-secondary">
+                <div class="accordion-item border-secondary">
                     <h2 class="accordion-header" id="headingSections">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSections" aria-expanded="false" aria-controls="collapseSections">
+                        <button class="accordion-button collapsed text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSections" aria-expanded="false" aria-controls="collapseSections">
                             Sections
                         </button>
                     </h2>
@@ -135,9 +135,9 @@
                 {% endif %}
 
                 {% if file.pe.resources %}
-                <div class="accordion-item bg-dark border-secondary">
+                <div class="accordion-item border-secondary">
                     <h2 class="accordion-header" id="headingResources">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseResources" aria-expanded="false" aria-controls="collapseResources">
+                        <button class="accordion-button collapsed text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseResources" aria-expanded="false" aria-controls="collapseResources">
                             Resources
                         </button>
                     </h2>
@@ -175,9 +175,9 @@
                 {% endif %}
 
                 {% if file.pe.imports %}
-                <div class="accordion-item bg-dark border-secondary">
+                <div class="accordion-item border-secondary">
                     <h2 class="accordion-header" id="headingImports">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseImports" aria-expanded="false" aria-controls="collapseImports">
+                        <button class="accordion-button collapsed text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseImports" aria-expanded="false" aria-controls="collapseImports">
                             Imports
                         </button>
                     </h2>
@@ -185,9 +185,9 @@
                         <div class="accordion-body p-2">
                             <div class="accordion accordion-flush" id="peImportsSubAccordion">
                             {% for dll, library in file.pe.imports.items %}
-                                <div class="accordion-item bg-dark border-bottom border-secondary">
+                                <div class="accordion-item border-bottom border-secondary">
                                     <h2 class="accordion-header" id="headingImport{{forloop.counter}}">
-                                        <button class="accordion-button collapsed bg-dark text-light shadow-none py-2" type="button" data-bs-toggle="collapse" data-bs-target="#import_{{dll|slugify}}" aria-expanded="false">
+                                        <button class="accordion-button collapsed text-light shadow-none py-2" type="button" data-bs-toggle="collapse" data-bs-target="#import_{{dll|slugify}}" aria-expanded="false">
                                             <i class="fas fa-code-branch me-2 text-warning"></i> {{dll}}
                                         </button>
                                     </h2>
@@ -220,9 +220,9 @@
                 {% endif %}
 
                 {% if file.pe.exports %}
-                <div class="accordion-item bg-dark border-secondary">
+                <div class="accordion-item border-secondary">
                     <h2 class="accordion-header" id="headingExports">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExports" aria-expanded="false" aria-controls="collapseExports">
+                        <button class="accordion-button collapsed text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseExports" aria-expanded="false" aria-controls="collapseExports">
                             Exports
                         </button>
                     </h2>
@@ -254,9 +254,9 @@
                 {% endif %}
 
                 {% if file.pe.digital_signers %}
-                <div class="accordion-item bg-dark border-secondary">
+                <div class="accordion-item border-secondary">
                     <h2 class="accordion-header" id="headingSigners">
-                        <button class="accordion-button collapsed bg-dark text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSigners" aria-expanded="false" aria-controls="collapseSigners">
+                        <button class="accordion-button collapsed text-white shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#collapseSigners" aria-expanded="false" aria-controls="collapseSigners">
                             Digital Signers
                         </button>
                     </h2>

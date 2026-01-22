@@ -6,7 +6,7 @@
 <!-- Malware Configuration -->
 {% if analysis.malware_conf %}
     <section id="malware-config" class="mb-4">
-        <div class="card bg-dark border-secondary">
+        <div class="card border-secondary">
             <div class="card-header border-secondary">
                 <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-danger"></i> Malware Configuration</h5>
             </div>
@@ -15,7 +15,7 @@
                 {% for config_block in analysis.malware_conf %}
                     {% for family, config in config_block.items %}
                         {% if family|slice:":1" != "_" %}
-                            <div class="card bg-dark border-bottom border-secondary rounded-0">
+                            <div class="card border-bottom border-secondary rounded-0">
                                 <div class="card-header p-0" id="heading{{family}}">
                                     <h2 class="mb-0">
                                         <button class="btn btn-block text-start p-3 d-flex align-items-center justify-content-between text-decoration-none shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#{{family}}_config" aria-expanded="true" aria-controls="{{family}}_config">
@@ -31,7 +31,7 @@
                                 </div>
 
                                 <div id="{{family}}_config" class="collapse show" aria-labelledby="heading{{family}}" data-bs-parent="#malwareConfAccordion">
-                                    <div class="card-body bg-dark text-white">
+                                    <div class="card-body text-white">
                                         <div class="table-responsive">
                                             <table class="table table-dark table-striped table-bordered mb-0" style="table-layout: fixed;">
                                                 <thead>
@@ -62,7 +62,7 @@
                                                 {% if config_block|get_item:"_associated_config_hashes" %}
                                                     <tfoot>
                                                         <tr>
-                                                            <th class="bg-dark text-white">Extracted From</th>
+                                                            <th class="text-white">Extracted From</th>
                                                             <td class="bg-dark">
                                                                 {% for hashes in config_block|get_item:"_associated_config_hashes" %}
                                                                     <div class="mb-2">
@@ -70,7 +70,7 @@
                                                                             <i class="fas fa-hashtag me-1"></i> {{ hashes.sha256 }}
                                                                         </a>
                                                                         <div class="collapse mt-1" id="hashes-{{forloop.counter}}">
-                                                                            <div class="card card-body bg-dark p-2">
+                                                                            <div class="card card-body p-2">
                                                                                 <dl class="row mb-0 small">
                                                                                     {% with sorted_hashes=hashes|sort %}
                                                                                         {% for algo, value in sorted_hashes.items %}
@@ -104,7 +104,7 @@
 <!-- File Details -->
 {% if analysis.info.category in "file,static" and analysis.target %}
     <section id="file-details" class="mb-4">
-        <div class="card bg-dark border-secondary">
+        <div class="card border-secondary">
             <div class="card-header border-secondary d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-info"></i> File Details</h5>
                 {% if analysis.info.parent_sample %}
@@ -166,7 +166,7 @@
     <div class="row">
         {% if analysis.network.hosts %}
         <div class="{% if analysis.network.dns %}col-md-6{% else %}col-md-12{% endif %} mb-3">
-            <div class="card bg-dark border-secondary h-100">
+            <div class="card border-secondary h-100">
                 <div class="card-header border-secondary"><h5 class="mb-0 text-white"><i class="fas fa-server me-2 text-primary"></i> Hosts</h5></div>
                 <div class="card-body p-0">
                     {% include "analysis/network/_hosts_not_ajax.html" %}
@@ -176,7 +176,7 @@
         {% endif %}
         {% if analysis.network.dns %}
         <div class="{% if analysis.network.hosts %}col-md-6{% else %}col-md-12{% endif %} mb-3">
-            <div class="card bg-dark border-secondary h-100">
+            <div class="card border-secondary h-100">
                 <div class="card-header border-secondary"><h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-info"></i> DNS</h5></div>
                 <div class="card-body p-0">
                     {% include "analysis/network/_dns_not_ajax.html" %}

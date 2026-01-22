@@ -1,5 +1,5 @@
 {% if analysis.mitre_attck %}
-<div class="card bg-dark border-secondary mb-3">
+<div class="card border-secondary mb-3">
     <div class="card-header border-secondary" id="headingMitre">
         <h5 class="mb-0">
             <button class="btn btn-link btn-block text-start text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#mitre_attack" aria-expanded="false" aria-controls="mitre_attack">
@@ -14,7 +14,7 @@
                 <thead class=" ">
                     <tr>
                     {% for category in analysis.mitre_attck %}
-                        <th class="text-center text-dark font-weight-bold bg-dark border-secondary text-white">{{ category }}</th>
+                        <th class="text-center text-dark font-weight-bold border-secondary text-white">{{ category }}</th>
                     {% endfor %}
                     </tr>
                 </thead>

@@ -4,13 +4,13 @@
 {% if completed %}
     <div class="alert alert-secondary"><h4>Good news! :-)</h4>The analysis is completed, you can view it <a href="{% url "report" task_id %}">here</a>.</div>
 {% elif status == "failed_analysis" %}
-<div class="alert alert-secondary bg-dark text-warning">
+<div class="alert alert-secondary text-warning">
     <h4>Status for task {{task_id}} - {{ target }}</h4>
     <p>The analysis failed with status '{{status}}'. <a href="{% url "submission" task_id sha256 %}">Click here to resubmit.</a></p>
 </div>
 {% else %}
     <script type="text/JavaScript">setTimeout("location.reload(true);",30000);</script>
-<div class="alert alert-secondary bg-dark text-info">
+<div class="alert alert-secondary text-info">
         <h4>Status for task {{task_id}} - {{ target }}</h4>
         <p>The analysis is not finished yet, it's still <b>{{status}}</b>. This page will refresh every 30 seconds.</p>
         {% if session_data %}

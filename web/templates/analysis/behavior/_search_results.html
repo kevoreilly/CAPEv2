@@ -1,19 +1,19 @@
 
 <section id="search-results-section" class="mt-4">
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-white"><i class="fas fa-search me-2 text-primary"></i> Search Results</h5>
         </div>
         <div class="card-body">
             <div class="text-center mb-3">
                 <span class="badge bg-primary mx-1">network</span>
-                <span class="badge bg-dark mx-1">filesystem</span>
+                <span class="badge mx-1">filesystem</span>
                 <span class="badge bg-success mx-1">registry</span>
                 <span class="badge bg-danger mx-1">process</span>
                 <span class="badge bg-warning mx-1">threading</span>
                 <span class="badge bg-info mx-1">services</span>
                 <span class="badge text-dark bg-light mx-1">device</span>
-                <span class="badge text-white bg-dark mx-1">synchronization</span>
+                <span class="badge text-white mx-1">synchronization</span>
                 <span class="badge bg-primary mx-1">crypto</span>
                 <span class="badge bg-info mx-1">browser</span>
             </div>
@@ -36,7 +36,7 @@
                         </thead>
                         <tbody>
                             {% for match in results %}
-                                <tr class="bg-dark font-weight-bold">
+                                <tr class="font-weight-bold">
                                     <td colspan="9" class="text-white ps-3">
                                         <i class="fas fa-microchip me-2"></i> Process: {{match.process.process_name}} ({{match.process.process_id}})
                                     </td>

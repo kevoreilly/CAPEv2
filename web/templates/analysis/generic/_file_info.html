@@ -1,6 +1,6 @@
 {% load key_tags %}
 
-<div class="card bg-dark border-secondary mb-3">
+<div class="card border-secondary mb-3">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-primary"></i> File Information</h5>
         {% if file.dropdir %}
@@ -258,7 +258,7 @@
 
     <!-- Extended Analysis Tools Buttons -->
     {% if not file.dropdir %}
-    <div class="card-footer bg-dark border-secondary">
+    <div class="card-footer border-secondary">
         <div class="d-flex flex-wrap justify-content-start align-items-center">
             <span class="me-3 text-white-50 mb-2">Tools:</span>
 
@@ -324,7 +324,7 @@
     <div class="mb-4">
         {% if file.flare_capa %}
             <div class="collapse mb-3" id="flare_capa_{{file.sha256}}">
-                <div class="card bg-dark border-secondary">
+                <div class="card border-secondary">
                     <div class="card-header border-secondary"><h6 class="mb-0 text-white">CAPA Results</h6></div>
                     <div class="card-body">
                         {% if file.flare_capa.CAPABILITY or file.flare_capa.ATTCK or file.flare_capa.MBC %}
@@ -340,7 +340,7 @@
         {% endif %}
 
         {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:file.sha256 %}
-            <div class="card bg-dark border-secondary mb-3">
+            <div class="card border-secondary mb-3">
                 <div class="card-body text-center">{{ graphs.vba2graph.content|getkey:file.sha256|safe }}</div>
             </div>
         {% endif %}
@@ -355,7 +355,7 @@
 
         {% if file.strings %}
             <div class="collapse mb-3" id="strings_{{file.sha256}}">
-                <div class="card bg-dark border-secondary text-white">
+                <div class="card border-secondary text-white">
                     <div class="card-header"><h6 class="mb-0 text-white-50">Strings</h6></div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.strings %}{{string}}<br>{% endfor %}</pre>
@@ -366,7 +366,7 @@
 
         {% if file.dotnet_strings %}
             <div class="collapse mb-3" id="dotnet_strings_{{file.sha256}}">
-                <div class="card bg-dark text-white">
+                <div class="card text-white">
                     <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.dotnet_strings %}{{string}}<br>{% endfor %}</pre>
@@ -377,7 +377,7 @@
 
         {% if file.data %}
             <div class="collapse mb-3" id="text_{{file.sha256}}">
-                <div class="card bg-dark text-white">
+                <div class="card text-white">
                     <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
                     <div class="card-body">
                         <pre class="mb-0 text-light small">{{file.data|escape}}</pre>
@@ -388,7 +388,7 @@
 
         {% if file.decoded_files %}
             <div class="collapse mb-3" id="decoded_files_{{file.sha256}}">
-                <div class="card bg-dark text-white">
+                <div class="card text-white">
                     <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
                     <div class="card-body">
                         <pre class="mb-0 text-light small">{{file.decoded_files|escape}}</pre>
@@ -400,7 +400,7 @@
         {% if file.selfextract %}
             {% for name, details in file.selfextract.items %}
                 <div class="collapse mb-3" id="selfextract_{{name}}">
-                    <div class="card bg-dark border-secondary">
+                    <div class="card border-secondary">
                         <div class="card-header border-secondary"><h6 class="mb-0 text-white">Archive: {{name}}</h6></div>
                         <div class="card-body">
                             {% if details.password %}
@@ -430,7 +430,7 @@
         {% if file.msi %} <div class="collapse mb-3" id="msi_{{file.sha256}}"> {% include "analysis/generic/_msi.html" %}</div></br>{% endif %}
 
         {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
-            <div class="card bg-dark border-secondary mb-3">
+            <div class="card border-secondary mb-3">
                 <div class="card-body text-center">{{ graphs.bingraph.content|getkey:file.sha256|safe }}</div>
             </div>
         {% endif %}

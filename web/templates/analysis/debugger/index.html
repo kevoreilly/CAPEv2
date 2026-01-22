@@ -15,7 +15,7 @@ function show_tab_dbg(id, callback) {
 }
 </script>
 
-<div class="card bg-dark border-secondary mb-4">
+<div class="card border-secondary mb-4">
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-bug me-2 text-warning"></i> Debugger Output</h5>
     </div>
@@ -39,7 +39,7 @@ function show_tab_dbg(id, callback) {
     </div>
 </div>
 
-<div class="card bg-dark border-secondary">
+<div class="card border-secondary">
     <div class="card-header border-secondary">
         <ul class="nav nav-pills card-header-pills">
             {% for process in debugger.processes %}
@@ -61,7 +61,7 @@ function show_tab_dbg(id, callback) {
                 {% for key, value in debugger_logs.items %}
                     {% if key == process.process_id %}
                     <div class="tab-pane fade {% if forloop.counter == 1 %}show active{% endif %}" id="dbg_{{key}}">
-                        <div class="bg-dark p-2 text-end border-bottom border-dark">
+                        <div class="p-2 text-end border-bottom border-dark">
                             <a class="btn btn-sm btn-outline-light" href="{% url "file" "debugger_log" id key %}">
                                 <i class="fas fa-download me-1"></i> Download Log
                             </a>

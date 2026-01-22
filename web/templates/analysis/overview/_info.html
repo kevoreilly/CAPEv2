@@ -23,13 +23,13 @@
             {% elif analysis.malstatus == "Clean" %}
                 <span class="badge bg-success p-2">{{analysis.malstatus}}</span>
             {% else %}
-                <span class="badge bg-dark p-2">{{analysis.malstatus}}</span>
+                <span class="badge p-2">{{analysis.malstatus}}</span>
             {% endif %}
         </div>
     {% endif %}
 
     <!-- Analysis Details Card -->
-    <div class="card bg-dark border-secondary mb-3">
+    <div class="card border-secondary mb-3">
         <div class="card-header border-secondary d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-primary"></i> Analysis Details</h5>
             {% if settings.REPROCESS_TASKS %}
@@ -156,7 +156,7 @@
 
     {% if analysis.info.options %}
         <div id="options_collapse" class="collapse mb-3">
-            <div class="card card-body bg-dark text-white border-secondary">
+            <div class="card card-body text-white border-secondary">
                 <h6 class="card-title text-white-50">Options</h6>
                 <pre class="mb-0 text-light small">{% for key, val in analysis.info.options.items %}{{ key }}={{ val }}<br>{% endfor %}</pre>
             </div>
@@ -164,28 +164,28 @@
     {% endif %}
 
     <div id="info-log" class="collapse mb-3">
-        <div class="card card-body bg-dark text-white border-secondary">
+        <div class="card card-body text-white border-secondary">
             <h6 class="card-title text-white-50">Analysis Log</h6>
             <pre class="mb-0 small" style="overflow-y: auto;">{{analysis.debug.log}}</pre>
         </div>
     </div>
 
     <div id="process-log" class="collapse mb-3">
-        <div class="card card-body bg-dark text-white border-secondary">
+        <div class="card card-body text-white border-secondary">
             <h6 class="card-title text-white-50">Process Log</h6>
             <pre class="mb-0 small" style="overflow-y: auto;">{{analysis.process_log}}</pre>
         </div>
     </div>
 
     <div id="info-pre-script-log" class="collapse mb-3">
-        <div class="card card-body bg-dark text-white border-secondary">
+        <div class="card card-body text-white border-secondary">
             <h6 class="card-title text-white-50">Pre-Script Log</h6>
             <pre class="mb-0 small">{{analysis.debug.pre_script_log}}</pre>
         </div>
     </div>
 
     <div id="info-during-script-log" class="collapse mb-3">
-        <div class="card card-body bg-dark text-white border-secondary">
+        <div class="card card-body text-white border-secondary">
             <h6 class="card-title text-white-50">During-Script Log</h6>
             <pre class="mb-0 small">{{analysis.debug.during_script_log}}</pre>
         </div>
@@ -196,7 +196,7 @@
 <!-- Machine Details Card -->
 {% if analysis.info.machine and analysis.info.machine.name %}
     <section id="machine" class="mb-4">
-        <div class="card bg-dark border-secondary">
+        <div class="card border-secondary">
             <div class="card-header border-secondary">
                 <h5 class="mb-0 text-white"><i class="fas fa-desktop me-2 text-info"></i> Machine Information</h5>
             </div>

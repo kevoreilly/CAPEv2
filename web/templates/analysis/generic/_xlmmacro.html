@@ -1,10 +1,10 @@
 <section id="static_analysis_xlmmacro" class="mb-4">
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-file-excel me-2 text-success"></i> XLM Macro</h5>
         </div>
         <div class="card-body">
-            <div class="card bg-dark text-white border-0">
+            <div class="card text-white border-0">
                 <div class="card-body p-2" style="max-height: 500px; overflow-y: auto;">
                     <pre class="mb-0 text-light small">{% for line in file.office.XLMMacroDeobfuscator.Code %}{{line}}<br>{% endfor %}</pre>
                 </div>

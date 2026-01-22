@@ -10,18 +10,18 @@
         }
 
         var out = "";
-        out += "<li class=\"page-item" + alert_current_page(1, page) + "><a class=\"page-link bg-dark border-secondary text-white\" href=\"#\">1</a></li>";
+        out += "<li class=\"page-item" + alert_current_page(1, page) + "><a class=\"page-link border-secondary text-white\" href=\"#\">1</a></li>";
 
-        if (page - 5 > 5) out += "<li class='page-item disabled'><span class='page-link bg-dark border-secondary text-white'>...</span></li>";
+        if (page - 5 > 5) out += "<li class='page-item disabled'><span class='page-link border-secondary text-white'>...</span></li>";
 
         for (i = Math.max(2, page - 5); i <= Math.min(pages - 1, page + 5); i++) {
-            out += "<li class=\"page-item" + alert_current_page(i, page) + "><a class=\"page-link bg-dark border-secondary text-white\" href=\"#\">" + i + "</a></li>";
+            out += "<li class=\"page-item" + alert_current_page(i, page) + "><a class=\"page-link border-secondary text-white\" href=\"#\">" + i + "</a></li>";
         }
 
-        if (page + 5 < pages - 1) out += "<li class='page-item disabled'><span class='page-link bg-dark border-secondary text-white'>...</span></li>";
+        if (page + 5 < pages - 1) out += "<li class='page-item disabled'><span class='page-link border-secondary text-white'>...</span></li>";
 
         if (pages > 1)
-            out += "<li class=\"page-item" + alert_current_page(pages, page) + "><a class=\"page-link bg-dark border-secondary text-white\" href=\"#\">" + pages + "</a></li>";
+            out += "<li class=\"page-item" + alert_current_page(pages, page) + "><a class=\"page-link border-secondary text-white\" href=\"#\">" + pages + "</a></li>";
         return out;
     }
     // ... existing js functions ...
@@ -96,7 +96,7 @@
     }
 </script>
 
-<div class="card bg-dark border-secondary">
+<div class="card border-secondary">
     <div class="card-header border-secondary">
         <ul class="nav nav-pills card-header-pills" id="processTabs" role="tablist">
             <li class="nav-item">
@@ -152,7 +152,7 @@
                         </div>
 
                         <div class="input-group mb-3 w-50 mx-auto">
-                            <input type="text" class="form-control bg-dark text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
+                            <input type="text" class="form-control text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
                             <button class="btn btn-outline-info" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
                         </div>
 
@@ -164,10 +164,10 @@
                             <div class="card card-body bg-dark">
                                 <div class="row g-3">
                                     <div class="col">
-                                        <input type="text" class="form-control text-white bg-dark border-1" id="callerfilter_{{process.process_id}}" placeholder="Caller">
+                                        <input type="text" class="form-control text-white border-1" id="callerfilter_{{process.process_id}}" placeholder="Caller">
                                     </div>
                                     <div class="col">
-                                        <input type="text" class="form-control text-white bg-dark border-1" id="tidfilter_{{process.process_id}}" placeholder="Thread ID">
+                                        <input type="text" class="form-control text-white border-1" id="tidfilter_{{process.process_id}}" placeholder="Thread ID">
                                     </div>
                                     <div class="col-auto">
                                         <button id="submit_filter_{{process.process_id}}" class="btn btn-dark">Filter</button>

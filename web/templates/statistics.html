@@ -3,7 +3,7 @@
 {% if statistics %}
 
 <!-- Summary Card -->
-<div class="card bg-dark shadow-sm border-secondary mb-4">
+<div class="card shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent">
         <h5 class="mb-0 text-white"><i class="fas fa-chart-line me-2 text-info"></i>Statistics Overview</h5>
     </div>
@@ -27,7 +27,7 @@
 
 <!-- Top Detections -->
 {% if statistics.detections %}
-<div class="card bg-dark shadow-sm border-secondary mb-4">
+<div class="card shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent">
         <h5 class="mb-0 text-white"><i class="fas fa-bug me-2 text-danger"></i>Top Detections</h5>
     </div>
@@ -48,7 +48,7 @@
 
 <!-- Top ASN -->
 {% if statistics.asns %}
-<div class="card bg-dark shadow-sm border-secondary mb-4">
+<div class="card shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent">
         <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-warning"></i>Top ASNs</h5>
     </div>
@@ -68,7 +68,7 @@
 {% endif %}
 
 <!-- Tasks per Day -->
-<div class="card bg-dark shadow-sm border-secondary mb-4">
+<div class="card shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent">
         <h5 class="mb-0 text-white"><i class="fas fa-calendar-alt me-2 text-success"></i>Tasks per Day</h5>
     </div>
@@ -98,7 +98,7 @@
 
 <!-- Custom Stats -->
 {% if statistics.custom_statistics %}
-<div class="card bg-dark shadow-sm border-secondary mb-4">
+<div class="card shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent">
         <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-primary"></i>Custom Signatures (Volatility/Static)</h5>
     </div>
@@ -133,7 +133,7 @@
 <div class="row">
     {% if statistics.processing %}
     <div class="col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
+        <div class="card shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent">
                 <h5 class="mb-0 text-white"><i class="fas fa-microchip me-2 text-info"></i>Processing</h5>
             </div>
@@ -165,7 +165,7 @@
 
     {% if statistics.signatures %}
     <div class="col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
+        <div class="card shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent">
                 <h5 class="mb-0 text-white"><i class="fas fa-file-signature me-2 text-warning"></i>Signatures</h5>
             </div>
@@ -197,7 +197,7 @@
 
     {% if statistics.reporting %}
     <div class="col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
+        <div class="card shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent">
                 <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-success"></i>Reporting</h5>
             </div>
@@ -237,7 +237,7 @@
 
 <!-- Cluster Details -->
 {% if statistics.distributed_tasks %}
-<div class="card bg-dark shadow-sm border-secondary mb-4">
+<div class="card shadow-sm border-secondary mb-4">
     <div class="card-header border-secondary bg-transparent">
         <h5 class="mb-0 text-white"><i class="fas fa-server me-2 text-primary"></i>Cluster Details</h5>
     </div>
@@ -245,7 +245,7 @@
         <div class="row">
             {% for day, block in statistics.distributed_tasks.items %}
             <div class="col-md-3 mb-3">
-                <div class="card bg-dark text-white h-100 border-0">
+                <div class="card text-white h-100 border-0">
                     <div class="card-header font-weight-bold">{{day}}</div>
                     <ul class="list-group list-group-flush text-dark">
                         {% for name, tasks in block.items %}

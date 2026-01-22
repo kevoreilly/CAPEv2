@@ -21,7 +21,7 @@ $(function () {
     <div class="col-md-6">
         <h4 class="text-center text-white mb-3"><i class="fas fa-random me-2 text-warning"></i> Select Analysis 2</h4>
 
-        <div class="card bg-dark border-secondary mb-4">
+        <div class="card border-secondary mb-4">
             <div class="card-header border-secondary text-white">Same File Analysis</div>
             <div class="card-body">
                 {% if records|length > 0 %}
@@ -35,13 +35,13 @@ $(function () {
             </div>
         </div>
 
-        <div class="card bg-dark border-secondary">
+        <div class="card border-secondary">
             <div class="card-header border-secondary text-white">Compare with Different File</div>
             <div class="card-body">
                 <p class="text-white-50">Enter MD5 hash to find a different analysis:</p>
                 <form class="form-inline" action="#" id="hash">
                     <div class="input-group w-100">
-                        <input class="form-control bg-dark text-white border-secondary" type="text" name="hash" placeholder="MD5 Hash" />
+                        <input class="form-control text-white border-secondary" type="text" name="hash" placeholder="MD5 Hash" />
                         
                             <button type="submit" class="btn btn-outline-info"><i class="fas fa-search"></i> Search</button>
                         </div>

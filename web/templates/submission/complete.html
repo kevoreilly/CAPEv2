@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="alert alert-secondary bg-dark text-white-50"><h4>Submission complete!</h4>
+<div class="alert alert-secondary text-white-50"><h4>Submission complete!</h4>
     The following tasks were added successfully:
     {% for task in tasks %}
         <a href="{% url "submission_status" task %}">{{task}}</a>
@@ -10,7 +10,7 @@
 </div>
 
 {% if remote_console %}
-    <div class="alert alert-secondary bg-dark text-white-50"><h4>Remote Control Session</h4>
+    <div class="alert alert-secondary text-white-50"><h4>Remote Control Session</h4>
         Tasks:
         {% for task in tasks %}
             <a href="{% url "remote_session" task %}">{{task}}</a>
@@ -21,7 +21,7 @@
 
 {% if existent_tasks %}
     {% for sha256, details in existent_tasks.items %}
-        <div class="alert alert-secondary bg-dark text-white-50"><h4>Existent tasks for this hash: {{sha256}}!</h4>
+        <div class="alert alert-secondary text-white-50"><h4>Existent tasks for this hash: {{sha256}}!</h4>
             <ul>
                 {% for block in details %}
                     <li>Task id: <a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> {% if block.family  %} - Detection: <span style="color:#EE1B2F;">{{block.malfamily}}</span>{% endif %}</li>

@@ -4,7 +4,7 @@
 
 <div class="row mb-4">
     <div class="col-12">
-        <ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1" id="analysisTabs" role="tablist">
+        <ul class="nav nav-pills nav-fill rounded shadow-sm p-1" id="analysisTabs" role="tablist">
             <li class="nav-item">
                 <a class="nav-link active font-weight-bold" id="files-tab" data-bs-toggle="pill" href="#files"
                     role="tab" aria-controls="files" aria-selected="true">
@@ -42,25 +42,25 @@
         <nav aria-label="Page navigation" class="mb-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_file_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.files_page_range %}
                 {% for page in paging.files_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_file_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
         {% endif %}
 
-        <div class="card bg-dark shadow-sm border-secondary">
+        <div class="card shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-clock me-2 text-white-50"></i> Recent Files</h5>
                 <span class="badge bg-dark">{{files|length}} items</span>
@@ -126,7 +126,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                <span class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span>
+                                <span class="badge text-white border border-secondary">{{analysis.package}}</span>
                             </td>
                             <td class="text-truncate" title="{{analysis.filename}}">
                                 {% if analysis.status in "reported,recovered" %}
@@ -296,19 +296,19 @@
         <nav aria-label="Page navigation" class="mt-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_file_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.files_page_range %}
                 {% for page in paging.files_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_file_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
@@ -321,24 +321,24 @@
         <nav aria-label="Page navigation" class="mb-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_static_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.static_page_range %}
                 {% for page in paging.static_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_static_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
         {% endif %}
-        <div class="card bg-dark shadow-sm border-secondary">
+        <div class="card shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-white-50"></i> Recent Static Analysis
                 </h5>
@@ -522,19 +522,19 @@
         <nav aria-label="Page navigation" class="mt-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_static_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.static_page_range %}
                 {% for page in paging.static_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_static_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
@@ -547,24 +547,24 @@
         <nav class="mb-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_url_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.urls_page_range %}
                 {% for page in paging.urls_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_url_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
         {% endif %}
-        <div class="card bg-dark shadow-sm border-secondary">
+        <div class="card shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-white-50"></i> Recent URLs</h5>
                 <span class="badge bg-dark">{{urls|length}} items</span>
@@ -754,19 +754,19 @@
         <nav aria-label="Page navigation" class="mt-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_url_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.urls_page_range %}
                 {% for page in paging.urls_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_url_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
@@ -779,24 +779,24 @@
         <nav aria-label="Page navigation" class="mb-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_pcap_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.pcaps_page_range %}
                 {% for page in paging.pcap_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_pcap_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>
         {% endif %}
-        <div class="card bg-dark shadow-sm border-secondary">
+        <div class="card shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-white-50"></i> Recent PCAPs</h5>
                 <span class="badge bg-dark">{{pcaps|length}} items</span>
@@ -979,19 +979,19 @@
         <nav aria-label="Page navigation" class="mt-3">
             <ul class="pagination justify-content-center">
                 {% if paging.show_pcap_prev == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                 {% endif %}
                 {% if paging.pcap_page_range %}
                 {% for page in paging.pcap_page_range %}
                 {% if page == paging.current_page %}
                 <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                 {% else %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{page}}/">{{page}}</a></li>
                 {% endif %}
                 {% endfor %}
                 {% endif %}
                 {% if paging.show_pcap_next == "show" %}
-                <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
+                <li class="nav-item"><a class="nav-link border-secondary text-white" href="{% url "analysis" %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                 {% endif %}
             </ul>
         </nav>

@@ -2,7 +2,7 @@
     {% load pdf_tags %}
     {% load key_tags %}
     {% if file.pdf %}
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-file-pdf me-2 text-danger"></i> PDF Information</h5>
         </div>
@@ -88,7 +88,7 @@
             {% if file.pdf.Annot_URLs %}
             <div class="mb-4">
                 <h6 class="text-white border-bottom pb-2 mb-3">Link Annotation URLs</h6>
-                <div class="card bg-dark text-white border-0">
+                <div class="card text-white border-0">
                     <div class="card-body p-2">
                         <ul class="list-unstyled mb-0">
                         {% for url in file.pdf.Annot_URLs %}
@@ -103,7 +103,7 @@
             {% if file.pdf.JS_URLs %}
             <div class="mb-4">
                 <h6 class="text-white border-bottom pb-2 mb-3">Javascript URLs</h6>
-                <div class="card bg-dark text-white border-0">
+                <div class="card text-white border-0">
                     <div class="card-body p-2">
                         <ul class="list-unstyled mb-0">
                         {% for url in file.pdf.JS_URLs %}
@@ -120,7 +120,7 @@
                 <h6 class="text-white border-bottom pb-2 mb-3">Javascript Streams</h6>
                 <div class="accordion" id="jsStreamsAccordion">
                 {% for obj in file.pdf.JSStreams %}
-                    <div class="card bg-dark border-bottom border-secondary rounded-0">
+                    <div class="card border-bottom border-secondary rounded-0">
                         <div class="card-header p-0" id="headingJSStream{{forloop.counter}}">
                             <h2 class="mb-0">
                                 <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#JSStream_{{obj|getkey:'Object ID'}}" aria-expanded="false">
@@ -129,7 +129,7 @@
                             </h2>
                         </div>
                         <div id="JSStream_{{obj|getkey:'Object ID'}}" class="collapse" data-bs-parent="#jsStreamsAccordion">
-                            <div class="card-body bg-dark text-white">
+                            <div class="card-body text-white">
                                 <p class="mb-1"><strong>Size:</strong> {{obj.Size}} bytes</p>
                                 <p class="mb-2"><strong>Offset:</strong> {{obj.Offset}}</p>
                                 <pre class="mb-0 text-light small border p-2 rounded bg-dark">{{obj.Data|linebreaksbr}}</pre>

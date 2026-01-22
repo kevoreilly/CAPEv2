@@ -183,13 +183,11 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         if not r.ok:
             log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
             _ = path_write_file("/tmp/dist_error.html", r.content)
-            return None
+            return []
         return r.json().get("data", [])
     except Exception as e:
         log.critical("Error listing completed tasks (node %s): %s", url, e)
-        return None
-
-    return []
+        return []
 
 
 def node_list_machines(url, apikey):

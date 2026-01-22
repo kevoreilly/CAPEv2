@@ -33,7 +33,7 @@
 <div class="buttonHolder">
       <button class="btn btn-secondary" type="submit" name="action_primary" >{% trans 'Make Primary' %}</button>
       <button class="btn btn-secondary" type="submit" name="action_send" >{% trans 'Re-send Verification' %}</button>
-      <button class="btn btn-primary" type="submit" name="action_remove" >{% trans 'Remove' %}</button>
+      <button class="btn btn-outline-info" type="submit" name="action_remove" >{% trans 'Remove' %}</button>
 </div>
 
 </fieldset>
@@ -50,7 +50,7 @@
     <form method="post" action="{% url 'account_email' %}" class="add_email">
         {% csrf_token %}
         {{ form|crispy }}
-        <button name="action_add" type="submit" class="btn btn-primary">{% trans "Add E-mail" %}</button>
+        <button name="action_add" type="submit" class="btn btn-outline-info">{% trans "Add E-mail" %}</button>
     </form>
   {% endif %}
 

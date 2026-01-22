@@ -1,6 +1,6 @@
 <section id="static_analysis_rdp" class="mb-4">
     {% if file.rdp %}
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-desktop me-2 text-info"></i> RDP File Details</h5>
         </div>
@@ -26,7 +26,7 @@
             <div class="mb-4">
                 <h6 class="text-white border-bottom pb-2 mb-3">Certificates</h6>
                 {% for cert in file.rdp.certificates %}
-                <div class="card bg-dark text-white border-0 mb-3">
+                <div class="card text-white border-0 mb-3">
                     <div class="card-body p-2">
                         <div class="table-responsive">
                             <table class="table table-dark table-striped table-sm mb-0">

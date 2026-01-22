@@ -1,6 +1,6 @@
 {% if analysis.shots %}
 <section id="screenshots" class="mb-4">
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-images me-2 text-info"></i> Screenshots</h5>
         </div>
@@ -10,7 +10,7 @@
                 {% for shot in analysis.shots %}
                     <div class="m-2">
                         <a data-lightbox="screenshot" href="{% url "file_nl" "screenshot" analysis.info.id shot %}" data-title="Screenshot {{shot}}">
-                            <img class="img-thumbnail bg-dark border-dark" src="{% url "file_nl" "screenshot" analysis.info.id shot %}" style="height: 150px; object-fit: cover;" alt="Screenshot {{shot}}" />
+                            <img class="img-thumbnail border-dark" src="{% url "file_nl" "screenshot" analysis.info.id shot %}" style="height: 150px; object-fit: cover;" alt="Screenshot {{shot}}" />
                         </a>
                     </div>
                 {% endfor %}

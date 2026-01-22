@@ -14,12 +14,12 @@ $(function () {
 </script>
 {% if id %}
 	<div class="tab-pane fade" id="search" role="tabpanel">
-        <div class="card bg-dark border-secondary mt-3">
+        <div class="card border-secondary mt-3">
             <div class="card-body">
                 <form id='search' class="form-inline justify-content-center" role="form" action="{% url "search_behavior" id %}">
                     {% csrf_token %}
                     <div class="input-group w-50">
-                        <input type="text" class="form-control bg-dark text-white border-secondary" id="form_search" name="search" placeholder="Enter search term..." aria-label="Search term" />
+                        <input type="text" class="form-control text-white border-secondary" id="form_search" name="search" placeholder="Enter search term..." aria-label="Search term" />
                         <div class="input-group-append">
                             <button type="submit" class="btn btn-outline-info"><i class="fas fa-search"></i> Search</button>
                         </div>

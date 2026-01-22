@@ -3,7 +3,7 @@
 <script src="{{ STATIC_URL }}js/guac-playback.js"></script>
 <script src="{{ STATIC_URL }}js/guacamole-1.4.0-all.min.js"></script>
 
-<div class="card bg-dark border-secondary mb-3">
+<div class="card border-secondary mb-3">
     <div class="card-header border-secondary" id="headingPlayback">
         <h5 class="mb-0">
             <button class="btn btn-link btn-block text-start text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#playback" aria-expanded="false" aria-controls="playback" onclick="playit()">
@@ -33,7 +33,7 @@
                             </div>
                         </div>
                         <!-- Player controls -->
-                        <div class="controls d-flex align-items-center bg-dark text-white p-2">
+                        <div class="controls d-flex align-items-center text-white p-2">
                             <button id="play-pause" class="btn btn-sm btn-primary me-3"><i class="fas fa-play"></i></button>
                             <input id="position-slider" type="range" class="form-control-range me-3 flex-grow-1">
                             <span id="position" class="me-1">00:00</span>

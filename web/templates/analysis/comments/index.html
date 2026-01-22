@@ -2,7 +2,7 @@
 <form role="form" method="post" action="/analysis/{{analysis.info.id}}/comments/">{% csrf_token %}
 <div class="row">
   <div class="form group col-lg-10">
-      <textarea class="form-control bg-dark text-white border-secondary" rows="7" name="commentbox" placeholder="Add comment ..."></textarea>
+      <textarea class="form-control text-white border-secondary" rows="7" name="commentbox" placeholder="Add comment ..."></textarea>
       <div style="margin-top: 5px;">
         <button class="btn btn-secondary float-end" type="submit">Submit</button>
       </div>

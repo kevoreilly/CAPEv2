@@ -18,7 +18,7 @@ $(function () {
     </div>
 </div>
 
-<div class="card bg-dark border-secondary mb-4">
+<div class="card border-secondary mb-4">
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-primary"></i> Execution Graph</h5>
     </div>
@@ -26,14 +26,14 @@ $(function () {
         <p class="text-white-50">This graph visualizes the behavioral events by category. Larger blocks indicate higher activity in that category.</p>
         
         <div class="mb-4 text-center">
-            <span class="badge text-white bg-dark text-white border border-secondary registry">registry</span>
-            <span class="badge text-white bg-dark text-white border border-secondary filesystem">filesystem</span>
-            <span class="badge text-white bg-dark text-white border border-secondary system">system</span>
-            <span class="badge text-white bg-dark text-white border border-secondary network">network</span>
-            <span class="badge text-white bg-dark text-white border border-secondary process">process</span>
-            <span class="badge text-white bg-dark text-white border border-secondary services">services</span>
-            <span class="badge text-white bg-dark text-white border border-secondary synchronization">synchronization</span>
-            <span class="badge text-white bg-dark text-white border border-secondary windows">windows</span>
+            <span class="badge text-white text-white border border-secondary registry">registry</span>
+            <span class="badge text-white text-white border border-secondary filesystem">filesystem</span>
+            <span class="badge text-white text-white border border-secondary system">system</span>
+            <span class="badge text-white text-white border border-secondary network">network</span>
+            <span class="badge text-white text-white border border-secondary process">process</span>
+            <span class="badge text-white text-white border border-secondary services">services</span>
+            <span class="badge text-white text-white border border-secondary synchronization">synchronization</span>
+            <span class="badge text-white text-white border border-secondary windows">windows</span>
         </div>
 
         <div class="row">
@@ -55,7 +55,7 @@ $(function () {
     </div>
 </div>
 
-<div class="card bg-dark border-secondary mb-4">
+<div class="card border-secondary mb-4">
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-equals me-2 text-success"></i> Summary Similarities</h5>
     </div>
@@ -81,91 +81,91 @@ $(function () {
             <div class="col-md-9">
                 <div class="tab-content" id="v-pills-tabContent">
                     <div class="tab-pane fade show active" id="summary_compare_files">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.files %}
                                 <ul class="list-unstyled mb-0">{% for file in summary.files %}<li>{{file}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_read_files">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.read_files %}
                                 <ul class="list-unstyled mb-0">{% for file in summary.read_files %}<li>{{file}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_write_files">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.write_files %}
                                 <ul class="list-unstyled mb-0">{% for file in summary.write_files %}<li>{{file}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_delete_files">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.delete_files %}
                                 <ul class="list-unstyled mb-0">{% for file in summary.delete_files %}<li>{{file}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_keys">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.keys %}
                                 <ul class="list-unstyled mb-0">{% for key in summary.keys %}<li>{{key}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_read_keys">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.read_keys %}
                                 <ul class="list-unstyled mb-0">{% for key in summary.read_keys %}<li>{{key}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_write_keys">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.write_keys %}
                                 <ul class="list-unstyled mb-0">{% for key in summary.write_keys %}<li>{{key}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_delete_keys">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.delete_keys %}
                                 <ul class="list-unstyled mb-0">{% for key in summary.delete_keys %}<li>{{key}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_resolved_apis">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.resolved_apis %}
                                 <ul class="list-unstyled mb-0">{% for api in summary.resolved_apis %}<li>{{api}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_executed_commands">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.executed_commands %}
                                 <ul class="list-unstyled mb-0">{% for cmd in summary.executed_commands %}<li>{{cmd}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_mutexes">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.mutexes %}
                                 <ul class="list-unstyled mb-0">{% for mutex in summary.mutexes %}<li>{{mutex}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_created_services">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.created_services %}
                                 <ul class="list-unstyled mb-0">{% for service in summary.created_services %}<li>{{service}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
                         </div>
                     </div>
                     <div class="tab-pane fade" id="summary_compare_started_services">
-                        <div class="card card-body bg-dark text-white">
+                        <div class="card card-body text-white">
                             {% if summary.started_services %}
                                 <ul class="list-unstyled mb-0">{% for service in summary.started_services %}<li>{{service}}</li>{% endfor %}</ul>
                             {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}

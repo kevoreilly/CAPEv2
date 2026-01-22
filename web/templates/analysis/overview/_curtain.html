@@ -1,5 +1,5 @@
 {% if analysis.curtain %}
-<div class="card bg-dark border-secondary mb-3">
+<div class="card border-secondary mb-3">
     <div class="card-header border-secondary" id="headingCurtain">
         <h5 class="mb-0">
             <button class="btn btn-link btn-block text-start text-white text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#curtain" aria-expanded="false" aria-controls="curtain">
@@ -26,14 +26,14 @@
                 <div class="tab-pane fade show active" id="curtain_orig_tab" role="tabpanel" aria-labelledby="curtain-orig-tab">
                     {% if analysis.curtain %}
                         {% for pid,dict in analysis.curtain.items %}
-                        <div class="card bg-dark mb-3">
+                        <div class="card mb-3">
                             <div class="card-header border-dark font-weight-bold">
                                 PID: {{pid}}
                                 {% for entry in dict.behaviors %}
-                                <span class="badge text-white bg-dark ms-2">{{ entry }}</span>
+                                <span class="badge text-white ms-2">{{ entry }}</span>
                                 {% endfor %}
                             </div>
-                            <div class="card-body bg-dark text-white">
+                            <div class="card-body text-white">
                                 {% for entry in dict.events %}
                                     {% for event,message in entry.items %}
                                         <div class="mb-2">
@@ -54,14 +54,14 @@
                 <div class="tab-pane fade" id="curtain_altr_tab" role="tabpanel" aria-labelledby="curtain-altr-tab">
                     {% if analysis.curtain %}
                         {% for pid,dict in analysis.curtain.items %}
-                        <div class="card bg-dark mb-3">
+                        <div class="card mb-3">
                             <div class="card-header border-dark font-weight-bold">
                                 PID: {{pid}}
                                 {% for entry in dict.behaviors %}
-                                <span class="badge text-white bg-dark ms-2">{{ entry }}</span>
+                                <span class="badge text-white ms-2">{{ entry }}</span>
                                 {% endfor %}
                             </div>
-                            <div class="card-body bg-dark text-white">
+                            <div class="card-body text-white">
                                 {% for entry in dict.events %}
                                     {% for event,message in entry.items %}
                                         <div class="mb-2">
@@ -82,14 +82,14 @@
                 <div class="tab-pane fade" id="curtain_filt_tab" role="tabpanel" aria-labelledby="curtain-filt-tab">
                     {% if analysis.curtain %}
                         {% for pid,dict in analysis.curtain.items %}
-                        <div class="card bg-dark mb-3">
+                        <div class="card mb-3">
                             <div class="card-header border-dark font-weight-bold">
                                 PID: {{pid}}
                                 {% for entry in dict.behaviors %}
-                                <span class="badge text-white bg-dark ms-2">{{ entry }}</span>
+                                <span class="badge text-white ms-2">{{ entry }}</span>
                                 {% endfor %}
                             </div>
-                            <div class="card-body bg-dark text-white">
+                            <div class="card-body text-white">
                                 {% for entry in dict.filter %}
                                     {% for event,message in entry.items %}
                                         <div class="mb-2">

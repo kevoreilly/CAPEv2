@@ -1,7 +1,7 @@
 <section id="static_analysis_office" class="mb-4">
     {% load key_tags %}
     {% if file.office %}
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-file-word me-2 text-primary"></i> Office Document Information</h5>
         </div>
@@ -71,7 +71,7 @@
                     <h6 class="text-white border-bottom pb-2 mb-3">Macro Analysis (Signatures)</h6>
                     <div class="accordion" id="macroSignaturesAccordion">
                         {% for detection in file.office.Macro.Analysis %}
-                        <div class="card bg-dark border-bottom border-secondary rounded-0">
+                        <div class="card border-bottom border-secondary rounded-0">
                             <div class="card-header p-0" id="headingMacroSig{{forloop.counter}}">
                                 <h2 class="mb-0">
                                     <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_sig_{{detection|slugify}}" aria-expanded="false" aria-controls="macro_sig_{{detection|slugify}}">
@@ -80,7 +80,7 @@
                                 </h2>
                             </div>
                             <div id="macro_sig_{{detection|slugify}}" class="collapse" aria-labelledby="headingMacroSig{{forloop.counter}}" data-bs-parent="#macroSignaturesAccordion">
-                                <div class="card-body bg-dark text-white">
+                                <div class="card-body text-white">
                                     <div class="table-responsive">
                                         <table class="table table-dark table-sm table-striped mb-0">
                                             <thead>
@@ -113,7 +113,7 @@
                     <div class="accordion" id="macroCodeAccordion">
                     {% for macrodata in file.office.Macro.Code %}
                         {% for name, code in file.office.Macro.Code|getkey:macrodata %}
-                        <div class="card bg-dark border-bottom border-secondary rounded-0">
+                        <div class="card border-bottom border-secondary rounded-0">
                             <div class="card-header p-0" id="headingMacroCode{{forloop.parentloop.counter0}}-{{forloop.counter0}}">
                                 <h2 class="mb-0">
                                     <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" aria-expanded="false">
@@ -122,7 +122,7 @@
                                 </h2>
                             </div>
                             <div id="macro_code_{{forloop.parentloop.counter0}}_{{forloop.counter0}}" class="collapse" data-bs-parent="#macroCodeAccordion">
-                                <div class="card-body bg-dark text-white">
+                                <div class="card-body text-white">
                                     <pre class="mb-0 text-light small" style="max-height: 400px; overflow-y: auto;">{{code}}</pre>
                                 </div>
                             </div>

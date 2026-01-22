@@ -1,6 +1,6 @@
 <section id="static_floss" class="mb-4">
     {% if file.floss %}
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-search-plus me-2 text-info"></i> FLOSS Strings</h5>
         </div>
@@ -8,7 +8,7 @@
             {% if file.floss.decoded_strings %}
             <div class="mb-3">
                 <h6 class="text-white border-bottom pb-2">Decoded Strings</h6>
-                <div class="card bg-dark text-white border-0">
+                <div class="card text-white border-0">
                     <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.floss.decoded_strings %}{{string}}<br>{% endfor %}</pre>
                     </div>
@@ -19,7 +19,7 @@
             {% if file.floss.stack_strings %}
             <div class="mb-3">
                 <h6 class="text-white border-bottom pb-2">Stack Strings</h6>
-                <div class="card bg-dark text-white border-0">
+                <div class="card text-white border-0">
                     <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.floss.stack_strings %}{{string}}<br>{% endfor %}</pre>
                     </div>
@@ -30,7 +30,7 @@
             {% if file.floss.tight_strings %}
             <div class="mb-3">
                 <h6 class="text-white border-bottom pb-2">Tight Strings</h6>
-                <div class="card bg-dark text-white border-0">
+                <div class="card text-white border-0">
                     <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.floss.tight_strings %}{{string}}<br>{% endfor %}</pre>
                     </div>
@@ -41,7 +41,7 @@
             {% if file.floss.static_strings %}
             <div class="mb-3">
                 <h6 class="text-white border-bottom pb-2">Static Strings</h6>
-                <div class="card bg-dark text-white border-0">
+                <div class="card text-white border-0">
                     <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.floss.static_strings %}{{string}}<br>{% endfor %}</pre>
                     </div>

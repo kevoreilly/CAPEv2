@@ -2,7 +2,7 @@
 
 {% if analysis.signatures %}
 <section id="signatures" class="mb-4">
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-file-signature me-2 text-warning"></i> Signatures</h5>
         </div>
@@ -29,7 +29,7 @@
                                         </div>
                                     </a>
                                     <div class="collapse" id="signature_collapse_{{signature.name}}">
-                                        <div class="card card-body bg-dark text-white mt-1">
+                                        <div class="card card-body text-white mt-1">
                                             {% if signature.data %}
                                                 <div class="mb-3">
                                                 {% for sign in signature.data %}

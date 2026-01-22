@@ -1,6 +1,6 @@
 <section id="static_analysis_subfile_yara" class="mb-4">
     {% load key_tags %}
-    <div class="card bg-dark border-secondary">
+    <div class="card border-secondary">
         <div class="card-header border-secondary">
             <h5 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-success"></i> Yara Details</h5>
         </div>
@@ -8,7 +8,7 @@
             {% if sub_file.yara %}
                 <div class="accordion" id="subFileYaraAccordion">
                 {% for hit in sub_file.yara %}
-                    <div class="card bg-dark border-bottom border-secondary rounded-0">
+                    <div class="card border-bottom border-secondary rounded-0">
                         <div class="card-header p-0" id="headingSubYara{{forloop.counter}}">
                             <h2 class="mb-0">
                                 <button class="btn btn-block text-start p-3 text-white text-decoration-none shadow-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#sub_yara_{{hit.name}}" aria-expanded="false" aria-controls="sub_yara_{{hit.name}}">
@@ -18,7 +18,7 @@
                             </h2>
                         </div>
                         <div id="sub_yara_{{hit.name}}" class="collapse" aria-labelledby="headingSubYara{{forloop.counter}}" data-bs-parent="#subFileYaraAccordion">
-                            <div class="card-body bg-dark text-white">
+                            <div class="card-body text-white">
                                 <div class="table-responsive">
                                     <table class="table table-dark table-sm table-striped mb-0" style="table-layout: fixed;">
                                         {% if hit.strings %}

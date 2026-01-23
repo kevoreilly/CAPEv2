@@ -117,7 +117,7 @@ USE_L10N = True
 # Disabling time zone support and using local time for web interface and storage.
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = web_cfg.general.get("timezone", "UTC")
 USE_I18N = True
 USE_TZ = True
 

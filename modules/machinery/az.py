@@ -8,8 +8,22 @@ import socket
 import threading
 import time
 import timeit
+from typing import Optional, cast
 
+import sqlalchemy
+
+# Cuckoo-specific imports
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.abstracts import Machinery
+from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
+from lib.cuckoo.common.exceptions import (
+    CuckooCriticalError,
+    CuckooDependencyError,
+    CuckooGuestCriticalTimeout,
+    CuckooMachineError,
+    CuckooUnserviceableTaskError,
+)
+from lib.cuckoo.core.database import TASK_PENDING, Machine, Task
 
 HAVE_AZURE = False
 cfg = Config()
@@ -20,6 +34,7 @@ if cfg.cuckoo.machinery == "az":
         from azure.identity import CertificateCredential, ClientSecretCredential
         from azure.mgmt.compute import ComputeManagementClient, models
         from azure.mgmt.network import NetworkManagementClient
+        from azure.core.exceptions import ResourceNotFoundError
         from msrest.polling import LROPoller
 
         HAVE_AZURE = True
@@ -27,11 +42,6 @@ if cfg.cuckoo.machinery == "az":
         print("Missing machinery-required libraries.")
         print("poetry run pip install azure-identity msrest msrestazure azure-mgmt-compute azure-mgmt-network")
 
-# Cuckoo-specific imports
-from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.constants import CUCKOO_GUEST_PORT
-from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooDependencyError, CuckooGuestCriticalTimeout, CuckooMachineError
-from lib.cuckoo.core.database import TASK_PENDING, Machine
 
 # Only log INFO or higher from imported python packages
 logging.getLogger("adal-python").setLevel(logging.INFO)
@@ -153,13 +163,6 @@ class Azure(Machinery):
                 if "initial_pool_size" not in scale_set_opts:
                     raise AttributeError("'initial_pool_size' not present in scale set configuration")
 
-                # If the initial pool size is 0, then post-initialization we will have 0 machines available for a
-                # scale set, which is bad for Cuckoo logic
-                if scale_set_opts["initial_pool_size"] <= 0:
-                    raise CuckooCriticalError(
-                        "The initial pool size for VMSS '%s'  is 0. Please set it to a positive integer.", scale_set_id
-                    )
-
                 # Insert the scale_set_opts into the module.scale_sets attribute
                 mmanager_opts["scale_sets"][scale_set_id] = scale_set_opts
 
@@ -198,7 +201,7 @@ class Azure(Machinery):
         self.subnet_limit = 0
         for subnet in subnets:
             if subnet.name == self.options.az.subnet:
-                match = re.match(IPV4_REGEX, subnet.address_prefix)
+                match = re.match(IPV4_REGEX, subnet.address_prefix or (subnet.address_prefixes[0] if subnet.address_prefixes else ''))
                 if match and len(match.regs) == 5:
                     self.subnet_limit = 2 ** (32 - int(match.group(4))) - (2 + 1 + 10)
 
@@ -332,7 +335,8 @@ class Azure(Machinery):
             # Cuckoo (AUTO_SCALE_CAPE key-value pair), ignore
             if not vmss.tags or not vmss.tags.get(Azure.AUTO_SCALE_CAPE_KEY) == Azure.AUTO_SCALE_CAPE_VALUE:
                 # Ignoring... unless! They have one of the required names of the VMSSs that we are going to create
-                if vmss.name in self.required_vmsss.keys():
+                if vmss.name in self.required_vmsss.keys() and not self.options.az.just_start:
+                    log.info("Deleting VMSS %s as it is incorrectly configured and just_start is false", vmss.name)
                     async_delete_vmss = Azure._azure_api_call(
                         self.options.az.sandbox_resource_group,
                         vmss.name,
@@ -370,6 +374,7 @@ class Azure(Machinery):
                     "size": int(vmss.sku.capacity),
                     "is_scaling": False,
                     "is_scaling_down": False,
+                    "has_placeholder_machine": False,
                     "wait": False,
                 }
 
@@ -382,9 +387,10 @@ class Azure(Machinery):
                         operation=self.compute_client.virtual_machine_scale_sets.begin_update,
                     )
                     _ = self._handle_poller_result(update_vmss_image)
-            elif not self.options.az.multiple_capes_in_sandbox_rg:
+            elif not self.options.az.multiple_capes_in_sandbox_rg and not self.options.az.just_start:
                 # VMSS does not have the required name but has the tag that we associate with being a
                 # correct VMSS
+                log.info("Deleting VMSS %s as multiple_capes_in_sandbox_rg is false and just_start is false", vmss.name)
                 Azure._azure_api_call(
                     self.options.az.sandbox_resource_group,
                     vmss.name,
@@ -424,6 +430,47 @@ class Azure(Machinery):
         else:
             self.instance_type_cpus = self.options.az.instance_type_cores
 
+    def _insert_placeholder_machine(self, vmss_name, vmss_vals):
+        """
+        Insert a placeholder machine into the DB.
+
+        Only used when "initial_pool_size" is set to 0 in the configs.
+        The placeholder machine is used to have available the machine tag for a VMSS's "pool_tag".
+        Without the tag present at task submission, an "incorrect tag" error will result.
+        The placeholder machine is removed when a task is submitted with the matching tag.
+        """
+        try:
+            self._remove_placeholder_machine(vmss_name)
+            self.db.add_machine(
+                name=f"{vmss_name}_placeholder",
+                label=f"{vmss_name}_placeholder",
+                ip=f"{vmss_name}_placeholder_ip",
+                platform=vmss_vals["platform"].lower(),
+                tags=vmss_vals["tag"],
+                arch=self.options.az.scale_sets[vmss_name].arch,
+                interface=self.options.az.interface,
+                snapshot=f"{vmss_name}_placeholder_snapshot",
+                resultserver_ip=self.options.az.resultserver_ip,
+                resultserver_port=self.options.az.resultserver_port,
+                locked=True,
+                reserved=True,
+            )
+            machine_pools[vmss_name]["has_placeholder_machine"] = True
+        except Exception as e:
+            log.debug("Could not add placeholder machine for %s VMSS", vmss_name)
+            log.exception(repr(e))
+
+    def _remove_placeholder_machine(self, vmss_name):
+        """
+        Remove placeholder machine from DB.
+        """
+        try:
+            self.db.delete_machine(f"{vmss_name}_placeholder")
+            machine_pools[vmss_name]["has_placeholder_machine"] = False
+        except Exception as e:
+            log.debug("Could not remove placeholder machine for %s VMSS", vmss_name)
+            log.exception(repr(e))
+
     def _update_or_create_vmsss(self, vmsss_dict):
         """
         Reimage or scale up existing VMSSs. Create non-existant required VMSSs.
@@ -433,8 +480,12 @@ class Azure(Machinery):
         vmss_reimage_threads = []
         for vmss, vals in vmsss_dict.items():
             if vals["exists"] and not self.options.az.just_start:
-                if machine_pools[vmss]["size"] == 0:
-                    self._thr_scale_machine_pool(self.options.az.scale_sets[vmss].pool_tag, True if vals["platform"] else False)
+                # If we want to start with 0 machines on this VMSS.
+                if vals["initial_pool_size"] == 0:
+                    self._insert_placeholder_machine(vmss, vals)
+                # If the VMSS shows no VMs instantiated on Azure's side but we want to start with 1+
+                elif machine_pools[vmss]["size"] == 0:
+                    self._thr_scale_machine_pool(vals["tag"], True)
                 else:
                     # Reimage VMSS!
                     thr = threading.Thread(
@@ -462,7 +513,8 @@ class Azure(Machinery):
         if len(running) > 0:
             log.info("%d machines found locked on initialize, unlocking.", len(running))
             for machine in running:
-                self.db.unlock_machine(machine)
+                if "_placeholder" not in machine.name:
+                    self.db.unlock_machine(machine)
 
     def _create_batch_threads(self):
         """
@@ -552,6 +604,72 @@ class Azure(Machinery):
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
+    def find_machine_to_service_task(self, task: Task) -> Optional[Machine]:
+        """
+        Overloading abstracts.py:find_machine_to_service_task to allow VMSS to scale down to 0 VMs
+        """
+        task_archs, task_tags = self.db._task_arch_tags_helper(task)
+        os_version = self.db._package_vm_requires_check(task.package)
+
+        def get_first_machine(query: sqlalchemy.orm.Query) -> Optional[Machine]:
+            # Select for update a machine, preferring one that is available and was the one that was used the
+            # longest time ago. This will give us a machine that can get locked or, if there are none that are
+            # currently available, we'll at least know that the task is serviceable.
+            return cast(
+                Optional[Machine], query.order_by(Machine.locked, Machine.locked_changed_on).with_for_update(of=Machine).first()
+            )
+
+        machines = self.db.session.query(Machine).options(sqlalchemy.orm.joinedload(Machine.tags))
+        filter_kwargs = {
+            "statement": machines,
+            "label": task.machine,
+            "tags": task_tags,
+            "archs": task_archs,
+            "os_version": os_version,
+        }
+        filtered_machines = self.db.filter_machines_to_task(include_reserved=False, **filter_kwargs)
+        machine = get_first_machine(filtered_machines)
+        if machine is None and not task.machine and task_tags:
+            # The task was given at least 1 tag, but there are no non-reserved machines
+            # that could satisfy the request. So let's see if there are any "reserved"
+            # machines that can satisfy it.
+            filtered_machines = self.db.filter_machines_to_task(include_reserved=True, **filter_kwargs)
+            machine = get_first_machine(filtered_machines)
+
+        if machine is None:
+            self._scale_from_zero(task, os_version, task_tags)
+        if machine and machine.locked:
+            # There aren't any machines that can service the task NOW, but there is at least one in the pool
+            # that could service it once it's available.
+            return None
+        return machine
+
+    def _scale_from_zero(self, task: Task, os_version: str, tags):
+        """
+        Scale up VMSS with current size of 0 and able to run the task.
+        """
+        assignable_vmss = None
+        # Get the first VMSS that can run this task on an instance
+        for _, vals in self.required_vmsss.items():
+            if os_version and os_version == vals["tag"]:
+                assignable_vmss = vals
+                break
+            if tags and len(tags) == 1 and vals["tag"] == tags[0]:
+                assignable_vmss = vals
+                break
+            if vals["platform"] == task.platform:
+                assignable_vmss = vals
+                break
+
+        if assignable_vmss is None:
+            raise CuckooUnserviceableTaskError
+
+        # VMSS able to run the task exists but has no relevant machines. Scale up from zero.
+        threading.Thread(
+            target=self._thr_scale_machine_pool,
+            args=(assignable_vmss["tag"], True)
+        ).start()
+
     def _add_machines_to_db(self, vmss_name):
         """
         Adding machines to database that did not exist there before.
@@ -580,76 +698,85 @@ class Azure(Machinery):
             )
 
             # Turn the Paged result into a list
-            vmss_vm_nics = [vmss_vm_nic for vmss_vm_nic in paged_vmss_vm_nics]
+            try:
+                vmss_vm_nics = [vmss_vm_nic for vmss_vm_nic in paged_vmss_vm_nics]
+            except ResourceNotFoundError:
+                log.debug("No network interfaces found for VMSS %s (capacity=0)", vmss_name)
+                vmss_vm_nics = []
 
             # This will be used if we are in the initializing phase of the system
             ready_vmss_vm_threads = {}
             with vms_currently_being_deleted_lock:
                 vms_to_avoid_adding = vms_currently_being_deleted
-            for vmss_vm in paged_vmss_vms:
-                if vmss_vm.name in db_machine_labels:
-                    # Don't add it if it already exists!
-                    continue
-                if vmss_vm.name in vms_to_avoid_adding:
-                    # Don't add it if it is currently being deleted!
-                    log.debug("%s is currently being deleted!", vmss_vm.name)
-                    continue
-                # According to Microsoft, the OS type is...
-                platform = vmss_vm.storage_profile.os_disk.os_type.lower()
 
-                if not vmss_vm.network_profile:
-                    log.error("%s does not have a network profile", vmss_vm.name)
-                    continue
+            try:
+                for vmss_vm in paged_vmss_vms:
+                    if vmss_vm.name in db_machine_labels:
+                        # Don't add it if it already exists!
+                        continue
+                    if vmss_vm.name in vms_to_avoid_adding:
+                        # Don't add it if it is currently being deleted!
+                        log.debug("%s is currently being deleted!", vmss_vm.name)
+                        continue
+                    # According to Microsoft, the OS type is...
+                    platform = vmss_vm.storage_profile.os_disk.os_type.lower()
 
-                vmss_vm_nic = next(
-                    (
-                        vmss_vm_nic
-                        for vmss_vm_nic in vmss_vm_nics
-                        if vmss_vm.network_profile.network_interfaces[0].id.lower() == vmss_vm_nic.id.lower()
-                    ),
-                    None,
-                )
-                if not vmss_vm_nic:
-                    log.error(
-                        "%s does not match any NICs in %s", vmss_vm.network_profile.network_interfaces[0].id.lower(), str([vmss_vm_nic.id.lower() for vmss_vm_nic in vmss_vm_nics])
-                    )
-                    continue
-                # Sets "new_machine" object in configuration object to
-                # avoid raising an exception.
-                setattr(self.options, vmss_vm.name, {})
+                    if not vmss_vm.network_profile:
+                        log.error("%s does not have a network profile", vmss_vm.name)
+                        continue
 
-                private_ip = vmss_vm_nic.ip_configurations[0].private_ip_address
-                if private_ip in db_machine_ips:
-                    log.error("The IP '%s' is already associated with a machine in the DB. Moving on...", private_ip)
-                    continue
-
-                # Add machine to DB.
-                # TODO: What is the point of name vs label?
-                self.db.add_machine(
-                    name=vmss_vm.name,
-                    label=vmss_vm.name,
-                    ip=private_ip,
-                    platform=platform,
-                    tags=self.options.az.scale_sets[vmss_name].pool_tag,
-                    arch=self.options.az.scale_sets[vmss_name].arch,
-                    interface=self.options.az.interface,
-                    snapshot=vmss_vm.storage_profile.image_reference.id,
-                    resultserver_ip=self.options.az.resultserver_ip,
-                    resultserver_port=self.options.az.resultserver_port,
-                    reserved=False,
-                )
-                # We always wait for Cuckoo agent to finish setting up if 'wait_for_agent_before_starting' is true or if we are initializing.
-                # Else, the machine should become immediately available in DB.
-                if self.initializing or self.options.az.wait_for_agent_before_starting:
-                    thr = threading.Thread(
-                        target=Azure._thr_wait_for_ready_machine,
-                        args=(
-                            vmss_vm.name,
-                            private_ip,
+                    vmss_vm_nic = next(
+                        (
+                            vmss_vm_nic
+                            for vmss_vm_nic in vmss_vm_nics
+                            if vmss_vm.network_profile.network_interfaces[0].id.lower() == vmss_vm_nic.id.lower()
                         ),
+                        None,
                     )
-                    ready_vmss_vm_threads[vmss_vm.name] = thr
-                    thr.start()
+                    if not vmss_vm_nic:
+                        log.error(
+                            "%s does not match any NICs in %s", vmss_vm.network_profile.network_interfaces[0].id.lower(), str([vmss_vm_nic.id.lower() for vmss_vm_nic in vmss_vm_nics])
+                        )
+                        continue
+                    # Sets "new_machine" object in configuration object to
+                    # avoid raising an exception.
+                    setattr(self.options, vmss_vm.name, {})
+
+                    private_ip = vmss_vm_nic.ip_configurations[0].private_ip_address
+                    if private_ip in db_machine_ips:
+                        existing_machines = [machine for machine in machines_in_db if machine.ip == private_ip]
+                        vmss_name, _ = existing_machines[0].label.split("_")
+                        self._delete_machines_from_db_if_missing(vmss_name)
+
+                    # Add machine to DB.
+                    # TODO: What is the point of name vs label?
+                    self.db.add_machine(
+                        name=vmss_vm.name,
+                        label=vmss_vm.name,
+                        ip=private_ip,
+                        platform=platform,
+                        tags=self.options.az.scale_sets[vmss_name].pool_tag,
+                        arch=self.options.az.scale_sets[vmss_name].arch,
+                        interface=self.options.az.interface,
+                        snapshot=vmss_vm.storage_profile.image_reference.id,
+                        resultserver_ip=self.options.az.resultserver_ip,
+                        resultserver_port=self.options.az.resultserver_port,
+                        reserved=False,
+                    )
+                    # We always wait for Cuckoo agent to finish setting up if 'wait_for_agent_before_starting' is true or if we are initializing.
+                    # Else, the machine should become immediately available in DB.
+                    if self.initializing or self.options.az.wait_for_agent_before_starting:
+                        thr = threading.Thread(
+                            target=Azure._thr_wait_for_ready_machine,
+                            args=(
+                                vmss_vm.name,
+                                private_ip,
+                            ),
+                        )
+                        ready_vmss_vm_threads[vmss_vm.name] = thr
+                        thr.start()
+            except ResourceNotFoundError:
+                log.debug("No VMs found for VMSS %s (capacity=0)", vmss_name)
 
             if ready_vmss_vm_threads:
                 for vm, thr in ready_vmss_vm_threads.items():
@@ -691,7 +818,11 @@ class Azure(Machinery):
         )
 
         # Turn the Paged result into a list
-        vmss_vm_names = [vmss_vm.name for vmss_vm in paged_vmss_vms]
+        try:
+            vmss_vm_names = [vmss_vm.name for vmss_vm in paged_vmss_vms]
+        except ResourceNotFoundError:
+            log.debug("No VMs found for VMSS %s (capacity=0)", vmss_name)
+            vmss_vm_names = []
 
         for machine in self.db.list_machines():
             # If machine entry in database is part of VMSS but machine in VMSS does not exist, delete
@@ -767,7 +898,7 @@ class Azure(Machinery):
             # For ClientRequestErrors, they do not have the attribute 'error'
             error = exc.error.error if getattr(exc, "error", False) else exc
             log.warning(
-                "Failed to 5s due to the Azure error '%s': '%s'.", str(api_call), str(error), f"{exc.message if hasattr(exc, 'message') else repr(exc)}"
+                "Failed to '%s' due to the Azure error '%s': '%s'.", str(api_call), str(error), f"{exc.message if hasattr(exc, 'message') else repr(exc)}"
             )
             if "NotFound" in repr(exc) or (hasattr(exc, "status_code") and exc.status_code == 404):
                 # Note that this exception is used to represent if an Azure resource
@@ -791,100 +922,111 @@ class Azure(Machinery):
         @param vmss_image_os: The platform of the image
         @param vmss_tag: the tag used that represents the OS image
         """
-
         try:
-            self.subnet_id = Azure._azure_api_call(
-                self.options.az.vnet_resource_group,
-                self.options.az.vnet,
-                self.options.az.subnet,
-                operation=self.network_client.subnets.get,
-            ).id  # note the id attribute here
-        except CuckooMachineError:
-            raise CuckooCriticalError(
-                "Subnet '%s' does not exist in Virtual Network '%s'", self.options.az.subnet, self.options.az.vnet
-            )
+            try:
+                self.subnet_id = Azure._azure_api_call(
+                    self.options.az.vnet_resource_group,
+                    self.options.az.vnet,
+                    self.options.az.subnet,
+                    operation=self.network_client.subnets.get,
+                ).id  # note the id attribute here
+            except CuckooMachineError:
+                raise CuckooCriticalError(
+                    "Subnet '%s' does not exist in Virtual Network '%s'", self.options.az.subnet, self.options.az.vnet
+                )
 
-        vmss_managed_disk = models.VirtualMachineScaleSetManagedDiskParameters(
-            storage_account_type=self.options.az.storage_account_type
-        )
-        vmss_os_disk = models.VirtualMachineScaleSetOSDisk(
-            create_option="FromImage",
-            os_type=vmss_image_os,
-            managed_disk=vmss_managed_disk,
-            # Ephemeral disk time
-            caching="ReadOnly",
-            diff_disk_settings=models.DiffDiskSettings(option="Local", placement=self.options.az.ephemeral_os_disk_placement),
-        )
-        vmss_storage_profile = models.VirtualMachineScaleSetStorageProfile(
-            image_reference=vmss_image_ref,
-            os_disk=vmss_os_disk,
-        )
-        vmss_dns_settings = models.VirtualMachineScaleSetNetworkConfigurationDnsSettings(
-            dns_servers=self.options.az.dns_server_ips.strip().split(",")
-        )
-        vmss_ip_config = models.VirtualMachineScaleSetIPConfiguration(
-            name="vmss_ip_config",
-            subnet=models.ApiEntityReference(id=self.subnet_id),
-            private_ip_address_version="IPv4",
-        )
-        vmss_network_config = models.VirtualMachineScaleSetNetworkConfiguration(
-            name="vmss_network_config",
-            dns_settings=vmss_dns_settings,
-            ip_configurations=[vmss_ip_config],
-            primary=True,
-        )
-        vmss_network_profile = models.VirtualMachineScaleSetNetworkProfile(network_interface_configurations=[vmss_network_config])
-        # If the user wants spot instances, then give them spot instances!
-        if self.options.az.spot_instances:
-            vmss_vm_profile = models.VirtualMachineScaleSetVMProfile(
-                storage_profile=vmss_storage_profile,
-                network_profile=vmss_network_profile,
-                # Note: The following key value pairs are for Azure spot instances
-                priority=models.VirtualMachinePriorityTypes.spot,
-                eviction_policy=models.VirtualMachineEvictionPolicyTypes.delete,
-                # Note: This value may change depending on your needs.
-                billing_profile=models.BillingProfile(max_price=float(-1)),
+            vmss_managed_disk = models.VirtualMachineScaleSetManagedDiskParameters(
+                storage_account_type=self.options.az.storage_account_type
             )
-        else:
-            vmss_vm_profile = models.VirtualMachineScaleSetVMProfile(
-                storage_profile=vmss_storage_profile,
-                network_profile=vmss_network_profile,
-                priority=models.VirtualMachinePriorityTypes.REGULAR,
+            vmss_os_disk = models.VirtualMachineScaleSetOSDisk(
+                create_option="FromImage",
+                os_type=vmss_image_os,
+                managed_disk=vmss_managed_disk,
+                # Ephemeral disk time
+                caching="ReadOnly",
+                diff_disk_settings=models.DiffDiskSettings(option="Local", placement=self.options.az.ephemeral_os_disk_placement),
             )
-        vmss = models.VirtualMachineScaleSet(
-            location=self.options.az.region_name,
-            tags=Azure.AUTO_SCALE_CAPE_TAG,
-            sku=models.Sku(name=self.options.az.instance_type, capacity=self.required_vmsss[vmss_name]["initial_pool_size"]),
-            upgrade_policy=models.UpgradePolicy(mode="Automatic"),
-            virtual_machine_profile=vmss_vm_profile,
-            overprovision=False,
-            # When true this limits the scale set to a single placement group, of max size 100 virtual machines.
-            single_placement_group=False,
-            scale_in_policy=models.ScaleInPolicy(rules=[models.VirtualMachineScaleSetScaleInRules.newest_vm]),
-            spot_restore_policy=(
-                models.SpotRestorePolicy(enabled=True, restore_timeout="PT30M") if self.options.az.spot_instances else None
-            ),
-        )
-        if not self.options.az.just_start:
-            async_vmss_creation = Azure._azure_api_call(
-                self.options.az.sandbox_resource_group,
-                vmss_name,
-                vmss,
-                polling_interval=1,
-                operation=self.compute_client.virtual_machine_scale_sets.begin_create_or_update,
+            vmss_storage_profile = models.VirtualMachineScaleSetStorageProfile(
+                image_reference=vmss_image_ref,
+                os_disk=vmss_os_disk,
             )
-            _ = self._handle_poller_result(async_vmss_creation)
+            vmss_dns_settings = models.VirtualMachineScaleSetNetworkConfigurationDnsSettings(
+                dns_servers=self.options.az.dns_server_ips.strip().split(",")
+            )
+            vmss_ip_config = models.VirtualMachineScaleSetIPConfiguration(
+                name="vmss_ip_config",
+                subnet=models.ApiEntityReference(id=self.subnet_id),
+                private_ip_address_version="IPv4",
+            )
+            vmss_network_config = models.VirtualMachineScaleSetNetworkConfiguration(
+                name="vmss_network_config",
+                dns_settings=vmss_dns_settings,
+                ip_configurations=[vmss_ip_config],
+                primary=True,
+            )
+            vmss_network_profile = models.VirtualMachineScaleSetNetworkProfile(network_interface_configurations=[vmss_network_config])
+            # If the user wants spot instances, then give them spot instances!
+            if self.options.az.spot_instances:
+                vmss_vm_profile = models.VirtualMachineScaleSetVMProfile(
+                    storage_profile=vmss_storage_profile,
+                    network_profile=vmss_network_profile,
+                    # Note: The following key value pairs are for Azure spot instances
+                    priority=models.VirtualMachinePriorityTypes.spot,
+                    eviction_policy=models.VirtualMachineEvictionPolicyTypes.delete,
+                    # Note: This value may change depending on your needs.
+                    billing_profile=models.BillingProfile(max_price=float(-1)),
+                )
+            else:
+                vmss_vm_profile = models.VirtualMachineScaleSetVMProfile(
+                    storage_profile=vmss_storage_profile,
+                    network_profile=vmss_network_profile,
+                    priority=models.VirtualMachinePriorityTypes.REGULAR,
+                )
+            vmss = models.VirtualMachineScaleSet(
+                location=self.options.az.region_name,
+                tags=Azure.AUTO_SCALE_CAPE_TAG,
+                sku=models.Sku(name=self.options.az.instance_type, capacity=self.required_vmsss[vmss_name]["initial_pool_size"]),
+                upgrade_policy=models.UpgradePolicy(mode="Automatic"),
+                virtual_machine_profile=vmss_vm_profile,
+                overprovision=False,
+                # When true this limits the scale set to a single placement group, of max size 100 virtual machines.
+                single_placement_group=False,
+                scale_in_policy=models.ScaleInPolicy(rules=[models.VirtualMachineScaleSetScaleInRules.newest_vm]),
+                spot_restore_policy=(
+                    models.SpotRestorePolicy(enabled=True, restore_timeout="PT30M") if self.options.az.spot_instances else None
+                ),
+            )
+            if not self.options.az.just_start:
+                async_vmss_creation = Azure._azure_api_call(
+                    self.options.az.sandbox_resource_group,
+                    vmss_name,
+                    vmss,
+                    polling_interval=1,
+                    operation=self.compute_client.virtual_machine_scale_sets.begin_create_or_update,
+                )
+                _ = self._handle_poller_result(async_vmss_creation)
 
-        # Initialize key-value pair for VMSS with specific details
-        machine_pools[vmss_name] = {
-            "size": self.required_vmsss[vmss_name]["initial_pool_size"],
-            "is_scaling": False,
-            "is_scaling_down": False,
-            "wait": False,
-        }
-        self.required_vmsss[vmss_name]["exists"] = True
-        with self.db.session.begin():
-            self._add_machines_to_db(vmss_name)
+            # Initialize key-value pair for VMSS with specific details
+            machine_pools[vmss_name] = {
+                "size": self.required_vmsss[vmss_name]["initial_pool_size"],
+                "is_scaling": False,
+                "is_scaling_down": False,
+                "wait": False,
+            }
+            self.required_vmsss[vmss_name]["exists"] = True
+            try:
+                with self.db.session.begin():
+                    if machine_pools[vmss_name]["size"] == 0:
+                        self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
+                    else:
+                        self._add_machines_to_db(vmss_name)
+            except sqlalchemy.exc.InvalidRequestError:
+                if machine_pools[vmss_name]["size"] == 0:
+                    self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
+                else:
+                    self._add_machines_to_db(vmss_name)
+        except Exception as e:
+            log.exception("Exception in _thr_create_vmss for %s: %s", vmss_name, e)
 
     def _thr_reimage_vmss(self, vmss_name):
         """
@@ -914,7 +1056,10 @@ class Azure(Machinery):
             else:
                 log.exception(repr(e))
                 raise
-        with self.db.session.begin():
+        try:
+            with self.db.session.begin():
+                self._add_machines_to_db(vmss_name)
+        except sqlalchemy.exc.InvalidRequestError:
             self._add_machines_to_db(vmss_name)
 
     def _thr_scale_machine_pool(self, tag, per_platform=False):
@@ -1029,6 +1174,8 @@ class Azure(Machinery):
                 # Azure will delete a machine in a VMSS that has not been used in a while. So the machine_pools value
                 # will not be up-to-date
                 self._delete_machines_from_db_if_missing(vmss_name)
+                if len(self.db.list_machines(tags=[tag], include_reserved=True)) == 0:
+                    self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
                 # Update the VMSS size accordingly
                 machine_pools[vmss_name]["size"] = len(self._get_relevant_machines(tag))
                 log.debug("The size of the machine pool %s is already the size that we want", vmss_name)
@@ -1147,9 +1294,13 @@ class Azure(Machinery):
             # Alter the database based on if we scaled up or down
             log.debug("Updated %s capacity: %s; Initial capacity: %s", vmss_name, str(number_of_relevant_machines_required), str(initial_capacity))
             if number_of_relevant_machines_required > initial_capacity:
+                if machine_pools[vmss_name]["has_placeholder_machine"]:
+                    self._remove_placeholder_machine(vmss_name)
                 self._add_machines_to_db(vmss_name)
             else:
                 self._delete_machines_from_db_if_missing(vmss_name)
+                if len(self.db.list_machines(tags=[tag], include_reserved=True)) == 0:
+                    self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
 
             # I release you from your earthly bonds!
             machine_pools[vmss_name]["wait"] = False
@@ -1215,7 +1366,7 @@ class Azure(Machinery):
         """
         # The number of relevant machines are those from the list of locked and unlocked machines
         # that have the correct tag in their name
-        return [machine for machine in self.db.list_machines([tag])]
+        return [machine for machine in self.db.list_machines(tags=[tag])]
 
     @staticmethod
     def _wait_for_concurrent_operations_to_complete(timeout=AZURE_TIMEOUT):
@@ -1361,7 +1512,7 @@ class Azure(Machinery):
                     current_vmss_operations -= 1
                 timediff = timeit.default_timer() - start_time
                 log.debug(
-                    "%successfully reimaging instances %s in %s took %ds", {'S' if reimaged else 'Uns'}, str(instance_ids), str(vmss_to_reimage), round(timediff)
+                    "%ssuccessfully reimaging instances %s in %s took %ds", 'S' if reimaged else 'Un', str(instance_ids), str(vmss_to_reimage), round(timediff)
                 )
             except Exception as e:
                 log.error("Exception occurred in the reimage thread: %s. Trying again...", str(e))
@@ -1403,6 +1554,7 @@ class Azure(Machinery):
                             self.options.az.sandbox_resource_group,
                             vmss_to_delete_from,
                             models.VirtualMachineScaleSetVMInstanceIDs(instance_ids=instance_ids),
+                            force_deletion=True,
                             polling_interval=1,
                             operation=self.compute_client.virtual_machine_scale_sets.begin_delete_instances,
                         )
@@ -1437,7 +1589,7 @@ class Azure(Machinery):
                 with current_operations_lock:
                     current_vmss_operations -= 1
                 log.debug(
-                    "%successfully deleting instances %s in {vmss_to_delete_from} took %ss", 'S' if deleted else 'Uns', str(instance_ids), str(round(timeit.default_timer() - start_time))
+                    "%ssuccessfully deleting instances %s in %s took %ss", 'S' if deleted else 'Un', str(instance_ids), str(vmss_to_delete_from), str(round(timeit.default_timer() - start_time))
                 )
             except Exception as e:
                 log.error("Exception occurred in the delete thread: %s. Trying again...", str(e))

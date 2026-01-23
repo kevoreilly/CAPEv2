@@ -276,10 +276,6 @@ def index(request, task_id=None, resubmit_hash=None):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -331,6 +327,9 @@ def index(request, task_id=None, resubmit_hash=None):
 
         if request.POST.get("process_memory"):
             options += "procmemdump=1,"
+
+        if request.POST.get("amsidump"):
+            options += "amsidump=1,"
 
         if request.POST.get("import_reconstruction"):
             options += "import_reconstruction=1,"
@@ -384,6 +383,19 @@ def index(request, task_id=None, resubmit_hash=None):
         }
         if opt_apikey:
             details["apikey"] = opt_apikey
+
+        if web_conf.pre_script.enabled and "pre_script" in request.FILES:
+            pre_script = request.FILES["pre_script"]
+            details["pre_script_name"] = pre_script.name
+            details["pre_script_content"] = pre_script.read()
+            pre_script.close()
+
+        if web_conf.during_script.enabled and "during_script" in request.FILES:
+            during_script = request.FILES["during_script"]
+            details["during_script_name"] = during_script.name
+            details["during_script_content"] = during_script.read()
+            during_script.close()
+
         task_category = False
         samples = []
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
@@ -486,16 +498,6 @@ def index(request, task_id=None, resubmit_hash=None):
 
         if task_category == "resubmit":
             for content, path, sha256 in list_of_tasks:
-                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
-                    pre_script = request.FILES["pre_script"]
-                    details["pre_script_name"] = request.FILES["pre_script"].name
-                    details["pre_script_content"] = pre_script.read()
-
-                if web_conf.during_script.enabled and "during_script" in request.FILES:
-                    during_script = request.FILES["during_script"]
-                    details["during_script_name"] = request.FILES["during_script"].name
-                    details["during_script_content"] = during_script.read()
-
                 details["path"] = path
                 details["content"] = content
                 status, tasks_details = download_file(**details)
@@ -514,16 +516,6 @@ def index(request, task_id=None, resubmit_hash=None):
         elif task_category == "sample":
             details["service"] = "WebGUI"
             for content, path, sha256 in list_of_tasks:
-                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
-                    pre_script = request.FILES["pre_script"]
-                    details["pre_script_name"] = request.FILES["pre_script"].name
-                    details["pre_script_content"] = pre_script.read()
-
-                if web_conf.during_script.enabled and "during_script" in request.FILES:
-                    during_script = request.FILES["during_script"]
-                    details["during_script_name"] = request.FILES["during_script"].name
-                    details["during_script_content"] = during_script.read()
-
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
@@ -596,10 +588,6 @@ def index(request, task_id=None, resubmit_hash=None):
                         memory=memory,
                         enforce_timeout=enforce_timeout,
                         clock=clock,
-                        shrike_url=shrike_url,
-                        shrike_msg=shrike_msg,
-                        shrike_sid=shrike_sid,
-                        shrike_refer=shrike_refer,
                         route=route,
                         cape=cape,
                         tags_tasks=tags_tasks,
@@ -661,6 +649,7 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["pre_script"] = web_conf.pre_script.enabled
         enabledconf["during_script"] = web_conf.during_script.enabled
         enabledconf["downloading_service"] = bool(downloader_services.downloaders)
+        enabledconf["interactive_desktop"] = web_conf.guacamole.enabled
 
         all_vms_tags = load_vms_tags()
 
@@ -783,7 +772,7 @@ def status(request, task_id):
         "session_data": "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
-    if settings.REMOTE_SESSION:
+    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1":
         machine = db.view_machine_by_label(task.machine)
         if machine:
             guest_ip = machine.ip
@@ -804,7 +793,7 @@ def remote_session(request, task_id):
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine(task.machine)
+        machine = db.view_machine_by_label(task.machine)
         if not machine:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
         guest_ip = machine.ip

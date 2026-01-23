@@ -799,10 +799,6 @@ def download_file(**kwargs):
         memory,
         clock,
         enforce_timeout,
-        shrike_url,
-        shrike_msg,
-        shrike_sid,
-        shrike_refer,
         unique,
         referrer,
         tlp,
@@ -811,14 +807,6 @@ def download_file(**kwargs):
         cape,
     ) = parse_request_arguments(kwargs["request"])
     onesuccess = False
-
-    username = False
-    """
-    put here your custom username assignation from your custom auth, Ex:
-    request_url = kwargs["request"].build_absolute_uri()
-    if "yourdomain.com/submit/" in request_url:
-        username = kwargs["request"].COOKIES.get("X-user")
-    """
 
     # in case if user didn't specify routing, and we have enabled random route
     if not route:
@@ -959,18 +947,12 @@ def download_file(**kwargs):
             enforce_timeout=enforce_timeout,
             clock=clock,
             static=static,
-            shrike_url=shrike_url,
-            shrike_msg=shrike_msg,
-            shrike_sid=shrike_sid,
-            shrike_refer=shrike_refer,
             tlp=tlp,
             tags_tasks=tags_tasks,
             route=route,
             cape=cape,
             user_id=kwargs.get("user_id"),
-            username=username,
             source_url=kwargs.get("source_url", False),
-            # parent_id=kwargs.get("parent_id"),
         )
 
         try:
@@ -1239,6 +1221,7 @@ search_term_map = {
     "suriurl": "suricata.http.uri",
     "suriua": "suricata.http.ua",
     "surireferrer": "suricata.http.referrer",
+    "surihost": "suricata.http.hostname",
     "suritlssubject": "suricata.tls.subject",
     "suritlsissuerdn": "suricata.tls.issuer",
     "suritlsfingerprint": "suricata.tls.fingerprint",
@@ -1248,10 +1231,6 @@ search_term_map = {
     "machinename": "info.machine.name",
     "machinelabel": "info.machine.label",
     "comment": "info.comments.Data",
-    "shrikemsg": "info.shrike_msg",
-    "shrikeurl": "info.shrike_url",
-    "shrikerefer": "info.shrike_refer",
-    "shrikesid": "info.shrike_sid",
     "custom": "info.custom",
     # initial binary
     "target_sha256": f"target.file.{FILE_REF_KEY}",
@@ -1419,15 +1398,32 @@ def perform_search(
         search_term_map[term] = f"CAPE.configs.{value}"
         query_val = {"$exists": True}
 
+    retval = []
+    mongo_search_query = None
     if repconf.mongodb.enabled and query_val:
         if term in hash_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
-            file_docs = list(mongo_find(FILES_COLL, {hash_searches[term]: query_val}, {"_task_ids": 1}))
-            if not file_docs:
+            split_by = "," if "," in query_val else " "
+            query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            pipeline = [
+                # Stages 1-5: Find, unwind, group, sort, limit IDs
+                {"$match": {hash_searches[term]: query_filter_list}},
+                {"$unwind": "$_task_ids"},
+                {"$group": {"_id": "$_task_ids"}},
+                {"$sort": {"_id": -1}},
+                {"$limit": search_limit},
+                # Stage 6: Join with the tasks collection
+                {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
+                # Stage 7: Unpack the joined doc
+                {"$unwind": "$task_doc"},
+                # Stage 8: Make the task doc the new root
+                {"$replaceRoot": {"newRoot": "$task_doc"}},
+                # Stage 9: Add your custom projection
+                {"$project": perform_search_filters},
+            ]
+            retval = list(mongo_aggregate(FILES_COLL, pipeline))
+            if not retval:
                 return []
-            ids = sorted(list(set(file_docs[0]["_task_ids"])), reverse=True)[:search_limit]
-            term = "ids"
-            mongo_search_query = {"info.id": {"$in": ids}}
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
         elif isinstance(search_term_map[term], list):
@@ -1436,13 +1432,17 @@ def perform_search(
             print(f"Unknown search {term}:{value}")
             return []
 
-        # Allow to overwrite perform_search_filters for custom results
-        if not projection:
-            projection = perform_search_filters
-        if "target.file.sha256" in projection:
-            projection = dict(**projection)
-            projection[f"target.file.{FILE_REF_KEY}"] = 1
-        retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
+        if not retval and mongo_search_query:
+            # Allow to overwrite perform_search_filters for custom results
+            if not projection:
+                projection = perform_search_filters
+            if "target.file.sha256" in projection:
+                projection = dict(**projection)
+                projection[f"target.file.{FILE_REF_KEY}"] = 1
+            if term in search_term_map_repetetive_blocks:
+                mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
+            retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
+
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})
             if FILE_REF_KEY in target_file and "sha256" not in target_file:
@@ -1521,10 +1521,6 @@ def parse_request_arguments(request, keyword="POST"):
             - memory (bool): Memory argument.
             - clock (str): Clock argument.
             - enforce_timeout (bool): Enforce timeout argument.
-            - shrike_url (str): Shrike URL argument.
-            - shrike_msg (str): Shrike message argument.
-            - shrike_sid (str): Shrike SID argument.
-            - shrike_refer (str): Shrike refer argument.
             - unique (bool): Unique argument.
             - referrer (str): Referrer argument.
             - tlp (str): TLP argument.
@@ -1545,16 +1541,12 @@ def parse_request_arguments(request, keyword="POST"):
     tags = getattr(request, keyword).get("tags")
     custom = getattr(request, keyword).get("custom", "")
     memory = force_bool(getattr(request, keyword).get("memory", False))
-    clock = getattr(request, keyword).get("clock", datetime.now().strftime("%m-%d-%Y %H:%M:%S"))
+    clock = getattr(request, keyword).get("clock", "")
     if not clock:
-        clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
-    if "1970" in clock:
+        clock = datetime.utcfromtimestamp(0)
+    elif "1970" in clock:
         clock = datetime.now().strftime("%m-%d-%Y %H:%M:%S")
     enforce_timeout = force_bool(getattr(request, keyword).get("enforce_timeout", False))
-    shrike_url = getattr(request, keyword).get("shrike_url")
-    shrike_msg = getattr(request, keyword).get("shrike_msg")
-    shrike_sid = getattr(request, keyword).get("shrike_sid")
-    shrike_refer = getattr(request, keyword).get("shrike_refer")
     unique = force_bool(getattr(request, keyword).get("unique", False))
     tlp = getattr(request, keyword).get("tlp")
     lin_options = getattr(request, keyword).get("lin_options", "")
@@ -1583,10 +1575,6 @@ def parse_request_arguments(request, keyword="POST"):
         memory,
         clock,
         enforce_timeout,
-        shrike_url,
-        shrike_msg,
-        shrike_sid,
-        shrike_refer,
         unique,
         referrer,
         tlp,
@@ -1623,53 +1611,54 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
     """
     list_of_files = []
     for sample in samples:
-        # Error if there was only one submitted sample, and it's empty.
-        # But if there are multiple and one was empty, just ignore it.
-        if not sample.size:
-            details["errors"].append({sample.name: "You uploaded an empty file."})
-            continue
+        with sample:
+            # Error if there was only one submitted sample, and it's empty.
+            # But if there are multiple and one was empty, just ignore it.
+            if not sample.size:
+                details["errors"].append({sample.name: "You uploaded an empty file."})
+                continue
 
-        size = sample.size
-        if size > web_cfg.general.max_sample_size and not (
-            web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
-        ):
-            if not web_cfg.general.enable_trim:
+            size = sample.size
+            if size > web_cfg.general.max_sample_size and not (
+                web_cfg.general.allow_ignore_size and "ignore_size_check" in details["options"]
+            ):
+                if not web_cfg.general.enable_trim:
+                    details["errors"].append(
+                        {
+                            sample.name: f"Uploaded file exceeds the maximum allowed size in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is: {web_cfg.general.max_sample_size / float(1 << 20):,.0f}"
+                        }
+                    )
+                    continue
+
+            data = sample.read()
+
+            if opt_filename:
+                filename = opt_filename
+            else:
+                filename = sanitize_filename(sample.name)
+
+            # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
+            try:
+                path = store_temp_file(data, filename)
+                target_file = File(path)
+                sha256 = target_file.get_sha256()
+            except OSError:
                 details["errors"].append(
-                    {
-                        sample.name: f"Uploaded file exceeds the maximum allowed size in conf/web.conf. Sample size is: {size / float(1 << 20):,.0f} Allowed size is: {web_cfg.general.max_sample_size / float(1 << 20):,.0f}"
-                    }
+                    {filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."}
                 )
                 continue
 
-        data = sample.read()
+            if (
+                not request.user.is_staff
+                and (web_cfg.uniq_submission.enabled or unique)
+                and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
+            ):
+                details["errors"].append(
+                    {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
+                )
+                continue
 
-        if opt_filename:
-            filename = opt_filename
-        else:
-            filename = sanitize_filename(sample.name)
-
-        # Moving sample from django temporary file to CAPE temporary storage for persistence, if configured by user.
-        try:
-            path = store_temp_file(data, filename)
-            target_file = File(path)
-            sha256 = target_file.get_sha256()
-        except OSError:
-            details["errors"].append(
-                {filename: "Temp folder from cuckoo.conf, disk is out of space. Clean some space before continue."}
-            )
-            continue
-
-        if (
-            not request.user.is_staff
-            and (web_cfg.uniq_submission.enabled or unique)
-            and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
-        ):
-            details["errors"].append(
-                {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}
-            )
-            continue
-
-        list_of_files.append((data, path, sha256))
+            list_of_files.append((data, path, sha256))
 
     return list_of_files, details
 
@@ -1706,78 +1695,6 @@ def process_new_dlnexec_task(url: str, route: str, options: str, custom: str):
     path = store_temp_file(response, name)
 
     return path, response, ""
-
-
-def submit_task(
-    target: str,
-    package: str = "",
-    timeout: int = 0,
-    task_options: str = "",
-    priority: int = 1,
-    machine: str = "",
-    platform: str = "",
-    memory: bool = False,
-    enforce_timeout: bool = False,
-    clock: str = None,
-    tags: str = None,
-    parent_id: int = None,
-    tlp: bool = None,
-    distributed: bool = False,
-    filename: str = "",
-    server_url: str = "",
-):
-    """
-    ToDo add url support in future
-    """
-    if not path_exists(target):
-        log.info("File doesn't exist")
-        return
-
-    task_id = False
-    if distributed:
-        options = {
-            "package": package,
-            "timeout": timeout,
-            "options": task_options,
-            "priority": priority,
-            # "machine": machine,
-            "platform": platform,
-            "memory": memory,
-            "enforce_timeout": enforce_timeout,
-            "clock": clock,
-            "tags": tags,
-            "parent_id": parent_id,
-            "filename": filename,
-        }
-
-        multipart_file = [("file", (os.path.basename(target), open(target, "rb")))]
-        try:
-            res = requests.post(server_url, files=multipart_file, data=options)
-            if res and res.ok:
-                task_id = res.json()["data"]["task_ids"][0]
-        except Exception as e:
-            log.error(e)
-    else:
-        task_id = db.add_path(
-            file_path=target,
-            package=package,
-            timeout=timeout,
-            options=task_options,
-            priority=priority,
-            machine=machine,
-            platform=platform,
-            memory=memory,
-            enforce_timeout=enforce_timeout,
-            parent_id=parent_id,
-            tlp=tlp,
-            filename=filename,
-        )
-    if not task_id:
-        log.warning("Error adding CAPE task to database: %s", package)
-        return task_id
-
-    log.info('CAPE detection on file "%s": %s - added as CAPE task with ID %s', target, package, task_id)
-    return task_id
 
 
 # https://stackoverflow.com/questions/14989858/get-the-current-git-hash-in-a-python-script/68215738#68215738

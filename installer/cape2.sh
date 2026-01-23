@@ -57,10 +57,16 @@ librenms_megaraid_enable=0
 
 # disabling this will result in the web interface being disabled
 MONGO_ENABLE=1
-
+# Must match libvirt version!
+LIB_VERSION=11.9.0
 DIE_VERSION="3.10"
-
 TOR_SOCKET_TIMEOUT="60"
+CAPE_ROOT="${CAPE_ROOT:-/opt/CAPEv2}"
+
+USE_UV=${USE_UV:-false}
+PYTHON_MGR="/etc/poetry/bin/poetry"
+PYTHON_MGR_CMD="run"
+PYTHON_MGR_INSTALL="install"
 
 # if a config file is present, read it in
 if [ -f "./cape-config.sh" ]; then
@@ -69,13 +75,11 @@ fi
 
 UBUNTU_VERSION=$(lsb_release -rs)
 OS="$(uname -s)"
-MAINTAINER="$(whoami)"_"$(hostname)"
+MAINTAINER="$(whoami) "_"$(hostname)"
 ARCH="$(dpkg --print-architecture)"
 
 function issues() {
-cat << EOI
-    No known problems yet
-EOI
+    cat "No known problems yet"
 }
 
 function usage() {
@@ -121,8 +125,16 @@ cat << EndOfHelp
         modsecurity - install Nginx ModSecurity plugin
         Issues - show some known possible bugs/solutions
     Options:
+        --use-uv - Use uv instead of poetry
         --disable-mongodb-avx-check - Disable check of AVX CPU feature for MongoDB
         --disable-libvirt - Disable libvirt related packages installation
+
+    Examples:
+        sudo bash cape2.sh all | tee cape2.log
+            Default install - poetry, /opt/CAPEv2
+        sudo CAPE_ROOT=/mnt/sandbox/CAPEv2 USE_UV=True bash cape2.sh all | tee cape2.log
+            * Custom install folder, use UV instead of poetry
+
     Useful links - THEY CAN BE OUTDATED; RTFM!!!
         * https://cuckoo.sh/docs/introduction/index.html
         * https://medium.com/@seifreed/how-to-deploy-cuckoo-sandbox-431a6e65b848
@@ -193,9 +205,9 @@ function librenms_sneck_config() {
         echo '#ipmi_sensor|/usr/lib/nagios/plugins/check_ipmi_sensor --nosel'
     fi
     echo 'virtqemud_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "^/usr/sbin/virtqemud" 1:1'
-    echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python cuckoo.py" 1:1'
-    echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python process.py" 1:'
-    echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python rooter.py" 1'
+    echo 'cape_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv).*bin/python cuckoo.py" 1:1'
+    echo 'cape_processor_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv).*bin/python process.py" 1:'
+    echo 'cape_rooter_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv).*bin/python rooter.py" 1'
     if [ "$clamav_enable" -ge 1 ]; then
         echo "clamav|/usr/lib/nagios/plugins/check_clamav -w $librenms_clamav_warn -c $librenms_clamav_crit"
     else
@@ -203,10 +215,10 @@ function librenms_sneck_config() {
     fi
     if [ "$MONGO_ENABLE" -ge 1 ]; then
         echo "mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 1:'
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv).*bin/python manage.py" 1:'
     else
         echo "#mongodb|/usr/lib/nagios/plugins/check_mongodb.py $librenms_mongo_args"
-        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "poetry.*bin/python manage.py" 0'
+        echo 'cape_web_procs|/usr/lib/nagios/plugins/check_procs --ereg-argument-array "(poetry|uv).*bin/python manage.py" 0'
     fi
 }
 
@@ -303,7 +315,7 @@ function install_modsecurity() {
     if [ ! -d nginx-"$nginx_version" ]; then
         wget http://nginx.org/download/nginx-"$nginx_version".tar.gz
         wget http://nginx.org/download/nginx-"$nginx_version".tar.gz.asc
-        gpg --verify "nginx-$nginx_version.tar.gz.asc"
+        gpg --verify "nginx-${nginx_version}.tar.gz.asc"
         tar zxf nginx-"$nginx_version".tar.gz
     fi
 
@@ -338,32 +350,32 @@ function install_modsecurity() {
 
 function install_nginx() {
     echo "[+] Install nginx"
-    if [ ! -d nginx-$nginx_version ]; then
-        wget http://nginx.org/download/nginx-$nginx_version.tar.gz
-        wget http://nginx.org/download/nginx-$nginx_version.tar.gz.asc
-        gpg --verify "nginx-$nginx_version.tar.gz.asc"
-        tar xzvf nginx-$nginx_version.tar.gz
+    if [ ! -d nginx-"$nginx_version" ]; then
+        wget http://nginx.org/download/nginx-"$nginx_version".tar.gz
+        wget http://nginx.org/download/nginx-"$nginx_version".tar.gz.asc
+        gpg --verify "nginx-"$nginx_version".tar.gz.asc"
+        tar xzvf nginx-"$nginx_version".tar.gz
     fi
 
     PCRE_VERSION="10.37"
     OPENSSL_VERSION="3.4.0"
     ZLIB_VERSION="1.3.1"
-    if [ ! -d pcre2-$PCRE_VERSION ]; then
-        wget https://ftp.exim.org/pub/pcre/pcre2-$PCRE_VERSION.tar.gz  && tar xzvf pcre2-$PCRE_VERSION.tar.gz
+    if [ ! -d pcre2-"$PCRE_VERSION" ]; then
+        wget https://ftp.exim.org/pub/pcre/pcre2-"$PCRE_VERSION".tar.gz  && tar xzvf pcre2-"$PCRE_VERSION".tar.gz
     fi
 
     if [ ! -d zlib-1.3.1]; then
-        wget https://www.zlib.net/zlib-$ZLIB_VERSION.tar.gz && tar xzvf zlib-$ZLIB_VERSION.tar.gz
+        wget https://www.zlib.net/zlib-"$ZLIB_VERSION".tar.gz && tar xzvf zlib-"$ZLIB_VERSION".tar.gz
     fi
 
-    if [ ! -d openssl-$OPENSSL_VERSION ]; then
-        wget https://www.openssl.org/source/openssl-$OPENSSL_VERSION.tar.gz && tar xzvf openssl-$OPENSSL_VERSION.tar.gz
+    if [ ! -d openssl-"$OPENSSL_VERSION" ]; then
+        wget https://www.openssl.org/source/openssl-"$OPENSSL_VERSION".tar.gz && tar xzvf openssl-"$OPENSSL_VERSION".tar.gz
     fi
     sudo add-apt-repository -y ppa:maxmind/ppa
     sudo apt-get update && sudo apt-get upgrade -y
     sudo apt-get install -y perl libperl-dev libgd3 libgd-dev libgeoip1 libgeoip-dev geoip-bin libxml2 libxml2-dev libxslt1.1 libxslt1-dev
 
-    cd nginx-$nginx_version || return
+    cd nginx-"$nginx_version" || return
 
     sudo cp man/nginx.8 /usr/share/man/man8
     # ToDo auto confirmation of overwrite
@@ -386,14 +398,14 @@ function install_nginx() {
                 --http-proxy-temp-path=/var/lib/nginx/proxy \
                 --http-scgi-temp-path=/var/lib/nginx/scgi \
                 --http-uwsgi-temp-path=/var/lib/nginx/uwsgi \
-                --with-openssl=../openssl-$OPENSSL_VERSION \
+                --with-openssl=../openssl-"$OPENSSL_VERSION" \
                 --with-openssl-opt=enable-ec_nistp_64_gcc_128 \
                 --with-openssl-opt=no-nextprotoneg \
                 --with-openssl-opt=no-weak-ssl-ciphers \
                 --with-openssl-opt=no-ssl3 \
-                --with-pcre=../pcre2-$PCRE_VERSION \
+                --with-pcre=../pcre2-"$PCRE_VERSION" \
                 --with-pcre-jit \
-                --with-zlib=../zlib-$ZLIB_VERSION \
+                --with-zlib=../zlib-"$ZLIB_VERSION" \
                 --with-compat \
                 --with-file-aio \
                 --with-threads \
@@ -424,7 +436,7 @@ function install_nginx() {
                 --with-http_v3_module
 
 
-    # checkinstall -D --pkgname="nginx-$nginx_version" --pkgversion="$nginx_version" --default
+    # checkinstall -D --pkgname="nginx-${nginx_version}" --pkgversion="$nginx_version" --default
     mkdir -p /tmp/nginx_builded/DEBIAN
     make -j"$(nproc)"
     echo -e "Package: nginx\nVersion: $nginx_version\nArchitecture: $ARCH\nMaintainer: $MAINTAINER\nDescription: nginx-$nginx_version" > /tmp/nginx_builded/DEBIAN/control
@@ -546,7 +558,7 @@ server {
     }
 }:
 EOF
-fi
+    fi
 
     if [ ! -f /etc/ssl/certs/cloudflare.crt ]; then
         cat >> /etc/ssl/certs/cloudflare.crt << EOF
@@ -646,9 +658,13 @@ function redsocks2() {
 function distributed() {
     echo "[+] Configure distributed configuration"
     sudo apt-get install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
-    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run pip install flask flask-restful flask-sqlalchemy requests'
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install flask flask-restful flask-sqlalchemy requests"
+    else
+        sudo -u ${USER} bash -c "$PYTHON_MGR $PYTHON_MGR_CMD pip install flask flask-restful flask-sqlalchemy requests"
+    fi
 
-    sudo cp /opt/CAPEv2/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
+    sudo cp $CAPE_ROOT/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
     sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
 
     sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}dist\"";
@@ -690,65 +706,67 @@ EOL
 
 function install_suricata() {
     echo '[+] Installing Suricata'
-    sudo add-apt-repository -y ppa:oisf/suricata-stable
-    sudo apt-get install -y suricata suricata-update
+    # Suricata 8 has many breaking changes. We don't have time to make it compatible
+    # sudo add-apt-repository -y ppa:oisf/suricata-stable
+    sudo add-apt-repository -y ppa:oisf/suricata-7.0
+    sudo apt-get -o Dpkg::Options::="--force-confold" -o Dpkg::Options::="--force-overwrite" install -y suricata
     touch /etc/suricata/threshold.config
 
     # Download etupdate to update Emerging Threats Open IDS rules:
     mkdir -p "/etc/suricata/rules"
     if ! crontab -l | grep -q -F '15 * * * * /usr/bin/suricata-update'; then
-        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ && /usr/bin/suricatasc -c reload-rules /tmp/suricata-command.socket &>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "15 * * * * /usr/bin/suricata-update --suricata /usr/bin/suricata --suricata-conf /etc/suricata/suricata.yaml -o /etc/suricata/rules/ &>/dev/null"; } | crontab -
     fi
     if [ -d /usr/share/suricata/rules/ ]; then
-        # copy files if rules folder contains files
+        # copy files if rules folder contains files
         if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
             cp "/usr/share/suricata/rules/"* "/etc/suricata/rules/"
         fi
     fi
     if [ -d /var/lib/suricata/rules/ ]; then
-        # copy files if rules folder contains files
+        # copy files if rules folder contains files
         if [ "$(ls -A /var/lib/suricata/rules/)" ]; then
             cp "/var/lib/suricata/rules/"* "/etc/suricata/rules/"
         fi
     fi
 
-    # ToDo this is not the best solution but i don't have time now to investigate proper one
-    sed -i 's|CapabilityBoundingSet=CAP_NET_ADMIN|#CapabilityBoundingSet=CAP_NET_ADMIN|g' /lib/systemd/system/suricata.service
-    systemctl daemon-reload
+    cat > /etc/suricata/cape.yaml <<EOF
+%YAML 1.1
+---
 
-    #change suricata yaml
-    sed -i 's|#default-rule-path: /etc/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/default/suricata
-    sed -i 's|default-rule-path: /var/lib/suricata/rules|default-rule-path: /etc/suricata/rules|g' /etc/suricata/suricata.yaml
-    sed -i 's/#rule-files:/rule-files:/g' /etc/suricata/suricata.yaml
-    sed -i 's/# - suricata.rules/ - suricata.rules/g' /etc/suricata/suricata.yaml
-    sed -i 's/RUN=yes/RUN=no/g' /etc/default/suricata
-    sed -i 's/mpm-algo: ac/mpm-algo: hs/g' /etc/suricata/suricata.yaml
-    sed -i 's/mpm-algo: auto/mpm-algo: hs/g' /etc/suricata/suricata.yaml
-    sed -i 's/#run-as:/run-as:/g' /etc/suricata/suricata.yaml
-    sed -i "s/#  user: suri/   user: ${USER}/g" /etc/suricata/suricata.yaml
-    sed -i "s/#  group: suri/   group: ${USER}/g" /etc/suricata/suricata.yaml
-    sed -i 's/    depth: 1mb/    depth: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/request-body-limit: 100kb/request-body-limit: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/response-body-limit: 100kb/response-body-limit: 0/g' /etc/suricata/suricata.yaml
-    sed -i 's/EXTERNAL_NET: "!$HOME_NET"/EXTERNAL_NET: "ANY"/g' /etc/suricata/suricata.yaml
-    sed -i 's|#pid-file: /var/run/suricata.pid|pid-file: /tmp/suricata.pid|g' /etc/suricata/suricata.yaml
-    sed -i 's|#ja3-fingerprints: auto|ja3-fingerprints: yes|g' /etc/suricata/suricata.yaml
-    #-k none
-    sed -i 's/#checksum-validation: none/checksum-validation: none/g' /etc/suricata/suricata.yaml
-    sed -i 's/checksum-checks: auto/checksum-checks: no/g' /etc/suricata/suricata.yaml
+default-rule-path: /etc/suricata/rules
+rule-files: suricata.rules
+mpm-algo: hs
+stream.reassembly.depth: 0
+stream.checksum-validation:  none
+netmap.checksum-checks: no
+pcap-file.checksum-checks: no
+app-layer.protocols.http.libhtp.default-config.request-body-limit: 0
+app-layer.protocols.http.libhtp.default-config.response-body-limit: 0
+app-layer.protocols.tls.ja3-fingerprints: yes
 
-    # https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
-    sed -i 's|limit-noproc: true|limit-noproc: false|g' /etc/suricata/suricata.yaml
+vars.address-groups.EXTERNAL_NET: "ANY"
+# pid-file: /run/suricata.pid
+# https://forum.suricata.io/t/suricata-service-crashes-with-pthread-create-is-11-error-when-processing-pcap-with-capev2/3870/5
+security.limit-noproc: false
 
-    # enable eve-log
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'eve-log:\n      enabled: no\n', b'eve-log:\n      enabled: yes\n');open(pa, 'wb').write(q);"
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'unix-command:\n  enabled: auto\n  #filename: custom.socket', b'unix-command:\n  enabled: yes\n  filename: /tmp/suricata-command.socket');open(pa, 'wb').write(q);"
-    # file-store
-    python3 -c "pa = '/etc/suricata/suricata.yaml';q=open(pa, 'rb').read().replace(b'file-store:\n  version: 2\n  enabled: no', b'file-store:\n  version: 2\n  enabled: yes');open(pa, 'wb').write(q);"
+outputs.1.eve-log.enabled: yes
+file-store.enabled: yes
+EOF
 
-    chown ${USER}:${USER} -R /etc/suricata
-    chown ${USER}:${USER} -R /var/log/suricata
+    sed -i '$a include:\n  - cape.yaml\n' /etc/suricata/suricata.yaml
+    usermod -aG pcap suricata
+    usermod -aG suricata "${USER}"
+    # sudo chmod -R g+w /var/log/suricata/
+    # sudo chmod -R g+w /var/run/suricata/
+    # sudo chmod -R g+w /etc/suricata
     systemctl restart suricata
+
+    # How to verify config options
+    # suricata --dump-config
+    # sudo suricata -T -c /etc/suricata/suricata.yaml
+    # echo "Important: For this change to take effect, you must log out and then log back in, or open a new shell with newgrp suricata."
+
 }
 
 function install_yara_x() {
@@ -762,12 +780,55 @@ function install_yara_x() {
     sudo -u ${USER} git clone https://github.com/VirusTotal/yara-x
     cd yara-x || return
     sudo -u ${USER} bash -c 'source "$HOME/.cargo/env" ; cargo install --path cli'
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install yara-x
+    sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install yara-x
+}
+
+function install_yara_python() {
+    # Refactored from extra/yara_installer.sh
+    echo '[+] Installing yara-python'
+
+    # Git clone method (commented out for now, prefer PyPI)
+    # if [ ! -d /tmp/yara-python ]; then
+    #     git clone --recursive https://github.com/VirusTotal/yara-python /tmp/yara-python
+    # fi
+
+    # Build and install using the modern pip interface with config-settings
+    # This replaces the legacy setup.py build approach
+
+    # Install from PyPI
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR pip install yara-python \
+            --no-binary :all: \
+            --config-settings=\"--global-option=build\" \
+            --config-settings=\"--global-option=--enable-cuckoo\" \
+            --config-settings=\"--global-option=--enable-magic\" \
+            --config-settings=\"--global-option=--enable-profiling\""
+    else
+        sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install yara-python \
+            --no-binary :all: \
+            --config-settings="--global-option=build" \
+            --config-settings="--global-option=--enable-cuckoo" \
+            --config-settings="--global-option=--enable-magic" \
+            --config-settings="--global-option=--enable-profiling"
+    fi
+
+    # Install from local source (commented out)
+    # sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install /tmp/yara-python \
+    #     --no-binary :all: \
+    #     --config-settings="--global-option=build" \
+    #     --config-settings="--global-option=--enable-cuckoo" \
+    #     --config-settings="--global-option=--enable-magic" \
+    #     --config-settings="--global-option=--enable-profiling" \
+    #     --config-settings="--global-option=--dynamic-linking"
+
+    # if [ -d /tmp/yara-python ]; then
+    #     rm -rf /tmp/yara-python
+    # fi
 }
 
 function install_yara() {
     echo '[+] Checking for old YARA version to uninstall'
-    dpkg -l|grep "yara-v[0-9]\{1,2\}\.[0-9]\{1,2\}\.[0-9]\{1,2\}"|cut -d " " -f 3|sudo xargs dpkg --purge --force-all 2>/dev/null
+    dpkg -l|grep "yara-v[0-9]\{1,2\}.[0-9]\{1,2\}.[0-9]\{1,2\}"|cut -d " " -f 3|sudo xargs dpkg --purge --force-all 2>/dev/null
 
     echo '[+] Installing Yara'
 
@@ -775,8 +836,8 @@ function install_yara() {
 
     cd /tmp || return
     yara_info=$(curl -s https://api.github.com/repos/VirusTotal/yara/releases/latest)
-    yara_version=$(echo "$yara_info" |jq .tag_name|sed "s/\"//g")
-    yara_repo_url=$(echo "$yara_info" | jq ".zipball_url" | sed "s/\"//g")
+    yara_version=$(echo "$yara_info" | jq -r .tag_name)
+    yara_repo_url=$(echo "$yara_info" | jq -r .zipball_url)
     if [ ! -f "$yara_version" ]; then
         wget -q "$yara_repo_url"
         unzip -o -q "$yara_version"
@@ -793,16 +854,54 @@ function install_yara() {
     make -j"$(nproc)" install DESTDIR=/tmp/yara_builded
     dpkg-deb --build --root-owner-group /tmp/yara_builded
     dpkg -i --force-overwrite /tmp/yara_builded.deb
-    #checkinstall -D --pkgname="yara-$yara_version" --pkgversion="$yara_version_only" --default
+    # checkinstall -D --pkgname="yara-${yara_version}" --pkgversion="$yara_version_only" --default
     ldconfig
 
-    # Run yara installer script
-    sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2 run /opt/CAPEv2/extra/yara_installer.sh
+    # Run yara installer function (integrated)
+    install_yara_python
 
     if [ -d yara-python ]; then
         sudo rm -rf yara-python
     fi
 
+}
+
+function install_libvirt() {
+    # Refactored from extra/libvirt_installer.sh
+    echo '[+] Installing libvirt-python'
+    :'
+    cd /tmp || return
+
+    if [ ! -f v${LIB_VERSION}.zip ]; then
+        wget "https://github.com/libvirt/libvirt-python/archive/v${LIB_VERSION}.zip"
+    fi
+
+    if [ ! -d libvirt-python-${LIB_VERSION} ]; then
+        unzip "v${LIB_VERSION}"
+    fi
+
+    cd "libvirt-python-${LIB_VERSION}"
+    sudo chown -R ${USER}:${USER} "/tmp/libvirt-python-${LIB_VERSION}"
+    '
+    temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
+    temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
+    libvirt_so_path="${temp_libvirt_so_path%/*}/"
+    if [[ $libvirt_so_path == "/usr/lib/x86_64-linux-gnu/" ]]; then
+        temp_libvirt_so_path=$(locate libvirt-qemu.so | tail -1 | awk '{print $1;}')
+        libvirt_so_path="${temp_libvirt_so_path%/*}/"
+    fi
+
+    export_path="${temp_export_path%/*}/"
+    export PKG_CONFIG_PATH=$export_path
+
+    # Run build and install within the project environment
+    # We use sudo -u cape ... to install into the user's environment managed by poetry/uv
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        # sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install /tmp/libvirt-python-${LIB_VERSION}"
+        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install libvirt-python==${LIB_VERSION}"
+    else
+        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install libvirt-python==${LIB_VERSION}"
+    fi
 }
 
 function install_mongo(){
@@ -825,22 +924,26 @@ function install_mongo(){
         sudo apt-get install -y libpcre3-dev numactl cron
         sudo apt-get install -y mongodb-org
 
-        # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
-        PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
-        if [ "$PIP_VERSION" -ge 23 ]; then
-            pip3 install pymongo -U --break-system-packages
-        else
-            pip3 install pymongo -U
-        fi
+        PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install pymongo -U --break-system-packages
 
-        sudo apt-get install -y ntp
-        systemctl start ntp.service && sudo systemctl enable ntp.service
+        # sudo apt-get install -y ntp
+        # systemctl start ntp.service && sudo systemctl enable ntp.service
+cat >> /lib/systemd/system/enable-transparent-huge-pages.service <<EOF
+# https://www.mongodb.com/docs/manual/administration/tcmalloc-performance/
+[Unit]
+Description=Enable Transparent Hugepages (THP)
+DefaultDependencies=no
+After=sysinit.target local-fs.target
+Before=mongod.service
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'echo always | tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null && echo defer+madvise | tee /sys/kernel/mm/transparent_hugepage/defrag > /dev/null && echo 0 | tee /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none > /dev/null && echo 1 | tee /proc/sys/vm/overcommit_memory > /dev/null'
+[Install]
+WantedBy=basic.target
+EOF
 
-        if ! grep -q -E '^kernel/mm/transparent_hugepage/enabled' /etc/sysfs.conf; then
-            sudo apt-get install -y sysfsutils
-            echo "kernel/mm/transparent_hugepage/enabled = never" >> /etc/sysfs.conf
-            echo "kernel/mm/transparent_hugepage/defrag = never" >> /etc/sysfs.conf
-        fi
+        systemctl daemon-reload
+        sudo systemctl enable enable-transparent-huge-pages
 
         if [ -f /lib/systemd/system/mongod.service ]; then
             systemctl stop mongod.service
@@ -852,13 +955,14 @@ function install_mongo(){
 
         if [ ! -f /lib/systemd/system/mongodb.service ]; then
             crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
-            cat >> /lib/systemd/system/mongodb.service <<EOF
+            cat >> /lib/systemd/system/mongodb.service << EOF
 [Unit]
 Description=High-performance, schema-free document-oriented database
 Wants=network.target
 After=network.target
 [Service]
 PermissionsStartOnly=true
+Environment="GLIBC_TUNABLES=glibc.pthread.rseq=0"
 #ExecStartPre=/bin/mkdir -p /data/{config,}db && /bin/chown mongodb:mongodb /data -R
 # https://www.tutorialspoint.com/mongodb/mongodb_replication.htm
 ExecStart=/usr/bin/numactl --interleave=all /usr/bin/mongod --setParameter "tcmallocReleaseRate=5.0"
@@ -883,11 +987,9 @@ EOF
         systemctl enable mongodb.service
         systemctl restart mongodb.service
 
-        if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
-            crontab -l | { cat; echo "30 1 * * 0 cd /opt/CAPEv2 && sudo -u ${USER} /etc/poetry/bin/poetry run python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
-        fi
-
         echo "https://www.percona.com/blog/2016/08/12/tuning-linux-for-mongodb/"
+        echo "net.ipv4.tcp_fastopen = 3" | sudo tee /etc/sysctl.d/30-tcp_fastopen.conf
+
     else
         echo "[+] Skipping MongoDB"
     fi
@@ -905,14 +1007,7 @@ function install_elastic() {
     # echo "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/8.x/apt stable main" > /etc/apt/sources.list.d/elastic-8.x.list
 
     sudo apt-get update && sudo apt-get install -y elasticsearch
-
-    # Check pip version. Only pip3 versions 23+ have the '--break-system-packages' flag.
-    PIP_VERSION=$(pip3 -V | awk '{print $2}' | cut -d'.' -f1)
-    if [ "$PIP_VERSION" -ge 23 ]; then
-        pip3 install elasticsearch --break-system-packages
-    else
-        pip3 install elasticsearch
-    fi
+    PIP_BREAK_SYSTEM_PACKAGES=1 pip3 install elasticsearch
 
     systemctl enable elasticsearch
 }
@@ -929,6 +1024,11 @@ function install_postgresql() {
     sudo systemctl enable postgresql.service
     sudo systemctl start postgresql.service
 
+    sudo -u postgres -H sh -c "psql -c \"CREATE USER ${USER} WITH PASSWORD '$PASSWD'\"";
+    sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}\"";
+    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER} to ${USER};\""
+    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE ${USER} OWNER TO ${USER};\""
+
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE cape REFRESH COLLATION VERSION;\""
     sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE postgres REFRESH COLLATION VERSION;\""
 }
@@ -944,8 +1044,12 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run pip install .
-    cd /opt/CAPEv2
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install /tmp/capa"
+    else
+        sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install /tmp/capa
+    fi
+    cd $CAPE_ROOT
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa
     fi
@@ -953,6 +1057,9 @@ function install_capa() {
 
 function dependencies() {
     echo "[+] Installing dependencies"
+
+    sudo locale-gen en_US.UTF-8
+    sudo update-locale LANG=en_US.UTF-8
 
     timedatectl set-timezone UTC
     export LANGUAGE=en_US.UTF-8
@@ -973,12 +1080,17 @@ function dependencies() {
     sudo apt-get install -y libgraphviz-dev
 
     # APT poetry is ultra outdated
-    curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -
-    echo "PATH=$PATH:/etc/poetry/bin/" >> /etc/bash.bashrc
-    source /etc/bash.bashrc
-    poetry self add poetry-plugin-shell
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        echo "[+] Installing uv"
+        curl -LsSf https://astral.sh/uv/install.sh | env UV_INSTALL_DIR="/usr/local/bin" sh
+    else
+        curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -
+        echo "PATH=$PATH:/etc/poetry/bin/" >> /etc/bash.bashrc
+        export PATH=$PATH:/etc/poetry/bin/
+        poetry self add poetry-plugin-shell
+    fi
 
-    sudo apt-get install -y locate # used by extra/libvirt_installer.sh
+    sudo apt-get install -y locate && sudo updatedb # used by install_libvirt
 
     # de4dot selfextraction
     sudo apt-get install -y libgdiplus libdnlib2.1-cil libgif7 libmono-accessibility4.0-cil libmono-ldap4.0-cil libmono-posix4.0-cil libmono-sqlite4.0-cil libmono-system-componentmodel-dataannotations4.0-cil libmono-system-data4.0-cil libmono-system-design4.0-cil libmono-system-drawing4.0-cil libmono-system-enterpriseservices4.0-cil libmono-system-ldap4.0-cil libmono-system-runtime-serialization-formatters-soap4.0-cil libmono-system-runtime4.0-cil libmono-system-transactions4.0-cil libmono-system-web-applicationservices4.0-cil libmono-system-web-services4.0-cil libmono-system-web4.0-cil libmono-system-windows-forms4.0-cil libmono-webbrowser4.0-cil
@@ -995,30 +1107,15 @@ function dependencies() {
         return
     fi
 
-    # if broken sudo python -m pip uninstall pip && sudo apt-get install -y --reinstall python-pip
-    #pip3 install --upgrade pip
-    # /usr/bin/pip
-    # from pip import __main__
-    # if __name__ == '__main__':
-    #     sys.exit(__main__._main())
-
-    # re2 - dead on py3.11
-    # sudo apt-get install -y libre2-dev
-    #re2 for py3
-    # pip3 install cython
-    # pip3 install git+https://github.com/andreasvc/pyre2.git
+    # re2
+    sudo apt-get install -y libre2-dev
 
     install_postgresql
 
-    sudo -u postgres -H sh -c "psql -c \"CREATE USER ${USER} WITH PASSWORD '$PASSWD'\"";
-    sudo -u postgres -H sh -c "psql -c \"CREATE DATABASE ${USER}\"";
-    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"GRANT ALL PRIVILEGES ON DATABASE ${USER} to ${USER};\""
-    sudo -u postgres -H sh -c "psql -d \"${USER}\" -c \"ALTER DATABASE ${USER} OWNER TO ${USER};\""
-
     sudo apt-get install -y apparmor-utils
     TCPDUMP_PATH=`which tcpdump`
-    aa-complain ${TCPDUMP_PATH}
-    aa-disable ${TCPDUMP_PATH}
+    aa-complain ${TCPDUMP_PATH} # || true
+    aa-disable ${TCPDUMP_PATH} # || true
 
     if id "${USER}" &>/dev/null; then
         echo "user ${USER} already exist"
@@ -1238,7 +1335,7 @@ EOF
     chown root:root /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
     chmod 644 /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
     usermod -a -G ${USER} clamav
-    echo "/opt/CAPEv2/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
+    echo "$CAPE_ROOT/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
     sudo apparmor_parser -r /etc/apparmor.d/usr.sbin.clamd
     sudo systemctl enable clamav-daemon
     sudo systemctl start clamav-daemon
@@ -1248,32 +1345,43 @@ EOF
 function install_CAPE() {
     echo "[+] Installing CAPEv2"
 
-    cd /opt || return
-    # if folder CAPEv2 dosn't exist, clone it
-    if [ ! -d CAPEv2 ]; then
-        git clone https://github.com/kevoreilly/CAPEv2/
+    if [ ! -d "$CAPE_ROOT" ]; then
+        mkdir -p "$(dirname "$CAPE_ROOT")"
+        git clone https://github.com/kevoreilly/CAPEv2/ "$CAPE_ROOT"
     fi
-    chown ${USER}:${USER} -R /opt/CAPEv2/
+    chown ${USER}:${USER} -R "$CAPE_ROOT"/
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
-    cd "/opt/CAPEv2/" || return
-    sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 /etc/poetry/bin/poetry install'
+
+    if ! crontab -l | grep -q -F 'delete-unused-file-data-in-mongo'; then
+        crontab -l | { cat; echo "30 1 * * 0 cd $CAPE_ROOT && sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python ./utils/cleaners.py --delete-unused-file-data-in-mongo"; } | crontab -
+    fi
+
+    cd "$CAPE_ROOT/" || return
+    if [ ! -f "pyproject.toml" ]; then
+        echo "[-] pyproject.toml not found in $CAPE_ROOT"
+        return
+    fi
+    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR pip install -r pyproject.toml"
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
-        sudo -u ${USER} bash -c 'export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; /etc/poetry/bin/poetry run extra/libvirt_installer.sh'
+        # Integrated libvirt install
+        install_libvirt
         sudo usermod -aG kvm ${USER}
         sudo usermod -aG libvirt ${USER}
     fi
 
     #packages are needed for build options in extra/yara_installer.sh
     sudo apt-get install -y libjansson-dev libmagic1 libmagic-dev
-    sudo -u ${USER} bash -c '/etc/poetry/bin/poetry run /opt/CAPEv2/extra/yara_installer.sh'
+    # Integrated yara-python install
+    install_yara_python
 
     if [ -d /tmp/yara-python ]; then
         sudo rm -rf /tmp/yara-python
     fi
 
+    cd "$CAPE_ROOT/" || return
     # copy *.conf.default to *.conf so we have all properly updated fields, as we can't ignore old configs in repository
     for filename in conf/default/*.conf.default; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done
 
@@ -1283,13 +1391,13 @@ function install_CAPE() {
     # sed -i "/machinery =/cmachinery = kvm" conf/cuckoo.conf
     sed -i "/interface =/cinterface = ${NETWORK_IFACE}" conf/auxiliary.conf
 
-    chown ${USER}:${USER} -R "/opt/CAPEv2/"
+    chown ${USER}:${USER} -R "$CAPE_ROOT/"
 
-    if [ "$MONGO_ENABLE" -ge 1 ]; then
+    if [ "${MONGO_ENABLE:-0}" -eq 1 ]; then
         crudini --set conf/reporting.conf mongodb enabled yes
     fi
 
-    if [ "$librenms_enable" -ge 1 ]; then
+    if [ "${librenms_enable:-0}" -eq 1 ]; then
         crudini --set conf/reporting.conf litereport enabled yes
         crudini --set conf/reporting.conf runstatistics enabled yes
     fi
@@ -1302,7 +1410,8 @@ function install_CAPE() {
 if [ ! -f /etc/sudoers.d/cape ]; then
     cat >> /etc/sudoers.d/cape << EOF
 Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
-${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES
+Cmnd_Alias UFW_STATUS = /usr/sbin/ufw status
+${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES, UFW_STATUS
 EOF
 fi
 if [ ! -f /etc/sudoers.d/ip_netns ]; then
@@ -1324,11 +1433,27 @@ fi
 
 function install_systemd() {
     echo "[+] Installing systemd configuration"
-    cp /opt/CAPEv2/systemd/cape.service /lib/systemd/system/cape.service
-    cp /opt/CAPEv2/systemd/cape-processor.service /lib/systemd/system/cape-processor.service
-    cp /opt/CAPEv2/systemd/cape-web.service /lib/systemd/system/cape-web.service
-    cp /opt/CAPEv2/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
-    cp /opt/CAPEv2/systemd/suricata.service /lib/systemd/system/suricata.service
+    cp $CAPE_ROOT/systemd/cape.service /lib/systemd/system/cape.service
+    cp $CAPE_ROOT/systemd/cape-processor.service /lib/systemd/system/cape-processor.service
+    cp $CAPE_ROOT/systemd/cape-web.service /lib/systemd/system/cape-web.service
+    cp $CAPE_ROOT/systemd/cape-rooter.service /lib/systemd/system/cape-rooter.service
+    cp $CAPE_ROOT/systemd/suricata.service /lib/systemd/system/suricata.service
+
+    if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
+        sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape.service
+        sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape-processor.service
+        sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape-web.service
+        sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/cape-rooter.service
+    fi
+
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sed -i "s|/etc/poetry/bin/poetry|$PYTHON_MGR|g" /lib/systemd/system/cape*.service
+        sed -i "s|/etc/poetry/bin/poetry|$PYTHON_MGR|g" /lib/systemd/system/guac*.service
+        # remove poetry config commands as uv does not have them or needs them
+        sed -i "s|^ExecStartPre=.*/poetry .*||g" /lib/systemd/system/cape-fstab.service || true
+        sed -i "s|^ExecStartPre=.*/poetry .*||g" /lib/systemd/system/cape-rooter.service || true
+    fi
+
     systemctl daemon-reload
     cape_web_enable_string=''
     if [ "$MONGO_ENABLE" -ge 1 ]; then
@@ -1367,7 +1492,7 @@ function install_prometheus_grafana() {
     echo "[+] Installing prometheus grafana"
     # install only on master only master
     wget https://github.com/prometheus/prometheus/releases/download/v"$prometheus_version"/prometheus-"$prometheus_version".linux-amd64.tar.gz && tar xf prometheus-"$prometheus_version".linux-amd64.tar.gz
-    cd prometheus-$prometheus_version.linux-amd6 && ./prometheus --config.file=prometheus.yml &
+    cd prometheus-"$prometheus_version".linux-amd6 && ./prometheus --config.file=prometheus.yml &
 
     sudo apt-get install -y adduser libfontconfig1
     wget https://dl.grafana.com/oss/release/grafana_"$grafana_version"_amd64.deb
@@ -1393,8 +1518,19 @@ function install_node_exporter() {
 function install_volatility3() {
     echo "[+] Installing volatility3"
     sudo apt-get install -y unzip
-    sudo -u ${USER} /etc/poetry/bin/poetry run pip3 install git+https://github.com/volatilityfoundation/volatility3
-    vol_path=$(sudo -u ${USER} /etc/poetry/bin/poetry run python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install git+https://github.com/volatilityfoundation/volatility3"
+        vol_path=$(sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR run python3 -c \"import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))\"")
+    else
+        sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD pip3 install git+https://github.com/volatilityfoundation/volatility3
+        vol_path=$(sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
+    fi
+
+    if [ -z "$vol_path" ]; then
+        echo "[-] Could not find volatility3 path"
+        return
+    fi
+
     cd $vol_path || return
     wget https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip -O windows.zip
     unzip -o windows.zip
@@ -1455,24 +1591,28 @@ function install_guacamole() {
     fi
 
     if [ ! -f "/opt/lib/systemd/system/guac-web.service" ] ; then
-        cp /opt/CAPEv2/systemd/guacd.service /lib/systemd/system/guacd.service
-        cp /opt/CAPEv2/systemd/guac-web.service /lib/systemd/system/guac-web.service
+        cp $CAPE_ROOT/systemd/guacd.service /lib/systemd/system/guacd.service
+        cp $CAPE_ROOT/systemd/guac-web.service /lib/systemd/system/guac-web.service
+
+        if [ "$CAPE_ROOT" != "/opt/CAPEv2" ]; then
+            sed -i "s|/opt/CAPEv2|$CAPE_ROOT|g" /lib/systemd/system/guac-web.service
+        fi
     fi
 
-    poetry_path="/etc/poetry/bin/poetry"
-    if ! grep -q $poetry_path /lib/systemd/system/guac-web.service ; then
+    poetry_path="$PYTHON_MGR"
+    if ! grep -q "$poetry_path" /lib/systemd/system/guac-web.service ; then
         sed -i "s|/usr/bin/poetry|$poetry_path|g" /lib/systemd/system/guac-web.service
     fi
 
-    if [ ! -d "/opt/CAPEv2/storage/guacrecordings" ] ; then
-        sudo mkdir -p opt/CAPEv2/storage/guacrecordings && chown ${USER}:${USER} opt/CAPEv2/storage/guacrecordings
+    if [ ! -d "$CAPE_ROOT/storage/guacrecordings" ] ; then
+        sudo mkdir -p "$CAPE_ROOT/storage/guacrecordings" && chown ${USER}:${USER} "$CAPE_ROOT/storage/guacrecordings"
     fi
 
     # Add www-data to CAPE group to access guac recordings
     sudo usermod www-data -G ${USER}
 
-    cd /opt/CAPEv2
-    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; ${poetry_path} install"
+    cd $CAPE_ROOT
+    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; ${poetry_path} $PYTHON_MGR_INSTALL"
     cd ..
 
     systemctl daemon-reload
@@ -1499,6 +1639,56 @@ function install_postgres_pg_activity() {
     # amazing tool for monitoring https://github.com/dalibo/pg_activity
     # sudo -u postgres pg_activity -U postgres
     sudo apt-get install -y pg-activity
+}
+
+function install_polarproxy() {
+    echo "[+] Installing PolarProxy"
+
+    cd "/opt/" || return
+
+    if [ ! -d PolarProxy ]; then
+        mkdir PolarProxy
+    fi
+
+    cd PolarProxy
+    curl -o PolarProxy.tar.gz https://www.netresec.com/?download=PolarProxy
+    tar xf PolarProxy.tar.gz
+    chmod a+x PolarProxy
+
+    local KEY_PEM=PolarProxy-key.pem
+    local CRT_PEM=PolarProxy-crt.pem
+    local CRT_P12=PolarProxy-key-crt.p12
+    local CRT_CRT=PolarProxy-crt.crt
+
+    # Generate key
+    openssl req -x509 \
+        -newkey rsa:4096 \
+        -passin pass:$PASSWD \
+        -keyout $KEY_PEM \
+        -subj "/C=US/ST=California/L=San Diego/O=Development/OU=Dev/CN=CAPEv2 PolarProxy" \
+        -out $CRT_PEM \
+        -nodes \
+        -days 365
+
+    # Generate certificate
+    openssl x509 \
+        -inform PEM \
+        -passin pass:$PASSWD \
+        -in $CRT_PEM \
+        -out $CRT_CRT
+
+    # Bundle key and cert for PolarProxy
+    openssl pkcs12 \
+        -in $CRT_PEM \
+        -inkey $KEY_PEM \
+        -out $CRT_P12 \
+        -export \
+        -password pass:$PASSWD \
+        -name PolarProxy
+
+    chown -R $USER:$USER /opt/PolarProxy
+
+    chmod 600 $CRT_P12
 }
 
 function install_passivedns() {
@@ -1552,6 +1742,11 @@ for i in "$@"; do
     elif [ "$i" == "--disable-libvirt" ]; then
         # Disable libvirt installation
         DISABLE_LIBVIRT=1
+    elif [ "$i" == "--use-uv" ] || [ "$i" == "USE_UV=true" ] || [ "$i" == "USE_UV=True" ]; then
+        USE_UV="true"
+        PYTHON_MGR="/usr/local/bin/uv"
+        PYTHON_MGR_CMD="run"
+        PYTHON_MGR_INSTALL=""
     fi
 done
 
@@ -1573,12 +1768,12 @@ case "$COMMAND" in
     install_suricata
     install_jemalloc
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
-        crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "@reboot cd $CAPE_ROOT/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
     fi
     # Disabled due to frequent CAPA updates and it breaks it. Users should care about this subject
     # Update FLARE CAPA rules and community every X hours
     # if ! crontab -l | grep -q 'community.py -waf -cr'; then
-    #    crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+    #    crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && poetry run python utils/community.py -waf -cr && poetry run pips install -U flare-capa  && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     # fi
     if ! crontab -l | grep -q 'echo signal newnym'; then
         crontab -l | { cat; echo "00 */1 * * * (echo authenticate '""'; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null"; } | crontab -
@@ -1598,15 +1793,15 @@ case "$COMMAND" in
     install_logrotate
     install_mitmproxy
     #socksproxies is to start redsocks stuff
-    if [ -f /opt/CAPEv2/socksproxies.sh ]; then
-        crontab -l | { cat; echo "@reboot /opt/CAPEv2/socksproxies.sh"; } | crontab -
+    if [ -f "$CAPE_ROOT/socksproxies.sh" ]; then
+        crontab -l | { cat; echo "@reboot $CAPE_ROOT/socksproxies.sh"; } | crontab -
     fi
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
-        crontab -l | { cat; echo "@reboot cd /opt/CAPEv2/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "@reboot cd $CAPE_ROOT/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
     fi
     # Update FLARE CAPA rules once per day
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
-        crontab -l | { cat; echo "5 0 */1 * * cd /opt/CAPEv2/utils/ && sudo -u ${USER} /etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python3 community.py -waf -cr && poetry --directory /opt/CAPEv2/ run pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD python3 community.py -waf -cr && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
     install_librenms
     if [ "$clamav_enable" -ge 1 ]; then
@@ -1653,6 +1848,8 @@ case "$COMMAND" in
     librenms_sneck_config;;
 'mitmproxy')
     install_mitmproxy;;
+'polarproxy')
+    install_polarproxy;;
 'issues')
     issues;;
 'nginx')

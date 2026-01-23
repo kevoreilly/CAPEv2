@@ -153,7 +153,7 @@ def create_zip(files=False, folder=False, encrypted=False):
 
     mem_zip = BytesIO()
     if encrypted and HAVE_PYZIPPER:
-        zipper = pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES)
+        zipper = pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES)
     else:
         zipper = zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False)
     with zipper as zf:
@@ -602,10 +602,11 @@ def store_temp_file(filedata: bytes, filename: str, path=None) -> bytes:
     with open(tmp_file_path, "wb") as tmp_file:
         # If filedata is file object, do chunked copy.
         if hasattr(filedata, "read"):
-            chunk = filedata.read(1024)
-            while chunk:
-                tmp_file.write(chunk)
+            with filedata:
                 chunk = filedata.read(1024)
+                while chunk:
+                    tmp_file.write(chunk)
+                    chunk = filedata.read(1024)
         else:
             tmp_file.write(filedata)
 

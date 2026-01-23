@@ -35,6 +35,7 @@ class Zip(Package):
     """Zip analysis package."""
 
     PATHS = [
+        ("SystemRoot", "system32", "msiexec.exe"),
         ("SystemRoot", "system32", "cmd.exe"),
         ("SystemRoot", "system32", "wscript.exe"),
         ("SystemRoot", "system32", "rundll32.exe"),

@@ -257,7 +257,8 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = file_obj.get_name()
             options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            options["exports"] = PortableExecutable(self.task.target).get_dll_exports()
+            with PortableExecutable(self.task.target) as pe:
+                options["exports"] = pe.get_dll_exports()
             del file_obj
 
         # options from auxiliary.conf
@@ -422,11 +423,14 @@ class AnalysisManager(threading.Thread):
             options["clock"] = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")
         guest_manager.start_analysis(options)
-        if guest_manager.get_status_from_db() == "starting":
-            guest_manager.set_status_in_db("running")
-            guest_manager.wait_for_completion()
-
-        guest_manager.set_status_in_db("stopping")
+        try:
+            if guest_manager.get_status_from_db() == "starting":
+                guest_manager.set_status_in_db("running")
+                guest_manager.wait_for_completion()
+            guest_manager.set_status_in_db("stopping")
+        except Exception as e:
+            guest_manager.set_status_in_db("failed")
+            self.log.exception("Unknown exception waiting for guest completion: %s", str(e))
 
         return
 

@@ -587,9 +587,15 @@ EOH
             usermod -G $groupname -a "$username"
         fi
 
-        #check links
+        # check links
         # sudo ln -s /usr/lib64/libvirt-qemu.so /lib/x86_64-linux-gnu/libvirt-qemu.so.0
         # sudo ln -s /usr/lib64/libvirt.so.0 /lib/x86_64-linux-gnu/libvirt.so.0
+
+        # On Ubuntu 24.04 it introduces /etc/libvirt/network.conf
+        if [ -f /etc/libvirt/network.conf ]; then
+            sed -i 's/#firewall_backend = "nftables"/firewall_backend = "iptables"/g' /etc/libvirt/network.conf
+        fi
+
         systemctl enable virtqemud.service virtnetworkd.service virtstoraged.service virtqemud.socket libvirtd.service
         systemctl start libvirtd.service
         echo "[+] You should logout and login "
@@ -912,13 +918,13 @@ function install_qemu() {
                     make -j"$(nproc)" install
                 fi
                 # hack for libvirt/virt-manager
-                if [ ! -f /usr/bin/qemu-system-x86_64-spice ]; then
+                if [ ! -L /usr/bin/qemu-system-x86_64-spice ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/qemu-system-x86_64-spice
                 fi
-                if [ ! -f /usr/bin/kvm-spice ]; then
+                if [ ! -L /usr/bin/kvm-spice ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm-spice
                 fi
-                if [ ! -f /usr/bin/kvm ]; then
+                if [ ! -L /usr/bin/kvm ]; then
                     ln -s /usr/bin/qemu-system-x86_64 /usr/bin/kvm
                 fi
                 if  [ $? -eq 0 ]; then
@@ -970,6 +976,7 @@ function install_seabios() {
         # Windows 10(latest rev.) is uninstallable without ACPI_DSDT
         # sed -i 's/CONFIG_ACPI_DSDT=y/CONFIG_ACPI_DSDT=n/g' .config
         if PIP_BREAK_SYSTEM_PACKAGES=1 make -j "$(nproc)"; then
+            mkdir -p /usr/share/qemu
             echo '[+] Replacing old bios.bin to new out/bios.bin'
             bios=0
             SHA256_BIOS=$(shasum -a 256 out/bios.bin|awk '{print $1}')
@@ -1202,6 +1209,10 @@ function cloning() {
     <dnsmasq:option value='dhcp-option=46,8'/>
     <!--Send an empty WPAD option. This may be REQUIRED to get windows 7 to behave.-->
     <dnsmasq:option value='dhcp-option=252,"\n"'/>
+    <!--Prevent DNS rebinding to internal hosts.-->
+    <dnsmasq:option value='stop-dns-rebind'/>
+    <!-- To allow rebinding for specific domains, uncomment and modify the following line. -->
+    <!-- <dnsmasq:option value='rebind-domain-ok=/example.com/'/> -->
   </dnsmasq:options>
 </network>
 EOF

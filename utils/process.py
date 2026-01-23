@@ -14,26 +14,28 @@ import sys
 import time
 from contextlib import suppress
 
+log = logging.getLogger()
+
 try:
     from setproctitle import getproctitle, setproctitle
 except ImportError:
-    sys.exit("Missed dependency. Run: poetry install")
+    log.critical("Missed setproctitle dependency. Run: poetry install")
+    sys.exit(1)
 
 if sys.version_info[:2] < (3, 8):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
+    log.critical("You are running an incompatible version of Python, please use >= 3.8")
+    sys.exit(1)
 
 try:
     import pebble
 except ImportError:
-    sys.exit("Missed dependency. Run: poetry install")
-
-log = logging.getLogger()
+    log.critical("Missed pebble dependency. Run: poetry install")
+    sys.exit(1)
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from concurrent.futures import TimeoutError
 
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
-from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
@@ -86,7 +88,7 @@ def memory_limit(percentage: float = 0.8):
         None
     """
     if platform.system() != "Linux":
-        print("Only works on linux!")
+        log.debug("Only works on linux!")
         return
     _, hard = resource.getrlimit(resource.RLIMIT_AS)
     resource.setrlimit(resource.RLIMIT_AS, (int(get_memory() * 1024 * percentage), hard))
@@ -131,66 +133,97 @@ def process(
     set_formatter_fmt(task_id, main_task_id)
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
-    if memory_debugging:
-        gc.collect()
-        log.info("(1) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-    if memory_debugging:
-        gc.collect()
-        log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-    with db.session.begin():
-        RunProcessing(task=task_dict, results=results).run()
-    if memory_debugging:
-        gc.collect()
-        log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-
-    RunSignatures(task=task_dict, results=results).run()
-    if memory_debugging:
-        gc.collect()
-        log.info("(4) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-
-    if report:
-        if auto or capeproc:
-            reprocess = False
-        else:
-            reprocess = report
-
-        error_count = RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
-        status = TASK_REPORTED if error_count == 0 else TASK_FAILED_REPORTING
+    try:
+        if memory_debugging:
+            gc.collect()
+            log.info("(1) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
+        if memory_debugging:
+            gc.collect()
+            log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
         with db.session.begin():
-            db.set_status(task_id, status)
+            RunProcessing(task=task_dict, results=results).run()
+        if memory_debugging:
+            gc.collect()
+            log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
 
-        if auto:
-            # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
-            if cfg.cuckoo.delete_original and target and path_exists(target):
-                path_delete(target)
+        RunSignatures(task=task_dict, results=results).run()
+        if memory_debugging:
+            gc.collect()
+            log.info("(4) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
 
-            if cfg.cuckoo.delete_bin_copy and task.category != "url":
-                copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
-                if path_exists(copy_path):
-                    with db.session.begin():
-                        is_still_used = db.sample_still_used(sample_sha256, task_id)
-                    if not is_still_used:
-                        path_delete(copy_path)
+        if report:
+            if auto or capeproc:
+                reprocess = False
+            else:
+                reprocess = report
 
-    if memory_debugging:
-        gc.collect()
-        log.info("(5) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-        for i, obj in enumerate(gc.garbage):
-            log.info("(garbage) GC object #%d: type=%s", i, type(obj).__name__)
+            error_count = RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
+            status = TASK_REPORTED if error_count == 0 else TASK_FAILED_REPORTING
+            with db.session.begin():
+                db.set_status(task_id, status)
 
-    log.removeHandler(per_analysis_handler)
+            if auto:
+                # Is ok to delete original file, but we need to lookup on delete_bin_copy if no more pendings tasks
+                if cfg.cuckoo.delete_original and target and path_exists(target):
+                    path_delete(target)
 
-    # Remove the SQLAlchemy session to ensure the next task pulls objects from
-    # the database, instead of relying on a potentially outdated object cache.
-    # Stale data can prevent SQLAlchemy from querying the database or issuing
-    # statements, resulting in unexpected errors and inconsistencies.
-    db.session.remove()
+                if cfg.cuckoo.delete_bin_copy and task.category != "url":
+                    copy_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256)
+                    if path_exists(copy_path):
+                        with db.session.begin():
+                            is_still_used = db.sample_still_used(sample_sha256, task_id)
+                        if not is_still_used:
+                            path_delete(copy_path)
+
+        if memory_debugging:
+            gc.collect()
+            log.info("(5) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
+            for i, obj in enumerate(gc.garbage):
+                log.info("(garbage) GC object #%d: type=%s", i, type(obj).__name__)
+    finally:
+        per_analysis_handler.close()
+        log.removeHandler(per_analysis_handler)
+
+        # Remove the SQLAlchemy session to ensure the next task pulls objects from
+        # the database, instead of relying on a potentially outdated object cache.
+        # Stale data can prevent SQLAlchemy from querying the database or issuing
+        # statements, resulting in unexpected errors and inconsistencies.
+        db.session.remove()
 
 
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
     db.engine.dispose(close=False)
+
+    # Fix for open file handles on rotated logs in workers
+    for h in log.handlers[:]:
+        if isinstance(h, logging.FileHandler):
+            h.close()
+        log.removeHandler(h)
+
+    # Restore Console Handler
+    ch = ConsoleHandler()
+    ch.setFormatter(FORMATTER)
+    log.addHandler(ch)
+
+    # Restore Syslog Handler if enabled
+    if logconf.logger.syslog_process:
+        try:
+            slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
+            slh.setFormatter(FORMATTER)
+            log.addHandler(slh)
+        except Exception as e:
+            log.warning("Failed to restore Syslog handler in worker: %s", e)
+
+    # Restore File Handler using WatchedFileHandler to support rotation
+    try:
+        path = os.path.join(CUCKOO_ROOT, "log", "process.log")
+        fh = logging.handlers.WatchedFileHandler(path)
+        fh.setFormatter(FORMATTER)
+        log.addHandler(fh)
+    except PermissionError as e:
+        log.warning("Failed to restore File handler in worker due to permissions: %s", e)
 
 
 def get_formatter_fmt(task_id=None, main_task_id=None):
@@ -225,12 +258,9 @@ class ForceClosingTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHan
         Override doRollover to force close the old handler before creating a new one.
         """
         if self.stream:
-            logging.debug("Flushing log stream...")
             self.stream.flush()
-            logging.debug("Closing log stream...")
             self.stream.close()
-            logging.debug("Log stream closed.")
-        logging.handlers.TimedRotatingFileHandler.doRollover(self)
+        super().doRollover()
 
 
 def init_logging(debug=False):
@@ -288,7 +318,8 @@ def init_logging(debug=False):
         fh.setFormatter(FORMATTER)
         log.addHandler(fh)
     except PermissionError:
-        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
+        log.critical("PermissionError to create/access log. Probably executed with wrong user.")
+        sys.exit(1)
 
     if debug:
         log.setLevel(logging.DEBUG)
@@ -322,7 +353,8 @@ def init_per_analysis_logging(tid=0, debug=False):
         fhpa.setFormatter(FORMATTER)
         log.addHandler(fhpa)
     except PermissionError:
-        sys.exit("Probably executed with wrong user, PermissionError to create/access log")
+        log.critical("PermissionError to create/access log. Probably executed with wrong user.")
+        sys.exit(1)
 
     if debug:
         log.setLevel(logging.DEBUG)
@@ -367,7 +399,7 @@ def processing_finished(future):
 
 
 def autoprocess(
-    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False
+    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False, disable_memory_limit: bool = False
 ):
     """
     Automatically processes analysis data using a process pool.
@@ -392,7 +424,8 @@ def autoprocess(
     # pool = multiprocessing.Pool(parallel, init_worker)
     pool = False
     try:
-        memory_limit()
+        if not disable_memory_limit:
+            memory_limit()
         log.info("Processing analysis data")
         with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
             # CAUTION - big ugly loop ahead.
@@ -457,10 +490,12 @@ def autoprocess(
         # ToDo verify in finally
         # pool.terminate()
         raise
-    except (MemoryError, OSError):
+    except (MemoryError, OSError) as e:
         mem = get_memory() / 1024 / 1024
-        sys.stderr.write(
-            "\n\nERROR: Memory Exception\nRemain: %.2f GB\nYour system doesn't have enough FREE RAM to run processing!" % mem
+        log.critical(
+            "Memory Exception: Remain: %.2f GB. Your system doesn't have enough FREE RAM to run processing! Error: %s",
+            mem,
+            e,
         )
         sys.exit(1)
     except Exception:
@@ -505,7 +540,7 @@ def _load_report(task_id: int):
             if analyses:
                 return analyses[0]
         except ESRequestError as e:
-            print(e)
+            log.error(e)
 
     return False
 
@@ -604,6 +639,7 @@ def main():
         default=False,
         required=False,
     )
+    parser.add_argument("--disable-memory-limit", help="Disable memory limit.", action="store_true", default=False, required=False)
     args = parser.parse_args()
 
     init_database()
@@ -617,6 +653,7 @@ def main():
             memory_debugging=args.memory_debugging,
             processing_timeout=args.processing_timeout,
             debug=args.debug,
+            disable_memory_limit= args.disable_memory_limit,
         )
     else:
         for start, end in args.id:
@@ -624,13 +661,13 @@ def main():
                 set_formatter_fmt(num)
                 log.debug("Processing task")
                 if not path_exists(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(num))):
-                    print(red(f"\n[{num}] Analysis folder doesn't exist anymore\n"))
+                    log.error("Analysis folder doesn't exist anymore for Task #%d", num)
                     continue
                 with db.session.begin():
                     task = db.view_task(num)
                     if task is None:
                         task = {"id": num, "target": None}
-                        print("Task not in database")
+                        log.warning("Task not in database")
                     else:
                         # Add sample lookup as we point to sample from TMP. Case when delete_original=on
                         if not path_exists(task.target):
@@ -664,9 +701,9 @@ def main():
                             RunSignatures(task=task, results=results).run(args.signature_name)
                         else:
                             RunSignatures(task=task.to_dict(), results=results).run(args.signature_name)
-                        # If you are only running a single signature, print that output
+                        # If you are only running a single signature, log that output
                         if args.signature_name and results["signatures"]:
-                            print(results["signatures"][0])
+                            log.info("Signature output: %s", results["signatures"][0])
                 else:
                     process(
                         task=task,

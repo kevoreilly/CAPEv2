@@ -28,6 +28,7 @@ from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
 
+from lib.cuckoo.common.pcap_utils import PcapToNg
 import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
@@ -298,11 +299,6 @@ def get_analysis_info(db, id=-1, task=None):
             for keyword in ("custom", "package"):
                 if rtmp["info"].get(keyword, False):
                     new[keyword] = rtmp["info"][keyword]
-
-            if enabledconf.get("display_shrike", False) and rtmp["info"].get("shrike_msg", False):
-                new["shrike_msg"] = rtmp["info"]["shrike_msg"]
-            if enabledconf.get("display_shrike", False) and rtmp["info"].get("shrike_msg", False):
-                new["shrike_msg"] = rtmp["info"]["shrike_msg"]
 
         if "network" in rtmp and "pcap_sha256" in rtmp["network"]:
             new["pcap_sha256"] = rtmp["network"]["pcap_sha256"]
@@ -997,7 +993,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                     else:
                         filtered_process["calls"].append(call)
 
-        if record["info"]["machine"]["platform"] == "linux":
+        if record.get("info", {}).get("machine", {}).get("platform", "") == "linux":
             return render(request, "analysis/strace/_chunk.html", {"chunk": filtered_process})
         else:
             return render(request, "analysis/behavior/_chunk.html", {"chunk": filtered_process})
@@ -1257,36 +1253,6 @@ def surialert(request, task_id):
         suricata = gen_moloch_from_suri_alerts(suricata)
 
     return render(request, "analysis/surialert.html", {"suricata": report["suricata"], "config": enabledconf})
-
-
-@require_safe
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def shrike(request, task_id):
-    if enabledconf["mongodb"]:
-        shrike = mongo_find_one(
-            "analysis",
-            {"info.id": int(task_id)},
-            {"info.shrike_url": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_refer": 1, "_id": 0},
-            sort=[("_id", -1)],
-        )
-    elif es_as_db:
-        shrike = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["info.shrike_url", "info.shrike_msg", "info.shrike_sid", "info.shrike_refer"],
-        )["hits"]["hits"]
-        if len(shrike) == 0:
-            shrike = None
-        else:
-            shrike = shrike[0]["_source"]
-    else:
-        shrike = None
-
-    if not shrike:
-        return render(request, "error.html", {"error": "The specified analysis does not exist"})
-
-    return render(request, "analysis/shrike.html", {"shrike": shrike})
-
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -1591,12 +1557,31 @@ def report(request, task_id):
     except Exception as e:
         print(e)
 
-    reports_exist = False
+    reports_exist = {}
     # check if we allow dl reports only to specific users
-    if settings.ALLOW_DL_REPORTS_TO_ALL:
-        reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
-        if path_exists(reporting_path) and os.listdir(reporting_path):
-            reports_exist = True
+    reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
+    if path_exists(reporting_path):
+        for f in os.listdir(reporting_path):
+            if f == "report.json":
+                reports_exist["json"] = True
+            elif f == "report.html":
+                reports_exist["html"] = True
+            elif f == "summary-report.html":
+                reports_exist["htmlsummary"] = True
+            elif f == "report.pdf":
+                reports_exist["pdf"] = True
+            elif f == "report.maec-4.1.xml":
+                reports_exist["maec"] = True
+            elif f == "report.maec-5.0.xml":
+                reports_exist["maec5"] = True
+            elif f == "report.metadata.xml":
+                reports_exist["metadata"] = True
+            elif f == "misp.json":
+                reports_exist["misp"] = True
+            elif f == "lite.json":
+                reports_exist["litereport"] = True
+            elif f == "cents.json":
+                reports_exist["cents"] = True
 
     debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")
     if path_exists(debugger_log_path) and os.listdir(debugger_log_path):
@@ -1887,8 +1872,14 @@ def file(request, category, task_id, dlfile):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
         cd = "application/vnd.tcpdump.pcap"
     elif category == "pcapng":
-        file_name += ".pcapng"
+        analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
+        pcap_path = os.path.join(analysis_path, "dump.pcap")
+        tls_log_path = os.path.join(analysis_path, "tlsdump", "tlsdump.log")
+        ssl_key_log_path = os.path.join(analysis_path, "aux", "sslkeylogfile", "sslkeys.log")
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcapng")
+        pcapng = PcapToNg(pcap_path, tls_log_path, ssl_key_log_path)
+        pcapng.generate(path)
+        file_name += ".pcapng"
         cd = "application/vnd.tcpdump.pcap"
     elif category == "debugger_log":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")
@@ -1992,7 +1983,7 @@ def file(request, category, task_id, dlfile):
                 return resp
             else:
                 mem_zip = BytesIO()
-                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
                     zf.setpassword(settings.ZIP_PWD)
                     if not isinstance(path, list):
                         path = [path]
@@ -2060,7 +2051,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
                 s.seek(0)
                 if zipped and HAVE_PYZIPPER:
                     mem_zip = BytesIO()
-                    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_LZMA, encryption=pyzipper.WZ_AES) as zf:
+                    with pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES) as zf:
                         zf.setpassword(settings.ZIP_PWD)
                         zf.writestr(file_name, s.getvalue())
                     file_name += ".zip"
@@ -2207,15 +2198,17 @@ def search(request, searched=""):
 
         if not term:
             value = value.lower()
-            if re.match(r"^([a-fA-F\d]{32})$", value):
-                term = "md5"
-            elif re.match(r"^([a-fA-F\d]{40})$", value):
-                term = "sha1"
-            elif re.match(r"^([a-fA-F\d]{64})$", value):
+            split_by = "," if "," in value else " "
+            tmp_value = value.split(split_by)[0]
+            if len(tmp_value) == 64 and re.match(r"^([a-fA-F\d]{64})$", tmp_value):
                 term = "sha256"
-            elif re.match(r"^([a-fA-F\d]{96})$", value):
+            elif len(tmp_value) == 32 and re.match(r"^([a-fA-F\d]{32})$", tmp_value):
+                term = "md5"
+            elif len(tmp_value) == 40 and re.match(r"^([a-fA-F\d]{40})$", tmp_value):
+                term = "sha1"
+            elif len(tmp_value) == 96 and re.match(r"^([a-fA-F\d]{96})$", tmp_value):
                 term = "sha3"
-            elif re.match(r"^([a-fA-F\d]{128})$", value):
+            elif len(tmp_value) == 128 and re.match(r"^([a-fA-F\d]{128})$", tmp_value):
                 term = "sha512"
 
         if term == "ids":

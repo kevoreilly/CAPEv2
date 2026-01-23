@@ -1,87 +1,116 @@
-<section id="info">
-
-    {% if results.detections %}
-    <section id="malfamily">
-        <p style="text-align:center; font-size: 18px;font-weight-bold";>Detection(s):
-            {% for block  in results.detections %}
-                <span class="badge badge-danger">{{block.family}}</span>
-            {% endfor %}
-            </p>
-    </section>
-    {% endif %}
-
-    {% if summary_report %}
-    <div class="section-title">
-        <h4>Sandbox Info</h4>
+{% if results.detections %}
+<div class="card mt-4">
+    <div class="card-header">
+        Detections
     </div>
-    {% endif %}
-    <table class="table table-striped table-bordered">
-        <thead>
-            <tr>
-                <th>Category</th>
-                <th>Started On</th>
-                <th>Completed On</th>
-                <th>Duration</th>
-                <th>Cuckoo Version</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>{{results.info.category|upper}}</td>
-                <td>{{results.info.started}}</td>
-                <td>{{results.info.ended}}</td>
-                <td>{{results.info.duration}} seconds</td>
-                <td>{{results.info.version}}</td>
-            </tr>
-        </tbody>
-    </table>
-</section>
-
-{% if results.info.machine and results.info.machine.name %}
-<section id="machine">
-    <table class="table table-striped table-bordered">
-        <thead>
-            <tr>
-                <th>Machine</th>
-                <th>Label</th>
-                <th>Manager</th>
-                <th>Started On</th>
-                <th>Shutdown On</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>{{results.info.machine.name}}</td>
-                <td>{{results.info.machine.label}}</td>
-                <td>{{results.info.machine.manager}}</td>
-                <td>{{results.info.machine.started_on}}</td>
-                <td>{{results.info.machine.shutdown_on}}</td>
-            </tr>
-        </tbody>
-    </table>
-</section>
+    <div class="card-body">
+        <p style="text-align:center; font-size: 18px;font-weight:bold;">
+            {% for block in results.detections %}
+                <span class="badge bg-danger">{{block.family}}</span>
+            {% endfor %}
+        </p>
+    </div>
+</div>
 {% endif %}
 
 {% if "CAPE" in results and results.CAPE.configs %}
-<h4>Malware config(s)</h4>
-<section id="malware_conf">
-    {% for config_block in results.CAPE.configs %}
-        {% for family, config in config_block.items() %}
-            {% if family not in "_associated_config_hashes,_associated_analysis_hashes" %}
-                <table class="table table-striped table-bordered" style="table-layout: fixed;">
-                    <tr>
-                        <th style="border-top: 0; width: 15%;">Type</th>
-                        <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
-                    </tr>
-                    {% for key, value in config.items() %}
-                    <tr>
-                        <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
-                        <td style="border-top: 0; word-wrap: break-word;">{{value|malware_config}}</td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            {% endif %}
+<div class="card mt-4">
+    <div class="card-header">
+        Malware Config(s)
+    </div>
+    <div class="card-body">
+        {% for config_block in results.CAPE.configs %}
+            {% for family, config in config_block.items() %}
+                {% if family not in "_associated_config_hashes,_associated_analysis_hashes" %}
+                    <table class="table table-striped table-bordered" style="table-layout: fixed;">
+                        <tr>
+                            <th style="border-top: 0; width: 15%;">Type</th>
+                            <td style="border-top: 0; word-wrap: break-word;"><b>{{family}} Config</b></td>
+                        </tr>
+                        {% if config_block._associated_config_hashes %}
+                        <tfoot>
+                            <tr>
+                                <th>Extracted From</th>
+                                <td>
+                                    {% for hashes in config_block._associated_config_hashes %}
+                                        <div class="card" style="margin-bottom: 4px">
+                                                {% set short_sha256 = hashes.sha256[:8] %}
+                                                {% set hashes_id = family ~ "-" ~ short_sha256 %}
+                                                {% set hashes_header_id = hashes_id ~ "-header" %}
+                                                <div class="card-header" id="{{ hashes_header_id }}" style="padding: 0px">
+                                                    <h3 class="mb-0">
+                                                        <a class="btn btn-block text-left" role="button" data-bs-toggle="collapse" href="#{{ hashes_id }}" aria-expanded="false" aria-controls="{{ hashes_id }}">
+                                                            <b>sha256:</b> {{ hashes.sha256 }}
+                                                        </a>
+                                                    </h3>
+                                                </div>
+                                                <div id="{{ hashes_id }}" class="collapse" aria-labelledby="{{ hashes_header_id }}">
+                                                    <div class="card-body">
+                                                        <dl class="row" style="margin-bottom: 0px">
+                                                            {% for algo, value in hashes.items() %}
+                                                                <dt class="col-sm-1">{{ algo }}</dt>
+                                                                <dd class="col-sm-11">{{ value }}</dd>
+                                                            {% endfor %}
+                                                        </dl>
+                                                    </div>
+                                                </div>
+                                        </div>
+                                    {% endfor %}
+                                </td>
+                            </tr>
+                        </tfoot>
+                        {% endif %}
+                        <tbody>
+                        {% for key, value in config.items() %}
+                        <tr>
+                            <th style="border-top: 0; width: 15%;"><b>{{key}}</b></th>
+                            <td style="border-top: 0; word-wrap: break-word;">{{value|malware_config}}</td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                {% endif %}
+            {% endfor %}
         {% endfor %}
-    {% endfor %}
-</section>
+    </div>
+</div>
 {% endif %}
+
+<div class="card mt-4">
+    <div class="card-header" id="analysis-summary-header" data-bs-toggle="collapse" data-bs-target="#analysis-summary-body" aria-expanded="false" aria-controls="analysis-summary-body" style="cursor: pointer;">
+        <h4>Analysis & Machine Summary</h4>
+    </div>
+    <div id="analysis-summary-body" class="collapse">
+        <div class="card-body">
+            <dl class="row">
+                <dt class="col-sm-2">Report Time</dt>
+                <dd class="col-sm-4">{{ results.info.started }}</dd>
+
+                <dt class="col-sm-2">Machine Name</dt>
+                <dd class="col-sm-4">{{ results.info.machine.name }}</dd>
+
+                <dt class="col-sm-2">Analysis ID</dt>
+                <dd class="col-sm-4">{{ results.info.id }}</dd>
+
+                <dt class="col-sm-2">Machine Label</dt>
+                <dd class="col-sm-4">{{ results.info.machine.label }}</dd>
+
+                <dt class="col-sm-2">Duration</dt>
+                <dd class="col-sm-4">{{ results.info.duration }} seconds</dd>
+
+                <dt class="col-sm-2">Machine Manager</dt>
+                <dd class="col-sm-4">{{ results.info.machine.manager }}</dd>
+
+                <dt class="col-sm-2">OS</dt>
+                <dd class="col-sm-4">{{ results.info.machine.os }}</dd>
+
+                <dt class="col-sm-2">Shutdown On</dt>
+                <dd class="col-sm-4">{{ results.info.machine.shutdown_on }}</dd>
+            </dl>
+        </div>
+    </div>
+</div>
+
+{% include "sections/_mitre.html" %}
+{% include "sections/_capa_summary.html" %}
+{% include "sections/_curtain.html" %}
+

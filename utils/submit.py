@@ -278,56 +278,57 @@ def main():
                 else:
                     url = "http://{0}/apiv2/tasks/create/file/".format(args.remote)
 
-                files = dict(file=open(file_path, "rb"), filename=os.path.basename(file_path))
+                with open(file_path, "rb") as f:
+                    files = dict(file=f, filename=os.path.basename(file_path))
 
-                data = dict(
-                    package=args.package,
-                    timeout=sane_timeout,
-                    options=args.options,
-                    priority=args.priority,
-                    machine=args.machine,
-                    platform=args.platform,
-                    memory=args.memory,
-                    enforce_timeout=args.enforce_timeout,
-                    custom=args.custom,
-                    tags=args.tags,
-                    route=args.route,
-                )
+                    data = dict(
+                        package=args.package,
+                        timeout=sane_timeout,
+                        options=args.options,
+                        priority=args.priority,
+                        machine=args.machine,
+                        platform=args.platform,
+                        memory=args.memory,
+                        enforce_timeout=args.enforce_timeout,
+                        custom=args.custom,
+                        tags=args.tags,
+                        route=args.route,
+                    )
 
-                try:
-                    if args.user and args.password:
-                        if args.ssl:
-                            if args.sslnoverify:
-                                verify = False
+                    try:
+                        if args.user and args.password:
+                            if args.ssl:
+                                if args.sslnoverify:
+                                    verify = False
+                                else:
+                                    verify = True
+                                response = requests.post(url, auth=(args.user, args.password), files=files, data=data, verify=verify)
                             else:
-                                verify = True
-                            response = requests.post(url, auth=(args.user, args.password), files=files, data=data, verify=verify)
-                        else:
-                            response = requests.post(url, auth=(args.user, args.password), files=files, data=data)
-                    elif args.token:
-                        if args.ssl:
-                            if args.sslnoverify:
-                                verify = False
+                                response = requests.post(url, auth=(args.user, args.password), files=files, data=data)
+                        elif args.token:
+                            if args.ssl:
+                                if args.sslnoverify:
+                                    verify = False
+                                else:
+                                    verify = True
+                                response = requests.post(
+                                    url, headers={"Authorization": f"Token {args.token}"}, files=files, data=data, verify=verify
+                                )
                             else:
-                                verify = True
-                            response = requests.post(
-                                url, headers={"Authorization": f"Token {args.token}"}, files=files, data=data, verify=verify
-                            )
+                                response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, files=files, data=data)
                         else:
-                            response = requests.post(url, headers={"Authorization": f"Token {args.token}"}, files=files, data=data)
-                    else:
-                        if args.ssl:
-                            if args.sslnoverify:
-                                verify = False
+                            if args.ssl:
+                                if args.sslnoverify:
+                                    verify = False
+                                else:
+                                    verify = True
+                                response = requests.post(url, files=files, data=data, verify=verify)
                             else:
-                                verify = True
-                            response = requests.post(url, files=files, data=data, verify=verify)
-                        else:
-                            response = requests.post(url, files=files, data=data)
+                                response = requests.post(url, files=files, data=data)
 
-                except Exception as e:
-                    print((bold(red("Error")) + ": unable to send file: {0}".format(e)))
-                    return False
+                    except Exception as e:
+                        print((bold(red("Error")) + ": unable to send file: {0}".format(e)))
+                        return False
 
                 json = response.json()
                 task_ids = json["data"].get("task_ids")
@@ -343,7 +344,8 @@ def main():
                         continue
 
                 try:
-                    tmp_path = store_temp_file(open(file_path, "rb").read(), sanitize_filename(os.path.basename(file_path)))
+                    with open(file_path, "rb") as f:
+                        tmp_path = store_temp_file(f.read(), sanitize_filename(os.path.basename(file_path)))
                     with db.session.begin():
                         # ToDo expose extra_details["errors"]
                         task_ids, extra_details = db.demux_sample_and_add_to_db(

@@ -220,22 +220,23 @@ def tasks_create_static(request):
     extra_details = {}
     task_ids = []
     for sample in files:
-        tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
-        try:
-            task_id, extra_details = db.demux_sample_and_add_to_db(
-                tmp_path,
-                options=options,
-                priority=priority,
-                static=1,
-                only_extraction=True,
-                user_id=request.user.id or 0,
-            )
-            task_ids.extend(task_id)
-            if extra_details.get("erros"):
-                resp["errors"].extend(extra_details["errors"])
-        except CuckooDemuxError as e:
-            resp = {"error": True, "error_value": e}
-            return Response(resp)
+        with sample:
+            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+            try:
+                task_id, extra_details = db.demux_sample_and_add_to_db(
+                    tmp_path,
+                    options=options,
+                    priority=priority,
+                    static=1,
+                    only_extraction=True,
+                    user_id=request.user.id or 0,
+                )
+                task_ids.extend(task_id)
+                if extra_details.get("erros"):
+                    resp["errors"].extend(extra_details["errors"])
+            except CuckooDemuxError as e:
+                resp = {"error": True, "error_value": e}
+                return Response(resp)
 
     resp["data"] = {}
     resp["data"]["task_ids"] = task_ids
@@ -293,10 +294,6 @@ def tasks_create_file(request):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -434,10 +431,6 @@ def tasks_create_url(request):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -491,10 +484,6 @@ def tasks_create_url(request):
                 memory=memory,
                 enforce_timeout=enforce_timeout,
                 clock=clock,
-                shrike_url=shrike_url,
-                shrike_msg=shrike_msg,
-                shrike_sid=shrike_sid,
-                shrike_refer=shrike_refer,
                 route=route,
                 cape=cape,
                 tlp=tlp,
@@ -546,10 +535,6 @@ def tasks_create_dlnexec(request):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -754,8 +739,10 @@ def ext_tasks_search(request):
 
         if term == "tags_tasks":
             value = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=int(search_limit))]
+            term = "ids"
         elif term == "options":
             value = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
+            term = "ids"
         elif term == "ids":
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
@@ -769,7 +756,6 @@ def ext_tasks_search(request):
                     return_data.append({"analysis": {"status": task.status, "id": task.id}})
             value = tmp_value
             del tmp_value
-
         try:
             records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False)
         except ValueError:
@@ -1165,8 +1151,11 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
 
+    allow_dl = False
+    if hasattr(request.user, "userprofile") and request.user.userprofile.reports:
+        allow_dl = True
     # check if allowed to download to all + if no if user has permissions
-    if not settings.ALLOW_DL_REPORTS_TO_ALL and not request.user.userprofile.reports:
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and allow_dl is False:
         return render(
             request,
             "error.html",
@@ -1663,6 +1652,36 @@ def tasks_pcap(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_tlspcap(request, task_id):
+    if not apiconf.tasktlspcap.get("enabled"):
+        resp = {"error": True, "error_value": "TLS PCAP download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
+    if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
+    if path_exists(srcfile):
+        fname = "%s_tls.pcap" % task_id
+        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
+        resp["Content-Length"] = os.path.getsize(srcfile)
+        resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
+    else:
+        resp = {"error": True, "error_value": "TLS PCAP does not exist"}
+        return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_evtx(request, task_id):
     if not apiconf.taskevtx.get("enabled"):
         resp = {"error": True, "error_value": "EVTX download API is disabled"}
@@ -1833,55 +1852,6 @@ def tasks_rollingsuri(request, window=60):
         for alert in e["suricata"]["alerts"]:
             alert["id"] = e["info"]["id"]
             resp.append(alert)
-
-    return Response(resp)
-
-
-@csrf_exempt
-@api_view(["GET"])
-def tasks_rollingshrike(request, window=60, msgfilter=None):
-    window = int(window)
-
-    if not apiconf.rollingshrike.get("enabled"):
-        resp = {"error": True, "error_value": "Rolling Shrike API is disabled"}
-        return Response(resp)
-    maxwindow = apiconf.rollingshrike.get("maxwindow")
-    if maxwindow > 0:
-        if window > maxwindow:
-            resp = {"error": True, "error_value": "The Window You Specified is greater than the configured maximum"}
-            return Response(resp)
-
-    gen_time = datetime.now() - timedelta(minutes=window)
-    dummy_id = ObjectId.from_datetime(gen_time)
-    if msgfilter:
-        result = mongo_find(
-            "analysis",
-            {
-                "info.shrike_url": {"$exists": True, "$ne": None},
-                "_id": {"$gte": dummy_id},
-                "info.shrike_msg": {"$regex": msgfilter, "$options": "-1"},
-            },
-            {"info.id": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_url": 1, "info.shrike_refer": 1},
-            sort=[("_id", -1)],
-        )
-    else:
-        result = mongo_find(
-            "analysis",
-            {"info.shrike_url": {"$exists": True, "$ne": None}, "_id": {"$gte": dummy_id}},
-            {"info.id": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_url": 1, "info.shrike_refer": 1},
-            sort=[("_id", -1)],
-        )
-
-    resp = []
-    for e in result:
-        tmp = {}
-        tmp["id"] = e["info"]["id"]
-        tmp["shrike_msg"] = e["info"]["shrike_msg"]
-        tmp["shrike_sid"] = e["info"]["shrike_sid"]
-        tmp["shrike_url"] = e["info"]["shrike_url"]
-        if e["info"].get("shrike_refer"):
-            tmp["shrike_refer"] = e["info"]["shrike_refer"]
-        resp.append(tmp)
 
     return Response(resp)
 
@@ -2468,7 +2438,7 @@ def tasks_download_services(request):
     if opt_apikey:
         details["apikey"] = opt_apikey
 
-    details = download_from_3rdparty(hashes, details, opt_filename)
+    details = download_from_3rdparty(hashes, opt_filename, details)
     if isinstance(details.get("task_ids"), list):
         tasks_count = len(details["task_ids"])
     else:

@@ -54,6 +54,9 @@ ram_boost = no
 replace_patterns = no
 file_activities = no
 
+# process behavior files in ram to speedup processing a little bit?
+ram_mmap = no
+
 [tracee]
 enabled = no
 
@@ -153,14 +156,11 @@ do_file_lookup = yes
 do_url_lookup = yes
 urlscrub = (^http:\/\/serw\.clicksor\.com\/redir\.php\?url=|&InjectedParam=.+$)
 
+# Since Suricata 8, socket mode is deprecated.
 [suricata]
-# Notes on getting this to work check install_suricata function:
-# https://github.com/kevoreilly/CAPEv2/blob/master/installer/cape2.sh
-
-enabled = yes
-#Runmode "cli" or "socket"
-runmode = socket
-#Outputfiles
+enabled = no
+runmode = cli
+# Outputfiles
 # if evelog is specified, it will be used instead of the per-protocol log files
 evelog = eve.json
 
@@ -176,13 +176,14 @@ fileslog = files-json.log
 filesdir = files
 # Amount of text to carve from plaintext files (bytes)
 buffer = 8192
-#Used for creating an archive of extracted files
-7zbin = /usr/bin/7z
+ #Used for creating an archive of extracted files
+7zbin = data/7zz
 zippass = infected
-##Runmode "cli" options
+# Runmode "cli" options
 bin = /usr/bin/suricata
 conf = /etc/suricata/suricata.yaml
-##Runmode "socket" Options
+
+# Runmode "socket" Options. Deprecated since Suricata 8.
 socket_file = /tmp/suricata-command.socket
 
 # Community
@@ -315,4 +316,10 @@ key =
 enabled = yes
 
 [html_scraper]
+enabled = no
+
+# Community
+[polarproxy]
+# Enable when using the PolarProxy option during analysis. This will merge the tls.pcap containing
+# plain-text TLS streams into the task PCAP.
 enabled = no

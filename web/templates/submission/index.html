@@ -1,703 +1,781 @@
 {% extends "base.html" %}
 {% block content %}
-<style>
-.btn-file {
-    position: relative;
-    overflow: hidden;
-}
-.btn-file input[type=file] {
-    position: absolute;
-    top: 0;
-    right: 0;
-    min-width: 100%;
-    min-height: 100%;
-    font-size: 999px;
-    text-align: right;
-    filter: alpha(opacity=0);
-    opacity: 0;
-    background: red;
-    cursor: inherit;
-    display: block;
-}
-input[readonly] {
-    background-color: white !important;
-    cursor: text !important;
-}
-</style>
-<script type='text/javascript'>
-$(document)
-    .on('change', '.btn-file :file', function() {
-        var input = $(this),
-        numFiles = input.get(0).files ? input.get(0).files.length : 1,
-        label = input.val().replace(/\\/g, '/').replace(/.*\//, '');
-        input.trigger('fileselect', [numFiles, label]);
-});
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card bg-dark shadow-sm border-secondary">
+            <div class="card-header border-secondary bg-transparent">
+                <h4 class="mb-0 text-white"><i class="fas fa-upload me-2 text-primary"></i>Submit for Analysis</h4>
+            </div>
+            <div class="card-body">
+                <form role="form" action="" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
 
-$(document).ready( function() {
-    $('.btn-file :file').on('fileselect', function(event, numFiles, label) {
-
-        var input = $(this).parents('.input-group').find(':text'),
-            log = numFiles > 1 ? numFiles + ' files selected' : label;
-
-        if( input.length ) {
-            input.val(log);
-        } else {
-            if( log ) alert(log);
-        }
-
-    });
-    $('.nav-tabs a').on('show.bs.tab', function (event) {
-        var tabname = $(event.target).text()
-        if (tabname == " PCAP" || tabname == " Static") {
-            document.getElementById('non-pcap-1').style.display = "none";
-            document.getElementById('non-pcap-2').style.display = "none";
-        } else {
-            document.getElementById('non-pcap-1').style.display = "block";
-            document.getElementById('non-pcap-2').style.display = "block";
-        }
-    });
-    $('#form_package').change(function () {
-        let title = $('option:selected', this).attr('title');
-        $("#package_description").text(title);
-    });
-    // tooltips
-    $('[data-toggle="tooltip"]').tooltip();
-});
-</script>
-<div class="row">
-    <div class="col-md-6 col-md-offset-3 mx-auto">
-        <form role="form" action="" method="post" enctype="multipart/form-data">
-            {% csrf_token %}
-            <div class="tabbable">
-                <ul class="nav nav-tabs">
-                    {% if resubmit %}
-                        <li class="nav-item active"><a class="nav-link" href="#resubmit" data-toggle="tab"><span class="fa fa-file"></span> File resubmission</a></li>
-                    {% else %}
-                        <li class="nav-item active"><a class="nav-link" href="#file" data-toggle="tab"><span class="fa fa-file"></span> File(s)</a></li>
+                    <!-- Navigation Tabs -->
+                    <ul class="nav nav-pills nav-fill mb-4" id="submissionTabs" role="tablist">
+                        {% if resubmit %}
+                        <li class="nav-item">
+                            <a class="nav-link active" id="resubmit-tab" data-bs-toggle="pill" href="#resubmit"
+                                role="tab" aria-controls="resubmit" aria-selected="true">
+                                <i class="fas fa-sync-alt me-2"></i>Resubmission
+                            </a>
+                        </li>
+                        {% else %}
+                        <li class="nav-item">
+                            <a class="nav-link active" id="file-tab" data-bs-toggle="pill" href="#file" role="tab"
+                                aria-controls="file" aria-selected="true">
+                                <i class="fas fa-file me-2"></i>File(s)
+                            </a>
+                        </li>
                         {% if config.downloading_service %}
-                            <li class="nav-item"><a class="nav-link" href="#downloading_service" data-toggle="tab"><span class="fa fa-download"></span> Download</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="dl-service-tab" data-bs-toggle="pill" href="#downloading_service"
+                                role="tab" aria-controls="downloading_service" aria-selected="false">
+                                <i class="fas fa-cloud-download-alt me-2"></i>Download
+                            </a>
+                        </li>
                         {% endif %}
                         {% if config.url_analysis %}
-                            <li class="nav-item"><a class="nav-link" href="#url" data-toggle="tab"><span class="fa fa-globe"></span> URL</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="url-tab" data-bs-toggle="pill" href="#url" role="tab"
+                                aria-controls="url" aria-selected="false">
+                                <i class="fas fa-globe me-2"></i>URL
+                            </a>
+                        </li>
                         {% endif %}
                         {% if config.dlnexec %}
-                            <li class="nav-item"><a class="nav-link" href="#dlurl" data-toggle="tab"><span class="fa fa-download"></span> DL&Exec</a></li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="dlnexec-tab" data-bs-toggle="pill" href="#dlurl" role="tab"
+                                aria-controls="dlurl" aria-selected="false">
+                                <i class="fas fa-bolt me-2"></i>DL & Exec
+                            </a>
+                        </li>
                         {% endif %}
-                        <li class="nav-item"><a class="nav-link" href="#pcap" data-toggle="tab"><span class="fa fa-network-wired"></span> PCAP</a></li>
-                        <li class="nav-item"><a class="nav-link" href="#static" data-toggle="tab"><span class="fa fa-tasks"></span> Static</a></li>
-                    {% endif %}
-                </ul>
-                <div class="tab-content">
-                    {% if resubmit %}
-                        <div class="tab-pane fade show active" id="resubmit">
-                            <div class="input-group mb-3">
-                                <label class="sr-only" form="form_resubmission"> File resubmission</label>
-                                <input type="text" class="form-control" id="form_resubmission" name="hash" value="{{resubmit}}" />
+                        <li class="nav-item">
+                            <a class="nav-link" id="pcap-tab" data-bs-toggle="pill" href="#pcap" role="tab"
+                                aria-controls="pcap" aria-selected="false">
+                                <i class="fas fa-network-wired me-2"></i>PCAP
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" id="static-tab" data-bs-toggle="pill" href="#static" role="tab"
+                                aria-controls="static" aria-selected="false">
+                                <i class="fas fa-code me-2"></i>Static
+                            </a>
+                        </li>
+                        {% endif %}
+                    </ul>
+
+                    <!-- Tab Content -->
+                    <div class="tab-content mb-4" id="submissionTabContent">
+                        {% if resubmit %}
+                        <div class="tab-pane fade show active" id="resubmit" role="tabpanel">
+                            <div class="mb-3">
+                                <label for="form_resubmission" class="visually-hidden">Hash</label>
+                                <input type="text" class="form-control bg-dark text-white border-secondary"
+                                    id="form_resubmission" name="hash" value="{{resubmit}}" readonly />
                             </div>
                         </div>
-                    {% else %}
-                        <div class="tab-pane fade show active" id="file">
-                            <div class="input-group">
-                                    <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="sample" multiple="multiple">
-                                    </span>
-                            </div>
+                        {% else %}
+                        <!-- File Upload -->
+                        <div class="tab-pane fade show active" id="file" role="tabpanel">
+                            <input type="file" class="form-control bg-dark text-white border-secondary" id="sampleFile"
+                                name="sample" multiple>
                         </div>
+
+                        <!-- Download Service -->
                         {% if config.downloading_service %}
-                            <div class="tab-pane fade show" id="downloading_service">
-                                <div class="input-group col-md-12">
-                                    <label class="sr-only" form="form_downloading_service"> Sample download</label>
-                                    <input type="text" class="form-control" id="form_downloading_service" name="hashes" placeholder="Enter comma separated hashes or just a hash" />
-                                </div>
-                            </div>
-                        {% endif %}
-                        <div class="tab-pane fade show" id="url">
-                            <div class="input-group col-md-12">
-                                <label class="sr-only" form="form_url">URL</label>
-                                <input type="text" class="form-control" id="form_url" name="url" placeholder="URL" />
+                        <div class="tab-pane fade" id="downloading_service" role="tabpanel">
+                            <div class="mb-3">
+                                <input type="text" class="form-control bg-dark text-white border-secondary"
+                                    id="form_downloading_service" name="hashes"
+                                    placeholder="Enter comma separated hashes or just a hash" />
                             </div>
                         </div>
+                        {% endif %}
+
+                        <!-- URL -->
+                        <div class="tab-pane fade" id="url" role="tabpanel">
+                            <div class="mb-3">
+                                <input type="text" class="form-control bg-dark text-white border-secondary"
+                                    id="form_url" name="url" placeholder="Enter URL to analyze" />
+                            </div>
+                        </div>
+
+                        <!-- DL & Exec -->
                         {% if config.dlnexec %}
-                        <div class="tab-pane fade show" id="dlurl">
-                            <div class="input-group col-md-12">
-                                <label class="sr-only" form="form_url">URL</label>
-                                <input type="text" class="form-control" id="form_url" name="dlnexec" placeholder="URL to download sample from" />
+                        <div class="tab-pane fade" id="dlurl" role="tabpanel">
+                            <div class="mb-3">
+                                <input type="text" class="form-control bg-dark text-white border-secondary"
+                                    id="form_dlnexec" name="dlnexec" placeholder="Enter URL to download sample from" />
                             </div>
                         </div>
                         {% endif %}
-                        <div class="tab-pane fade show" id="pcap">
-                            <div class="input-group">
-                                    <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="pcap" multiple="multiple">
-                                    </span>
-                            </div>
+
+                        <!-- PCAP -->
+                        <div class="tab-pane fade" id="pcap" role="tabpanel">
+                            <input type="file" class="form-control bg-dark text-white border-secondary" id="pcapFile"
+                                name="pcap" multiple>
                         </div>
-                        <div class="tab-pane fade show" id="static">
-                            <div class="input-group">
-                                    <input type="text" class="form-control" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="static" multiple="multiple">
-                                </span>
-                            </div>
+
+                        <!-- Static -->
+                        <div class="tab-pane fade" id="static" role="tabpanel">
+                            <input type="file" class="form-control bg-dark text-white border-secondary" id="staticFile"
+                                name="static" multiple>
+
                         </div>
-                    {% endif %}
-                </div>
-            </div>
-            <div class="panel" id="accordion" style="margin-top: 20px;">
-                <div class="card " style="margin-bottom: 0px;">
-                    <div class="card-header">
-                        <a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#options"><i class="icon icon-cog"></i> Advanced Options</a>
+                        {% endif %}
                     </div>
-                    <div id="options" class="panel-collapse collapse show" style="text-align: left;">
-                        <div class="card-body">
+
+                    <!-- Advanced Options Sections -->
+                    <div class="card bg-dark border-secondary mb-3">
+                        <div class="card-header border-secondary bg-transparent">
+                            <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-primary"></i>Advanced Options
+                            </h5>
+                        </div>
+                        <div class="card-body bg-dark">
+                            <!-- Non-PCAP Options Block 1 -->
                             <div id="non-pcap-1">
                                 {% if existent_tasks %}
-                                <div class="form-group">
-                                    <label for="form_existent_tasks"><a class="btn btn-secondary" href="#existent_tasks" data-toggle="collapse" aria-expanded="true" ><b>Show existent tasks</b></a></label>
-                                    <div id="existent_tasks" class="collapse">
+                                <div class="mb-3">
+                                    <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse"
+                                        data-bs-target="#existent_tasks">
+                                        Show existent tasks
+                                    </button>
+                                    <div id="existent_tasks" class="collapse mt-2">
                                         {% for sha256, details in existent_tasks.items %}
-                                            <div class="alert alert-secondary"><h4>Existent tasks for this hash: <b>{{sha256}}</b>!</h4>
-                                                <ul>
-                                                    {% for block in details %}
-                                                        <li>Task id: <a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> {% if block.family  %} - Detection: <span style="color:#EE1B2F;">{{block.malfamily}}</span>{% endif %}</li>
-                                                    {% endfor %}
-                                                </ul>
-                                            </div>
+                                        <div class="alert alert-info">
+                                            <strong>Hash: {{sha256}}</strong>
+                                            <ul class="mb-0 ps-3">
+                                                {% for block in details %}
+                                                <li>Task <a href="{% url "report" block.info.id %}"
+                                                        class="alert-link">{{block.info.id}}</a> {% if block.family %} -
+                                                    <span class="text-danger">{{block.malfamily}}</span>{% endif %}
+                                                </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
                                         {% endfor %}
                                     </div>
                                 </div>
                                 {% endif %}
+
                                 {% if resubmit %}
-                                    <div class="form-group">
-                                        <label for="form_job_category">Task Category</label>
-                                        <select class="form-control" id="form_job_category" name="job_category">
-                                            <option value="hash" checked>Resubmit</option>
-                                            <option value="sample">Files</option>
-                                            <option value="static">Static analysis</option>
-                                            <option value="pcap">Pcap</option>
-                                            <option value="dlnexec">Download and Execute</option>
-                                            <option value="vtdl">Virustotal Download</option>
-                                            <option value="bazaar">MalwareBazaar Download</option>
-                                        </select>
-                                    </div>
+                                <div class="mb-3">
+                                    <label for="form_job_category" class="text-white-50">Task Category</label>
+                                    <select class="form-select bg-dark text-white border-secondary"
+                                        id="form_job_category" name="job_category">
+                                        <option value="hash" selected>Resubmit</option>
+                                        <option value="sample">Files</option>
+                                        <option value="static">Static analysis</option>
+                                        <option value="pcap">Pcap</option>
+                                        <option value="dlnexec">Download and Execute</option>
+                                        <option value="vtdl">Virustotal Download</option>
+                                        <option value="bazaar">MalwareBazaar Download</option>
+                                    </select>
+                                </div>
                                 {% endif %}
-                                <div class="form-group">
-                                    <label for="form_package">Analysis Package (hover for more info)</label>
-                                    <select class="form-control" id="form_package" name="package">
+
+                                <div class="mb-3">
+                                    <label for="form_package" class="text-white-50">Analysis Package</label>
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_package"
+                                        name="package">
                                         <option value="" title="">Detect Automatically</option>
                                         {% for package in packages %}
                                         <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{ package.summary }}</option>
                                         {% endfor %}
                                     </select>
-                                    <small id="package_description"></small>
+                                    <small id="package_description" class="form-text text-white-50"></small>
                                 </div>
-                                {% if not config.dist_master_storage_only %}
-                                    <div class="form-group">
-                                        <label for="form_machine">Machine</label>
-                                        <select class="form-control" id="form_machine" name="machine">
-                                            {% for id,label in machines %}
-                                            <option value="{{id}}">{{label}}</option>
-                                            {% endfor %}
-                                        </select>
-                                    </div>
-                                {% endif %}
-                                {% if config.tags and tags %}
-                                <div class="form-group">
-                                    <label for="form_tags">Machine Tags (<a href="#tagshelp" data-toggle="collapse">help</a>)</label>
-                                    <input type="text" class="form-control" id="form_tags" name="tags" value=""/>
-                                    <div id="tagshelp" class="collapse">
-                                        <p class="text-muted" style="margin-top: 10px;">Syntax is tag1,tag2,tag3, etc.</p>
-                                        <table class="table table-striped table-centered table-hover table-dark">
-                                            <thead>
-                                                <tr>
-                                                    <th style="text-align: center;">Tags</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {% for tag in tags %}
-                                                <tr>
-                                                    <td><code>{{tag}}</code></td>
-                                                </tr>
-                                                {% endfor %}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                </div>
-                                {% endif %}
-                                <div class="form-group">
-                                    <strong>Network routing through <i>dirty line</i> or VPN</strong>
-                                </div>
-                                <div class="form-group">
-                                    <select class="form-control" id="form_route" name="route">
-                                        {% if internet != "none" %}
-                                            <option value="internet"{% if route == "internet" %} selected{% endif %}>Internet (dirty line, {{ internet }})</option>
-                                        {% endif %}}
-                                        {% if random_route %}
-                                            {% if random_route.type == "SOCKS5" %}
-                                            <option value="{{ random_route.name }}" selected hidden>[RANDOM] {{ random_route.name }} - {{ random_route.host }}:{{ random_route.port }} ({{ random_route.type }})</option>
-                                            {% else %}
-                                            <option value="{{ vpn.name }}" selected hidden>[RANDOM] {{ vpn.description }} ({{ vpn.interface }}, {{ vpn.type }})</option>
-                                            {% endif %}
-                                        {% endif %}
-                                        {% if inetsim %}
-                                            <option value="inetsim">inetsim/fakenet-ng</option>
-                                        {% endif %}
-                                        {% if tor %}
-                                            <option value="tor">tor</option>
-                                        {% endif %}
-                                        {% for vpn in vpns %}
-                                            <option value="{{ vpn.name }}">{{ vpn.description }} ({{ vpn.interface }}, {{ vpn.type }})</option>
-                                        {% endfor %}
 
-                                        {% for socks5 in socks5s %}
-                                            <option value="{{ socks5.name }}">{{ socks5.name }} - {{ socks5.host }}:{{ socks5.port }} ({{ socks5.type }})</option>
+                                {% if not config.dist_master_storage_only %}
+                                <div class="mb-3">
+                                    <label for="form_machine" class="text-white-50">Machine</label>
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_machine"
+                                        name="machine">
+                                        {% for id,label in machines %}
+                                        <option value="{{id}}">{{label}}</option>
                                         {% endfor %}
-                                        {% if all_exitnodes %}
-                                            {% for route_name in all_exitnodes %}
-                                                <option value="{{ route_name }}">{{ route_name }} (will pick proper server)</option>
-                                            {% endfor %}
-                                        {% endif %}
-                                        <option value="none"{% if route == "none" %} selected{% endif %}>Drop all VM traffic</option>
                                     </select>
                                 </div>
-                                <div class="form-group">
-                                    <label for="form_timeout">Timeout (in seconds)</label>
-                                    <input type="text" class="form-control" id="form_timeout" name="timeout" value="{{config.timeout}}" />
-                                </div>
-                                {% if config.linux_on_gui %}
-                                <div class="form-group">
-                                    <label for="form_lin_options">Linux Options (<a href="#optionlinuxhelp" data-toggle="collapse">help</a>)</label>
-                                    <div id="optionlinuxhelp" class="collapse">
-                                        <p class="text-muted" style="margin-top: 10px;">Syntax is option1=val1,option2=val2,option3=val3, etc.</p>
-                                        <table class="table table-striped table-centered">
-                                            <thead>
-                                                <tr>
-                                                    <th style="text-align: center;">Option</th>
-                                                    <th style="text-align: center;">Description</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td><code>filename</code></td>
-                                                    <td>Rename the sample file</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>file</code></td>
-                                                    <td>When using the zip or rar package, set the name of the file to execute</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>password</code></td>
-                                                    <td>When using the zip/rar package, set the password to use for extraction/decryption.  Also used when analyzing password-protected Office documents.</td>
-                                                </tr>
-                                            </tbody>
-                                        </table>
+                                {% endif %}
+
+                                {% if config.tags and tags %}
+                                <div class="mb-3">
+                                    <label for="form_tags" class="text-white-50">Machine Tags</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control bg-dark text-white border-secondary"
+                                            id="form_tags" name="tags" placeholder="tag1,tag2" />
+                                        <button class="btn btn-outline-secondary" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#tagshelp"><i
+                                                class="fas fa-question"></i></button>
                                     </div>
-                                    <input type="text" class="form-control" id="form_lin_options" name="lin_options"/>
+                                    <div id="tagshelp" class="collapse mt-2">
+                                        <div class="card card-body bg-dark p-2">
+                                            <small>Available tags: {% for tag in tags %}<code>{{tag}}</code>
+                                                {% endfor %}</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endif %}
+
+                                <div class="mb-3">
+                                    <label for="form_route" class="text-white-50">Network Routing</label>
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_route"
+                                        name="route">
+                                        {% if internet != "none" %}
+                                        <option value="internet" {% if route == "internet" %} selected{% endif %}>Internet
+                                            (dirty line, {{ internet }})</option>
+                                        {% endif %}
+                                        {% if random_route %}
+                                        {% if random_route.type == "SOCKS5" %}
+                                        <option value="{{ random_route.name }}" selected hidden>[RANDOM] {{
+                                            random_route.name }} -
+                                            {{ random_route.host }}:{{ random_route.port }} ({{ random_route.type }})
+                                        </option>
+                                        {% else %}
+                                        <option value="{{ vpn.name }}" selected hidden>[RANDOM] {{ vpn.description }}
+                                            ({{ vpn.interface }}, {{ vpn.type }})
+                                        </option>
+                                        {% endif %}
+                                        {% endif %}
+                                        {% if inetsim %}
+                                        <option value="inetsim">inetsim/fakenet-ng</option>
+                                        {% endif %}
+                                        {% if tor %}
+                                        <option value="tor">tor</option>
+                                        {% endif %}
+                                        {% for vpn in vpns %}
+                                        <option value="{{ vpn.name }}">{{ vpn.description }} ({{ vpn.interface }}, {{
+                                            vpn.type }})
+                                        </option>
+                                        {% endfor %}
+                                        {% for socks5 in socks5s %}
+                                        <option value="{{ socks5.name }}">{{ socks5.name }} - {{ socks5.host }}:{{
+                                            socks5.port }} ({{ socks5.type }})
+                                        </option>
+                                        {% endfor %}
+                                        {% if all_exitnodes %}
+                                        {% for route_name in all_exitnodes %}
+                                        <option value="{{ route_name }}">{{ route_name }} (Auto-pick)</option>
+                                        {% endfor %}
+                                        {% endif %}
+                                        <option value="none" {% if route == "none" %} selected{% endif %}>Drop all VM
+                                            traffic</option>
+                                    </select>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="form_timeout" class="text-white-50">Timeout (seconds)</label>
+                                    <input type="number" class="form-control bg-dark text-white border-secondary"
+                                        id="form_timeout" name="timeout" value="{{config.timeout}}" />
+                                </div>
+
+                                {% if config.linux_on_gui %}
+                                <div class="mb-3">
+                                    <label for="form_lin_options" class="text-white-50">Linux Options</label>
+                                    <input type="text" class="form-control bg-dark text-white border-secondary"
+                                        id="form_lin_options" name="lin_options"
+                                        placeholder="option1=val1,option2=val2" />
                                 </div>
                                 {% endif %}
                             </div>
-                            <div class="form-group">
-                                    <label for="form_options">Options (<a href="#optionwindowshelp" data-toggle="collapse">help</a>)</label>
-                                    <div id="optionwindowshelp" class="collapse">
-                                        <p class="text-muted" style="margin-top: 10px;">Syntax is option1=val1,option2=val2,option3=val3, etc.</p>
-                                        <table class="table table-striped table-centered table-hover table-dark">
-                                            <thead>
-                                                <tr>
-                                                    <th style="text-align: center;">Option</th>
-                                                    <th style="text-align: center;">Description</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                <tr>
-                                                    <td><code>filename</code></td>
-                                                    <td>Rename the sample file</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>name</code></td>
-                                                    <td>This will force family extractor to run, Ex: name=trickbot</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>curdir</code></td>
-                                                    <td>Change from where execute sample, by default %TEMP%, Ex: curdir=%APPDATA% or
-                                                        curdir=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
-                                                    </td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>executiondir</code></td>
-                                                    <td>Sets directory to launch the file from. Need not be the same as the directory of sample file. Defaults to %TEMP% if both executiondir and curdir are not specified. Only supports full paths</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>free</code></td>
-                                                    <td>Run without monitoring (disables many capabilities) Ex: free=1</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>force-sleepskip</code></td>
-                                                    <td>Override default sleep skipping behavior:  0 disables all sleep skipping, 1 skips all sleeps.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>full-logs</code></td>
-                                                    <td>By default, logs prior to network activity for URL analyses and prior to access of the file in question for non-executable formats are suppressed.  Set to 1 to disable log suppression.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>force-flush</code></td>
-                                                    <td>For performance reasons, logs are buffered before being sent back to the result server.  We make every attempt to flush the buffer at critical points including when exceptions occur, but in some rare termination scenarios, logs may be lost.  Set to 1 to force flushing of the log buffers after any non-duplicate API is called, set to 2 to force flushing of every log.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>no-stealth</code></td>
-                                                    <td>Set to 1 to disable anti-anti-VM/sandbox code enabled by default.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>buffer-max</code></td>
-                                                    <td>When set to an integer of your choice, changes the maximum number of bytes that can be logged for most API buffers.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>large-buffer-max</code></td>
-                                                    <td>Some hooked APIs permit larger buffers to be logged.  To change the limit for this, set this to an integer of your choice.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>norefer</code></td>
-                                                    <td>Disables use of a fake referrer when performing URL analyses</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>file</code></td>
-                                                    <td>When using the zip or rar package, set the name of the file to execute</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>password</code></td>
-                                                    <td>When using the zip or rar package, set the password to use for extraction.  Also used when analyzing password-protected Office documents.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>function</code></td>
-                                                    <td>When using the dll package, set the name of the exported function/ordinal to execute. Can be multiple function/ordinals splited by colon. Ex: function=func1:func2</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>dllloader</code></td>
-                                                    <td>When using the dll package, set the name of the process loading the DLL (defaults to rundll32.exe).</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>arguments</code></td>
-                                                    <td>When using the dll, exe, or python packages, set the arguments to be passed to the executable or exported function.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>appdata</code></td>
-                                                    <td>When using the exe package, set to 1 to run the executable out of the Application Data path instead of the Temp directory.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>startbrowser</code></td>
-                                                    <td>Setting this option to 1 will launch a browser 30 seconds into the analysis (useful for some banking trojans).</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>browserdelay</code></td>
-                                                    <td>Sets the number of seconds to wait before starting the browser with the startbrowser option.  Defaults to 30 seconds.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>url</code></td>
-                                                    <td>When used with the startbrowser option, this will determine the URL the started browser will access.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>debug</code></td>
-                                                    <td>Set to 1 to enable reporting of critical exceptions occurring during analysis, set to 2 to enable reporting of all exceptions.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>disable_hook_content</code></td>
-                                                    <td>Set to 1 to remove functionality of all hooks except those critical for monitoring other processes.  Set to 2 to apply to all hooks.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>hook-type</code></td>
-                                                    <td>Valid for 32-bit analyses only.  Specifies the hook type to use: direct, indirect, or safe.  Safe attempts a Detours-style hook.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>serial</code></td>
-                                                    <td>Spoof the serial of the system volume as the provided hex value</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>single-process</code></td>
-                                                    <td>When set to 1 this will limit behaviour monitoring to the initial process only.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>exclude-apis</code></td>
-                                                    <td>Exclude the colon-separated list of APIs from being hooked</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>exclude-dlls</code></td>
-                                                    <td>Exclude the colon-separated list of DLLs from being hooked</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>dropped-limit</code></td>
-                                                    <td>Override the default dropped file limit of 100 files</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>compression</code></td>
-                                                    <td>When set to 1 this will enable CAPE's extraction of compressed payloads</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>extraction</code></td>
-                                                    <td>When set to 1 this will enable CAPE's extraction of payloads from within each process</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>injection</code></td>
-                                                    <td>When set to 1 this will enable CAPE's capture of injected payloads between processes</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>combo</code></td>
-                                                    <td>This combines compression, injection and extraction with process dumps</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>dump-on-api</code></td>
-                                                    <td>Dump the calling module when a function from the colon-separated list of APIs is used</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>bp0</code></td>
-                                                    <td>Sets breakpoint 0 (processor/hardware) to a VA or RVA value (or module::export). Applies also to bp1-bp3.</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>file-offsets</code></td>
-                                                    <td>Breakpoints in bp0-bp3 will be interpreted as PE file offsets rather than RVAs</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>break-on-return</code></td>
-                                                    <td>Sets breakpoints on the return address(es) from a colon-separated list of APIs</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>base-on-api</code></td>
-                                                    <td>Sets the base address to which breakpoints will be applied (and sets breakpoints)</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>depth</code></td>
-                                                    <td>Sets the depth an instruction trace will step into (defaults to 0, requires Trace package)</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>count</code></td>
-                                                    <td>Sets the number of instructions in a trace (defaults to 128, requires Trace package)</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>referrer</code></td>
-                                                    <td>Specify the referrer to be used for URL tasks, overriding the default Google referrer</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>loop_detection</code></td>
-                                                    <td>Set this option to 1 to enable loop detection (compress call logs - behavior analysis)</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>static</code></td>
-                                                    <td>Check if config can be extracted statically, if not, send to vm</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>Dl&Exec add headers example</code></td>
-                                                    <td>dnl_user_agent: "CAPE Sandbox", dnl_referer: google</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>servicedesc - for service package</code></td>
-                                                    <td>Service description</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>arguments - for service package</code></td>
-                                                    <td>Service arguments</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>store_memdump</code></td>
-                                                    <td>Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this </td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>pre_script_args</code></td>
-                                                    <td>Command line arguments for pre_script. Example: pre_script_args=file1 file2 file3</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>pre_script_timeout</code></td>
-                                                    <td>pre_script_timeout will default to 60 seconds. Script will stop after timeout Example: pre_script_timeout=30</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>during_script_args</code></td>
-                                                    <td>Command line arguments for during_script. Example: during_script_args=file1 file2 file3</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>ignore_size_check</code></td>
-                                                    <td>Allow ignore file size, must be enabled in conf/web.conf</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>pwsh</code></td>
-                                                    <td>When using the ps1 package, prefer PowerShell Core (pwsh.exe) if available (defaults to powershell.exe)</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>unpacker</code></td>
-                                                    <td>Ex: unpacker=2 - Add description here</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>check_shellcode</code></td>
-                                                    <td>Setting check_shellcode=0 will disable checking for shellcode during package identification and extracting from archive</td>
-                                                </tr>
-                                                <tr>
-                                                    <td><code>unhook-apis</code></td>
-                                                    <td>Capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)</td>
-                                                </tr>
-						<tr>
-                                                    <td><code>ttd</code></td>
-                                                    <td>ttd=1. TTD integration (Microsoft Time Travel Debugging). Requires binaries to be placed in correct folder</td>
-                                                </tr>
 
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <input type="text" class="form-control" id="form_options" name="options"/>
+                            <!-- Options Field -->
+                            <div class="mb-3">
+                                <label for="form_options" class="text-white-50">Options</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control bg-dark text-white border-secondary"
+                                        id="form_options" name="options" placeholder="option1=val1,option2=val2" />
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp"><i class="fas fa-question"></i></button>
                                 </div>
-                            <div class="form-group">
-                                <label for="form_priority">Priority</label>
-                                <select class="form-control" id="form_priority" name="priority">
-                                    <option value="1">Low</option>
-                                    <option value="2" selected>Medium</option>
-                                    <option value="3">High</option>
-                                </select>
+                                <div id="optionwindowshelp" class="collapse mt-2">
+                                    <div class="card card-body bg-dark p-2 border-secondary">
+                                        <p class="text-white-50 mb-2">Syntax is option1=val1,option2=val2,option3=val3, etc.</p>
+                                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                            <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="text-center">Option</th>
+                                                        <th class="text-center">Description</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td><code>filename</code></td>
+                                                        <td>Rename the sample file</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>name</code></td>
+                                                        <td>This will force family extractor to run, Ex: name=trickbot</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>curdir</code></td>
+                                                        <td>Change from where execute sample, by default %TEMP%, Ex: curdir=%APPDATA% or
+                                                            curdir=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>executiondir</code></td>
+                                                        <td>Sets directory to launch the file from. Need not be the same as the directory of sample file. Defaults to %TEMP% if both executiondir and curdir are not specified. Only supports full paths</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>free</code></td>
+                                                        <td>Run without monitoring (disables many capabilities) Ex: free=1</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>force-sleepskip</code></td>
+                                                        <td>Override default sleep skipping behavior:  0 disables all sleep skipping, 1 skips all sleeps.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>full-logs</code></td>
+                                                        <td>By default, logs prior to network activity for URL analyses and prior to access of the file in question for non-executable formats are suppressed.  Set to 1 to disable log suppression.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>force-flush</code></td>
+                                                        <td>For performance reasons, logs are buffered before being sent back to the result server.  We make every attempt to flush the buffer at critical points including when exceptions occur, but in some rare termination scenarios, logs may be lost.  Set to 1 to force flushing of the log buffers after any non-duplicate API is called, set to 2 to force flushing of every log.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>no-stealth</code></td>
+                                                        <td>Set to 1 to disable anti-anti-VM/sandbox code enabled by default.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>buffer-max</code></td>
+                                                        <td>When set to an integer of your choice, changes the maximum number of bytes that can be logged for most API buffers.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>large-buffer-max</code></td>
+                                                        <td>Some hooked APIs permit larger buffers to be logged.  To change the limit for this, set this to an integer of your choice.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>norefer</code></td>
+                                                        <td>Disables use of a fake referrer when performing URL analyses</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>file</code></td>
+                                                        <td>When using the zip or rar package, set the name of the file to execute</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>password</code></td>
+                                                        <td>When using the zip or rar package, set the password to use for extraction.  Also used when analyzing password-protected Office documents.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>function</code></td>
+                                                        <td>When using the dll package, set the name of the exported function/ordinal to execute. Can be multiple function/ordinals splited by colon. Ex: function=func1:func2</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>dllloader</code></td>
+                                                        <td>When using the dll package, set the name of the process loading the DLL (defaults to rundll32.exe).</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>arguments</code></td>
+                                                        <td>When using the dll, exe, or python packages, set the arguments to be passed to the executable or exported function.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>appdata</code></td>
+                                                        <td>When using the exe package, set to 1 to run the executable out of the Application Data path instead of the Temp directory.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>startbrowser</code></td>
+                                                        <td>Setting this option to 1 will launch a browser 30 seconds into the analysis (useful for some banking trojans).</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>browserdelay</code></td>
+                                                        <td>Sets the number of seconds to wait before starting the browser with the startbrowser option.  Defaults to 30 seconds.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>url</code></td>
+                                                        <td>When used with the startbrowser option, this will determine the URL the started browser will access.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>debug</code></td>
+                                                        <td>Set to 1 to enable reporting of critical exceptions occurring during analysis, set to 2 to enable reporting of all exceptions.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>disable_hook_content</code></td>
+                                                        <td>Set to 1 to remove functionality of all hooks except those critical for monitoring other processes.  Set to 2 to apply to all hooks.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>hook-type</code></td>
+                                                        <td>Valid for 32-bit analyses only.  Specifies the hook type to use: direct, indirect, or safe.  Safe attempts a Detours-style hook.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>serial</code></td>
+                                                        <td>Spoof the serial of the system volume as the provided hex value</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>single-process</code></td>
+                                                        <td>When set to 1 this will limit behaviour monitoring to the initial process only.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>exclude-apis</code></td>
+                                                        <td>Exclude the colon-separated list of APIs from being hooked</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>exclude-dlls</code></td>
+                                                        <td>Exclude the colon-separated list of DLLs from being hooked</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>dropped-limit</code></td>
+                                                        <td>Override the default dropped file limit of 100 files</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>compression</code></td>
+                                                        <td>When set to 1 this will enable CAPE's extraction of compressed payloads</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>extraction</code></td>
+                                                        <td>When set to 1 this will enable CAPE's extraction of payloads from within each process</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>injection</code></td>
+                                                        <td>When set to 1 this will enable CAPE's capture of injected payloads between processes</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>combo</code></td>
+                                                        <td>This combines compression, injection and extraction with process dumps</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>dump-on-api</code></td>
+                                                        <td>Dump the calling module when a function from the colon-separated list of APIs is used</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>bp0</code></td>
+                                                        <td>Sets breakpoint 0 (processor/hardware) to a VA or RVA value (or module::export). Applies also to bp1-bp3.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>file-offsets</code></td>
+                                                        <td>Breakpoints in bp0-bp3 will be interpreted as PE file offsets rather than RVAs</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>break-on-return</code></td>
+                                                        <td>Sets breakpoints on the return address(es) from a colon-separated list of APIs</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>base-on-api</code></td>
+                                                        <td>Sets the base address to which breakpoints will be applied (and sets breakpoints)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>depth</code></td>
+                                                        <td>Sets the depth an instruction trace will step into (defaults to 0, requires Trace package)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>count</code></td>
+                                                        <td>Sets the number of instructions in a trace (defaults to 128, requires Trace package)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>referrer</code></td>
+                                                        <td>Specify the referrer to be used for URL tasks, overriding the default Google referrer</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>loop_detection</code></td>
+                                                        <td>Set this option to 1 to enable loop detection (compress call logs - behavior analysis)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>static</code></td>
+                                                        <td>Check if config can be extracted statically, if not, send to vm</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>Dl&Exec add headers example</code></td>
+                                                        <td>dnl_user_agent: "CAPE Sandbox", dnl_referer: google</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>servicedesc - for service package</code></td>
+                                                        <td>Service description</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>arguments - for service package</code></td>
+                                                        <td>Service arguments</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>store_memdump</code></td>
+                                                        <td>Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>pre_script_args</code></td>
+                                                        <td>Command line arguments for pre_script. Example: pre_script_args=file1 file2 file3</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>pre_script_timeout</code></td>
+                                                        <td>pre_script_timeout will default to 60 seconds. Script will stop after timeout Example: pre_script_timeout=30</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>during_script_args</code></td>
+                                                        <td>Command line arguments for during_script. Example: during_script_args=file1 file2 file3</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>ignore_size_check</code></td>
+                                                        <td>Allow ignore file size, must be enabled in conf/web.conf</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>pwsh</code></td>
+                                                        <td>When using the ps1 package, prefer PowerShell Core (pwsh.exe) if available (defaults to powershell.exe)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>unpacker</code></td>
+                                                        <td>Ex: unpacker=2 - Add description here</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>check_shellcode</code></td>
+                                                        <td>Setting check_shellcode=0 will disable checking for shellcode during package identification and extracting from archive</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>unhook-apis</code></td>
+                                                        <td>Capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>ttd</code></td>
+                                                        <td>ttd=1. TTD integration (Microsoft Time Travel Debugging). Requires binaries to be placed in correct folder</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>polarproxy</code></td>
+                                                        <td>Run PolarProxy to generate PCAP with decrypted TLS streams. Ex: polarproxy=1</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>tlsport</code></td>
+                                                        <td>TLS port for PolarProxy to MITM (Default: 443). Ex: tlsport=10443</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>mitmdump</code></td>
+                                                        <td>Run mitmdump to generate HAR with decrypted TLS streams. Ex: mitmdump=1</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            {% if config.tlp %}
-                                <div class="form-group">
-                                    <label for="form_tlp">TLP</label>
-                                    <select class="form-control" id="form_tlp" name="tlp">
+
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="form_priority" class="text-white-50">Priority</label>
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_priority"
+                                        name="priority">
+                                        <option value="1">Low</option>
+                                        <option value="2" selected>Medium</option>
+                                        <option value="3">High</option>
+                                    </select>
+                                </div>
+                                {% if config.tlp %}
+                                <div class="col-md-6">
+                                    <label for="form_tlp" class="text-white-50">TLP</label>
+                                    <select class="form-select bg-dark text-white border-secondary" id="form_tlp"
+                                        name="tlp">
                                         <option value="" selected>White</option>
                                         <option value="Green">Green</option>
                                         <option value="Amber">Amber</option>
                                         <option value="Red">Red</option>
                                     </select>
                                 </div>
-                            {% endif %}
-                            <div id="non-pcap-2">
-                            <div class="form-group">
-                                <label for="form_custom">Clock</label>
-                                <input type="text" class="form-control" id="text" name="clock" placeholder="MM-DD-YYYY HH:mm:00" />
-                            </div>
-                            <div class="form-group">
-                                <label for="form_tags_tasks">Tasks Tags(allows set "tag" for your jobs)</label>
-                                <input type="text" class="form-control" id="form_tags_tasks" name="tags_tasks" />
-                            </div>
-                            {% if config.pre_script %}
-                            <div class="form-group tab-pane fade show active" id="file">
-                                <label for="form_pre_script">Python Pre-Execution Script to run</label>
-                                <div id="form_pre_script" class="input-group">
-                                    <input type="text" class="form-control" style="background-color: darkgrey !important;" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="pre_script">
-                                    </span>
-                                </div>
-                            </div>
-                            {% endif %}
-                            {% if config.during_script %}
-                            <div class="form-group tab-pane fade show active" id="file">
-                                <label for="form_during_script">Python During-Execution Script to run</label>
-                                <div id="form_during_script" class="input-group">
-                                    <input type="text" class="form-control" style="background-color: darkgrey !important;" readonly>
-                                    <span class="btn btn-secondary btn-file">
-                                        Select <input type="file" name="during_script">
-                                    </span>
-                                </div>
-                            </div>
-                            {% endif %}
-                            <div class="form-group">
-                                <label for="form_custom">Custom</label>
-                                <input type="text" class="form-control" id="form_custom" name="custom" />
+                                {% endif %}
                             </div>
 
-                            <!-- Button to toggle the collapse -->
-                            <button class="btn btn-secondary btn-sm mb-3" type="button" data-toggle="collapse" data-target="#advancedOptions" aria-expanded="false" aria-controls="advancedOptions">
-                            Advanced Options
-                            </button>
-                            <div class="collapse" id="advancedOptions">
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="process_dump" /> Disable process dumps
-                                    </label>
+                            <div id="non-pcap-2">
+                                <div class="row g-3 mt-1">
+                                    <div class="col-md-6">
+                                        <label for="clock" class="text-white-50">Clock</label>
+                                        <input type="text" class="form-control bg-dark text-white border-secondary"
+                                            id="clock" name="clock" placeholder="MM-DD-YYYY HH:mm:00" />
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="form_tags_tasks" class="text-white-50">Task Tags</label>
+                                        <input type="text" class="form-control bg-dark text-white border-secondary"
+                                            id="form_tags_tasks" name="tags_tasks" />
+                                    </div>
                                 </div>
-                                {% if config.procmemory %}
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="process_memory"/> Full process memory dumps
-                                    </label>
-                                </div>
-                                {% endif %}
-                                {% if config.amsidump %}
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="amsidump" /> AMSI dumps <span class="text-muted"><small>(Windows 10+ Anti-Malware Scan Interface)</small></span>
-                                    </label>
+
+                                {% if config.pre_script %}
+                                <div class="mb-3 mt-3">
+                                    <label class="text-white-50">Pre-Execution Script</label>
+                                    <input type="file" class="form-control bg-dark text-white border-secondary"
+                                        id="preScript" name="pre_script">
                                 </div>
                                 {% endif %}
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="import_reconstruction" data-toggle="tooltip" title="Where an unpacked sample like from upx is missing imports for static analysis" /> Enable import reconstruction in process dumps
-                                    </label>
-                                </div>
-                                {% if config.memory %}
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="memory" /> Full Memory Dump <span class="text-muted"><small>(if the "memory" processing module is enabled, will launch a Volatility analysis)</small></span>
-                                    </label>
+
+                                {% if config.during_script %}
+                                <div class="mb-3">
+                                    <label class="text-white-50">During-Execution Script</label>
+                                    <input type="file" class="form-control bg-dark text-white border-secondary"
+                                        id="duringScript" name="during_script">
                                 </div>
                                 {% endif %}
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="enforce_timeout" /> Enforce Timeout
-                                    </label>
+
+                                <div class="mb-3">
+                                    <label for="form_custom" class="text-white-50">Custom Field</label>
+                                    <input type="text" class="form-control bg-dark text-white border-secondary"
+                                        id="form_custom" name="custom" />
                                 </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="free" /> Run without monitoring <span class="text-muted"><small>(disables many capabilities)</small></span>
-                                    </label>
+
+                                <!-- Extended Checkboxes -->
+                                <div class="mt-3">
+                                    <button class="btn btn-sm btn-outline-warning w-100" type="button"
+                                        data-bs-toggle="collapse" data-bs-target="#extendedCheckboxes">
+                                        Toggle Extended Capabilities
+                                    </button>
+                                    <div class="collapse mt-3" id="extendedCheckboxes">
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="process_dump"
+                                                        name="process_dump">
+                                                    <label class="form-check-label" for="process_dump">Disable process
+                                                        dumps</label>
+                                                </div>
+                                                {% if config.procmemory %}
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="process_memory"
+                                                        name="process_memory">
+                                                    <label class="form-check-label" for="process_memory">Full process
+                                                        memory dumps</label>
+                                                </div>
+                                                {% endif %}
+                                                {% if config.amsidump %}
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="amsidump"
+                                                        name="amsidump">
+                                                    <label class="form-check-label" for="amsidump">AMSI dumps <small
+                                                            class="text-white-50">(Win10+)</small></label>
+                                                </div>
+                                                {% endif %}
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input"
+                                                        id="import_reconstruction" name="import_reconstruction">
+                                                    <label class="form-check-label" for="import_reconstruction">Import
+                                                        reconstruction</label>
+                                                </div>
+                                                {% if config.memory %}
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="memory"
+                                                        name="memory">
+                                                    <label class="form-check-label" for="memory">Full Memory Dump <small
+                                                            class="text-white-50">(Volatility)</small></label>
+                                                </div>
+                                                {% endif %}
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="enforce_timeout"
+                                                        name="enforce_timeout">
+                                                    <label class="form-check-label" for="enforce_timeout">Enforce
+                                                        Timeout</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="free"
+                                                        name="free">
+                                                    <label class="form-check-label" for="free">No monitoring</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="unpacker"
+                                                        name="unpacker">
+                                                    <label class="form-check-label" for="unpacker">Active
+                                                        Unpacking</label>
+                                                </div>
+                                            </div>
+
+                                            <div class="col-md-6">
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="syscall"
+                                                        name="syscall" checked>
+                                                    <label class="form-check-label" for="syscall">Syscall hooks <small
+                                                            class="text-white-50">(Win10+)</small></label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="norefer"
+                                                        name="norefer">
+                                                    <label class="form-check-label" for="norefer">No Fake
+                                                        Referrer</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="nohuman"
+                                                        name="nohuman">
+                                                    <label class="form-check-label" for="nohuman">Disable
+                                                        interaction</label>
+                                                </div>
+                                                {% if config.interactive_desktop %}
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="interactive"
+                                                        name="interactive">
+                                                    <label class="form-check-label" for="interactive">Interactive
+                                                        Desktop</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="manual"
+                                                        name="manual" disabled>
+                                                    <label class="form-check-label" for="manual">Manual
+                                                        Detonation</label>
+                                                </div>
+                                                {% endif %}
+                                                {% if config.kernel %}
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="kernel_analysis"
+                                                        name="kernel_analysis">
+                                                    <label class="form-check-label" for="kernel_analysis">Kernel
+                                                        Analysis (zer0m0n)</label>
+                                                </div>
+                                                {% endif %}
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="static_config"
+                                                        name="static">
+                                                    <label class="form-check-label" for="static_config">Extract Config
+                                                        Only</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="oldloader"
+                                                        name="oldloader">
+                                                    <label class="form-check-label" for="oldloader">Thread-based
+                                                        monitor</label>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="unpacker" data-toggle="tooltip" title="Where default unpacking isn't producing good/early enough capture (very rare)" /> 'Active' unpacking <span class="text-muted"><small>(uses debugger breakpoints) </small></span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="syscall" checked/> Syscall hooks <span class="text-muted"><small>(Windows 10+) </small></span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="norefer" /> No Fake Referrer for URL Tasks
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="nohuman" /> Disable automated interaction
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="interactive" /> Interactive desktop
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="manual" /> Manual detonation. Must be used with Interactive desktop
-                                    </label>
-                                </div>
-                                {% if config.kernel %}
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="kernel_analysis" /> Enable zer0m0n kernel-based behavioral analysis
-                                    </label>
-                                </div>
-                                {% endif %}
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="static"/> Try to extract config without VM <span class="text-muted"><small>(Submit to VM if not extracted)</small></span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="oldloader" data-toggle="tooltip" title="May be useful in some rare cases where detonation fails" /> Thread-based monitor injection <span class="text-muted"><small>(Cuckoo-style)</small></span>
-                                    </label>
-                                </div>
+                            </div>
+
+                            <div class="text-center mt-4">
+                                <button type="submit" class="btn btn-outline-info btn-lg px-5 shadow"><i
+                                        class="fas fa-microscope me-2"></i>Analyze</button>
                             </div>
                         </div>
                     </div>
-                </div>
+                </form>
             </div>
-            </div>
-            <center><div style="margin-top: 20px;"><button type="submit" class="btn btn-secondary btn-lg">Analyze</button></div></center>
-        </form>
+        </div>
     </div>
 </div>
+
+<script type='text/javascript'>
+    $(document).ready(function () {
+        // Tab visibility logic
+        $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
+            var tabId = $(e.target).attr('href');
+            if (tabId === "#pcap" || tabId === "#static") {
+                $('#non-pcap-1').hide();
+                $('#non-pcap-2').hide();
+            } else {
+                $('#non-pcap-1').show();
+                $('#non-pcap-2').show();
+            }
+        });
+
+        // Package description
+        $('#form_package').change(function () {
+            let title = $('option:selected', this).attr('title');
+            $("#package_description").text(title);
+        });
+
+        // Tooltips
+        $('[data-bs-toggle="tooltip"]').tooltip();
+
+        // Interactive/Manual Checkbox Sync
+        const interactive = document.getElementById("interactive");
+        const manual = document.getElementById("manual");
+
+        if (interactive && manual) {
+            const syncManualCheckbox = () => {
+                manual.disabled = !interactive.checked;
+                if (!interactive.checked) {
+                    manual.checked = false;
+                }
+            };
+            interactive.addEventListener("change", syncManualCheckbox);
+        }
+    });
+</script>
 {% endblock %}

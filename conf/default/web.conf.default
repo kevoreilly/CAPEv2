@@ -29,6 +29,7 @@ disposable_email_disable = yes
 disposable_domain_list = data/safelist/disposable_domain_list.txt
 
 [general]
+timezone = UTC
 # Prescan new file tasks with YARA for sample identification and custom execution
 # Useful to set options, tags, timeout, etc for packers/obfuscators/cryptors
 yara_recon = no
@@ -150,9 +151,6 @@ enabled = no
 [display_office_martians]
 enabled = no
 
-[display_shrike]
-enabled = no
-
 [display_task_tags]
 # displays custom tags, if set during sample submission
 enabled = no
@@ -225,4 +223,7 @@ csrf_trusted_origins =
 packages =
 
 [yara_detail]
+enabled = no
+
+[pcap_ng]
 enabled = no

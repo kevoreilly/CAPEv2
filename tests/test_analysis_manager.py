@@ -10,7 +10,7 @@ from pytest_mock import MockerFixture
 from sqlalchemy import select
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import ConfigMeta
+from lib.cuckoo.common.config import Config, ConfigMeta
 from lib.cuckoo.core.analysis_manager import AnalysisManager
 from lib.cuckoo.core.database import TASK_RUNNING, Guest, Machine, Task, _Database
 from lib.cuckoo.core.machinery_manager import MachineryManager

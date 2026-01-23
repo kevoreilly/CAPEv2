@@ -18,7 +18,7 @@ services:
       timeout: 5s
       retries: 10
       start_period: 30s
-  
+
   mongodb:
     image: mongo:6
     command: ["--bind_ip_all"]
@@ -47,12 +47,17 @@ services:
         condition: service_healthy
     environment:
       - WEB_PORT=${WEB_PORT:-8000}
+      - POSTGRES_USER=${POSTGRES_USER:-cape}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-cape}
+      - POSTGRES_DB=${POSTGRES_DB:-cape}
     ports:
       - "127.0.0.1:${RESULT_PORT:-2042}:2042"  # result server
       - "127.0.0.1:${WEB_PORT:-8000}:8000"     # web ui
     volumes:
-      - ../custom:/cape/custom
+      - ../conf:/cape/conf
       - ../custom/conf:/cape/custom/conf
+      - ../custom:/cape/custom
+      - ../storage:/cape/storage
     cap_add:
       - NET_ADMIN
       - NET_RAW

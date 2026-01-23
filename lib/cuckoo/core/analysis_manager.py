@@ -32,6 +32,7 @@ log = logging.getLogger(__name__)
 
 # os.listdir('/sys/class/net/')
 HAVE_NETWORKIFACES = False
+
 try:
     import psutil
 
@@ -41,6 +42,12 @@ except ImportError:
     print("Missed dependency: poetry run pip install psutil")
 
 latest_symlink_lock = threading.Lock()
+
+
+def is_network_interface(intf: str):
+    global network_interfaces
+    network_interfaces = list(psutil.net_if_addrs().keys())
+    return intf in network_interfaces
 
 
 class CuckooDeadMachine(Exception):
@@ -250,7 +257,8 @@ class AnalysisManager(threading.Thread):
             options["file_name"] = file_obj.get_name()
             options["file_type"] = file_obj.get_type()
             # if it's a PE file, collect export information to use in more smartly determining the right package to use
-            options["exports"] = PortableExecutable(self.task.target).get_dll_exports()
+            with PortableExecutable(self.task.target) as pe:
+                options["exports"] = pe.get_dll_exports()
             del file_obj
 
         # options from auxiliary.conf
@@ -261,7 +269,12 @@ class AnalysisManager(threading.Thread):
 
     def category_checks(self) -> Optional[bool]:
         if self.task.category in ("file", "pcap", "static"):
-            sha256 = File(self.task.target).get_sha256()
+            try:
+                sha256 = File(self.task.target).get_sha256()
+            except FileNotFoundError:
+                # Happens when cleaner deleted target file
+                self.log.error("File %s missed", self.task.target)
+                return False
             # Check whether the file has been changed for some unknown reason.
             # And fail this analysis if it has been modified.
             if not self.check_file(sha256):
@@ -313,6 +326,7 @@ class AnalysisManager(threading.Thread):
             with self.db.session.begin():
                 self.db.guest_remove(self.guest.id)
                 self.db.assign_machine_to_task(self.task, None)
+                # ToDo do we really need to delete machine here?
                 self.machinery_manager.machinery.delete_machine(self.machine.name)
 
             # Remove the analysis directory that has been created so
@@ -409,11 +423,14 @@ class AnalysisManager(threading.Thread):
             options["clock"] = self.db.update_clock(self.task.id)
             self.db.guest_set_status(self.task.id, "starting")
         guest_manager.start_analysis(options)
-        if guest_manager.get_status_from_db() == "starting":
-            guest_manager.set_status_in_db("running")
-            guest_manager.wait_for_completion()
-
-        guest_manager.set_status_in_db("stopping")
+        try:
+            if guest_manager.get_status_from_db() == "starting":
+                guest_manager.set_status_in_db("running")
+                guest_manager.wait_for_completion()
+            guest_manager.set_status_in_db("stopping")
+        except Exception as e:
+            guest_manager.set_status_in_db("failed")
+            self.log.exception("Unknown exception waiting for guest completion: %s", str(e))
 
         return
 
@@ -459,21 +476,22 @@ class AnalysisManager(threading.Thread):
             success = self.perform_analysis()
         except CuckooDeadMachine:
             with self.db.session.begin():
-                # Put the task back in pending so that the schedule can attempt to
-                # choose a new machine.
+                # Put the task back in pending so that the schedule can attempt to choose a new machine.
                 self.db.set_status(self.task.id, TASK_PENDING)
             raise
         else:
             with self.db.session.begin():
                 self.db.set_status(self.task.id, TASK_COMPLETED)
                 self.log.info("Completed analysis %ssuccessfully.", "" if success else "un")
+                # Need to be release on unsucess
+                if not success and hasattr(self, "machine") and self.machine:
+                    self.db.unlock_machine(self.machine)
 
             self.update_latest_symlink()
 
     def update_latest_symlink(self):
-        # We make a symbolic link ("latest") which links to the latest
-        # analysis - this is useful for debugging purposes. This is only
-        # supported under systems that support symbolic links.
+        # We make a symbolic link ("latest") which links to the latest analysis this is useful for debugging purposes.
+        # This is only supported under systems that support symbolic links.
         if not hasattr(os, "symlink"):
             return
 
@@ -536,6 +554,9 @@ class AnalysisManager(threading.Thread):
             self.rt_table = vpns[self.route].rt_table
         elif self.route in self.socks5s:
             self.interface = ""
+        elif self.route[:3] == "tun" and is_network_interface(self.route):
+            # tunnel interface starts with "tun" and interface exists on machine
+            self.interface = self.route
         else:
             self.log.warning("Unknown network routing destination specified, ignoring routing for this analysis: %s", self.route)
             self.interface = None
@@ -583,12 +604,15 @@ class AnalysisManager(threading.Thread):
 
         elif self.route in ("none", "None", "drop"):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.cfg.resultserver.port))
+        elif self.route[:3] == "tun" and is_network_interface(self.route):
+            self.log.info("Network interface %s is tunnel", self.interface)
+            self.rooter_response = rooter("interface_route_tun_enable", self.machine.ip, self.route, str(self.task.id))
 
         self._rooter_response_check()
 
         # check if the interface is up
         if HAVE_NETWORKIFACES and routing.routing.verify_interface and self.interface and self.interface not in network_interfaces:
-            self.log.info("Network interface {} not found, falling back to dropping network traffic", self.interface)
+            self.log.info("Network interface %s not found, falling back to dropping network traffic", self.interface)
             self.interface = None
             self.rt_table = None
             self.route = "drop"
@@ -714,6 +738,9 @@ class AnalysisManager(threading.Thread):
 
         elif self.route in ("none", "None", "drop"):
             self.rooter_response = rooter("drop_disable", self.machine.ip, str(self.cfg.resultserver.port))
+        elif self.route[:3] == "tun":
+            self.log.info("Disable tunnel interface: %s", self.interface)
+            self.rooter_response = rooter("interface_route_tun_disable", self.machine.ip, self.route, str(self.task.id))
 
         self._rooter_response_check()
 

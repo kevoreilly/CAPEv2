@@ -1,0 +1,150 @@
+# This config is to be able to enable/disable things like MSI/NSIS/UnAutoIt, 3rd part services integraitons, etc
+
+[general]
+pefiles = yes
+dotnet = no
+office = no
+java = no
+pdf = no
+lnk = no
+windows_script = no
+elf = no
+hwp = no
+
+# Number of workers for pool to run them in parallel
+max_workers = 6
+
+# Create your apikey: https://threatfox.abuse.ch/api/#auth_key
+# MalwareBazaar uses this key too
+[abusech]
+threatfox = no
+malwarebazaar = no
+apikey =
+
+
+# sudo apt install msitools
+[msi_extract]
+enabled = yes
+binary = /usr/bin/msiextract
+timeout = 60
+
+[kixtart_extract]
+enabled = yes
+timeout = 60
+
+[vbe_extract]
+enabled = yes
+timeout = 60
+
+[batch_extract]
+enabled = yes
+timeout = 60
+
+# REPO DOESN'T EXIST ANYMORE!
+# cd /opt/CAPEv2/data/
+# snap install go --classic
+# git clone https://github.com/x0r19x91/UnAutoIt && cd UnAutoIt
+# GOOS="linux" GOARCH="amd64" go build -o UnAutoIt
+[UnAutoIt_extract]
+enabled = yes
+binary = data/UnAutoIt/UnAutoIt
+timeout = 60
+
+[RarSFX_extract]
+enabled = yes
+timeout = 60
+
+# apt install upx-ucl
+[UPX_unpack]
+enabled = yes
+timeout = 60
+
+# Nsis, 7Zip SFX, etc
+[SevenZip_unpack]
+binary = data/7zz
+enabled = yes
+timeout = 60
+
+# Use https://github.com/gdesmar/innoextract
+[Inno_extract]
+enabled = yes
+binary = data/innoextract
+timeout = 60
+
+# https://github.com/mstrobel/procyon/releases
+[procyon]
+enabled = yes
+binary = data/procyon.jar
+timeout = 60
+
+# sudo apt install de4dot
+[de4dot_deobfuscate]
+enabled = yes
+binary = /usr/bin/de4dot
+extra_args =
+timeout = 60
+
+# https://github.com/otavepto/NETReactorSlayer/releases
+[eziriz_deobfuscate]
+enabled = yes
+binary = data/NETReactorSlayer.CLI
+extra_args = --no-pause True
+timeout = 60
+
+[office_one]
+enabled = yes
+timeout = 60
+
+[msix_extract]
+enabled = no
+timeout = 60
+
+# PE file overlay
+[overlay]
+enabled = yes
+timeout = 60
+
+[UnGPG_extract]
+enabled = no
+timeout = 60
+
+[pyinstaller]
+enabled = no
+timeout = 60
+
+# Community
+# FLARE capa -> to update rules: poetry run python utils/community.py -cr
+[flare_capa]
+enabled = no
+# Generate it always or generate on demand only(user need to click button to generate it), still should be enabled to use this feature on demand
+on_demand = no
+# Analyze binary payloads
+static = no
+# Analyze CAPE payloads
+cape = no
+# Analyze ProcDump
+procdump = no
+# behavior analysis summary
+behavior = no
+
+# external download services
+[downloaders]
+# You can overwrite the downloaders order, must match filename without ".py". If name is missed is the same as disabled. Example:
+# order = virustotal,malwarebazaar
+order =
+
+[virustotal]
+enabled = no
+apikey =
+
+# Community
+[floss]
+enabled = no
+on_demand = yes
+static_strings = no
+stack_strings = yes
+decoded_strings = yes
+tight_strings = yes
+min_length = 5
+# Download FLOSS signatures from https://github.com/mandiant/flare-floss/tree/master/sigs
+sigs_path = data/flare-signatures

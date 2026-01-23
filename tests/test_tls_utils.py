@@ -15,7 +15,6 @@ SSLKEYLOGS = [
 
 
 class TestTlsUtils:
-
     def test_tlslog_to_sslkeylogfile(self, tmpdir):
         input_log = f"{tmpdir}/tlsdump.log"
         dest_log = f"{tmpdir}/sslkeys.log"

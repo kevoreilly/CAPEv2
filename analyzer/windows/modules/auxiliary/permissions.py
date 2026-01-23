@@ -34,7 +34,6 @@ class Permissions(Auxiliary):
 
         log.debug("Adjusting permissions for %s", locations)
         for location in locations:
-
             # First add a non-inherited permission for Admin Read+Execute
             # icacls <location> /grant:r "BUILTIN\Administrators:(OI)(CI)(RX)" "BUILTIN\\Administrators:(RX)" /t /c /q
             modify_admin_params = [

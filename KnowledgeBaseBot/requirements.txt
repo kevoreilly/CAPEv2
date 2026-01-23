@@ -1,0 +1,14 @@
+pip
+setuptools
+PyGithub
+sentence-transformers
+faiss-cpu
+numpy
+# pickle-mixin
+langchain
+unstructured[rst]
+beautifulsoup4
+google-generativeai
+numpy<2.0
+langchain-community
+pandoc

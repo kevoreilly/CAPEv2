@@ -17,9 +17,9 @@ rule CobaltStrikeBeacon
         $pwsh1 = "IEX (New-Object Net.Webclient).DownloadString('http" ascii
         $pwsh2 = "powershell -nop -exec bypass -EncodedCommand \"%s\"" fullword ascii
         $ver3a = {69 68 69 68 69 6b ?? ?? 69}
-        $ver3b = {69 69 69 69 69 69 69 69 69 69 69 69 69 69 69 69}
+        $ver3b = "iiiiiiiiiiiiiiii"
         $ver4a = {2e 2f 2e 2f 2e 2c ?? ?? 2e}
-        $ver4b = {2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e 2e}
+        $ver4b = "................"
         $a1 = "%02d/%02d/%02d %02d:%02d:%02d" xor(0x00-0xff)
         $a2 = "Started service %s on %s" xor(0x00-0xff)
         $a3 = "%s as %s\\%s: %d" xor(0x00-0xff)

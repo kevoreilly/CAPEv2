@@ -2,8 +2,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file "docs/LICENSE" for copying permission.
 
-from dashboard import views
 from django.urls import re_path
+
+from dashboard import views
 
 urlpatterns = [
     re_path(r"^$", views.index),

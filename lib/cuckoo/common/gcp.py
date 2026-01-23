@@ -63,7 +63,7 @@ class GCP(object):
                         ]
                         servers.setdefault(instance["name"], ips)
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
         elif HAVE_GCP:
             try:
                 instance_client = compute_v1.InstancesClient()
@@ -88,7 +88,6 @@ class GCP(object):
         return servers
 
     def autodiscovery(self):
-
         while True:
             servers = self.list_instances()
             if not servers:
@@ -109,9 +108,9 @@ class GCP(object):
                             if not r.ok:
                                 log.error("Can't registger worker with IP: %s. status_code: %d ", ip, r.status_code)
                         except Exception as e:
-                            log.error(e, exc_info=True)
+                            log.exception(e)
                         break
                     except Exception as e:
-                        log.error(e, exc_info=True)
+                        log.exception(e)
 
             time.sleep(int(self.dist_cfg.GCP.autodiscovery))

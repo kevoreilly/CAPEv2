@@ -20,7 +20,7 @@ from typing import Dict, List
 try:
     import dns.resolver
 except ImportError:
-    print("Missed dependency -> poetry install")
+    logging.error("Missed dependency -> poetry install")
 
 import PIL
 import requests
@@ -40,7 +40,7 @@ from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
-from lib.cuckoo.core.database import Database, Machine, _Database
+from lib.cuckoo.core.database import Database, Machine, _Database, Task
 
 try:
     import re2 as re
@@ -63,6 +63,7 @@ except ImportError:
     HAVE_TLDEXTRACT = False
 
 repconf = Config("reporting")
+integrations_conf = Config("integrations")
 _, categories_need_VM = load_categories()
 
 mitre, HAVE_MITRE, _ = mitre_load(repconf.mitre.enabled)
@@ -262,6 +263,55 @@ class Machinery:
             label=label, platform=platform, tags=tags, arch=arch, include_reserved=include_reserved, os_version=os_version
         )
 
+    def find_machine_to_service_task(self, task):
+        """Find a machine that is able to service the given task.
+        This can be overridden by machinery modules for custom logic.
+        By default, it delegates to the database implementation.
+        """
+        return self.db.find_machine_to_service_task(task)
+
+    def _machine_can_service_task(self, machine: Machine, task: Task) -> bool:
+        """Check if a machine can service a task based on platform, arch, and tags."""
+        # 1. Platform check
+        if task.platform and machine.platform != task.platform:
+            return False
+
+        task_tags = {tag.name for tag in task.tags}
+        machine_tags = {tag.name for tag in machine.tags}
+
+        # Define architecture tags.
+        arch_tags = {"x86", "x64"}  # Add other relevant archs if needed
+        task_arch = next((tag for tag in task_tags if tag in arch_tags), None)
+
+        # 2. Architecture compatibility check
+        if task_arch:
+            if machine.platform == "windows":
+                # 32-bit Windows can't run 64-bit tasks.
+                if machine.arch == "x86" and task_arch == "x64":
+                    return False
+            else:  # Strict matching for Linux/other platforms
+                # The machine's arch must equal the task's arch.
+                if machine.arch != task_arch:
+                    return False
+
+        # 3. Check remaining tags
+        # All tags that are NOT architecture tags must be present on the machine.
+        other_tags = task_tags - arch_tags
+        if not other_tags.issubset(machine_tags):
+            return False
+
+        # For strict platforms (not Windows), the machine must explicitly have the arch tag.
+        if task_arch and machine.platform != "windows":
+            if task_arch not in machine_tags:
+                return False
+
+        # For a Windows machine to run an x64 task, it must have the x64 tag.
+        if task_arch == "x64" and machine.platform == "windows":
+            if "x64" not in machine_tags:
+                return False
+
+        return True
+
     def scale_pool(self, machine: Machine) -> None:
         """This can be overridden in sub-classes to scale the pool of machines once one has been acquired."""
         return
@@ -351,7 +401,7 @@ class Machinery:
         if isinstance(state, str):
             state = [state]
         while current not in state:
-            log.debug("Waiting %d cuckooseconds for machine %s to switch to status %s", waitme, label, state)
+            log.debug("Waiting %d seconds for machine %s to switch to status %s", waitme, label, state)
             if waitme > int(cfg.timeouts.vm_state):
                 raise CuckooMachineError(f"Timeout hit while for machine {label} to change status")
             time.sleep(1)
@@ -403,11 +453,14 @@ class LibVirtMachinery(Machinery):
         # currently still active.
         super()._initialize_check()
 
-    def start(self, label):
+    def start(self, label=None):
         """Starts a virtual machine.
         @param label: virtual machine name.
         @raise CuckooMachineError: if unable to start virtual machine.
         """
+        if not label:
+            raise CuckooMachineError("Machine label required")
+
         log.debug("Starting machine %s", label)
 
         vm_info = self.db.view_machine_by_label(label)
@@ -432,7 +485,7 @@ class LibVirtMachinery(Machinery):
                 snapshot = vm.snapshotLookupByName(vm_info.snapshot, flags=0)
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
             except libvirt.libvirtError as e:
-                msg = f"Unable to restore snapshot {vm_info.snapshot} on virtual machine {label}"
+                msg = f"Unable to restore snapshot {vm_info.snapshot} on virtual machine {label}. Your snapshot MUST BE in running state!"
                 raise CuckooMachineError(msg) from e
             finally:
                 self._disconnect(conn)
@@ -442,7 +495,7 @@ class LibVirtMachinery(Machinery):
             try:
                 self.vms[label].revertToSnapshot(snapshot, flags=0)
             except libvirt.libvirtError as e:
-                raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}") from e
+                raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}. Your snapshot MUST BE in running state!") from e
             finally:
                 self._disconnect(conn)
         else:
@@ -452,11 +505,14 @@ class LibVirtMachinery(Machinery):
         # Check state.
         self._wait_status(label, self.RUNNING)
 
-    def stop(self, label):
+    def stop(self, label=None):
         """Stops a virtual machine. Kill them all.
         @param label: virtual machine name.
         @raise CuckooMachineError: if unable to stop virtual machine.
         """
+        if not label:
+            raise CuckooMachineError("Machine label required")
+
         log.debug("Stopping machine %s", label)
 
         if self._status(label) == self.POWEROFF:
@@ -735,6 +791,9 @@ class Processing:
         timediff = timeit.default_timer() - pretime
         value = round(timediff, 3)
 
+        if "temp_processing_stats" not in self.results:
+            self.results["temp_processing_stats"] = {}
+
         if name not in self.results["temp_processing_stats"]:
             self.results["temp_processing_stats"][name] = {}
 
@@ -837,78 +896,90 @@ class Signature:
             CuckooReportError(e)
 
     def yara_detected(self, name):
+        name_pattern = re.compile(name, re.I)
 
-        target = self.results.get("target", {})
-        if target.get("category") in ("file", "static") and target.get("file"):
+        def _check_matches(data_block, path, label_override=None):
+            if not isinstance(data_block, dict):
+                return
+
             for keyword in ("cape_yara", "yara"):
-                for yara_block in self.results["target"]["file"].get(keyword, []):
-                    if re.findall(name, yara_block["name"], re.I):
-                        yield "sample", self.results["target"]["file"]["path"], yara_block, self.results["target"]["file"]
+                for yara_block in data_block.get(keyword, []):
+                    if name_pattern.search(yara_block.get("name", "")):
+                        label = label_override if label_override else keyword
+                        yield label, path, yara_block, data_block
 
-            if target["file"].get("selfextract"):
-                for _, toolsblock in target["file"]["selfextract"].items():
-                    for block in toolsblock.get("extracted_files", []):
-                        for keyword in ("cape_yara", "yara"):
-                            for yara_block in block[keyword]:
-                                if re.findall(name, yara_block["name"], re.I):
-                                    # we can't use here values from set_path
-                                    yield "sample", block["path"], yara_block, block
+        def _process_selfextract(parent_block):
+            selfextract = parent_block.get("selfextract")
+            if not selfextract:
+                return
 
-        for block in self.results.get("CAPE", {}).get("payloads", []) or []:
-            for sub_keyword in ("cape_yara", "yara"):
-                for yara_block in block.get(sub_keyword, []):
-                    if re.findall(name, yara_block["name"], re.I):
-                        yield sub_keyword, block["path"], yara_block, block
+            tools_iter = selfextract.values() if isinstance(selfextract, dict) else []
 
-            if block.get("selfextract", {}):
-                for _, toolsblock in block["selfextract"].items():
-                    for subblock in toolsblock.get("extracted_files", []):
-                        for keyword in ("cape_yara", "yara"):
-                            for yara_block in subblock[keyword]:
-                                if re.findall(name, yara_block["name"], re.I):
-                                    yield "sample", subblock["path"], yara_block, block
+            for toolsblock in tools_iter:
+                for extracted_file in toolsblock.get("extracted_files", []) or []:
+                    yield from _check_matches(
+                        extracted_file,
+                        path=extracted_file.get("path"),
+                        label_override="sample"
+                    )
 
-        for keyword in ("procdump", "procmemory", "extracted", "dropped"):
-            if self.results.get(keyword) is not None:
-                for block in self.results.get(keyword, []):
-                    if not isinstance(block, dict):
-                        continue
-                    for sub_keyword in ("cape_yara", "yara"):
-                        for yara_block in block.get(sub_keyword, []):
-                            if re.findall(name, yara_block["name"], re.I):
-                                path = block["path"] if block.get("path", False) else ""
-                                yield keyword, path, yara_block, block
+        results = self.results
+        target = results.get("target", {})
 
-                    if keyword == "procmemory":
-                        for pe in block.get("extracted_pe", []) or []:
-                            for sub_keyword in ("cape_yara", "yara"):
-                                for yara_block in pe.get(sub_keyword, []) or []:
-                                    if re.findall(name, yara_block["name"], re.I):
-                                        yield "extracted_pe", pe["path"], yara_block, block
+        # 1. Procesar Target
+        if target.get("category") in ("file", "static") and target.get("file"):
+            file_info = target["file"]
+            yield from _check_matches(file_info, file_info.get("path"), label_override="sample")
+            yield from _process_selfextract(file_info)
 
-                    if block.get("selfextract", {}):
-                        for _, toolsblock in block["selfextract"].items():
-                            for subblock in toolsblock.get("extracted_files", []):
-                                for keyword in ("cape_yara", "yara"):
-                                    for yara_block in subblock[keyword]:
-                                        if re.findall(name, yara_block["name"], re.I):
-                                            yield "sample", subblock["path"], yara_block, block
+        cape_payloads = results.get("CAPE", {}).get("payloads", []) or []
+        for block in cape_payloads:
+            yield from _check_matches(block, block.get("path"))
+            yield from _process_selfextract(block)
 
-        macro_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.results["info"]["id"]), "macros")
-        for macroname in self.results.get("static", {}).get("office", {}).get("Macro", {}).get("info", []) or []:
-            for yara_block in self.results["static"]["office"]["Macro"]["info"].get("macroname", []) or []:
-                for sub_block in self.results["static"]["office"]["Macro"]["info"]["macroname"].get(yara_block, []) or []:
-                    if re.findall(name, sub_block["name"], re.I):
-                        yield "macro", os.path.join(macro_path, macroname), sub_block, self.results["static"]["office"]["Macro"][
-                            "info"
-                        ]
+        search_keys = ("procdump", "procmemory", "extracted", "dropped")
+        for keyword in search_keys:
+            blocks = results.get(keyword, []) or []
+            if not blocks:
+                continue
 
-        if self.results.get("static", {}).get("office", {}).get("XLMMacroDeobfuscator", False):
-            for yara_block in self.results["static"]["office"]["XLMMacroDeobfuscator"].get("info", []).get("yara_macro", []) or []:
-                if re.findall(name, yara_block["name"], re.I):
-                    yield "macro", os.path.join(macro_path, "xlm_macro"), yara_block, self.results["static"]["office"][
-                        "XLMMacroDeobfuscator"
-                    ]["info"]
+            for block in blocks:
+                if not isinstance(block, dict):
+                    continue
+
+                path = block.get("path", "")
+                yield from _check_matches(block, path, label_override=keyword)
+
+                if keyword == "procmemory":
+                    for pe in block.get("extracted_pe", []) or []:
+                        yield from _check_matches(pe, pe.get("path"), label_override="extracted_pe")
+
+                yield from _process_selfextract(block)
+
+        # ToDo not sure if static still exist
+        office_info = results.get("static", {}).get("office", {})
+        macro_info = office_info.get("Macro", {}).get("info", [])
+        analysis_id = str(results.get("info", {}).get("id", "unknown"))
+        macro_base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", analysis_id, "macros")
+
+        if macro_info:
+            if isinstance(macro_info, list):
+                for item in macro_info:
+                    yield from _check_matches(item, os.path.join(macro_base_path, item.get("name", "macro")), label_override="macro")
+            elif isinstance(macro_info, dict):
+                for macroname, macro_data in macro_info.items():
+                    yield from _check_matches(macro_data, os.path.join(macro_base_path, macroname), label_override="macro")
+
+        xlm_info = office_info.get("XLMMacroDeobfuscator", {}).get("info", {})
+        if xlm_info:
+            for yara_block in xlm_info.get("yara_macro", []) or []:
+                if name_pattern.search(yara_block.get("name", "")):
+                    yield (
+                        "macro",
+                        os.path.join(macro_base_path, "xlm_macro"),
+                        yara_block,
+                        xlm_info
+                    )
 
     def signature_matched(self, signame: str) -> bool:
         # Check if signature has matched (useful for ordered signatures)
@@ -974,7 +1045,6 @@ class Signature:
         )
 
     def _get_ip_by_host_dns(self, hostname):
-
         ips = []
 
         try:
@@ -989,11 +1059,11 @@ class Signature:
                 except dns.resolver.NXDOMAIN:
                     ips.append(rdata.address)
         except dns.name.NeedAbsoluteNameOrOrigin:
-            print(
+            log.warning(
                 "An attempt was made to convert a non-absolute name to wire when there was also a non-absolute (or missing) origin"
             )
         except dns.resolver.NoAnswer:
-            print("IPs: Impossible to get response")
+            log.warning("IPs: Impossible to get response")
         except Exception as e:
             log.info(str(e))
 
@@ -1017,7 +1087,7 @@ class Signature:
             if url_validator(url):
                 return url
         except Exception as e:
-            print(e)
+            log.error(e)
 
         if all_checks:
             last = url.rfind("://")
@@ -1028,7 +1098,7 @@ class Signature:
             if url_validator(f"http://{url}"):
                 return f"http://{url}"
         except Exception as e:
-            print(e)
+            log.error(e)
 
     def _check_value(self, pattern, subject, regex=False, all=False, ignorecase=True):
         """Checks a pattern against a given subject.
@@ -1095,7 +1165,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_read_file(self, pattern, regex=False, all=False):
@@ -1108,7 +1178,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["read_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("read_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_write_file(self, pattern, regex=False, all=False):
@@ -1121,7 +1191,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["write_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("write_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_delete_file(self, pattern, regex=False, all=False):
@@ -1134,7 +1204,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["delete_files"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("delete_files", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_key(self, pattern, regex=False, all=False):
@@ -1147,7 +1217,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_read_key(self, pattern, regex=False, all=False):
@@ -1160,7 +1230,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["read_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("read_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_write_key(self, pattern, regex=False, all=False):
@@ -1173,7 +1243,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["write_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("write_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_delete_key(self, pattern, regex=False, all=False):
@@ -1186,7 +1256,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["delete_keys"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("delete_keys", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_mutex(self, pattern, regex=False, all=False):
@@ -1199,7 +1269,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["mutexes"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("mutexes", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=False)
 
     def check_started_service(self, pattern, regex=False, all=False):
@@ -1212,7 +1282,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["started_services"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("started_services", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_created_service(self, pattern, regex=False, all=False):
@@ -1225,7 +1295,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["created_services"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("created_services", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all)
 
     def check_executed_command(self, pattern, regex=False, all=False, ignorecase=True):
@@ -1240,7 +1310,7 @@ class Signature:
         @return: depending on the value of param 'all', either a set of
                       matched items or the first matched item
         """
-        subject = self.results["behavior"]["summary"]["executed_commands"]
+        subject = self.results.get("behavior", {}).get("summary", {}).get("executed_commands", [])
         return self._check_value(pattern=pattern, subject=subject, regex=regex, all=all, ignorecase=ignorecase)
 
     def check_api(self, pattern, process=None, regex=False, all=False):
@@ -1358,6 +1428,19 @@ class Signature:
             return retset
 
         return None
+
+    def check_threatfox(self, searchterm: str):
+        if not integrations_conf.abusech.threatfox or not integrations_conf.abusech.apikey:
+            return
+        try:
+            response = requests.post(
+                "https://threatfox-api.abuse.ch/api/v1/",
+                json={"query": "search_ioc", "search_term": searchterm,  "exact_match": True},
+                headers={"Auth-Key": integrations_conf.abusech.apikey, "User-Agent": "CAPE Sandbox"},
+            )
+            return response.json()
+        except Exception as e:
+            log.error("ThreatFox error: %s", str(e))
 
     def check_dnsbbl(self, domain: str):
         """
@@ -1748,7 +1831,7 @@ class Feed:
             try:
                 req = requests.get(self.downloadurl, headers=headers, verify=True)
             except requests.exceptions.RequestException as e:
-                log.warn("Error downloading feed for %s: %s", self.feedname, e)
+                log.warning("Error downloading feed for %s: %s", self.feedname, e)
                 return False
             if req.status_code == 200:
                 self.downloaddata = req.content

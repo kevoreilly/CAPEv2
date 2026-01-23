@@ -152,11 +152,11 @@ A huge thank you to @D00m3dR4v3n for single-handedly porting CAPE to Python 3.
 ## Installation recommendations and scripts for optimal performance
 * Python3
     * agent.py is tested with python (3.7.2|3.8) x86. __You should use x86 python version inside of the VM!__
-    * host tested with python3 version 3.7, 3.8, 3.10, but newer versions should work too
+    * host tested with python3 version 3.10, 3.12, but newer versions should work too
 
 * __Only rooter should be executed as root__, the rest as __cape__ user. Running as root will mess with permissions.
 1. Become familiar with the [documentation](https://capev2.readthedocs.io/en/latest/) and __do read ALL__ config files inside of `conf` folder!
-2. For best compabitility we strongly suggest installing on [Ubuntu 22.04 LTS](https://ubuntu.com/#download) and using Windows 10 21H2 as target.
+2. For best compabitility we strongly suggest installing on [Ubuntu 24.04 LTS](https://ubuntu.com/#download) and using Windows 10 21H2 as target.
 3. `kvm-qemu.sh` and `cape2.sh` __SHOULD BE__ executed from `tmux` session to prevent any OS problems if ``ssh`` connections breaks.
 4. [KVM](https://github.com/kevoreilly/CAPEv2/blob/master/installer/kvm-qemu.sh) is recommended as the hypervisor.
  * Replace `<username>` with a real pattern.
@@ -228,3 +228,4 @@ If you use CAPEv2 in your work, please cite it as specified in the "Cite this re
 
 ### Docs
 * [ReadTheDocs](https://capev2.readthedocs.io/en/latest/#)
+* [DeepWiki](https://deepwiki.com/kevoreilly/CAPEv2/1-overview) - AI generated, some might be wrong but generally pretty accurate.

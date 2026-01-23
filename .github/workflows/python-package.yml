@@ -32,15 +32,24 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
+      - name: Setup 7zz binary
+        run: |
+          mkdir -p data/
+          wget -q https://github.com/CAPESandbox/community/raw/master/data/7zz -O data/7zz
+          chmod +x data/7zz
+
       - name: Install pyattck
         run: |
           poetry run pip install git+https://github.com/CAPESandbox/pyattck maco
 
       - name: Run Ruff
-        run: poetry run ruff check . --line-length 132 --ignore E501,E402
+        run: poetry run ruff check . --output-format=github .
 
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append
+
+      - name: Run Linux analyzer unit tests
+        run: poetry --project . --directory "analyzer/linux" run python -m pytest -v
 
       # see the mypy configuration in pyproject.toml
       - name: Run mypy
@@ -63,13 +72,6 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Format with black
-        run: poetry run black .
-
-      # to be replaced with ruff
-      - name: Format imports with isort
-        run: poetry run isort .
-
       - name: Commit changes if any
         # Skip this step if being run by nektos/act
         if: ${{ !env.ACT }}
@@ -77,6 +79,8 @@ jobs:
           git config user.name "GitHub Actions"
           git config user.email "action@github.com"
           if output=$(git status --porcelain) && [ ! -z "$output" ]; then
+            git pull
+            git add .
             git commit -m "style: Automatic code formatting" -a
             git push
           fi

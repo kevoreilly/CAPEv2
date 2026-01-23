@@ -25,8 +25,15 @@ except ImportError:
 
 try:
     from paramiko import AutoAddPolicy, ProxyCommand, SSHClient, SSHConfig
-    from paramiko.ssh_exception import AuthenticationException, BadHostKeyException, PasswordRequiredException, ProxyCommandFailure
+    from paramiko.ssh_exception import (
+        AuthenticationException,
+        BadHostKeyException,
+        PasswordRequiredException,
+        ProxyCommandFailure,
+        SSHException,
+    )
     from scp import SCPClient, SCPException
+
 
     conf = SSHConfig()
     conf.parse(open(os.path.expanduser("~/.ssh/config")))
@@ -36,11 +43,13 @@ except ImportError:
     print("poetry run pip install -U paramiko scp")
     HAVE_PARAMIKO = False
 
+
 from lib.cuckoo.common.colors import green, red
+from lib.cuckoo.common.sshclient import SSHJumpClient
 from utils.community_blocklist import blocklist
 
 try:
-    from admin_conf import (  # POSTPROCESS,
+    from admin_conf import (
         CAPE_DIST_URL,
         CAPE_PATH,
         EXCLUDE_CAPE_FILES,
@@ -58,8 +67,6 @@ try:
 except ModuleNotFoundError:
     sys.exit("[-] You need to create admin_conf.py, see admin_conf.py_example")
 
-# Only needed when jumping over nodes
-from lib.cuckoo.common.sshclient import SSHJumpClient
 
 # this is bad, but getLogger doesn't work, this can be cause of duplication of log entries if used outside
 logging.basicConfig(level=logging.INFO)
@@ -232,7 +239,6 @@ def file_recon(file, yara_category="CAPE"):
     if not Path(file).exists():
         return
 
-    global POSTPROCESS
     LOCAL_SHA256 = False
     filename = os.path.basename(file)
     OWNER = "cape:cape"
@@ -245,10 +251,11 @@ def file_recon(file, yara_category="CAPE"):
     if b"SignatureMock.run" in f:
         return
     if b"(TcrSignature):" in f or b"(Signature)" in f:
-        TARGET = f"{CAPE_PATH}modules/signatures/{filename}"
+        TARGET = f"{CAPE_PATH}custom/signatures/{filename}"
     elif filename in ("loader.exe", "loader_x64.exe"):
         TARGET = f"{CAPE_PATH}/analyzer/windows/bin/{filename}"
-        POSTPROCESS = False
+    elif "/binary/" in file or "/binaries/" in file:
+        TARGET = f"{CAPE_PATH}custom/yara/binaries/{filename}"
     elif b"def _generator(self" in f:
         TARGET = f"{VOL_PATH}{filename}"
         OWNER = "root:staff"
@@ -274,10 +281,8 @@ def file_recon(file, yara_category="CAPE"):
         TARGET = f"{CAPE_PATH}/lib/cuckoo/common/{filename}"
     elif b"class Analyzer:" in f and b"class PipeHandler(Thread):" in f and b"class PipeServer(Thread):" in f:
         TARGET = f"{CAPE_PATH}analyzer/windows/{filename}"
-        POSTPROCESS = False
     elif filename in ("capemon.dll", "capemon_x64.dll"):
         TARGET = f"{CAPE_PATH}analyzer/windows/dll/{filename}"
-        POSTPROCESS = False
     # generic deployer of files
     elif file.startswith("CAPEv2/"):
         # Remove CAPEv2/ from path to build new path
@@ -285,7 +290,6 @@ def file_recon(file, yara_category="CAPE"):
     elif filename.endswith(".service"):
         TARGET = "/lib/systemd/system/{filename}"
         OWNER = "root:root"
-        POSTPROCESS = "systemctl daemon-reload"
     elif "Extractors/StandAlone/" in file:
         TARGET = f"{CAPE_PATH}custom/parsers/"
         stem = "Extractors/StandAlone"
@@ -331,10 +335,10 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
                     server,
                     username=JUMP_BOX_USERNAME,
                     key_filename=host.get("identityfile"),
-                    # look_for_keys=True,
-                    # allow_agent=True,
+                    banner_timeout=200,
+                    look_for_keys=False,
+                    allow_agent=True,
                     # disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]),
-                    # port=ssh_port,
                 )
                 sockets[server] = ssh
             else:
@@ -350,14 +354,14 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
                 server,
                 username=REMOTE_SERVER_USER,
                 key_filename=host.get("identityfile"),
-                # look_for_keys=False,
-                # allow_agent=True,
-                # port=ssh_port,
+                banner_timeout=200,
+                look_for_keys=False,
+                allow_agent=True,
                 sock=ProxyCommand(host.get("proxycommand")),
             )
     except (BadHostKeyException, AuthenticationException, PasswordRequiredException) as e:
         sys.exit(
-            f"Connect error: {str(e)}. Also pay attention to this log for more details /var/log/auth.log and paramiko might need update"
+            f"Connect error: {str(e)}. Also pay attention to this log for more details /var/log/auth.log and paramiko might need update.\nAlso ensure that you have added your public ssh key to /root/.ssh/authorized_keys"
         )
     except ProxyCommandFailure as e:
         # Todo reconnect
@@ -372,17 +376,20 @@ def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
             _, ssh_stdout, _ = ssh.exec_command(remote_command)
             ssh_out = ssh_stdout.read().decode("utf-8").strip()
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
-                log.info("[+] Service " + green("restarted successfully and is UP"))
+                log.info("[+] Service %s", green("restarted successfully and is UP"))
             else:
+                srv = str(server.split(".")[1])
                 if ssh_out:
-                    log.info(green(f"[+] {server} - {ssh_out}"))
+                    log.info(green(f"[+] {srv} - {ssh_out}"))
                 else:
-                    log.info(green(f"[+] {server}"))
+                    log.info(green(f"[+] {srv}"))
             ssh.close()
         except TimeoutError as e:
             sys.exit(f"Did you forget to use jump box? {str(e)}")
+        except SSHException as e:
+            log.error("Can't read remote bufffer: %s", str(e))
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
 
 def bulk_deploy(files, yara_category, dry_run=False, servers: list = [], ssh_proxy: SSHClient = False):
@@ -393,7 +400,7 @@ def bulk_deploy(files, yara_category, dry_run=False, servers: list = [], ssh_pro
             files.remove(original_name)
             continue
 
-        if file.endswith(("processor_tests.py", "reporter_tests.py", "admin.py")):
+        if file.endswith(("processor_tests.py", "reporter_tests.py", "admin.py", ".conf")):
             files.remove(original_name)
             continue
 
@@ -462,7 +469,7 @@ def deploy_file(queue, ssh_proxy: SSHClient):
                 _, ssh_stdout, _ = ssh.exec_command(f"sha256sum {remote_file} | cut -d' ' -f1")
                 remote_sha256 = ssh_stdout.read().strip().decode("utf-8")
                 if local_sha256 == remote_sha256:
-                    log.info("[+] %s - Hashes are %s: %s - %s", server, green("correct"), local_sha256, remote_file)
+                    log.info("[+] %s - Hashes are %s: %s - %s", server.split(".")[1], green("correct"), local_sha256, remote_file)
                 else:
                     log.info(
                         "[-] %s - Hashes are %s: \n\tLocal: %s\n\tRemote: %s - %s",
@@ -507,9 +514,9 @@ def delete_file(queue, ssh_proxy: SSHClient):
                 error = 1
 
         if not error:
-            log.info(green(f"Completed! {remote_file}\n"))
+            log.info(green("Completed! %s\n", remote_file))
         else:
-            log.info(red(f"Completed with errors. {remote_file}\n"))
+            log.info(red("Completed with errors. %s\n", remote_file))
         queue.task_done()
 
     return error_list

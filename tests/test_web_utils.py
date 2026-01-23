@@ -1,14 +1,19 @@
 # Copyright (C) 2010-2015 Cuckoo Foundation.
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
-
 import tempfile
+import unittest
 
 import httpretty
 import pytest
 
 from lib.cuckoo.common.path_utils import path_delete, path_write_file
-from lib.cuckoo.common.web_utils import _download_file, force_int, get_file_content, parse_request_arguments
+from lib.cuckoo.common.web_utils import (
+    _download_file,
+    force_int,
+    get_file_content,
+    parse_request_arguments,
+)
 
 
 @pytest.fixture
@@ -74,10 +79,6 @@ def test_parse_request_arguments(mock_request):
         False,
         "03-31-2021 14:24:36",
         False,
-        None,
-        None,
-        None,
-        None,
         False,
         None,
         None,
@@ -90,3 +91,7 @@ def test_parse_request_arguments(mock_request):
 def test_force_int():
     assert force_int(value="1") == 1
     assert force_int(value="$") == 0
+
+
+if __name__ == "__main__":
+    unittest.main()

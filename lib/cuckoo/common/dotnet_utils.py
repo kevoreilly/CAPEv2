@@ -13,7 +13,21 @@ except ImportError:
 log = logging.getLogger("dotnet_utils")
 
 
-def dotnet_user_strings(file: str = False, data: bytes = False, dn_whitelisting: list = []):
+def dotnet_user_strings(file: str = False, data: bytes = False, dn_whitelisting: list = []) -> list:
+    """
+    Extracts user strings from a .NET file or data blob using dnfile.
+
+    Args:
+        file (str): Path to the .NET file. Default is False.
+        data (bytes): Byte data of the .NET file. Default is False.
+        dn_whitelisting (list): List of string patterns to whitelist. Default is an empty list.
+
+    Returns:
+        list: A list of extracted user strings that are not in the whitelist.
+
+    Raises:
+        Exception: If there is an error processing the .NET file or data.
+    """
 
     if not HAVE_DNFILE:
         return []

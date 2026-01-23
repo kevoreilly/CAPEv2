@@ -32,6 +32,7 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_rdp import parse_rdp_file
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
+from lib.cuckoo.common.integrations.parse_msi import parse_msi
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
@@ -65,7 +66,7 @@ DuplicatesType = DefaultDict[str, Set[str]]
 
 cfg = Config()
 processing_conf = Config("processing")
-selfextract_conf = Config("selfextract")
+integration_conf = Config("integrations")
 
 try:
     from modules.signatures.recon_checkip import dns_indicators
@@ -74,11 +75,11 @@ except ImportError:
 
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
-if processing_conf.flare_capa.enabled and not processing_conf.flare_capa.on_demand:
+if integration_conf.flare_capa.enabled and not integration_conf.flare_capa.on_demand:
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 HAVE_FLOSS = False
-if processing_conf.floss.enabled and not processing_conf.floss.on_demand:
+if integration_conf.floss.enabled and not integration_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
 log = logging.getLogger(__name__)
@@ -108,9 +109,18 @@ except ImportError:
     HAVE_BAT_DECODER = False
     print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/DissectMalware/batch_deobfuscator")
 
-unautoit_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.UnAutoIt_extract.binary)
-innoextact_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.Inno_extract.binary)
-sevenzip_binary = os.path.join(CUCKOO_ROOT, selfextract_conf.SevenZip_unpack.binary)
+unautoit_binary = ""
+innoextact_binary = ""
+if integration_conf.UnAutoIt_extract.binary:
+    unautoit_binary = os.path.join(CUCKOO_ROOT, integration_conf.UnAutoIt_extract.binary)
+if integration_conf.Inno_extract.binary:
+    innoextact_binary = os.path.join(CUCKOO_ROOT, integration_conf.Inno_extract.binary)
+sevenzip_binary = os.path.join(CUCKOO_ROOT, "data/7zz")
+if integration_conf.SevenZip_unpack.binary:
+    tmp_sevenzip_binary = os.path.join(CUCKOO_ROOT, integration_conf.SevenZip_unpack.binary)
+    if path_exists(tmp_sevenzip_binary):
+        sevenzip_binary = tmp_sevenzip_binary
+# fallback
 if not path_exists(sevenzip_binary):
     sevenzip_binary = "/usr/bin/7z"
 
@@ -166,54 +176,60 @@ def static_file_info(
     ):
         log.info("Missed dependencies: pip3 install oletools")
 
+    if "MSI Installer" in data_dictionary["type"]:
+        data_dictionary["msi"] = parse_msi(file_path)
+
+    # ToDo we need type checking as it wont work for most of static jobs
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
-        data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
+        with PortableExecutable(file_path) as pe:
+            data_dictionary["pe"] = pe.run(task_id)
 
         if HAVE_FLARE_CAPA:
+            # https://github.com/mandiant/capa/issues/2620
             capa_details = flare_capa_details(file_path, "static")
             if capa_details:
                 data_dictionary["flare_capa"] = capa_details
 
-        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
+        if HAVE_FLOSS and integration_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
         if "Mono" in data_dictionary["type"]:
-            if selfextract_conf.general.dotnet:
+            if integration_conf.general.dotnet:
                 data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
                 if processing_conf.strings.dotnet:
                     dotnet_strings = dotnet_user_strings(file_path)
                     if dotnet_strings:
                         data_dictionary.setdefault("dotnet_strings", dotnet_strings)
 
-    elif HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and selfextract_conf.general.office:
+    elif (HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and integration_conf.general.office) or data_dictionary.get("name", "").endswith((".doc", ".ppt", ".xls", ".pub")):
         # options is dict where we need to get pass get_options
         data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
-    elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and selfextract_conf.general.pdf:
+    elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and integration_conf.general.pdf:
         data_dictionary["pdf"] = PDF(file_path).run()
     elif (
         package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf")
-    ) and selfextract_conf.general.windows_script:
+    ) and integration_conf.general.windows_script:
         data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
-    elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and selfextract_conf.general.lnk:
+    elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and integration_conf.general.lnk:
         data_dictionary["lnk"] = LnkShortcut(file_path).run()
-    elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and selfextract_conf.general.java:
-        if selfextract_conf.procyon.binary and not path_exists(selfextract_conf.procyon.binary):
+    elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and integration_conf.general.java:
+        if integration_conf.procyon.binary and not path_exists(integration_conf.procyon.binary):
             log.error("procyon_path specified in processing.conf but the file does not exist")
         else:
-            data_dictionary["java"] = Java(file_path, selfextract_conf.procyon.binary).run()
+            data_dictionary["java"] = Java(file_path, integration_conf.procyon.binary).run()
     elif file_path.endswith(".rdp") or data_dictionary.get("name", {}).endswith(".rdp"):
         data_dictionary["rdp"] = parse_rdp_file(file_path)
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.
-    # elif ("ELF" in data_dictionary["type"] or file_path.endswith(".elf")) and selfextract_conf.general.elf:
+    # elif ("ELF" in data_dictionary["type"] or file_path.endswith(".elf")) and integration_conf.general.elf:
     #    data_dictionary["elf"] = ELF(file_path).run()
     #    data_dictionary["keys"] = f.get_keys()
-    # elif HAVE_OLETOOLS and package == "hwp" and selfextract_conf.general.hwp:
+    # elif HAVE_OLETOOLS and package == "hwp" and integration_conf.general.hwp:
     #    data_dictionary["hwp"] = HwpDocument(file_path).run()
 
     data = path_read_file(file_path)
@@ -456,7 +472,7 @@ def generic_file_extractors(
     ]
 
     futures = {}
-    with pebble.ProcessPool(max_workers=int(selfextract_conf.general.max_workers)) as pool:
+    with pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers)) as pool:
         # Prefer custom modules over the built-in ones, since only 1 is allowed
         # to be the extracted_files_tool.
         if extra_info_modules:
@@ -468,12 +484,12 @@ def generic_file_extractors(
         for extraction_func in file_info_funcs:
             funcname = extraction_func.__name__.split(".")[-1]
             if (
-                not getattr(selfextract_conf, funcname, {}).get("enabled", False)
+                not getattr(integration_conf, funcname, {}).get("enabled", False)
                 and getattr(extraction_func, "enabled", False) is False
             ):
                 continue
 
-            func_timeout = int(getattr(selfextract_conf, funcname, {}).get("timeout", 60))
+            func_timeout = int(getattr(integration_conf, funcname, {}).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
     pool.join()
 
@@ -574,7 +590,7 @@ def vbe_extract(file: str, **_) -> ExtractorReturnType:
     try:
         decoded = vbe_decode_file(file, data)
     except Exception as e:
-        log.error(e, exc_info=True)
+        log.exception(e)
 
     if not decoded:
         log.debug("VBE content wasn't decoded")
@@ -591,7 +607,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
     if all(".NET Reactor" not in string for string in data_dictionary.get("die", [])):
         return
 
-    binary = shlex.split(selfextract_conf.eziriz_deobfuscate.binary.strip())[0]
+    binary = shlex.split(integration_conf.eziriz_deobfuscate.binary.strip())[0]
     binary = os.path.join(CUCKOO_ROOT, binary)
     if not binary:
         log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
@@ -614,7 +630,7 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
         _ = run_tool(
             [
                 os.path.join(CUCKOO_ROOT, binary),
-                *shlex.split(selfextract_conf.eziriz_deobfuscate.extra_args.strip()),
+                *shlex.split(integration_conf.eziriz_deobfuscate.extra_args.strip()),
                 file,
             ],
             universal_newlines=True,
@@ -633,7 +649,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     if "Mono" not in filetype:
         return
 
-    binary = shlex.split(selfextract_conf.de4dot_deobfuscate.binary.strip())[0]
+    binary = shlex.split(integration_conf.de4dot_deobfuscate.binary.strip())[0]
     if not binary:
         log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
         return
@@ -647,7 +663,7 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
         _ = run_tool(
             [
                 binary,
-                *shlex.split(selfextract_conf.de4dot_deobfuscate.extra_args.strip()),
+                *shlex.split(integration_conf.de4dot_deobfuscate.extra_args.strip()),
                 "-f",
                 file,
                 "-o",
@@ -668,15 +684,16 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
     if "MSI Installer" not in filetype:
         return
 
+    # ToDo replace MsiExtract with pymsi
     extracted_files = []
-    # sudo apt install msitools or 7z
+    # sudo apt install msitools
     with extractor_ctx(file, "MsiExtract", prefix="msidump_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         output = False
         if not kwargs.get("tests"):
             # msiextract in different way that 7z, we need to add subfolder support
             output = run_tool(
-                [selfextract_conf.msi_extract.binary, file, "--directory", tempdir],
+                [integration_conf.msi_extract.binary, file, "--directory", tempdir],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )
@@ -688,7 +705,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
             ]
         else:
             output = run_tool(
-                ["7z", "e", f"-o{tempdir}", "-y", file],
+                [sevenzip_binary, "e", f"-o{tempdir}", "-y", file],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )
@@ -938,7 +955,13 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
 
 @time_tracker
 def office_one(file, **_) -> ExtractorReturnType:
-    if not HAVE_ONE or open(file, "rb").read(16) not in (
+    if not HAVE_ONE:
+        return
+
+    with open(file, "rb") as f:
+        header = f.read(16)
+
+    if header not in (
         b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3",
         b"\xA1\x2F\xFF\x43\xD9\xEF\x76\x4C\x9E\xE2\x10\xEA\x57\x22\x76\x5F",
     ):

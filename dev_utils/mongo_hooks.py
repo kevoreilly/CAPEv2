@@ -1,11 +1,15 @@
 import itertools
 import logging
+from contextlib import suppress
 
-from pymongo import UpdateOne
+from pymongo import UpdateOne, errors
+from pymongo.errors import InvalidDocument, BulkWriteError
+import bson
 
 from dev_utils.mongodb import (
     mongo_bulk_write,
     mongo_delete_data,
+    mongo_delete_data_range,
     mongo_delete_many,
     mongo_find,
     mongo_find_one,
@@ -60,13 +64,12 @@ def normalize_file(file_dict, task_id):
     )
     new_dict = {}
     for fld in static_fields:
-        try:
+        with suppress(KeyError):
             new_dict[fld] = file_dict.pop(fld)
-        except KeyError:
-            pass
 
     new_dict["_id"] = key
     file_dict[FILE_REF_KEY] = key
+
     return UpdateOne({"_id": key}, {"$set": new_dict, "$addToSet": {TASK_IDS_KEY: task_id}}, upsert=True, hint=[("_id", 1)])
 
 
@@ -82,8 +85,36 @@ def normalize_files(report):
         request = normalize_file(file_dict, report["info"]["id"])
         if request:
             requests.append(request)
-    if requests:
-        mongo_bulk_write(FILES_COLL, requests, ordered=False)
+
+    try:
+        if requests:
+            mongo_bulk_write(FILES_COLL, requests, ordered=False)
+    except (errors.OperationFailure, InvalidDocument, BulkWriteError) as exc:
+        log.warning("Mongo hook 'normalize_files' failed: %s. Attempting to sanitize strings and retry.", exc)
+        for req in requests:
+            # req._doc is the update document: {"$set": new_dict, ...}
+            # Accessing private attribute _doc to modify in place for retry
+            try:
+                if hasattr(req, "_doc") and "$set" in req._doc and "strings" in req._doc["$set"]:
+                    strings_val = req._doc["$set"]["strings"]
+                    # Check if strings field alone is too large (buffer safe 15MB)
+                    if strings_val and len(bson.encode({"strings": strings_val})) > 15 * 1024 * 1024:
+                        log.warning("Truncating oversized strings field for retry.")
+                        if isinstance(strings_val, list):
+                            req._doc["$set"]["strings"] = strings_val[:1000]
+                        else:
+                            req._doc["$set"]["strings"] = []
+                        # If still too large, clear it
+                        if len(bson.encode({"strings": req._doc["$set"]["strings"]})) > 15 * 1024 * 1024:
+                            req._doc["$set"]["strings"] = []
+            except Exception as e:
+                log.error("Failed to sanitize request during retry: %s", e)
+
+        # Retry the bulk write
+        try:
+            mongo_bulk_write(FILES_COLL, requests, ordered=False)
+        except Exception as retry_exc:
+            log.error("Retry of 'normalize_files' failed: %s", retry_exc)
 
     return report
 
@@ -150,6 +181,24 @@ def remove_task_references_from_files(task_ids):
     )
 
 
+@mongo_hook(mongo_delete_data_range, "analysis")
+def remove_task_references_from_files_range(*, range_start: int = 0, range_end: int = 0):
+    """Remove the given task_ids from the TASK_IDS_KEY field on "files"
+    documents that were referenced by those tasks that are being deleted.
+    """
+    range_query = {}
+    if range_start > 0:
+        range_query["$gte"] = range_start
+    if range_end > 0:
+        range_query["$lt"] = range_end
+    if range_query:
+        mongo_update_many(
+            FILES_COLL,
+            {TASK_IDS_KEY: {"$elemMatch": range_query}},
+            {"$pull": {TASK_IDS_KEY: range_query}},
+        )
+
+
 def delete_unused_file_docs():
     """Delete entries in the FILES_COLL collection that are no longer
     referenced by any analysis tasks. This should typically be invoked
@@ -165,6 +214,7 @@ def collect_file_dicts(report) -> itertools.chain:
     """Return an iterable containing all of the candidates for files
     from various parts of the report to be normalized.
     """
+    # ToDo extend to self extract
     file_dicts = []
     target_file = report.get("target", {}).get("file", None)
     if target_file:
@@ -172,4 +222,6 @@ def collect_file_dicts(report) -> itertools.chain:
     file_dicts.append(report.get("dropped", None) or [])
     file_dicts.append(report.get("CAPE", {}).get("payloads", None) or [])
     file_dicts.append(report.get("procdump", None) or [])
+    if report.get("suricata", {}).get("files", []):
+        file_dicts.append(list(filter(None, [file_info.get("file_info", []) for file_info in report.get("suricata", {}).get("files", [])])))
     return itertools.chain.from_iterable(file_dicts)

@@ -41,6 +41,7 @@ from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
+log = logging.getLogger(__name__)
 
 try:
     import re2 as re
@@ -60,7 +61,7 @@ try:
     IS_DPKT = True
 except ImportError:
     IS_DPKT = False
-    print("Missed dependency: poetry run pip install")
+    log.error("Missed dependency: poetry run pip install")
 
 HAVE_HTTPREPLAY = False
 try:
@@ -70,9 +71,9 @@ try:
     if httpreplay.__version__ == "0.3":
         HAVE_HTTPREPLAY = True
 except ImportError:
-    print("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/CAPESandbox/httpreplay")
+    log.error("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/CAPESandbox/httpreplay")
 except SystemError as e:
-    print("httpreplay: %s", str(e))
+    log.error("httpreplay: %s", str(e))
 
 # required to work webgui
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
@@ -81,10 +82,12 @@ sys.path.append(CUCKOO_ROOT)
 TLS_HANDSHAKE = 22
 PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30 * 1024 * 1024
 
+DOMAIN_FILTERS = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
+DOMAIN_FILTERS_RE = [re.compile(filter) for filter in DOMAIN_FILTERS]
+
 Keyed = namedtuple("Keyed", ["key", "obj"])
 Packet = namedtuple("Packet", ["raw", "ts"])
 
-log = logging.getLogger(__name__)
 cfg = Config()
 proc_cfg = Config("processing")
 routing_cfg = Config("routing")
@@ -167,6 +170,8 @@ class Pcap:
         self.filepath = filepath
         self.ja3_fprints = ja3_fprints
         self.options = options
+
+        self.ip_n_ports = {}
 
         # List of all hosts.
         self.hosts = []
@@ -306,6 +311,7 @@ class Pcap:
                     # first packet they appear in.
                     if not self._is_private_ip(ip):
                         self.unique_hosts.append(ip)
+                        self.ip_n_ports.setdefault(ip, []).append(connection["dport"])
 
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
@@ -338,6 +344,7 @@ class Pcap:
                     "asn_name": asn_name,
                     "hostname": hostname,
                     "inaddrarpa": inaddrarpa,
+                    "ports": self.ip_n_ports.get(ip, []),
                 }
             )
         return enriched_hosts
@@ -531,10 +538,7 @@ class Pcap:
         """Add a domain to unique list.
         @param domain: domain name.
         """
-        filters = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
-
-        regexps = [re.compile(filter) for filter in filters]
-        for regexp in regexps:
+        for regexp in DOMAIN_FILTERS_RE:
             if regexp.match(domain):
                 return
 
@@ -771,8 +775,6 @@ class Pcap:
                     offset = file.tell()
                     continue
 
-                self._add_hosts(connection)
-
                 if ip.p == dpkt.ip.IP_PROTO_TCP:
                     tcp = ip.data
                     if not isinstance(tcp, dpkt.tcp.TCP):
@@ -783,6 +785,10 @@ class Pcap:
 
                     connection["sport"] = tcp.sport
                     connection["dport"] = tcp.dport
+
+                    if tcp.flags & dpkt.tcp.TH_SYN and tcp.flags & dpkt.tcp.TH_ACK:
+                        connection["src"], connection["dst"] = connection["dst"], connection["src"]
+                        connection["sport"], connection["dport"] = connection["dport"], connection["sport"]
 
                     if tcp.data:
                         self._tcp_dissect(connection, tcp.data, ts)
@@ -834,6 +840,7 @@ class Pcap:
                     self._icmp_dissect(connection, icmp)
 
                 offset = file.tell()
+                self._add_hosts(connection)
             except AttributeError:
                 continue
             except dpkt.dpkt.NeedData:
@@ -1098,12 +1105,11 @@ class NetworkAnalysis(Processing):
                         if "ja3_hash" in ja3 and "desc" in ja3:
                             ja3_fprints[ja3["ja3_hash"]] = ja3["desc"]
                     except Exception as e:
-                        print(e)
+                        log.error(e)
 
         return ja3_fprints
 
     def run(self):
-
         if not path_exists(self.pcap_path):
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
@@ -1136,11 +1142,9 @@ class NetworkAnalysis(Processing):
 
         if HAVE_HTTPREPLAY:
             try:
-                p2 = {}
                 tls_master = self.get_tlsmaster()
-                if tls_master:
-                    p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
-                if p2:
+                p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
+                if any(p2.values()):
                     results.update(p2)
             except Exception:
                 log.exception("Error running httpreplay-based PCAP analysis")
@@ -1154,22 +1158,23 @@ class NetworkAnalysis(Processing):
         if not path_exists(dump_tls_log):
             return tlsmaster
 
-        for entry in open(dump_tls_log, "r").readlines() or []:
-            try:
-                for m in re.finditer(
-                    r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
-                    entry,
-                    re.I,
-                ):
-                    try:
-                        client_random = binascii.a2b_hex(m.group("client_random").strip())
-                        server_random = binascii.a2b_hex(m.group("server_random").strip())
-                        master_secret = binascii.a2b_hex(m.group("master_secret").strip())
-                        tlsmaster[client_random, server_random] = master_secret
-                    except Exception as e:
-                        log.warning("Problem dealing with tlsdump error: %s line: %s", e, m.group(0))
-            except Exception as e:
-                log.warning("Problem dealing with tlsdump error: %s line: %s", e, entry)
+        with open(dump_tls_log, "r") as f:
+            for entry in f:
+                try:
+                    for m in re.finditer(
+                        r"client_random:\s*(?P<client_random>[a-f0-9]+)\s*,\s*server_random:\s*(?P<server_random>[a-f0-9]+)\s*,\s*master_secret:\s*(?P<master_secret>[a-f0-9]+)\s*",
+                        entry,
+                        re.I,
+                    ):
+                        try:
+                            client_random = binascii.a2b_hex(m.group("client_random").strip())
+                            server_random = binascii.a2b_hex(m.group("server_random").strip())
+                            master_secret = binascii.a2b_hex(m.group("master_secret").strip())
+                            tlsmaster[client_random, server_random] = master_secret
+                        except Exception as e:
+                            log.warning("Problem dealing with tlsdump error: %s line: %s", e, m.group(0))
+                except Exception as e:
+                    log.warning("Problem dealing with tlsdump error: %s line: %s", e, entry)
 
         return tlsmaster
 

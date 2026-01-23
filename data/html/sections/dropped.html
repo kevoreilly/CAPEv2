@@ -1,22 +1,28 @@
-<section id="dropped">
+<div class="mt-4">
     <div class="section-title">
         <h4>Dropped Files</h4>
     </div>
     {% set tab_name = 'dropped' %}
     {% if results.dropped %}
+        <div id="accordionDroppedFiles">
         {% for file in results.dropped %}
-            <div>
-                {% if summary_report %}
-                    <h4>{% for name in file.name%} {{name}} {% endfor %}</h4>
-                    <div id="dropped_{{loop.index}}">
-                {% else %}
-                    <h4><a href="javascript:showHide('dropped_{{loop.index}}');">{% for name in file.name%} {{name}} {% endfor %}</a></h4>
-                    <div id="dropped_{{loop.index}}" style="display: none;">
-                    {% include "generic/_file_info.html" %}
-                {% endif %}
+            <div class="card mt-2">
+                <div class="card-header" id="headingDroppedFile{{loop.index}}">
+                    <h5 class="mb-0">
+                        <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#collapseDroppedFile{{loop.index}}" aria-expanded="true" aria-controls="collapseDroppedFile{{loop.index}}">
+                            {% for name in file.name%}{{name}}{% endfor %}
+                        </button>
+                    </h5>
+                </div>
+                <div id="collapseDroppedFile{{loop.index}}" class="collapse show" aria-labelledby="headingDroppedFile{{loop.index}}" data-bs-parent="#accordionDroppedFiles">
+                    <div class="card-body">
+                        {% include "generic/_file_info.html" %}
+                    </div>
+                </div>
             </div>
         {% endfor %}
+        </div>
     {% else %}
-        Nothing to display.
+        <p>Nothing to display.</p>
     {% endif %}
-</section>
+</div>

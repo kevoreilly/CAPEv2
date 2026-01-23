@@ -57,9 +57,10 @@ def flare_capa(proxy=None):
             path_mkdir(capa_sigs_path)
         for url in signature_urls:
             signature_name = url.rsplit("/", 1)[-1]
-            with http.request("GET", url, preload_content=False) as sig, open(
-                os.path.join(capa_sigs_path, signature_name), "wb"
-            ) as out_sig:
+            with (
+                http.request("GET", url, preload_content=False) as sig,
+                open(os.path.join(capa_sigs_path, signature_name), "wb") as out_sig,
+            ):
                 shutil.copyfileobj(sig, out_sig)
 
         print("[+] FLARE CAPA rules/signatures installed")
@@ -88,11 +89,11 @@ def install(enabled, force, rewrite, clean=False, filepath: str = False, access_
 
             if b"Not Found" == data:
                 print("You don't have permissions to access this repo")
-                sys.exit(-1)
+                return
             t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
         except Exception as e:
             print("ERROR: Unable to download archive: %s" % e)
-            sys.exit(-1)
+            return
 
     folders = {
         "feeds": "modules/feeds",

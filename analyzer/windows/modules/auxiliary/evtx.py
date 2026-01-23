@@ -12,7 +12,6 @@ log = logging.getLogger(__name__)
 
 
 class Evtx(Thread, Auxiliary):
-
     evtx_dump = "evtx.zip"
 
     windows_logs = [

@@ -1,95 +1,102 @@
 <section id="suri_http">
-    <h4>Suricata HTTP</h4>
-    {% if suricata.http %}
-        <table class="table table-striped table-bordered" style="table-layout: fixed; width: 100%">
-            <tr>
-                <th width="8%">Timestamp</th>
-                <th width="9%">Source IP</th>
-                <th width="5%">Source Port</th>
-                <th width="9%">Destination IP</th>
-                <th width="5%">Destination Port</th>
-                <th width="4%">Method</th>
-                <th width="4%">Status</th>
-                <th width="10%">Hostname</th>
-                <th width="13%">URI</th>
-                <th width="8%">Content Type</th>
-                <th width="8%">User Agent</th>
-                <th width="13%">Referrer</th>
-                <th width="4%">Length</th>
-            </tr>
-            {% for http in suricata.http %}
-            <tr>
-                <td>{{http.timestamp}}</td>
-                <td>{{http.srcip}}
-                    <a href="https://www.virustotal.com/en/ip-address/{{http.srcip}}/information/">[VT]</a>
-                    {% if config.display_et_portal %}
-                    <a href="https://threatintel.proofpoint.com/search?q={{http.srcip}}" target="_blank">[ET]</a>
-                    {% endif %}
-                    {% if config.display_pt_portal %}
-                    <a href="https://www.passivetotal.org/passive/{{http.srcip}}" target="_blank">[PT]</a>
-                    {% endif %}
-                    {% if http.moloch_src_ip_url %}
-                    <a href={{http.moloch_src_ip_url}} target="_blank">[MLCH]</a>
-                    {% endif %}
-                </td>
-                <td>{{http.srcport}}
-                    {% if http.moloch_src_port_url %}
-                    <a href={{http.moloch_src_port_url}} target="_blank">[MLCH]</a>
-                    {% endif %}
-                </td>
-                <td>{{http.dstip}}
-                   <a href="https://www.virustotal.com/en/ip-address/{{http.dstip}}/information/">[VT]</a>
-                    {% if config.display_et_portal %}
-                    <a href="https://threatintel.proofpoint.com/search?q={{http.dstip}}" target="_blank">[ET]</a>
-                    {% endif %}
-                    {% if config.display_pt_portal %}
-                    <a href="https://www.passivetotal.org/passive/{{http.dstip}}" target="_blank">[PT]</a>
-                    {% endif %}
-                    {% if http.moloch_dst_ip_url %}
-                    <a href={{http.moloch_dst_ip_url}} target="_blank">[MLCH]</a>
-                    {% endif %}
-                </td>
-                <td>{{http.dstport}}
-                    {% if http.moloch_dst_port_url %}
-                    <a href={{http.moloch_dst_port_url}} target="_blank">[MLCH]</a>
-                    {% endif %}
-                </td>
-                <td>{{http.method}}
-                    {% if http.moloch_http_method_url %}
-                    <a href={{http.moloch_http_method_url}} target="_blank">[MLCH]</a>
-                    {% endif %}
-                </td>
-                <td>{{http.status}}</td>
-                <td>{{http.hostname}}
-                    <a href="https://www.virustotal.com/en/domain/{{http.hostname}}/information/">[VT]</a>
-                    {% if config.display_et_portal %}
-                    <a href="https://threatintel.proofpoint.com/search?q={{http.hostname}}" target="_blank">[ET]</a>
-                    {% endif %}
-                    {% if config.display_pt_portal %}
-                    <a href="https://www.passivetotal.org/passive/{{http.hostname}}" target="_blank">[PT]</a>
-                    {% endif %}
-                    {% if http.moloch_http_host_url %}
-                    <a href={{http.moloch_http_host_url}} target="_blank">[MLCH]</a>
-                    {% endif %}
-                </td>
-                <td>{{http.uri}}
-                    {% if http.moloch_http_uri_url %}
-                    <a href={{http.moloch_http_uri_url}} target="_blank">[MLCH]</a>
-                    {% endif %}
-                </td>
-                <td>{{http.contenttype}}</td>
-                <td>{{http.ua}}
-                    {% if http.moloch_http_ua_url %}
-                    <a href={{http.moloch_http_ua_url}} target="_blank">[MLCH]</a>
-                    {% endif %}
-                </td>
-                <td>{{http.referrer}}</td>
-                <td>{{http.length}}</td>
-            </tr>
-            {% endfor %}
-        </table>
-
-    {% else %}
-        <p>No Suricata HTTP</p>
-    {% endif %}
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-globe me-2 text-info"></i>Suricata HTTP</h5>
+        </div>
+        {% if suricata.http %}
+            <div class="card-body">
+                <table class="table table-dark table-striped table-bordered" style="table-layout: fixed; width: 100%">
+                    <tr>
+                        <th width="8%">Timestamp</th>
+                        <th width="9%">Source IP</th>
+                        <th width="5%">Source Port</th>
+                        <th width="9%">Destination IP</th>
+                        <th width="5%">Destination Port</th>
+                        <th width="4%">Method</th>
+                        <th width="4%">Status</th>
+                        <th width="10%">Hostname</th>
+                        <th width="13%">URI</th>
+                        <th width="8%">Content Type</th>
+                        <th width="8%">User Agent</th>
+                        <th width="13%">Referrer</th>
+                        <th width="4%">Length</th>
+                    </tr>
+                    {% for http in suricata.http %}
+                    <tr>
+                        <td>{{http.timestamp}}</td>
+                        <td>{{http.srcip}}
+                            <a href="https://www.virustotal.com/en/ip-address/{{http.srcip}}/information/">[VT]</a>
+                            {% if config.display_et_portal %}
+                            <a href="https://threatintel.proofpoint.com/search?q={{http.srcip}}" target="_blank">[ET]</a>
+                            {% endif %}
+                            {% if config.display_pt_portal %}
+                            <a href="https://www.passivetotal.org/passive/{{http.srcip}}" target="_blank">[PT]</a>
+                            {% endif %}
+                            {% if http.moloch_src_ip_url %}
+                            <a href={{http.moloch_src_ip_url}} target="_blank">[MLCH]</a>
+                            {% endif %}
+                        </td>
+                        <td>{{http.srcport}}
+                            {% if http.moloch_src_port_url %}
+                            <a href={{http.moloch_src_port_url}} target="_blank">[MLCH]</a>
+                            {% endif %}
+                        </td>
+                        <td>{{http.dstip}}
+                           <a href="https://www.virustotal.com/en/ip-address/{{http.dstip}}/information/">[VT]</a>
+                            {% if config.display_et_portal %}
+                            <a href="https://threatintel.proofpoint.com/search?q={{http.dstip}}" target="_blank">[ET]</a>
+                            {% endif %}
+                            {% if config.display_pt_portal %}
+                            <a href="https://www.passivetotal.org/passive/{{http.dstip}}" target="_blank">[PT]</a>
+                            {% endif %}
+                            {% if http.moloch_dst_ip_url %}
+                            <a href={{http.moloch_dst_ip_url}} target="_blank">[MLCH]</a>
+                            {% endif %}
+                        </td>
+                        <td>{{http.dstport}}
+                            {% if http.moloch_dst_port_url %}
+                            <a href={{http.moloch_dst_port_url}} target="_blank">[MLCH]</a>
+                            {% endif %}
+                        </td>
+                        <td>{{http.method}}
+                            {% if http.moloch_http_method_url %}
+                            <a href={{http.moloch_http_method_url}} target="_blank">[MLCH]</a>
+                            {% endif %}
+                        </td>
+                        <td>{{http.status}}</td>
+                        <td>{{http.hostname}}
+                            <a href="https://www.virustotal.com/en/domain/{{http.hostname}}/information/">[VT]</a>
+                            {% if config.display_et_portal %}
+                            <a href="https://threatintel.proofpoint.com/search?q={{http.hostname}}" target="_blank">[ET]</a>
+                            {% endif %}
+                            {% if config.display_pt_portal %}
+                            <a href="https://www.passivetotal.org/passive/{{http.hostname}}" target="_blank">[PT]</a>
+                            {% endif %}
+                            {% if http.moloch_http_host_url %}
+                            <a href={{http.moloch_http_host_url}} target="_blank">[MLCH]</a>
+                            {% endif %}
+                        </td>
+                        <td>{{http.uri}}
+                            {% if http.moloch_http_uri_url %}
+                            <a href={{http.moloch_http_uri_url}} target="_blank">[MLCH]</a>
+                            {% endif %}
+                        </td>
+                        <td>{{http.contenttype}}</td>
+                        <td>{{http.ua}}
+                            {% if http.moloch_http_ua_url %}
+                            <a href={{http.moloch_http_ua_url}} target="_blank">[MLCH]</a>
+                            {% endif %}
+                        </td>
+                        <td>{{http.referrer}}</td>
+                        <td>{{http.length}}</td>
+                    </tr>
+                    {% endfor %}
+                </table>
+            </div>
+        {% else %}
+            <div class="card-body">
+                <div class="alert alert-info">No Suricata HTTP</div>
+            </div>
+        {% endif %}
+    </div>
 </section>

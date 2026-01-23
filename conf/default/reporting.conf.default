@@ -4,11 +4,6 @@
 # You can also add additional options under the section of your module and
 # they will be available in your Python class.
 
-# Generate CAPE's analysis summary by FLARE/Mandiant's CAPA
-[flare_capa_summary]
-enabled = yes
-on_demand= no
-
 # Community
 [cents]
 enabled = no
@@ -31,7 +26,7 @@ procdump = yes
 
 # Community
 [pcap2cert]
-enabled = yes
+enabled = no
 
 # Community
 [litereport]
@@ -54,6 +49,7 @@ drive_credentials_location = data/google_creds.json
 enabled = yes
 indent = 4
 encoding = latin-1
+store_compressed = no
 
 # Community
 [reporthtml]
@@ -151,10 +147,6 @@ user = admin
 pass = admin
 realm = Moloch
 
-# Community
-[resubmitexe]
-enabled = no
-resublimit = 5
 
 # Community
 [compression]
@@ -165,7 +157,7 @@ zipprocdump = yes
 zipprocstrings = yes
 # pyzipper or 7zip
 compressiontool = pyzipper
-sevenzippath = /usr/bin/7z
+sevenzippath = data/7zz
 
 # Community
 [misp]
@@ -224,3 +216,27 @@ enabled = no
 
 [browserext]
 enabled = no
+
+# Google Cloud Storage
+[gcs]
+enabled = no
+# The name of your Google Cloud Storage bucket where files will be uploaded.
+bucket_name = your-gcs-bucket-name
+
+# Comma-separated list of DIRECTORY names to exclude from the upload.
+# Good examples are 'shots' (contains all screenshots) or 'memory' (for full memory dumps).
+exclude_dirs = logs, shots
+
+# Comma-separated list of exact FILENAMES to exclude from the upload.
+# Good examples are large report formats you don't need in GCS.
+exclude_files =
+
+# Mode: zip - will submit all files and folders as unique zip archive. Useful to not spam pubsub notification on file creation.
+# Mode: file - will submit one by one.
+mode = zip
+
+# Can be vm or json
+auth_by = vm
+# only if auth_by = json. The absolute path to your Google Cloud service account JSON key file.
+# This file is required for authentication.
+credentials_path = data/gcp-credentials.json

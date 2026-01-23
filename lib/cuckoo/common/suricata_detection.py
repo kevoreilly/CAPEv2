@@ -1,7 +1,4 @@
-try:
-    import re2 as re
-except ImportError:
-    import re
+import re
 
 suricata_passlist = (
     "agenttesla",
@@ -83,6 +80,7 @@ et_categories = ("ET TROJAN", "ETPRO TROJAN", "ET MALWARE", "ETPRO MALWARE", "ET
 
 def get_suricata_family(signature):
     """
+    Extracts the family name from a Suricata alert string.
     Args:
         signature: suricata alert string
     Return
@@ -120,8 +118,8 @@ def get_suricata_family(signature):
                 break
     isbad = any(block in famchecklower for block in suricata_blocklist)
     if not isbad and len(famcheck) >= 4:
-        family = famcheck.title()
+        family = famcheck
     isgood = any(allow in famchecklower for allow in suricata_passlist)
     if isgood and len(famcheck) >= 4:
-        family = famcheck.title()
+        family = famcheck
     return family

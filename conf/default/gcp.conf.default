@@ -1,0 +1,63 @@
+[gcp]
+# Specify the Google Cloud Zone (for example, europe-north2-a). This is case-sensitive
+zone = <zone_name>
+
+# Specify the project identifier
+project = <project_id>
+
+# Running in a GCP environment. If true, the Compute Engine credentials will be used
+running_in_gcp = true
+
+# Specify the path to the service account key file. If not specified, the default service account will be used
+service_account_path =
+
+# Specify a comma-separated list of available machines to be used.
+# Each machine will be represented by the instance-name (for example, cape-server-windows).
+# For each specified instance-name you have to define a dedicated section containing the details
+# on the respective machine. (E.g. cape-server-windows,cape-server-linux)
+# For better performance, it is recommended to leave this empty and set autoscale = yes.
+machines =
+
+[cape-server-linux]
+# Specify the label name.
+# Label would be the instance-name of the current machine as specified in your GCP account.
+label = cape-server-linux
+
+# Specify the operating system platform used by current machine
+# [windows/darwin/linux].
+platform = linux
+
+# Set the machine architecture
+# x64 or x86
+arch = x64
+
+# Specify the IP address of the current virtual machine. Make sure that the
+# IP address is valid and that the host machine is able to reach it. If not,
+# the analysis will fail.
+# ip =
+
+# (Optional) Specify the name of the network interface that should be used
+# when dumping network traffic from this machine with tcpdump. If specified,
+# overrides the default interface specified above.
+# Example (eth0 is the interface name):
+# interface =
+
+# (Optional) Specify the IP of the Result Server, as your virtual machine sees it.
+# The Result Server will always bind to the address and port specified in cuckoo.conf,
+# however you could set up your virtual network to use NAT/PAT, so you can specify here
+# the IP address for the Result Server as your machine sees it. If you don't specify an
+# address here, the machine will use the default value from cuckoo.conf.
+# NOTE: if you set this option you have to set result server IP to 0.0.0.0 in cuckoo.conf.
+# Example:
+# resultserver_ip =
+
+# (Optional) Specify the port for the Result Server, as your virtual machine sees it.
+# The Result Server will always bind to the address and port specified in cuckoo.conf,
+# however you could set up your virtual network to use NAT/PAT, so you can specify here
+# the port for the Result Server as your machine sees it. If you don't specify a port
+# here, the machine will use the default value from cuckoo.conf.
+# resultserver_port =
+
+# (Optional) Set your own tags. These are comma separated and help to identify
+# specific VMs. You can run samples on VMs with tag you require.
+# tags =

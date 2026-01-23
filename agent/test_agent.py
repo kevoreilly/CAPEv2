@@ -9,6 +9,7 @@ import os
 import pathlib
 import random
 import shutil
+import subprocess
 import sys
 import tempfile
 import time
@@ -39,8 +40,8 @@ class TestAgentFunctions:
     @mock.patch("sys.platform", "win32")
     def test_get_subprocess_259(self):
         mock_process_id = 999998
-        mock_subprocess = mock.Mock(spec=multiprocessing.Process)
-        mock_subprocess.exitcode = 259
+        mock_subprocess = mock.Mock(spec=subprocess.Popen)
+        mock_subprocess.poll = mock.Mock(return_value=259)
         mock_subprocess.pid = mock_process_id
         with mock.patch.dict(agent.state, {"async_subprocess": mock_subprocess}):
             actual = agent.get_subprocess_status()
@@ -392,8 +393,8 @@ class TestAgent:
     def test_mktemp_valid(self):
         form = {
             "dirpath": DIRPATH,
-            "prefix": make_temp_name(),
-            "suffix": "tmp",
+            "prefix": "",
+            "suffix": "",
         }
         js = self.post_form("mktemp", form)
         assert js["message"] == "Successfully created temporary file"
@@ -418,8 +419,8 @@ class TestAgent:
         """Ensure we can use the mkdtemp endpoint."""
         form = {
             "dirpath": DIRPATH,
-            "prefix": make_temp_name(),
-            "suffix": "tmp",
+            "prefix": "",
+            "suffix": "",
         }
         js = self.post_form("mkdtemp", form)
         assert js["message"] == "Successfully created temporary directory"
@@ -465,7 +466,7 @@ class TestAgent:
 
         # destination file path is invalid
         upload_file = {"file": ("test_data.txt", "test data\ntest data\n")}
-        form = {"filepath": os.path.join(DIRPATH, make_temp_name(), "tmp")}
+        form = {"filepath": os.path.join(DIRPATH, make_temp_name(), "")}
         js = self.post_form("store", form, 500, files=upload_file)
         assert js["message"].startswith("Error storing file")
 
@@ -637,6 +638,34 @@ class TestAgent:
 
         js = self.confirm_status(str(agent.Status.FAILED))
         assert "process_id" not in js
+
+    def test_async_manual_status_override(self):
+        """Test that a manual status update overrides an in-progress async process."""
+        # Upload a Python file that sleeps for a short period, to ensure the
+        # async subprocess is running while we override the status.
+        file_contents = (
+            "import time",
+            "time.sleep(10)",
+        )
+
+        filepath = self.store_file(file_contents)
+        form = {"filepath": filepath, "async": 1}
+
+        execpy_resp = self.post_form("execpy", form)
+        assert execpy_resp.get("message") == "Successfully spawned command"
+
+        # While the subprocess is running, the status should initially be RUNNING.
+        self.confirm_status(str(agent.Status.RUNNING))
+
+        # Manually override the status to COMPLETE via POST /status.
+        override_form = {
+            "status": str(agent.Status.COMPLETE),
+            "description": "beep boop"
+        }
+        status_resp = self.post_form("status", override_form)
+        assert status_resp.get("message") == "Analysis status updated"
+
+        self.confirm_status(str(agent.Status.COMPLETE))
 
     def test_execute(self):
         """Test executing the 'date' command."""

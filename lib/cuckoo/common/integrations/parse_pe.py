@@ -161,8 +161,18 @@ class PortableExecutable:
                 self.pe = pefile.PE(self.file_path)
             self.HAVE_PE = True
         except Exception as e:
-            log.error("PE type not recognised: %s", e)
+            log.debug("PE type not recognised: %s", e)
         # self.results = results
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        if self.pe:
+            self.pe.close()
 
     @property
     def file_data(self):
@@ -219,7 +229,7 @@ class PortableExecutable:
             if result:
                 return list(result)
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         return None
 
@@ -344,10 +354,22 @@ class PortableExecutable:
             except pefile.PEFormatError as e:
                 log.debug("get_resources error: %s", str(e))
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
                 continue
 
         return resources
+
+    def get_machine_type(self, pe: pefile.PE) -> str:
+        if not pe or not hasattr(pe, "FILE_HEADER"):
+            return None
+
+        try:
+            machine_val = pe.FILE_HEADER.Machine
+            return pefile.MACHINE_TYPE.get(machine_val, hex(machine_val))
+        except Exception as e:
+            log.exception(e)
+
+        return None
 
     def get_pdb_path(self, pe: pefile.PE) -> str:
         if not pe or not hasattr(pe, "DIRECTORY_ENTRY_DEBUG"):
@@ -368,7 +390,7 @@ class PortableExecutable:
                         length = struct.unpack_from("IIB", dbgdata)[1]
                         return dbgdata[12:length].decode("latin-1").rstrip("\0")
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         return None
 
@@ -401,7 +423,7 @@ class PortableExecutable:
                         "imports": symbols,
                     }
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
                 continue
         return imports
 
@@ -538,7 +560,7 @@ class PortableExecutable:
                     }
                 )
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
                 continue
 
         return sections
@@ -650,7 +672,7 @@ class PortableExecutable:
                             return None, None, None, None
                     return icon, fullhash, simphash, dhash
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         return None, None, None, None
 
@@ -693,7 +715,7 @@ class PortableExecutable:
                                     entry["value"] = f"0x0{entry['value'][2:5]} 0x0{entry['value'][7:10]}"
                                 peresults.append(entry)
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
                     continue
 
         return peresults
@@ -853,12 +875,12 @@ class PortableExecutable:
                             else:
                                 exports.append(re.sub("[^A-Za-z0-9_?@-]", "", exported_symbol.name))
                         except Exception as e:
-                            log.error(e, exc_info=True)
+                            log.exception(e)
 
                     return ",".join(exports)
             except Exception as e:
                 log.error("PE type not recognised")
-                log.error(e, exc_info=True)
+                log.exception(e)
 
         return ""
 
@@ -873,7 +895,7 @@ class PortableExecutable:
                     if exp.name.decode() in ("DllInstall", "DllRegisterServer", "xlAutoOpen"):
                         return exp.name.decode()
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
         return None
 
     def get_entrypoint(self, pe: pefile.PE) -> str:
@@ -930,6 +952,7 @@ class PortableExecutable:
             "reported_checksum": self.get_reported_checksum(self.pe),
             "actual_checksum": self.get_actual_checksum(self.pe),
             "osversion": self.get_osversion(self.pe),
+            "machine_type": self.get_machine_type(self.pe),
             "pdbpath": self.get_pdb_path(self.pe),
             "imports": self.get_imported_symbols(self.pe),
             "exported_dll_name": self.get_exported_dll_name(self.pe),

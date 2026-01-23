@@ -2,8 +2,9 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file "docs/LICENSE" for copying permission.
 
-from compare import views
 from django.urls import re_path
+
+from compare import views
 
 urlpatterns = [
     re_path(r"^(?P<left_id>\d+)/$", views.left, name="compare_left"),

@@ -18,7 +18,7 @@ Python is a strict requirement for the CAPE guest component (*analyzer*) to run 
     version of Python can be 64-bit (x64).
 
 You can download the proper `Windows`_ / `Linux`_ installer from the `official website`_.
-Python versions > 3.6 are preferred.
+Python versions > 3.10 and < 3.13 are preferred.
 
 .. important::
     When installing Python, it is recommended to select the `Add Python <version> to PATH` option. And remove from that PATH `%USERPROFILE%\AppData\Local\Microsoft\WindowsApps`
@@ -40,7 +40,7 @@ CAPE guest component. They include:
     The recommended installation is the execution of the following commands::
 
     > python -m pip install --upgrade pip
-    > python -m pip install Pillow==9.5.0
+    > python -m pip install Pillow
 
 These Python libraries are not strictly required by CAPE, but you are encouraged
 to install them if you want to have access to all available features. Make sure

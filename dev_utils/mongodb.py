@@ -1,8 +1,11 @@
 import collections
 import functools
+import itertools
 import logging
 import time
-from typing import Callable, Sequence, Union
+from typing import Any, Callable, Sequence
+
+from bson import ObjectId
 
 from lib.cuckoo.common.config import Config
 
@@ -75,6 +78,7 @@ def mongo_hook(mongo_funcs, collection):
             mongo_find,
             mongo_find_one,
             mongo_delete_data,
+            mongo_delete_data_range,
         ), f"{mongo_func} can not have hooks applied"
 
     def decorator(f):
@@ -186,31 +190,94 @@ def mongo_drop_database(database: str):
     conn.drop_database(database)
 
 
-def mongo_delete_data(task_ids: Union[int, Sequence[int]]):
+def mongo_delete_data(task_ids: int | Sequence[int]) -> None:
+    """Delete the specified task or tasks."""
     try:
         if isinstance(task_ids, int):
             task_ids = [task_ids]
 
-        analyses_tmp = []
-        found_task_ids = []
-        tasks = mongo_find("analysis", {"info.id": {"$in": task_ids}}, {"behavior.processes.calls": 1, "info.id": 1})
-
-        for task in tasks or []:
-            for process in task.get("behavior", {}).get("processes", []):
-                if process.get("calls"):
-                    mongo_delete_many("calls", {"_id": {"$in": process["calls"]}})
-            analyses_tmp.append(task["_id"])
-            task_id = task.get("info", {}).get("id", None)
-            if task_id is not None:
-                found_task_ids.append(task_id)
-
-        if analyses_tmp:
-            mongo_delete_many("analysis", {"_id": {"$in": analyses_tmp}})
-            if found_task_ids:
-                for hook in hooks[mongo_delete_data]["analysis"]:
-                    hook(found_task_ids)
+        if task_ids:
+            mongo_delete_calls(task_ids=task_ids)
+            mongo_delete_many("analysis", {"info.id": {"$in": task_ids}})
+            for hook in hooks[mongo_delete_data]["analysis"]:
+                hook(task_ids)
     except Exception as e:
-        log.error(e, exc_info=True)
+        log.exception(e)
+
+
+def mongo_delete_data_range(*, range_start: int = 0, range_end: int = 0) -> None:
+    """Delete tasks in a specific range."""
+    INFO_ID = "info.id"
+    try:
+        info_id_query = {}
+        if range_start > 0:
+            info_id_query["$gte"] = range_start
+        if range_end > 0:
+            info_id_query["$lt"] = range_end
+        if info_id_query:
+            mongo_delete_calls_by_task_id_in_range(range_start=range_start, range_end=range_end)
+            mongo_delete_many("analysis", {INFO_ID: info_id_query})
+            for hook in hooks[mongo_delete_data_range]["analysis"]:
+                hook(range_start=range_start, range_end=range_end)
+    except Exception as e:
+        log.exception(e)
+
+
+def mongo_delete_calls(task_ids: Sequence[int] | None) -> None:
+    """Delete calls by primary key.
+
+    This obtains the call IDs from the analysis collection, which are then used
+    to delete calls in batches."""
+    log.info("attempting to delete calls for %d tasks", len(task_ids))
+
+    query = {"info.id": {"$in": task_ids}}
+    projection = {"behavior.processes.calls": 1}
+    tasks: list[dict[str, Any]] = mongo_find("analysis", query, projection)
+
+    if not tasks:
+        return
+
+    delete_target_ids: list[ObjectId] = []
+
+    def get_call_ids_from_task(task: dict[str, Any]) -> list[ObjectId]:
+        """Get the call IDs from an analysis document."""
+        processes = task.get("behavior", {}).get("processes", [])
+        calls = [proc.get("calls", []) for proc in processes]
+        return list(itertools.chain.from_iterable(calls))
+
+    for task in tasks:
+        delete_target_ids.extend(get_call_ids_from_task(task))
+
+    delete_target_ids = list(set(delete_target_ids))
+    chunk_size = 1000
+    for idx in range(0, len(delete_target_ids), chunk_size):
+        mongo_delete_many("calls", {"_id": {"$in": delete_target_ids[idx : idx + chunk_size]}})
+
+
+def mongo_delete_calls_by_task_id(task_ids: Sequence[int]) -> None:
+    """Delete calls by querying the calls collection by the task_id field.
+
+    Note, the task_id field was added to the calls collection in 9999881.
+    Objects added to the collection prior to this will not be deleted. Use
+    mongo_delete_calls for backwards compatibility.
+    """
+    mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
+
+
+def mongo_delete_calls_by_task_id_in_range(*, range_start: int = 0, range_end: int = 0) -> None:
+    """Delete calls by querying the calls collection by the task_id field.
+
+    Note, the task_id field was added to the calls collection in 9999881.
+    Objects added to the collection prior to this will be persist. Use
+    mongo_delete_calls for backwards compatibility.
+    """
+    task_id_query: dict[str, int] = {}
+    if range_start > 0:
+        task_id_query["$gte"] = range_start
+    if range_end > 0:
+        task_id_query["$lt"] = range_end
+    if task_id_query:
+        mongo_delete_many("calls", {"task_id": task_id_query})
 
 
 def mongo_is_cluster():

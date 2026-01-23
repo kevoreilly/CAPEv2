@@ -26,8 +26,8 @@ from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import get_options, get_user_filename, sanitize_filename, store_temp_file
 from lib.cuckoo.common.web_utils import (
     download_file,
-    download_from_bazaar,
-    download_from_vt,
+    download_from_3rdparty,
+    downloader_services,
     get_file_content,
     load_vms_exits,
     load_vms_tags,
@@ -276,10 +276,6 @@ def index(request, task_id=None, resubmit_hash=None):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -332,6 +328,9 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("process_memory"):
             options += "procmemdump=1,"
 
+        if request.POST.get("amsidump"):
+            options += "amsidump=1,"
+
         if request.POST.get("import_reconstruction"):
             options += "import_reconstruction=1,"
 
@@ -360,10 +359,6 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("job_category"):
             job_category = request.POST.get("job_category")
 
-        # amsidump is enabled by default in the monitor for Win10+
-        if web_conf.amsidump.enabled and not request.POST.get("amsidump"):
-            options += "amsidump=0,"
-
         options = options[:-1]
 
         opt_apikey = False
@@ -389,6 +384,21 @@ def index(request, task_id=None, resubmit_hash=None):
             "user_id": request.user.id or 0,
             "package": package,
         }
+        if opt_apikey:
+            details["apikey"] = opt_apikey
+
+        if web_conf.pre_script.enabled and "pre_script" in request.FILES:
+            pre_script = request.FILES["pre_script"]
+            details["pre_script_name"] = pre_script.name
+            details["pre_script_content"] = pre_script.read()
+            pre_script.close()
+
+        if web_conf.during_script.enabled and "during_script" in request.FILES:
+            during_script = request.FILES["during_script"]
+            details["during_script_name"] = during_script.name
+            details["during_script_content"] = during_script.read()
+            during_script.close()
+
         task_category = False
         samples = []
         if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
@@ -409,24 +419,14 @@ def index(request, task_id=None, resubmit_hash=None):
         elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
             task_category = "dlnexec"
             samples = request.POST.get("dlnexec").strip()
-        elif (
-            settings.VTDL_ENABLED
-            and "vtdl" in request.POST
-            and request.POST.get("vtdl", False)
-            and request.POST.get("vtdl")[0] != ""
-        ):
-            task_category = "vtdl"
-            samples = request.POST.get("vtdl").strip()
-        elif "bazaar" in request.POST and request.POST.get("bazaar").strip():
-            task_category = "bazaar"
-            samples = request.POST.get("bazaar").strip()
-
+        elif "hashes" in request.POST and request.POST.get("hashes", False) and request.POST.get("hashes")[0] != "":
+            task_category = "downloading_service"
+            samples = request.POST.get("hashes").strip()
         list_of_tasks = []
         if task_category in ("url", "dlnexec"):
             if not samples:
                 return render(request, "error.html", {"error": "You specified an invalid URL!"})
-
-            for url in samples.split(","):
+            for url in samples.split(web_conf.general.url_splitter):
                 url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
                 if task_category == "dlnexec":
                     path, content, sha256 = process_new_dlnexec_task(url, route, options, custom)
@@ -496,21 +496,11 @@ def index(request, task_id=None, resubmit_hash=None):
                 list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
-        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "vtdl", "bazaar"):
+        if job_category and job_category in ("resubmit", "sample", "static", "pcap", "dlnexec", "downloading_service"):
             task_category = job_category
 
         if task_category == "resubmit":
             for content, path, sha256 in list_of_tasks:
-                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
-                    pre_script = request.FILES["pre_script"]
-                    details["pre_script_name"] = request.FILES["pre_script"].name
-                    details["pre_script_content"] = pre_script.read()
-
-                if web_conf.during_script.enabled and "during_script" in request.FILES:
-                    during_script = request.FILES["during_script"]
-                    details["during_script_name"] = request.FILES["during_script"].name
-                    details["during_script_content"] = during_script.read()
-
                 details["path"] = path
                 details["content"] = content
                 status, tasks_details = download_file(**details)
@@ -529,16 +519,6 @@ def index(request, task_id=None, resubmit_hash=None):
         elif task_category == "sample":
             details["service"] = "WebGUI"
             for content, path, sha256 in list_of_tasks:
-                if web_conf.pre_script.enabled and "pre_script" in request.FILES:
-                    pre_script = request.FILES["pre_script"]
-                    details["pre_script_name"] = request.FILES["pre_script"].name
-                    details["pre_script_content"] = pre_script.read()
-
-                if web_conf.during_script.enabled and "during_script" in request.FILES:
-                    during_script = request.FILES["during_script"]
-                    details["during_script_name"] = request.FILES["during_script"].name
-                    details["during_script_content"] = during_script.read()
-
                 if timeout and web_conf.public.enabled and web_conf.public.timeout and timeout > web_conf.public.timeout:
                     timeout = web_conf.public.timeout
 
@@ -611,10 +591,6 @@ def index(request, task_id=None, resubmit_hash=None):
                         memory=memory,
                         enforce_timeout=enforce_timeout,
                         clock=clock,
-                        shrike_url=shrike_url,
-                        shrike_msg=shrike_msg,
-                        shrike_sid=shrike_sid,
-                        shrike_refer=shrike_refer,
                         route=route,
                         cape=cape,
                         tags_tasks=tags_tasks,
@@ -636,20 +612,8 @@ def index(request, task_id=None, resubmit_hash=None):
                     if tasks_details.get("errors"):
                         details["errors"].extend(tasks_details["errors"])
 
-        elif task_category == "vtdl":
-            if not settings.VTDL_KEY:
-                return render(
-                    request,
-                    "error.html",
-                    {"error": "You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"},
-                )
-            else:
-                if opt_apikey:
-                    details["apikey"] = opt_apikey
-                details = download_from_vt(samples, details, opt_filename, settings)
-
-        elif task_category == "bazaar":
-            details = download_from_bazaar(samples, details, opt_filename, settings)
+        elif task_category == "downloading_service":
+            details = download_from_3rdparty(samples, opt_filename, details)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])
@@ -674,8 +638,6 @@ def index(request, task_id=None, resubmit_hash=None):
             return render(request, "error.html", err_data)
     else:
         enabledconf = {}
-        enabledconf["vt"] = settings.VTDL_ENABLED
-        enabledconf["bazaar"] = settings.BAZAAR_ENABLED
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")
         enabledconf["procmemory"] = processing.procmemory.get("enabled")
@@ -689,6 +651,8 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["amsidump"] = web_conf.amsidump.enabled
         enabledconf["pre_script"] = web_conf.pre_script.enabled
         enabledconf["during_script"] = web_conf.during_script.enabled
+        enabledconf["downloading_service"] = bool(downloader_services.downloaders)
+        enabledconf["interactive_desktop"] = web_conf.guacamole.enabled
 
         all_vms_tags = load_vms_tags()
 
@@ -811,7 +775,7 @@ def status(request, task_id):
         "session_data": "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
-    if settings.REMOTE_SESSION:
+    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1":
         machine = db.view_machine_by_label(task.machine)
         if machine:
             guest_ip = machine.ip
@@ -832,7 +796,7 @@ def remote_session(request, task_id):
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine(task.machine)
+        machine = db.view_machine_by_label(task.machine)
         if not machine:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
         guest_ip = machine.ip

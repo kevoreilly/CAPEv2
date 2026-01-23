@@ -1,3 +1,193 @@
+### [16.01.2026] CAPE v2.5
+* Bootstrap 5 upgrade and some visual WEBGUI rewamp. Some improvements still might come soon!
+* htmlreport - rewamp!
+* cape2.sh - Libvirt + YARA python libraries install without external scripts.
+* Datatime UTC normalization on tasks/VMs changes.
+* Added check on startup for enable firewall.
+* Volatility3 - more modules added. Test them and let us know if you have any issue.
+* Filedescripts leaks fixed.
+* Stucked VM monitoring and kill. [PR](https://github.com/kevoreilly/CAPEv2/pull/2809)
+
+PS no changes required to CAPA library to support CAPE v2.5 ;)
+
+### [02.01.2026]
+* CAPE installer:
+    *  now support custom destination folder env variable:
+        * `CAPE_ROOT=<path>/CAPEv2`
+    * UV support with env variable:
+        * `USE_UV=True`
+    * Example:
+        * `USE_UV=True CAPE_ROOT=/mnt/external/CAPEv2 bash cape2.sh all | tee cape2.log`
+
+### [24.11.2025]
+* Monitor update: Fix issue with RESUME: monitor message from NtResumeProcess hook
+
+### [17.11.2025]
+* Monitor update: Add config option for monitor injection into supplied pid or "explorer" for shell: monitor=<pid/"explorer">
+
+### [06.11.2025]
+* Monitor updates:
+    * path_from_object_attributes(): fix issue with memcpy from bad ObjectName->Buffer (e.g. 0a9d9b402fb39cf8df21ca4e68b84577c39b3ecf00415c999b28fcc92a695663)
+    * Fix/improve exception handling code which queries current SEH handler
+    * Harden our_stackwalk() against invalid stack pointers (hooking_64)
+    * Add exported function name logging to thread hooks: NtCreateThreadEx, CreateThread, NtQueueApcThread, NtQueueApcThreadEx
+
+### [03.11.2025]
+* Rhadamanthys:
+    * static config extraction - thanks @YungBinary
+    * anti-anti detonation bypass
+
+### [22.10.2025]
+* Add monitor injection to previously unused RESUME: monitor message handler _handle_resume()
+* Remove obsolete 'suspended' parameter from PROCESS monitor message
+* Monitor updates:
+    * WriteMemoryHandler: prevent analysis log spam for small PE writes
+    * Cap per-process messages to prevent detonation slow-down & failure in e.g. 9f8333d81c13ea426953b758140836cff2cf7e7f32e36738f118c6257c6efd34
+    * Experimental debugger action 'guard' to trap on guard violation
+    * YaraHarness: write rules canary detection to analysis log & simplify 'dump' option
+    * Deprecate Win7 wow64 breakpoint workaround
+    * Implement Gemini suggestions from #111
+    * Merge pull request #111 from StephanTLavavej/unordered_map
+    * Improve NtContinueHandler debug register stealth/protection to allow detonation of e.g. 8443224de889424012ba57ec075fec219104fffa8c3ae13a2db27b4ba9d71a3b
+
+### [13.10.2025]
+* Monitor updates:
+    * Fix debug output for dump-limit config setting
+    * Expand 'DumpImage' debugger action to handle target imagebase address e.g. action0=dumpimage:0x400000,action1=dumpimage:ecx+0x280
+    * GetFunctionByName: bug fixess and improvements (thanks @heck-gd)
+    * Trace: fix issue with long conditional jump target calculation in InstructionHandler()
+
+### [06.10.2025]
+* Monitor update: Improve debugger breakpoint protection, fixes instruction counting anti-debug detection in CheckPoint ShowStopper (thanks @cccs-mog)
+
+### [03.10.2025]
+* Monitor update: Fix issue with hook_restore config setting being ignored (fixes #2715 - thanks @federicofantini)
+
+### [23.09.2025]
+* Monitor updates:
+    * unhook: attempt restoration of detected hook modifications
+    * config: fix issue parsing multiple sysbp addresses supplied via submission option
+    * Trace: don't step over named exported functions if trace-all set
+    * Tweak tracking of regions from syscall capture (InstrCallback.c)
+    * Enhance VerifyHeaders() to include EP bytes to detect shellcode overwrites (e.g. HijackLoader)
+
+### [2.09.2025]
+* Loader update: set patched import directory size to allow RestoreHeaders() to work properly, and hence VMProtect binaries
+
+### [1.09.2025]
+* Monitor update: CoCreateInstance hook: remove disable_sleep_skip() breaking e.g. 493b6a86546ac79b7647bd6f3c3523dd910e6a56e427c45197e957e268df8df2
+* Tweak StealcV2 date check bypass sig to improve coverage
+
+### [27.08.2025]
+* Monitor updates:
+    * FindFixAndRun hook: Internal cmd.exe hook targeting 'Exorcism' api FindFixAndRun for batch deobfuscation (thanks @KingKDot and @KillerInstinct)
+    * Remove Scylla code preventing dumping of MEW executables (thanks @shuiyc)
+
+### [18.08.2025]
+* Monitor update: YaraHarness: fix issue with ParseOptionLine() adding imagebase to sysbps (thanks @ClaudioWayne)
+
+### [13.08.2025]
+* Monitor update: Fix internal WMI_GetObjectAsync yara
+
+### [05.08.2025]
+* Monitor updates:
+    * Enhance dynamic patching capability: new PatchBytes() function, submission/yara option patch=<address>:<bytes>
+    * Create DumpStrings debugger action for corresponding function
+    * Standalone mode improvements (thanks heck-gd)
+    * Improve NtGetContextThread & NtSetContextThread hooks to handle e.g. a2d4e1c831808d0a791608db40cd1e4df598e5fee4bac1b239d4f8194f8e2d4a
+    * Debugger: add flag changes to trace output
+* Stealc V2 detection, dynamic strings & config extraction (requires accompanying CAPE-parsers update)
+
+### [11.06.2025]
+* __Action required!__ For users of Python 3.12+ in guest, update the agent to solve #2621 affecting e.g. MSI detonation
+* Agent update: Fix issue with analyzer directory creation lacking required ACLs for Python 3.12, remove predictable "tmp" prefix for directory name(s) (fixes #2621)
+
+### [10.06.2025]
+* Monitor update: WMI hooks: add handling for VT_NULL and enable WMI_Get logging
+
+### [06.06.2025]
+* Monitor updates:
+    * WMI hooks
+    * Fix format string vulnerability in debugger StringsOutput() function
+
+### [03.06.2025]
+* Monitor update: Fix bug in retarget_relative_displacement() relative offset calculation (thanks @ClaudioWayne)
+
+### [23.05.2025]
+* Socks5Systemz update: detection & config extraction, parser update also required (CAPE-parsers repo)
+* Monitor updates:
+    * Trace: do not wrap GetExportNameByAddress() in try/catch and do not use StepOverRegister in BreakOnReturnCallback()
+    * Debugger: fix br1 (break on return) config option parsing (config.c)
+    * Replace remaining uses of pipe("INFO:...) with DebugOutput()
+    * Trace: switch from using ScyllaGetExportNameByAddress() to GetExportNameByAddress()
+    * Harden ScanForExport() function (used by GetExportNameByAddress())
+
+### [8.05.2025]
+* PPLInject: Improve logging output if DLL transaction fails due to insufficiently large transaction target DLL in %SYSTEM%
+* Monitor update: Allow monitor to load without config ini file - defaults to standalone mode
+
+### [28.04.2025]
+* Monitor updates:
+    * .NET JIT cache dumps: off by default, configurable limit with option jit-dumps=X
+    * Windows Loader Snaps: vDbgPrintExWithPrefixInternal hook & option 'snaps=1' for loader snaps output in analysis log
+    * Disable AMSI dumps by default (and uncheck web submission tickbox)
+    * Native hookset (ntdll only) option: native=1
+    * CryptDuplicateKey hook (thanks @KillerInstinct)
+
+### [02.04.2025]
+* Monitor updates:
+    * Trace: allow custom stepping behavior with 'stepmode' option, stepmode=1 steps into short calls (e.g. Rhadamanthys control flow flattening)
+    * Hooking: replace sprintf calls with internal non-allocating implementation (num_to_hex(), uuid_to_string())
+    * CommandLineToArgvW hook
+* Cleaners update
+    * Now you can specify time range as 12h, 50m, 3d.
+    * Improved bulk cleanup for speed. Mongodb's calls collection now has task_id value. This allows to cleanup it faster.
+    * Servers that runs for years, might need to update their `tasks_tags` table schema by hand, only if you getting `ForeignKey violation`.
+```
+    ALTER TABLE tasks_tags DROP CONSTRAINT tasks_tags_task_id_fkey, ADD CONSTRAINT tasks_tags_task_id_fkey FOREIGN KEY (task_id) REFERENCES tasks (id) ON DELETE CASCADE;
+    ALTER TABLE tasks_tags DROP CONSTRAINT tasks_tags_tag_id_fkey, ADD CONSTRAINT tasks_tags_tag_id_fkey FOREIGN KEY (tag_id) REFERENCES tags (id) ON DELETE CASCADE;
+```
+
+### [14.03.2025] CAPA and FLOSS
+* CAPA and FLOSS configs are moved to `integrations.conf`
+
+### [01.03.2025] VirusTotal and MalwareBazaar
+* We have moved VirusTotal and MalwareBazaar to generic downloader so you can enable then in `integrations.conf`
+    * Downlod service allows you to set order + simplifies adding another services
+    * For `API` use `tasks/create/download_services/` instead of `tasks/create/vtdl/`. Example of data: `data={"hashes":"hash1,hash2"}`
+
+### [28.02.2025]
+* Monitor updates:
+    * NtCreateSection hook: add file path (from handle) to logging (thanks @scccccccccc)
+    * NtCreateSection LdrpCallInitRoutine hook: add coverage-module breakpoint setting, fix 64-bit address logging
+    * Trace: improve logging of conditional jump target addresses, on by default)
+
+### [27.02.2025]
+* Monitor update: Improve handling of bogus VirtualSize values in PE section table during dumping (e.g. e4f4afa1b85113656d4788a4f48fa5263b31b922d3e345093e082486193b0275)
+
+### [26.02.2025]
+* Monitor updates:
+    * Fix import reconstruction entrypoint setting - thanks @shuiyc
+    * Add hooks for MsiInstallProductA/W - thanks @KillerInstinct
+    * Add protected-pids config option (protected-pids=0 to disable, on by default)
+
+### [11.02.2025]
+* `selfextract.conf` renamed to `integrations.conf`.
+    * Please rename your config file.
+
+### [10.02.2025]
+* We are now on `Poetry v2`. If you see next message, you need to upgrade your `poetry` version.
+    * This one might be tricky as depends if your `poetry` was installed with `apt` or script. But something like this should works:
+        * `curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -`
+```
+The Poetry configuration is invalid:
+  - Additional properties are not allowed ('requires-poetry' was unexpected)
+```
+* If you see missed `crispy_bootstrap4`. Just run `poetry install` as `cape` user.
+
+### [05.02.2025]
+* Monitor update: Fix hooking deadlock with delay-loaded dlls & make LdrpCallInitRoutine hook transparent
+
 ### [28.01.2025]
 * Require `poetry>=2.0`.
 
@@ -521,7 +711,7 @@ rule X_cryptor {
     * You need to download version for your CPU and extract it to `data/NETReactorSlayer.CLI`
         * In case if you are on x64 host, then just run: `poetry run python utils/community.py -waf`
     * Add execution permission with `chmod a+x data/NETReactorSlayer.CLI`
-* Now each section inside of `selfextract.conf` has timeout value. Default is 60 seconds
+* Now each section inside of `integrations.conf` has timeout value. Default is 60 seconds
 
 ### [24.12.2022]
 * Monitor updates: Fix NtAllocateVirtualMemoryEx & NtMapViewOfSectionEx hooks and rebuild with Visual Studio 2022

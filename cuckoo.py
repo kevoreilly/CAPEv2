@@ -144,7 +144,7 @@ if __name__ == "__main__":
         except CuckooCriticalError as e:
             message = "{0}: {1}".format(e.__class__.__name__, e)
             if any(filter(lambda hdlr: not isinstance(hdlr, logging.NullHandler), log.handlers)):
-                log.critical(message)
+                log.critical(message, exc_info=True)
             else:
                 sys.stderr.write("{0}\n".format(message))
 

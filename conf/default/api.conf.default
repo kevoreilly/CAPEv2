@@ -75,8 +75,7 @@ status = yes
 rps = 1/s
 rpm = 2/m
 
-# Submit VTDL tasks to Cuckoo.
-[vtdl]
+[downloading_services]
 enabled = no
 auth_only = no
 allmachines = no
@@ -200,6 +199,13 @@ rps = 1/s
 
 # Pull a PCAP from a specific task
 [taskpcap]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+
+# Pull a PCAP from a specific task
+[tasktlspcap]
 enabled = yes
 auth_only = no
 rps = 1/s
@@ -362,3 +368,9 @@ rpm = 4/m
 # Allow to request stop of the analysis inside of the VM
 [user_stop]
 enabled = no
+
+[mitmdump]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 4/m

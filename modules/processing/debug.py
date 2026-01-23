@@ -24,7 +24,8 @@ class Debug(Processing):
         if path_exists(self.log_path):
             try:
                 buf_size = self.options.get("buffer", 8192)
-                content = codecs.open(self.log_path, "rb", "utf-8").read()
+                with codecs.open(self.log_path, "rb", "utf-8") as f:
+                    content = f.read()
                 debug["log"] = truncate_str(content, buf_size)
             except ValueError as e:
                 raise CuckooProcessingError(f"Error decoding {self.log_path}: {e}") from e

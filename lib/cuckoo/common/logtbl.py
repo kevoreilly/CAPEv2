@@ -8,6 +8,7 @@ This table is not automatically generated at the moment, but kept up-to-date
 by hand.
 
 """
+
 table = (
     ("__process__", "__init__", ("",)),
     ("__thread__", "__init__", ("",)),

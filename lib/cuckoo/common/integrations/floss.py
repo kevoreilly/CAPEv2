@@ -8,7 +8,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists
 
-processing_cfg = Config("processing")
+integrations_conf = Config("integrations")
 
 HAVE_FLOSS = False
 try:
@@ -38,7 +38,7 @@ class Floss:
         if not HAVE_FLOSS:
             return
 
-        if processing_cfg.floss.on_demand and not self.on_demand:
+        if integrations_conf.floss.on_demand and not self.on_demand:
             return
 
         results = {}
@@ -58,17 +58,17 @@ class Floss:
             else:
                 fileformat = "pe"
 
-            min_length = processing_cfg.floss.min_length
+            min_length = integrations_conf.floss.min_length
             fm.set_log_config(fm.DebugLevel.NONE, True)
             tmpres = {}
             results = {}
 
-            if processing_cfg.floss.static_strings:
+            if integrations_conf.floss.static_strings:
                 with open(self.file_path, "rb") as f:
                     with contextlib.closing(mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)) as buf:
                         tmpres["static_strings"] = list(extract_ascii_unicode_strings(buf, min_length))
 
-            sigspath = fm.get_signatures(Path(os.path.join(CUCKOO_ROOT, processing_cfg.floss.sigs_path)))
+            sigspath = fm.get_signatures(Path(os.path.join(CUCKOO_ROOT, integrations_conf.floss.sigs_path)))
             vw = fm.load_vw(Path(self.file_path), fileformat, sigspath, False)
 
             try:
@@ -84,7 +84,7 @@ class Floss:
                 True,
             )
 
-            if processing_cfg.floss.stack_strings:
+            if integrations_conf.floss.stack_strings:
                 selected_functions = fm.get_functions_without_tightloops(decoding_function_features)
                 tmpres["stack_strings"] = fm.extract_stackstrings(
                     vw,
@@ -94,7 +94,7 @@ class Floss:
                     disable_progress=True,
                 )
 
-            if processing_cfg.floss.tight_strings:
+            if integrations_conf.floss.tight_strings:
                 tightloop_functions = fm.get_functions_with_tightloops(decoding_function_features)
                 tmpres["tight_strings"] = fm.extract_tightstrings(
                     vw,
@@ -104,7 +104,7 @@ class Floss:
                     disable_progress=True,
                 )
 
-            if processing_cfg.floss.decoded_strings:
+            if integrations_conf.floss.decoded_strings:
                 top_functions = fm.get_top_functions(decoding_function_features, 20)
                 fvas_to_emulate = fm.get_function_fvas(top_functions)
                 fvas_tight_functions = fm.get_tight_function_fvas(decoding_function_features)
@@ -125,7 +125,7 @@ class Floss:
                     results[stype].append(sval.string)
 
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
 
         fm.set_log_config(fm.DebugLevel.DEFAULT, False)
 

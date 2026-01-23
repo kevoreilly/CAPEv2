@@ -8,6 +8,24 @@ proxmox_conf = Config("proxmox")
 
 
 def proxmox_shutdown_vm(machineName: str):
+    """
+    Shuts down a virtual machine on a Proxmox server.
+
+    Args:
+        machineName (str): The name of the virtual machine to shut down.
+
+    Raises:
+        Exception: If there is an error during the shutdown process.
+
+    Notes:
+        - This function does not support multiple Proxmox servers.
+        - The Proxmox server configuration is expected to be available in the `proxmox_conf` object.
+        - The function retrieves the VM ID from the `proxmox_conf.Node_1` configuration using the provided machine name.
+        - The function sends a POST request to the Proxmox API to obtain an authentication ticket and CSRF prevention token.
+        - The function then sends another POST request to shut down the specified virtual machine.
+        - If the shutdown is successful, a message is printed to indicate success.
+        - If an error occurs, it is caught and printed.
+    """
 
     proxmox_server = proxmox_conf.proxmox.hostname
     # Not supporting multiple servers

@@ -28,7 +28,6 @@ from lib.cuckoo.core.startup import init_rooter, init_routing
 init_rooter()
 init_routing()
 
-
 cfg = Config("reporting")
 aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
@@ -88,12 +87,6 @@ ZIPPED_DOWNLOAD_ALL = zip_cfg.get("download_all", False)
 MOLOCH_BASE = moloch_cfg.get("base")
 MOLOCH_NODE = moloch_cfg.get("node")
 MOLOCH_ENABLED = moloch_cfg.get("enabled", False)
-
-VTDL_ENABLED = web_cfg.download_services.get("virustotal", False)
-VTDL_KEY = web_cfg.download_services.get("vtkey", False)
-
-BAZAAR_ENABLED = web_cfg.download_services.get("malwarebazaar", False)
-
 TEMP_PATH = Config().cuckoo.get("tmppath", "/tmp")
 
 # DEPRECATED - Enabled/Disable Zer0m0n tickbox on the submission page
@@ -124,7 +117,7 @@ USE_L10N = True
 # Disabling time zone support and using local time for web interface and storage.
 # https://docs.djangoproject.com/en/4.0/topics/i18n/
 LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+TIME_ZONE = web_cfg.general.get("timezone", "UTC")
 USE_I18N = True
 USE_TZ = True
 
@@ -265,6 +258,7 @@ INSTALLED_APPS = [
     # "allauth.socialaccount.providers.google",
     # "allauth.socialaccount.providers.microsoft",
     "crispy_forms",
+    "crispy_bootstrap4",
     "django_recaptcha",  # https://pypi.org/project/django-recaptcha/
     "rest_framework",
     "rest_framework.authtoken",
@@ -330,7 +324,7 @@ if web_cfg.registration.get("email_confirmation", False):
 
 SITE_ID = 1
 
-# https://django-allauth.readthedocs.io/en/latest/configuration.html
+# https://docs.allauth.org/en/dev/socialaccount/configuration.html
 if web_cfg.registration.get("email_confirmation", False):
     ACCOUNT_EMAIL_VERIFICATION = "mandatory"
     SOCIALACCOUNT_EMAIL_VERIFICATION = ACCOUNT_EMAIL_VERIFICATION
@@ -340,13 +334,24 @@ else:
 
 ACCOUNT_EMAIL_REQUIRED = web_cfg.registration.get("email_required", False)
 ACCOUNT_EMAIL_SUBJECT_PREFIX = web_cfg.registration.get("email_prefix_subject", False)
-ACCOUNT_RATE_LIMITS = {"login_failed": 3}
+ACCOUNT_RATE_LIMITS = {"login_failed": "3/m"}
 LOGIN_REDIRECT_URL = "/"
 ACCOUNT_LOGOUT_REDIRECT_URL = "/accounts/login/"
 MANUAL_APPROVE = web_cfg.registration.get("manual_approve", False)
 REGISTRATION_ENABLED = web_cfg.registration.get("enabled", False)
 EMAIL_CONFIRMATION = web_cfg.registration.get("email_confirmation", False)
-#### ALlauth end
+SOCIAL_AUTH_EMAIL_DOMAIN = web_cfg.web_auth.get("social_auth_email_domain", False)
+
+# be careful with SOCIALACCOUNT_AUTO_SIGNUP, if True, it will bypass custom sighup functions, default is True
+# SOCIALACCOUNT_AUTO_SIGNUP = True
+# SOCIALACCOUNT_ONLY = True
+# SOCIALACCOUNT_LOGIN_ON_GET=True
+# ACCOUNT_SIGNUP_FORM_CLASS = None
+# In case you want to verify domain of email + set the username
+# SOCIALACCOUNT_ADAPTER = 'web.allauth_adapters.MySocialAccountAdapter'
+# ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
+
+#### AllAuth end
 
 if web_cfg.registration.get("disposable_email_disable", False):
     DISPOSABLE_DOMAIN_LIST = os.path.join(CUCKOO_PATH, web_cfg.registration.disposable_domain_list)
@@ -391,7 +396,7 @@ ALLOWED_HOSTS = ["*"]
 
 # Max size
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size
-
+# Google's OAuth might need: "strict-origin-when-cross-origin"
 SECURE_REFERRER_POLICY = "same-origin"  # "no-referrer-when-downgrade"
 
 # https://django-csp.readthedocs.io/en/latest/configuration.html

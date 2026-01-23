@@ -1,38 +1,52 @@
 {% extends "base.html" %}
 {% block content %}
 <script>
-$(function() {
-  //Apply only when we reload the same page
-  if (document.referrer === document.URL){
-    //for bootstrap 3 use 'shown.bs.tab' instead of 'shown' in the next line
-    $('a[data-bs-toggle="tab"]').on('click', function (e) {
-      localStorage.setItem('lastAnalysisTab', $(e.target).attr('href'));
-    });
+    $(function () {
+        // 1. Tab Persistence Logic
+        // Only restore if reloading the same page
+        if (document.referrer === document.URL) {
+            var lastAnalysisTab = localStorage.getItem('lastAnalysisTab');
 
-    var lastAnalysisTab = localStorage.getItem('lastAnalysisTab');
+            if (lastAnalysisTab) {
+                // In BS5, use .tab('show') to activate a tab explicitly
+                // Make sure to select the specific anchor tag
+                $('a[data-bs-toggle="tab"][href="' + lastAnalysisTab + '"]').tab('show');
+            }
+        }
 
-    if (lastAnalysisTab) {
-        $('a[href="'+lastAnalysisTab+'"]').click();
-    }
-  }
-  // ajax req for some tabs
-  $('[data-bs-toggle="tabajax"]').click(function(e) {
-    var $this = $(this),
-        url = $(this).attr("data-url");
-
-    if (typeof url !== "undefined") {
-        var pane = $(this), href = this.hash;
-        $(href).load(url,function(result){
-            pane.tab('show');
+        // Listen for the BS5 specific 'shown' event to save the tab
+        // 'shown.bs.tab' fires *after* the tab has successfully switched
+        $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
+            // e.target is the newly active tab
+            localStorage.setItem('lastAnalysisTab', $(e.target).attr('href'));
         });
-    } else {
-         $(this).tab('show');
-    }
-    return false;
+
+        // 2. AJAX Tab Logic
+        // Using a custom attribute 'data-bs-toggle="tabajax"'
+        $('[data-bs-toggle="tabajax"]').on('click', function (e) {
+            e.preventDefault(); // Best practice: prevent the link from jumping
+
+            var $this = $(this),
+                url = $this.attr("data-url"),
+                targetPane = $this.attr('href'); // Get the #id of the target pane
+
+            if (url) {
+                // Load content via AJAX
+                $(targetPane).load(url, function (result) {
+                    // Once loaded, initialize and show the BS5 tab
+                    $this.tab('show');
+                });
+            } else {
+                // No URL? Just show the tab
+                $this.tab('show');
+            }
+        });
     });
-    //end
-});
 </script>
+
+<script src="{{ STATIC_URL }}js/hexdump.js"></script>
+
+
 <style type="text/css">
 .alert-tlp_green {
     background-color: #008000;

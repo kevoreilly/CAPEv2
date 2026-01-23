@@ -114,11 +114,11 @@ def mongo_insert_one(collection: str, doc):
 
 
 @graceful_auto_reconnect
-def mongo_find(collection: str, query, projection=False, sort=None, limit=None):
+def mongo_find(collection: str, query, projection=False, sort=None, limit=None, **kwargs):
     if sort is None:
         sort = [("_id", -1)]
 
-    find_by = functools.partial(getattr(results_db, collection).find, query, sort=sort)
+    find_by = functools.partial(getattr(results_db, collection).find, query, sort=sort, **kwargs)
     if projection:
         find_by = functools.partial(find_by, projection=projection)
     if limit:
@@ -169,8 +169,8 @@ def mongo_update_one(collection: str, query, projection, bypass_document_validat
 
 
 @graceful_auto_reconnect
-def mongo_aggregate(collection: str, query):
-    return getattr(results_db, collection).aggregate(query)
+def mongo_aggregate(collection: str, query, **kwargs):
+    return getattr(results_db, collection).aggregate(query, **kwargs)
 
 
 @graceful_auto_reconnect

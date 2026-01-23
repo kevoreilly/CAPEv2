@@ -1309,7 +1309,7 @@ normalized_int_terms = (
 
 
 def perform_search(
-    term: str, value: str, search_limit: int = 0, user_id: int = 0, privs: bool = False, web: bool = True, projection: dict = None
+    term: str, value: str, search_limit: int = 0, user_id: int = 0, privs: bool = False, web: bool = True, projection: dict = None, **kwargs
 ):
     """
     Perform a search based on the provided term and value.
@@ -1421,7 +1421,7 @@ def perform_search(
                 # Stage 9: Add your custom projection
                 {"$project": perform_search_filters},
             ]
-            retval = list(mongo_aggregate(FILES_COLL, pipeline))
+            retval = list(mongo_aggregate(FILES_COLL, pipeline, **kwargs))
             if not retval:
                 return []
         elif isinstance(search_term_map[term], str):
@@ -1441,7 +1441,7 @@ def perform_search(
                 projection[f"target.file.{FILE_REF_KEY}"] = 1
             if term in search_term_map_repetetive_blocks:
                 mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
-            retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
+            retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit, **kwargs))
 
         for doc in retval:
             target_file = doc.get("target", {}).get("file", {})

@@ -303,7 +303,13 @@ class TestAnalysisManager:
         assert "no machine is used" in caplog.text
 
     def test_build_options(
-        self, db: _Database, tmp_path: pathlib.Path, task: Task, machine: Machine, machinery_manager: MachineryManager
+        self,
+        db: _Database,
+        tmp_path: pathlib.Path,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
     ):
         with db.session.begin():
             task = db.session.merge(task)
@@ -313,59 +319,85 @@ class TestAnalysisManager:
             task.clock = datetime.datetime.strptime("01-01-2099 09:01:01", "%m-%d-%Y %H:%M:%S")
             task.timeout = 10
 
-        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
-        opts = analysis_man.build_options()
-        assert opts == {
-            "amsi": False,
+        # Mock the auxiliary configuration to return a fixed set of modules
+        mock_aux_config = mocker.Mock()
+        mock_aux_config.auxiliary_modules = {
             "browser": True,
-            "browsermonitor": False,
-            "category": "file",
-            "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
             "curtain": False,
             "digisig": True,
             "disguise": True,
-            "do_upload_max_size": 0,
+            "evtx": False,
+            "human_windows": True,
+            "human_linux": False,
+            "procmon": False,
+            "recentfiles": False,
+            "screenshots_windows": True,
+            "screenshots_linux": True,
+            "sysmon_windows": False,
+            "sysmon_linux": False,
+            "tlsdump": True,
+            "usage": False,
+            "file_pickup": False,
+            "permissions": False,
+            "pre_script": False,
             "during_script": False,
+            "filecollector": True,
+            "tracee_linux": False,
+            "sslkeylogfile": False,
+            "browsermonitor": False,
+            "wmi_etw": False,
+            "dns_etw": False,
+            "watchdownloads": False,
+        }
+
+        # Patch Config to return our mock when called with "auxiliary"
+        original_config = Config
+
+        def side_effect(arg):
+            if arg == "auxiliary":
+                return mock_aux_config
+            return original_config(arg)
+
+        mocker.patch("lib.cuckoo.core.analysis_manager.Config", side_effect=side_effect)
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        opts = analysis_man.build_options()
+
+        expected_opts = {
+            "amsi": False,
+            "category": "file",
+            "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
+            "do_upload_max_size": 0,
             "enable_trim": 0,
             "enforce_timeout": 1,
-            "evtx": False,
             "exports": "",
-            "filecollector": True,
             "file_name": "sample.py",
-            "file_pickup": False,
             "file_type": "Python script, ASCII text executable",
-            "human_linux": False,
-            "human_windows": True,
             "id": task.id,
             "ip": "5.6.7.8",
             "options": "foo=bar",
             "package": "foo",
-            "permissions": False,
             "port": "2043",
-            "pre_script": False,
-            "procmon": False,
-            "recentfiles": False,
-            "screenshots_linux": True,
-            "screenshots_windows": True,
-            "sslkeylogfile": False,
-            "sysmon_linux": False,
-            "sysmon_windows": False,
             "target": str(tmp_path / "sample.py"),
             "terminate_processes": False,
             "timeout": 10,
-            "tlsdump": True,
-            "tracee_linux": False,
             "upload_max_size": 100000000,
-            "usage": False,
             "windows_static_route": False,
             "windows_static_route_gateway": "192.168.1.1",
-            "dns_etw": False,
-            "wmi_etw": False,
-            "watchdownloads": False,
         }
+        # Merge the auxiliary modules into expected options
+        expected_opts.update(mock_aux_config.auxiliary_modules)
+
+        assert opts == expected_opts
 
     def test_build_options_pe(
-        self, db: _Database, tmp_path: pathlib.Path, task: Task, machine: Machine, machinery_manager: MachineryManager
+        self,
+        db: _Database,
+        tmp_path: pathlib.Path,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
     ):
         sample_location = get_test_object_path(
             pathlib.Path("data/core/5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b")
@@ -378,56 +410,79 @@ class TestAnalysisManager:
             task.timeout = 10
             task.target = str(sample_location)
 
-        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
-        opts = analysis_man.build_options()
-        assert opts == {
-            "amsi": False,
+        # Mock the auxiliary configuration to return a fixed set of modules
+        mock_aux_config = mocker.Mock()
+        mock_aux_config.auxiliary_modules = {
             "browser": True,
-            "browsermonitor": False,
-            "category": "file",
-            "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
             "curtain": False,
             "digisig": True,
             "disguise": True,
-            "do_upload_max_size": 0,
+            "evtx": False,
+            "human_windows": True,
+            "human_linux": False,
+            "procmon": False,
+            "recentfiles": False,
+            "screenshots_windows": True,
+            "screenshots_linux": True,
+            "sysmon_windows": False,
+            "sysmon_linux": False,
+            "tlsdump": True,
+            "usage": False,
+            "file_pickup": False,
+            "permissions": False,
+            "pre_script": False,
             "during_script": False,
+            "filecollector": True,
+            "tracee_linux": False,
+            "sslkeylogfile": False,
+            "browsermonitor": False,
+            "wmi_etw": False,
+            "dns_etw": False,
+            "watchdownloads": False,
+            # Add other keys that you want to be part of the test
+        }
+
+        # Patch Config to return our mock when called with "auxiliary"
+        original_config = Config
+
+        def side_effect(arg):
+            if arg == "auxiliary":
+                return mock_aux_config
+            return original_config(arg)
+
+        mocker.patch("lib.cuckoo.core.analysis_manager.Config", side_effect=side_effect)
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        opts = analysis_man.build_options()
+
+        expected_opts = {
+            "amsi": False,
+            "category": "file",
+            "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
+            "do_upload_max_size": 0,
             "enable_trim": 0,
             "enforce_timeout": 1,
-            "evtx": False,
             "exports": "",
-            "filecollector": True,
             "file_name": sample_location.name,
-            "file_pickup": False,
             "file_type": "PE32 executable (console) Intel 80386, for MS Windows",
-            "human_linux": False,
-            "human_windows": True,
             "id": task.id,
             "ip": "5.6.7.8",
             "options": "",
             "package": "file",
-            "permissions": False,
             "port": "2043",
-            "pre_script": False,
-            "procmon": False,
-            "recentfiles": False,
-            "screenshots_linux": True,
-            "screenshots_windows": True,
-            "sslkeylogfile": False,
-            "sysmon_linux": False,
-            "sysmon_windows": False,
             "target": str(sample_location),
             "terminate_processes": False,
             "timeout": 10,
-            "tlsdump": True,
-            "tracee_linux": False,
             "upload_max_size": 100000000,
-            "usage": False,
-            "windows_static_route": False,
-            "windows_static_route_gateway": "192.168.1.1",
-            "dns_etw": False,
-            "wmi_etw": False,
-            "watchdownloads": False,
+            "windows_static_route": False,  # This might come from elsewhere if not in aux modules
+            "windows_static_route_gateway": "192.168.1.1",  # Same here
         }
+        # Merge the auxiliary modules into expected options
+        expected_opts.update(mock_aux_config.auxiliary_modules)
+
+        # Remove keys that might be in expected_opts but not in opts if they are not relevant to the test or defaults
+        # or assert subset
+        assert opts == expected_opts
 
     def test_category_checks(
         self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture

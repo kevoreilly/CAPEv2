@@ -129,7 +129,7 @@ The following picture explains CAPE's main architecture:
         :align: center
 
 The recommended setup is *GNU/Linux* (Ubuntu LTS preferably) as the Host and
-*Windows 7* as a Guest.
+*Windows 10 21H2* as a Guest.
 
 Obtaining CAPE
 ================

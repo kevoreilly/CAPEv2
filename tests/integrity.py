@@ -9,6 +9,7 @@ Checks the integrity of one or more virtual machine(s). In order to ensure
 that there are no remaining tasks in the queue this utility will clean the
 entire database before starting various analyses.
 """
+
 import argparse
 import json
 import logging

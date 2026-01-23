@@ -43,7 +43,7 @@ from lib.cuckoo.common.utils import (
 from lib.cuckoo.common.web_utils import (
     apiconf,
     download_file,
-    download_from_vt,
+    download_from_3rdparty,
     force_int,
     parse_request_arguments,
     perform_search,
@@ -53,7 +53,13 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import TASK_RECOVERED, TASK_RUNNING, Database, Task, _Database
+from lib.cuckoo.core.database import (
+    TASK_RECOVERED,
+    TASK_RUNNING,
+    Database,
+    Task,
+    _Database,
+)
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
 try:
@@ -83,6 +89,7 @@ repconf = Config("reporting")
 web_conf = Config("web")
 routing_conf = Config("routing")
 reporting_conf = Config("reporting")
+dist_conf = Config("distributed")
 
 zlib_compresion = False
 if repconf.compression.enabled:
@@ -97,14 +104,35 @@ if reporting_conf.compression.compressiontool.strip() == "7zip":
 
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_delete_data, mongo_find, mongo_find_one, mongo_find_one_and_update
+    from dev_utils.mongodb import (
+        mongo_delete_data,
+        mongo_find,
+        mongo_find_one,
+        mongo_find_one_and_update,
+    )
 
 es_as_db = False
 if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
-    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
+    from dev_utils.elasticsearchdb import (
+        elastic_handler,
+        get_analysis_index,
+        get_query_by_info_id,
+    )
 
     es_as_db = True
     es = elastic_handler
+
+
+DIST_ENABLED = False
+if dist_conf.distributed.enabled:
+    from lib.cuckoo.common.dist_db import create_session
+    from lib.cuckoo.common.dist_db import Task as DTask
+
+    dist_session = create_session(
+        dist_conf.distributed.db,
+        echo=False,
+    )
+    DIST_ENABLED = True
 
 db: _Database = Database()
 
@@ -192,27 +220,31 @@ def tasks_create_static(request):
     extra_details = {}
     task_ids = []
     for sample in files:
-        tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
-        try:
-            task_id, extra_details = db.demux_sample_and_add_to_db(
-                tmp_path,
-                options=options,
-                priority=priority,
-                static=1,
-                only_extraction=True,
-                user_id=request.user.id or 0,
-            )
-            task_ids.extend(task_id)
-            if extra_details.get("erros"):
-                resp["errors"].extend(extra_details["errors"])
-        except CuckooDemuxError as e:
-            resp = {"error": True, "error_value": e}
-            return Response(resp)
+        with sample:
+            tmp_path = store_temp_file(sample.read(), sanitize_filename(sample.name))
+            try:
+                task_id, extra_details = db.demux_sample_and_add_to_db(
+                    tmp_path,
+                    options=options,
+                    priority=priority,
+                    static=1,
+                    only_extraction=True,
+                    user_id=request.user.id or 0,
+                )
+                task_ids.extend(task_id)
+                if extra_details.get("erros"):
+                    resp["errors"].extend(extra_details["errors"])
+            except CuckooDemuxError as e:
+                resp = {"error": True, "error_value": e}
+                return Response(resp)
 
     resp["data"] = {}
     resp["data"]["task_ids"] = task_ids
     if extra_details and "config" in extra_details:
         resp["data"]["config"] = extra_details["config"]
+    if extra_details.get("errors"):
+        resp["errors"].extend(extra_details["errors"])
+
     callback = apiconf.filecreate.get("status")
     if task_ids:
         if len(task_ids) == 1:
@@ -228,6 +260,7 @@ def tasks_create_static(request):
                     resp["url"].append("{0}/submit/status/{1}".format(apiconf.api.get("url"), tid))
             else:
                 resp = {"error": True, "error_value": "Error adding task to database"}
+
     return Response(resp)
 
 
@@ -261,10 +294,6 @@ def tasks_create_file(request):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -320,7 +349,7 @@ def tasks_create_file(request):
 
         for content, tmp_path, _ in list_of_tasks:
             if pcap:
-                if tmp_path.lower().endswith(".saz"):
+                if tmp_path.lower().endswith(b".saz"):
                     saz = saz_to_pcap(tmp_path)
                     if saz:
                         try:
@@ -341,6 +370,7 @@ def tasks_create_file(request):
             if tmp_path:
                 details["path"] = tmp_path
                 details["content"] = content
+
                 status, tasks_details = download_file(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(tmp_path).decode(): tasks_details})
@@ -401,10 +431,6 @@ def tasks_create_url(request):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -458,10 +484,6 @@ def tasks_create_url(request):
                 memory=memory,
                 enforce_timeout=enforce_timeout,
                 clock=clock,
-                shrike_url=shrike_url,
-                shrike_msg=shrike_msg,
-                shrike_sid=shrike_sid,
-                shrike_refer=shrike_refer,
                 route=route,
                 cape=cape,
                 tlp=tlp,
@@ -513,10 +535,6 @@ def tasks_create_dlnexec(request):
             memory,
             clock,
             enforce_timeout,
-            shrike_url,
-            shrike_msg,
-            shrike_sid,
-            shrike_refer,
             unique,
             referrer,
             tlp,
@@ -697,6 +715,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
     return Response(resp)
 
 
+# ToDo requires proper review and rewrite
 # Return Task ID's and data that match a hash.
 @csrf_exempt
 @api_view(["POST"])
@@ -710,6 +729,7 @@ def ext_tasks_search(request):
     return_data = []
     term = request.data.get("option", "")
     value = request.data.get("argument", "")
+    search_limit = request.data.get("search_limit", 50)
 
     if term and value:
         records = False
@@ -717,12 +737,17 @@ def ext_tasks_search(request):
             resp = {"error": True, "error_value": "Invalid Option. '%s' is not a valid option." % term}
             return Response(resp)
 
-        if term in ("ids", "options", "tags_tasks"):
+        if term == "tags_tasks":
+            value = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=int(search_limit))]
+            term = "ids"
+        elif term == "options":
+            value = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
+            term = "ids"
+        elif term == "ids":
             if all([v.strip().isdigit() for v in value.split(",")]):
                 value = [int(v.strip()) for v in filter(None, value.split(","))]
             else:
                 return Response({"error": True, "error_value": "Not all values are integers"})
-        if term == "ids":
             tmp_value = []
             for task in db.list_tasks(task_ids=value) or []:
                 if task.status == "reported":
@@ -731,7 +756,6 @@ def ext_tasks_search(request):
                     return_data.append({"analysis": {"status": task.status, "id": task.id}})
             value = tmp_value
             del tmp_value
-
         try:
             records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False)
         except ValueError:
@@ -1127,8 +1151,11 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         resp = {"error": True, "error_value": "Task Report API is Disabled"}
         return Response(resp)
 
+    allow_dl = False
+    if hasattr(request.user, "userprofile") and request.user.userprofile.reports:
+        allow_dl = True
     # check if allowed to download to all + if no if user has permissions
-    if not settings.ALLOW_DL_REPORTS_TO_ALL and not request.user.userprofile.reports:
+    if not settings.ALLOW_DL_REPORTS_TO_ALL and allow_dl is False:
         return render(
             request,
             "error.html",
@@ -1138,6 +1165,10 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1163,6 +1194,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         "maec5": "report.maec-5.0.json",
         "metadata": "report.metadata.xml",
         "litereport": "lite.json",
+        "parti": "report.parti",
     }
 
     report_formats = {
@@ -1212,17 +1244,28 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             elif report_format == "protobuf":
                 content = "application/octet-stream"
                 ext = "protobuf"
+            elif report_format == "parti":
+                ext = "parti"
+                content = "application/zip"
             fname = "%s_report.%s" % (task_id, ext)
 
             if make_zip:
-                mem_zip = create_zip(files=report_path)
-                if mem_zip is False:
-                    resp = {"error": True, "error_value": "Can't create zip archive for report file"}
-                    return Response(resp)
+                if os.path.exists(report_path + ".zip"):
+                    report_path += ".zip"
+                    resp = StreamingHttpResponse(
+                        FileWrapper(open(report_path, "rb"), 8096), content_type="application/zip"
+                    )
+                    resp["Content-Length"] = os.path.getsize(report_path)
+                    resp["Content-Disposition"] = "attachment; filename=" + fname
+                else:
+                    mem_zip = create_zip(files=report_path)
+                    if mem_zip is False:
+                        resp = {"error": True, "error_value": "Can't create zip archive for report file"}
+                        return Response(resp)
 
-                resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
-                resp["Content-Length"] = len(mem_zip.getvalue())
-                resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
+                    resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+                    resp["Content-Length"] = len(mem_zip.getvalue())
+                    resp["Content-Disposition"] = f"attachment; filename={report_format}.zip"
             else:
                 resp = StreamingHttpResponse(
                     FileWrapper(open(report_path, "rb"), 8096), content_type=content or "application/octet-stream;"
@@ -1265,7 +1308,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
                         else:
                             zf.write(filepath, filedir)
                 except Exception as e:
-                    log.error(e, exc_info=True)
+                    log.exception(e)
 
             # exception for lite report that is under reports/lite.json
             if report_format.lower() == "lite":
@@ -1296,6 +1339,10 @@ def tasks_iocs(request, task_id, detail=None):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1527,6 +1574,10 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -1576,6 +1627,10 @@ def tasks_pcap(request, task_id):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -1597,6 +1652,36 @@ def tasks_pcap(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_tlspcap(request, task_id):
+    if not apiconf.tasktlspcap.get("enabled"):
+        resp = {"error": True, "error_value": "TLS PCAP download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
+    if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
+    if path_exists(srcfile):
+        fname = "%s_tls.pcap" % task_id
+        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
+        resp["Content-Length"] = os.path.getsize(srcfile)
+        resp["Content-Disposition"] = "attachment; filename=" + fname
+        return resp
+
+    else:
+        resp = {"error": True, "error_value": "TLS PCAP does not exist"}
+        return Response(resp)
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_evtx(request, task_id):
     if not apiconf.taskevtx.get("enabled"):
         resp = {"error": True, "error_value": "EVTX download API is disabled"}
@@ -1605,6 +1690,10 @@ def tasks_evtx(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1628,18 +1717,15 @@ def tasks_evtx(request, task_id):
 @csrf_exempt
 @api_view(["GET"])
 def tasks_mitmdump(request, task_id):
-    if not apiconf.taskmitmdump.get("enabled"):
+    if not apiconf.mitmdump.get("enabled"):
         resp = {"error": True, "error_value": "Mitmdump HAR download API is disabled"}
         return Response(resp)
-
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
-
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
-
     harfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "mitmdump", "dump.har")
     if not os.path.normpath(harfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(harfile)}"})
@@ -1649,7 +1735,6 @@ def tasks_mitmdump(request, task_id):
         resp["Content-Length"] = os.path.getsize(harfile)
         resp["Content-Disposition"] = "attachment; filename=" + fname
         return resp
-
     else:
         resp = {"error": True, "error_value": "HAR file does not exist"}
         return Response(resp)
@@ -1665,6 +1750,10 @@ def tasks_dropped(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1712,6 +1801,10 @@ def tasks_surifile(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1765,55 +1858,6 @@ def tasks_rollingsuri(request, window=60):
 
 @csrf_exempt
 @api_view(["GET"])
-def tasks_rollingshrike(request, window=60, msgfilter=None):
-    window = int(window)
-
-    if not apiconf.rollingshrike.get("enabled"):
-        resp = {"error": True, "error_value": "Rolling Shrike API is disabled"}
-        return Response(resp)
-    maxwindow = apiconf.rollingshrike.get("maxwindow")
-    if maxwindow > 0:
-        if window > maxwindow:
-            resp = {"error": True, "error_value": "The Window You Specified is greater than the configured maximum"}
-            return Response(resp)
-
-    gen_time = datetime.now() - timedelta(minutes=window)
-    dummy_id = ObjectId.from_datetime(gen_time)
-    if msgfilter:
-        result = mongo_find(
-            "analysis",
-            {
-                "info.shrike_url": {"$exists": True, "$ne": None},
-                "_id": {"$gte": dummy_id},
-                "info.shrike_msg": {"$regex": msgfilter, "$options": "-1"},
-            },
-            {"info.id": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_url": 1, "info.shrike_refer": 1},
-            sort=[("_id", -1)],
-        )
-    else:
-        result = mongo_find(
-            "analysis",
-            {"info.shrike_url": {"$exists": True, "$ne": None}, "_id": {"$gte": dummy_id}},
-            {"info.id": 1, "info.shrike_msg": 1, "info.shrike_sid": 1, "info.shrike_url": 1, "info.shrike_refer": 1},
-            sort=[("_id", -1)],
-        )
-
-    resp = []
-    for e in result:
-        tmp = {}
-        tmp["id"] = e["info"]["id"]
-        tmp["shrike_msg"] = e["info"]["shrike_msg"]
-        tmp["shrike_sid"] = e["info"]["shrike_sid"]
-        tmp["shrike_url"] = e["info"]["shrike_url"]
-        if e["info"].get("shrike_refer"):
-            tmp["shrike_refer"] = e["info"]["shrike_refer"]
-        resp.append(tmp)
-
-    return Response(resp)
-
-
-@csrf_exempt
-@api_view(["GET"])
 def tasks_procmemory(request, task_id, pid="all"):
     if not apiconf.taskprocmemory.get("enabled"):
         resp = {"error": True, "error_value": "Process memory download API is disabled"}
@@ -1822,6 +1866,10 @@ def tasks_procmemory(request, task_id, pid="all"):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1896,6 +1944,10 @@ def tasks_fullmemory(request, task_id):
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2141,6 +2193,10 @@ def tasks_payloadfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -2174,6 +2230,10 @@ def tasks_procdumpfiles(request, task_id):
     if check["error"]:
         return Response(check)
 
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -2206,6 +2266,10 @@ def tasks_config(request, task_id, cape_name=False):
 
     if check["error"]:
         return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2310,13 +2374,16 @@ dl_service_map = {
 }
 
 
-def common_download_func(service, request):
+@csrf_exempt
+@api_view(["POST"])
+def tasks_download_services(request):
+    # Check if this API function is enabled
+    if not apiconf.downloading_services.get("enabled"):
+        return Response({"error": True, "error_value": "Download sample API is Disabled"})
     resp = {}
-    hashes = request.data.get(dl_service_map[service].strip())
+    hashes = request.POST.get("hashes").strip()
     if not hashes:
-        hashes = request.POST.get("hashes".strip(), None)
-    if not hashes:
-        return Response({"error": True, "error_value": f"hashes (hash list) or {dl_service_map[service]} value is empty"})
+        return Response({"error": True, "error_value": "hashes value is empty"})
     resp["error"] = False
     # Parse potential POST options (see submission/views.py)
     options = request.POST.get("options", "")
@@ -2328,18 +2395,9 @@ def common_download_func(service, request):
     task_machines = []
     vm_list = []
     opt_apikey = False
-
-    if service == "VirusTotal":
-        opts = get_options(options)
-        if opts:
-            opt_apikey = opts.get("apikey", False)
-
-        if not (settings.VTDL_KEY or opt_apikey):
-            resp = {
-                "error": True,
-                "error_value": ("You specified VirusTotal but must edit the file and specify your VTDL_KEY variable"),
-            }
-            return Response(resp)
+    opts = get_options(options)
+    if opts:
+        opt_apikey = opts.get("apikey", False)
 
     for vm in db.list_machines():
         vm_list.append(vm.label)
@@ -2373,13 +2431,14 @@ def common_download_func(service, request):
         "fhash": False,
         "options": options,
         "only_extraction": False,
-        "service": service,
+        "service": "",
         "user_id": request.user.id or 0,
     }
 
-    if service == "VirusTotal":
-        details["apikey"] = settings.VTDL_KEY or opt_apikey
-        details = download_from_vt(hashes, details, opt_filename, settings)
+    if opt_apikey:
+        details["apikey"] = opt_apikey
+
+    details = download_from_3rdparty(hashes, opt_filename, details)
     if isinstance(details.get("task_ids"), list):
         tasks_count = len(details["task_ids"])
     else:
@@ -2438,7 +2497,7 @@ def tasks_file_stream(request, task_id):
         resp = {"error": True, "error_value": "filepath not set"}
         return Response(resp)
     if request.data.get("is_local", ""):
-        if filepath.startswith(("/", "\/")):
+        if filepath.startswith(("/", r"\/")):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
         filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
@@ -2455,15 +2514,52 @@ def tasks_file_stream(request, task_id):
             return Response(resp)
         return StreamingHttpResponse(streaming_content=r.iter_content(chunk_size=1024), content_type="application/octet-stream")
     except requests.exceptions.RequestException as ex:
-        log.error(ex, exc_info=True)
+        log.exception(ex)
         resp = {"error": True, "error_value": f"Requests exception: {ex}"}
     return Response(resp)
 
 
 @csrf_exempt
-@api_view(["POST"])
-def tasks_vtdl(request):
-    # Check if this API function is enabled
-    if not apiconf.vtdl.get("enabled"):
-        return Response({"error": True, "error_value": "VTDL Create API is Disabled"})
-    return common_download_func("VirusTotal", request)
+@api_view(["GET"])
+def dist_tasks_reported(request):
+    # List finished tasks here
+    if not DIST_ENABLED:
+        return Response(
+            {
+                "Error": True,
+                "error_value": "Distributed CAPE is not enabled",
+            }
+        )
+    """
+
+        Add new API endpoint in CAPE to query the tasks that are reported and ready to be retrieved
+        Add new API endpoint in CAPE to set "task.notificated = True" for a specific task
+
+        yeah we could script that go and fetch reported tasks.
+        can you currently list tasks that are finished but waiting to be retrieved in the api?
+        e.g. in the notification_loop() in dist.py, where it queries tasks that need to be sent to the callback url it does this:
+
+        if there was an pi endpoint that exposed that, and another that allowed us to set notificated on the task when we'd finished processing it, then we wouldnt need the callback anymore
+    """
+    # change to with session as
+    dist_db = dist_session()
+    ready = []
+    tasks = dist_db.query(DTask).filter_by(finished=True, retrieved=True, notificated=False).order_by(DTask.id.desc()).all()
+    for task in tasks or []:
+        ready.append(task.main_task_id)
+    dist_db.close()
+    return Response({"Tasks": ready})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def dist_tasks_notification(request, task_id: int):
+    dist_db = dist_session()
+    tasks = dist_db.query(DTask).filter_by(main_task_id=task_id).order_by(DTask.id.desc()).all()
+    if not tasks:
+        return Response({"error": True, "error_value": f"No tasks found with main_task_id: {task_id}"})
+    for task in tasks:
+        # main_db.set_status(task.main_task_id, TASK_REPORTED)
+        # log.debug("reporting main_task_id: {}".format(task.main_task_id))
+        task.notificated = True
+

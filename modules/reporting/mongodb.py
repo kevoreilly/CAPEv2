@@ -109,6 +109,13 @@ class MongoDB(Report):
         # reporting modules.
         report = get_json_document(results, self.analysis_path)
 
+        mongo_delete_data(int(report["info"]["id"]))
+        log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
+
+        # trick for distributed api
+        if results.get("info", {}).get("options", {}).get("main_task_id", ""):
+            report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
+
         if "network" not in report:
             report["network"] = {}
 
@@ -116,13 +123,6 @@ class MongoDB(Report):
         # Store the results in the report.
         report["behavior"] = dict(report["behavior"])
         report["behavior"]["processes"] = new_processes
-
-        # trick for distributed api
-        if results.get("info", {}).get("options", {}).get("main_task_id", ""):
-            report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
-
-        mongo_delete_data(int(report["info"]["id"]))
-        log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
 
         ensure_valid_utf8(report)
         gc.collect()
@@ -170,12 +170,12 @@ class MongoDB(Report):
                                 for j, parent_dict in enumerate(report[parent_key]):
                                     child_key, csize = self.debug_dict_size(parent_dict)[0]
                                     if csize > size_filter:
-                                        log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
+                                        log.warning("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
                                         del report[parent_key][j][child_key]
                         else:
                             child_key, csize = self.debug_dict_size(report[parent_key])[0]
                             if csize > size_filter:
-                                log.warn("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
+                                log.warning("results['%s']['%s'] deleted due to size: %s", parent_key, child_key, csize)
                                 del report[parent_key][child_key]
                         try:
                             mongo_insert_one("analysis", report)

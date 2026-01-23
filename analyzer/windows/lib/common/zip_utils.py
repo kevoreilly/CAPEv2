@@ -1,15 +1,11 @@
 import hashlib
 import logging
 import os
+import re
 import shutil
 import subprocess
 from pathlib import Path
 from zipfile import BadZipfile, ZipFile
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 from lib.common.constants import OPT_MULTI_PASSWORD
 from lib.common.exceptions import CuckooPackageError
@@ -18,7 +14,8 @@ from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
-FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+# FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
+FILE_NAME_REGEX = re.compile(r"\s{2}((?:[a-zA-Z0-9.\-,_\\]+(?: [a-zA-Z0-9.\-,_\\]+)?)*)\r")
 FILE_EXT_OF_INTEREST = [
     ".bat",
     ".cmd",
@@ -50,7 +47,7 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
     @param extract_path: where to extract
     @param password: archive password
     @param try_multiple_passwords: we will be splitting the password on the ':' symbol,
-           and trying each one to extract the archive
+        and trying each one to extract the archive
     """
     log.debug([seven_zip_path, "x", "-p", "-y", f"-o{extract_path}", archive_path])
     p = subprocess.run(
@@ -60,7 +57,7 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
         stdout=subprocess.PIPE,
     )
     stdoutput, stderr = p.stdout, p.stderr
-    log.debug(f"{p.stdout} {p.stderr}")
+    log.debug("%s %s", p.stdout, p.stderr)
 
     if try_multiple_passwords:
         passwords = password.split(":")
@@ -84,9 +81,9 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
                 stdout=subprocess.PIPE,
             )
             stdoutput, stderr = p.stdout, p.stderr
-            log.debug(f"{p.stdout} {p.stderr}")
+            log.debug("%s - %s", p.stdout, p.stderr)
             if b"Wrong password" in stderr:
-                log.debug(f"The provided password '{pword}' was incorrect")
+                log.debug("The provided password '%s' was incorrect", str(pword))
                 continue
             else:
                 # We did it!
@@ -151,7 +148,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
     @param password: ZIP password
     @param recursion_depth: how deep we are in a nested archive
     @param try_multiple_passwords: we will be splitting the password on the ':' symbol,
-           and trying each one to extract the archive
+        and trying each one to extract the archive
     """
     # Test if zip file contains a file named as itself.
     if is_overwritten(zip_path):
@@ -195,7 +192,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
                 raise CuckooPackageError("Invalid Zip file") from e
             except RuntimeError as e:
                 if "Bad password for file" in repr(e):
-                    log.debug(f"Password '{pword}' was unsuccessful in extracting the archive.")
+                    log.debug("Password '%s' was unsuccessful in extracting the archive.", str(pword))
                     password_fail = True
                     continue
                 else:
@@ -203,7 +200,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
                     try:
                         archive.extractall(path=extract_path, pwd=pword)
                     except RuntimeError as e:
-                        raise CuckooPackageError(f"Unable to extract Zip file: {e}") from e
+                        raise CuckooPackageError("Unable to extract Zip file: %s", str(e)) from e
             finally:
                 if recursion_depth < 4:
                     # Extract nested archives.
@@ -227,7 +224,7 @@ def extract_zip(zip_path, extract_path, password=b"infected", recursion_depth=1,
                                 log.error("Error extracting nested Zip file %s with details: %s", name, run_err)
 
         if password_fail:
-            raise CuckooPackageError(f"Unable to extract password-protected Zip file with the password(s): {passwords}")
+            raise CuckooPackageError("Unable to extract password-protected Zip file with the password(s): %s", str(passwords))
 
 
 def is_overwritten(zip_path):
@@ -264,7 +261,7 @@ def winrar_extractor(winrar_binary, extract_path, archive_path):
         stdout=subprocess.PIPE,
     )
     # stdoutput, stderr = p.stdout, p.stderr
-    log.debug(p.stdout + p.stderr)
+    log.debug("%s - %s", p.stdout, p.stderr)
 
     return os.listdir(extract_path)
 
@@ -289,11 +286,11 @@ def upload_extracted_files(root, files_at_root):
     for entry in files_at_root:
         try:
             file_path = os.path.join(root, entry)
-            log.info("Uploading {0} to host".format(file_path))
+            log.info("Uploading %s to host", str(file_path))
             filename = f"files/{hash_file(hashlib.sha256, file_path)}"
             upload_to_host(file_path, filename, metadata=Path(entry).name, duplicated=False)
         except Exception as e:
-            log.warning(f"Couldn't upload file {Path(entry).name} to host {e}")
+            log.warning("Couldn't upload file %s to host %s", str(Path(entry).name), str(e))
 
 
 def attempt_multiple_passwords(options: dict, password: str) -> bool:

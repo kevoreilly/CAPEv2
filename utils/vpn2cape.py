@@ -25,12 +25,13 @@ rt_table = {rt}
     for index, file in enumerate(files):
         if file.endswith(".ovpn"):
             path = os.path.join(folder, file)
-            tmp = open(path, "rt").read()
+            with open(path, "rt") as f:
+                tmp = f.read()
             write = 0
 
             # rt_table
             rt = ""
-            rt = re.findall(f"remote\s(.*)\s{port}", tmp)
+            rt = re.findall(fr"remote\s(.*)\s{port}", tmp)
             if rt:
                 # start from id idx_start
                 rt_table.setdefault(str(index + idx_start), rt[0])
@@ -70,14 +71,13 @@ rt_table = {rt}
             )
             vpns.append(f"vpn_{index + idx_start}")
 
-            file = file.replace(" ", "\ ")
+            file = file.replace(" ", r"\ ")
             paths.append(f"sudo openvpn --config {file} &")
 
             if write:
                 # updating config
-                tmp2 = open(path, "wt")
-                tmp2.write(tmp)
-                tmp2.close()
+                with open(path, "wt") as tmp2:
+                    tmp2.write(tmp)
 
     if vpns:
         print("\n\n\n[+] VPNs for CAPE's routing.conf")

@@ -1,21 +1,21 @@
 #!/usr/bin/python
 
 """
-    Aux script for VPN setup
-    
-    Get a look on utils/vpn2cape.py
-    Example:
-        /etc/iproute2/rt_tables
-            5 host1
-            6 host2
-            7 host3
-            
-        conf/routing.conf
-            [vpn5]
-            name = X.ovpn
-            description = X
-            interface = tunX
-            rt_table = host1
+Aux script for VPN setup
+
+Get a look on utils/vpn2cape.py
+Example:
+    /etc/iproute2/rt_tables
+        5 host1
+        6 host2
+        7 host3
+
+    conf/routing.conf
+        [vpn5]
+        name = X.ovpn
+        description = X
+        interface = tunX
+        rt_table = host1
 """
 
 import os

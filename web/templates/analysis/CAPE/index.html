@@ -2,13 +2,19 @@
 
 {% if CAPE.payloads %}
     {% if settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
-        <center><a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive with all files"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> Download All Files</a></center>
-        </br>
+        <div class="text-center mb-4">
+            <a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-outline-info" data-bs-toggle="tooltip" title="Download password-protected file archive with all files">
+                <i class="fas fa-file-archive me-1"></i> <i class="fas fa-download me-1"></i> Download All Files
+            </a>
+        </div>
     {% endif %}
 
     {% for file in CAPE.payloads|dictsortreversed:"size" %}
         {% include "analysis/generic/_file_info.html" %}
     {% endfor %}
 {% else %}
-    <div class="alert alert-secondary"><b>Sorry!</b> No CAPE files.</div>
+    <div class="alert alert-info text-center shadow-sm">
+        <i class="fas fa-box-open fa-2x mb-3"></i>
+        <p class="mb-0">No CAPE payloads found.</p>
+    </div>
 {% endif %}

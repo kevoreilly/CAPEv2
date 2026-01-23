@@ -36,7 +36,7 @@ try:
 
     HAVE_WATCHDOG = True
 except ImportError as e:
-    log.debug(f"Could not load auxiliary module WatchDownloads due to '{e}'")
+    log.debug("Could not load auxiliary module WatchDownloads due to '%s'", str(e))
 
 
 class WatchDownloads(Auxiliary, Thread):

@@ -3,13 +3,14 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
-
-import pytest
 from tcr_misc import random_string
 
-from lib.cuckoo.common import utils
+from unittest import mock
+import pytest
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_mkdir
+from lib.cuckoo.common import utils
+
 
 
 def test_get_memdump_path(mocker):
@@ -168,7 +169,75 @@ class TestPrettyPrintRetval:
 @pytest.mark.skip
 def test_is_safelisted_domain():
     from lib.cuckoo.common.safelist import is_safelisted_domain
-
     assert is_safelisted_domain("java.com") is True
     assert is_safelisted_domain("java2.com") is False
     assert is_safelisted_domain("crl.microsoft.com") is True
+
+
+    @pytest.fixture
+    def mock_config(mocker):
+        mock_config = mocker.patch("lib.cuckoo.common.utils.config")
+        mock_config.cuckoo.get.return_value = b"/tmp"
+        return mock_config
+
+    @pytest.fixture
+    def mock_path_exists(mocker):
+        return mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=False)
+
+    @pytest.fixture
+    def mock_path_mkdir(mocker):
+        return mocker.patch("lib.cuckoo.common.utils.path_mkdir")
+
+    @pytest.fixture
+    def mock_tempfile(mocker):
+        return mocker.patch("lib.cuckoo.common.utils.tempfile.mkdtemp", return_value="/tmp/cuckoo-tmp/upload_1234")
+
+    @pytest.fixture
+    def mock_open(mocker):
+        return mocker.patch("builtins.open", mock.mock_open())
+
+    def test_store_temp_file_bytes(mock_config, mock_path_exists, mock_path_mkdir, mock_tempfile, mock_open):
+        filedata = b"test data"
+        filename = "testfile.txt"
+        result = utils.store_temp_file(filedata, filename)
+        assert result == b"/tmp/cuckoo-tmp/upload_1234/testfile.txt"
+        mock_open.assert_called_once_with(b"/tmp/cuckoo-tmp/upload_1234/testfile.txt", "wb")
+        mock_open().write.assert_called_once_with(filedata)
+
+    def test_store_temp_file_filelike(mock_config, mock_path_exists, mock_path_mkdir, mock_tempfile, mock_open):
+        filedata = mock.Mock()
+        filedata.read.side_effect = [b"chunk1", b"chunk2", b""]
+        filename = "testfile.txt"
+        result = utils.store_temp_file(filedata, filename)
+        assert result == b"/tmp/cuckoo-tmp/upload_1234/testfile.txt"
+        mock_open.assert_called_once_with(b"/tmp/cuckoo-tmp/upload_1234/testfile.txt", "wb")
+        mock_open().write.assert_has_calls([mock.call(b"chunk1"), mock.call(b"chunk2")])
+
+    def test_store_temp_file_with_path(mock_config, mock_path_exists, mock_path_mkdir, mock_tempfile, mock_open):
+        filedata = b"test data"
+        filename = "testfile.txt"
+        path = b"/custom/path"
+        result = utils.store_temp_file(filedata, filename, path)
+        assert result == b"/custom/path/upload_1234/testfile.txt"
+        mock_open.assert_called_once_with(b"/custom/path/upload_1234/testfile.txt", "wb")
+        mock_open().write.assert_called_once_with(filedata)
+
+    def test_store_temp_file_path_exists(mock_config, mocker, mock_tempfile, mock_open):
+        mock_path_exists = mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=True)
+        filedata = b"test data"
+        filename = "testfile.txt"
+        result = utils.store_temp_file(filedata, filename)
+        assert result == b"/tmp/cuckoo-tmp/upload_1234/testfile.txt"
+        mock_open.assert_called_once_with(b"/tmp/cuckoo-tmp/upload_1234/testfile.txt", "wb")
+        mock_open().write.assert_called_once_with(filedata)
+        mock_path_exists.assert_called_once_with("/tmp/cuckoo-tmp")
+
+    def test_store_temp_file_path_mkdir_error(mock_config, mocker, mock_tempfile):
+        # mock_path_exists = mocker.patch("lib.cuckoo.common.utils.path_exists", return_value=False)
+        mock_path_mkdir = mocker.patch("lib.cuckoo.common.utils.path_mkdir", side_effect=OSError)
+        filedata = b"test data"
+        filename = "testfile.txt"
+        with pytest.raises(CuckooOperationalError):
+            utils.store_temp_file(filedata, filename)
+        mock_path_mkdir.assert_called_once_with("/tmp/cuckoo-tmp")
+

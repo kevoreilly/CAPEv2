@@ -1,0 +1,86 @@
+{% load key_tags %}
+<section id="msi_info">
+    {% if file.msi %}
+
+    {% if file.msi.metadata %}
+    <div class="card mb-3"> {# panel panel-default -> card mb-3 #}
+        <div class="card-header"> {# panel-heading -> card-header #}
+            <h4 class="card-title mb-0">SummaryInformation Metadata</h4> {# panel-title -> card-title mb-0 #}
+        </div>
+        <table class="table table-striped table-bordered table-dark" style="table-layout: fixed;">
+            <colgroup>
+                <col width="200" />
+                <col width="*" />
+            </colgroup>
+            <tbody>
+                {% for key, value in file.msi.metadata.items %}
+                <tr>
+                    <th>{{ key }}</th>
+                    <td>{{ value }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% if file.msi.rows %}
+    <div class="card"> {# panel panel-default -> card #}
+        <div class="card-header"> {# panel-heading -> card-header #}
+            <h4 class="card-title mb-0">Custom Actions ({{ file.msi.rows|length }})</h4> {# panel-title -> card-title mb-0 #}
+        </div>
+        <div id="msi_information" class="card-body p-0"> {# Added card-body p-0 #}
+            <table class="table table-bordered table-dark mb-0" style="table-layout: fixed;"> {# mb-0 to remove bottom margin #}
+                <thead>
+                    <tr>
+                        {% for column_name in file.msi.columns %}
+                            <th style="width:
+                                {% if column_name == 'Target' %}40%{% elif column_name == 'ExtendedType' %}10%{% else %}15%{% endif %}
+                            ;">{{ column_name }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in file.msi.rows %}
+                    <tr class="active">
+                        {% for column_name in file.msi.columns %}
+                            <td style="word-wrap: break-word;">
+                                {{ row|getkey:column_name }}
+                            </td>
+                        {% endfor %}
+                    </tr>
+                    {% if row.Enrich %}
+                    <tr>
+                        <td colspan="{{ file.msi.columns|length }}" style="padding: 10px 20px; background-color: #2b2b2b;">
+                             <div style="font-size: 0.9em;">
+                                {% if row.Enrich.basic_type %}
+                                <div><strong class="text-white-50">Basic Type:</strong> {{ row.Enrich.basic_type }}</div>
+                                {% endif %}
+                                {% if row.Enrich.source %}
+                                <div><strong class="text-white-50">Source Type:</strong> {{ row.Enrich.source }}</div>
+                                {% endif %}
+                                {% if row.Enrich.return_processing %}
+                                <div><strong class="text-white-50">Return Processing:</strong> {{ row.Enrich.return_processing }}</div>
+                                {% endif %}
+                                {% if row.Enrich.execution %}
+                                <div><strong class="text-white-50">Execution:</strong> {{ row.Enrich.execution }}</div>
+                                {% endif %}
+                                {% if row.Enrich.flags %}
+                                <div><strong class="text-white-50">Flags:</strong> {{ row.Enrich.flags|join:", " }}</div>
+                                {% endif %}
+                                {% if row.Enrich.remainder %}
+                                <div><strong class="text-white-50">Remainder:</strong> {{ row.Enrich.remainder }}</div>
+                                {% endif %}
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% endif %}
+</section>

@@ -229,68 +229,64 @@ class Processes:
         Returns an updated process list where file-access related calls have
         the matching file descriptor at the time of it being opened.
         """
+        if not self.options.get("update_file_descriptors"):
+            return
         # Default file descriptors
-        file_descriptors = [
-            {
-                "fd": "0",
+        fd_lookup = {
+            "0": [{
                 "filename": "STDIN",
                 "time_opened": "00:00:00.000000",
                 "time_closed": None,
-            },
-            {
-                "fd": "1",
+            }],
+            "1": [{
                 "filename": "STDOUT",
                 "time_opened": "00:00:00.000000",
                 "time_closed": None,
-            },
-            {
-                "fd": "2",
+            }],
+            "2": [{
                 "filename": "STDERR",
                 "time_opened": "00:00:00.000000",
                 "time_closed": None,
-            },
-        ]
-
+            }]
+        }
         for fd_call in fd_calls:
             # Retrieve the relevant informaton from syscalls that open/duplicate/close file descriptors
             match fd_call["syscall"]:
                 case syscall if syscall in ["open", "creat", "openat", "openat2"]:
-                    file_descriptors.append(
+                    fd_lookup.setdefault(fd_call["fd"], []).append(
                         {
-                            "fd": fd_call["fd"],
                             "filename": fd_call["filename"],
                             "time_opened": fd_call["time"],
                             "time_closed": None,
                         }
                     )
                 case syscall if syscall in ["dup", "dup2", "dup3"]:
-                    for fd in reversed(file_descriptors):
-                        if fd["time_closed"] is None and fd_call["oldfd"] == fd["fd"]:
-                            file_descriptors.append(
+                    for fd in reversed(fd_lookup.get(fd_call["oldfd"], [])):
+                        if fd["time_closed"] is None:
+                            fd_lookup.setdefault(fd_call["fd"], []).append(
                                 {
-                                    "fd": fd_call["fd"],
                                     "filename": fd["filename"],
                                     "time_opened": fd_call["time"],
                                     "time_closed": None,
                                 }
                             )
                 case "close":
-                    for fd in reversed(file_descriptors):
-                        if fd["time_closed"] is None and fd_call["fd"] == fd["fd"]:
+                    for fd in reversed(fd_lookup.get(fd_call["fd"], [])):
+                        if fd["time_closed"] is None:
                             fd["time_closed"] = fd_call["time"]
 
         for process in self.results:
-            for call in process["calls"]:
-                if call["api"] in fd_syscalls:
-                    # append filename to file descriptor according to relevant time that fd is opened
-                    # if any unclosed file descriptor, assume that it is closed after process is finished
-                    for fd in file_descriptors:
-                        if (
-                            call["arguments"][0]["value"] == fd["fd"]
-                            and fd["time_opened"] < call["timestamp"]
-                            and (fd["time_closed"] is None or call["timestamp"] <= fd["time_closed"])
-                        ):
-                            call["arguments"][0]["value"] += f' ({fd["filename"]})'
+            calls = [c for c in process["calls"] if c["api"] in fd_syscalls]
+            for call in calls:
+                # append filename to file descriptor according to relevant time that fd is opened
+                # if any unclosed file descriptor, assume that it is closed after process is finished
+                for fd in fd_lookup.get(call["arguments"][0]["value"], []):
+                    if (
+                        fd["time_opened"] < call["timestamp"]
+                        and (fd["time_closed"] is None or call["timestamp"] <= fd["time_closed"])
+                    ):
+                        call["arguments"][0]["value"] += f' ({fd["filename"]})'
+                        break
 
     def update_parent_ids(self, relations):
         """

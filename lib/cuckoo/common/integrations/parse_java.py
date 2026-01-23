@@ -41,7 +41,7 @@ class Java:
                     p = Popen([self.decomp_jar, jar_file], stdout=PIPE)
                 results["decompiled"] = convert_to_printable(p.stdout.read())
             except Exception as e:
-                log.error(e, exc_info=True)
+                log.exception(e)
 
             with contextlib.suppress(Exception):
                 Path(jar_file.decode()).unlink()

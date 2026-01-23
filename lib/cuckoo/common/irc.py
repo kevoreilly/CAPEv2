@@ -6,14 +6,10 @@
 """IRC Protocol"""
 
 import logging
+import re
 from io import BytesIO
 
 from lib.cuckoo.common.utils import convert_to_printable
-
-try:
-    import re2 as re
-except ImportError:
-    import re
 
 log = logging.getLogger("Processing.Pcap.irc.protocol")
 

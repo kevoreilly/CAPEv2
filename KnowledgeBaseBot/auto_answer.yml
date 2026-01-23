@@ -1,0 +1,35 @@
+name: Auto Answer Bot (using uv run)
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  answer:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      - name: Set up Python with caching
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install the project
+        run: uv run pip install -r requirements.txt
+
+      - name: Run the answer bot with uv run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          REPO_NAME: ${{ github.repository }}
+        # This single step installs dependencies (if needed) and runs the script
+        run: cd KnowledgeBaseBot && uv run python auto_answer_bot.py

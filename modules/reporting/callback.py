@@ -24,12 +24,11 @@ class CALLBACKHOME(Report):
             Database().set_status(task_id, TASK_REPORTED)
         for url in urls:
             try:
-                for value in (task_id, str(task_id)):
-                    res = requests.post(url, data=json.dumps({"task_id": value}), timeout=20)
-                    if res and res.ok:
-                        log.debug("reported id: %d", task_id)
-                    else:
-                        log.error("failed to report %d", task_id)
+                res = requests.post(url, headers={"Content-Type": "application/json"}, data=json.dumps({"task_id": task_id}), timeout=20)
+                if res and res.ok:
+                    log.debug("reported id: %d", task_id)
+                else:
+                    log.error("failed to report %d", task_id)
             except requests.exceptions.ConnectTimeout:
                 log.error("Timeout when calling to callback: %s", url)
             except Exception as e:

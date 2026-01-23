@@ -69,7 +69,6 @@ def add_nfs_entry(hostname: str, worker_folder: str):
 
 
 def remove_nfs_entry(hostname: str):
-
     worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, hostname)
 
     with lock:
@@ -193,14 +192,6 @@ if __name__ == "__main__":
             try:
                 output = handlers[command](*args, **kwargs)
             except Exception as e:
-                log.exception("Error executing command: {}".format(command))
+                log.exception("Error executing command: %s", command)
                 error = str(e)
-            server.sendto(
-                json.dumps(
-                    {
-                        "output": output,
-                        "exception": error,
-                    }
-                ).encode(),
-                addr,
-            )
+            server.sendto(json.dumps({"output": output, "exception": error}).encode(), addr)

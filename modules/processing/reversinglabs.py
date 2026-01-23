@@ -124,7 +124,7 @@ class ReversingLabs(Processing):
             return {}
 
         target = self.task["target"]
-        log.debug(f"Looking up: {target}")
+        log.debug("Looking up: %s", target)
         reversing_labs_response = reversing_labs_lookup(target)
         if "error" in reversing_labs_response:
             raise CuckooProcessingError(reversing_labs_response["msg"])

@@ -1,235 +1,61 @@
-<section id="network">
+<div class="mt-4">
     <div class="section-title">
         <h4>Network Analysis</h4>
     </div>
     {% if results.network %}
-        {% if results.network.hosts %}
-            <div>
-                {% if summary_report %}
-                <h4>Hosts Involved</h4>
-                <div id="hosts">
-                {% else %}
-                <h4><a href="javascript:showHide('hosts');">Hosts Involved</a></h4>
-                <div id="hosts" style="display: none;">
-                {% endif %}
-                    <table class="table table-striped table-bordered">
-                        <tr>
-                            <th width="10%">Direct</th>
-                            <th>IP Address</th>
-                            <th>Country Name</th>
-                        </tr>
-                        {% for host in results.network.hosts %}
-                       <tr>
-                            {% if host.ip[:7] != "192.168" %}
-                                {% if "hostname" in host and host.hostname == "" %}
-                                    <td><span class="mono">Y</span></td>
-                                {% elif "hostname" in host %}
-                                    <td><span class="mono">N</span></td>
-                                {% else %}
-                                    <td><span class="mono">N/A</span></td>
-                                {% endif %}
-                                <td><span class="mono">{{host.ip}}</span></td>
-                                <td>{{host.country_name}}</td>
-                            {% endif %}
-                       </tr>
-                        {% endfor %}
-                    </table>
-                </div>
-            </div>
-        {% endif %}
-
-        {% if results.network.domains %}
-        <div>
-            {% if summary_report %}
-            <h4>DNS Requests</h4>
-            <div id="dns">
-            {% else %}
-            <h4><a href="javascript:showHide('dns');">DNS Requests</a></h4>
-            <div id="dns" style="display: none;">
-            {% endif %}
-                <table class="table table-striped table-bordered">
-                    <tr>
-                        <th>Name</th>
-                        <th>Response</th>
-                    </tr>
-                    {% for dns in results.network.dns %}
-                    <tr>
-                        <td><span class="mono">{{dns.request}}</span></td>
-                        <td>
-                            {% for a in dns.answers %}
-                                <span class="mono">{{a.type}} {{a.data}}</span>
-                                {%  if not loop.last %}
-                                <br>
-                                {% endif %}
-                            {% endfor %}
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
+    <ul class="nav nav-pills mb-3" id="pills-tab" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="pills-hosts-tab" data-bs-toggle="pill" href="#pills-hosts" role="tab" aria-controls="pills-hosts" aria-selected="true">Hosts</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="pills-dns-tab" data-bs-toggle="pill" href="#pills-dns" role="tab" aria-controls="pills-dns" aria-selected="false">DNS</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="pills-tcp-tab" data-bs-toggle="pill" href="#pills-tcp" role="tab" aria-controls="pills-tcp" aria-selected="false">TCP</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="pills-udp-tab" data-bs-toggle="pill" href="#pills-udp" role="tab" aria-controls="pills-udp" aria-selected="false">UDP</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="pills-http-tab" data-bs-toggle="pill" href="#pills-http" role="tab" aria-controls="pills-http" aria-selected="false">HTTP</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="pills-smtp-tab" data-bs-toggle="pill" href="#pills-smtp" role="tab" aria-controls="pills-smtp" aria-selected="false">SMTP</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="pills-irc-tab" data-bs-toggle="pill" href="#pills-irc" role="tab" aria-controls="pills-irc" aria-selected="false">IRC</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="pills-icmp-tab" data-bs-toggle="pill" href="#pills-icmp" role="tab" aria-controls="pills-icmp" aria-selected="false">ICMP</a>
+        </li>
+    </ul>
+    <div class="tab-content" id="pills-tabContent">
+        <div class="tab-pane fade show active" id="pills-hosts" role="tabpanel" aria-labelledby="pills-hosts-tab">
+            {% include "generic/_network_hosts.html" %}
         </div>
-        {% endif %}
-
-        {% if results.network.tcp %}
-            <div>
-            {% if summary_report %}
-            <h4>TCP Connections</h4>
-            <div id="tcp">
-            {% else %}
-            <h4><a href="javascript:showHide('tcp');">TCP Connections</a></h4>
-            <div id="tcp" style="display: none;">
-           {% endif %}
-                     <table class="table table-striped table-bordered">
-                        <tr>
-                            <th>IP Address</th>
-                            <th>Port</th>
-                        </tr>
-                        {% for conn in results.network.tcp %}
-                        <tr>
-                            <td><span class="mono">{{conn.dst}}</span></td>
-                            <td><span class="mono">{{conn.dport}}</span></td>
-                        </tr>
-                        {% endfor %}
-                    </table>
-                </div>
-            </div>
-        {% endif %}
-
-        {% if results.network.udp %}
-            <div>
-            {% if summary_report %}
-            <h4>UDP Connections</h4>
-            <div id="udp">
-            {% else %}
-            <h4><a href="javascript:showHide('udp');">UDP Connections</a></h4>
-            <div id="udp" style="display: none;">
-            {% endif %}
-                     <table class="table table-striped table-bordered">
-                        <tr>
-                            <th>IP Address</th>
-                            <th>Port</th>
-                        </tr>
-                        {% for conn in results.network.udp %}
-                        <tr>
-                            <td><span class="mono">{{conn.dst}}</span></td>
-                            <td><span class="mono">{{conn.dport}}</span></td>
-                        </tr>
-                        {% endfor %}
-                    </table>
-                </div>
-            </div>
-        {% endif %}
-
-        {% if results.network.http %}
-        <div>
-            {% if summary_report %}
-            <h4>HTTP Requests</h4>
-            <div id="http">
-            {% else %}
-            <h4><a href="javascript:showHide('http');">HTTP Requests</a></h4>
-            <div id="http" style="display: none;">
-            {% endif %}
-                 <table class="table table-striped table-bordered">
-                    <tr>
-                        <th>URL</th>
-                        <th>Data</th>
-                    </tr>
-                    {% for http in results.network.http %}
-                    <tr>
-                        <td><span class="mono">{{http.uri}}</span></td>
-                        <td><span class="mono"><pre>{{http.data}}</pre></span></td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
+        <div class="tab-pane fade" id="pills-dns" role="tabpanel" aria-labelledby="pills-dns-tab">
+            {% include "generic/_network_dns.html" %}
         </div>
-        {% endif %}
-        <!--ToDo add https-->
-        {% if results.network.smtp %}
-        <div>
-            {% if summary_report %}
-            <h4>SMTP Requests</h4>
-            <div id="smtp">
-            {% else %}
-            <h4><a href="javascript:showHide('smtp');">SMTP Requests</a></h4>
-            <div id="smtp" style="display: none;">
-            {% endif %}
-                 <table class="table table-striped table-bordered">
-                    <tr>
-                        <th>Destination</th>
-                        <th>Data</th>
-                    </tr>
-                    {% for smtp in results.network.smtp %}
-                    <tr>
-                        <td><span class="mono">{{smtp.dst}}</span></td>
-                        <td><span class="mono"><pre>{{smtp.raw}}</pre></span></td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
+        <div class="tab-pane fade" id="pills-tcp" role="tabpanel" aria-labelledby="pills-tcp-tab">
+            {% include "generic/_network_tcp.html" %}
         </div>
-        {% endif %}
-
-        {% if results.network.irc %}
-        <div>
-            {% if summary_report %}
-            <h4>IRC Requests</h4>
-            <div id="irc">
-            {% else %}
-            <h4><a href="javascript:showHide('irc');">IRC Requests</a></h4>
-            <div id="irc" style="display: none;">
-            {% endif %}
-                 <table class="table table-striped table-bordered">
-                    <tr>
-                        <th>Command</th>
-                        <th>Params</th>
-                        <th>Type</th>
-                    </tr>
-                    {% for irc in results.network.irc %}
-                    <tr>
-                        <td><span class="mono">{{irc.command}}</span></td>
-                        <td><span class="mono"><pre>{{irc.params}}</pre></span></td>
-                        <td><span class="mono"><pre>{{irc.type}}</pre></span></td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
+        <div class="tab-pane fade" id="pills-udp" role="tabpanel" aria-labelledby="pills-udp-tab">
+            {% include "generic/_network_udp.html" %}
         </div>
-        {% endif %}
-
-        {% if results.network.icmp %}
-        <div>
-           {% if summary_report %}
-            <h4>ICMP Requests</h4>
-            <div id="icmp">
-            {% else %}
-            <h4><a href="javascript:showHide('icmp');">ICMP Requests</a></h4>
-            <div id="icmp" style="display: none;">
-            {% endif %}
-                <table class="table table-striped table-bordered">
-                    <tr>
-                       <th>Source</th>
-                       <th>Destination</th>
-                       <th>ICMP Type</th>
-                       <th>Data</th>
-                    </tr>
-                    {% for icmp in results.network.icmp %}
-                    <tr>
-                       <td><span class="mono">{{icmp.src}}</span></td>
-                       <td><span class="mono">{{icmp.dst}}</span></td>
-                       <td><span class="mono">{{icmp.type}}</span></td>
-                       <td><span class="mono"><pre>{{icmp.data}}</pre></span></td>
-                    </tr>
-                    {% endfor %}
-                </table>
-            </div>
-         </div>
-        {% endif %}
-
-        {% if not results.network.hosts and not results.network.domains and not results.network.http and not results.network.irc and not results.network.icmp %}
-            Nothing to display.
-        {% endif %}
+        <div class="tab-pane fade" id="pills-http" role="tabpanel" aria-labelledby="pills-http-tab">
+            {% include "generic/_network_http.html" %}
+        </div>
+        <div class="tab-pane fade" id="pills-smtp" role="tabpanel" aria-labelledby="pills-smtp-tab">
+            {% include "generic/_network_smtp.html" %}
+        </div>
+        <div class="tab-pane fade" id="pills-irc" role="tabpanel" aria-labelledby="pills-irc-tab">
+            {% include "generic/_network_irc.html" %}
+        </div>
+        <div class="tab-pane fade" id="pills-icmp" role="tabpanel" aria-labelledby="pills-icmp-tab">
+            {% include "generic/_network_icmp.html" %}
+        </div>
+    </div>
     {% else %}
-        Nothing to display.
+        <p>Nothing to display.</p>
     {% endif %}
-</section>
+</div>

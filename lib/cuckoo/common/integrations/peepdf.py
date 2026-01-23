@@ -44,8 +44,8 @@ def _set_base_uri(pdf):
     try:
         for version in range(pdf.updates + 1):
             trailer, _ = pdf.trailer[version]
-            if trailer is not None:
-                elem = trailer.dict.getElementByName("/Root")
+            if trailer:
+                elem = trailer.getTrailerDictionary().getElementByName("/Root")
                 if elem:
                     elem = _get_obj_val(pdf, version, elem)
                 if elem:
@@ -59,8 +59,8 @@ def _set_base_uri(pdf):
                 if elem:
                     return elem.getValue()
     except Exception as e:
-        log.error(e, exc_info=True)
-        return ""
+        log.exception(e)
+        return
 
 
 def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
@@ -74,7 +74,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
     try:
         _, pdf = parser.parse(filepath, forceMode=True, looseMode=True, manualAnalysis=False)
     except Exception as e:
-        log.debug("Error parsing pdf: {}".format(e))
+        log.debug("Error parsing pdf: %s", str(e))
         return pdfresult
     urlset = set()
     annoturiset = set()
@@ -92,16 +92,16 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
             metadata = metatmp
         objects = body.objects
         for index in objects:
-            oid = objects[index].id
+            oid = objects[index].thisId
             offset = objects[index].offset
             size = objects[index].size
-            details = objects[index].object
+            details = objects[index].obj
             obj_data = {
                 "Object ID": oid,
                 "Offset": offset,
                 "Size": size,
             }
-            if details.type == "stream":
+            if details.objType == "stream":
                 decoded_stream = details.decodedStream
                 if isJavascript(decoded_stream.strip()):
                     jsdata = None
@@ -109,7 +109,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                         jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(decoded_stream.strip())
                         jsdata = jslist[0]
                     except Exception as e:
-                        log.error(e, exc_info=True)
+                        log.exception(e)
                         continue
                     if errors or jsdata is None:
                         continue
@@ -129,7 +129,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                         ret_data += tmp
                     obj_data["Data"] = ret_data
                     retobjects.append(obj_data)
-            elif details.type == "dictionary" and details.containsJScode:
+            elif details.objType == "dictionary" and details.containsJScode:
                 js_elem = details.getElementByName("/JS")
                 if js_elem:
                     jsdata = None
@@ -137,7 +137,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                         jslist, unescapedbytes, urlsfound, errors, ctxdummy = analyseJS(js_elem.value)
                         jsdata = jslist[0]
                     except Exception as e:
-                        log.error(e, exc_info=True)
+                        log.exception(e)
                         continue
                     if errors or not jsdata:
                         continue
@@ -157,7 +157,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                         ret_data += tmp
                     obj_data["Data"] = ret_data
                     retobjects.append(obj_data)
-            elif details.type == "dictionary" and details.hasElement("/A"):
+            elif details.objType == "dictionary" and details.hasElement("/A"):
                 # verify it to be a link type annotation
                 subtype_elem = details.getElementByName("/Subtype")
                 type_elem = details.getElementByName("/Type")
@@ -169,7 +169,7 @@ def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
                     continue
                 a_elem = details.getElementByName("/A")
                 a_elem = _get_obj_val(pdf, i, a_elem)
-                if a_elem and a_elem.type == "dictionary" and a_elem.hasElement("/URI"):
+                if a_elem and a_elem.getType() == "dictionary" and a_elem.hasElement("/URI"):
                     uri_elem = a_elem.getElementByName("/URI")
                     if uri_elem:
                         uri_elem = _get_obj_val(pdf, i, uri_elem)

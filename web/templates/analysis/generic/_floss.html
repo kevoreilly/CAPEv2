@@ -1,46 +1,60 @@
-<section id="static_floss">
+<section id="static_floss" class="mb-4">
     {% if file.floss %}
-        {% if file.floss.decoded_strings %}
-        <h4>Decoded Strings</h4>
-            <div class="well" style="font-family: monospace;">
-                {% for string in file.floss.decoded_strings %}
-                    <div>{{string}}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-
-        {% if file.floss.stack_strings %}
-        <h4>Stack Strings</h4>
-            <div class="well" style="font-family: monospace;">
-                {% for string in file.floss.stack_strings %}
-                    <div>{{string}}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-
-        {% if file.floss.tight_strings %}
-        <h4>Tight Strings</h4>
-            <div class="well" style="font-family: monospace;">
-                {% for string in file.floss.tight_strings %}
-                    <div>{{string}}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-
-        {% if file.floss.static_strings %}
-        <h4>Static Strings</h4>
-            <div class="well" style="font-family: monospace;">
-                {% for string in file.floss.static_strings %}
-                    <div>{{string}}</div>
-                {% endfor %}
-            </div>
-        {% endif %}
-
-        {% if file.floss.msg %}
-        <div class="well" style="font-family: monospace;">
-            <div>{{file.floss.msg}}</div>
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-search-plus me-2 text-info"></i> FLOSS Strings</h5>
         </div>
-        {% endif %}
+        <div class="card-body">
+            {% if file.floss.decoded_strings %}
+            <div class="mb-3">
+                <h6 class="text-white border-bottom pb-2">Decoded Strings</h6>
+                <div class="card bg-dark text-white border-0">
+                    <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
+                        <pre class="mb-0 text-light small">{% for string in file.floss.decoded_strings %}{{string}}<br>{% endfor %}</pre>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
+            {% if file.floss.stack_strings %}
+            <div class="mb-3">
+                <h6 class="text-white border-bottom pb-2">Stack Strings</h6>
+                <div class="card bg-dark text-white border-0">
+                    <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
+                        <pre class="mb-0 text-light small">{% for string in file.floss.stack_strings %}{{string}}<br>{% endfor %}</pre>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if file.floss.tight_strings %}
+            <div class="mb-3">
+                <h6 class="text-white border-bottom pb-2">Tight Strings</h6>
+                <div class="card bg-dark text-white border-0">
+                    <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
+                        <pre class="mb-0 text-light small">{% for string in file.floss.tight_strings %}{{string}}<br>{% endfor %}</pre>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if file.floss.static_strings %}
+            <div class="mb-3">
+                <h6 class="text-white border-bottom pb-2">Static Strings</h6>
+                <div class="card bg-dark text-white border-0">
+                    <div class="card-body p-2" style="max-height: 200px; overflow-y: auto;">
+                        <pre class="mb-0 text-light small">{% for string in file.floss.static_strings %}{{string}}<br>{% endfor %}</pre>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if file.floss.msg %}
+            <div class="alert alert-info">
+                {{file.floss.msg}}
+            </div>
+            {% endif %}
+        </div>
+    </div>
     {% endif %}
 </section>

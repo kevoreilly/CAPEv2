@@ -248,7 +248,7 @@ class Disguise(Auxiliary):
 
     def start(self):
         if self.config.windows_static_route:
-            log.info(f"Config for route is: {str(self.config.windows_static_route)}")
+            log.info("Config for route is: %s", str(self.config.windows_static_route))
             self.add_persistent_route(self.config.windows_static_route_gateway)
         self.change_productid()
         self.set_office_mrus()

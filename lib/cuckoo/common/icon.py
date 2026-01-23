@@ -2,11 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-from ctypes import POINTER, Structure, byref
+from ctypes import POINTER, Structure, byref, cast, create_string_buffer, pointer, sizeof, string_at
 from ctypes import c_ubyte as BYTE
 from ctypes import c_uint as DWORD
 from ctypes import c_ushort as WORD
-from ctypes import cast, create_string_buffer, pointer, sizeof, string_at
 
 
 class GRPICONDIR(Structure):

@@ -599,7 +599,6 @@ def vba_clean_whitespace(vba_content_lines):
 
     # process lines one by one
     for vba_line in vba_content_lines:
-
         # remove leading and trailing whitespace
         # & reduce multiple whitespaces into one space
         vba_line = " ".join(vba_line.split())
@@ -801,7 +800,6 @@ def vba_extract_properties(vba_content_lines):
 
     # process lines one by one
     for vba_line in vba_content_lines:
-
         # look for property start keywords
         prop_start_pos = max(vba_line.find("Property Let "), vba_line.find("Property Get "))
 
@@ -856,7 +854,6 @@ def create_call_graph(vba_func_dict):
         DG.add_node(func_name, keywords="")
     # analyze function calls
     for func_name in vba_func_dict:
-
         func_code = vba_func_dict[func_name]
         # split function code into tokens
         func_code_tokens = list(filter(None, re.split(r'["(, \\-!?:\\r\\n)&=.><]+', func_code)))
@@ -898,7 +895,6 @@ def find_keywords_in_graph(vba_func_dict, DG):
     """
     # analyze function calls
     for func_name in vba_func_dict:
-
         func_code = vba_func_dict[func_name]
         # split function code into lines
         func_code_lines = filter(None, re.split("\n", func_code))

@@ -38,7 +38,7 @@ class Msix(Package):
 
         if len(file_names) and "config.json" in file_names:
             extract_zip(path, orig_path.parent)
-            log.debug(f"Extracted {len(file_names)} files from {path} to {orig_path.parent}")
+            log.debug("Extracted %d files from %s to %s", len(file_names), str(path), str(orig_path.parent))
 
         with suppress(Exception):
             config_path = str(orig_path.with_name("config.json"))
@@ -51,10 +51,10 @@ class Msix(Package):
                 if script_paths:
                     path = str(orig_path.with_name(script_paths[0]))
                     args = f'-NoProfile -ExecutionPolicy bypass -File "{path}"'
-                    log.debug(f"msix file contains script {path}")
+                    log.debug("msix file contains script %s", str(path))
 
         if not args:
-            args = f"-NoProfile -ExecutionPolicy bypass {os.getcwd()}\data\msix.ps1 {path}"
+            args = fr"-NoProfile -ExecutionPolicy bypass {os.getcwd()}\data\msix.ps1 {path}"
             # now we need to get app id and launch it
 
         return self.execute(powershell, args, powershell)

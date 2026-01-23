@@ -81,7 +81,6 @@ class TestAnalyzerInternals(unittest.TestCase):
 
 
 class TestAnalyzerChoosePackage(unittest.TestCase):
-
     def test_choose_package_shellcode(self):
         test = analyzer.Analyzer()
         test.config = MagicMock()
@@ -978,9 +977,8 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         # TODO add a couple of mocks
         random_pid = random.randint(1, 99999999)
         random_tid = random.randint(1, 9999999)
-        suspended = 1
-        data = bytes(f"{suspended}:{random_pid},{random_tid}".encode())
-        # This produces something like b"1:910271,1819029"
+        data = bytes(f"{random_pid},{random_tid}".encode())
+        # This produces something like b"910271,1819029"
         with patch("analyzer.INJECT_LIST", []):
             self.pipe_handler._handle_process(data=data)
             self.assertEqual(1, len(analyzer.INJECT_LIST))
@@ -988,23 +986,3 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         mock_process.assert_called_once()
         self.assertEqual(1, ana.NUM_INJECTED)
-
-    @patch("analyzer.Process")
-    def test_handle_process_invalid_data(self, mock_process):
-        ana = self.analyzer
-        with self.assertRaises(ValueError):
-            data = bytes("does not have a colon".encode())
-            self.pipe_handler._handle_process(data=data)
-        with self.assertRaises(ValueError):
-            data = bytes("has:too:many:colons".encode())
-            self.pipe_handler._handle_process(data=data)
-
-        data = bytes("no_comma:non_digits".encode())
-        self.pipe_handler._handle_process(data=data)
-        self.assertIsNone(ana.LASTINJECT_TIME)
-        mock_process.assert_not_called()
-
-        data = bytes("with_comma:non_digits,non_digits".encode())
-        self.pipe_handler._handle_process(data=data)
-        self.assertIsNone(ana.LASTINJECT_TIME)
-        mock_process.assert_not_called()

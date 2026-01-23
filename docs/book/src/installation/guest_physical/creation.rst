@@ -15,7 +15,7 @@ guide, so please refer to the official documentation.
         chapter.
 
     .. note::
-        For analysis purposes, you are recommended to use Windows 7 with User
+        For analysis purposes, you are recommended to use Windows 10 21H2 with User
         Access Control disabled.
 
 

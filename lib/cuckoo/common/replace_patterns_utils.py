@@ -59,7 +59,6 @@ def check_deny_pattern(container: list, pattern: str):
         return
     if any(deny_file in pattern for deny_file in FILES_DENYLIST):
         return
-    # import code;code.interact(local=dict(locals(), **globals()))
     if pattern.endswith(FILES_ENDING_DENYLIST):
         return
     if not _is_regkey_ok(pattern):

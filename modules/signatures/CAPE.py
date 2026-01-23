@@ -140,7 +140,6 @@ class CAPE_Unpacker(Signature):
     filter_apinames = set(["NtAllocateVirtualMemory", "NtProtectVirtualMemory", "VirtualProtectEx"])
 
     def on_call(self, call, process):
-
         if process["process_name"] in ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE"):
             return False
         if call["api"] == "NtAllocateVirtualMemory":
@@ -571,7 +570,6 @@ class CAPE_TransactedHollowing(Signature):
         self.transacted_hollowing = False
 
     def on_call(self, call, process):
-
         if call["api"] == "RtlSetCurrentTransaction":
             self.transaction_set = True
 

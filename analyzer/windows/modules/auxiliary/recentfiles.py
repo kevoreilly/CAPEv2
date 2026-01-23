@@ -70,7 +70,7 @@ class RecentFiles(Auxiliary):
             ext = random.choice(self.extensions)
             filepath = os.path.join(dirpath, "%s.%s" % (filename, ext))
             open(filepath, "wb").write(os.urandom(random.randint(30, 999999)))
-            log.debug("Wrote 'recentfile' %s to disk." % filepath)
+            log.debug("Wrote 'recentfile' %s to disk.", filepath)
 
             SHELL32.SHAddToRecentDocs(SHARD_PATHA, filepath)
 

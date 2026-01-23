@@ -34,6 +34,12 @@ web_cfg = Config("web")
 tmp_path = cuckoo_conf.cuckoo.get("tmppath", "/tmp")
 linux_enabled = web_cfg.linux.get("enabled", False) or web_cfg.linux.get("static_only", False)
 
+try:
+    demux_files_limit = int(web_cfg.general.demux_files_limit)
+except ValueError:
+    log.error("Invalid value for demux_files_limit in web.conf, defaulting to 10")
+    demux_files_limit = 10  # Default value
+
 demux_extensions_list = {
     b".accdr",
     b".exe",
@@ -184,7 +190,7 @@ def _sf_children(child: sfFile):  # -> bytes:
                 path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()))
                 _ = path_write_file(path_to_extract, child.contents)
         except Exception as e:
-            log.error(e, exc_info=True)
+            log.exception(e)
     return (path_to_extract.encode(), child.platform, child.magic, child.filesize)
 
 
@@ -217,20 +223,22 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
                     tmp_child = _sf_children(ch)
                     # check if path is not empty
                     if tmp_child and tmp_child[0]:
-                        retlist.extend(tmp_child)
+                        retlist.append(tmp_child)
+
                 # child is not available, the original file should be put into the list
-                tmp_child = _sf_children(sf_child)
-                # check if path is not empty
-                if tmp_child and tmp_child[0]:
-                    retlist.append(tmp_child)
+                if not retlist:
+                    tmp_child = _sf_children(sf_child)
+                    # check if path is not empty
+                    if tmp_child and tmp_child[0]:
+                        retlist.append(tmp_child)
             else:
                 tmp_child = _sf_children(sf_child)
                 # check if path is not empty
                 if tmp_child and tmp_child[0]:
                     retlist.append(tmp_child)
     except Exception as e:
-        log.error(e, exc_info=True)
-    return retlist, ""
+        log.exception(e)
+    return list(filter(None, retlist)), ""
 
 
 def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""):  # -> tuple[bytes, str]:
@@ -262,7 +270,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                         {
                             os.path.basename(
                                 filename
-                            ): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option"
+                            ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option"
                         }
                     )
         return retlist, error_list
@@ -290,7 +298,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                     {
                         os.path.basename(
                             filename
-                        ): "Detected password protected office file, but no sflock is installed or correct password provided"
+                        ).decode(): "Detected password protected office file, but no sflock is installed or correct password provided"
                     }
                 )
 
@@ -313,8 +321,9 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             else:
                 error_list.append(
                     {
-                        os.path.basename(filename),
-                        "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
+                        os.path.basename(
+                            filename
+                        ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
                     }
                 )
         return retlist, error_list
@@ -331,13 +340,13 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     # original file
     if not retlist:
         if error_msg:
-            error_list.append({os.path.basename(filename), error_msg})
+            error_list.append({os.path.basename(filename).decode(): error_msg})
         new_retlist.append((filename, platform))
     else:
         for filename, platform, magic_type, file_size in retlist:
             # verify not Windows binaries here:
             if platform == "linux" and not linux_enabled and "Python" not in magic_type:
-                error_list.append({os.path.basename(filename): "Linux processing is disabled"})
+                error_list.append({os.path.basename(filename).decode(): "Linux processing is disabled"})
                 continue
 
             if file_size > web_cfg.general.max_sample_size:
@@ -349,10 +358,11 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
                 else:
                     error_list.append(
                         {
-                            os.path.basename(filename),
-                            "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
+                            os.path.basename(
+                                filename
+                            ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
                         }
                     )
             new_retlist.append((filename, platform))
 
-    return new_retlist[:10], error_list
+    return new_retlist[:demux_files_limit], error_list

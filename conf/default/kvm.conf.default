@@ -42,8 +42,8 @@ ip = 192.168.122.105
 # Example: MSIX - Windows >= 10
 # tags = winxp,acrobat_reader_6
 
-# (Optional) Specify the snapshot name to use. If you do not specify a snapshot
-# name, the KVM MachineManager will use the current snapshot.
+# (Optional) Specify the snapshot name to use.
+# If empty, it will use the current/latest snapshot.
 # Example (Snapshot1 is the snapshot name):
 # snapshot = Snapshot1
 

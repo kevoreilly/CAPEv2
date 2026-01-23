@@ -353,10 +353,10 @@ class TestAnalysisManager:
         # Patch Config to return our mock when called with "auxiliary"
         original_config = Config
 
-        def side_effect(arg):
-            if arg == "auxiliary":
+        def side_effect(fname_base="cuckoo"):
+            if fname_base == "auxiliary":
                 return mock_aux_config
-            return original_config(arg)
+            return original_config(fname_base)
 
         mocker.patch("lib.cuckoo.core.analysis_manager.Config", side_effect=side_effect)
 
@@ -445,10 +445,10 @@ class TestAnalysisManager:
         # Patch Config to return our mock when called with "auxiliary"
         original_config = Config
 
-        def side_effect(arg):
-            if arg == "auxiliary":
+        def side_effect(fname_base="cuckoo"):
+            if fname_base == "auxiliary":
                 return mock_aux_config
-            return original_config(arg)
+            return original_config(fname_base)
 
         mocker.patch("lib.cuckoo.core.analysis_manager.Config", side_effect=side_effect)
 

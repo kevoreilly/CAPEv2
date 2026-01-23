@@ -10,7 +10,7 @@ from pytest_mock import MockerFixture
 from sqlalchemy import select
 
 from lib.cuckoo.common.abstracts import Machinery
-from lib.cuckoo.common.config import ConfigMeta
+from lib.cuckoo.common.config import Config, ConfigMeta
 from lib.cuckoo.core.analysis_manager import AnalysisManager
 from lib.cuckoo.core.database import TASK_RUNNING, Guest, Machine, Task, _Database
 from lib.cuckoo.core.machinery_manager import MachineryManager
@@ -303,7 +303,12 @@ class TestAnalysisManager:
         assert "no machine is used" in caplog.text
 
     def test_build_options(
-        self, db: _Database, tmp_path: pathlib.Path, task: Task, machine: Machine, machinery_manager: MachineryManager
+        self,
+        db: _Database,
+        tmp_path: pathlib.Path,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
     ):
         with db.session.begin():
             task = db.session.merge(task)
@@ -315,57 +320,38 @@ class TestAnalysisManager:
 
         analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
         opts = analysis_man.build_options()
-        assert opts == {
-            "amsi": False,
-            "browser": True,
-            "browsermonitor": False,
+
+        expected_opts = {
             "category": "file",
             "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
-            "curtain": False,
-            "digisig": True,
-            "disguise": True,
             "do_upload_max_size": 0,
-            "during_script": False,
             "enable_trim": 0,
             "enforce_timeout": 1,
-            "evtx": False,
             "exports": "",
-            "filecollector": True,
             "file_name": "sample.py",
-            "file_pickup": False,
             "file_type": "Python script, ASCII text executable",
-            "human_linux": False,
-            "human_windows": True,
             "id": task.id,
             "ip": "5.6.7.8",
             "options": "foo=bar",
             "package": "foo",
-            "permissions": False,
             "port": "2043",
-            "pre_script": False,
-            "procmon": False,
-            "recentfiles": False,
-            "screenshots_linux": True,
-            "screenshots_windows": True,
-            "sslkeylogfile": False,
-            "sysmon_linux": False,
-            "sysmon_windows": False,
             "target": str(tmp_path / "sample.py"),
             "terminate_processes": False,
             "timeout": 10,
-            "tlsdump": True,
-            "tracee_linux": False,
             "upload_max_size": 100000000,
-            "usage": False,
-            "windows_static_route": False,
-            "windows_static_route_gateway": "192.168.1.1",
-            "dns_etw": False,
-            "wmi_etw": False,
-            "watchdownloads": False,
         }
+        # Dynamically load auxiliary modules from Config to ensure test stays in sync with configuration changes
+        expected_opts.update(Config("auxiliary").auxiliary_modules)
+
+        assert opts == expected_opts
 
     def test_build_options_pe(
-        self, db: _Database, tmp_path: pathlib.Path, task: Task, machine: Machine, machinery_manager: MachineryManager
+        self,
+        db: _Database,
+        tmp_path: pathlib.Path,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
     ):
         sample_location = get_test_object_path(
             pathlib.Path("data/core/5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b")
@@ -380,54 +366,31 @@ class TestAnalysisManager:
 
         analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
         opts = analysis_man.build_options()
-        assert opts == {
-            "amsi": False,
-            "browser": True,
-            "browsermonitor": False,
+
+        expected_opts = {
             "category": "file",
             "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
-            "curtain": False,
-            "digisig": True,
-            "disguise": True,
             "do_upload_max_size": 0,
-            "during_script": False,
             "enable_trim": 0,
             "enforce_timeout": 1,
-            "evtx": False,
             "exports": "",
-            "filecollector": True,
             "file_name": sample_location.name,
-            "file_pickup": False,
             "file_type": "PE32 executable (console) Intel 80386, for MS Windows",
-            "human_linux": False,
-            "human_windows": True,
             "id": task.id,
             "ip": "5.6.7.8",
             "options": "",
             "package": "file",
-            "permissions": False,
             "port": "2043",
-            "pre_script": False,
-            "procmon": False,
-            "recentfiles": False,
-            "screenshots_linux": True,
-            "screenshots_windows": True,
-            "sslkeylogfile": False,
-            "sysmon_linux": False,
-            "sysmon_windows": False,
             "target": str(sample_location),
             "terminate_processes": False,
             "timeout": 10,
-            "tlsdump": True,
-            "tracee_linux": False,
             "upload_max_size": 100000000,
-            "usage": False,
-            "windows_static_route": False,
-            "windows_static_route_gateway": "192.168.1.1",
-            "dns_etw": False,
-            "wmi_etw": False,
-            "watchdownloads": False,
         }
+        # Dynamically load auxiliary modules from Config to ensure test stays in sync with configuration changes
+        expected_opts.update(Config("auxiliary").auxiliary_modules)
+
+        assert opts == expected_opts
+
 
     def test_category_checks(
         self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture

@@ -164,6 +164,16 @@ class PortableExecutable:
             log.debug("PE type not recognised: %s", e)
         # self.results = results
 
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
+
+    def close(self):
+        if self.pe:
+            self.pe.close()
+
     @property
     def file_data(self):
         if not self._file_data and path_exists(self.file_path):
@@ -348,6 +358,18 @@ class PortableExecutable:
                 continue
 
         return resources
+
+    def get_machine_type(self, pe: pefile.PE) -> str:
+        if not pe or not hasattr(pe, "FILE_HEADER"):
+            return None
+
+        try:
+            machine_val = pe.FILE_HEADER.Machine
+            return pefile.MACHINE_TYPE.get(machine_val, hex(machine_val))
+        except Exception as e:
+            log.exception(e)
+
+        return None
 
     def get_pdb_path(self, pe: pefile.PE) -> str:
         if not pe or not hasattr(pe, "DIRECTORY_ENTRY_DEBUG"):
@@ -930,6 +952,7 @@ class PortableExecutable:
             "reported_checksum": self.get_reported_checksum(self.pe),
             "actual_checksum": self.get_actual_checksum(self.pe),
             "osversion": self.get_osversion(self.pe),
+            "machine_type": self.get_machine_type(self.pe),
             "pdbpath": self.get_pdb_path(self.pe),
             "imports": self.get_imported_symbols(self.pe),
             "exported_dll_name": self.get_exported_dll_name(self.pe),

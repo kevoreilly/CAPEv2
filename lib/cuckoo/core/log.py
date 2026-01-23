@@ -147,6 +147,33 @@ def task_log_stop(task_id):
         _tasks_lock.release()
 
 
+def task_log_stop_force(task_id):
+    """Force disassociate all threads from a task and close the log file."""
+    _tasks_lock.acquire()
+    try:
+        if task_id not in _task_threads:
+            return
+
+        # Close the file handle (shared by all threads for this task)
+        # We can take it from any associated thread
+        if _task_threads[task_id]:
+            first_key = _task_threads[task_id][0]
+            if first_key in _tasks:
+                _, fp = _tasks[first_key]
+                try:
+                    fp.close()
+                except Exception as e:
+                    logging.warning("Failed to force-close log for task %d: %s", task_id, e)
+
+        # Cleanup all references
+        for thread_key in _task_threads[task_id]:
+            _tasks.pop(thread_key, None)
+
+        _task_threads.pop(task_id, None)
+    finally:
+        _tasks_lock.release()
+
+
 def init_logger(name, level=None):
     formatter = logging.Formatter("%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 

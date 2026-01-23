@@ -32,6 +32,7 @@ from lib.cuckoo.common.integrations.parse_pdf import PDF
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, PortableExecutable
 from lib.cuckoo.common.integrations.parse_rdp import parse_rdp_file
 from lib.cuckoo.common.integrations.parse_wsf import WindowsScriptFile  # EncodedScriptFile
+from lib.cuckoo.common.integrations.parse_msi import parse_msi
 
 # from lib.cuckoo.common.integrations.parse_elf import ELF
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
@@ -144,12 +145,6 @@ if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_dema
 
     HAVE_VIRUSTOTAL = True
 
-HAVE_MANDIANT_INTEL = False
-if integration_conf.mandiant_intel.enabled:
-    from lib.cuckoo.common.integrations.mandiant_intel import mandiant_lookup
-
-    HAVE_MANDIANT_INTEL = True
-
 exclude_startswith = ("parti_",)
 excluded_extensions = (".parti",)
 tools_folder = os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
@@ -181,9 +176,13 @@ def static_file_info(
     ):
         log.info("Missed dependencies: pip3 install oletools")
 
+    if "MSI Installer" in data_dictionary["type"]:
+        data_dictionary["msi"] = parse_msi(file_path)
+
     # ToDo we need type checking as it wont work for most of static jobs
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
-        data_dictionary["pe"] = PortableExecutable(file_path).run(task_id)
+        with PortableExecutable(file_path) as pe:
+            data_dictionary["pe"] = pe.run(task_id)
 
         if HAVE_FLARE_CAPA:
             # https://github.com/mandiant/capa/issues/2620
@@ -267,11 +266,6 @@ def static_file_info(
             vt_details = vt_lookup("file", file_path, results)
             if vt_details:
                 data_dictionary["virustotal"] = vt_details
-
-        if HAVE_MANDIANT_INTEL and processing_conf.mandiant_intel.enabled:
-            mandiant_intel_details = mandiant_lookup("file", file_path, results)
-            if mandiant_intel_details:
-                data_dictionary["mandiant_intel"] = mandiant_intel_details
 
     generic_file_extractors(
         file_path,
@@ -690,6 +684,7 @@ def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
     if "MSI Installer" not in filetype:
         return
 
+    # ToDo replace MsiExtract with pymsi
     extracted_files = []
     # sudo apt install msitools
     with extractor_ctx(file, "MsiExtract", prefix="msidump_", folder=tools_folder) as ctx:
@@ -960,7 +955,13 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
 
 @time_tracker
 def office_one(file, **_) -> ExtractorReturnType:
-    if not HAVE_ONE or open(file, "rb").read(16) not in (
+    if not HAVE_ONE:
+        return
+
+    with open(file, "rb") as f:
+        header = f.read(16)
+
+    if header not in (
         b"\xE4\x52\x5C\x7B\x8C\xD8\xA7\x4D\xAE\xB1\x53\x78\xD0\x29\x96\xD3",
         b"\xA1\x2F\xFF\x43\xD9\xEF\x76\x4C\x9E\xE2\x10\xEA\x57\x22\x76\x5F",
     ):

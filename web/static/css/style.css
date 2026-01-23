@@ -21,16 +21,21 @@ body {
 }
 
 a {
-    color: white
+    color: #5ebcf3;
+    text-decoration: none;
 }
 
 .navbar-collapse.in {
     display: block !important;
 }
 
-.alert-primary
+.alert-primary, .alert-info
 {
-    background-color: #303030
+    background-color: #1c1c1c
+}
+
+.alert-info code {
+    color: white;
 }
 
 .nav-link {
@@ -46,7 +51,61 @@ element.style {
 }
 
 a:hover {
-    color: #EE1B2F
+    color: #EE1B2F;
+    text-decoration: underline;
+}
+
+.btn-primary {
+    background-color: #325d88 !important;
+    border-color: #325d88 !important;
+    color: #fff !important;
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: #264768 !important;
+    border-color: #264768 !important;
+}
+
+.btn-info {
+    background-color: #29aba1 !important;
+    border-color: #29aba1 !important;
+    color: #fff !important;
+}
+
+.btn-info:hover, .btn-info:focus, .btn-info:active {
+    background-color: #1f8179 !important;
+    border-color: #1f8179 !important;
+}
+
+.btn-outline-info {
+    color: #29aba1 !important;
+    border-color: #29aba1 !important;
+}
+
+.btn-outline-info:hover {
+    background-color: #29aba1 !important;
+    border-color: #29aba1 !important;
+    color: #fff !important;
+}
+
+.text-info {
+    color: #4dd0e1 !important;
+}
+
+.bg-primary {
+    background-color: #325d88 !important;
+}
+
+.text-primary {
+    color: #5ebcf3 !important;
+}
+
+.bg-info {
+    background-color: #29aba1 !important;
+}
+
+.badge.bg-primary, .badge.bg-info, .badge.bg-danger, .badge.bg-success {
+    color: #fff !important;
 }
 
 .btn-link {
@@ -117,9 +176,9 @@ footer a:hover {
 .center {
     text-align: center;
 }
-.mono {
-    font-family: monospace;
-    font-size: medium;
+td code {
+    white-space: pre-wrap;
+    word-break: break-all;
 }
 .content {
     background-color: white;
@@ -164,6 +223,76 @@ a.tag-label {
 
 h4, .h4 {
     font-size: 18px;
+}
+
+.page-header {
+    margin-bottom: 10px;
+}
+.filter-box {
+    display : none;
+    padding-top: 15px;
+	height : auto;
+	width : 40%;
+}
+/* Fix the icon tab override */
+.nav-tabs > .active > a > [class^="icon-"],.nav-tabs>.active>a>[class*=" icon-"] { background-image:url("../img/glyphicons-halflings.png") !important; }
+
+td {
+    word-wrap: break-word;
+    word-break: break-all;
+}
+
+.tab-content {
+    margin-top: 25px;
+}
+
+.row-active {
+    background-color:darkred;
+}
+
+pre {
+    white-space: -moz-pre-wrap;
+    white-space: -pre-wrap;
+    white-space: -o-pre-wrap;
+    word-wrap: break-word;
+}
+
+.extracted-config > table > tbody > tr > td {
+    font-family: monospace;
+    font-size: 87.5%;
+}
+
+.tcp-flow {
+    list-style-type: none;
+}
+.tcp-flow li {
+    margin-bottom: 20px;
+}
+.tcp-out {
+}
+.tcp-out pre {
+    padding: 0;
+    border: 0;
+    /*background-color: white;*/
+    color: #d9534f;
+}
+.tcp-in {
+    padding-left: 100px;
+}
+.tcp-in pre {
+    padding: 0;
+    border: 0;
+    /*background-color: white;*/
+    color: #5bc0de;
+}
+.filter-toggle {
+    display: inline-block;
+    cursor: pointer;
+}
+
+.form-control {
+    background-color: darkgray;
+    color:black;
 }
 
 /* Windows API categories */
@@ -265,71 +394,143 @@ h4, .h4 {
     background-color: #ffc5ee;
     color: black;
 }
-.page-header {
-    margin-bottom: 10px;
-}
-.filter-box {
-    display : none;
-    padding-top: 15px;
-	height : auto;
-	width : 40%;
-}
-/* Fix the icon tab override */
-.nav-tabs > .active > a > [class^="icon-"],.nav-tabs>.active>a>[class*=" icon-"] { background-image:url("../img/glyphicons-halflings.png") !important; }
 
-td {
-    word-wrap: break-word;
-}
+.btn-cat-filesystem { background-color: #ffe3c5; color: black; border-color: #ffe3c5; }
+.btn-cat-filesystem:hover { color: black; }
+.btn-cat-registry { background-color: #ffc5c5; color: black; border-color: #ffc5c5; }
+.btn-cat-registry:hover { color: black; }
+.btn-cat-process { background-color: #c5e0ff; color: black; border-color: #c5e0ff; }
+.btn-cat-process:hover { color: black; }
+.btn-cat-threading { background-color: #d3e0ff; color: black; border-color: #d3e0ff; }
+.btn-cat-threading:hover { color: black; }
+.btn-cat-services { background-color: #ccc5ff; color: black; border-color: #ccc5ff; }
+.btn-cat-services:hover { color: black; }
+.btn-cat-device { background-color: #d3c5cc; color: black; border-color: #d3c5cc; }
+.btn-cat-device:hover { color: black; }
+.btn-cat-network { background-color: #d3ffc5; color: black; border-color: #d3ffc5; }
+.btn-cat-network:hover { color: black; }
+.btn-cat-socket { background-color: #d3ffc5; color: black; border-color: #d3ffc5; }
+.btn-cat-socket:hover { color: black; }
+.btn-cat-synchronization { background-color: #f9c5ff; color: black; border-color: #f9c5ff; }
+.btn-cat-synchronization:hover { color: black; }
+.btn-cat-browser { background-color: #dfffdf; color: black; border-color: #dfffdf; }
+.btn-cat-browser:hover { color: black; }
+.btn-cat-crypto { background-color: #f0f2c5; color: black; border-color: #f0f2c5; }
+.btn-cat-crypto:hover { color: black; }
 
-.tab-content {
-    margin-top: 25px;
+/* Remove default underline, add on hover (exclude buttons if needed) */
+a:not(.btn, [class*="btn"]) {
+    text-decoration: none !important;
 }
-
-.row-active {
-    background-color:darkred;
-}
-
-pre {
-    white-space: -moz-pre-wrap;
-    white-space: -pre-wrap;
-    white-space: -o-pre-wrap;
-    word-wrap: break-word;
-}
-
-.extracted-config > table > tbody > tr > td {
-    font-family: monospace;
-    font-size: 87.5%;
+a:not(.btn, [class*="btn"]):hover {
+    text-decoration: underline !important;
 }
 
-.tcp-flow {
-    list-style-type: none;
-}
-.tcp-flow li {
-    margin-bottom: 20px;
-}
-.tcp-out {
-}
-.tcp-out pre {
-    padding: 0;
-    border: 0;
-    /*background-color: white;*/
-    color: #d9534f;
-}
-.tcp-in {
-    padding-left: 100px;
-}
-.tcp-in pre {
-    padding: 0;
-    border: 0;
-    /*background-color: white;*/
-    color: #5bc0de;
-}
-.filter-toggle {
-    display: inline-block;
-    cursor: pointer;
+.bg-dark::placeholder {
+  color: rgba(255, 255, 255, 0.7);
 }
 
-.form-control {
-    background-color: darkgray;
-    color:black;
+/* Make category background apply to table cells in BS5 */
+.table tbody tr.filesystem > td,
+.table tbody tr.filesystem > th,
+.table tbody tr.registry > td,
+.table tbody tr.registry > th,
+.table tbody tr.process > td,
+.table tbody tr.process > th,
+.table tbody tr.threading > td,
+.table tbody tr.threading > th,
+.table tbody tr.services > td,
+.table tbody tr.services > th,
+.table tbody tr.device > td,
+.table tbody tr.device > th,
+.table tbody tr.network > td,
+.table tbody tr.network > th,
+.table tbody tr.socket > td,
+.table tbody tr.socket > th,
+.table tbody tr.synchronization > td,
+.table tbody tr.synchronization > th,
+.table tbody tr.browser > td,
+.table tbody tr.browser > th,
+.table tbody tr.crypto > td,
+.table tbody tr.crypto > th,
+.table tbody tr.kernel > td,
+.table tbody tr.kernel > th,
+.table tbody tr.fs > td,
+.table tbody tr.fs > th,
+.table tbody tr.mm > td,
+.table tbody tr.mm > th,
+.table tbody tr.net > td,
+.table tbody tr.net > th,
+.table tbody tr.ipc > td,
+.table tbody tr.ipc > th,
+.table tbody tr.security > td,
+.table tbody tr.security > th,
+.table tbody tr.drivers > td,
+.table tbody tr.drivers > th,
+.table tbody tr.io_uring > td,
+.table tbody tr.io_uring > th,
+.table tbody tr.block > td,
+.table tbody tr.block > th,
+.table tbody tr.system > td,
+.table tbody tr.system > th,
+.table tbody tr.windows > td,
+.table tbody tr.windows > th {
+  background-color: inherit; /* inherit the TR background-color */
+  color: inherit;            /* inherit the TR text color */
+}
+
+/* Dark-theme file input (Bootstrap 5) */
+.form-control[type="file"]{
+  background-color: #212529;                 /* bg-dark */
+  color: rgba(255,255,255,.85);              /* readable on dark */
+  border: 1px solid #6c757d;                 /* border-secondary */
+}
+
+/* Placeholder-ish text (some browsers show filename text differently) */
+.form-control[type="file"]::placeholder{
+  color: rgba(255,255,255,.6);
+}
+
+/* The “Browse” button part */
+.form-control[type="file"]::file-selector-button{
+  background-color: #343a40;                 /* dark button */
+  color: rgba(255,255,255,.9);
+  border: 0;
+  border-right: 1px solid #6c757d;           /* border-secondary */
+  padding: .375rem .75rem;
+  margin-right: .75rem;                      /* spacing before filename */
+}
+
+/* Hover/focus states */
+.form-control[type="file"]::file-selector-button:hover{
+  background-color: #3f474e;
+}
+
+.form-control[type="file"]:focus{
+  border-color: #adb5bd;                     /* slightly brighter */
+  box-shadow: 0 0 0 .25rem rgba(108,117,125,.25);
+}
+
+/* Disabled */
+.form-control[type="file"]:disabled{
+  background-color: #1c1f23;
+  color: rgba(255,255,255,.5);
+}
+.form-control[type="file"]:disabled::file-selector-button{
+  background-color: #2b3035;
+  color: rgba(255,255,255,.5);
+}
+
+.bg-dark .form-check-label {
+  color: #fff;
+}
+
+.bg-dark .form-check-input {
+  background-color: #212529;
+  border-color: #6c757d;
+}
+
+.bg-dark .form-check-input:checked {
+  background-color: #0d6efd;
+  border-color: #0d6efd;
 }

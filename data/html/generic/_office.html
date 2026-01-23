@@ -68,11 +68,11 @@
                         <h4>File Analysis (Signatures)</h4>
                         {% for detection in file.office.Macro.Analysis %}
                         <div>
-                            <div class="panel" id="accordion" style="margin-top: 20px;">
+                            <div class="card" id="accordion" style="margin-top: 20px;">
                             <div class="card-header">
-                                <a class="accordion-toggle" data-parent="#analysis_sigs" data-toggle="collapse" href="#{{detection}}" aria-expanded="false"><i class="icon icon-cog"></i>{{detection}}</a>
+                                <a class="btn btn-link" data-bs-parent="#analysis_sigs" data-bs-toggle="collapse" href="#{{detection}}" aria-expanded="false"><i class="fas fa-cog"></i>{{detection}}</a>
                             </div>
-                            <div id="{{detection}}" class="panel-collapse collapse" style="text-align: left;">
+                            <div id="{{detection}}" class="collapse" style="text-align: left;">
                                 <table class="table table-striped table-bordered">
                                 <colgroup>
                                     <col width="200">
@@ -106,7 +106,7 @@
                         <tr>
                             <td>VBA Filename</td>
                             <td>{{name}}</td>
-                            <td><a class="accordion-toggle" data-toggle="collapse" data-parent="#accordion" href="#{{macrodata}}">Extracted Macro</a></td>
+                            <td><a class="btn btn-link" data-bs-toggle="collapse" data-bs-parent="#accordion" href="#{{macrodata}}">Extracted Macro</a></td>
                         </tr>
                         </table>
                         <div id="{{macrodata}}" class="collapse">
@@ -137,7 +137,7 @@
                             {% for block in value %}
                                 <tr>
                                     {% if block.sha256 %}
-                                        <td><a href={% url "file" "rtf" file.info.id block.sha256 %} class="btn btn-secondary btn-small">{{block.filename}}</a></td>
+                                        <td><a href={% url "file" "rtf" file.info.id block.sha256 %} class="btn btn-secondary btn-sm">{{block.filename}}</a></td>
                                     {% else %}
                                         <td>{{block.filename}}</td>
                                     {% endif %}

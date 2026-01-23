@@ -122,13 +122,13 @@ def hash_file(method, path: str) -> str:
     @param path: file path
     @return: computed hash string
     """
-    f = open(path, "rb")
     h = method()
-    while True:
-        buf = f.read(BUFSIZE)
-        if not buf:
-            break
-        h.update(buf)
+    with open(path, "rb") as f:
+        while True:
+            buf = f.read(BUFSIZE)
+            if not buf:
+                break
+            h.update(buf)
     return h.hexdigest()
 
 
@@ -335,7 +335,8 @@ def static_config_lookup(file_path: str, sha256: str = False) -> dict:
         dict or None: A dictionary containing the configuration information if found, otherwise None.
     """
     if not sha256:
-        sha256 = hashlib.sha256(open(file_path, "rb").read()).hexdigest()
+        with open(file_path, "rb") as f:
+            sha256 = hashlib.sha256(f.read()).hexdigest()
 
     if repconf.mongodb.enabled:
         document_dict = mongo_find_one(

@@ -62,7 +62,7 @@ def get_item(dictionary, key):
     return dictionary.get(key, "")
 
 
-malware_name_url_pattern = """<a href="/analysis/search/detections:{malware_name}"><span style="color:#EE1B2F;font-weight: bold;">{malware_name}</span></a>"""
+malware_name_url_pattern = """<a href="/analysis/search/detections:{malware_name}"><span style="font-weight: bold;">{malware_name}</span></a>"""
 
 
 @register.filter("get_detection_by_pid")

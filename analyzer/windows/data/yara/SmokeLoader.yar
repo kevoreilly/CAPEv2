@@ -1,11 +1,11 @@
-rule SmokeLoader
+rule SmokeInjector
 {
     meta:
         author = "kevoreilly"
-        description = "SmokeLoader Payload"
-        cape_options = "bp0=$gate+19,action0=DumpSectionViews,count=1"
+        cape_options = "monitor=explorer"
+        packed = "d38f9ab81a054203e5b5940e6d34f3c8766f4f4104b14840e4695df511feaa30"
     strings:
-        $gate = {68 [2] 00 00 50 E8 [4] 8B 45 ?? 89 F1 8B 55 ?? 9A [2] 40 00 33 00 89 F9 89 FA 81 C1 [2] 00 00 81 C2 [2] 00 00 89 0A 8B 46 ?? 03 45 ?? 8B 4D ?? 8B 55 ?? 9A [2] 40 00 33 00}
+        $dec1 = {80 04 08 [0-7] (49|83 E9 01) [0-7] 41 [0-7] 81 F1 [2] 00 00 [0-7] 01 D9 [0-7] FF E1}
     condition:
         uint16(0) == 0x5A4D and any of them
 }

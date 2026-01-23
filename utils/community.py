@@ -89,11 +89,11 @@ def install(enabled, force, rewrite, clean=False, filepath: str = False, access_
 
             if b"Not Found" == data:
                 print("You don't have permissions to access this repo")
-                sys.exit(-1)
+                return
             t = tarfile.TarFile.open(fileobj=BytesIO(data), mode="r:gz")
         except Exception as e:
             print("ERROR: Unable to download archive: %s" % e)
-            sys.exit(-1)
+            return
 
     folders = {
         "feeds": "modules/feeds",

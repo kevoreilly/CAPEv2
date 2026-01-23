@@ -156,7 +156,7 @@
         <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">
-                    <button class="btn btn-link" data-toggle="collapse" href="#pe_resources" data-target="#pe_resources_{{file.sha256}}" aria-expanded="false">
+                    <button class="btn btn-link" data-bs-toggle="collapse" href="#pe_resources" data-bs-target="#pe_resources_{{file.sha256}}" aria-expanded="false">
                         <strong>Resources</strong></a>
                     </button>
                     </h5>
@@ -198,7 +198,7 @@
             <div class="card">
                 <div class="card-header">
                     <h5 class="mb-0">
-                    <button class="btn btn-link" data-toggle="collapse" href="#{{dll}}" data-target="#{{dll}}" aria-expanded="false">
+                    <button class="btn btn-link" data-bs-toggle="collapse" href="#{{dll}}" data-bs-target="#{{dll}}" aria-expanded="false">
                         <strong>Library {{dll}}</strong>:</a>
                     </button>
                     </h5>
@@ -240,7 +240,7 @@
 
         {% if file.pe.digital_signers %}
             <div class="card-header">
-                <center><a class="accordion-toggle" data-toggle="collapse" aria-expanded="false" href="#pe_digital_signers">Digital Signers</a></center>
+                <center><a class="btn btn-link" data-bs-toggle="collapse" aria-expanded="false" href="#pe_digital_signers">Digital Signers</a></center>
             </div>
             <hr />
             <div id="pe_digital_signers" class="collapse" style="text-align: left;">
@@ -389,10 +389,10 @@
                             <td>{{file.pe.guest_signers.aux_sha1}}</td>
                             <td>{{file.pe.guest_signers.aux_timestamp}}</td>
                             {% if file.pe.guest_signers.aux_valid %}
-                            <td><center><span class="badge badge-success">Yes</span></center></td>
+                            <td><center><span class="badge bg-success">Yes</span></center></td>
                             <td>None</td>
                             {% else %}
-                            <td><center><span class="badge badge-danger">No</span></center></td>
+                            <td><center><span class="badge bg-danger">No</span></center></td>
                             <td>{{file.pe.guest_signers.aux_error_desc}}</td>
                             {% endif %}
                         </tr>

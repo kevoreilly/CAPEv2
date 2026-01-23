@@ -574,9 +574,9 @@ Manually testing Internet connection
 ====================================
 You can manually test the Internet connection from inside the VMs without the need of performing any analysis. To do so, you have to use the . This utility allows you to enable or disable specific **routes** and debug them. It is a "Standalone script to debug VM problems that allows to enable routing on VM".
 
-First, **stop** the ``cape-rooter`` service with::
+First, **start** the ``cape-rooter`` service with::
 
-    $ sudo systemctl stop cape-rooter.service
+    $ sudo systemctl start cape-rooter.service
 
 Assuming you already have any VM running, to test the internet connection using ``router_manager.py`` you have to execute the following commands::
 

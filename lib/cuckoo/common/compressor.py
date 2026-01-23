@@ -1,33 +1,19 @@
 import binascii
 import logging
+import mmap
 import os
 import struct
 from pathlib import Path
 
 log = logging.getLogger(__name__)
 
+# bson from pymongo is C so is faster
 try:
     import bson
 
     HAVE_BSON = True
 except ImportError:
     HAVE_BSON = False
-else:
-    # The BSON module provided by pymongo works through its "BSON" class.
-    if hasattr(bson, "BSON"):
-
-        def bson_decode(d):
-            return bson.BSON(d).decode()
-
-    # The BSON module provided by "pip3 install bson" works through the
-    # "loads" function (just like pickle etc.)
-    elif hasattr(bson, "loads"):
-
-        def bson_decode(d):
-            return bson.loads(d)
-
-    else:
-        HAVE_BSON = False
 
 
 class NGram:
@@ -91,50 +77,115 @@ class CuckooBsonCompressor:
         self.callmap = {}
         self.head = []
         self.ccounter = 0
+        self.category = None
 
-    def __next_message(self):
-        data = self.fd_in.read(4)
-        if not data:
-            return (False, False)
-        _size = struct.unpack("I", data)[0]
-        data += self.fd_in.read(_size - 4)
-        self.raw_data = data
-        return (data, bson_decode(data))
+    def _process_message(self, msg, data):
+        mtype = msg.get("type")  # message type [debug, new_process, info]
+        if mtype in {"debug", "new_process", "info"}:
+            self.category = msg.get("category", "None")
+            self.head.append(data.tobytes() if isinstance(data, memoryview) else data)
 
-    def run(self, file_path):
-        if not os.path.isfile(file_path) and os.stat(file_path).st_size:
+        elif self.category and self.category.startswith("__"):
+            self.head.append(data.tobytes() if isinstance(data, memoryview) else data)
+        else:
+            tid = msg.get("T", -1)
+            time = msg.get("t", 0)
+
+            if tid not in self.threads:
+                self.threads[tid] = Compressor(100)
+
+            csum = self.checksum(msg)
+            self.ccounter += 1
+            v = (csum, self.ccounter, time)
+            self.threads[tid].add(v)
+
+            if csum not in self.callmap:
+                self.callmap[csum] = msg
+
+    def _process_mmap_content(self, mm):
+        with memoryview(mm) as mv:
+            offset = 0
+            size_mm = len(mm)
+
+            while offset < size_mm:
+                # Read size (4 bytes)
+                if offset + 4 > size_mm:
+                    break
+
+                # Slicing memoryview returns memoryview
+                size_bytes = mv[offset : offset + 4]
+                _size = struct.unpack("I", size_bytes)[0]
+
+                if offset + _size > size_mm:
+                    break
+
+                data = mv[offset : offset + _size]
+                offset += _size
+
+                try:
+                    msg = bson.decode(data)
+                except Exception:
+                    break
+
+                if msg:
+                    self._process_message(msg, data)
+
+    def run(self, file_path, use_mmap=False):
+        if use_mmap:
+            return self._run_mmap(file_path)
+        return self._run_standard(file_path)
+
+    def _run_mmap(self, file_path):
+        if not os.path.isfile(file_path) or not os.stat(file_path).st_size:
             log.warning("File %s does not exists or it is invalid", file_path)
             return False
 
-        self.fd_in = open(file_path, "rb")
+        with open(file_path, "rb") as f:
+            try:
+                mm = mmap.mmap(f.fileno(), 0, access=mmap.ACCESS_READ)
+            except ValueError:
+                return False
 
-        msg = "---"
-        while msg:
-            data, msg = self.__next_message()
+            try:
+                self._process_mmap_content(mm)
+            finally:
+                mm.close()
 
-            if msg:
-                mtype = msg.get("type")  # message type [debug, new_process, info]
-                if mtype in {"debug", "new_process", "info"}:
-                    self.category = msg.get("category", "None")
-                    self.head.append(data)
+        return self.flush(file_path)
 
-                elif self.category.startswith("__"):
-                    self.head.append(data)
-                else:
-                    tid = msg.get("T", -1)
-                    time = msg.get("t", 0)
+    def _run_standard(self, file_path):
+        if not os.path.isfile(file_path) or not os.stat(file_path).st_size:
+            log.warning("File %s does not exists or it is invalid", file_path)
+            return False
 
-                    if tid not in self.threads:
-                        self.threads[tid] = Compressor(100)
+        with open(file_path, "rb") as f:
+            while True:
+                size_bytes = f.read(4)
+                if len(size_bytes) < 4:
+                    break
 
-                    csum = self.checksum(msg)
-                    self.ccounter += 1
-                    v = (csum, self.ccounter, time)
-                    self.threads[tid].add(v)
+                try:
+                    _size = struct.unpack("I", size_bytes)[0]
+                except struct.error:
+                    break
 
-                    if csum not in self.callmap:
-                        self.callmap[csum] = msg
-        self.fd_in.close()
+                remaining = _size - 4
+                if remaining < 0:
+                    break
+
+                data_body = f.read(remaining)
+                if len(data_body) < remaining:
+                    break
+
+                data = size_bytes + data_body
+
+                try:
+                    msg = bson.decode(data)
+                except Exception:
+                    break
+
+                if msg:
+                    self._process_message(msg, data)
 
         return self.flush(file_path)
 
@@ -167,7 +218,7 @@ class CuckooBsonCompressor:
         if final and os.path.isfile(compressed_path):
             for d in final:
                 d.pop("order")
-                edata = bson.BSON.encode(d)
+                edata = bson.encode(d)
                 fd.write(edata)
 
             os.rename(file_path, f"{file_path}.raw")
@@ -182,9 +233,35 @@ class CuckooBsonCompressor:
         # this value is used for identifying a call setup.
 
         index = msg.get("I", -1)
-        args = "".join([str(c) for c in msg["args"]])
-        content = [str(index), str(msg["T"]), str(msg["R"]), args, str(self.category), str(msg["P"])]
+        args = "".join(map(str, msg["args"]))
+        content = f"{index}{msg['T']}{msg['R']}{args}{self.category}{msg['P']}"
 
-        content = "".join(content)
+        return binascii.crc32(content.encode("utf8"))
 
-        return binascii.crc32(bytes(content, "utf8"))
+
+if __name__ == "__main__":
+    import argparse
+    import time
+    import sys
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("file", help="Path to BSON file to compress")
+    parser.add_argument("--mmap", action="store_true", help="Use mmap for compression")
+    args = parser.parse_args()
+
+    if not os.path.exists(args.file):
+        print(f"File {args.file} not found.")
+        sys.exit(1)
+
+    print(f"Compressing {args.file}...")
+    start = time.time()
+
+    compressor = CuckooBsonCompressor()
+    result = compressor.run(args.file, use_mmap=args.mmap)
+
+    end = time.time()
+
+    if result:
+        print(f"Compression successful. Took {end - start:.4f} seconds.")
+    else:
+        print("Compression failed.")

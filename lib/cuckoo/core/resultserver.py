@@ -17,6 +17,12 @@ with suppress(ImportError):
 
     HAVE_BSON = True
 
+HAVE_PROTOBUF = False
+with suppress(ImportError):
+    import google.protobuf  # noqa: F401
+
+    HAVE_PROTOBUF = True
+
 import gevent.pool
 import gevent.server
 import gevent.socket
@@ -32,7 +38,7 @@ from lib.cuckoo.common.path_utils import path_exists, path_get_filename
 
 # from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import Singleton, create_folder, default_converter, load_categories
-from lib.cuckoo.core.log import task_log_start, task_log_stop
+from lib.cuckoo.core.log import task_log_start, task_log_stop, task_log_stop_force
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -425,6 +431,27 @@ class BsonStore(ProtocolHandler):
             self.fd.close()
 
 
+class ProtobufStore(ProtocolHandler):
+    def init(self):
+        if self.version is None:
+            log.warning("Agent is sending Protobuf files without PID parameter, you should probably update it")
+            self.fd = None
+            return
+
+        self.fd = open(os.path.join(self.handler.storagepath, "logs", f"{self.version}.protobuf"), "wb")
+
+    def handle(self):
+        """Read a Protobuf stream, attempting at least basic validation, and
+        log failures."""
+        if self.fd:
+            self.handler.sock.settimeout(None)
+            return self.handler.copy_to_fd(self.fd)
+
+    def __del__(self):
+        if self.fd:
+            self.fd.close()
+
+
 class GeventResultServerWorker(gevent.server.StreamServer):
     """The new ResultServer, providing a huge performance boost as well as
     implementing a new dropped file storage format avoiding small fd limits.
@@ -440,6 +467,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
 
     commands = {
         b"BSON": BsonStore,
+        b"PROTO": ProtobufStore,
         b"FILE": FileUpload,
         b"LOG": LogHandler,
     }
@@ -479,10 +507,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             for ctx in ctxs:
                 log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
-            # ToDo just reinforce cleanup
-            task_log_stop(task_id)
-
-        task_log_stop(task_id)
+            task_log_stop_force(task_id)
 
     def create_folders(self):
         for folder in list(RESULT_UPLOADABLE) + [b"logs"]:

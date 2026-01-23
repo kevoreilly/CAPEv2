@@ -800,7 +800,7 @@ def do_update():
         with open(current_script, "wb") as f:
             f.write(new_content)
 
-    except Exception as ex:
+    except (IOError, OSError) as ex:
         return json_exception(f"Error updating agent: {ex}")
 
     return json_success("Agent updated successfully. Reboot and take snapshot...")

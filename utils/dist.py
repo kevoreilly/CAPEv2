@@ -1220,7 +1220,6 @@ class Retriever(threading.Thread):
                 node = nodes[node_id]
                 if node and details[node_id]:
                     ids = ",".join(list(set(details[node_id])))
-                    print(ids)
                     _delete_many(node_id, ids, nodes, db)
 
                 db.commit()
@@ -1462,7 +1461,6 @@ class StatusThread(threading.Thread):
                     """
                     # 4. Apply the limit and execute the query.
                     to_upload = db.scalars(stmt.limit(pend_tasks_num)).all()
-                    print(to_upload, node.name, pend_tasks_num)
 
                     if not to_upload:
                         db.commit()

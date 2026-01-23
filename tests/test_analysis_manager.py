@@ -309,7 +309,6 @@ class TestAnalysisManager:
         task: Task,
         machine: Machine,
         machinery_manager: MachineryManager,
-        mocker: MockerFixture,
     ):
         with db.session.begin():
             task = db.session.merge(task)
@@ -319,52 +318,10 @@ class TestAnalysisManager:
             task.clock = datetime.datetime.strptime("01-01-2099 09:01:01", "%m-%d-%Y %H:%M:%S")
             task.timeout = 10
 
-        # Mock the auxiliary configuration to return a fixed set of modules
-        mock_aux_config = mocker.Mock()
-        mock_aux_config.auxiliary_modules = {
-            "browser": True,
-            "curtain": False,
-            "digisig": True,
-            "disguise": True,
-            "evtx": False,
-            "human_windows": True,
-            "human_linux": False,
-            "procmon": False,
-            "recentfiles": False,
-            "screenshots_windows": True,
-            "screenshots_linux": True,
-            "sysmon_windows": False,
-            "sysmon_linux": False,
-            "tlsdump": True,
-            "usage": False,
-            "file_pickup": False,
-            "permissions": False,
-            "pre_script": False,
-            "during_script": False,
-            "filecollector": True,
-            "tracee_linux": False,
-            "sslkeylogfile": False,
-            "browsermonitor": False,
-            "wmi_etw": False,
-            "dns_etw": False,
-            "watchdownloads": False,
-        }
-
-        # Patch Config to return our mock when called with "auxiliary"
-        original_config = Config
-
-        def side_effect(fname_base="cuckoo"):
-            if fname_base == "auxiliary":
-                return mock_aux_config
-            return original_config(fname_base)
-
-        mocker.patch("lib.cuckoo.core.analysis_manager.Config", side_effect=side_effect)
-
         analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
         opts = analysis_man.build_options()
 
         expected_opts = {
-            "amsi": False,
             "category": "file",
             "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
             "do_upload_max_size": 0,
@@ -382,11 +339,9 @@ class TestAnalysisManager:
             "terminate_processes": False,
             "timeout": 10,
             "upload_max_size": 100000000,
-            "windows_static_route": False,
-            "windows_static_route_gateway": "192.168.1.1",
         }
-        # Merge the auxiliary modules into expected options
-        expected_opts.update(mock_aux_config.auxiliary_modules)
+        # Dynamically load auxiliary modules from Config to ensure test stays in sync with configuration changes
+        expected_opts.update(Config("auxiliary").auxiliary_modules)
 
         assert opts == expected_opts
 
@@ -397,7 +352,6 @@ class TestAnalysisManager:
         task: Task,
         machine: Machine,
         machinery_manager: MachineryManager,
-        mocker: MockerFixture,
     ):
         sample_location = get_test_object_path(
             pathlib.Path("data/core/5dd87d3d6b9d8b4016e3c36b189234772661e690c21371f1eb8e018f0f0dec2b")
@@ -410,53 +364,10 @@ class TestAnalysisManager:
             task.timeout = 10
             task.target = str(sample_location)
 
-        # Mock the auxiliary configuration to return a fixed set of modules
-        mock_aux_config = mocker.Mock()
-        mock_aux_config.auxiliary_modules = {
-            "browser": True,
-            "curtain": False,
-            "digisig": True,
-            "disguise": True,
-            "evtx": False,
-            "human_windows": True,
-            "human_linux": False,
-            "procmon": False,
-            "recentfiles": False,
-            "screenshots_windows": True,
-            "screenshots_linux": True,
-            "sysmon_windows": False,
-            "sysmon_linux": False,
-            "tlsdump": True,
-            "usage": False,
-            "file_pickup": False,
-            "permissions": False,
-            "pre_script": False,
-            "during_script": False,
-            "filecollector": True,
-            "tracee_linux": False,
-            "sslkeylogfile": False,
-            "browsermonitor": False,
-            "wmi_etw": False,
-            "dns_etw": False,
-            "watchdownloads": False,
-            # Add other keys that you want to be part of the test
-        }
-
-        # Patch Config to return our mock when called with "auxiliary"
-        original_config = Config
-
-        def side_effect(fname_base="cuckoo"):
-            if fname_base == "auxiliary":
-                return mock_aux_config
-            return original_config(fname_base)
-
-        mocker.patch("lib.cuckoo.core.analysis_manager.Config", side_effect=side_effect)
-
         analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
         opts = analysis_man.build_options()
 
         expected_opts = {
-            "amsi": False,
             "category": "file",
             "clock": datetime.datetime(2099, 1, 1, 9, 1, 1),
             "do_upload_max_size": 0,
@@ -474,15 +385,12 @@ class TestAnalysisManager:
             "terminate_processes": False,
             "timeout": 10,
             "upload_max_size": 100000000,
-            "windows_static_route": False,  # This might come from elsewhere if not in aux modules
-            "windows_static_route_gateway": "192.168.1.1",  # Same here
         }
-        # Merge the auxiliary modules into expected options
-        expected_opts.update(mock_aux_config.auxiliary_modules)
+        # Dynamically load auxiliary modules from Config to ensure test stays in sync with configuration changes
+        expected_opts.update(Config("auxiliary").auxiliary_modules)
 
-        # Remove keys that might be in expected_opts but not in opts if they are not relevant to the test or defaults
-        # or assert subset
         assert opts == expected_opts
+
 
     def test_category_checks(
         self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture

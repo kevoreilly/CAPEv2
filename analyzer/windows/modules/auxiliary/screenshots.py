@@ -3,20 +3,27 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
+import os
 import time
+from contextlib import suppress
 from io import BytesIO
 from threading import Thread
+
+try:
+    from PIL import Image
+except ImportError:
+    pass
 
 from lib.api.screenshot import Screenshot
 from lib.common.abstracts import Auxiliary
 from lib.common.results import NetlogFile
 
-# from tempfile import NamedTemporaryFile
-# from contextlib import suppress
-# HAVE_CV2 = False
-# with suppress(ImportError):
-#    import cv2
-#    HAVE_CV2 = True
+HAVE_CV2 = False
+with suppress(ImportError):
+    import cv2
+    import numpy as np
+
+    HAVE_CV2 = True
 
 
 log = logging.getLogger(__name__)
@@ -27,24 +34,25 @@ SHOT_DELAY = 1
 # SKIP_AREA = ((735, 575), (790, 595))
 SKIP_AREA = None
 
-"""
+
 def handle_qr_codes(image_data):
-    # In most cases requires human interation.
-    # Test file: 520eb94193ac451127d8595ff33fb562
-    # https://app.any.run/tasks/ac0b6323-5476-4fed-9c8a-3b574742349c/
-    # https://opencv.org/get-started/
-    # Inside of windows: pip3 install opencv-python
-    image = Image.open(image_data)
-    with NamedTemporaryFile() as temp_file:
-        image.save(temp_file.name)
-        img = cv2.imread(temp_file.name)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    """Extract URL from QR code if present."""
+    if not HAVE_CV2:
+        return None
+
+    try:
+        image = Image.open(image_data)
+        # Convert PIL image to BGR numpy array for OpenCV
+        img = cv2.cvtColor(np.array(image.convert("RGB")), cv2.COLOR_RGB2BGR)
         detector = cv2.QRCodeDetector()
         extracted, _, _ = detector.detectAndDecode(img)
-        # detect url?
+        # Simple URL detection
         if extracted and "://" in extracted[:10]:
             return extracted
-"""
+    except Exception as e:
+        log.debug("Error in handle_qr_codes: %s", e)
+
+    return None
 
 
 class Screenshots(Auxiliary, Thread):
@@ -54,6 +62,7 @@ class Screenshots(Auxiliary, Thread):
         Auxiliary.__init__(self, options, config)
         Thread.__init__(self)
         self.enabled = config.screenshots_windows
+        self.screenshots_qr = getattr(config, "screenshots_qr", False)
         self.do_run = self.enabled
 
     def stop(self):
@@ -88,10 +97,17 @@ class Screenshots(Auxiliary, Thread):
             with BytesIO() as tmpio:
                 img_current.save(tmpio, format="JPEG")
                 tmpio.seek(0)
-                # if HAVE_CV2: # ToDo on/off
-                #   url = handle_qr_codes(tmpio)
-                #   tmpio.seek(0)
-                # ToDo open url in browser
+
+                if self.screenshots_qr and HAVE_CV2:
+                    url = handle_qr_codes(tmpio)
+                    if url:
+                        log.info("QR code detected with URL: %s", url)
+                        try:
+                            # os.startfile is Windows only and usually works for URLs
+                            os.startfile(url)
+                        except Exception as e:
+                            log.error("Failed to open QR URL: %s", e)
+                    tmpio.seek(0)
 
                 nf = NetlogFile()
                 nf.init(f"shots/{str(img_counter).rjust(4, '0')}.jpg")

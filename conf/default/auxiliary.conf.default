@@ -32,6 +32,7 @@ procmon = no
 recentfiles = no
 screenshots_windows = yes
 screenshots_linux = yes
+screenshots_qr = no
 sysmon_windows = no
 sysmon_linux = no
 tlsdump = yes

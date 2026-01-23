@@ -785,20 +785,26 @@ def do_browser_ext():
 
 
 @app.route("/update", methods=["POST"])
-def do_update():
-    # Security: Prevent malware inside the VM (localhost) from triggering updates/restarts
-    if request.client_ip in ("127.0.0.1", "::1"):
-        return json_error(403, "Updates from localhost are not allowed")
-
-    if "agent" not in request.files:
-        return json_error(400, "No agent file provided")
-
-    try:
-        # Get the content of the uploaded file
         new_content = request.files["agent"].read()
+
         current_script = os.path.abspath(__file__)
-        with open(current_script, "wb") as f:
+        # Write to a temporary file to make the update more atomic.
+        temp_script = f"{current_script}.new"
+        with open(temp_script, "wb") as f:
             f.write(new_content)
+
+        if sys.platform == "win32":
+            # On Windows, an in-use file can't be overwritten.
+            # We rename the current script to a backup file.
+            backup_script = current_script + f".bak_{int(time.time())}"
+            try:
+                os.rename(current_script, backup_script)
+            except OSError as e:
+                os.remove(temp_script)  # Clean up the new script file
+                return json_error(500, f"Failed to backup current script: {e}")
+
+        # Atomically replace the current script with the new one.
+        os.rename(temp_script, current_script)
 
     except (IOError, OSError) as ex:
         return json_exception(f"Error updating agent: {ex}")

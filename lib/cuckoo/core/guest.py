@@ -158,12 +158,28 @@ class GuestManager:
 
         while self.do_run and self.get_status_from_db() == "starting":
             try:
-                socket.create_connection((self.ipaddr, self.port), 1).close()
-                break
-            except socket.timeout:
-                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
-            except socket.error:
-                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
+                # Support for DNS and IPv6 by resolving first
+                connected = False
+                for res in socket.getaddrinfo(self.ipaddr, self.port, socket.AF_UNSPEC, socket.SOCK_STREAM):
+                    af, socktype, proto, canonname, sa = res
+                    try:
+                        with socket.socket(af, socktype, proto) as s:
+                            s.settimeout(1)
+                            s.connect(sa)
+                        connected = True
+                        break
+                    except OSError as e:
+                        log.debug("Task #%s: %s is not ready yet (timeout). %s", self.task_id, self.vmid, str(e))
+                        continue
+
+                if connected:
+                    break
+
+                # If we reach here, we failed to connect to any resolved address
+                raise socket.error(f"Could not connect to {self.ipaddr}:{self.port}")
+
+            except (OSError, Exception) as e:
+                log.debug("Task #%s: %s is not ready yet (error: %s)", self.task_id, self.vmid, e)
                 time.sleep(1)
 
             if timeit.default_timer() - start > self.timeout:

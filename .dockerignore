@@ -1,0 +1,51 @@
+# Git
+.git
+.gitignore
+.github
+
+# Docker
+docker-compose.yml
+Dockerfile
+.dockerignore
+
+# DB
+mongodata
+pgdata
+*.db
+*.sqlite3
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info
+dist
+build
+.eggs
+.venv
+venv
+env
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+logs
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Others
+.env.local
+.cache
+tmp
+temp

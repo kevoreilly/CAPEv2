@@ -839,7 +839,7 @@ class Retriever(threading.Thread):
                     for task in node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check):
                         task_ids.append(task["id"])
 
-                    if True:
+                    if task_ids:
                         stmt = (
                             select(Task)
                             .where(
@@ -851,14 +851,15 @@ class Retriever(threading.Thread):
                             )
                             .order_by(Task.id.desc())
                         )
-                        tasker = db.scalars(stmt)
+                        found_tasks = db.scalars(stmt).all()
+                        found_task_ids = {t.task_id for t in found_tasks}
 
-                        if tasker is None:
-                            # log.debug(f"Node ID: {node.id} - Task ID: {task['id']} - adding to cleaner")
-                            self.cleaner_queue.put((node.id, task["id"]))
-                            continue
+                        # Check for tasks reported by node but not valid in our DB
+                        for reported_id in task_ids:
+                            if reported_id not in found_task_ids:
+                                self.cleaner_queue.put((node.id, reported_id))
 
-                        for task in tasker:
+                        for task in found_tasks:
                             try:
                                 if (
                                     task.task_id not in self.current_queue.get(node.id, [])
@@ -1279,7 +1280,6 @@ class Retriever(threading.Thread):
                 node = nodes[node_id]
                 if node and details[node_id]:
                     ids = ",".join(list(set(details[node_id])))
-                    print(ids)
                     _delete_many(node_id, ids, nodes, db)
 
                 db.commit()
@@ -1521,7 +1521,6 @@ class StatusThread(threading.Thread):
                     """
                     # 4. Apply the limit and execute the query.
                     to_upload = db.scalars(stmt.limit(pend_tasks_num)).all()
-                    print(to_upload, node.name, pend_tasks_num)
 
                     if not to_upload:
                         db.commit()

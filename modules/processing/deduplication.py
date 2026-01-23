@@ -20,7 +20,6 @@ except ImportError:
 HAVE_CV2 = False
 try:
     import cv2
-    import numpy as np
 
     HAVE_CV2 = True
 except ImportError:

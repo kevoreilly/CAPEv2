@@ -282,18 +282,265 @@
 
                             <!-- Options Field -->
                             <div class="mb-3">
-                                <label for="form_options" class="text-white-50">Custom Options</label>
+                                <label for="form_options" class="text-white-50">Options</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control bg-dark text-white border-secondary"
                                         id="form_options" name="options" placeholder="option1=val1,option2=val2" />
-                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#optionwindowshelp"><i class="fas fa-question"></i></button>
+                                    <button class="btn btn-outline-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp"><i class="fas fa-question"></i></button>
                                 </div>
                                 <div id="optionwindowshelp" class="collapse mt-2">
-                                    <div class="card card-body bg-dark p-2">
-                                        <small>Common options: <code>free=1</code> (no monitor),
-                                            <code>full-logs=1</code>, <code>norefer=1</code>.
-                                            See docs for full list.</small>
+                                    <div class="card card-body bg-dark p-2 border-secondary">
+                                        <p class="text-white-50 mb-2">Syntax is option1=val1,option2=val2,option3=val3, etc.</p>
+                                        <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                            <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                <thead>
+                                                    <tr>
+                                                        <th class="text-center">Option</th>
+                                                        <th class="text-center">Description</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    <tr>
+                                                        <td><code>filename</code></td>
+                                                        <td>Rename the sample file</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>name</code></td>
+                                                        <td>This will force family extractor to run, Ex: name=trickbot</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>curdir</code></td>
+                                                        <td>Change from where execute sample, by default %TEMP%, Ex: curdir=%APPDATA% or
+                                                            curdir=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>executiondir</code></td>
+                                                        <td>Sets directory to launch the file from. Need not be the same as the directory of sample file. Defaults to %TEMP% if both executiondir and curdir are not specified. Only supports full paths</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>free</code></td>
+                                                        <td>Run without monitoring (disables many capabilities) Ex: free=1</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>force-sleepskip</code></td>
+                                                        <td>Override default sleep skipping behavior:  0 disables all sleep skipping, 1 skips all sleeps.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>full-logs</code></td>
+                                                        <td>By default, logs prior to network activity for URL analyses and prior to access of the file in question for non-executable formats are suppressed.  Set to 1 to disable log suppression.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>force-flush</code></td>
+                                                        <td>For performance reasons, logs are buffered before being sent back to the result server.  We make every attempt to flush the buffer at critical points including when exceptions occur, but in some rare termination scenarios, logs may be lost.  Set to 1 to force flushing of the log buffers after any non-duplicate API is called, set to 2 to force flushing of every log.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>no-stealth</code></td>
+                                                        <td>Set to 1 to disable anti-anti-VM/sandbox code enabled by default.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>buffer-max</code></td>
+                                                        <td>When set to an integer of your choice, changes the maximum number of bytes that can be logged for most API buffers.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>large-buffer-max</code></td>
+                                                        <td>Some hooked APIs permit larger buffers to be logged.  To change the limit for this, set this to an integer of your choice.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>norefer</code></td>
+                                                        <td>Disables use of a fake referrer when performing URL analyses</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>file</code></td>
+                                                        <td>When using the zip or rar package, set the name of the file to execute</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>password</code></td>
+                                                        <td>When using the zip or rar package, set the password to use for extraction.  Also used when analyzing password-protected Office documents.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>function</code></td>
+                                                        <td>When using the dll package, set the name of the exported function/ordinal to execute. Can be multiple function/ordinals splited by colon. Ex: function=func1:func2</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>dllloader</code></td>
+                                                        <td>When using the dll package, set the name of the process loading the DLL (defaults to rundll32.exe).</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>arguments</code></td>
+                                                        <td>When using the dll, exe, or python packages, set the arguments to be passed to the executable or exported function.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>appdata</code></td>
+                                                        <td>When using the exe package, set to 1 to run the executable out of the Application Data path instead of the Temp directory.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>startbrowser</code></td>
+                                                        <td>Setting this option to 1 will launch a browser 30 seconds into the analysis (useful for some banking trojans).</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>browserdelay</code></td>
+                                                        <td>Sets the number of seconds to wait before starting the browser with the startbrowser option.  Defaults to 30 seconds.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>url</code></td>
+                                                        <td>When used with the startbrowser option, this will determine the URL the started browser will access.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>debug</code></td>
+                                                        <td>Set to 1 to enable reporting of critical exceptions occurring during analysis, set to 2 to enable reporting of all exceptions.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>disable_hook_content</code></td>
+                                                        <td>Set to 1 to remove functionality of all hooks except those critical for monitoring other processes.  Set to 2 to apply to all hooks.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>hook-type</code></td>
+                                                        <td>Valid for 32-bit analyses only.  Specifies the hook type to use: direct, indirect, or safe.  Safe attempts a Detours-style hook.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>serial</code></td>
+                                                        <td>Spoof the serial of the system volume as the provided hex value</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>single-process</code></td>
+                                                        <td>When set to 1 this will limit behaviour monitoring to the initial process only.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>exclude-apis</code></td>
+                                                        <td>Exclude the colon-separated list of APIs from being hooked</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>exclude-dlls</code></td>
+                                                        <td>Exclude the colon-separated list of DLLs from being hooked</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>dropped-limit</code></td>
+                                                        <td>Override the default dropped file limit of 100 files</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>compression</code></td>
+                                                        <td>When set to 1 this will enable CAPE's extraction of compressed payloads</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>extraction</code></td>
+                                                        <td>When set to 1 this will enable CAPE's extraction of payloads from within each process</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>injection</code></td>
+                                                        <td>When set to 1 this will enable CAPE's capture of injected payloads between processes</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>combo</code></td>
+                                                        <td>This combines compression, injection and extraction with process dumps</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>dump-on-api</code></td>
+                                                        <td>Dump the calling module when a function from the colon-separated list of APIs is used</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>bp0</code></td>
+                                                        <td>Sets breakpoint 0 (processor/hardware) to a VA or RVA value (or module::export). Applies also to bp1-bp3.</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>file-offsets</code></td>
+                                                        <td>Breakpoints in bp0-bp3 will be interpreted as PE file offsets rather than RVAs</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>break-on-return</code></td>
+                                                        <td>Sets breakpoints on the return address(es) from a colon-separated list of APIs</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>base-on-api</code></td>
+                                                        <td>Sets the base address to which breakpoints will be applied (and sets breakpoints)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>depth</code></td>
+                                                        <td>Sets the depth an instruction trace will step into (defaults to 0, requires Trace package)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>count</code></td>
+                                                        <td>Sets the number of instructions in a trace (defaults to 128, requires Trace package)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>referrer</code></td>
+                                                        <td>Specify the referrer to be used for URL tasks, overriding the default Google referrer</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>loop_detection</code></td>
+                                                        <td>Set this option to 1 to enable loop detection (compress call logs - behavior analysis)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>static</code></td>
+                                                        <td>Check if config can be extracted statically, if not, send to vm</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>Dl&Exec add headers example</code></td>
+                                                        <td>dnl_user_agent: "CAPE Sandbox", dnl_referer: google</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>servicedesc - for service package</code></td>
+                                                        <td>Service description</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>arguments - for service package</code></td>
+                                                        <td>Service arguments</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>store_memdump</code></td>
+                                                        <td>Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>pre_script_args</code></td>
+                                                        <td>Command line arguments for pre_script. Example: pre_script_args=file1 file2 file3</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>pre_script_timeout</code></td>
+                                                        <td>pre_script_timeout will default to 60 seconds. Script will stop after timeout Example: pre_script_timeout=30</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>during_script_args</code></td>
+                                                        <td>Command line arguments for during_script. Example: during_script_args=file1 file2 file3</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>ignore_size_check</code></td>
+                                                        <td>Allow ignore file size, must be enabled in conf/web.conf</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>pwsh</code></td>
+                                                        <td>When using the ps1 package, prefer PowerShell Core (pwsh.exe) if available (defaults to powershell.exe)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>unpacker</code></td>
+                                                        <td>Ex: unpacker=2 - Add description here</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>check_shellcode</code></td>
+                                                        <td>Setting check_shellcode=0 will disable checking for shellcode during package identification and extracting from archive</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>unhook-apis</code></td>
+                                                        <td>Capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>ttd</code></td>
+                                                        <td>ttd=1. TTD integration (Microsoft Time Travel Debugging). Requires binaries to be placed in correct folder</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>polarproxy</code></td>
+                                                        <td>Run PolarProxy to generate PCAP with decrypted TLS streams. Ex: polarproxy=1</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>tlsport</code></td>
+                                                        <td>TLS port for PolarProxy to MITM (Default: 443). Ex: tlsport=10443</td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td><code>mitmdump</code></td>
+                                                        <td>Run mitmdump to generate HAR with decrypted TLS streams. Ex: mitmdump=1</td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -482,7 +729,7 @@
                             </div>
 
                             <div class="text-center mt-4">
-                                <button type="submit" class="btn btn-primary btn-lg px-5 shadow"><i
+                                <button type="submit" class="btn btn-outline-info btn-lg px-5 shadow"><i
                                         class="fas fa-microscope me-2"></i>Analyze</button>
                             </div>
                         </div>

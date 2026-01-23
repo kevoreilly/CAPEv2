@@ -4,7 +4,7 @@
     </div>
     {% if "CAPE" in results and results.CAPE.payloads %}
         <div id="accordionPayloads">
-        {% for file in results.CAPE.payloads %}
+        {% for file in results.CAPE.payloads|sort(attribute='size', reverse=True) %}
             <div class="card mt-2">
                 <div class="card-header" id="headingPayload{{loop.index}}">
                     <h5 class="mb-0">

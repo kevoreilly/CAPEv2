@@ -437,6 +437,8 @@ class LibVirtMachinery(Machinery):
             )
 
         super().__init__()
+        self.conn = None
+        self.conn_lock = threading.Lock()
 
     def _initialize_check(self):
         """Runs all checks when a machine manager is initialized.
@@ -445,9 +447,6 @@ class LibVirtMachinery(Machinery):
         # Version checks.
         if not self._version_check():
             raise CuckooMachineError("Libvirt version is not supported, please get an updated version")
-
-        # Preload VMs
-        self.vms = self._fetch_machines()
 
         # Base checks. Also attempts to shutdown any machines which are
         # currently still active.
@@ -474,33 +473,32 @@ class LibVirtMachinery(Machinery):
 
         conn = self._connect(label)
 
-        snapshot_list = self.vms[label].snapshotListNames(flags=0)
+        try:
+            vm = conn.lookupByName(label)
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError(f"Cannot find machine {label}") from e
 
-        # If a snapshot is configured try to use it.
-        if vm_info.snapshot and vm_info.snapshot in snapshot_list:
-            # Revert to desired snapshot, if it exists.
-            log.debug("Using snapshot %s for virtual machine %s", vm_info.snapshot, label)
-            try:
-                vm = self.vms[label]
+        snapshot = None
+        try:
+            snapshot_list = vm.snapshotListNames(flags=0)
+
+            # If a snapshot is configured try to use it.
+            if vm_info.snapshot and vm_info.snapshot in snapshot_list:
+                log.debug("Using snapshot %s for virtual machine %s", vm_info.snapshot, label)
                 snapshot = vm.snapshotLookupByName(vm_info.snapshot, flags=0)
-                self.vms[label].revertToSnapshot(snapshot, flags=0)
-            except libvirt.libvirtError as e:
-                msg = f"Unable to restore snapshot {vm_info.snapshot} on virtual machine {label}. Your snapshot MUST BE in running state!"
-                raise CuckooMachineError(msg) from e
-            finally:
-                self._disconnect(conn)
-        elif self._get_snapshot(label):
-            snapshot = self._get_snapshot(label)
-            log.debug("Using snapshot %s for virtual machine %s", snapshot.getName(), label)
-            try:
-                self.vms[label].revertToSnapshot(snapshot, flags=0)
-            except libvirt.libvirtError as e:
-                raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}. Your snapshot MUST BE in running state!") from e
-            finally:
-                self._disconnect(conn)
-        else:
-            self._disconnect(conn)
+            else:
+                snapshot = self._get_snapshot(label, vm)
+        except libvirt.libvirtError:
+            log.warning("Unable to fetch snapshot for virtual machine %s", label)
+
+        if not snapshot:
             raise CuckooMachineError(f"No snapshot found for virtual machine {label}")
+
+        log.debug("Using snapshot %s for virtual machine %s", snapshot.getName(), label)
+        try:
+            vm.revertToSnapshot(snapshot, flags=0)
+        except libvirt.libvirtError as e:
+            raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}. Your snapshot MUST BE in running state!") from e
 
         # Check state.
         self._wait_status(label, self.RUNNING)
@@ -521,14 +519,14 @@ class LibVirtMachinery(Machinery):
         # Force virtual machine shutdown.
         conn = self._connect(label)
         try:
-            if not self.vms[label].isActive():
+            vm = conn.lookupByName(label)
+            if not vm.isActive():
                 log.debug("Trying to stop an already stopped machine %s, skipping", label)
             else:
-                self.vms[label].destroy()  # Machete's way!
+                vm.destroy()  # Machete's way!
         except libvirt.libvirtError as e:
             raise CuckooMachineError(f"Error stopping virtual machine {label}: {e}") from e
-        finally:
-            self._disconnect(conn)
+
         # Check state.
         self._wait_status(label, self.POWEROFF)
 
@@ -544,8 +542,14 @@ class LibVirtMachinery(Machinery):
             except CuckooMachineError as e:
                 log.warning("Unable to shutdown machine %s, please check manually. Error: %s", machine.label, e)
 
-        # Free handlers.
-        self.vms = None
+        # Close connection
+        with self.conn_lock:
+            if self.conn:
+                try:
+                    self.conn.close()
+                except libvirt.libvirtError:
+                    pass
+                self.conn = None
 
     def screenshot(self, label, path):
         """Screenshot a running virtual machine.
@@ -587,11 +591,10 @@ class LibVirtMachinery(Machinery):
             # it'll still be owned by root, so we can't delete it, but at least we can read it
             fd = open(path, "w")
             fd.close()
-            self.vms[label].coreDump(path, flags=libvirt.VIR_DUMP_MEMORY_ONLY)
+            vm = conn.lookupByName(label)
+            vm.coreDump(path, flags=libvirt.VIR_DUMP_MEMORY_ONLY)
         except libvirt.libvirtError as e:
             raise CuckooMachineError(f"Error dumping memory virtual machine {label}: {e}") from e
-        finally:
-            self._disconnect(conn)
 
     def _status(self, label):
         """Gets current status of a vm.
@@ -613,11 +616,10 @@ class LibVirtMachinery(Machinery):
 
         conn = self._connect(label)
         try:
-            state = self.vms[label].state(flags=0)
+            vm = conn.lookupByName(label)
+            state = vm.state(flags=0)
         except libvirt.libvirtError as e:
             raise CuckooMachineError(f"Error getting status for virtual machine {label}: {e}") from e
-        finally:
-            self._disconnect(conn)
 
         if state:
             if state[0] == 1:
@@ -644,29 +646,37 @@ class LibVirtMachinery(Machinery):
         if not self.dsn:
             raise CuckooMachineError("You must provide a proper connection string")
 
-        try:
-            return libvirt.open(self.dsn)
-        except libvirt.libvirtError as e:
-            raise CuckooMachineError("Cannot connect to libvirt") from e
+        with self.conn_lock:
+            if self.conn:
+                try:
+                    if self.conn.isAlive():
+                        return self.conn
+                except libvirt.libvirtError:
+                    pass
 
-    def _disconnect(self, conn):
+                # Connection is dead
+                try:
+                    self.conn.close()
+                except libvirt.libvirtError:
+                    pass
+                self.conn = None
+
+            try:
+                self.conn = libvirt.open(self.dsn)
+            except libvirt.libvirtError as e:
+                raise CuckooMachineError("Cannot connect to libvirt") from e
+
+        return self.conn
+
+    def _disconnect(self, _conn):
         """Disconnects to libvirt subsystem.
         @raise CuckooMachineError: if cannot disconnect from libvirt.
         """
-        try:
-            conn.close()
-        except libvirt.libvirtError as e:
-            raise CuckooMachineError("Cannot disconnect from libvirt") from e
-
-    def _fetch_machines(self):
-        """Fetch machines handlers.
-        @return: dict with machine label as key and handle as value.
-        """
-        return {vm.label: self._lookup(vm.label) for vm in self.machines()}
+        # Do nothing, keep connection open for reuse
+        pass
 
     def _lookup(self, label):
         """Search for a virtual machine.
-        @param conn: libvirt connection handle.
         @param label: virtual machine name.
         @raise CuckooMachineError: if virtual machine is not found.
         """
@@ -675,8 +685,6 @@ class LibVirtMachinery(Machinery):
             vm = conn.lookupByName(label)
         except libvirt.libvirtError as e:
             raise CuckooMachineError(f"Cannot find machine {label}") from e
-        finally:
-            self._disconnect(conn)
         return vm
 
     def _list(self):
@@ -685,22 +693,31 @@ class LibVirtMachinery(Machinery):
         """
         conn = self._connect()
         try:
+            if hasattr(conn, "listAllDomains"):
+                # flags=0 returns all domains (active and inactive)
+                return [dom.name() for dom in conn.listAllDomains(0)]
+
+            # Fallback for older libvirt versions
             names = conn.listDefinedDomains()
+            for vid in conn.listDomainsID():
+                try:
+                    dom = conn.lookupByID(vid)
+                    names.append(dom.name())
+                except libvirt.libvirtError:
+                        continue
+            return names
         except libvirt.libvirtError as e:
             raise CuckooMachineError("Cannot list domains") from e
-        finally:
-            self._disconnect(conn)
-        return names
-
     def _version_check(self):
         """Check if libvirt release supports snapshots.
         @return: True or false.
         """
         return libvirt.getVersion() >= 8000
 
-    def _get_snapshot(self, label):
+    def _get_snapshot(self, label, vm):
         """Get current snapshot for virtual machine
         @param label: virtual machine name
+        @param vm: virtual machine handle
         @return None or current snapshot
         @raise CuckooMachineError: if cannot find current snapshot or
             when there are too many snapshots available
@@ -715,10 +732,7 @@ class LibVirtMachinery(Machinery):
             return xml.findtext("./creationTime")
 
         snapshot = None
-        conn = self._connect(label)
         try:
-            vm = self.vms[label]
-
             # Try to get the currrent snapshot, otherwise fallback on the latest
             # from config file.
             if vm.hasCurrentSnapshot(flags=0):
@@ -732,8 +746,6 @@ class LibVirtMachinery(Machinery):
                     snapshot = sorted(all_snapshots, key=_extract_creation_time, reverse=True)[0]
         except libvirt.libvirtError:
             raise CuckooMachineError(f"Unable to get snapshot for virtual machine {label}")
-        finally:
-            self._disconnect(conn)
 
         return snapshot
 

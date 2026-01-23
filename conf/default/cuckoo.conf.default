@@ -187,6 +187,18 @@ timeout =
 # Log all SQL statements issued to the database.
 log_statements = off
 
+# Connection pool size.
+# Default is 5.
+pool_size = 0
+
+# Connection pool max overflow.
+# Default is 10.
+max_overflow = 10
+
+# Connection pool recycle.
+# Default is 3600.
+pool_recycle = 0
+
 [timeouts]
 # Set the default analysis timeout expressed in seconds. This value will be
 # used to define after how many seconds the analysis will terminate unless

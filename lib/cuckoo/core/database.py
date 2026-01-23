@@ -691,6 +691,18 @@ class _Database:
                 # Disabling SSL mode to avoid some errors using sqlalchemy and multiprocessing.
                 engine_args["connect_args"] = {"sslmode": self.cfg.database.psql_ssl_mode}
                 engine_args["pool_pre_ping"] = True
+
+                # Database connection pool configuration. You need to configure your PSQL too!
+                pool_size = getattr(self.cfg.database, "pool_size", 0)
+                if pool_size:
+                    engine_args["pool_size"] = pool_size
+                    max_overflow = getattr(self.cfg.database, "max_overflow", 10)
+                    engine_args["max_overflow"] = max_overflow
+
+                pool_recycle = getattr(self.cfg.database, "pool_recycle", 0)
+                if pool_recycle:
+                    engine_args["pool_recycle"] = pool_recycle
+
             # A single, clean call to create the engine
             self.engine = create_engine(connection_string, **engine_args)
 

@@ -352,6 +352,9 @@ def index(request, task_id=None, resubmit_hash=None):
         if request.POST.get("unpack"):
             options += "unpack=yes,"
 
+        if request.POST.get("screenshots_qr"):
+            options += "screenshots_qr=yes,"
+
         job_category = False
         if request.POST.get("job_category"):
             job_category = request.POST.get("job_category")

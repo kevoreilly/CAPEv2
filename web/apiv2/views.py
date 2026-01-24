@@ -12,6 +12,12 @@ from io import BytesIO
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
+# Async migration note:
+# For future optimization, replace sync_to_async wrappers for MongoDB with 'Motor' (Async MongoDB driver)
+# and 'asyncpg' for PostgreSQL to achieve true non-blocking I/O.
+# Currently using sync_to_async to unblock the event loop while keeping legacy DB code.
+from asgiref.sync import sync_to_async
+
 import pyzipper
 import requests
 from bson.objectid import ObjectId
@@ -266,7 +272,7 @@ def tasks_create_static(request):
 
 @csrf_exempt
 @api_view(["POST"])
-def tasks_create_file(request):
+async def tasks_create_file(request):
     resp = {}
     if request.method == "POST":
         # Check if this API function is enabled
@@ -317,7 +323,9 @@ def tasks_create_file(request):
         }
 
         task_machines = []
-        vm_list = [vm.label for vm in db.list_machines()]
+        # Async DB call
+        vm_list_objs = await sync_to_async(db.list_machines)()
+        vm_list = [vm.label for vm in vm_list_objs]
 
         if machine.lower() == "all":
             if not apiconf.filecreate.get("allmachines"):
@@ -345,7 +353,12 @@ def tasks_create_file(request):
             files = [request.FILES.getlist("file")[0]]
 
         opt_filename = get_user_filename(options, custom)
-        list_of_tasks, details = process_new_task_files(request, files, details, opt_filename, unique)
+
+        # Offload file processing (I/O heavy) to thread
+        def _process_files_sync(req, _files, _details, _opt_filename, _unique):
+            return process_new_task_files(req, _files, _details, _opt_filename, _unique)
+
+        list_of_tasks, details = await sync_to_async(_process_files_sync)(request, files, details, opt_filename, unique)
 
         for content, tmp_path, _ in list_of_tasks:
             if pcap:
@@ -360,18 +373,18 @@ def tasks_create_file(request):
                     else:
                         details["error"].append({os.path.basename(tmp_path): "Failed to convert SAZ to PCAP"})
                         continue
-                task_id = db.add_pcap(file_path=tmp_path)
+                task_id = await sync_to_async(db.add_pcap)(file_path=tmp_path)
                 details["task_ids"].append(task_id)
                 continue
             if static:
-                task_id = db.add_static(file_path=tmp_path, priority=priority, user_id=request.user.id or 0)
+                task_id = await sync_to_async(db.add_static)(file_path=tmp_path, priority=priority, user_id=request.user.id or 0)
                 details["task_ids"].append(task_id)
                 continue
             if tmp_path:
                 details["path"] = tmp_path
                 details["content"] = content
 
-                status, tasks_details = download_file(**details)
+                status, tasks_details = await sync_to_async(download_file)(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(tmp_path).decode(): tasks_details})
                 else:
@@ -793,7 +806,7 @@ def ext_tasks_search(request):
 # Return Task ID's and data within a range of Task ID's
 @csrf_exempt
 @api_view(["GET"])
-def tasks_list(request, offset=None, limit=None, window=None):
+async def tasks_list(request, offset=None, limit=None, window=None):
     if not apiconf.tasklist.get("enabled"):
         resp = {"error": True, "error_value": "Task List API is Disabled"}
         return Response(resp)
@@ -829,7 +842,8 @@ def tasks_list(request, offset=None, limit=None, window=None):
     resp["config"] = "Limit: {0}, Offset: {1}".format(limit, offset)
     resp["buf"] = 0
 
-    tasks = db.list_tasks(
+    # Async DB call
+    tasks = await sync_to_async(db.list_tasks)(
         limit=limit,
         details=True,
         category=category,
@@ -847,27 +861,37 @@ def tasks_list(request, offset=None, limit=None, window=None):
     if ids_only:
         resp["data"] = [{"id": task.id} for task in tasks]
     else:
-        for row in tasks:
-            resp["buf"] += 1
-            task = row.to_dict()
-            task["guest"] = {}
-            if row.guest:
-                task["guest"] = row.guest.to_dict()
+        # Helper to process tasks synchronously in a thread
+        def _process_tasks_sync(tasks_list):
+            data = []
+            buf_count = 0
+            for row in tasks_list:
+                buf_count += 1
+                task = row.to_dict()
+                task["guest"] = {}
+                if row.guest:
+                    task["guest"] = row.guest.to_dict()
 
-            task["errors"] = []
-            for error in row.errors:
-                task["errors"].append(error.message)
+                task["errors"] = []
+                for error in row.errors:
+                    task["errors"].append(error.message)
 
-            task["sample"] = {}
-            if row.sample_id:
-                sample = db.view_sample(row.sample_id)
-                if sample:
-                    task["sample"] = sample.to_dict()
+                task["sample"] = {}
+                if row.sample_id:
+                    sample = db.view_sample(row.sample_id)
+                    if sample:
+                        task["sample"] = sample.to_dict()
 
-            if task.get("target"):
-                task["target"] = convert_to_printable(task["target"])
+                if task.get("target"):
+                    task["target"] = convert_to_printable(task["target"])
 
-            resp["data"].append(task)
+                data.append(task)
+            return data, buf_count
+
+        # Offload CPU/DB intensive loop to thread
+        processed_data, buf_count = await sync_to_async(_process_tasks_sync)(tasks)
+        resp["data"] = processed_data
+        resp["buf"] = buf_count
 
     return Response(resp)
 

@@ -96,6 +96,7 @@ COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
 ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
+REAL_TIME_UPDATES = web_cfg.general.get("real_time_updates", False)
 
 # If false run next command
 # python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
@@ -264,6 +265,19 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
 ]
 
+# Channels / ASGI
+if REAL_TIME_UPDATES:
+    INSTALLED_APPS = ["daphne", "channels"] + INSTALLED_APPS
+    ASGI_APPLICATION = "web.asgi.application"
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [("127.0.0.1", 6379)],
+            },
+        },
+    }
+
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -309,6 +323,7 @@ SETTINGS_EXPORT = [
     "WEB_AUTHENTICATION",
     "WEB_OAUTH",
     "ZIPPED_DOWNLOAD_ALL",
+    "REAL_TIME_UPDATES",
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

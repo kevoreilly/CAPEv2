@@ -14,7 +14,6 @@ from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Union, Tuple, Dict
 
-
 def _utcnow_naive():
     """Returns the current time in UTC as a naive datetime object."""
     return datetime.now(timezone.utc).replace(tzinfo=None)
@@ -41,7 +40,6 @@ from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.utils import bytes2str, create_folder, get_options
 
-# ToDo postgresql+psycopg2 in connection
 try:
     from sqlalchemy.engine import make_url
     from sqlalchemy import (
@@ -80,7 +78,6 @@ try:
 
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
-
 
 sandbox_packages = (
     "access",
@@ -143,6 +140,27 @@ web_conf = Config("web")
 LINUX_ENABLED = web_conf.linux.enabled
 LINUX_STATIC = web_conf.linux.static_only
 DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
+
+channel_layer = None
+if web_conf.general.get("real_time_updates", False):
+    # Django Channels Hooks (Conditional)
+    with suppress(ImportError, Exception):
+        import django
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        # Ensure apps are loaded if we are running inside cuckoo.py/utils
+        if not django.apps.apps.ready:
+            # We need to setup django to use channels, but this might fail if settings aren't configured
+            # inside a standalone script.
+            # Assuming CAPE environment variables are set or typical project structure.
+            try:
+                os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.settings")
+                django.setup()
+            except Exception:
+                pass
+
+        channel_layer = get_channel_layer()
+
 
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_find
@@ -845,6 +863,22 @@ class _Database:
             task.completed_on = _utcnow_naive()
 
         self.session.add(task)
+
+        # Broadcast status update to Dashboard via Django Channels
+        if channel_layer:
+            try:
+                async_to_sync(channel_layer.group_send)(
+                    "dashboard",
+                    {
+                        "type": "task_status_update",
+                        "task_id": task.id,
+                        "status": status
+                    }
+                )
+            except Exception:
+                # Don't fail core logic if messaging fails
+                pass
+
         return task
 
     def set_status(self, task_id: int, status) -> Optional[Task]:

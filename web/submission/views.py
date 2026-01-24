@@ -17,6 +17,11 @@ from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
+# Async migration note:
+# For future optimization, consider replacing sync_to_async wrappers for MongoDB with 'Motor'.
+# For SQL, 'asyncpg' is recommended.
+from asgiref.sync import sync_to_async
+
 sys.path.append(settings.CUCKOO_PATH)
 from uuid import NAMESPACE_DNS, uuid3
 
@@ -260,7 +265,7 @@ def force_int(value):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def index(request, task_id=None, resubmit_hash=None):
+async def index(request, task_id=None, resubmit_hash=None):
     remote_console = False
     if request.method == "POST":
         (
@@ -429,26 +434,30 @@ def index(request, task_id=None, resubmit_hash=None):
             for url in samples.split(web_conf.general.url_splitter):
                 url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
                 if task_category == "dlnexec":
-                    path, content, sha256 = process_new_dlnexec_task(url, route, options, custom)
+                    path, content, sha256 = await sync_to_async(process_new_dlnexec_task)(url, route, options, custom)
                     if path:
                         list_of_tasks.append((content, path, sha256))
                 elif task_category == "url":
                     list_of_tasks.append(("", url, ""))
 
         elif task_category in ("sample", "static", "pcap"):
-            list_of_tasks, details = process_new_task_files(request, samples, details, opt_filename, unique)
+            # Wrap synchronous file processing
+            def _process_files_sync(req, _samples, _details, _opt_filename, _unique):
+                return process_new_task_files(req, _samples, _details, _opt_filename, _unique)
+
+            list_of_tasks, details = await sync_to_async(_process_files_sync)(request, samples, details, opt_filename, unique)
 
         elif task_category == "resubmit":
             for hash in samples:
                 paths = []
                 if len(hash) in (32, 40, 64):
-                    paths = db.sample_path_by_hash(hash)
+                    paths = await sync_to_async(db.sample_path_by_hash)(hash)
                 else:
                     task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "binary")
                     if path_exists(task_binary):
                         paths.append(task_binary)
                     else:
-                        tmp_paths = db.find_sample(task_id=task_id)
+                        tmp_paths = await sync_to_async(db.find_sample)(task_id=task_id)
                         if not tmp_paths:
                             details["errors"].append({hash: "Task not found for resubmission"})
                             continue
@@ -458,7 +467,7 @@ def index(request, task_id=None, resubmit_hash=None):
                             if path_exists(tmp_dict.get("target", "")):
                                 path = tmp_dict["target"]
                             else:
-                                tmp_tasks = db.find_sample(sample_id=tmp_dict["sample_id"])
+                                tmp_tasks = await sync_to_async(db.find_sample)(sample_id=tmp_dict["sample_id"])
                                 for tmp_task in tmp_tasks:
                                     tmp_path = os.path.join(
                                         settings.CUCKOO_PATH, "storage", "binaries", tmp_task.to_dict()["sha256"]
@@ -480,7 +489,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     details["errors"].append({hash: "File not found on hdd for resubmission"})
                     continue
 
-                content = get_file_content(paths)
+                content = await sync_to_async(get_file_content)(paths)
                 if not content:
                     details["errors"].append({hash: f"Can't find {hash} on disk"})
                     continue
@@ -492,7 +501,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     filename = base_dir + "/" + opt_filename
                 else:
                     filename = base_dir + "/" + sanitize_filename(hash)
-                path = store_temp_file(content, filename)
+                path = await sync_to_async(store_temp_file)(content, filename)
                 list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category
@@ -503,7 +512,7 @@ def index(request, task_id=None, resubmit_hash=None):
             for content, path, sha256 in list_of_tasks:
                 details["path"] = path
                 details["content"] = content
-                status, tasks_details = download_file(**details)
+                status, tasks_details = await sync_to_async(download_file)(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(filename): tasks_details})
                 else:
@@ -511,7 +520,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     if tasks_details.get("errors"):
                         details["errors"].extend(tasks_details["errors"])
                     if web_conf.web_reporting.get("enabled", False) and web_conf.general.get("existent_tasks", False):
-                        records = perform_search("target_sha256", hash, search_limit=5)
+                        records = await sync_to_async(perform_search)("target_sha256", hash, search_limit=5)
                         if records:
                             for record in records or []:
                                 existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
@@ -524,7 +533,7 @@ def index(request, task_id=None, resubmit_hash=None):
 
                 details["path"] = path
                 details["content"] = content
-                status, tasks_details = download_file(**details)
+                status, tasks_details = await sync_to_async(download_file)(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(path): tasks_details})
                 else:
@@ -532,7 +541,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     if tasks_details.get("errors"):
                         details["errors"].extend(tasks_details["errors"])
                     if web_conf.general.get("existent_tasks", False):
-                        records = perform_search("target_sha256", sha256, search_limit=5)
+                        records = await sync_to_async(perform_search)("target_sha256", sha256, search_limit=5)
                         if records:
                             for record in records:
                                 if record.get("target").get("file", {}).get("sha256"):
@@ -540,7 +549,7 @@ def index(request, task_id=None, resubmit_hash=None):
 
         elif task_category == "static":
             for content, path, sha256 in list_of_tasks:
-                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0)
+                task_id = await sync_to_async(db.add_static)(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
@@ -557,16 +566,18 @@ def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
                         continue
 
-                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+                task_id = await sync_to_async(db.add_pcap)(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
                 if task_id:
                     details["task_ids"].append(task_id)
 
         elif task_category == "url":
             for _, url, _ in list_of_tasks:
                 if machine.lower() == "all":
-                    machines = [vm.name for vm in db.list_machines(platform=platform)]
+                    # DB Call
+                    vm_list = await sync_to_async(db.list_machines)(platform=platform)
+                    machines = [vm.name for vm in vm_list]
                 elif machine:
-                    machine_details = db.view_machine(machine)
+                    machine_details = await sync_to_async(db.view_machine)(machine)
                     if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
                         details["errors"].append(
                             {os.path.basename(url): f"Wrong platform, {machine_details.platform} VM selected for {platform} sample"}
@@ -578,7 +589,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 else:
                     machines = [None]
                 for entry in machines:
-                    task_id = db.add_url(
+                    task_id = await sync_to_async(db.add_url)(
                         url=url,
                         package=package,
                         timeout=timeout,
@@ -604,7 +615,7 @@ def index(request, task_id=None, resubmit_hash=None):
                 details["content"] = content
                 details["service"] = "DLnExec"
                 details["source_url"] = samples
-                status, tasks_details = download_file(**details)
+                status, tasks_details = await sync_to_async(download_file)(**details)
                 if status == "error":
                     details["errors"].append({os.path.basename(path): tasks_details})
                 else:
@@ -613,7 +624,7 @@ def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].extend(tasks_details["errors"])
 
         elif task_category == "downloading_service":
-            details = download_from_3rdparty(samples, opt_filename, details)
+            details = await sync_to_async(download_from_3rdparty)(samples, opt_filename, details)
 
         if details.get("task_ids"):
             tasks_count = len(details["task_ids"])
@@ -654,7 +665,7 @@ def index(request, task_id=None, resubmit_hash=None):
         enabledconf["downloading_service"] = bool(downloader_services.downloaders)
         enabledconf["interactive_desktop"] = web_conf.guacamole.enabled
 
-        all_vms_tags = load_vms_tags()
+        all_vms_tags = await sync_to_async(load_vms_tags)()
 
         if all_vms_tags:
             enabledconf["tags"] = True
@@ -677,9 +688,9 @@ def index(request, task_id=None, resubmit_hash=None):
                 if any(["tags" in list(getattr(Config(machinery), vmtag).keys()) for vmtag in vms]):
                     enabledconf["tags"] = True
 
-        packages, machines = get_form_data()
+        packages, machines = await sync_to_async(get_form_data)()
 
-        socks5s = _load_socks5_operational()
+        socks5s = await sync_to_async(_load_socks5_operational)()
 
         socks5s_random = ""
         vpn_random = ""
@@ -724,7 +735,7 @@ def index(request, task_id=None, resubmit_hash=None):
         existent_tasks = {}
         if resubmit_hash:
             if web_conf.general.get("existent_tasks", False):
-                records = perform_search("target_sha256", resubmit_hash, search_limit=5)
+                records = await sync_to_async(perform_search)("target_sha256", resubmit_hash, search_limit=5)
                 if records:
                     for record in records:
                         existent_tasks.setdefault(record["target"]["file"]["sha256"], [])

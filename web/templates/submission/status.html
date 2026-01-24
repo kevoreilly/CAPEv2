@@ -9,16 +9,73 @@
     <p>The analysis failed with status '{{status}}'. <a href="{% url "submission" task_id sha256 %}">Click here to resubmit.</a></p>
 </div>
 {% else %}
-    <script type="text/JavaScript">setTimeout("location.reload(true);",30000);</script>
+    <script type="text/JavaScript">
+        // Fallback refresh if WebSocket fails
+        var refreshTimer = setTimeout("location.reload(true);", 30000);
+
+        {% if settings.REAL_TIME_UPDATES %}
+        const taskId = "{{ task_id }}";
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const socketUrl = protocol + window.location.host + '/ws/task/' + taskId + '/';
+        
+        try {
+            const chatSocket = new WebSocket(socketUrl);
+
+            chatSocket.onopen = function() {
+                console.log("WebSocket connected for task logs");
+                // Stop the periodic refresh if we have a live connection
+                clearTimeout(refreshTimer);
+                document.getElementById('refresh-notice').style.display = 'none';
+                document.getElementById('live-notice').style.display = 'block';
+            };
+
+            chatSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.log) {
+                    const logContainer = document.querySelector('#log-terminal');
+                    logContainer.textContent += data.log;
+                    logContainer.scrollTop = logContainer.scrollHeight;
+                }
+                if (data.status === 'reported') {
+                    window.location.reload();
+                }
+            };
+
+            chatSocket.onclose = function(e) {
+                console.error('WebSocket closed unexpectedly, falling back to refresh');
+                setTimeout("location.reload(true);", 5000);
+            };
+        } catch (err) {
+            console.error("WebSocket initialization failed", err);
+        }
+        {% endif %}
+    </script>
 <div class="alert alert-secondary bg-dark text-info">
         <h4>Status for task {{task_id}} - {{ target }}</h4>
-        <p>The analysis is not finished yet, it's still <b>{{status}}</b>. This page will refresh every 30 seconds.</p>
+        <p id="refresh-notice">The analysis is not finished yet, it's still <b>{{status}}</b>. This page will refresh every 30 seconds.</p>
+        
+        {% if settings.REAL_TIME_UPDATES %}
+        <p id="live-notice" style="display:none;">Live analysis stream active (<b>{{status}}</b>). Monitoring for completion...</p>
+        {% endif %}
+        
         {% if session_data %}
             <p>To view the Remote Session - click <a href='javascript:window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_blank");'>here.</a></p>
         {% endif %}
-        <div class="progress progress-striped active" style="margin-top: 10px;">
+        <div class="progress progress-striped active" style="margin-top: 10px; margin-bottom: 20px;">
                 <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
         </div>
+
+        {% if settings.REAL_TIME_UPDATES %}
+        <div class="card bg-dark text-light border-secondary">
+            <div class="card-header border-secondary d-flex justify-content-between">
+                <span>Analysis Logs</span>
+                <span class="badge badge-primary">LIVE</span>
+            </div>
+            <div class="card-body p-0">
+                <pre id="log-terminal" style="height: 400px; overflow-y: scroll; background-color: black; color: #00FF00; padding: 15px; margin: 0; font-family: 'Courier New', Courier, monospace; font-size: 13px;"></pre>
+            </div>
+        </div>
+        {% endif %}
     </div>
 {% endif %}
 {% endblock %}

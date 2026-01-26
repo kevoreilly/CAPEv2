@@ -1005,7 +1005,7 @@ class EventConsumer:
             if out_type >= TDH_OUTTYPE_BYTE and out_type <= TDH_OUTTYPE_UNSIGNEDLONG:
                 try:
                     data = int(data)
-                catch Exception as ex:
+                except Exception as ex:
                     pass
 
         if out_type in TDH_CONVERTER_LOOKUP and type(data) is TDH_CONVERTER_LOOKUP[out_type]:

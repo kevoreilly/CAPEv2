@@ -156,8 +156,8 @@ if web_conf.general.get("real_time_updates", False):
             try:
                 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.settings")
                 django.setup()
-            except Exception:
-                pass
+            except Exception as e:
+                log.warning("Could not initialize Django Channels for real-time updates: %s", e)
 
         channel_layer = get_channel_layer()
 

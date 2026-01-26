@@ -13,9 +13,8 @@ from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
 # Async migration note:
-# For future optimization, replace sync_to_async wrappers for MongoDB with 'Motor' (Async MongoDB driver)
-# and 'asyncpg' for PostgreSQL to achieve true non-blocking I/O.
-# Currently using sync_to_async to unblock the event loop while keeping legacy DB code.
+# Native Async MongoDB support is handled by dev_utils.mongo_provider.
+# For PostgreSQL, 'asyncpg' or 'psycopg' (v3) native async ORM is recommended for future research.
 from asgiref.sync import sync_to_async
 
 import pyzipper
@@ -110,7 +109,7 @@ if reporting_conf.compression.compressiontool.strip() == "7zip":
 
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import (
+    from dev_utils.mongo_provider import (
         mongo_delete_data,
         mongo_find,
         mongo_find_one,
@@ -947,7 +946,7 @@ def tasks_view(request, task_id):
                     entry["sample"] = sample.to_dict()
 
     if repconf.mongodb.enabled:
-        rtmp = mongo_find_one(
+        rtmp = await mongo_find_one(
             "analysis",
             {"info.id": int(task.id)},
             {
@@ -1374,7 +1373,7 @@ def tasks_iocs(request, task_id, detail=None):
 
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"behavior.calls": 0})
+        buf = await mongo_find_one("analysis", {"info.id": int(task_id)}, {"behavior.calls": 0})
     if es_as_db and not buf:
         tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if tmp:
@@ -1864,12 +1863,10 @@ def tasks_rollingsuri(request, window=60):
 
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
-    result = list(
-        mongo_find(
-            "analysis",
-            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}},
-            {"suricata.alerts": 1, "info.id": 1},
-        )
+    result = await mongo_find(
+        "analysis",
+        {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}},
+        {"suricata.alerts": 1, "info.id": 1},
     )
     resp = []
     for e in result:
@@ -2301,7 +2298,7 @@ def tasks_config(request, task_id, cape_name=False):
 
     buf = {}
     if repconf.mongodb.get("enabled"):
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"CAPE.configs": 1}, sort=[("_id", -1)])
+        buf = await mongo_find_one("analysis", {"info.id": int(task_id)}, {"CAPE.configs": 1}, sort=[("_id", -1)])
     if es_as_db and not buf:
         tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(tmp) > 1:
@@ -2347,7 +2344,7 @@ def post_processing(request, category, task_id):
         content = json.loads(content)
         if not content:
             return Response({"error": True, "msg": "Missed content data or category"})
-        _ = mongo_find_one_and_update("analysis", {"info.id": int(task_id)}, {"$set": {category: content}})
+        _ = await mongo_find_one_and_update("analysis", {"info.id": int(task_id)}, {"$set": {category: content}})
         resp = {"error": False, "msg": "Added under the key {}".format(category)}
     else:
         resp = {"error": True, "msg": "Missed content data or category"}

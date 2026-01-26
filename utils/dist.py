@@ -1450,7 +1450,7 @@ class StatusThread(threading.Thread):
                     """
                     # 4. Apply the limit and execute the query.
                     to_upload = db.scalars(stmt.limit(pend_tasks_num)).all()
-                    
+
                     if not to_upload:
                         db.commit()
                         log.info("nothing to upload? How? o_O")

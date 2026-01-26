@@ -103,8 +103,6 @@ failed_count = {}
 status_count = {}
 
 lock_retriever = threading.Lock()
-dist_lock = threading.BoundedSemaphore(int(dist_conf.distributed.dist_threads))
-fetch_lock = threading.BoundedSemaphore(1)
 
 delete_enabled = False
 failed_clean_enabled = False
@@ -561,14 +559,12 @@ class Retriever(threading.Thread):
 
         # Data fetchers
         for i in range(int(dist_conf.distributed.dist_threads)):
-            if dist_lock.acquire(blocking=False):
-                if NFS_FETCH:
-                    thread_targets.append((self.fetch_latest_reports_nfs, f"fetch_latest_reports_nfs_{i}", ()))
-                elif RESTAPI_FETCH:
-                    thread_targets.append((self.fetch_latest_reports, f"fetch_latest_reports_{i}", ()))
+            if NFS_FETCH:
+                thread_targets.append((self.fetch_latest_reports_nfs, f"fetch_latest_reports_nfs_{i}", ()))
+            elif RESTAPI_FETCH:
+                thread_targets.append((self.fetch_latest_reports, f"fetch_latest_reports_{i}", ()))
 
-        if fetch_lock.acquire(blocking=False):
-            thread_targets.append((self.fetcher, "fetcher", ()))
+        thread_targets.append((self.fetcher, "fetcher", ()))
 
         if dist_conf.distributed.remove_task_on_worker or delete_enabled:
             thread_targets.append((self.remove_from_worker, "remove_from_worker", ()))

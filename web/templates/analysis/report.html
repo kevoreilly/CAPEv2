@@ -176,8 +176,7 @@
 
             {% if settings.COMMENTS %}
             <li class="nav-item">
-                <a class="nav-link" href="#comments" data-bs-toggle="tab">Comments {% if analysis.info.comments|length
-                    %}({{analysis.info.comments|length}}){% endif %}</a>
+                <a class="nav-link" href="#comments" data-bs-toggle="tab">Comments {% if analysis.info.comments|length %}({{analysis.info.comments|length}}){% endif %}</a>
             </li>
             {% endif %}
 
@@ -194,7 +193,7 @@
             {% endif %}
 
             {% if analysis.info.category == "file" and analysis.target %}
-            <li class="nav-item"><a class="nav-link" href="{% url " compare_left" analysis.info.id %}">Compare this
+            <li class="nav-item"><a class="nav-link" href="{% url "compare_left" analysis.info.id %}">Compare this
                     analysis
                     to...</a></li>
             {% endif %}

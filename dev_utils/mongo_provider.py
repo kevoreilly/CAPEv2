@@ -1,5 +1,4 @@
 import logging
-import os
 from asgiref.sync import sync_to_async
 from django.conf import settings
 
@@ -20,7 +19,7 @@ except ImportError:
 
 if USE_ASYNC_MONGO and HAVE_ASYNC_IMPL:
     log.info("Using Native Async MongoDB Provider")
-    
+
     # Direct alias to async functions
     mongo_find_one = async_mongo.mongo_find_one_async
     mongo_find = async_mongo.mongo_find_async
@@ -34,7 +33,7 @@ if USE_ASYNC_MONGO and HAVE_ASYNC_IMPL:
     mongo_find_one_and_update = async_mongo.mongo_find_one_and_update_async
     mongo_bulk_write = async_mongo.mongo_bulk_write_async
     mongo_create_index = async_mongo.mongo_create_index_async
-    
+
     # Complex helpers
     mongo_delete_data = async_mongo.mongo_delete_data_async
     mongo_delete_data_range = async_mongo.mongo_delete_data_range_async
@@ -54,22 +53,22 @@ else:
     mongo_delete_one = sync_to_async(sync_mongo.mongo_delete_one)
     mongo_delete_many = sync_to_async(sync_mongo.mongo_delete_many)
     mongo_aggregate = sync_to_async(sync_mongo.mongo_aggregate)
-    
-    # Helper for count (mongodb.py doesn't have a direct count wrapper usually, 
+
+    # Helper for count (mongodb.py doesn't have a direct count wrapper usually,
     # but we can wrap a lambda or access the db directly if needed.
     # mongodb.py usually returns the result directly from find if it was a cursor but it returns list.
-    # Let's check how count is usually done. 
+    # Let's check how count is usually done.
     # Usually: results_db.collection.count_documents(query)
     # We will wrap a custom lambda for count since mongodb.py might not export it explicitly.
     def _sync_count(collection, query):
         return getattr(sync_mongo.results_db, collection).count_documents(query)
-    
+
     mongo_count = sync_to_async(_sync_count)
-    
+
     mongo_find_one_and_update = sync_to_async(sync_mongo.mongo_find_one_and_update)
     mongo_bulk_write = sync_to_async(sync_mongo.mongo_bulk_write)
     mongo_create_index = sync_to_async(sync_mongo.mongo_create_index)
-    
+
     # Complex helpers
     mongo_delete_data = sync_to_async(sync_mongo.mongo_delete_data)
     mongo_delete_data_range = sync_to_async(sync_mongo.mongo_delete_data_range)

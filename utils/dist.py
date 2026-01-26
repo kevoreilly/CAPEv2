@@ -549,7 +549,6 @@ class Retriever(threading.Thread):
         self.current_queue = {}
         self.current_two_queue = {}
         self.stop_dist = threading.Event()
-        self.threads = []
 
         # Define the set of threads that should be running
         thread_targets = []

@@ -31,7 +31,7 @@ def download_from_gcs(gcs_uri, destination_path):
     gcs_uri: gs://bucket_name/object_name
     """
     if not HAVE_GCP:
-        log.error("Google Cloud dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-storage google-cloud-pubsub`")
+        log.error("Google Cloud Storage dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-storage`")
         return False
 
     try:

@@ -5,7 +5,6 @@ from typing import List, Optional, Sequence
 try:
     # Native PyMongo Async support (Requires pymongo >= 4.9)
     from pymongo.asynchronous import AsyncMongoClient
-    from bson import ObjectId
     HAVE_PYMONGO_ASYNC = True
 except ImportError:
     HAVE_PYMONGO_ASYNC = False

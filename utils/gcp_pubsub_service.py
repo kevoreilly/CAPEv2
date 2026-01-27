@@ -30,7 +30,7 @@ class GCPPubSubService:
         self.gcp_cfg = Config("gcp")
         self.project_id = self.gcp_cfg.gcp.get("project")
         self.subscription_id = os.getenv("GCP_SUBSCRIPTION_ID") or self.gcp_cfg.gcp.get("subscription_id")
-        
+
         if not self.project_id or "<project_id>" in self.project_id:
             log.error("GCP project ID not set. Please update gcp.conf or set GCP_PROJECT_ID env var")
             sys.exit(1)
@@ -50,9 +50,9 @@ class GCPPubSubService:
             self.subscriber = self.pubsub_v1.SubscriberClient.from_service_account_json(service_account_path)
         else:
             self.subscriber = self.pubsub_v1.SubscriberClient()
-            
+
         self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
-        
+
         init_database()
         self.db = Database()
 
@@ -60,14 +60,16 @@ class GCPPubSubService:
         try:
             payload = json.loads(message.data.decode("utf-8"))
             log.info("Received payload: %s", payload.get("uuid"))
-            
+
             sample_hash = payload.get("sample_hash")
             gcs_uri = payload.get("gcs_uri")
             sandbox_options = payload.get("sandbox_options", "")
             parent_id = payload.get("parent_id", "")
             transaction_id = payload.get("transaction_id", "")
             sample_name = payload.get("name", "sample")
-            
+
+            static = "category=static" in sandbox_options
+
             # Format custom fields with truncation to fit 255 chars
             custom_parts = []
             if sample_name:
@@ -76,15 +78,15 @@ class GCPPubSubService:
                 custom_parts.append(f"parent_id:{parent_id}")
             if transaction_id:
                 custom_parts.append(f"transaction_id:{transaction_id}")
-            
+
             custom = ",".join(custom_parts)
             if len(custom) > 255:
                 custom = custom[:252] + "..."
-            
+
             # Check if sample exists locally
             local_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_hash)
             is_temp = False
-            
+
             if not path_exists(local_path):
                 log.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
                 fd, temp_path = tempfile.mkstemp()
@@ -104,6 +106,7 @@ class GCPPubSubService:
                     file_path=local_path,
                     options=sandbox_options,
                     custom=custom,
+                    static=static,
                 )
                 if task_ids:
                     log.info("Successfully submitted task(s): %s", task_ids)
@@ -128,10 +131,10 @@ class GCPPubSubService:
     def start(self):
         log.info("Starting GCP Pub/Sub subscriber on %s", self.subscription_path)
         streaming_pull_future = self.subscriber.subscribe(self.subscription_path, callback=self.process_message)
-        
+
         # Use a threading event to handle graceful shutdown
         self.shutdown_event = threading.Event()
-        
+
         try:
             # result() keeps the main thread alive while the subscriber runs in background
             streaming_pull_future.result()

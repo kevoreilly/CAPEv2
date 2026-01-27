@@ -1,0 +1,18 @@
+[Unit]
+Description=CAPE Pub/Sub Subscriber Service
+After=network.target postgresql.service mongod.service
+
+[Service]
+Type=simple
+User=cape
+Group=cape
+WorkingDirectory=/opt/CAPEv2
+Environment=PYTHONPATH=.
+# Optional: Set GCP project/subscription if not in gcp.conf
+# Environment=GCP_PROJECT_ID=my-project
+# Environment=GCP_SUBSCRIPTION_ID=my-subscription
+ExecStart=/usr/bin/python3 utils/gcp_pubsub_service.py
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

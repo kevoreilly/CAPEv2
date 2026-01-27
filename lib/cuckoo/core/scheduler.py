@@ -94,7 +94,7 @@ class Scheduler:
                 vm_state = self.cfg.timeouts.get("vm_state", 100)
                 timeout = analysis.task.timeout or self.cfg.timeouts.default
                 max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds + vm_state
-                duration = (_utcnow_naive - analysis.task.started_on).total_seconds()
+                duration = (_utcnow_naive() - analysis.task.started_on).total_seconds()
                 if duration > max_runtime:
                     log.warning(
                         "Task #%s has been running for %s seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM.",

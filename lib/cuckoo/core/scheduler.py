@@ -13,7 +13,6 @@ import threading
 import time
 import traceback
 from collections import defaultdict
-from datetime import datetime
 from typing import DefaultDict, List, Optional, Tuple
 
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
@@ -22,7 +21,7 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
 from lib.cuckoo.common.utils import CATEGORIES_NEEDING_VM, load_categories
 from lib.cuckoo.core.analysis_manager import AnalysisManager
-from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Machine, Task, _Database
+from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Machine, Task, _Database, _utcnow_naive
 from lib.cuckoo.core.machinery_manager import MachineryManager
 
 log = logging.getLogger(__name__)
@@ -95,7 +94,7 @@ class Scheduler:
                 vm_state = self.cfg.timeouts.get("vm_state", 100)
                 timeout = analysis.task.timeout or self.cfg.timeouts.default
                 max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds + vm_state
-                duration = (datetime.now() - analysis.task.started_on).total_seconds()
+                duration = (_utcnow_naive - analysis.task.started_on).total_seconds()
                 if duration > max_runtime:
                     log.warning(
                         "Task #%s has been running for %s seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM.",

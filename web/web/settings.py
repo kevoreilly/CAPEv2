@@ -32,6 +32,7 @@ cfg = Config("reporting")
 aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
 api_cfg = Config("api")
+pro_cfg = Config("processing")
 
 REPROCESS_TASKS = web_cfg.general.reprocess_tasks
 # CSRF TRUSTED ORIGINS
@@ -96,6 +97,7 @@ COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
 ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
+NETWORK_PROC_MAP = pro_cfg.network_proc_map.enabled
 
 # If false run next command
 # python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
@@ -309,6 +311,7 @@ SETTINGS_EXPORT = [
     "WEB_AUTHENTICATION",
     "WEB_OAUTH",
     "ZIPPED_DOWNLOAD_ALL",
+    "NETWORK_PROC_MAP",
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

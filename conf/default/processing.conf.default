@@ -323,3 +323,6 @@ enabled = no
 # Enable when using the PolarProxy option during analysis. This will merge the tls.pcap containing
 # plain-text TLS streams into the task PCAP.
 enabled = no
+
+[network_proc_map]
+enabled = no

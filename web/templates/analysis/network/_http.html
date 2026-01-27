@@ -8,6 +8,7 @@
     <tr>
         <th>URI</th>
         <th>Details</th>
+        {% if settings.NETWORK_PROC_MAP %} <th style="width: 160px">Process Name (PID)</th> {% endif %}
     </tr>
     {% for http in network.http_ex|add:network.https_ex %}
     <tr>
@@ -48,6 +49,15 @@
             </td></tr>
             </table>
         </td>
+        {% if settings.NETWORK_PROC_MAP %}
+            <td style="width: 160px; white-space: nowrap;">
+                {% if http.process_name %}
+                    {{ http.process_name }}{% if http.process_id %} ({{ http.process_id }}){% endif %}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>
@@ -58,12 +68,22 @@
         <tr>
             <th>URI</th>
             <th>Data</th>
+            <th style="width: 160px;">Process Name (PID)</th>
         </tr>
         {% for request in network.http %}
-        <tr>
-            <td style="word-wrap: break-word;">{{request.uri}}</td>
-            <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
-        </tr>
+            <tr>
+                <td style="word-wrap: break-word;">{{request.uri}}</td>
+                <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
+                {% if settings.NETWORK_PROC_MAP %}
+                    <td style="width: 160px; white-space: nowrap;">
+                        {% if request.process_name %}
+                            {{ request.process_name }}{% if request.process_id %} ({{ request.process_id }}){% endif %}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </td>
+                {% endif %}
+            </tr>
         {% endfor %}
     </table>
     </div>

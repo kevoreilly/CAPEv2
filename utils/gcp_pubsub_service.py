@@ -84,6 +84,7 @@ class GCPPubSubService:
                 custom = custom[:252] + "..."
 
             # Check if sample exists locally
+            sample_hash = os.path.basename(sample_hash)
             local_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_hash)
             is_temp = False
 

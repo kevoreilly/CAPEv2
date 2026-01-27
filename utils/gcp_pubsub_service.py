@@ -121,9 +121,8 @@ class GCPPubSubService:
             finally:
                 if is_temp and path_exists(local_path):
                     try:
-                        os.unlink(local_path)
                     except Exception as e:
-                        log.warning("Failed to delete temp file %s: %s", local_path, e)
+                        log.warning("Failed to delete temp file %s for task, %s: %s", local_path, payload.get("uuid"), e)
 
         except Exception as e:
             log.error("Error processing message: %s", e)

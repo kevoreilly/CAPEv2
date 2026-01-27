@@ -1615,16 +1615,26 @@ async def report(request, task_id):
         reporting_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports")
         if path_exists(reporting_path):
             for f in os.listdir(reporting_path):
-                if f == "report.json": _reports_exist["json"] = True
-                elif f == "report.html": _reports_exist["html"] = True
-                elif f == "summary-report.html": _reports_exist["htmlsummary"] = True
-                elif f == "report.pdf": _reports_exist["pdf"] = True
-                elif f == "report.maec-4.1.xml": _reports_exist["maec"] = True
-                elif f == "report.maec-5.0.xml": _reports_exist["maec5"] = True
-                elif f == "report.metadata.xml": _reports_exist["metadata"] = True
-                elif f == "misp.json": _reports_exist["misp"] = True
-                elif f == "lite.json": _reports_exist["litereport"] = True
-                elif f == "cents.json": _reports_exist["cents"] = True
+                if f == "report.json":
+                    _reports_exist["json"] = True
+                elif f == "report.html":
+                    _reports_exist["html"] = True
+                elif f == "summary-report.html":
+                    _reports_exist["htmlsummary"] = True
+                elif f == "report.pdf":
+                    _reports_exist["pdf"] = True
+                elif f == "report.maec-4.1.xml":
+                    _reports_exist["maec"] = True
+                elif f == "report.maec-5.0.xml":
+                    _reports_exist["maec5"] = True
+                elif f == "report.metadata.xml":
+                    _reports_exist["metadata"] = True
+                elif f == "misp.json":
+                    _reports_exist["misp"] = True
+                elif f == "lite.json":
+                    _reports_exist["litereport"] = True
+                elif f == "cents.json":
+                    _reports_exist["cents"] = True
 
         _debugger_logs = 0
         debugger_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "debugger")

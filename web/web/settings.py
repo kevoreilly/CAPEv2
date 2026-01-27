@@ -274,7 +274,7 @@ if REAL_TIME_UPDATES:
         "default": {
             "BACKEND": "channels_redis.core.RedisChannelLayer",
             "CONFIG": {
-                "hosts": [(web_conf.channels.get("redis_host", "127.0.0.1"), web_conf.channels.get("redis_port", 6379))],
+                "hosts": [(web_cfg.channels.get("redis_host", "127.0.0.1"), web_cfg.channels.get("redis_port", 6379))],
             },
         },
     }

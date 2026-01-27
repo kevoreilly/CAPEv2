@@ -7,7 +7,7 @@ from lib.cuckoo.core.database import Database
 class DashboardConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         user = self.scope["user"]
-        
+
         # Security Check
         if settings.WEB_AUTHENTICATION and not user.is_authenticated:
             if not settings.ANON_VIEW:
@@ -44,7 +44,7 @@ class TaskConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         self.task_id = self.scope['url_route']['kwargs']['task_id']
         user = self.scope["user"]
-        
+
         # Security Check 1: Authentication
         if settings.WEB_AUTHENTICATION and not user.is_authenticated:
             if not settings.ANON_VIEW:
@@ -57,7 +57,7 @@ class TaskConsumer(AsyncWebsocketConsumer):
              # Use sync_to_async to query the DB without blocking
             db = Database()
             task = await sync_to_async(db.view_task)(int(self.task_id))
-            
+
             if not task:
                 # Task doesn't exist
                 await self.close()

@@ -50,7 +50,7 @@ def index(request, task_id, session_data):
                     "guac/error.html",
                     {"error_msg": f"{e}", "error": "remote session", "task_id": task_id},
                 )
-            
+
             if state:
                 if state[0] == 1:
                     vmXml = dom.XMLDesc(0)
@@ -76,7 +76,7 @@ def index(request, task_id, session_data):
                 conn.close()
             except Exception:
                 pass
-                
+
     # Fallback return if something went wrong before rendering
     return render(
         request,

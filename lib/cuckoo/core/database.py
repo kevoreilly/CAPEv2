@@ -84,7 +84,7 @@ def _utcnow_naive():
     """Returns the current time in the configured timezone as a naive datetime object."""
     try:
         tz = pytz.timezone(tz_name)
-    except Exception:
+    except pytz.UnknownTimeZoneError:
         tz = timezone.utc
     return datetime.now(tz).replace(tzinfo=None)
 

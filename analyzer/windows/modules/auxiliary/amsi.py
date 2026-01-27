@@ -31,6 +31,7 @@ import logging
 import sys
 import threading
 import uuid
+from contextlib import suppress
 
 logger = logging.getLogger(__name__)
 
@@ -1001,6 +1002,11 @@ class EventConsumer:
 
         data = formatted_data.value
         # Convert the formatted data if necessary
+        if isinstance(data, str):
+            if out_type >= TDH_OUTTYPE_BYTE and out_type <= TDH_OUTTYPE_UNSIGNEDLONG:
+                with suppress(Exception):
+                    data = int(data)
+
         if out_type in TDH_CONVERTER_LOOKUP and type(data) is TDH_CONVERTER_LOOKUP[out_type]:
             data = TDH_CONVERTER_LOOKUP[out_type](data)
 

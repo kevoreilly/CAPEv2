@@ -103,8 +103,6 @@ failed_count = {}
 status_count = {}
 
 lock_retriever = threading.Lock()
-dist_lock = threading.BoundedSemaphore(int(dist_conf.distributed.dist_threads))
-fetch_lock = threading.BoundedSemaphore(1)
 
 delete_enabled = False
 failed_clean_enabled = False
@@ -608,65 +606,57 @@ class Retriever(threading.Thread):
         self.current_queue = {}
         self.current_two_queue = {}
         self.stop_dist = threading.Event()
-        self.threads = []
+
+        # Define the set of threads that should be running
+        thread_targets = []
 
         if dist_conf.GCP.enabled and HAVE_GCP:
-            # autodiscovery is generic name so in case if we have AWS or Azure it should implement the logic inside
-            thread = threading.Thread(target=cloud.autodiscovery, name="autodiscovery", args=())
-            thread.daemon = True
-            thread.start()
-            self.threads.append(thread)
+            thread_targets.append((cloud.autodiscovery, "autodiscovery", ()))
 
-        for _ in range(int(dist_conf.distributed.dist_threads)):
-            if dist_lock.acquire(blocking=False):
-                if NFS_FETCH:
-                    thread = threading.Thread(target=self.fetch_latest_reports_nfs, name="fetch_latest_reports_nfs", args=())
-                elif RESTAPI_FETCH:
-                    thread = threading.Thread(target=self.fetch_latest_reports, name="fetch_latest_reports", args=())
-                if RESTAPI_FETCH or NFS_FETCH:
-                    thread.daemon = True
-                    thread.start()
-                    self.threads.append(thread)
+        # Data fetchers
+        for i in range(int(dist_conf.distributed.dist_threads)):
+            if NFS_FETCH:
+                thread_targets.append((self.fetch_latest_reports_nfs, f"fetch_latest_reports_nfs_{i}", ()))
+            elif RESTAPI_FETCH:
+                thread_targets.append((self.fetch_latest_reports, f"fetch_latest_reports_{i}", ()))
 
-        if fetch_lock.acquire(blocking=False):
-            thread = threading.Thread(target=self.fetcher, name="fetcher", args=())
-            thread.daemon = True
-            thread.start()
-            self.threads.append(thread)
+        thread_targets.append((self.fetcher, "fetcher", ()))
 
-        # Delete the task and all its associated files.
-        # (It will still remain in the nodes" database, though.)
         if dist_conf.distributed.remove_task_on_worker or delete_enabled:
-            thread = threading.Thread(target=self.remove_from_worker, name="remove_from_worker", args=())
-            thread.daemon = True
-            thread.start()
-            self.threads.append(thread)
+            thread_targets.append((self.remove_from_worker, "remove_from_worker", ()))
 
         if dist_conf.distributed.failed_cleaner or failed_clean_enabled:
-            thread = threading.Thread(target=self.failed_cleaner, name="failed_to_clean", args=())
-            thread.daemon = True
-            thread.start()
-            self.threads.append(thread)
+            thread_targets.append((self.failed_cleaner, "failed_to_clean", ()))
 
-        thread = threading.Thread(target=self.free_space_mon, name="free_space_mon", args=())
-        thread.daemon = True
-        thread.start()
-        self.threads.append(thread)
+        thread_targets.append((self.free_space_mon, "free_space_mon", ()))
 
         if reporting_conf.callback.enabled:
-            thread = threading.Thread(target=self.notification_loop, name="notification_loop", args=())
-            thread.daemon = True
-            thread.start()
-            self.threads.append(thread)
+            thread_targets.append((self.notification_loop, "notification_loop", ()))
 
-        # thread monitoring
-        for thr in self.threads:
-            try:
-                thr.join(timeout=0.0)
-                log.info("Thread: %s - Alive: %s", thr.name, str(thr.is_alive()))
-            except Exception as e:
-                log.exception(e)
-            time.sleep(60)
+        # Supervisor Loop
+        active_threads = {} # name -> thread_obj
+
+        log.info("Retriever supervisor started. Monitoring %d threads.", len(thread_targets))
+
+        while not self.stop_dist.is_set():
+            for target_func, name, args in thread_targets:
+                thread = active_threads.get(name)
+
+                if thread is None or not thread.is_alive():
+                    if thread is not None:
+                        log.critical("Thread %s died! Respawning...", name)
+                    else:
+                        log.info("Starting thread %s", name)
+
+                    new_thread = threading.Thread(target=target_func, name=name, args=args)
+                    new_thread.daemon = True
+                    new_thread.start()
+                    active_threads[name] = new_thread
+
+            # Periodic health check
+            time.sleep(600)
+
+        log.info("Retriever supervisor stopping.")
 
     def free_space_mon(self):
         """

@@ -67,8 +67,9 @@ class GCPPubSubService:
             parent_id = payload.get("parent_id", "")
             transaction_id = payload.get("transaction_id", "")
             sample_name = payload.get("name", "sample")
-
-            static = "category=static" in sandbox_options
+            category = None
+            if "category=static" in sandbox_options:
+                category = "static"
 
             # Format custom fields with truncation to fit 255 chars
             custom_parts = []
@@ -107,7 +108,7 @@ class GCPPubSubService:
                     file_path=local_path,
                     options=sandbox_options,
                     custom=custom,
-                    static=static,
+                    category=category,
                 )
                 if task_ids:
                     log.info("Successfully submitted task(s): %s", task_ids)
@@ -121,6 +122,7 @@ class GCPPubSubService:
             finally:
                 if is_temp and path_exists(local_path):
                     try:
+                        os.unlink(local_path)
                     except Exception as e:
                         log.warning("Failed to delete temp file %s for task, %s: %s", local_path, payload.get("uuid"), e)
 

@@ -81,7 +81,7 @@ def submit_file(
                 clock=clock,
                 tags=tags,
                 route=route,
-                category=None,
+                category=category,
             )
         return task_ids
     except CuckooDemuxError as e:

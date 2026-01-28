@@ -1384,6 +1384,11 @@ def perform_search(
             raise ValueError("Invalid TTP enterred")
     elif term == "malscore":
         query_val = {"$gte": float(value)}
+    elif term == "name":
+        if re.search(r"[\^\$\|\?\*\+\(\)\[\]\{\}]", value):
+            query_val = {"$regex": value, "$options": "i"}
+        else:
+            query_val = value
     else:
         query_val = {"$regex": value, "$options": "i"}
 

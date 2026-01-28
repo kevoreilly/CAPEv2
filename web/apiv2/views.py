@@ -897,7 +897,7 @@ async def tasks_list(request, offset=None, limit=None, window=None):
 
 @csrf_exempt
 @api_view(["GET"])
-def tasks_view(request, task_id):
+async def tasks_view(request, task_id):
     if not apiconf.taskview.get("enabled"):
         resp = {"error": True, "error_value": "Task View API is Disabled"}
         return Response(resp)

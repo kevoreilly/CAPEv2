@@ -1,3 +1,8 @@
+### [28.01.2026]
+* Search optimization: General search terms now use exact match by default for better MongoDB performance.
+    * Use regex characters (e.g., `^ $ | ? * + ( ) [ ] { }`) to trigger a regex search.
+    * Updated search UI help and placeholders.
+
 ### [16.01.2026] CAPE v2.5
 * Bootstrap 5 upgrade and some visual WEBGUI rewamp. Some improvements still might come soon!
 * htmlreport - rewamp!

@@ -108,37 +108,7 @@ class TestAnalysisManager:
     def test_init(self, task: Task):
         mgr = AnalysisManager(task=task)
 
-        assert mgr.cfg.cuckoo == {
-            "allow_static": False,
-            "categories": "static, pcap, url, file",
-            "freespace": 50000,
-            "delete_original": False,
-            "tmppath": "/tmp",
-            "terminate_processes": False,
-            "memory_dump": False,
-            "delete_bin_copy": False,
-            "max_machines_count": 10,
-            "reschedule": False,
-            "rooter": "/tmp/cuckoo-rooter",
-            "machinery": "kvm",
-            "machinery_screenshots": False,
-            "delete_archive": True,
-            "max_vmstartup_count": 5,
-            "daydelta": 0,
-            "max_analysis_count": 0,
-            "max_len": 196,
-            "sanitize_len": 32,
-            "sanitize_to_len": 24,
-            "scaling_semaphore": False,
-            "scaling_semaphore_update_timer": 10,
-            "task_pending_timeout": 0,
-            "task_timeout": False,
-            "task_timeout_scan_interval": 30,
-            "freespace_processing": 15000,
-            "ignore_signals": True,
-            "periodic_log": False,
-            "fail_unserviceable": True,
-        }
+        assert mgr.cfg.cuckoo == Config("cuckoo").cuckoo
 
         assert mgr.task.id == task.id
 

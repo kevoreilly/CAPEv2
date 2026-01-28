@@ -29,6 +29,66 @@ from lib.cuckoo.core.startup import check_user_permissions
 check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
 
 
+def submit_file(
+    db,
+    file_path,
+    package="",
+    timeout=0,
+    options="",
+    priority=1,
+    machine="",
+    platform="",
+    memory=False,
+    enforce_timeout=False,
+    custom="",
+    tags=None,
+    route=None,
+    clock=None,
+    unique=False,
+    quiet=False,
+    category = None,
+):
+    if not File(file_path).get_size():
+        if not quiet:
+            print((bold(yellow("Empty") + ": sample {0} (skipping file)".format(file_path))))
+        return []
+
+    if unique:
+        with db.session.begin():
+            already_exists = db.check_file_uniq(File(file_path).get_sha256())
+        if already_exists:
+            msg = ": Sample {0} (skipping file)".format(file_path)
+            if not quiet:
+                print((bold(yellow("Duplicate")) + msg))
+            return []
+
+    try:
+        with open(file_path, "rb") as f:
+            tmp_path = store_temp_file(f.read(), sanitize_filename(os.path.basename(file_path)))
+        with db.session.begin():
+            # ToDo expose extra_details["errors"]
+            task_ids, extra_details = db.demux_sample_and_add_to_db(
+                file_path=tmp_path,
+                package=package,
+                timeout=timeout,
+                options=options,
+                priority=priority,
+                machine=machine,
+                platform=platform,
+                memory=memory,
+                custom=custom,
+                enforce_timeout=enforce_timeout,
+                clock=clock,
+                tags=tags,
+                route=route,
+                category=category,
+            )
+        return task_ids
+    except CuckooDemuxError as e:
+        print((bold(red("Error")) + ": {0}".format(e)))
+        return []
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("target", help="URL, path to the file or folder to analyze")
@@ -334,38 +394,25 @@ def main():
                 task_ids = json["data"].get("task_ids")
 
             else:
-                if args.unique:
-                    with db.session.begin():
-                        already_exists = db.check_file_uniq(File(file_path).get_sha256())
-                    if already_exists:
-                        msg = ": Sample {0} (skipping file)".format(file_path)
-                        if not args.quiet:
-                            print((bold(yellow("Duplicate")) + msg))
-                        continue
+                task_ids = submit_file(
+                    db=db,
+                    file_path=file_path,
+                    package=args.package,
+                    timeout=sane_timeout,
+                    options=args.options,
+                    priority=args.priority,
+                    machine=args.machine,
+                    platform=args.platform,
+                    memory=args.memory,
+                    custom=args.custom,
+                    enforce_timeout=args.enforce_timeout,
+                    clock=args.clock,
+                    tags=args.tags,
+                    route=args.route,
+                    unique=args.unique,
+                    quiet=args.quiet,
+                )
 
-                try:
-                    with open(file_path, "rb") as f:
-                        tmp_path = store_temp_file(f.read(), sanitize_filename(os.path.basename(file_path)))
-                    with db.session.begin():
-                        # ToDo expose extra_details["errors"]
-                        task_ids, extra_details = db.demux_sample_and_add_to_db(
-                            file_path=tmp_path,
-                            package=args.package,
-                            timeout=sane_timeout,
-                            options=args.options,
-                            priority=args.priority,
-                            machine=args.machine,
-                            platform=args.platform,
-                            memory=args.memory,
-                            custom=args.custom,
-                            enforce_timeout=args.enforce_timeout,
-                            clock=args.clock,
-                            tags=args.tags,
-                            route=args.route,
-                        )
-                except CuckooDemuxError as e:
-                    task_ids = []
-                    print((bold(red("Error")) + ": {0}".format(e)))
             tasks_count = len(task_ids)
             if tasks_count > 1:
                 if not args.quiet:

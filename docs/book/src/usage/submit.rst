@@ -113,61 +113,130 @@ some options (in this case a command line argument for the malware)::
 
 ``--options`` Options Available
 -------------------------------
-- ``filename``: Rename the sample file
-- ``name``: This will force family extractor to run, Ex: name=trickbot
-- ``curdir``: Change from where execute sample, by default %TEMP%, Ex: curdir=%APPDATA% or
-        curdir=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup
-- ``executiondir``: Sets directory to launch the file from. Need not be the same as the directory of sample file. Defaults to %TEMP% if both executiondir and curdir are not specified. Only supports full paths
-- ``free``: Run without monitoring (disables many capabilities) Ex: free=1
-- ``force-sleepskip``: Override default sleep skipping behavior:  0 disables all sleep skipping, 1 skips all sleeps.
-- ``full-logs``: By default, logs prior to network activity for URL analyses and prior to access of the file in question for non-executable formats are suppressed.  Set to 1 to disable log suppression.
-- ``force-flush``: For performance reasons, logs are buffered before being sent back to the result server.  We make every attempt to flush the buffer at critical points including when exceptions occur, but in some rare termination scenarios, logs may be lost.  Set to 1 to force flushing of the log buffers after any non-duplicate API is called, set to 2 to force flushing of every log.
-- ``no-stealth``: Set to 1 to disable anti-anti-VM/sandbox code enabled by default.
-- ``buffer-max``: When set to an integer of your choice, changes the maximum number of bytes that can be logged for most API buffers.
-- ``large-buffer-max``: Some hooked APIs permit larger buffers to be logged.  To change the limit for this, set this to an integer of your choice.
-- ``norefer``: Disables use of a fake referrer when performing URL analyses
-- ``file``: When using the zip or rar package, set the name of the file to execute
-- ``password``: When using the zip or rar package, set the password to use for extraction.  Also used when analyzing password-protected Office documents.
-- ``function``: When using the dll package, set the name of the exported function to execute
-- ``dllloader``: When using the dll package, set the name of the process loading the DLL (defaults to rundll32.exe).
-- ``arguments``: When using the dll, exe, or python packages, set the arguments to be passed to the executable or exported function.
-- ``appdata``: When using the exe package, set to 1 to run the executable out of the Application Data path instead of the Temp directory.
-- ``startbrowser``: Setting this option to 1 will launch a browser 30 seconds into the analysis (useful for some banking trojans).
-- ``browserdelay``: Sets the number of seconds to wait before starting the browser with the startbrowser option.  Defaults to 30 seconds.
-- ``url``: When used with the startbrowser option, this will determine the URL the started browser will access.
-- ``debug``: Set to 1 to enable reporting of critical exceptions occurring during analysis, set to 2 to enable reporting of all exceptions.
-- ``disable_hook_content``: Set to 1 to remove functionality of all hooks except those critical for monitoring other processes.  Set to 2 to apply to all hooks.
-- ``hook-type``: Valid for 32-bit analyses only.  Specifies the hook type to use: direct, indirect, or safe.  Safe attempts a Detours-style hook.
-- ``serial``: Spoof the serial of the system volume as the provided hex value
-- ``single-process``: When set to 1 this will limit behavior monitoring to the initial process only.
-- ``exclude-apis``: Exclude the colon-separated list of APIs from being hooked
-- ``exclude-dlls``: Exclude the colon-separated list of DLLs from being hooked
-- ``dropped-limit``: Override the default dropped file limit of 100 files
-- ``compression``: When set to 1 this will enable CAPE's extraction of compressed payloads
-- ``extraction``: When set to 1 this will enable CAPE's extraction of payloads from within each process
-- ``injection``: When set to 1 this will enable CAPE's capture of injected payloads between processes
-- ``combo``: This combines compression, injection and extraction with process dumps
-- ``dump-on-api``: Dump the calling module when a function from the colon-separated list of APIs is used
-- ``bp0``: Sets breakpoint 0 (processor/hardware) to a VA or RVA value (or module::export). Applies also to bp1-bp3.
-- ``file-offsets``: Breakpoints in bp0-bp3 will be interpreted as PE file offsets rather than RVAs
-- ``break-on-return``: Sets breakpoints on the return address(es) from a colon-separated list of APIs
-- ``base-on-api``: Sets the base address to which breakpoints will be applied (and sets breakpoints)
-- ``depth``: Sets the depth an instruction trace will step into (defaults to 0, requires Trace package)
-- ``count``: Sets the number of instructions in a trace (defaults to 128, requires Trace package)
-- ``referrer``: Specify the referrer to be used for URL tasks, overriding the default Google referrer
-- ``loop_detection``: Set this option to 1 to enable loop detection (compress call logs - behavior analysis)
-- ``static``: Check if config can be extracted statically, if not, send to vm
-- ``Dl&Exec add headers``: Example: dnl_user_agent: "CAPE Sandbox", dnl_referrer: google
-- ``servicedesc`` - for service package: Service description
-- ``arguments`` - for service package: Service arguments
-- ``store_memdump``: Will force STORE memdump, only when submitting to analyzer node directly, as distributed cluster can modify this
-- ``pre_script_args``: Command line arguments for pre_script. Example: pre_script_args=file1 file2 file3
-- ``pre_script_timeout``: pre_script_timeout will default to 60 seconds. Script will stop after timeout Example: pre_script_timeout=30
-- ``during_script_args``: Command line arguments for during_script. Example: during_script_args=file1 file2 file3
-- ``pwsh``: - for ps1 package: prefer PowerShell Core, if available in the vm
-- ``check_shellcode``: - Setting check_shellcode=0 will disable checking for shellcode during package identification and extracting from archive
-- ``unhook-apis``: - capability to dynamically unhook previously hooked functions (unhook-apis option takes colon-separated list e.g. unhook-apis=NtSetInformationThread:NtDelayExecution)
-- ``ttd``: - ttd=1. TTD integration (Microsoft Time Travel Debugging). Place TTD binaries in analyzer/windows/bin (with wow64 subdirectory for 32-bit). .trc files output to TTD directory in results folder for manual retrieval
+
+Analysis options can be specified at submission time in the format ``option1=val1,option2=val2``. These options control the behavior of the monitor and analyzer during detonation.
+
+Submission & General
+^^^^^^^^^^^^^^^^^^^^
+- ``filename``: Rename the sample file within the guest environment.
+- ``name``: Force family extractor to run for a specific family (e.g., ``name=trickbot``).
+- ``curdir``: Change the execution directory (default is ``%TEMP%``). Supports environment variables like ``%APPDATA%``.
+- ``executiondir``: Sets the directory to launch the file from. Must be a full path.
+- ``arguments``: Command line arguments to pass to the initial process or exported function.
+- ``appdata``: Set to ``1`` to run the executable from the ``AppData`` path instead of ``Temp``.
+- ``file``: For Zip/Rar packages, specify which file within the archive to execute.
+- ``password``: Password for archive extraction or protected Office documents.
+- ``function``: For DLL packages, specify exported function name(s) or ordinals (colon-separated).
+- ``dllloader``: Specify a process name to fake the DLL launcher (default is ``rundll32.exe``).
+- ``pwsh``: For PS1 package, prefer PowerShell Core (``pwsh.exe``) if available.
+- ``ignore_size_check``: Allow ignoring file size limits (must be enabled in ``conf/web.conf``).
+- ``check_shellcode``: Set to ``0`` to disable shellcode detection during package identification.
+- ``pre_script_args`` / ``during_script_args``: Command line arguments for pre/during-execution scripts.
+- ``pre_script_timeout``: Timeout for pre-execution script (default 60s).
+- ``servicedesc`` / ``servicename``: Custom name and description for Service packages.
+- ``lang``: Override the system language code (LCID).
+- ``standalone``: Run in standalone mode without a Cuckoo pipe.
+- ``monitor``: Inject the monitor into a specific PID or explorer (useful for interactive mode).
+- ``shutdown-mutex``: Name of the mutex that signals a shutdown/termination.
+- ``terminate-event``: Name of the event set by the analyzer to signal termination.
+- ``terminate-processes``: If true, terminate processes when ``terminate-event`` is signaled.
+- ``first-process``: (Internal) Flag indicating if this is the first process in the analysis tree.
+- ``startup-time``: Milliseconds since system startup.
+
+Monitor & Evasion
+^^^^^^^^^^^^^^^^^
+- ``free``: Run without monitoring (disables many capabilities for stealth or performance).
+- ``no-stealth``: Set to ``1`` to disable built-in anti-anti-VM/sandbox tricks.
+- ``force-sleepskip``: ``0`` = disable sleep skipping, ``1`` = skip all sleeps.
+- ``serial``: Spoof the system volume serial number (Hex value).
+- ``sysvol_ctimelow/high``: Spoof the creation time of the system volume.
+- ``sys32_ctimelow/high``: Spoof the creation time of the System32 directory.
+- ``fake-rdtsc``: Enable fake RDTSC (Read Time-Stamp Counter) results.
+- ``nop-rdtscp``: NOP the RDTSCP instruction.
+- ``ntdll-protect``: Enable write protection on ``ntdll.dll`` code.
+- ``ntdll-unhook``: Enable protection against ntdll unhooking via ``NtReadFile``.
+- ``ntdll-remap``: Enable ntdll remapping protection.
+- ``protected-pids``: Enable protection for critical PIDs to prevent termination or injection.
+- ``single-process``: Limit behavior monitoring to the initial process only.
+- ``interactive``: Enable interactive desktop mode.
+- ``pdf``: Enable specific hooks/behavior for Adobe Reader.
+- ``startbrowser``: Launch a browser 30 seconds into the analysis.
+- ``browserdelay``: Seconds to wait before starting the browser (default 30).
+- ``url``: Determine the URL the started browser will access.
+- ``referrer``: Specify a custom referrer for URL tasks.
+- ``norefer``: Disable the use of a fake referrer.
+- ``file-of-interest``: Specify a particular file or URL being analyzed.
+
+Hooking & Logging
+^^^^^^^^^^^^^^^^^
+- ``hook-type``: Hooking method: ``indirect``, ``pushret``, ``direct``, or ``safe``.
+- ``hook-range``: Limit the number of applied hooks (useful for testing).
+- ``hook-low``: Allocate hook trampolines in low memory (<2GB) on x64 systems.
+- ``hook-restore``: Attempt to restore hooks if modification is detected.
+- ``hook-protect``: Enable write protection on hook pages.
+- ``hook-watch``: Enable continuous monitoring of hook integrity.
+- ``disable-hook-content``: ``1`` = remove payload of non-critical hooks, ``2`` = remove payload of all hooks.
+- ``minhook`` / ``zerohook``: Enable only minimal hooks or disable all non-essential hooks.
+- ``native``: Install only native (ntdll) hooks.
+- ``syscall``: Enable syscall hooks (Windows 10+).
+- ``exclude-apis`` / ``exclude-dlls``: Colon-separated lists of APIs or DLLs to exclude from hooking.
+- ``unhook-apis``: Colon-separated list of APIs to dynamically unhook at runtime.
+- ``coverage-modules``: Colon-separated list of DLLs to include in monitoring (exclude from 'dll range' filtering).
+- ``full-logs``: Disable log suppression (logs before network/file activity are normally suppressed).
+- ``force-flush``: ``1`` = flush logs after any non-duplicate API, ``2`` = force flush every log.
+- ``log-exceptions`` / ``log-vexcept``: Enable logging of standard or Vectored Exception Handlers.
+- ``log-breakpoints`` / ``log-bps``: Enable logging of breakpoints to the behavior log.
+- ``trace-times`` / ``tt``: Enable timing information in instruction traces.
+- ``buffer-max`` / ``large-buffer-max``: Max size for standard and large API log buffers.
+- ``api-rate-cap`` / ``api-cap``: Limits for the rate and total number of API logs.
+- ``no-logs`` / ``disable-logging``: Divert or completely disable the analysis log.
+
+Dumping & Payloads
+^^^^^^^^^^^^^^^^^^
+- ``procdump``: Enable process memory dumping on exit or timeout.
+- ``procmemdump``: Enable full process memory dumping.
+- ``import-reconstruction``: Attempt import reconstruction on process dumps (slow).
+- ``dump-limit``: Limit the number of payload dumps (default 10).
+- ``dropped-limit``: Limit the number of dropped files logged (default 100).
+- ``dump-on-api``: Dump the calling module when specific APIs (colon-separated) are called.
+- ``dump-config-region``: Dump memory regions suspected to contain C2 configuration.
+- ``dump-crypto`` / ``dump-keys``: Dump buffers from Crypto APIs or keys from ``CryptImportKey``.
+- ``amsidump``: Enable AMSI buffer dumping (Windows 10+).
+- ``jit-dumps``: Limit for .NET JIT cache dumps.
+- ``tlsdump``: Enable dumping of TLS secrets.
+- ``regdump``: Enable dumping of Registry data.
+- ``unpacker``: ``1`` = passive unpacking, ``2`` = active unpacking.
+- ``injection`` / ``extraction`` / ``compression``: Enable capture of injected payloads, process extractions, or compressed payloads.
+- ``combo``: Combines compression, injection, and extraction with process dumps.
+- ``store_memdump``: Force STORE memdump when submitting to an analyzer node directly.
+
+Debug & Tracing
+^^^^^^^^^^^^^^^
+- ``debugger``: Enable the internal debugger engine (implicitly set by bp/trace options).
+- ``debug``: ``1`` = report critical exceptions, ``2`` = report all exceptions.
+- ``bp0``...``bp3``: Set hardware breakpoints (format: ``0xAddress``, ``Module:Export``, or ``ep`` for entrypoint).
+- ``br0``, ``br1``: Set "break-on-return" addresses.
+- ``bp`` / ``sysbp``: Colon-separated lists of software or syscall breakpoints.
+- ``sysbpmode``: Mode for syscall breakpoints.
+- ``break-on-return``: Colon-separated list of APIs to break on return.
+- ``break-on-jit``: Break on .NET JIT compiled native code.
+- ``trace-all``: Enable full execution tracing.
+- ``trace-into-api``: Colon-separated list of APIs to trace into.
+- ``branch-trace``: Enable branch tracing.
+- ``depth``: Trace depth limit (integer or ``all``).
+- ``count``: Trace instruction count limit (integer or ``all``).
+- ``step-out``: Set a step-out breakpoint at a specific address.
+- ``stepmode``: Custom trace stepping behavior.
+- ``loopskip`` / ``loop_detection``: Enable loop skipping or detection to compress call logs.
+- ``base-on-api``: Base breakpoints on specific API addresses.
+- ``base-on-alloc``: Base breakpoints on executable memory allocations.
+- ``base-on-caller``: Base breakpoints on new calling regions.
+- ``file-offsets``: Interpret breakpoints as file offsets instead of RVAs.
+- ``loaderlock``: Allow scans/dumps while the Loader Lock is held.
+- ``snaps``: Enable Windows Loader Snaps output (LdrSnap).
+- ``ttd``: Enable Microsoft Time Travel Debugging integration (requires TTD binaries).
+- ``polarproxy``: Run PolarProxy for TLS decryption (TLS port can be set via ``tlsport``).
+- ``mitmdump``: Run mitmdump to generate HAR with decrypted TLS.
 
 .. _webpy:
 

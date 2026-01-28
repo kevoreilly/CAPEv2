@@ -31,6 +31,8 @@ GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o agent
 In the VM, run the agent:
 
 ```cmd
+agent.exe
+or specify host and port. Default is 0.0.0.0:8000
 agent.exe -host 0.0.0.0 -port 8000
 ```
 

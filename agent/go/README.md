@@ -11,7 +11,20 @@ This is a Golang port of the CAPE Sandbox Agent. It is designed to be a drop-in 
 Most sandboxes use 32-bit Windows environments or require 32-bit compatibility.
 
 ```bash
-GOOS=windows GOARCH=386 go build -ldflags="-s -w" -o agent.exe
+GOOS=windows GOARCH=386 go build -ldflags="-s -w" -trimpath -o agent.exe
+```
+
+### Optimized & Small Binaries
+To produce the smallest possible binary with no local path leaks:
+- `-s`: Omit the symbol table and debug information.
+- `-w`: Omit the DWARF symbol table.
+- `-trimpath`: Remove all file system paths from the compiled executable.
+
+#### (Optional) UPX Compression
+If you need an extremely small binary (e.g., ~500KB), you can use UPX.
+**Note:** UPX-packed binaries are often flagged by AV heuristics.
+```bash
+upx --best --lzma agent.exe
 ```
 
 ### Building for Windows (x64)

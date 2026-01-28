@@ -1354,7 +1354,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
 
 @csrf_exempt
 @api_view(["GET"])
-def tasks_iocs(request, task_id, detail=None):
+async def tasks_iocs(request, task_id, detail=None):
     if not apiconf.taskiocs.get("enabled"):
         resp = {"error": True, "error_value": "IOC download API is disabled"}
         return Response(resp)
@@ -1849,7 +1849,7 @@ def tasks_surifile(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
-def tasks_rollingsuri(request, window=60):
+async def tasks_rollingsuri(request, window=60):
     window = int(window)
 
     if not apiconf.rollingsuri.get("enabled"):
@@ -2279,7 +2279,7 @@ def tasks_procdumpfiles(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
-def tasks_config(request, task_id, cape_name=False):
+async def tasks_config(request, task_id, cape_name=False):
     if not apiconf.capeconfig.get("enabled"):
         resp = {"error": True, "error_value": "Config download API is disabled"}
         return Response(resp)
@@ -2338,7 +2338,7 @@ def tasks_config(request, task_id, cape_name=False):
 @csrf_exempt
 @api_view(["POST"])
 # should be securized by checking category, this is just an example how easy to extend webgui with external tools
-def post_processing(request, category, task_id):
+async def post_processing(request, category, task_id):
     content = request.data.get("content", "")
     if content and category:
         content = json.loads(content)

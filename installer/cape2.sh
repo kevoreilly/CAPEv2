@@ -120,6 +120,7 @@ cat << EndOfHelp
         jemalloc - Install jemalloc, required for CAPE to decrease memory usage
             Details: https://zapier.com/engineering/celery-python-jemalloc/
         crowdsecurity - Install CrowdSecurity for NGINX and webgui
+        introvirt - Install IntroVirt
         docker - install docker
         osslsigncode - Linux alternative to Windows signtool.exe
         modsecurity - install Nginx ModSecurity plugin
@@ -167,6 +168,13 @@ function install_crowdsecurity() {
     fi
     cd crowdsec-nginx-bouncer-v$CSNB_VERSION || return
     sudo ./install.sh
+}
+
+function install_IntroVirt() {
+    wget https://github.com/IntroVirt/IntroVirt/releases/latest/download/Ubuntu-$(lsb_release -sc)-$(lsb_release -sr).tar.xz
+    tar -Jxvf Ubuntu-$(lsb_release -sc)-$(lsb_release -sr).tar.xz
+    cd Ubuntu-$(lsb_release -sc)-$(lsb_release -sr)
+    sudo apt install ./*.deb
 }
 
 function install_docker() {
@@ -1876,6 +1884,8 @@ case "$COMMAND" in
     install_DIE;;
 'fluentd')
     install_fluentd;;
+'introvirt')
+    install_IntroVirt;;
 'passivedns')
     install_passivedns;;
 *)

@@ -1,3 +1,17 @@
+### [24.01.2026]
+* **Async Web Server Core**:
+    * Full migration of high-traffic web views (APIv2 and File Submission) to asynchronous Python. This allows CAPE to handle significantly more concurrent requests and slow uploads without thread exhaustion.
+    * Support for **ASGI** via Daphne/Uvicorn as a modern serving method.
+* **Real-Time Updates (Optional)**:
+    * Integrated **Django Channels** and **Redis** for real-time event broadcasting. Can be enabled via `real_time_updates = yes` in `web.conf`.
+    * **Live Analysis Terminal**: Added a live terminal-style console to the Task Status page to watch analysis logs stream in real-time as the malware executes.
+    * **Dynamic Dashboard**: Task status badges on the main analysis list now update instantly via WebSockets without requiring page refreshes.
+* **Performance & Infrastructure**:
+    * **HTTP/3 (QUIC)**: Nginx installer (`installer/cape2.sh`) updated to support HTTP/3 for faster and more resilient web connections.
+    * **psycopg3 Support**: Upgraded the PostgreSQL driver to `psycopg` (v3) for improved performance and native async compatibility.
+        * Update your connection in `cuckoo.conf` from `postgres://` to `postgresql+psycopg://`. Otherwise it will keep using v2.
+    * **Modular Extra Dependencies**: `pyproject.toml` updated with a `[websockets]` extra group to keep the base installation lightweight.
+
 ### [16.01.2026] CAPE v2.5
 * Bootstrap 5 upgrade and some visual WEBGUI rewamp. Some improvements still might come soon!
 * htmlreport - rewamp!

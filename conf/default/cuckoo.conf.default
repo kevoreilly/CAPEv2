@@ -170,7 +170,7 @@ sort_pcap = on
 # Specify the database connection string.
 # Examples, see documentation for more:
 # sqlite:///foo.db
-# postgresql://foo:bar@localhost:5432/mydatabase
+# postgresql+psycopg://foo:bar@localhost:5432/mydatabase
 # mysql://foo:bar@localhost/mydatabase
 # If empty, default is a SQLite in db/cuckoo.db.
 # SQLite doens't support database upgrades!

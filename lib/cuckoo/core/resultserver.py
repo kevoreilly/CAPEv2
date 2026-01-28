@@ -42,6 +42,19 @@ from lib.cuckoo.core.log import task_log_start, task_log_stop, task_log_stop_for
 
 log = logging.getLogger(__name__)
 cfg = Config()
+web_conf = Config("web")
+
+channel_layer = None
+if web_conf.general.get("real_time_updates", False):
+    # Django Channels Hooks
+    with suppress(ImportError):
+        import django
+        from asgiref.sync import async_to_sync
+        from channels.layers import get_channel_layer
+        if not django.apps.apps.ready:
+            django.setup()
+        channel_layer = get_channel_layer()
+
 
 _, categories_need_VM = load_categories()
 
@@ -315,7 +328,42 @@ class LogHandler(ProtocolHandler):
 
     def handle(self):
         if self.fd:
-            return self.handler.copy_to_fd(self.fd)
+            # Broadcast to WebSocket
+            if channel_layer:
+                # We read the buffer from the handler context without draining it completely
+                # so we can still write it to disk.
+                # Actually, handler.copy_to_fd drains it. We should hook into the data flow.
+                # The LogHandler.handle() calls self.handler.copy_to_fd(self.fd)
+                # Let's override how we process the data here.
+
+                while True:
+                    # Drain existing buffer first
+                    data = self.handler.drain_buffer()
+                    if not data:
+                        # Read new data
+                        data = self.handler.read()
+
+                    if not data:
+                        break
+
+                    # Write to disk
+                    self.fd.write(data)
+                    self.fd.flush()
+
+                    # Send to WebSocket
+                    try:
+                        async_to_sync(channel_layer.group_send)(
+                            f"task_{self.task_id}",
+                            {
+                                "type": "task_log",
+                                "message": data.decode("utf-8", "replace")
+                            }
+                        )
+                    except Exception:
+                        # Don't let websocket failure kill the analysis
+                        pass
+            else:
+                return self.handler.copy_to_fd(self.fd)
 
     def __del__(self):
         if self.fd:

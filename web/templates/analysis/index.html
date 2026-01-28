@@ -261,7 +261,7 @@
                                 {% endif %}
                             </td>
                             {% endif %}
-                            <td class="text-end">
+                            <td class="text-end" id="task_status_{{analysis.id}}">
                                 {% if analysis.status == "pending" %}
                                 <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
@@ -487,7 +487,7 @@
                                 {% endif %}
                             </td>
                             {% endif %}
-                            <td class="text-end">
+                            <td class="text-end" id="task_status_{{analysis.id}}">
                                 {% if analysis.status == "pending" %}
                                 <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
@@ -725,7 +725,7 @@
                                 {% endif %}
                             </td>
                             {% endif %}
-                            <td class="text-end">
+                            <td class="text-end" id="task_status_{{analysis.id}}">
                                 {% if analysis.status == "pending" %}
                                 <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
@@ -946,7 +946,7 @@
                                 </span>
                             </td>
                             {% endif %}
-                            <td class="text-end">
+                            <td class="text-end" id="task_status_{{analysis.id}}">
                                 {% if analysis.status == "pending" %}
                                 <span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}
@@ -1018,5 +1018,76 @@
             }
         }
     });
+
+    {% if settings.REAL_TIME_UPDATES %}
+    // Real-time Dashboard Updates
+    (function() {
+        const protocol = window.location.protocol === 'https:' ? 'wss://' : 'ws://';
+        const socketUrl = protocol + window.location.host + '/ws/dashboard/';
+        let dashboardSocket = null;
+
+        function connect() {
+            dashboardSocket = new WebSocket(socketUrl);
+
+            dashboardSocket.onopen = function() {
+                console.log("Dashboard WebSocket connected");
+            };
+
+            dashboardSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.type === 'status_update') {
+                    updateTaskStatus(data.task_id, data.status);
+                }
+            };
+
+            dashboardSocket.onclose = function(e) {
+                console.log('Dashboard socket closed. Reconnecting in 5s...');
+                setTimeout(connect, 5000);
+            };
+        }
+
+        function updateTaskStatus(taskId, status) {
+            const cell = document.getElementById('task_status_' + taskId);
+            if (!cell) return;
+
+            let badgeClass = 'bg-secondary';
+            let statusText = status;
+
+            switch(status) {
+                case 'pending':
+                    badgeClass = 'bg-dark';
+                    break;
+                case 'running':
+                    badgeClass = 'bg-warning';
+                    break;
+                case 'completed':
+                case 'processing':
+                    badgeClass = 'bg-info';
+                    statusText = 'processing';
+                    break;
+                case 'reported':
+                    badgeClass = 'bg-success';
+                    break;
+                case 'failed_analysis':
+                case 'failed_processing':
+                case 'failed_reporting':
+                    badgeClass = 'bg-danger';
+                    break;
+                default:
+                    badgeClass = 'bg-secondary';
+            }
+
+            // If reported, we usually add a link, but for now let's just update the badge
+            // A full reload might be needed to get the Report Link, or we can construct it if we know the ID
+            if (status === 'reported') {
+                 cell.innerHTML = '<a href="/analysis/' + taskId + '/" class="badge ' + badgeClass + '">' + statusText + '</a>';
+            } else {
+                 cell.innerHTML = '<span class="badge ' + badgeClass + '">' + statusText + '</span>';
+            }
+        }
+
+        connect();
+    })();
+    {% endif %}
 </script>
 {% endblock %}

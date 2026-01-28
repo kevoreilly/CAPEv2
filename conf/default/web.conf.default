@@ -29,6 +29,11 @@ disposable_email_disable = yes
 disposable_domain_list = data/safelist/disposable_domain_list.txt
 
 [general]
+# Async mode? yes/no
+async_enabled = no
+# real time updates
+real_time_updates = no
+
 timezone = UTC
 # Prescan new file tasks with YARA for sample identification and custom execution
 # Useful to set options, tags, timeout, etc for packers/obfuscators/cryptors

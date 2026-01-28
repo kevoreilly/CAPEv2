@@ -338,6 +338,14 @@
                                                             <tr><td><code>servicedesc</code></td><td>Service description (Service package)</td></tr>
                                                             <tr><td><code>pre_script_args</code></td><td>Args for pre_script</td></tr>
                                                             <tr><td><code>during_script_args</code></td><td>Args for during_script</td></tr>
+                                                            <tr><td><code>lang</code></td><td>Override system language (LCID)</td></tr>
+                                                            <tr><td><code>standalone</code></td><td>Run in standalone mode (no pipe)</td></tr>
+                                                            <tr><td><code>monitor</code></td><td>Inject monitor into PID/Explorer</td></tr>
+                                                            <tr><td><code>shutdown-mutex</code></td><td>Mutex name for shutdown signal</td></tr>
+                                                            <tr><td><code>terminate-event</code></td><td>Event name for termination signal</td></tr>
+                                                            <tr><td><code>terminate-processes</code></td><td>Terminate processes on event</td></tr>
+                                                            <tr><td><code>first-process</code></td><td>(Internal) First process in tree</td></tr>
+                                                            <tr><td><code>startup-time</code></td><td>MS since system startup</td></tr>
                                                         </tbody>
                                                     </table>
                                                 </div>
@@ -380,10 +388,11 @@
                                                             <tr><td><code>api-cap</code></td><td>Limit total number of API logs</td></tr>
                                                             <tr><td><code>hook-type</code></td><td>Hook type: direct, indirect, or safe (32-bit only)</td></tr>
                                                             <tr><td><code>syscall</code></td><td>Enable syscall hooks (Win10+)</td></tr>
-                                                            <tr><td><code>disable_hook_content</code></td><td>1 = Remove payload of non-critical hooks, 2 = All hooks</td></tr>
+                                                            <tr><td><code>disable-hook-content</code></td><td>1 = Remove payload of non-critical hooks, 2 = All hooks</td></tr>
                                                             <tr><td><code>exclude-apis</code></td><td>Colon-separated list of APIs to exclude from hooking</td></tr>
                                                             <tr><td><code>exclude-dlls</code></td><td>Colon-separated list of DLLs to exclude from hooking</td></tr>
                                                             <tr><td><code>unhook-apis</code></td><td>Dynamically unhook functions (colon-separated)</td></tr>
+                                                            <tr><td><code>coverage-modules</code></td><td>Colon-separated list of DLLs to include in monitoring (exclude from 'dll range' filtering)</td></tr>
                                                             <tr><td><code>zerohook</code></td><td>Disable all hooks except essential</td></tr>
                                                             <tr><td><code>hook-protect</code></td><td>Enable write protection on hook pages</td></tr>
                                                             <tr><td><code>log-exceptions</code></td><td>Enable logging of exceptions</td></tr>
@@ -411,7 +420,7 @@
                                                             <tr><td><code>injection</code></td><td>Enable CAPE's capture of injected payloads</td></tr>
                                                             <tr><td><code>combo</code></td><td>Combine compression, injection, and extraction</td></tr>
                                                             <tr><td><code>unpacker</code></td><td>1 = Passive unpacking, 2 = Active unpacking</td></tr>
-                                                            <tr><td><code>import_reconstruction</code></td><td>Attempt import reconstruction on dumps</td></tr>
+                                                            <tr><td><code>import-reconstruction</code></td><td>Attempt import reconstruction on dumps</td></tr>
                                                             <tr><td><code>store_memdump</code></td><td>Force STORE memdump (submit to analyzer directly)</td></tr>
                                                         </tbody>
                                                     </table>
@@ -444,24 +453,26 @@
                                         </div>
                                         <script>
                                             function filterOptions() {
-                                                var input, filter, tabContent, tables, tr, td, i, j, txtValue0, txtValue1;
-                                                input = document.getElementById("optionsSearch");
-                                                filter = input.value.toUpperCase();
-                                                tabContent = document.getElementById("optionsHelpTabContent");
-                                                tables = tabContent.getElementsByTagName("table");
-                                                for (i = 0; i < tables.length; i++) {
-                                                    tr = tables[i].getElementsByTagName("tr");
-                                                    // Loop through all table rows, and hide those who don't match the search query
-                                                    for (j = 0; j < tr.length; j++) {
-                                                        td0 = tr[j].getElementsByTagName("td")[0]; // Option
-                                                        td1 = tr[j].getElementsByTagName("td")[1]; // Description
-                                                        if (td0 || td1) {
-                                                            txtValue0 = td0 ? (td0.textContent || td0.innerText) : "";
-                                                            txtValue1 = td1 ? (td1.textContent || td1.innerText) : "";
-                                                            if (txtValue0.toUpperCase().indexOf(filter) > -1 || txtValue1.toUpperCase().indexOf(filter) > -1) {
-                                                                tr[j].style.display = "";
+                                                const input = document.getElementById("optionsSearch");
+                                                const filter = input.value.toUpperCase();
+                                                const tabContent = document.getElementById("optionsHelpTabContent");
+                                                const tables = tabContent.getElementsByTagName("table");
+
+                                                for (const table of tables) {
+                                                    const tbody = table.querySelector("tbody");
+                                                    if (!tbody) {
+                                                        continue;
+                                                    }
+                                                    for (const row of tbody.rows) {
+                                                        const optionCell = row.cells[0];
+                                                        const descriptionCell = row.cells[1];
+                                                        if (optionCell && descriptionCell) {
+                                                            const optionText = optionCell.textContent || optionCell.innerText;
+                                                            const descriptionText = descriptionCell.textContent || descriptionCell.innerText;
+                                                            if (optionText.toUpperCase().includes(filter) || descriptionText.toUpperCase().includes(filter)) {
+                                                                row.style.display = "";
                                                             } else {
-                                                                tr[j].style.display = "none";
+                                                                row.style.display = "none";
                                                             }
                                                         }
                                                     }

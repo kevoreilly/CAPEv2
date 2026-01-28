@@ -536,16 +536,6 @@
                                         id="duringScript" name="during_script">
                                 </div>
                                 {% endif %}
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="screenshots_qr" /> QR URL extraction <span class="text-muted"><small>(Extract and open URLs from QR codes in screenshots)</small></span>
-                                    </label>
-                                </div>
-                                <div class="form-check">
-                                    <label>
-                                        <input type="checkbox" name="static"/> Try to extract config without VM <span class="text-muted"><small>(Submit to VM if not extracted)</small></span>
-                                    </label>
-                                </div>
                                 <div class="mb-3">
                                     <label for="form_custom" class="text-white-50">Custom Field</label>
                                     <input type="text" class="form-control bg-dark text-white border-secondary"
@@ -660,14 +650,18 @@
                                                 <div class="form-check mb-2">
                                                     <input type="checkbox" class="form-check-input" id="static_config"
                                                         name="static">
-                                                    <label class="form-check-label" for="static_config">Extract Config
-                                                        Only</label>
+                                                    <label class="form-check-label" for="static_config">Try to extract config without VM <small class="text-white-50">(Submit to VM if not extracted)</small></label>
                                                 </div>
                                                 <div class="form-check mb-2">
                                                     <input type="checkbox" class="form-check-input" id="oldloader"
                                                         name="oldloader">
                                                     <label class="form-check-label" for="oldloader">Thread-based
                                                         monitor</label>
+                                                </div>
+                                                <div class="form-check mb-2">
+                                                    <input type="checkbox" class="form-check-input" id="screenshots_qr"
+                                                        name="screenshots_qr">
+                                                    <label class="form-check-label" for="screenshots_qr">QR URL extraction <small class="text-white-50">(Extract and open URLs from QR codes in screenshots)</small></label>
                                                 </div>
                                             </div>
                                         </div>

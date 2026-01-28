@@ -33,6 +33,7 @@ var (
 		"largefile",
 		"unicodepath",
 		"push",
+		"update",
 	}
 )
 
@@ -171,6 +172,7 @@ func main() {
 	http.HandleFunc("/store", handleStore)
 	http.HandleFunc("/retrieve", handleRetrieve)
 	http.HandleFunc("/push", handlePush)
+	http.HandleFunc("/update", handleUpdate)
 	http.HandleFunc("/extract", handleExtract)
 	http.HandleFunc("/remove", handleRemove)
 	http.HandleFunc("/execute", handleExecute)
@@ -190,9 +192,24 @@ func main() {
 
 	// Handle graceful shutdown via /kill
 	// We can run server in a goroutine or just handle it.
-	// Since /kill calls os.Exit or shutdowns, we can do:
-	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		log.Fatalf("ListenAndServe(): %v", err)
+
+	// Retry logic for binding port (useful during self-update restart)
+	var err error
+	for i := 0; i < 10; i++ {
+		err = server.ListenAndServe()
+		if err == http.ErrServerClosed {
+			break
+		}
+		if err != nil {
+			// Check for "Address already in use"
+			if strings.Contains(err.Error(), "address already in use") || strings.Contains(err.Error(), "Only one usage of each socket address") {
+				fmt.Printf("Port %d busy, retrying in 1s...\n", *port)
+				time.Sleep(1 * time.Second)
+				continue
+			}
+			log.Fatalf("ListenAndServe(): %v", err)
+		}
+		break
 	}
 }
 
@@ -510,6 +527,91 @@ func handleRetrieve(w http.ResponseWriter, r *http.Request) {
 		// Just serve file
 		http.ServeFile(w, r, filepathStr)
 	}
+}
+
+func handleUpdate(w http.ResponseWriter, r *http.Request) {
+	if !checkSecurity(w, r) {
+		return
+	}
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		jsonError(w, 400, "No file provided")
+		return
+	}
+	defer file.Close()
+
+	// 1. Determine paths
+	currentExe, err := os.Executable()
+	if err != nil {
+		jsonError(w, 500, fmt.Sprintf("Cannot find own executable path: %v", err))
+		return
+	}
+
+	// Check permissions/directory
+	dir := filepath.Dir(currentExe)
+	newExe := currentExe + ".new"
+	oldExe := currentExe + ".old"
+
+	// Clean up previous leftovers if any
+	os.Remove(newExe)
+	os.Remove(oldExe)
+
+	// 2. Save new binary
+	out, err := os.Create(newExe)
+	if err != nil {
+		jsonError(w, 500, fmt.Sprintf("Cannot create new file: %v", err))
+		return
+	}
+	_, err = io.Copy(out, file)
+	out.Close()
+	if err != nil {
+		jsonError(w, 500, fmt.Sprintf("Cannot save new file: %v", err))
+		return
+	}
+
+	// Make executable (Linux/Mac)
+	os.Chmod(newExe, 0755)
+
+	// 3. Rename-Replace Dance
+	// Windows allows renaming the running binary.
+	if err := os.Rename(currentExe, oldExe); err != nil {
+		jsonError(w, 500, fmt.Sprintf("Failed to move current exe: %v", err))
+		os.Remove(newExe)
+		return
+	}
+
+	if err := os.Rename(newExe, currentExe); err != nil {
+		// Try to rollback
+		os.Rename(oldExe, currentExe)
+		jsonError(w, 500, fmt.Sprintf("Failed to replace exe: %v", err))
+		return
+	}
+
+	// 4. Spawn new process
+	// We pass the same arguments.
+	cmd := exec.Command(currentExe, os.Args[1:]...)
+	cmd.Dir = dir
+
+	// Detach process logic varies by OS, but Start() usually leaves it running if we exit main.
+	// On Windows, it's fine.
+	if err := cmd.Start(); err != nil {
+		// Rollback attempt
+		os.Rename(oldExe, currentExe) // Might fail if locked now?
+		jsonError(w, 500, fmt.Sprintf("Failed to restart agent: %v", err))
+		return
+	}
+
+	jsonSuccess(w, "Agent updated and restarting", nil)
+
+	// 5. Commit Suicide (Gracefully)
+	go func() {
+		time.Sleep(1 * time.Second) // Give the response time to flush
+		os.Exit(0)
+	}()
 }
 
 func handlePush(w http.ResponseWriter, r *http.Request) {

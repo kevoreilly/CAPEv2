@@ -61,3 +61,29 @@ requests.post(
 )
 # The agent will POST the file back to http://<HOST_IP>:8000/upload
 ```
+
+## Agent update
+* Consider update on start of the analysis if version mismatch
+
+How it works (/update endpoint)
+   1. Receive: The Host POSTs the new binary to the agent.
+   2. Rename: The agent renames its own running executable to agent.exe.old.
+   3. Save: It saves the new binary as agent.exe.
+   4. Restart: It spawns the new agent.exe.
+   5. Exit: The old agent process terminates, releasing port 8000.
+       * Reliability: I added a retry loop to the main() function. If the new agent starts before the old one has fully released port 8000, it will retry for 10 seconds instead of crashing.
+
+Usage
+  To update the agent on a running VM (from the Host):
+
+```
+import requests
+# Upload the new agent binary
+with open("agent_v2.exe", "rb") as f:
+    requests.post(
+        "http://<VM_IP>:8000/update",
+        files={"file": f},
+        headers={"Authorization": "Bearer <token>"} # If auth is enabled
+    )
+```
+The agent will respond with 200 OK and then restart itself immediately.

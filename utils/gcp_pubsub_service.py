@@ -67,18 +67,21 @@ class GCPPubSubService:
             parent_id = payload.get("parent_id", "")
             transaction_id = payload.get("transaction_id", "")
             sample_name = payload.get("name", "sample")
+            source = payload.get("source", "")
             category = None
             if "category=static" in sandbox_options:
                 category = "static"
 
             # Format custom fields with truncation to fit 255 chars
             custom_parts = []
-            if sample_name:
-                custom_parts.append(f"name:{sample_name}")
             if parent_id:
                 custom_parts.append(f"parent_id:{parent_id}")
             if transaction_id:
                 custom_parts.append(f"transaction_id:{transaction_id}")
+            if source:
+                custom_parts.append(f"source:{source}")
+            if sample_name:
+                custom_parts.append(f"name:{sample_name}")
 
             custom = ",".join(custom_parts)
             if len(custom) > 255:

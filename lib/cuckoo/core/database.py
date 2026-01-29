@@ -13,11 +13,7 @@ import sys
 from contextlib import suppress
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional, Union, Tuple, Dict
-
-
-def _utcnow_naive():
-    """Returns the current time in UTC as a naive datetime object."""
-    return datetime.now(timezone.utc).replace(tzinfo=None)
+import pytz
 
 
 # Sflock does a good filetype recon
@@ -26,7 +22,6 @@ from sflock.ident import identify as sflock_identify
 
 from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
 from lib.cuckoo.common.colors import red
-from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.exceptions import (
@@ -36,6 +31,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooOperationalError,
     CuckooUnserviceableTaskError,
 )
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
 from lib.cuckoo.common.path_utils import path_delete, path_exists
@@ -80,6 +76,17 @@ try:
 
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
+
+cfg = Config("cuckoo")
+tz_name = cfg.cuckoo.get("timezone", "utc")
+
+def _utcnow_naive():
+    """Returns the current time in the configured timezone as a naive datetime object."""
+    try:
+        tz = pytz.timezone(tz_name)
+    except pytz.UnknownTimeZoneError:
+        tz = timezone.utc
+    return datetime.now(tz).replace(tzinfo=None)
 
 
 sandbox_packages = (

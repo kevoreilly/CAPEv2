@@ -50,7 +50,71 @@ element.style {
 }
 
 a:hover {
-    color: #EE1B2F
+    color: #EE1B2F;
+    text-decoration: underline;
+}
+
+.btn-primary {
+    background-color: #325d88 !important;
+    border-color: #325d88 !important;
+    color: #fff !important;
+}
+
+.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
+    background-color: #264768 !important;
+    border-color: #264768 !important;
+}
+
+.btn-info {
+    background-color: #29aba1 !important;
+    border-color: #29aba1 !important;
+    color: #fff !important;
+}
+
+.btn-info:hover, .btn-info:focus, .btn-info:active {
+    background-color: #1f8179 !important;
+    border-color: #1f8179 !important;
+}
+
+.btn-outline-info {
+    color: #29aba1 !important;
+    border-color: #29aba1 !important;
+}
+
+.btn-outline-info:hover {
+    background-color: #29aba1 !important;
+    border-color: #29aba1 !important;
+    color: #fff !important;
+}
+
+.text-info {
+    color: #4dd0e1 !important;
+}
+
+.bg-primary {
+    background-color: #325d88 !important;
+}
+
+.text-primary {
+    color: #5ebcf3 !important;
+}
+
+.bg-info {
+    background-color: #29aba1 !important;
+}
+
+.badge.bg-primary, .badge.bg-danger, .badge.bg-success {
+    color: #fff !important;
+}
+
+.badge.bg-warning, .badge.bg-info {
+    color: #000 !important;
+}
+
+a.badge:hover, .badge a:hover {
+    color: inherit !important;
+    text-decoration: none;
+    opacity: 0.8;
 }
 
 .btn-link {
@@ -429,11 +493,20 @@ a:not(.btn, [class*="btn"]):hover {
   --form-placeholder: rgba(255,255,255,.55);
 }
 
-.form-control,
-.form-select {
-  background-color: var(--form-bg) !important;
-  color: var(--form-text) !important;
-  border-color: var(--form-border) !important;
+/* Fix green highlight on search box focus */
+.form-control:focus {
+    border-color: #5ebcf3;
+    box-shadow: 0 0 0 0.2rem rgba(94, 188, 243, 0.25);
+}
+
+/* Disabled */
+.form-control[type="file"]:disabled{
+  background-color: #1c1f23;
+  color: rgba(255,255,255,.5);
+}
+.form-control[type="file"]:disabled::file-selector-button{
+  background-color: #2b3035;
+  color: rgba(255,255,255,.5);
 }
 
 .form-control::placeholder {

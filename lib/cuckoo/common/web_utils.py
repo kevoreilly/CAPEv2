@@ -1401,7 +1401,10 @@ def perform_search(
     elif term == "malscore":
         query_val = {"$gte": float(value)}
     else:
-        query_val = {"$regex": value, "$options": "i"}
+        if re.search(r"[\^\$\|\?\*\+\(\)\[\]\{\}]", value):
+            query_val = {"$regex": value, "$options": "i"}
+        else:
+            query_val = value
 
     if term not in search_term_map:
         return None

@@ -97,6 +97,7 @@ RESTAPI_FETCH = dist_conf.distributed.get("restapi")
 
 # GCS Configuration
 GCS_ENABLED = dist_conf.gcs.enabled
+GCS_DELETE_AFTER_UPLOAD = dist_conf.gcs.get("delete_after_upload")
 
 if GCS_ENABLED:
     from modules.reporting.gcs import GCSUploader
@@ -1013,6 +1014,14 @@ class Retriever(threading.Thread):
                             # We can try to get TLP from task options if available, or just pass None.
                             tlp = t.tlp
                             gcs_uploader.upload(report_path, t.main_task_id, tlp=tlp)
+
+                            if GCS_DELETE_AFTER_UPLOAD:
+                                try:
+                                    shutil.rmtree(report_path)
+                                    log.info("Deleted local report for task %d after GCS upload", t.main_task_id)
+                                except Exception as e:
+                                    log.error("Failed to delete local report %s: %s", report_path, e)
+
                         except Exception as e:
                             log.error("Failed to upload report to GCS for task %d: %s", t.main_task_id, e)
 

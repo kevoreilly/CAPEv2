@@ -2010,6 +2010,11 @@ if __name__ == "__main__":
         default=0,
         help="Clean tasks for last X hours",
     )
+    p.add_argument(
+        "--submit-only",
+        action="store_true",
+        help="Disable retrieval threads (use when running Go Fast-Fetcher)",
+    )
 
     args = p.parse_args()
     log = init_logging(args.debug)
@@ -2047,11 +2052,12 @@ if __name__ == "__main__":
         t.daemon = True
         t.start()
 
-        retrieve = Retriever(name="Retriever")
-        retrieve.daemon = True
-        retrieve.start()
-        # ret = Retriever()
-        # ret.run()
+        if not args.submit_only and not dist_conf.distributed.get("submit_only"):
+            retrieve = Retriever(name="Retriever")
+            retrieve.daemon = True
+            retrieve.start()
+        else:
+            log.info("Submit-only mode: Retriever thread disabled.")
 
         app.run(host=args.host, port=args.port, debug=args.debug, use_reloader=False)
 
@@ -2061,9 +2067,12 @@ else:
 
     # this allows run it with gunicorn/uwsgi
     log = init_logging(True)
-    retrieve = Retriever(name="Retriever")
-    retrieve.daemon = True
-    retrieve.start()
+    if not dist_conf.distributed.get("submit_only"):
+        retrieve = Retriever(name="Retriever")
+        retrieve.daemon = True
+        retrieve.start()
+    else:
+        log.info("Submit-only mode (config): Retriever thread disabled.")
 
     t = StatusThread(name="StatusThread")
     t.daemon = True

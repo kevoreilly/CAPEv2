@@ -1,0 +1,14 @@
+{
+    "DistDBConn": "postgresql://cape:cape@127.0.0.1:5432/distdb",
+    "MainDBConn": "postgresql://cape:cape@127.0.0.1:5432/cape",
+    "RootDir": "/opt/CAPEv2",
+    "Threads": 8,
+    "IgnorePatterns": [
+        "binary",
+        "dump_sorted.pcap",
+        "memory.dmp",
+        "logs",
+        "custom_folder"
+    ],
+    "NFSMountFolder": "/opt/CAPEv2/workers"
+}

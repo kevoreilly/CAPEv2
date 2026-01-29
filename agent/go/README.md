@@ -33,7 +33,7 @@ upx --best --lzma agent.exe
 ### Building for Windows (x64)
 
 ```bash
-GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o agent.exe
+GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -trimpath -o agent.exe
 ```
 
 ### Building for Linux

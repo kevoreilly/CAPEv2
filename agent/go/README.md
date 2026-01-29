@@ -1,3 +1,6 @@
+### Do not use it yet!
+* Once it will be ready this header will be removed and changelog.md will be updated!
+
 # CAPE Agent (Go Port)
 
 This is a Golang port of the CAPE Sandbox Agent. It is designed to be a drop-in replacement for the Python agent, offering better performance, zero dependencies (no Python installation required to *run* the agent), and improved stealth.

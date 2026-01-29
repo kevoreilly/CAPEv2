@@ -104,8 +104,18 @@ a:hover {
     background-color: #29aba1 !important;
 }
 
-.badge.bg-primary, .badge.bg-info, .badge.bg-danger, .badge.bg-success {
+.badge.bg-primary, .badge.bg-danger, .badge.bg-success {
     color: #fff !important;
+}
+
+.badge.bg-warning, .badge.bg-info {
+    color: #000 !important;
+}
+
+a.badge:hover, .badge a:hover {
+    color: inherit !important;
+    text-decoration: none;
+    opacity: 0.8;
 }
 
 .btn-link {
@@ -509,6 +519,12 @@ a:not(.btn, [class*="btn"]):hover {
 .form-control[type="file"]:focus{
   border-color: #adb5bd;                     /* slightly brighter */
   box-shadow: 0 0 0 .25rem rgba(108,117,125,.25);
+}
+
+/* Fix green highlight on search box focus */
+.form-control:focus {
+    border-color: #5ebcf3;
+    box-shadow: 0 0 0 0.2rem rgba(94, 188, 243, 0.25);
 }
 
 /* Disabled */

@@ -6,7 +6,7 @@
             <div class="card-body">
                 <form role="form" action="{% url "search" %}" method="get">
                     <div class="input-group w-50 mx-auto">
-                        <input type="text" class="form-control bg-dark text-white border-secondary" id="form_search" name="search" placeholder="Search term (use regex for partial match)..." aria-label="Search">
+                        <input type="text" class="form-control bg-dark text-white border-secondary" id="form_search" name="search" placeholder="Search term (exact match by default)..." aria-label="Search">
                         <button class="btn btn-outline-info" type="submit"><i class="fas fa-search"></i> Search</button>
                     </div>
                 </form>
@@ -34,37 +34,54 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                <tr><td class="text-center"><code>target_sha256:</code></td><td>sha256</td></tr>
+                                <!-- General / Metadata -->
+                                <tr class="table-secondary"><th colspan="2" class="text-center text-dark">General & Metadata</th></tr>
+                                <tr><td class="text-center"><code>id:</code></td><td>Task ID (e.g., <code>id:1</code>)</td></tr>
+                                <tr><td class="text-center"><code>ids:</code></td><td>List of Task IDs (e.g., <code>ids:1,2,3</code>)</td></tr>
+                                <tr><td class="text-center"><code>options:</code></td><td>Task options (e.g., <code>options:function=DllMain</code>)</td></tr>
+                                <tr><td class="text-center"><code>tags_tasks:</code></td><td>Task tags (e.g., <code>tags_tasks:mytag</code>)</td></tr>
+                                <tr><td class="text-center"><code>package:</code></td><td>Analysis package (e.g., <code>package:ps1</code>)</td></tr>
+                                <tr><td class="text-center"><code>machinename:</code></td><td>Target Machine Name</td></tr>
+                                <tr><td class="text-center"><code>machinelabel:</code></td><td>Target Machine Label</td></tr>
+                                <tr><td class="text-center"><code>custom:</code></td><td>Custom data field</td></tr>
+                                <tr><td class="text-center"><code>comment:</code></td><td>Analysis Comments</td></tr>
                                 <tr><td class="text-center"><code>configs:</code></td><td>Extracted config value</td></tr>
-                                <tr><td class="text-center"><code>id:</code></td><td>task_id (e.g., id:1)</td></tr>
-                                <tr><td class="text-center"><code>ids:</code></td><td>task_ids (e.g., ids:1,2,3,4,5)</td></tr>
-                                <tr><td class="text-center"><code>options:</code></td><td>x=y (e.g., options:function=DllMain)</td></tr>
-                                <tr><td class="text-center"><code>tags_tasks:</code></td><td>my_tag (e.g., tags_tasks:mytag)</td></tr>
-                                <tr><td class="text-center"><code>package:</code></td><td>package (e.g., package:ps1)</td></tr>
+
+                                <!-- File Analysis -->
+                                <tr class="table-secondary"><th colspan="2" class="text-center text-dark">File Properties & Static Analysis</th></tr>
+                                <tr><td class="text-center"><code>target_sha256:</code></td><td>Target file SHA256</td></tr>
                                 <tr><td class="text-center"><code>name:</code></td><td>File name pattern</td></tr>
                                 <tr><td class="text-center"><code>type:</code></td><td>File type/format</td></tr>
-                                <tr><td class="text-center"><code>ssdeep:</code></td><td>Fuzzy hash</td></tr>
+                                <tr><td class="text-center"><code>ssdeep:</code></td><td>Fuzzy hash (SSDeep)</td></tr>
                                 <tr><td class="text-center"><code>crc32:</code></td><td>CRC32 hash</td></tr>
                                 <tr><td class="text-center"><code>imphash:</code></td><td>PE Imphash</td></tr>
                                 <tr><td class="text-center"><code>iconhash:</code></td><td>Exact icon hash</td></tr>
                                 <tr><td class="text-center"><code>iconfuzzy:</code></td><td>Fuzzy icon hash</td></tr>
-                                <tr><td class="text-center"><code>file:</code></td><td>Open files matching pattern</td></tr>
-                                <tr><td class="text-center"><code>command:</code></td><td>Executed commands matching pattern</td></tr>
-                                <tr><td class="text-center"><code>resolvedapi:</code></td><td>APIs resolved at runtime</td></tr>
-                                <tr><td class="text-center"><code>key:</code></td><td>Open registry keys matching pattern</td></tr>
-                                <tr><td class="text-center"><code>mutex:</code></td><td>Open mutexes matching pattern</td></tr>
-                                <tr><td class="text-center"><code>sport:</code></td><td>Source port (e.g., sport:X)</td></tr>
-                                <tr><td class="text-center"><code>dport:</code></td><td>Destination port (e.g., dport:443)</td></tr>
-                                <tr><td class="text-center"><code>port:</code></td><td>Source or Destination port</td></tr>
+                                <tr><td class="text-center"><code>dhash:</code></td><td>Icon dhash</td></tr>
+                                <tr><td class="text-center"><code>die:</code></td><td>Detect It Easy (DIE) signature (e.g., <code>die:obsidium</code>)</td></tr>
+                                <tr><td class="text-center"><code>extracted_tool:</code></td><td>Extracted tool (e.g., <code>InnoExtract</code>)</td></tr>
+                                <tr><td class="text-center"><code>virustotal:</code></td><td>VirusTotal Detected Name</td></tr>
+                                <tr><td class="text-center"><code>clamav:</code></td><td>Local ClamAV detections</td></tr>
+                                <tr><td class="text-center"><code>yaraname:</code></td><td>Yara Rule Name (binary folder)</td></tr>
+                                <tr><td class="text-center"><code>capeyara:</code></td><td>Yara Rule Name (cape folder)</td></tr>
+                                <tr><td class="text-center"><code>procdumpyara:</code></td><td>Yara Rule Name (process dumps)</td></tr>
+                                <tr><td class="text-center"><code>procmemyara:</code></td><td>Yara Rule Name (memory dumps)</td></tr>
+
+                                <!-- Network Analysis -->
+                                <tr class="table-secondary"><th colspan="2" class="text-center text-dark">Network Analysis</th></tr>
                                 <tr><td class="text-center"><code>ip:</code></td><td>Contacted IP address</td></tr>
                                 <tr><td class="text-center"><code>domain:</code></td><td>Contacted domain</td></tr>
-                                <tr><td class="text-center"><code>url:</code></td><td>CAPE Sandbox URL analysis</td></tr>
-                                <tr><td class="text-center"><code>signame:</code></td><td>Signature names</td></tr>
-                                <tr><td class="text-center"><code>signature:</code></td><td>Signature descriptions</td></tr>
-                                <tr><td class="text-center"><code>detections:</code></td><td>Malware family detections</td></tr>
-                                <tr><td class="text-center"><code>surimsg:</code></td><td>Suricata Alerts MSG</td></tr>
-                                <tr><td class="text-center"><code>surialert:</code></td><td>Suricata Alerts</td></tr>
-                                <tr><td class="text-center"><code>surisid:</code></td><td>Suricata Alerts SID</td></tr>
+                                <tr><td class="text-center"><code>url:</code></td><td>Contacted URL or URL Analysis Target</td></tr>
+                                <tr><td class="text-center"><code>port:</code></td><td>Source or Destination port</td></tr>
+                                <tr><td class="text-center"><code>sport:</code></td><td>Source port</td></tr>
+                                <tr><td class="text-center"><code>dport:</code></td><td>Destination port</td></tr>
+                                <tr><td class="text-center"><code>ja3_string:</code></td><td>JA3 string</td></tr>
+                                <tr><td class="text-center"><code>ja3_hash:</code></td><td>JA3 hash</td></tr>
+                                <tr><td class="text-center"><code>asn:</code></td><td>AS ID (e.g., <code>asn:AS15169</code>)</td></tr>
+                                <tr><td class="text-center"><code>asn_name:</code></td><td>ASN name (e.g., <code>asn_name:Google LLC</code>)</td></tr>
+                                <tr><td class="text-center"><code>surimsg:</code></td><td>Suricata Alert Message</td></tr>
+                                <tr><td class="text-center"><code>surialert:</code></td><td>Suricata Alert Category</td></tr>
+                                <tr><td class="text-center"><code>surisid:</code></td><td>Suricata Alert SID</td></tr>
                                 <tr><td class="text-center"><code>suriurl:</code></td><td>Suricata HTTP URL</td></tr>
                                 <tr><td class="text-center"><code>suriua:</code></td><td>Suricata HTTP User-Agent</td></tr>
                                 <tr><td class="text-center"><code>surireferrer:</code></td><td>Suricata HTTP Referrer</td></tr>
@@ -72,27 +89,21 @@
                                 <tr><td class="text-center"><code>suritlssubject:</code></td><td>Suricata TLS Subject</td></tr>
                                 <tr><td class="text-center"><code>suritlsissuerdn:</code></td><td>Suricata TLS Issuer DN</td></tr>
                                 <tr><td class="text-center"><code>suritlsfingerprint:</code></td><td>Suricata TLS Fingerprint</td></tr>
-                                <tr><td class="text-center"><code>suritls:</code></td><td>Suricata TLS</td></tr>
-                                <tr><td class="text-center"><code>surihttp:</code></td><td>Suricata HTTP</td></tr>
-                                <tr><td class="text-center"><code>ja3_string:</code></td><td>ja3 string</td></tr>
-                                <tr><td class="text-center"><code>ja3_hash:</code></td><td>ja3 hash</td></tr>
-                                <tr><td class="text-center"><code>clamav:</code></td><td>Local ClamAV detections</td></tr>
-                                <tr><td class="text-center"><code>yaraname:</code></td><td>Yara Rule Name (binary folder)</td></tr>
-                                <tr><td class="text-center"><code>capeyara:</code></td><td>Yara Rule Name (cape folder)</td></tr>
-                                <tr><td class="text-center"><code>procdumpyara:</code></td><td>Yara Rule Name (process dumps)</td></tr>
-                                <tr><td class="text-center"><code>procmemyara:</code></td><td>Yara Rule Name (memory dumps)</td></tr>
-                                <tr><td class="text-center"><code>virustotal:</code></td><td>VirusTotal Detected Name</td></tr>
-                                <tr><td class="text-center"><code>machinename:</code></td><td>Target Machine Name</td></tr>
-                                <tr><td class="text-center"><code>machinelabel:</code></td><td>Target Machine Label</td></tr>
-                                <tr><td class="text-center"><code>custom:</code></td><td>Custom data</td></tr>
-                                <tr><td class="text-center"><code>comment:</code></td><td>Analysis Comments</td></tr>
+                                <tr><td class="text-center"><code>suritls:</code></td><td>Suricata TLS Generic</td></tr>
+                                <tr><td class="text-center"><code>surihttp:</code></td><td>Suricata HTTP Generic</td></tr>
+
+                                <!-- Behavioral / Dynamic Analysis -->
+                                <tr class="table-secondary"><th colspan="2" class="text-center text-dark">Behavior & Execution</th></tr>
+                                <tr><td class="text-center"><code>file:</code></td><td>Open files matching pattern</td></tr>
+                                <tr><td class="text-center"><code>command:</code></td><td>Executed commands matching pattern</td></tr>
+                                <tr><td class="text-center"><code>resolvedapi:</code></td><td>APIs resolved at runtime</td></tr>
+                                <tr><td class="text-center"><code>key:</code></td><td>Open registry keys matching pattern</td></tr>
+                                <tr><td class="text-center"><code>mutex:</code></td><td>Open mutexes matching pattern</td></tr>
+                                <tr><td class="text-center"><code>signame:</code></td><td>CAPE Signature names</td></tr>
+                                <tr><td class="text-center"><code>signature:</code></td><td>CAPE Signature descriptions</td></tr>
+                                <tr><td class="text-center"><code>detections:</code></td><td>Malware family detections</td></tr>
                                 <tr><td class="text-center"><code>malscore:</code></td><td>Malscore > value</td></tr>
-                                <tr><td class="text-center"><code>ttp:</code></td><td>TTP ID (e.g., T1053)</td></tr>
-                                <tr><td class="text-center"><code>dhash:</code></td><td>Hash</td></tr>
-                                <tr><td class="text-center"><code>die:</code></td><td>DIE (e.g., die:obsidium)</td></tr>
-                                <tr><td class="text-center"><code>extracted_tool:</code></td><td>Extracted tool (e.g., InnoExtract)</td></tr>
-                                <tr><td class="text-center"><code>asn:</code></td><td>AS ID (e.g., asn:AS15169)</td></tr>
-                                <tr><td class="text-center"><code>asn_name:</code></td><td>ASN name (e.g., asn_name:Google LLC)</td></tr>
+                                <tr><td class="text-center"><code>ttp:</code></td><td>TTP ID (e.g., <code>T1053</code>)</td></tr>
                             </tbody>
                         </table>
                     </div>

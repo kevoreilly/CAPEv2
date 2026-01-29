@@ -1,6 +1,20 @@
 ### [28.01.2026]
-* Search optimization: General search terms now use exact match by default for better MongoDB performance.
-    * Use regex characters (e.g., `^ $ | ? * + ( ) [ ] { }`) to trigger a regex search.
+* CAPE Agent:
+    * Ported to Golang for improved stealth, performance, and zero-dependency deployment.
+    * Implemented strict host-only security (localhost blocking) and optional Token Authentication.
+    * Added secure `/push` endpoint for host-driven file retrieval.
+    * Added `/update` endpoint for seamless remote agent updates.
+* Distributed Cluster:
+    * New Go Fast-Fetcher: High-concurrency retrieval module supporting direct NFS copy.
+    * Added JSON configuration support for the fetcher to secure database credentials.
+    * Added `ignore_patterns` support for optimized cluster reporting.
+* Web UI / UX Improvements:
+    * Fixed badge readability: Enforced high-contrast text (e.g., black on yellow/info) and fixed unreadable hover states.
+    * Categorized search help table into logical groups (General, File, Network, Behavior).
+    * Fixed search box highlight color to match the theme.
+* Search Optimization:
+    * General search terms are now handled as strings (exact match) by default instead of regex to significantly improve database performance.
+    * Regex search is automatically triggered when using special characters (e.g., `^ $ | ? * + ( ) [ ] { }`).
     * Updated search UI help and placeholders.
 
 ### [16.01.2026] CAPE v2.5

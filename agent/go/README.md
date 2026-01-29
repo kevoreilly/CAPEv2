@@ -87,7 +87,7 @@ How it works (/update endpoint)
    3. Save: It saves the new binary as agent.exe.
    4. Restart: It spawns the new agent.exe.
    5. Exit: The old agent process terminates, releasing port 8000.
-       * Reliability: I added a retry loop to the main() function. If the new agent starts before the old one has fully released port 8000, it will retry for 10 seconds instead of crashing.
+       * Reliability: A retry loop has been added to the main() function. If the new agent starts before the old one has fully released port 8000, it will retry for 10 seconds instead of crashing.
 
 Usage
   To update the agent on a running VM (from the Host):

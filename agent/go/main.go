@@ -316,13 +316,20 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	} else if r.Method == "POST" {
-		status := r.FormValue("status")
+                status := r.FormValue("status")
 		if status == "" {
 			jsonError(w, 400, "No valid status has been provided")
 			return
 		}
 
-		// TODO: Validate status enum
+		s := strings.ToLower(status)
+		switch s {
+		case StatusInit, StatusRunning, StatusComplete, StatusFailed, StatusException:
+		default:
+			jsonError(w, 400, "Invalid status value provided")
+			return
+		}
+
 
 		state.Lock()
 		defer state.Unlock()

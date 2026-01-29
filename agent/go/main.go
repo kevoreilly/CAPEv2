@@ -17,6 +17,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/google/shlex"
 )
 
 const (
@@ -339,6 +341,9 @@ func handleStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleLogs(w http.ResponseWriter, r *http.Request) {
+	if !checkSecurity(w, r) {
+		return
+	}
 	jsonSuccess(w, "Agent logs", map[string]interface{}{
 		"stdout": agentLogOut.String(),
 		"stderr": agentLogErr.String(),
@@ -346,12 +351,18 @@ func handleLogs(w http.ResponseWriter, r *http.Request) {
 }
 
 func handleSystem(w http.ResponseWriter, r *http.Request) {
+	if !checkSecurity(w, r) {
+		return
+	}
 	jsonSuccess(w, "System", map[string]interface{}{
 		"system": runtime.GOOS,
 	})
 }
 
 func handleEnviron(w http.ResponseWriter, r *http.Request) {
+	if !checkSecurity(w, r) {
+		return
+	}
 	envMap := make(map[string]string)
 	for _, e := range os.Environ() {
 		pair := strings.SplitN(e, "=", 2)
@@ -365,6 +376,9 @@ func handleEnviron(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePath(w http.ResponseWriter, r *http.Request) {
+	if !checkSecurity(w, r) {
+		return
+	}
 	ex, err := os.Executable()
 	if err != nil {
 		ex = os.Args[0]
@@ -848,8 +862,12 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	// Here we should probably just execute directly if possible or split args.
 	// For simplicity, let's just attempt to split string.
 
-	// Simple split (not robust for quotes)
-	parts := strings.Fields(command)
+	// Robust splitting for quoted arguments
+	parts, err := shlex.Split(command)
+	if err != nil {
+		jsonError(w, 400, fmt.Sprintf("Error parsing command: %v", err))
+		return
+	}
 	if len(parts) == 0 {
 		jsonError(w, 400, "Empty command")
 		return
@@ -898,10 +916,6 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Sync exec
-	output, err := cmd.CombinedOutput() // Combines stdout and stderr
-	// Python separates them.
-	// Let's try separate buffers.
-
 	// Re-create cmd to use separate buffers
 	cmd = exec.Command(parts[0], parts[1:]...)
 	if cwd != "" {
@@ -931,7 +945,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		}
 
 		state.Lock()
-		state.Status = StatusRunning // Python sets RUNNING here?
+		state.Status = StatusComplete
 		state.Description = ""
 		state.Unlock()
 
@@ -952,7 +966,7 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 	}
 
 	state.Lock()
-	state.Status = StatusRunning
+	state.Status = StatusComplete
 	state.Description = ""
 	state.Unlock()
 

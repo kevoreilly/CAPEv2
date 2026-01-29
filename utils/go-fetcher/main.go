@@ -319,7 +319,11 @@ func (f *Fetcher) DeleteFromWorker(node db.Node, taskID uint) {
 	form.Add("ids", fmt.Sprintf("%d", taskID))
 	form.Add("delete_mongo", "False")
 
-	req, _ = http.NewRequest("POST", deleteURL, bytes.NewBufferString(form.Encode()))
+req, err := http.NewRequest("POST", deleteURL, bytes.NewBufferString(form.Encode()))
+	if err != nil {
+		log.Printf("Error creating delete request for task %d on node %s: %v", taskID, node.Name, err)
+		return
+	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Authorization", "Token "+node.APIKey)
 

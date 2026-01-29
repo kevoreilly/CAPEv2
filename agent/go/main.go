@@ -928,14 +928,18 @@ func handleExecute(w http.ResponseWriter, r *http.Request) {
 		b64stdout := base64.StdEncoding.EncodeToString(stdoutBytes)
 		b64stderr := base64.StdEncoding.EncodeToString(stderrBytes)
 
-		if err != nil {
+                if err != nil {
 			state.Lock()
 			state.Status = StatusFailed
 			state.Description = "Error execute command"
 			state.Unlock()
-			jsonError(w, 500, fmt.Sprintf("Error executing command: %v", err))
+			jsonError(w, 500, fmt.Sprintf("Error executing command: %v", err), map[string]interface{}{
+				"stdout": b64stdout,
+				"stderr": b64stderr,
+			})
 			return
 		}
+
 
 		state.Lock()
 		state.Status = StatusRunning // Python sets RUNNING here?

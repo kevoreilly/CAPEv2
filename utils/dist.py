@@ -104,7 +104,7 @@ if GCS_ENABLED:
         # Initialize without args to load from reporting.conf
         gcs_uploader = GCSUploader()
     except Exception as e:
-        log.error("Failed to initialize GCS Uploader: %s", e)
+        print("Failed to initialize GCS Uploader: %s", e)
         GCS_ENABLED = False
 
 INTERVAL = 10

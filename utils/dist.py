@@ -95,6 +95,18 @@ if dist_conf.distributed.dead_count:
 NFS_FETCH = dist_conf.distributed.get("nfs")
 RESTAPI_FETCH = dist_conf.distributed.get("restapi")
 
+# GCS Configuration
+GCS_ENABLED = dist_conf.gcs.enabled
+
+if GCS_ENABLED:
+    from modules.reporting.gcs import GCSUploader
+    try:
+        # Initialize without args to load from reporting.conf
+        gcs_uploader = GCSUploader()
+    except Exception as e:
+        log.error("Failed to initialize GCS Uploader: %s", e)
+        GCS_ENABLED = False
+
 INTERVAL = 10
 
 # controller of dead nodes
@@ -993,6 +1005,16 @@ class Retriever(threading.Thread):
                             )
                         except Exception as e:
                             log.exception("Failed to save iocs for parent sample: %s", str(e))
+
+                    if GCS_ENABLED:
+                        try:
+                            # We assume report_path is the analysis folder root.
+                            # TLP is not readily available in 't' object without loading report.json or task options.
+                            # We can try to get TLP from task options if available, or just pass None.
+                            tlp = t.tlp
+                            gcs_uploader.upload(report_path, t.main_task_id, tlp=tlp)
+                        except Exception as e:
+                            log.error("Failed to upload report to GCS for task %d: %s", t.main_task_id, e)
 
                     t.retrieved = True
                     t.finished = True

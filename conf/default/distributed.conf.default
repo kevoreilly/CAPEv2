@@ -42,3 +42,6 @@ token = ""
 autodiscovery = 600
 # Instances should start with following name pattern
 instance_name = cape-server
+
+[gcs]
+enabled = no

@@ -16,7 +16,7 @@
                                 <th>Destination Port</th>
                             </tr>
                             {% for p in network.tcp %}
-                                <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},udp">
+                                <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},tcp">
                                     <td>{{p.src}}</td>
                                     <td>{{p.sport}}</td>
                                     <td>{{p.dst}}

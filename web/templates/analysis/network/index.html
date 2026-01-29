@@ -1,21 +1,21 @@
 {% if network.pcap_sha256 %}
 
-    <div class="alert alert-primary center">
-        <a class="btn btn-secondary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}"><span class="fas fa-download"></span> PCAP</a>
+    <div class="alert alert-secondary center">
+        <a class="btn btn-primary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}"><span class="fas fa-download"></span> PCAP</a>
         {% if config.pcap_ng %}
-            <a class="btn btn-secondary btn-sm" title="PCAP with embedded TLS keys for use in WireShark." href="{% url "file" "pcapng" id "dump" %}"><span class="fas fa-download"></span> PCAP-NG</a>
+            <a class="btn btn-primary btn-sm" title="PCAP with embedded TLS keys for use in WireShark." href="{% url "file" "pcapng" id "dump" %}"><span class="fas fa-download"></span> PCAP-NG</a>
         {% endif %}
-            <a class="btn btn-secondary btn-sm" href="{% url "file" "pcapzip" id network.pcap_sha256 %}"><span class="fas fa-file-archive"></span><span class="fas fa-download"></span> PCAP</a>
+            <a class="btn btn-primary btn-sm" href="{% url "file" "pcapzip" id network.pcap_sha256 %}"><span class="fas fa-file-archive"></span><span class="fas fa-download"></span> PCAP</a>
         {% if tlskeys_exists %}
-            <a class="btn btn-secondary btn-sm" href="{% url "file" "tlskeys" id network.pcap_sha256 %}"><span class="fas fa-download"></span> TLS keys</a>
+            <a class="btn btn-primary btn-sm" href="{% url "file" "tlskeys" id network.pcap_sha256 %}"><span class="fas fa-download"></span> TLS keys</a>
         {% endif %}
         {% if mitmdump_exists %}
-            <a class="btn btn-secondary btn-sm" href="{% url "file" "mitmdump" id 0 %}"><span class="fas fa-download"></span> Mitmdump </a>
+            <a class="btn btn-primary btn-sm" href="{% url "file" "mitmdump" id 0 %}"><span class="fas fa-download"></span> Mitmdump </a>
         {% endif %}
     </div>
 {% endif %}
     <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
-        <li class="nav-item active"><a class="nav-link" href="#network_hosts_tab" data-bs-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>
+        <li class="nav-item"><a class="nav-link active" href="#network_hosts_tab" data-bs-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>
         <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-bs-toggle="tab">DNS ({{ network.domains|length }})</a></li>
         {% if network.tcp %}<li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-bs-toggle="tab">TCP ({{ network.tcp|length }})</a></li>{% endif %}
         {% if network.udp %}<li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-bs-toggle="tab">UDP ({{ network.udp|length }})</a></li>{% endif %}

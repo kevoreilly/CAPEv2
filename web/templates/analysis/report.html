@@ -105,20 +105,15 @@
     }
 </style>
 {% if analysis.info.tlp %}
-{% if analysis.info.tlp == "Red" %}
-<div class="alert alert-tlp_red">
+    {% if analysis.info.tlp == "Red" %}
+    <div class="alert alert-tlp_red">
     {% elif analysis.info.tlp == "Amber" %}
     <div class="alert alert-tlp_amber">
-        {% elif analysis.info.tlp == "Green" %}
-        <div class="alert alert-tlp_amber">
-            {% endif %}
-        </div>
-        {% endif %}
-        <ul class="nav nav-tabs">
-            <li class="nav-item">
-                <a class="nav-link active" href="#overview" data-bs-toggle="tab">Quick Overview</a>
-            </li>
-
+    {% elif analysis.info.tlp == "Green" %}
+    <div class="alert alert-tlp_amber">
+    {% endif %}
+    </div>
+{% endif %}
 <ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1 mb-3" id="reportTabs" role="tablist">
     <li class="nav-item">
         <a class="nav-link active" id="overview-tab" href="#overview" data-bs-toggle="tab" role="tab" aria-controls="overview" aria-selected="true">
@@ -266,4 +261,56 @@
         <div class="tab-pane fade" id="CAPE">
         {% include "analysis/CAPE/index.html" %}
         </div>
-        {% endblock %}
+    {% endif %}
+    <div class="tab-pane fade" id="procdump">
+        {% include "analysis/procdump/index.html" %}
+    </div>
+    {% if analysis.procmemory %}
+    <div class="tab-pane fade" id="procmemory">
+        {% include "analysis/procmemory/index.html" %}
+    </div>
+    {% endif %}
+    {% if analysis.memory %}
+    <div class="tab-pane fade" id="memory">
+        {% include "analysis/memory/index.html" %}
+    </div>
+    {% endif %}
+    {% if config.malheur %}
+    {% if analysis.info.category == "file" or analysis.info.category == "url" %}
+    <div class="tab-pane fade" id="similar">
+        {% include "analysis/similar/index.html" %}
+    </div>
+    {% endif %}
+    {% endif %}
+    {% if settings.COMMENTS %}
+    <div class="tab-pane fade" id="comments">
+        {% include "analysis/comments/index.html" %}
+    </div>
+    {% endif %}
+    {% if analysis.misp %}
+    <div class="tab-pane fade" id="misp">
+        {% include "analysis/misp/index.html" %}
+    </div>
+    {% endif %}
+    {% if analysis.debugger_logs %}
+    <div class="tab-pane fade" id="debugger">
+        {% include "analysis/debugger/index.html" %}
+    </div>
+    {% endif %}
+    {% if analysis.backscatter %}
+    <div class="tab-pane fade" id="backscatter">
+        {% include "analysis/backscatter.html" %}
+    </div>
+    {% endif %}
+    {% if analysis.classification %}
+    <div class="tab-pane fade" id="classification">
+        {% include "analysis/classification.html" %}
+    </div>
+    {% endif %}
+    {% if settings.ADMIN or user.is_staff %}
+    <div class="tab-pane fade" id="admin">
+        {% include "analysis/admin/index.html" %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

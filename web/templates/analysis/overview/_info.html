@@ -63,7 +63,7 @@
                         <td class="text-nowrap">{{analysis.info.ended}}</td>
                         <td>{{analysis.info.duration}}s</td>
                         {% if analysis.info.options %}
-                            <td><button class="btn btn-sm btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
+                            <td><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
                         {% endif %}
                         {% if user.is_staff and analysis.distributed %}
                             <td>{{analysis.distributed.name}} <small class="text-white-50">({{analysis.distributed.task_id}})</small></td>

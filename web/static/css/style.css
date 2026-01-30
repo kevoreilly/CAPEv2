@@ -399,27 +399,27 @@ pre {
     color: black;
 }
 
-.btn-cat-filesystem { background-color: #ffe3c5; color: black; border-color: #ffe3c5; }
+.btn-cat-filesystem { background-color: #ffe3c5 !important; color: black; border-color: #ffe3c5; }
 .btn-cat-filesystem:hover { color: black; }
-.btn-cat-registry { background-color: #ffc5c5; color: black; border-color: #ffc5c5; }
+.btn-cat-registry { background-color: #ffc5c5 !important; color: black; border-color: #ffc5c5; }
 .btn-cat-registry:hover { color: black; }
-.btn-cat-process { background-color: #c5e0ff; color: black; border-color: #c5e0ff; }
+.btn-cat-process { background-color: #c5e0ff !important; color: black; border-color: #c5e0ff; }
 .btn-cat-process:hover { color: black; }
-.btn-cat-threading { background-color: #d3e0ff; color: black; border-color: #d3e0ff; }
+.btn-cat-threading { background-color: #d3e0ff !important; color: black; border-color: #d3e0ff; }
 .btn-cat-threading:hover { color: black; }
-.btn-cat-services { background-color: #ccc5ff; color: black; border-color: #ccc5ff; }
+.btn-cat-services { background-color: #ccc5ff !important; color: black; border-color: #ccc5ff; }
 .btn-cat-services:hover { color: black; }
-.btn-cat-device { background-color: #d3c5cc; color: black; border-color: #d3c5cc; }
+.btn-cat-device { background-color: #d3c5cc !important; color: black; border-color: #d3c5cc; }
 .btn-cat-device:hover { color: black; }
-.btn-cat-network { background-color: #d3ffc5; color: black; border-color: #d3ffc5; }
+.btn-cat-network { background-color: #d3ffc5 !important; color: black; border-color: #d3ffc5; }
 .btn-cat-network:hover { color: black; }
-.btn-cat-socket { background-color: #d3ffc5; color: black; border-color: #d3ffc5; }
+.btn-cat-socket { background-color: #d3ffc5 !important; color: black; border-color: #d3ffc5; }
 .btn-cat-socket:hover { color: black; }
-.btn-cat-synchronization { background-color: #f9c5ff; color: black; border-color: #f9c5ff; }
+.btn-cat-synchronization { background-color: #f9c5ff !important; color: black; border-color: #f9c5ff; }
 .btn-cat-synchronization:hover { color: black; }
-.btn-cat-browser { background-color: #dfffdf; color: black; border-color: #dfffdf; }
+.btn-cat-browser { background-color: #dfffdf !important; color: black; border-color: #dfffdf; }
 .btn-cat-browser:hover { color: black; }
-.btn-cat-crypto { background-color: #f0f2c5; color: black; border-color: #f0f2c5; }
+.btn-cat-crypto { background-color: #f0f2c5 !important; color: black; border-color: #f0f2c5; }
 .btn-cat-crypto:hover { color: black; }
 
 /* Remove default underline, add on hover (exclude buttons if needed) */

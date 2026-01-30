@@ -95,6 +95,19 @@ if dist_conf.distributed.dead_count:
 NFS_FETCH = dist_conf.distributed.get("nfs")
 RESTAPI_FETCH = dist_conf.distributed.get("restapi")
 
+# GCS Configuration
+GCS_ENABLED = dist_conf.gcs.enabled
+GCS_DELETE_AFTER_UPLOAD = dist_conf.gcs.get("delete_after_upload")
+
+if GCS_ENABLED:
+    from modules.reporting.gcs import GCSUploader
+    try:
+        # Initialize without args to load from reporting.conf
+        gcs_uploader = GCSUploader()
+    except Exception as e:
+        print("Failed to initialize GCS Uploader: %s", e)
+        GCS_ENABLED = False
+
 INTERVAL = 10
 
 # controller of dead nodes
@@ -1065,6 +1078,24 @@ class Retriever(threading.Thread):
                             )
                         except Exception as e:
                             log.exception("Failed to save iocs for parent sample: %s", str(e))
+
+                    if GCS_ENABLED:
+                        try:
+                            # We assume report_path is the analysis folder root.
+                            # TLP is not readily available in 't' object without loading report.json or task options.
+                            # We can try to get TLP from task options if available, or just pass None.
+                            tlp = t.tlp
+                            gcs_uploader.upload(report_path, t.main_task_id, tlp=tlp)
+
+                            if GCS_DELETE_AFTER_UPLOAD:
+                                try:
+                                    shutil.rmtree(report_path)
+                                    log.info("Deleted local report for task %d after GCS upload", t.main_task_id)
+                                except Exception as e:
+                                    log.error("Failed to delete local report %s: %s", report_path, e)
+
+                        except Exception as e:
+                            log.error("Failed to upload report to GCS for task %d: %s", t.main_task_id, e)
 
                     t.retrieved = True
                     t.finished = True
@@ -2082,6 +2113,11 @@ if __name__ == "__main__":
         default=0,
         help="Clean tasks for last X hours",
     )
+    p.add_argument(
+        "--submit-only",
+        action="store_true",
+        help="Disable retrieval threads (use when running Go Fast-Fetcher)",
+    )
 
     args = p.parse_args()
     log = init_logging(args.debug)
@@ -2119,11 +2155,12 @@ if __name__ == "__main__":
         t.daemon = True
         t.start()
 
-        retrieve = Retriever(name="Retriever")
-        retrieve.daemon = True
-        retrieve.start()
-        # ret = Retriever()
-        # ret.run()
+        if not args.submit_only and not dist_conf.distributed.get("submit_only"):
+            retrieve = Retriever(name="Retriever")
+            retrieve.daemon = True
+            retrieve.start()
+        else:
+            log.info("Submit-only mode: Retriever thread disabled.")
 
         app.run(host=args.host, port=args.port, debug=args.debug, use_reloader=False)
 
@@ -2133,9 +2170,12 @@ else:
 
     # this allows run it with gunicorn/uwsgi
     log = init_logging(True)
-    retrieve = Retriever(name="Retriever")
-    retrieve.daemon = True
-    retrieve.start()
+    if not dist_conf.distributed.get("submit_only"):
+        retrieve = Retriever(name="Retriever")
+        retrieve.daemon = True
+        retrieve.start()
+    else:
+        log.info("Submit-only mode (config): Retriever thread disabled.")
 
     t = StatusThread(name="StatusThread")
     t.daemon = True

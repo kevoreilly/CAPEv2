@@ -22,6 +22,8 @@ nfs = no
 # Do not copy from workers following folders and files:
 ignore_patterns = binary, dump_sorted.pcap, memory.dmp, logs
 main_server_name = master
+# When using "Go Fast-Fetcher". Change to yes!
+submit_only = no
 
 [NFS]
 # Path will be $CAPE_ROOT/$nfs_mount_folder. Ex: /opt/CAPEv2/workers
@@ -42,3 +44,7 @@ token = ""
 autodiscovery = 600
 # Instances should start with following name pattern
 instance_name = cape-server
+
+[gcs]
+enabled = no
+delete_after_upload = no

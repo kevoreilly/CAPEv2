@@ -1,42 +1,110 @@
+<script src="{{ STATIC_URL }}js/hexdump.js"></script>
 {% if network.pcap_sha256 %}
 
-    <div class="alert alert-primary center">
-        <a class="btn btn-secondary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}"><span class="fas fa-download"></span> PCAP</a>
+    <div class="alert alert-secondary center">
+        <a class="btn btn-primary btn-sm" href="{% url "file" "pcap" id network.pcap_sha256 %}"><span class="fas fa-download"></span> PCAP</a>
         {% if config.pcap_ng %}
-            <a class="btn btn-secondary btn-sm" title="PCAP with embedded TLS keys for use in WireShark." href="{% url "file" "pcapng" id "dump" %}"><span class="fas fa-download"></span> PCAP-NG</a>
+            <a class="btn btn-primary btn-sm" title="PCAP with embedded TLS keys for use in WireShark." href="{% url "file" "pcapng" id "dump" %}"><span class="fas fa-download"></span> PCAP-NG</a>
         {% endif %}
-            <a class="btn btn-secondary btn-sm" href="{% url "file" "pcapzip" id network.pcap_sha256 %}"><span class="fas fa-file-archive"></span><span class="fas fa-download"></span> PCAP</a>
+            <a class="btn btn-primary btn-sm" href="{% url "file" "pcapzip" id network.pcap_sha256 %}"><span class="fas fa-file-archive"></span><span class="fas fa-download"></span> PCAP</a>
         {% if tlskeys_exists %}
-            <a class="btn btn-secondary btn-sm" href="{% url "file" "tlskeys" id network.pcap_sha256 %}"><span class="fas fa-download"></span> TLS keys</a>
+            <a class="btn btn-primary btn-sm" href="{% url "file" "tlskeys" id network.pcap_sha256 %}"><span class="fas fa-download"></span> TLS keys</a>
         {% endif %}
         {% if mitmdump_exists %}
-            <a class="btn btn-secondary btn-sm" href="{% url "file" "mitmdump" id 0 %}"><span class="fas fa-download"></span> Mitmdump </a>
+            <a class="btn btn-primary btn-sm" href="{% url "file" "mitmdump" id 0 %}"><span class="fas fa-download"></span> Mitmdump </a>
         {% endif %}
     </div>
 {% endif %}
-    <ul class="nav nav-tabs flex-column flex-sm-row" style="margin-bottom: 0;">
-        <li class="nav-item"><a class="nav-link active" href="#network_hosts_tab" data-bs-toggle="tab">Hosts ({{ network.hosts|length }})</a></li>
-        <li class="nav-item"><a class="nav-link" href="#network_dns_tab" data-bs-toggle="tab">DNS ({{ network.domains|length }})</a></li>
-        {% if network.tcp %}<li class="nav-item"><a class="nav-link" href="#network_tcp_tab" data-bs-toggle="tab">TCP ({{ network.tcp|length }})</a></li>{% endif %}
-        {% if network.udp %}<li class="nav-item"><a class="nav-link" href="#network_udp_tab" data-bs-toggle="tab">UDP ({{ network.udp|length }})</a></li>{% endif %}
-        {% if network.http_ex or network.https_ex or network.http %}
-        <li class="nav-item"><a class="nav-link" href="#network_http_tab" data-bs-toggle="tab">
-            {% if network.http_ex or network.https_ex %}
-                HTTP(S) <span class="button-badge">({{ network.http_ex|add:network.https_ex|length }})</span>
-            {% else %}
-                HTTP <span class="button-badge">({{ network.http|length }})</span>
-            {% endif %}
-        </a></li>
+    <ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1 mb-3" id="networkTabs" role="tablist">
+        <li class="nav-item">
+            <a class="nav-link active" id="network_hosts-tab" href="#network_hosts_tab" data-bs-toggle="tab" role="tab" aria-controls="network_hosts_tab" aria-selected="true">
+                <i class="fas fa-server me-2"></i>Hosts ({{ network.hosts|length }})
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="network_dns-tab" href="#network_dns_tab" data-bs-toggle="tab" role="tab" aria-controls="network_dns_tab" aria-selected="false">
+                <i class="fas fa-globe me-2"></i>DNS ({{ network.domains|length }})
+            </a>
+        </li>
+        {% if network.tcp %}
+            <li class="nav-item"><a class="nav-link" id="network_tcp-tab" href="#network_tcp_tab" data-bs-toggle="tab" role="tab" aria-controls="network_tcp_tab" aria-selected="false"><i class="fas fa-exchange-alt me-2"></i>TCP ({{ network.tcp|length }})</a></li>
         {% endif %}
-        {% if network.smtp_ex or network.smtp %}<li class="nav-item"><a class="nav-link" href="#network_smtp_tab" data-bs-toggle="tab">SMTP ({{ network.smtp|length }})</a></li>{% endif %}
-        {% if network.irc %}<li class="nav-item"><a class="nav-link" href="#network_irc_tab" data-bs-toggle="tab">IRC ({{ network.irc|length }})</a></li>{% endif %}
-        {% if network.icmp %}<li class="nav-item"><a class="nav-link" href="#network_icmp_tab" data-bs-toggle="tab">ICMP ({{ network.icmp|length }})</a></li>{% endif %}
-        {% if config.cif and cif %}<li class="nav-item"><a class="nav-link" href="#network_cif_tab" data-bs-toggle="tab">CIF Results ({{ cif|length }})</a></li>{% endif %}
+        {% if network.udp %}
+        <li class="nav-item">
+            <a class="nav-link" id="network_udp-tab" href="#network_udp_tab" data-bs-toggle="tab" role="tab" aria-controls="network_udp_tab" aria-selected="false">
+                <i class="fas fa-broadcast-tower me-2"></i>UDP ({{ network.udp|length }})
+            </a>
+        </li>
+        {% endif %}
+        {% if network.http_ex or network.https_ex or network.http %}
+        <li class="nav-item">
+            <a class="nav-link" id="network_http-tab" href="#network_http_tab" data-bs-toggle="tab" role="tab" aria-controls="network_http_tab" aria-selected="false">
+                <i class="fas fa-globe-americas me-2"></i>
+                {% if network.http_ex or network.https_ex %}
+                    HTTP(S) ({{ network.http_ex|add:network.https_ex|length }})
+                {% else %}
+                    HTTP ({{ network.http|length }})
+                {% endif %}
+            </a>
+        </li>
+        {% endif %}
+        {% if network.smtp_ex or network.smtp %}
+        <li class="nav-item">
+            <a class="nav-link" id="network_smtp-tab" href="#network_smtp_tab" data-bs-toggle="tab" role="tab" aria-controls="network_smtp_tab" aria-selected="false">
+                <i class="fas fa-envelope me-2"></i>SMTP ({{ network.smtp|length }})
+            </a>
+        </li>
+        {% endif %}
+        {% if network.irc %}
+        <li class="nav-item">
+            <a class="nav-link" id="network_irc-tab" href="#network_irc_tab" data-bs-toggle="tab" role="tab" aria-controls="network_irc_tab" aria-selected="false">
+                <i class="fas fa-comments me-2"></i>IRC ({{ network.irc|length }})
+            </a>
+        </li>
+        {% endif %}
+        {% if network.icmp %}
+        <li class="nav-item">
+            <a class="nav-link" id="network_icmp-tab" href="#network_icmp_tab" data-bs-toggle="tab" role="tab" aria-controls="network_icmp_tab" aria-selected="false">
+                <i class="fas fa-heartbeat me-2"></i>ICMP ({{ network.icmp|length }})
+            </a>
+        </li>
+        {% endif %}
+        {% if config.cif and cif %}
+        <li class="nav-item">
+            <a class="nav-link" id="network_cif-tab" href="#network_cif_tab" data-bs-toggle="tab" role="tab" aria-controls="network_cif_tab" aria-selected="false">
+                <i class="fas fa-shield-alt me-2"></i>CIF Results ({{ cif|length }})
+            </a>
+        </li>
+        {% endif %}
         {% if config.suricata %}
-            {% if suricata.alerts %}<li class="nav-item"><a class="nav-link" href="#network_suri_alerts_tab" data-bs-toggle="tab">Suricata Alerts ({{ suricata.alerts|length }})</a></li>{% endif %}
-            {% if suricata.tls %}<li class="nav-item"><a class="nav-link" href="#network_suri_tls_tab" data-bs-toggle="tab">Suricata TLS ({{ suricata.tls|length }})</a></li>{% endif %}
-            {% if suricata.http %}<li class="nav-item"><a class="nav-link" href="#network_suri_http_tab" data-bs-toggle="tab">Suricata HTTP ({{ suricata.http|length }})</a></li>{% endif %}
-            {% if suricata.files %}<li class="nav-item"><a class="nav-link" href="#network_suri_files" data-bs-toggle="tab">Suricata Files ({{ suricata.files|length }})</a></li>{% endif %}
+            {% if suricata.alerts %}
+            <li class="nav-item">
+                <a class="nav-link" id="network_suri_alerts-tab" href="#network_suri_alerts_tab" data-bs-toggle="tab" role="tab" aria-controls="network_suri_alerts_tab" aria-selected="false">
+                    <i class="fas fa-exclamation-triangle me-2"></i>Suricata Alerts ({{ suricata.alerts|length }})
+                </a>
+            </li>
+            {% endif %}
+            {% if suricata.tls %}
+            <li class="nav-item">
+                <a class="nav-link" id="network_suri_tls-tab" href="#network_suri_tls_tab" data-bs-toggle="tab" role="tab" aria-controls="network_suri_tls_tab" aria-selected="false">
+                    <i class="fas fa-lock me-2"></i>Suricata TLS ({{ suricata.tls|length }})
+                </a>
+            </li>
+            {% endif %}
+            {% if suricata.http %}
+            <li class="nav-item">
+                <a class="nav-link" id="network_suri_http-tab" href="#network_suri_http_tab" data-bs-toggle="tab" role="tab" aria-controls="network_suri_http_tab" aria-selected="false">
+                    <i class="fas fa-code me-2"></i>Suricata HTTP ({{ suricata.http|length }})
+                </a>
+            </li>
+            {% endif %}
+            {% if suricata.files %}
+            <li class="nav-item">
+                <a class="nav-link" id="network_suri_files-tab" href="#network_suri_files" data-bs-toggle="tab" role="tab" aria-controls="network_suri_files" aria-selected="false">
+                    <i class="fas fa-file-alt me-2"></i>Suricata Files ({{ suricata.files|length }})
+                </a>
+            </li>
+            {% endif %}
         {% endif %}
     </ul>
     <div class="tab-content">

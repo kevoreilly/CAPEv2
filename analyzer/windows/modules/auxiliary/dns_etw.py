@@ -182,7 +182,16 @@ if HAVE_ETW:
             self.config = Config(cfg="analysis.conf")
             self.enabled = self.config.dns_etw
             self.do_run = self.enabled
-            self.output_dir = "C:\\\\etw_dns"
+
+            self.output_dir = "C:\\etw_dns\\"
+            try:
+                os.mkdir(self.output_dir)
+            except Exception as e:
+                print(e)
+                import traceback
+
+                log.exception(traceback.format_exc())
+
             self.log_file = os.path.join(self.output_dir, "dns_provider.log")
             if HAVE_ETW:
                 self.capture = ETW_provider(logfile=self.log_file, level=255, no_conout=True)
@@ -204,7 +213,7 @@ if HAVE_ETW:
         def stop(self):
             if not HAVE_ETW:
                 return
-            log.debug("Stopping!!!")
+            log.debug("Stopping DNS_ETW...")
             self.capture.stop()
             files_to_upload = set()
 

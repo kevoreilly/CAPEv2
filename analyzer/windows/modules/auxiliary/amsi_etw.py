@@ -3,9 +3,9 @@ This module captures AMSI events via ETW, uploading script contents (powershell,
 to aux/amsi_etw and saving trace details to be reported by the amsi_etw processing module.
 
 It is a reimplementation of the SecureWorks amsi_collector and amsi modules, adapted to
-use the CCCS event tracing module format. 
+use the CCCS event tracing module format.
 
-Installation of the pywintrace python library on the guest is mandatory. 
+Installation of the pywintrace python library on the guest is mandatory.
 Setting the option 'amsi_etw_assemblies=1' during tasking will cause full CLR assemblies
 to be collected as well.
 """
@@ -14,7 +14,6 @@ import logging
 import os
 import tempfile
 import binascii
-from collections.abc import Iterable, Mapping
 
 from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_buffer_to_host, upload_to_host
@@ -26,7 +25,6 @@ ETW = False
 HAVE_ETW = False
 try:
     from etw import ETW, ProviderInfo
-    from etw import evntrace as et
     from etw.GUID import GUID
 
     HAVE_ETW = True
@@ -71,7 +69,7 @@ if HAVE_ETW:
             self.log_file = logfile
             self.event_callback = self.on_event
             self.upload_assemblies = upload_assemblies
-                
+
             providers = [
                 ProviderInfo(
                     "AMSI",
@@ -100,7 +98,7 @@ if HAVE_ETW:
             :param event_tufo: tufo containing event information
             :param logfile: Path to logfile.
             :return: Does not return anything.
-            """            
+            """
             event_id, event = event_tufo
             content = event.pop("content", None)
             if content:
@@ -112,13 +110,13 @@ if HAVE_ETW:
                         event['dump_path'] =  dump_path+".bin"
                         upload_buffer_to_host(decoded_content, event['dump_path'])
                     else:
-                        log.debug(f"Skipping upload of {len(decoded_content)} byte CLR assembly - amsi_etw_assemblies option was not set")
+                        log.debug("Skipping upload of %d byte CLR assembly - amsi_etw_assemblies option was not set", len(decoded_content))
                 else:
                     # The content is UTF-16 encoded text. We'll store it as utf-8, just like all other text files.
                     decoded_content = decoded_content.decode("utf-16", errors="replace").encode("utf-8")
                     event['dump_path'] =  dump_path+".txt"
                     upload_buffer_to_host(decoded_content, event['dump_path'])
-                
+
             if self.log_file:
                 # Write the event metadata as a line in the jsonl log file.
                 json.dump(event, self.log_file)
@@ -160,7 +158,7 @@ if HAVE_ETW:
 
             if HAVE_ETW:
                 self.log_file = tempfile.NamedTemporaryFile("w", encoding="utf-8", delete=False)
-                self.capture = ETW_provider(logfile=self.log_file, upload_prefix=self.upload_prefix, 
+                self.capture = ETW_provider(logfile=self.log_file, upload_prefix=self.upload_prefix,
                     upload_assemblies=self.upload_assemblies)
 
         def start(self):

@@ -102,7 +102,6 @@ if HAVE_ETW:
             :return: Does not return anything.
             """            
             event_id, event = event_tufo
-                
             content = event.pop("content", None)
             if content:
                 dump_path = f"{self.upload_prefix}/{event['hash'][2:].lower()}"
@@ -153,8 +152,6 @@ if HAVE_ETW:
             self.enabled = self.config.amsi_etw
             self.do_run = self.enabled
             self.upload_prefix = "aux/amsi_etw"
-            self.enabled = True
-
             self.upload_assemblies = options.get("amsi_etw_assemblies", False)
             if self.upload_assemblies:
                 log.debug("Will upload Dotnet assembly content")

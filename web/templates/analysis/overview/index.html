@@ -15,7 +15,7 @@
                 {% for config_block in analysis.malware_conf %}
                     {% for family, config in config_block.items %}
                         {% if family|slice:":1" != "_" %}
-                            <div class="card bg-dark border-bottom border-secondary rounded-0">
+                            <div class="card bg-dark border-bottom border-secondary m-3">
                                 <div class="card-header p-0" id="heading{{family}}">
                                     <h2 class="mb-0">
                                         <button class="btn btn-block text-start p-3 d-flex align-items-center justify-content-between text-decoration-none shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#{{family}}_config" aria-expanded="true" aria-controls="{{family}}_config">
@@ -24,7 +24,6 @@
                                                 {% if analysis.info.has_cents_rules %}
                                                     <a class="btn btn-sm btn-outline-info me-3" href="{% url "filereport" analysis.info.id "cents" %}"><i class="fas fa-download me-1"></i> CENTS Rules</a>
                                                 {% endif %}
-                                                <i class="fas fa-chevron-down text-white-50"></i>
                                             </div>
                                         </button>
                                     </h2>

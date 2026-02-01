@@ -169,10 +169,7 @@ if HAVE_ETW:
                 # Start AMSI_ETW_provider in the background
                 self.capture.start()
             except Exception as e:
-                print(e)
-                import traceback
-
-                log.exception(traceback.format_exc())
+                log.exception("An error occurred while starting AMSI ETW: %s", e)
             return True
 
         def stop(self):

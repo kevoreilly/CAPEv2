@@ -186,11 +186,8 @@ if HAVE_ETW:
             self.output_dir = "C:\\etw_dns\\"
             try:
                 os.mkdir(self.output_dir)
-            except Exception as e:
-                print(e)
-                import traceback
-
-                log.exception(traceback.format_exc())
+            except FileExistsError:
+                pass
 
             self.log_file = os.path.join(self.output_dir, "dns_provider.log")
             if HAVE_ETW:

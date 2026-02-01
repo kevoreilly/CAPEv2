@@ -111,14 +111,26 @@ class DNS_ETW(ETWAuxiliaryWrapper):
         except FileExistsError:
             pass
 
-        self.log_file = os.path.join(self.output_dir, "dns_provider.log")
+        log_file_path = os.path.join(self.output_dir, "dns_provider.log")
+        self.log_file = None
 
         if HAVE_ETW and self.enabled:
-            self.capture = DNSETWProvider(
-                logfile=self.log_file, level=255, no_conout=True
-            )
+            try:
+                self.log_file = open(log_file_path, "w", encoding="utf-8")
+                self.capture = DNSETWProvider(
+                    logfile=self.log_file, level=255, no_conout=True
+                )
+            except Exception as e:
+                log.error("Failed to open DNS ETW log file: %s", e)
 
     def upload_results(self):
+        if self.log_file:
+            try:
+                self.log_file.close()
+            except Exception as e:
+                log.error("Failed to close DNS ETW log file: %s", e)
+            self.log_file = None
+
         files_to_upload = set()
         if os.path.exists(self.output_dir):
             for d in os.listdir(self.output_dir):

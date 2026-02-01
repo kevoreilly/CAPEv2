@@ -72,9 +72,7 @@ class ETWProviderWrapper(ETW if HAVE_ETW else object):
             return
 
         if not self.no_conout:
-             log.info("%d (%s)
-%s
-", event_id, event.get("Task Name", ""), pprint.pformat(encode(event)))
+             log.info("%d (%s)\n%s\n", event_id, event.get("Task Name", ""), pprint.pformat(encode(event)))
 
         if self.logfile:
              if hasattr(self.logfile, 'write'):
@@ -85,8 +83,7 @@ class ETWProviderWrapper(ETW if HAVE_ETW else object):
 
     def write_to_log(self, file_handle, event_id, event):
         json.dump({"event_id": event_id, "event": event}, file_handle)
-        file_handle.write("
-")
+        file_handle.write("\n")
 
     def start(self):
         if HAVE_ETW:
@@ -114,27 +111,26 @@ class ETWAuxiliaryWrapper(Auxiliary):
 
         if not HAVE_ETW:
              log.debug(
-                f"Could not load auxiliary module {self.__class__.__name__} due to '{ETW_IMPORT_ERROR}'
-"
-                "In order to use ETW functionality, it is required to have pywintrace setup in python"
+                "Could not load auxiliary module %s due to '%s'\n"
+                "In order to use ETW functionality, it is required to have pywintrace setup in python",
+                self.__class__.__name__, ETW_IMPORT_ERROR
             )
 
     def start(self):
         if not self.enabled or not HAVE_ETW:
             return False
         try:
-            log.debug(f"Starting {self.__class__.__name__}")
+            log.debug("Starting %s", self.__class__.__name__)
             if self.capture:
                 self.capture.start()
         except Exception as e:
-            import traceback
-            log.exception(traceback.format_exc())
+            log.exception("Error starting %s: %s", self.__class__.__name__, e)
         return True
 
     def stop(self):
         if not HAVE_ETW or not self.capture:
             return
-        log.debug(f"Stopping {self.__class__.__name__}...")
+        log.debug("Stopping %s...", self.__class__.__name__)
         self.capture.stop()
         self.upload_results()
 

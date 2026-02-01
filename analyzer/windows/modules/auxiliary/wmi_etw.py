@@ -51,8 +51,8 @@ class WMI_ETW(ETWAuxiliaryWrapper):
         self.output_dir = "C:\\wmi\\"
         try:
             os.mkdir(self.output_dir)
-        except Exception as e:
-            log.debug(e)
+        except FileExistsError:
+            pass
 
         self.log_file = os.path.join(self.output_dir, "wmi_provider.log")
 

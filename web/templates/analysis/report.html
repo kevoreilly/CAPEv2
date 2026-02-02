@@ -230,7 +230,7 @@
             </a>
         </li>
     {% endif %}
-    {% if settings.ADMIN or user.is_staff %}
+    {% if settings.ADMIN and user.is_staff %}
         <li class="nav-item">
             <a class="nav-link" id="admin-tab" href="#admin" data-bs-toggle="tab" role="tab" aria-controls="admin" aria-selected="false">
                 <i class="fas fa-user-shield me-2"></i>Admin

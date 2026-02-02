@@ -68,11 +68,7 @@ if HAVE_ETW:
                 return
 
             if self.logfile:
-                if hasattr(self.logfile, "write"):
-                    self.write_to_log(self.logfile, event_id, event)
-                else:
-                    with open(self.logfile, "a") as file:
-                        self.write_to_log(file, event_id, event)
+                self.write_to_log(self.logfile, event_id, event)
 
         def write_to_log(self, file_handle, event_id, event):
             if event_id == 3010:

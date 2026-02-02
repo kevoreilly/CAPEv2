@@ -24,7 +24,7 @@
             out += "<li class=\"page-item" + alert_current_page(pages, page) + "><a class=\"page-link bg-dark border-secondary text-white\" href=\"#\">" + pages + "</a></li>";
         return out;
     }
-    // ... existing js functions ...
+
     function load_chunk(pid, pagenum, callback) {
         $("#process_" + pid + " div.calltable").load("/analysis/chunk/{{id}}/" + pid + "/" + pagenum + "/", function (data, status, xhr) {
             if (status == "error") {
@@ -42,8 +42,8 @@
 
         $("#top_pagination").removeClass("d-none");
         $("#bottom_pagination").removeClass("d-none");
-        $(".badge-filter").removeClass("badge-light text-dark").addClass("badge-dark");
-        $("#badge_default_" + pid).removeClass("badge-dark").addClass("badge-light text-dark");
+        $(".badge-filter").removeClass("active");
+        $("#badge_default_" + pid).addClass("active");
     }
 
     function show_tab(id, callback) {
@@ -91,9 +91,18 @@
 
         $("#top_pagination").addClass("d-none");
         $("#bottom_pagination").addClass("d-none");
-        $(".badge-filter").removeClass("badge-light text-dark").addClass("badge-dark");
-        $("#badge_" + category + "_" + pid).removeClass("badge-dark").addClass("badge-light text-dark");
+        $(".badge-filter").removeClass("active");
+        $("#badge_" + category + "_" + pid).addClass("active");
     }
+
+    $(function () {
+    var $default = $(".badge-filter[id^='badge_default_']").first();
+    if (!$default.length) return;
+    var m = $default.attr("id").match(/^badge_default_(\d+)$/);
+    if (!m) return;
+    var pid = m[1];
+    load_chunk(pid, 1);
+    });
 </script>
 
 <div class="card bg-dark border-secondary">
@@ -137,7 +146,7 @@
                 <div class="row mb-4 align-items-center justify-content-center">
                     <div class="col-12 text-center">
                         <div class="btn-group flex-wrap mb-3" role="group">
-                            <button id="badge_default_{{process.process_id}}" type="button" class="btn btn-outline-light badge-filter active">Default</button>
+                            <button id="badge_default_{{process.process_id}}" type="button" class="btn btn-cat-default badge-filter">Default</button>
                             <button id="badge_registry_{{process.process_id}}" type="button" class="btn btn-cat-registry badge-filter">Registry</button>
                             <button id="badge_filesystem_{{process.process_id}}" type="button" class="btn btn-cat-filesystem badge-filter">Filesystem</button>
                             <button id="badge_network_{{process.process_id}}" type="button" class="btn btn-cat-network badge-filter">Network</button>
@@ -148,7 +157,7 @@
                             <button id="badge_crypto_{{process.process_id}}" type="button" class="btn btn-cat-crypto badge-filter">Crypto</button>
                             <button id="badge_browser_{{process.process_id}}" type="button" class="btn btn-cat-browser badge-filter">Browser</button>
                             <button id="badge_device_{{process.process_id}}" type="button" class="btn btn-cat-device badge-filter">Device</button>
-                            <button id="badge_all_{{process.process_id}}" type="button" class="btn btn-success badge-filter">All</button>
+                            <button id="badge_all_{{process.process_id}}" type="button" class="btn btn-cat-all badge-filter">All</button>
                         </div>
 
                         <div class="input-group mb-3 w-50 mx-auto">
@@ -217,6 +226,13 @@
 
                     $("#search_button_{{process.process_id}}").click(function() {
                         load_filtered_chunk({{process.process_id}}, "all", "null", 0);
+                    });
+
+                    $(function () {
+                        var $btn = $(".badge-filter[id^='badge_default_']").first();
+                        if ($btn.length) {
+                            $btn.trigger("click");
+                        }
                     });
                 });
                 </script>

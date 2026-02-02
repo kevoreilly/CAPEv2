@@ -601,6 +601,7 @@ class AnalysisManager(threading.Thread):
                 str(self.socks5s[self.route]["dnsport"]),
                 str(self.socks5s[self.route]["port"]),
             )
+            self.rooter_response = rooter("libvirt_fwo_enable", self.machine.interface, self.machine.ip)
 
         elif self.route in ("none", "None", "drop"):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.cfg.resultserver.port))
@@ -618,6 +619,7 @@ class AnalysisManager(threading.Thread):
             self.route = "drop"
 
         if self.interface:
+            self.rooter_response = rooter("libvirt_fwo_enable", self.machine.interface, self.machine.ip)
             if self.no_local_routing:
                 input_interface = "dirty-line"
                 # Traffic from lan to machine
@@ -666,6 +668,7 @@ class AnalysisManager(threading.Thread):
     def unroute_network(self):
         routing = Config("routing")
         if self.interface:
+            self.rooter_response = rooter("libvirt_fwo_disable", self.machine.interface, self.machine.ip)
             if self.no_local_routing:
                 input_interface = "dirty-line"
                 # Traffic from lan to machine
@@ -735,6 +738,7 @@ class AnalysisManager(threading.Thread):
                 str(self.socks5s[self.route]["dnsport"]),
                 str(self.socks5s[self.route]["port"]),
             )
+            self.rooter_response = rooter("libvirt_fwo_disable", self.machine.interface, self.machine.ip)
 
         elif self.route in ("none", "None", "drop"):
             self.rooter_response = rooter("drop_disable", self.machine.ip, str(self.cfg.resultserver.port))

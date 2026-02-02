@@ -17,7 +17,6 @@
 
 # Modules to be enabled or not inside of the VM
 [auxiliary_modules]
-amsi = no
 browser = yes
 curtain = no
 digisig = yes
@@ -46,8 +45,10 @@ tracee_linux = no
 sslkeylogfile = no
 # Requires setting up browser extension, check extra/browser_extension
 browsermonitor = no
+# ETW logging modules require pywintrace to be installed on the guest VM
 wmi_etw = no
 dns_etw = no
+amsi_etw = no
 watchdownloads = no
 
 [AzSniffer]

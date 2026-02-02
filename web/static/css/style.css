@@ -21,8 +21,7 @@ body {
 }
 
 a {
-    color: #5ebcf3;
-    text-decoration: none;
+    color: white
 }
 
 .navbar-collapse.in {
@@ -51,71 +50,7 @@ element.style {
 }
 
 a:hover {
-    color: #EE1B2F;
-    text-decoration: underline;
-}
-
-.btn-primary {
-    background-color: #325d88 !important;
-    border-color: #325d88 !important;
-    color: #fff !important;
-}
-
-.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
-    background-color: #264768 !important;
-    border-color: #264768 !important;
-}
-
-.btn-info {
-    background-color: #29aba1 !important;
-    border-color: #29aba1 !important;
-    color: #fff !important;
-}
-
-.btn-info:hover, .btn-info:focus, .btn-info:active {
-    background-color: #1f8179 !important;
-    border-color: #1f8179 !important;
-}
-
-.btn-outline-info {
-    color: #29aba1 !important;
-    border-color: #29aba1 !important;
-}
-
-.btn-outline-info:hover {
-    background-color: #29aba1 !important;
-    border-color: #29aba1 !important;
-    color: #fff !important;
-}
-
-.text-info {
-    color: #4dd0e1 !important;
-}
-
-.bg-primary {
-    background-color: #325d88 !important;
-}
-
-.text-primary {
-    color: #5ebcf3 !important;
-}
-
-.bg-info {
-    background-color: #29aba1 !important;
-}
-
-.badge.bg-primary, .badge.bg-danger, .badge.bg-success {
-    color: #fff !important;
-}
-
-.badge.bg-warning, .badge.bg-info {
-    color: #000 !important;
-}
-
-a.badge:hover, .badge a:hover {
-    color: inherit !important;
-    text-decoration: none;
-    opacity: 0.8;
+    color: #EE1B2F
 }
 
 .btn-link {
@@ -300,11 +235,6 @@ pre {
     cursor: pointer;
 }
 
-.form-control {
-    background-color: darkgray;
-    color:black;
-}
-
 /* Windows API categories */
 .filesystem {
     background-color: #ffe3c5;
@@ -405,39 +335,98 @@ pre {
     color: black;
 }
 
-.btn-cat-filesystem { background-color: #ffe3c5 !important; color: black; border-color: #ffe3c5; }
-.btn-cat-filesystem:hover { color: black; }
-.btn-cat-registry { background-color: #ffc5c5 !important; color: black; border-color: #ffc5c5; }
-.btn-cat-registry:hover { color: black; }
-.btn-cat-process { background-color: #c5e0ff !important; color: black; border-color: #c5e0ff; }
-.btn-cat-process:hover { color: black; }
-.btn-cat-threading { background-color: #d3e0ff !important; color: black; border-color: #d3e0ff; }
-.btn-cat-threading:hover { color: black; }
-.btn-cat-services { background-color: #ccc5ff !important; color: black; border-color: #ccc5ff; }
-.btn-cat-services:hover { color: black; }
-.btn-cat-device { background-color: #d3c5cc !important; color: black; border-color: #d3c5cc; }
-.btn-cat-device:hover { color: black; }
-.btn-cat-network { background-color: #d3ffc5 !important; color: black; border-color: #d3ffc5; }
-.btn-cat-network:hover { color: black; }
-.btn-cat-socket { background-color: #d3ffc5 !important; color: black; border-color: #d3ffc5; }
-.btn-cat-socket:hover { color: black; }
-.btn-cat-synchronization { background-color: #f9c5ff !important; color: black; border-color: #f9c5ff; }
-.btn-cat-synchronization:hover { color: black; }
-.btn-cat-browser { background-color: #dfffdf !important; color: black; border-color: #dfffdf; }
-.btn-cat-browser:hover { color: black; }
-.btn-cat-crypto { background-color: #f0f2c5 !important; color: black; border-color: #f0f2c5; }
-.btn-cat-crypto:hover { color: black; }
+/* Category buttons (base colors) */
+.btn-cat-default            { background-color: #696969; color: #000; border-color: #696969; }
+.btn-cat-filesystem         { background-color: #ffe3c5; color: #000; border-color: #ffe3c5; }
+.btn-cat-registry           { background-color: #ffc5c5; color: #000; border-color: #ffc5c5; }
+.btn-cat-process            { background-color: #c5e0ff; color: #000; border-color: #c5e0ff; }
+.btn-cat-threading          { background-color: #d3e0ff; color: #000; border-color: #d3e0ff; }
+.btn-cat-services           { background-color: #ccc5ff; color: #000; border-color: #ccc5ff; }
+.btn-cat-device             { background-color: #d3c5cc; color: #000; border-color: #d3c5cc; }
+.btn-cat-network            { background-color: #d3ffc5; color: #000; border-color: #d3ffc5; }
+.btn-cat-socket             { background-color: #d3ffc5; color: #000; border-color: #d3ffc5; }
+.btn-cat-synchronization    { background-color: #f9c5ff; color: #000; border-color: #f9c5ff; }
+.btn-cat-browser            { background-color: #dfffdf; color: #000; border-color: #dfffdf; }
+.btn-cat-crypto             { background-color: #f0f2c5; color: #000; border-color: #f0f2c5; }
+.btn-cat-all                { background-color: #198754; color: #000; border-color: #198754; }
 
-/* Remove default underline, add on hover (exclude buttons if needed) */
-a:not(.btn, [class*="btn"]) {
-    text-decoration: none !important;
-}
-a:not(.btn, [class*="btn"]):hover {
-    text-decoration: underline !important;
+/* Hover + selected */
+.btn-cat-default.active,
+.btn-cat-default:active,
+.show > .btn-cat-default.dropdown-toggle {
+    border-color: #696969;
 }
 
-.bg-dark::placeholder {
-  color: rgba(255, 255, 255, 0.7);
+.btn-cat-filesystem.active,
+.btn-cat-filesystem:active,
+.show > .btn-cat-filesystem.dropdown-toggle {
+    border-color: #ffe3c5;
+}
+
+.btn-cat-registry.active,
+.btn-cat-registry:active,
+.show > .btn-cat-registry.dropdown-toggle {
+    border-color: #ffc5c5;
+}
+
+.btn-cat-process.active,
+.btn-cat-process:active,
+.show > .btn-cat-process.dropdown-toggle {
+    border-color: #c5e0ff;
+}
+
+.btn-cat-threading.active,
+.btn-cat-threading:active,
+.show > .btn-cat-threading.dropdown-toggle {
+    border-color: #d3e0ff;
+}
+
+.btn-cat-services.active,
+.btn-cat-services:active,
+.show > .btn-cat-services.dropdown-toggle {
+    border-color: #ccc5ff;
+}
+
+.btn-cat-device.active,
+.btn-cat-device:active,
+.show > .btn-cat-device.dropdown-toggle {
+    border-color: #dcd1d6;
+}
+
+.btn-cat-network.active,
+.btn-cat-network:active,
+.show > .btn-cat-network.dropdown-toggle {
+    border-color: #dcffd1;
+}
+
+.btn-cat-socket.active,
+.btn-cat-socket:active,
+.show > .btn-cat-socket.dropdown-toggle {
+    border-color: #dcffd1;
+}
+
+.btn-cat-synchronization.active,
+.btn-cat-synchronization:active,
+.show > .btn-cat-synchronization.dropdown-toggle {
+    border-color: #fad1ff;
+}
+
+.btn-cat-browser.active,
+.btn-cat-browser:active,
+.show > .btn-cat-browser.dropdown-toggle {
+    border-color: #e5ffe5;
+}
+
+.btn-cat-crypto.active,
+.btn-cat-crypto:active,
+.show > .btn-cat-crypto.dropdown-toggle {
+    border-color: #f3f5d1;
+}
+
+.btn-cat-all.active,
+.btn-cat-all:active,
+.show > .btn-cat-all.dropdown-toggle {
+    border-color: #479f76;
 }
 
 /* Make category background apply to table cells in BS5 */
@@ -489,64 +478,34 @@ a:not(.btn, [class*="btn"]):hover {
   color: inherit;            /* inherit the TR text color */
 }
 
-/* Dark-theme file input (Bootstrap 5) */
-.form-control[type="file"]{
-  background-color: #212529;                 /* bg-dark */
-  color: rgba(255,255,255,.85);              /* readable on dark */
-  border: 1px solid #6c757d;                 /* border-secondary */
-}
-
-/* Placeholder-ish text (some browsers show filename text differently) */
-.form-control[type="file"]::placeholder{
-  color: rgba(255,255,255,.6);
-}
-
-/* The “Browse” button part */
-.form-control[type="file"]::file-selector-button{
-  background-color: #343a40;                 /* dark button */
-  color: rgba(255,255,255,.9);
-  border: 0;
-  border-right: 1px solid #6c757d;           /* border-secondary */
-  padding: .375rem .75rem;
-  margin-right: .75rem;                      /* spacing before filename */
-}
-
 /* Hover/focus states */
 .form-control[type="file"]::file-selector-button:hover{
   background-color: #3f474e;
 }
 
-.form-control[type="file"]:focus{
-  border-color: #adb5bd;                     /* slightly brighter */
-  box-shadow: 0 0 0 .25rem rgba(108,117,125,.25);
+/* Mid-gray form controls for Darkly */
+:root {
+  --form-bg: #5c5c5c;                 /* ← adjust here (try #4f4f4f to #5c5c5c) */
+  --form-border: #666;
+  --form-text: #fff;
+  --form-placeholder: rgba(255,255,255,.55);
 }
 
-/* Fix green highlight on search box focus */
-.form-control:focus {
-    border-color: #5ebcf3;
-    box-shadow: 0 0 0 0.2rem rgba(94, 188, 243, 0.25);
+.form-control,
+.form-select {
+  background-color: var(--form-bg) !important;
+  color: var(--form-text) !important;
+  border-color: var(--form-border) !important;
 }
 
-/* Disabled */
-.form-control[type="file"]:disabled{
-  background-color: #1c1f23;
-  color: rgba(255,255,255,.5);
-}
-.form-control[type="file"]:disabled::file-selector-button{
-  background-color: #2b3035;
-  color: rgba(255,255,255,.5);
+.form-control::placeholder {
+  color: var(--form-placeholder) !important;
 }
 
-.bg-dark .form-check-label {
-  color: #fff;
+.form-control:focus,
+.form-select:focus {
+  background-color: var(--form-bg) !important;
+  border-color: #007ABCFF !important;        /* Darkly success color */
+  box-shadow: 0 0 0 .25rem rgba(0, 38, 60, 0.25);
 }
 
-.bg-dark .form-check-input {
-  background-color: #212529;
-  border-color: #6c757d;
-}
-
-.bg-dark .form-check-input:checked {
-  background-color: #0d6efd;
-  border-color: #0d6efd;
-}

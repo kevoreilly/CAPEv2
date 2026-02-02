@@ -78,11 +78,7 @@ class ETWProviderWrapper(ETW if HAVE_ETW else object):
             log.info("%d (%s)\n%s\n", event_id, event.get("Task Name", ""), pprint.pformat(encode(event)))
 
         if self.logfile:
-            if hasattr(self.logfile, "write"):
-                self.write_to_log(self.logfile, event_id, event)
-            else:
-                with open(self.logfile, "a") as file:
-                    self.write_to_log(file, event_id, event)
+            self.write_to_log(self.logfile, event_id, event)
 
     def write_to_log(self, file_handle, event_id, event):
         json.dump({"event_id": event_id, "event": event}, file_handle)

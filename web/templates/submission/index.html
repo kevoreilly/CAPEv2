@@ -2,7 +2,7 @@
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-lg-8">
-        <div class="card bg-dark shadow-sm border-secondary">
+        <div class="card shadow-sm border-secondary">
             <div class="card-header border-secondary bg-transparent">
                 <h4 class="mb-0 text-white"><i class="fas fa-upload me-2 text-primary"></i>Submit for Analysis</h4>
             </div>
@@ -127,12 +127,12 @@
                     </div>
 
                     <!-- Advanced Options Sections -->
-                    <div class="card bg-dark border-secondary mb-3">
+                    <div class="card border-secondary mb-3">
                         <div class="card-header border-secondary bg-transparent">
                             <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-primary"></i>Options
                             </h5>
                         </div>
-                        <div class="card-body bg-dark">
+                        <div class="card-body">
                             <!-- Non-PCAP Options Block 1 -->
                             <div id="non-pcap-1">
                                 {% if existent_tasks %}
@@ -210,7 +210,7 @@
                                                class="fas fa-info-circle"></i></button>
                                     </div>
                                     <div id="tagshelp" class="collapse mt-2">
-                                        <div class="card card-body bg-dark p-2">
+                                        <div class="card card-body p-2">
                                             <small>Available tags: {% for tag in tags %}<code>{{tag}}</code>
                                                 {% endfor %}</small>
                                         </div>

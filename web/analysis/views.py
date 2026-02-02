@@ -33,7 +33,7 @@ import modules.processing.network as network
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
-from lib.cuckoo.common.utils import delete_folder, yara_detected
+from lib.cuckoo.common.utils import delete_folder, get_files_storage_path, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.core.database import TASK_PENDING, Database, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
@@ -1845,6 +1845,10 @@ def file(request, category, task_id, dlfile):
         # Self Extracted support folder
         if not path_exists(path):
             path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", file_name)
+
+        if not path_exists(path) and len(file_name) == 64:
+            path = get_files_storage_path(file_name)
+
     elif category in ("droppedzipall", "procdumpzipall", "CAPEzipall"):
         if web_cfg.zipped_download.download_all:
             sub_cat = category.replace("zipall", "")
@@ -1861,6 +1865,10 @@ def file(request, category, task_id, dlfile):
             path = buf
             if not path_exists(path):
                 path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "selfextracted", file_name)
+
+            if not path_exists(path) and len(file_name) == 64:
+                path = get_files_storage_path(file_name)
+
     elif category == "networkzip":
         buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "network", file_name)
         path = buf

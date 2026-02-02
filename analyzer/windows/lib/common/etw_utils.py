@@ -11,14 +11,16 @@ log = logging.getLogger(__name__)
 ETW = False
 HAVE_ETW = False
 try:
-    from etw import ETW, ProviderInfo
-    from etw import evntrace as et
-    from etw.GUID import GUID
+    from etw import ETW, ProviderInfo  # noqa: F401
+    from etw import evntrace as et  # noqa: F401
+    from etw.GUID import GUID  # noqa: F401
+
     HAVE_ETW = True
 except ImportError as e:
     ETW_IMPORT_ERROR = str(e)
 else:
     ETW_IMPORT_ERROR = None
+
 
 def encode(data, encoding="utf-8"):
     if isinstance(data, str):
@@ -29,6 +31,7 @@ def encode(data, encoding="utf-8"):
         return type(data)(map(lambda x: encode(x, encoding=encoding), data))
     else:
         return data
+
 
 class ETWProviderWrapper(ETW if HAVE_ETW else object):
     def __init__(
@@ -72,13 +75,13 @@ class ETWProviderWrapper(ETW if HAVE_ETW else object):
             return
 
         if not self.no_conout:
-             log.info("%d (%s)\n%s\n", event_id, event.get("Task Name", ""), pprint.pformat(encode(event)))
+            log.info("%d (%s)\n%s\n", event_id, event.get("Task Name", ""), pprint.pformat(encode(event)))
 
         if self.logfile:
-             if hasattr(self.logfile, 'write'):
-                 self.write_to_log(self.logfile, event_id, event)
-             else:
-                 with open(self.logfile, "a") as file:
+            if hasattr(self.logfile, "write"):
+                self.write_to_log(self.logfile, event_id, event)
+            else:
+                with open(self.logfile, "a") as file:
                     self.write_to_log(file, event_id, event)
 
     def write_to_log(self, file_handle, event_id, event):
@@ -101,6 +104,7 @@ class ETWProviderWrapper(ETW if HAVE_ETW else object):
     def do_capture_teardown(self):
         pass
 
+
 class ETWAuxiliaryWrapper(Auxiliary):
     def __init__(self, options, config, enabled_attr):
         Auxiliary.__init__(self, options, config)
@@ -110,10 +114,11 @@ class ETWAuxiliaryWrapper(Auxiliary):
         self.capture = None
 
         if not HAVE_ETW:
-             log.debug(
+            log.debug(
                 "Could not load auxiliary module %s due to '%s'\n"
                 "In order to use ETW functionality, it is required to have pywintrace setup in python",
-                self.__class__.__name__, ETW_IMPORT_ERROR
+                self.__class__.__name__,
+                ETW_IMPORT_ERROR,
             )
 
     def start(self):

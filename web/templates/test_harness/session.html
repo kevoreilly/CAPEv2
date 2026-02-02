@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block content %}
+
+
+{% if messages %}
+<ul class="messages">
+    {% for message in messages %}
+    <li class="alert alert-{{ message.tags }}">
+        {{ message }}
+    </li>
+    {% endfor %}
+</ul>
+{% endif %}
+
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h3 class="mb-0">Test Session #{{ session.id }}</h3>
+            <span class="text-muted">Started: {{ session.added_on|date:"Y-m-d H:i" }}</span>
+        </div>
+        <div class="btn-group shadow-sm">
+            <button class="btn btn-outline-danger"><i class="fas fa-stop me-2"></i>Purge Queue</button>
+            <button class="btn btn-success px-4"><i class="fas fa-play me-2"></i>Queue All</button>
+        </div>
+    </div>
+
+    {% for run in session.runs %}
+    <div class="card shadow-sm mb-5 border-0">
+        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+            <div>
+                <h5 class="mb-0 text-uppercase tracking-wider">
+                    <i class="fas fa-flask me-2 text-info"></i> Test: {{ run.test_definition.name }}
+                </h5>
+                <small class="text-info opacity-75">{{ run.test_definition.package }} | {{ run.test_definition.payload_path }}</small>
+            </div>
+            <div class="d-flex align-items-center">
+                <span class="badge bg-{{ run.status_color }} me-3">{{ run.status|upper }}</span>
+                <button class="btn btn-sm btn-success"><i class="fas fa-play"></i></button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-dark table-hover table-striped mb-0">
+                <thead class="thead-dark">
+                    <tr>
+                        <th style="width: 50px;">#</th>
+                        <th>Objective</th>
+                        <th>Requirement</th>
+                        <th class="text-center">Status</th>
+                        <th>Evidence / Note</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for obj in run.test_metadata.objectives %}
+                    <tr>
+                        <td class="text-muted small">{{ forloop.counter }}</td>
+                        <td class="fw-bold">{{ obj.name }}</td>
+                        <td class="small text-muted">{{ obj.description }}</td>
+                        <td class="text-center">
+                            <i class="fas fa-circle-notch fa-spin text-muted" title="Waiting for data..."></i>
+                        </td>
+                        <td>
+                            <em class="text-muted small">Awaiting analysis...</em>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}

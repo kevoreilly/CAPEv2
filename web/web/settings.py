@@ -264,6 +264,8 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
 ]
 
+TEST_HARNESS = True
+
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": [
@@ -309,6 +311,7 @@ SETTINGS_EXPORT = [
     "WEB_AUTHENTICATION",
     "WEB_OAUTH",
     "ZIPPED_DOWNLOAD_ALL",
+    "TEST_HARNESS"
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

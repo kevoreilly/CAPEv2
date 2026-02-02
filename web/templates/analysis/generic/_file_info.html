@@ -2,7 +2,7 @@
 
 <div class="card bg-dark border-secondary mb-3">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-primary"></i> File Information</h5>
+        <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-info"></i> File Information</h5>
         {% if file.dropdir %}
             <a href="{% url "file" tab_name id file.dropdir %}" class="btn btn-sm btn-outline-light"><i class="fas fa-download"></i> Download</a>
         {% else %}

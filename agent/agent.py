@@ -2,9 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import re
 import argparse
 import base64
-import cgi
+import email.parser
+import email.policy
 import enum
 import http.server
 import ipaddress
@@ -23,18 +25,16 @@ import sys
 import tempfile
 import time
 import traceback
-from io import StringIO
+import urllib.parse
+from io import BytesIO, StringIO
 from threading import Lock
 from typing import Iterable
 from zipfile import ZipFile
+import logging
 
-try:
-    import re2 as re  # type: ignore
-except ImportError:
-    import re
 
-if sys.version_info[:2] < (3, 6):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.6")
+if sys.version_info[:2] < (3, 10):
+    sys.exit("You are running an incompatible version of Python, please use >= 3.10")
 
 # You must run x86 version not x64
 # The analysis process interacts with low-level Windows libraries that need a
@@ -43,7 +43,7 @@ if sys.version_info[:2] < (3, 6):
 if sys.maxsize > 2**32 and sys.platform == "win32":
     sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.20"
+AGENT_VERSION = "0.21"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -67,6 +67,8 @@ if sys.platform == "win32":
     WAIT_OBJECT_0 = 0x0
     WAIT_TIMEOUT = 0x102
     WAIT_FAILED = 0xFFFFFFFF
+
+log = logging.getLogger(__name__)
 
 
 class Status(enum.IntEnum):
@@ -110,56 +112,83 @@ state = {
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "CAPE Agent"
 
-    def do_GET(self):
+    def _init_request(self, method):
         request.client_ip, request.client_port = self.client_address
         request.form = {}
         request.files = {}
-        request.method = "GET"
+        request.method = method
 
+    def _decode_bytes(self, b):
+        try:
+            return b.decode("utf-8")
+        except UnicodeDecodeError:
+            return b.decode("latin-1")
+
+    def _add_to_dict(self, d, key, value):
+        if key in d:
+            if isinstance(d[key], list):
+                d[key].append(value)
+            else:
+                d[key] = [d[key], value]
+        else:
+            d[key] = value
+
+    def _parse_form(self):
+        content_type = self.headers.get("Content-Type", "")
+        try:
+            content_length = int(self.headers.get("Content-Length", 0))
+        except ValueError:
+            log.warning("Malformed Content-Length header received, defaulting to 0: %s", self.headers.get("Content-Length"))
+            content_length = 0
+
+        if not content_type or not content_length:
+            return
+
+        body = self.rfile.read(content_length)
+
+        if "multipart/form-data" in content_type:
+            # Prepare a valid MIME message with headers
+            # We prefix the body with the Content-Type header so BytesParser can recognize the boundary
+            headers = f"Content-Type: {content_type}\r\n".encode("latin-1")
+
+            msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(headers + b"\r\n" + body)
+
+            if msg.is_multipart():
+                for part in msg.iter_parts():
+                    name = part.get_param("name", header="content-disposition")
+                    filename = part.get_filename()
+
+                    if not name:
+                        continue
+
+                    payload = part.get_payload(decode=True)
+
+                    if filename:
+                        self._add_to_dict(request.files, name, BytesIO(payload))
+                    else:
+                        self._add_to_dict(request.form, name, self._decode_bytes(payload))
+
+        elif "application/x-www-form-urlencoded" in content_type:
+            data = urllib.parse.parse_qs(self._decode_bytes(body))
+
+            for key, val in data.items():
+                if len(val) == 1:
+                    request.form[key] = val[0]
+                else:
+                    request.form[key] = val
+
+    def do_GET(self):
+        self._init_request("GET")
         self.httpd.handle(self)
 
     def do_POST(self):
-        environ = {
-            "REQUEST_METHOD": "POST",
-            "CONTENT_TYPE": self.headers.get("Content-Type"),
-        }
-
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
-
-        request.client_ip, request.client_port = self.client_address
-        request.form = {}
-        request.files = {}
-        request.method = "POST"
-
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
+        self._init_request("POST")
+        self._parse_form()
         self.httpd.handle(self)
 
     def do_DELETE(self):
-        environ = {
-            "REQUEST_METHOD": "DELETE",
-            "CONTENT_TYPE": self.headers.get("Content-Type"),
-        }
-
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
-
-        request.client_ip, request.client_port = self.client_address
-        request.form = {}
-        request.files = {}
-        request.method = "DELETE"
-
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
+        self._init_request("DELETE")
+        self._parse_form()
         self.httpd.handle(self)
 
 

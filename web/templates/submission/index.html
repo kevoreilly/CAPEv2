@@ -270,11 +270,212 @@
                                 </div>
 
                                 {% if config.linux_on_gui %}
+                                <!-- Linux Options Field -->
                                 <div class="mb-3">
                                     <label for="form_lin_options" class="text-white-50">Linux Options</label>
-                                    <input type="text" class="form-control border-secondary"
-                                        id="form_lin_options" name="lin_options"
-                                        placeholder="option1=val1,option2=val2" />
+                                    <div class="input-group">
+                                        <input type="text" class="form-control bg-dark text-white border-secondary"
+                                               id="form_lin_options" name="linuxOptions" placeholder="option1=val1,option2=val2" />
+                                        <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#optionlinuxhelp"><i class="fas fa-info-circle"></i></button>
+                                    </div>
+                                    <div id="optionlinuxhelp" class="collapse mt-2">
+                                        <div class="card card-body bg-dark p-2 border-secondary">
+                                            <div class="mb-3">
+                                                <input type="text" class="form-control bg-dark text-white border-secondary" id="linuxOptionsSearch" placeholder="Search options..." onkeyup="filterLinuxOptions()">
+                                                <small class="text-white-50">Syntax: option1=val1,option2=val2</small>
+                                            </div>
+                                            <ul class="nav nav-tabs border-secondary mb-3" id="linuxOptionsHelpTabs" role="tablist">
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link active text-white-50" id="lin-cat-submission-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-submission" type="button" role="tab">Submission</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link text-white-50" id="lin-cat-monitor-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-monitor" type="button" role="tab">Monitor</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link text-white-50" id="lin-cat-hooks-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-hooks" type="button" role="tab">Hooks & Logs</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link text-white-50" id="lin-cat-dump-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-dump" type="button" role="tab">Dumping</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link text-white-50" id="lin-cat-debug-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-debug" type="button" role="tab">Debug</button>
+                                                </li>
+                                            </ul>
+                                            <div class="tab-content" id="linuxOptionsHelpTabContent">
+                                                <!-- Submission Options -->
+                                                <div class="tab-pane fade show active" id="lin-cat-submission" role="tabpanel">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="text-end"><code>filename</code></td>
+                                                                    <td>Rename the sample file</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>file</code></td>
+                                                                    <td>When using the archive package, set the name of the file to execute</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>password</code></td>
+                                                                    <td>When using the archive package, set the password to use for extraction/decryption. Also used when analyzing password-protected Office documents.</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>arguments</code></td>
+                                                                    <td>Arguments to be passed to the sample (or opened file, if applicable)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>timeout</code></td>
+                                                                    <td>Analysis timeout (in seconds)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>enforce_timeout</code></td>
+                                                                    <td>Enforce the timeout even if the process finishes early</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>clock</code></td>
+                                                                    <td>Set the VM clock (YYYYMMDDhhmm or seconds since epoch)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>package</code></td>
+                                                                    <td>Analysis package to use</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <!-- Monitor Options -->
+                                                <div class="tab-pane fade" id="lin-cat-monitor" role="tabpanel">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="text-end"><code>free</code></td>
+                                                                    <td>Run analysis without the monitor (no behavioral analysis)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>procmemdump</code></td>
+                                                                    <td>Dump process memory</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>simul_human</code></td>
+                                                                    <td>Simulate human interaction (mouse movements, clicks)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>human_click_interval</code></td>
+                                                                    <td>Interval between simulated clicks</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>human_mouse_speed</code></td>
+                                                                    <td>Speed of simulated mouse movements</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <!-- Hooks & Logs Options -->
+                                                <div class="tab-pane fade" id="lin-cat-hooks" role="tabpanel">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="text-end"><code>enable_syslog</code></td>
+                                                                    <td>Enable syslog capturing</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>syslog_port</code></td>
+                                                                    <td>Port for syslog capturing (default: 514)</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <!-- Dumping Options -->
+                                                <div class="tab-pane fade" id="lin-cat-dump" role="tabpanel">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="text-end"><code>memory</code></td>
+                                                                    <td>Dump full VM memory</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <!-- Debug Options -->
+                                                <div class="tab-pane fade" id="lin-cat-debug" role="tabpanel">
+                                                     <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                 <tr>
+                                                                    <td class="text-end"><code>debug</code></td>
+                                                                    <td>Enable debugging features</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <script>
+                                                function filterLinuxOptions() {
+                                                    const input = document.getElementById("linuxOptionsSearch");
+                                                    const filter = input.value.toUpperCase();
+                                                    const tabContent = document.getElementById("linuxOptionsHelpTabContent");
+                                                    const tables = tabContent.getElementsByTagName("table");
+
+                                                    for (const table of tables) {
+                                                        const tbody = table.querySelector("tbody");
+                                                        if (!tbody) {
+                                                            continue;
+                                                        }
+                                                        for (const row of tbody.rows) {
+                                                            const optionCell = row.cells[0];
+                                                            const descriptionCell = row.cells[1];
+                                                            if (optionCell && descriptionCell) {
+                                                                const optionText = optionCell.textContent || optionCell.innerText;
+                                                                const descriptionText = descriptionCell.textContent || descriptionCell.innerText;
+                                                                if (optionText.toUpperCase().includes(filter) || descriptionText.toUpperCase().includes(filter)) {
+                                                                    row.style.display = "";
+                                                                } else {
+                                                                    row.style.display = "none";
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            </script>
+                                        </div>
+                                    </div>
                                 </div>
                                 {% endif %}
                             </div>

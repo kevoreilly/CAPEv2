@@ -175,6 +175,7 @@ class File:
     # caching 'em. This dictionary is filled during init_yara().
     # ToDo find a way to get compiled YARA hash so we can loopup files if hash is the same
     yara_rules = {}
+    yara_rules_hash = None
     yara_initialized = False
     # static fields which indicate whether the user has been
     # notified about missing dependencies already
@@ -444,6 +445,7 @@ class File:
         # Generate root directory for yara rules.
         yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
         custom_yara_root = os.path.join(CUCKOO_ROOT, "custom", "yara")
+        hasher = hashlib.sha256()
         # Loop through all categories.
         for category in categories:
             rules, indexed = {}, []
@@ -463,6 +465,7 @@ class File:
                         filepath = os.path.join(category_root, filename)
                         rules[f"rule_{category}_{len(rules)}"] = filepath
                         indexed.append(filename)
+                        hasher.update(Path(filepath).read_bytes())
 
                 # Need to define each external variable that will be used in the
             # future. Otherwise Yara will complain.
@@ -540,6 +543,7 @@ class File:
                     log.debug("\t `-- %s %s", category, entry)
                 else:
                     log.debug("\t |-- %s %s", category, entry)
+        File.yara_rules_hash = hasher.hexdigest()
 
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.

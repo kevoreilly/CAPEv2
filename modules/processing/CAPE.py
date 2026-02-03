@@ -35,6 +35,7 @@ from lib.cuckoo.common.utils import (
     texttypes,
     wide2str,
 )
+from dev_utils.mongodb import mongo_find_one
 
 processing_conf = Config("processing")
 integrations_conf = Config("integrations")
@@ -181,7 +182,33 @@ class CAPE(Processing):
         else:
             duplicated["sha256"].add(sha256)
 
-        file_info, pefile_object = f.get_all()
+        cached = False
+        pefile_object = None
+        try:
+            db_file = mongo_find_one("files", {"sha256": sha256})
+            if db_file:
+                if db_file.get("yara_hash", "") == File.yara_rules_hash:
+                    file_info = db_file
+                    if "_id" in file_info:
+                        del file_info["_id"]
+                    cached = True
+                else:
+                    # Hash mismatch, load data but update YARA
+                    file_info = db_file
+                    if "_id" in file_info:
+                        del file_info["_id"]
+
+                    # Update YARA
+                    file_info["yara"] = f.get_yara()
+                    file_info["cape_yara"] = f.get_yara(category="CAPE")
+                    file_info["yara_hash"] = File.yara_rules_hash
+                    cached = True
+        except Exception as e:
+            log.exception(e)
+
+        if not cached:
+            file_info, pefile_object = f.get_all()
+            file_info["yara_hash"] = File.yara_rules_hash
 
         if category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name
@@ -195,16 +222,17 @@ class CAPE(Processing):
                 add_family_detection(self.results, clamav_detection, "ClamAV", file_info["sha256"])
 
         # should we use dropped path here?
-        static_file_info(
-            file_info,
-            file_path,
-            str(self.task["id"]),
-            self.task.get("package", ""),
-            self.task.get("options", ""),
-            self.self_extracted,
-            self.results,
-            duplicated,
-        )
+        if not cached:
+            static_file_info(
+                file_info,
+                file_path,
+                str(self.task["id"]),
+                self.task.get("package", ""),
+                self.task.get("options", ""),
+                self.self_extracted,
+                self.results,
+                duplicated,
+            )
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 

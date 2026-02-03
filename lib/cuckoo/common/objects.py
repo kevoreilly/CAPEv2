@@ -445,7 +445,26 @@ class File:
         # Generate root directory for yara rules.
         yara_root = os.path.join(CUCKOO_ROOT, "data", "yara")
         custom_yara_root = os.path.join(CUCKOO_ROOT, "custom", "yara")
+
+        # Collect all rule files for hashing to ensure determinism
+        all_rule_files = []
+        for category in categories:
+            for path in (yara_root, custom_yara_root):
+                category_root = os.path.join(path, category)
+                if not path_exists(category_root):
+                    continue
+                for root, _, filenames in os.walk(category_root, followlinks=True):
+                    if root.endswith("deprecated"):
+                        continue
+                    for filename in filenames:
+                        if filename.endswith((".yar", ".yara")):
+                            all_rule_files.append(os.path.join(root, filename))
+
         hasher = hashlib.sha256()
+        for filepath in sorted(all_rule_files):
+            hasher.update(Path(filepath).read_bytes())
+        File.yara_rules_hash = hasher.hexdigest()
+
         # Loop through all categories.
         for category in categories:
             rules, indexed = {}, []
@@ -465,7 +484,6 @@ class File:
                         filepath = os.path.join(category_root, filename)
                         rules[f"rule_{category}_{len(rules)}"] = filepath
                         indexed.append(filename)
-                        hasher.update(Path(filepath).read_bytes())
 
                 # Need to define each external variable that will be used in the
             # future. Otherwise Yara will complain.

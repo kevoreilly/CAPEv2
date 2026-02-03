@@ -275,15 +275,16 @@
                                     <label for="form_lin_options" class="text-white-50">Linux Options</label>
                                     <div class="input-group">
                                         <input type="text" class="form-control bg-dark text-white border-secondary"
-                                               id="form_lin_options" name="linuxOptions" placeholder="option1=val1,option2=val2" />
+                                               id="form_lin_options" name="lin_options" placeholder="option1=val1,option2=val2" />
                                         <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#optionlinuxhelp"><i class="fas fa-info-circle"></i></button>
                                     </div>
                                     <div id="optionlinuxhelp" class="collapse mt-2">
                                         <div class="card card-body bg-dark p-2 border-secondary">
                                             <div class="mb-3">
-                                                <input type="text" class="form-control bg-dark text-white border-secondary" id="linuxOptionsSearch" placeholder="Search options..." onkeyup="filterLinuxOptions()">
+                                                <input type="text" class="form-control bg-dark text-white border-secondary" id="linuxOptionsSearch" placeholder="Search options..." onkeyup="filterTableOptions('linuxOptionsSearch', 'linuxOptionsHelpTabContent')">
                                                 <small class="text-white-50">Syntax: option1=val1,option2=val2</small>
                                             </div>
+
                                             <ul class="nav nav-tabs border-secondary mb-3" id="linuxOptionsHelpTabs" role="tablist">
                                                 <li class="nav-item" role="presentation">
                                                     <button class="nav-link active text-white-50" id="lin-cat-submission-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-submission" type="button" role="tab">Submission</button>
@@ -446,34 +447,6 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <script>
-                                                function filterLinuxOptions() {
-                                                    const input = document.getElementById("linuxOptionsSearch");
-                                                    const filter = input.value.toUpperCase();
-                                                    const tabContent = document.getElementById("linuxOptionsHelpTabContent");
-                                                    const tables = tabContent.getElementsByTagName("table");
-
-                                                    for (const table of tables) {
-                                                        const tbody = table.querySelector("tbody");
-                                                        if (!tbody) {
-                                                            continue;
-                                                        }
-                                                        for (const row of tbody.rows) {
-                                                            const optionCell = row.cells[0];
-                                                            const descriptionCell = row.cells[1];
-                                                            if (optionCell && descriptionCell) {
-                                                                const optionText = optionCell.textContent || optionCell.innerText;
-                                                                const descriptionText = descriptionCell.textContent || descriptionCell.innerText;
-                                                                if (optionText.toUpperCase().includes(filter) || descriptionText.toUpperCase().includes(filter)) {
-                                                                    row.style.display = "";
-                                                                } else {
-                                                                    row.style.display = "none";
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            </script>
                                         </div>
                                     </div>
                                 </div>
@@ -490,10 +463,12 @@
                                 </div>
                                 <div id="optionwindowshelp" class="collapse mt-2">
                                     <div class="card card-body bg-dark p-2 border-secondary">
-                                        <div class="mb-3">
-                                            <input type="text" class="form-control bg-dark text-white border-secondary" id="optionsSearch" placeholder="Search options..." onkeyup="filterOptions()">
-                                            <small class="text-white-50">Syntax: option1=val1,option2=val2</small>
-                                        </div>
+                                                                                    <div class="mb-3">
+                                                                                        <input type="text" class="form-control bg-dark text-white border-secondary" id="optionsSearch" placeholder="Search options..."
+                                                                                               onkeyup="filterTableOptions('optionsSearch', 'optionsHelpTabContent')">
+                                                                                        <small class="text-white-50">Syntax: option1=val1,option2=val2</small>
+                                                                                    </div>
+
                                         <ul class="nav nav-tabs border-secondary mb-3" id="optionsHelpTabs" role="tablist">
                                             <li class="nav-item" role="presentation">
                                                 <button class="nav-link active text-white-50" id="cat-submission-tab" data-bs-toggle="tab" data-bs-target="#cat-submission" type="button" role="tab">Submission</button>
@@ -650,40 +625,11 @@
                                                     </table>
                                                 </div>
                                             </div>
-                                        </div>
-                                        <script>
-                                            function filterOptions() {
-                                                const input = document.getElementById("optionsSearch");
-                                                const filter = input.value.toUpperCase();
-                                                const tabContent = document.getElementById("optionsHelpTabContent");
-                                                const tables = tabContent.getElementsByTagName("table");
-
-                                                for (const table of tables) {
-                                                    const tbody = table.querySelector("tbody");
-                                                    if (!tbody) {
-                                                        continue;
-                                                    }
-                                                    for (const row of tbody.rows) {
-                                                        const optionCell = row.cells[0];
-                                                        const descriptionCell = row.cells[1];
-                                                        if (optionCell && descriptionCell) {
-                                                            const optionText = optionCell.textContent || optionCell.innerText;
-                                                            const descriptionText = descriptionCell.textContent || descriptionCell.innerText;
-                                                            if (optionText.toUpperCase().includes(filter) || descriptionText.toUpperCase().includes(filter)) {
-                                                                row.style.display = "";
-                                                            } else {
-                                                                row.style.display = "none";
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        </script>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="row g-3">
+                                                                                    </div>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="form_priority" class="text-white-50">Priority</label>
                                     <select class="form-select border-secondary" id="form_priority"
@@ -881,6 +827,33 @@
 </div>
 
 <script type='text/javascript'>
+    function filterTableOptions(searchInputId, tabContentId) {
+        const input = document.getElementById(searchInputId);
+        const filter = input.value.toUpperCase();
+        const tabContent = document.getElementById(tabContentId);
+        const tables = tabContent.getElementsByTagName("table");
+
+        for (const table of tables) {
+            const tbody = table.querySelector("tbody");
+            if (!tbody) {
+                continue;
+            }
+            for (const row of tbody.rows) {
+                const optionCell = row.cells[0];
+                const descriptionCell = row.cells[1];
+                if (optionCell && descriptionCell) {
+                    const optionText = optionCell.textContent || optionCell.innerText;
+                    const descriptionText = descriptionCell.textContent || descriptionCell.innerText;
+                    if (optionText.toUpperCase().includes(filter) || descriptionText.toUpperCase().includes(filter)) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                    }
+                }
+            }
+        }
+    }
+
     $(document).ready(function () {
         // Tab visibility logic
         $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {

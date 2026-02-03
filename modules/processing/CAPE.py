@@ -26,7 +26,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
-from lib.cuckoo.common.integrations.file_extra_info import TOOLS_HASH
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
@@ -189,7 +188,6 @@ class CAPE(Processing):
             db_file = mongo_find_one("files", {"sha256": sha256})
             if db_file:
                 yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
-                tools_match = db_file.get("tools_hash", "") == TOOLS_HASH
 
                 if yara_match and tools_match:
                     file_info = db_file
@@ -217,7 +215,6 @@ class CAPE(Processing):
         if not cached:
             file_info, pefile_object = f.get_all()
             file_info["yara_hash"] = File.yara_rules_hash
-            file_info["tools_hash"] = TOOLS_HASH
 
         if category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name

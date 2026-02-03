@@ -326,7 +326,7 @@ class NetworkProcessMap(Processing):
                 port = _get_arg_any(c, "port", "dport", "dstport", "remote_port", "server_port")
                 buf = _get_arg_any(c, "Buffer", "buffer", "buf", "data")
 
-                if api in ("connect", "wsaconnect", "connectex"):
+                if api in ("connect", "wsaconnect", "connectex", "sendto", "wsasendto", "recvfrom", "wsarecvfrom"):
                     p_int = _safe_int(port)
                     if ip and p_int is not None:
                         entry = dict(pinfo)
@@ -334,16 +334,9 @@ class NetworkProcessMap(Processing):
                             entry["socket"] = sock
 
                         endpoint_map[(ip, p_int)].append(entry)
-                    continue
 
-                if api in ("sendto", "wsasendto", "recvfrom", "wsarecvfrom"):
-                    p_int = _safe_int(port)
-                    if ip and p_int is not None:
-                        entry = dict(pinfo)
-                        if sock is not None:
-                            entry["socket"] = sock
-
-                        endpoint_map[(ip, p_int)].append(entry)
+                    if api in ("connect", "wsaconnect", "connectex"):
+                        continue
 
                 if api in ("send", "wsasend", "sendto", "wsasendto") and _looks_like_http(buf):
                     host = _http_host_from_buf(buf)

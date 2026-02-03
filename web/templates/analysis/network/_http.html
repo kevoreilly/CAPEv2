@@ -68,7 +68,7 @@
         <tr>
             <th>URI</th>
             <th>Data</th>
-            <th style="width: 160px;">Process Name (PID)</th>
+            {% if settings.NETWORK_PROC_MAP %}<th style="width: 160px;">Process Name (PID)</th>{% endif %}
         </tr>
         {% for request in network.http %}
             <tr>

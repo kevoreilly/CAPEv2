@@ -2,6 +2,7 @@ import logging
 import os
 
 from lib.common.results import upload_to_host
+from lib.common.rand import random_string
 from lib.common.etw_utils import (
     ETWAuxiliaryWrapper,
     ETWProviderWrapper,
@@ -48,13 +49,13 @@ class WMI_ETW(ETWAuxiliaryWrapper):
     def __init__(self, options, config):
         super().__init__(options, config, "wmi_etw")
 
-        self.output_dir = "C:\\wmi\\"
+        self.output_dir = os.path.join("C:\\", random_string(5, 10))
         try:
             os.mkdir(self.output_dir)
         except FileExistsError:
             pass
 
-        log_file_path = os.path.join(self.output_dir, "wmi_provider.log")
+        log_file_path = os.path.join(self.output_dir, f"{random_string(5, 10)}.log")
         self.log_file = None
 
         if HAVE_ETW and self.enabled:
@@ -90,4 +91,3 @@ class WMI_ETW(ETWAuxiliaryWrapper):
             dumppath = os.path.join("aux", "wmi_etw.json")
             log.debug("WMI_ETW Aux Module is uploading %s", f)
             upload_to_host(f, dumppath)
-

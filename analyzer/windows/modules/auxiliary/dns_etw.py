@@ -4,6 +4,7 @@ import os
 import pprint
 
 from lib.common.results import upload_to_host
+from lib.common.rand import random_string
 from lib.common.etw_utils import (
     ETWAuxiliaryWrapper,
     ETWProviderWrapper,
@@ -101,13 +102,13 @@ class DNS_ETW(ETWAuxiliaryWrapper):
     def __init__(self, options, config):
         super().__init__(options, config, "dns_etw")
 
-        self.output_dir = "C:\\etw_dns\\"
+        self.output_dir = os.path.join("C:\\", random_string(5, 10))
         try:
             os.mkdir(self.output_dir)
         except FileExistsError:
             pass
 
-        log_file_path = os.path.join(self.output_dir, "dns_provider.log")
+        log_file_path = os.path.join(self.output_dir, f"{random_string(5, 10)}.log")
         self.log_file = None
 
         if HAVE_ETW and self.enabled:
@@ -140,7 +141,6 @@ class DNS_ETW(ETWAuxiliaryWrapper):
 
         log.debug(files_to_upload)
         for f in files_to_upload:
-            dumppath = os.path.join("DNS_ETW", "etw_dns.json")
+            dumppath = os.path.join("aux", "dns_etw.json")
             log.debug("DNS_ETW Aux Module is uploading %s", f)
             upload_to_host(f, dumppath)
-

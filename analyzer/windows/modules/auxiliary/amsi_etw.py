@@ -130,4 +130,3 @@ class AMSI_ETW(ETWAuxiliaryWrapper):
             if self.log_file and os.path.exists(self.log_file.name):
                 os.unlink(self.log_file.name)
             self.log_file = None
-

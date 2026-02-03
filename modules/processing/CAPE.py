@@ -26,6 +26,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.file_extra_info import DuplicatesType, static_file_info
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.integrations.file_extra_info import TOOLS_HASH
 from lib.cuckoo.common.replace_patterns_utils import _clean_path
 from lib.cuckoo.common.utils import (
     add_family_detection,
@@ -187,28 +188,36 @@ class CAPE(Processing):
         try:
             db_file = mongo_find_one("files", {"sha256": sha256})
             if db_file:
-                if db_file.get("yara_hash", "") == File.yara_rules_hash:
+                yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
+                tools_match = db_file.get("tools_hash", "") == TOOLS_HASH
+
+                if yara_match and tools_match:
                     file_info = db_file
                     if "_id" in file_info:
                         del file_info["_id"]
                     cached = True
                 else:
-                    # Hash mismatch, load data but update YARA
+                    # Partial hit: load data but potentially re-run parts
                     file_info = db_file
                     if "_id" in file_info:
                         del file_info["_id"]
 
-                    # Update YARA
-                    file_info["yara"] = f.get_yara()
-                    file_info["cape_yara"] = f.get_yara(category="CAPE")
-                    file_info["yara_hash"] = File.yara_rules_hash
-                    cached = True
+                    if not yara_match:
+                        # Update YARA
+                        file_info["yara"] = f.get_yara()
+                        file_info["cape_yara"] = f.get_yara(category="CAPE")
+                        file_info["yara_hash"] = File.yara_rules_hash
+
+                    # If tools don't match, we must re-run static_file_info (extractors)
+                    # We treat it as not cached so static_file_info runs below
+                    cached = tools_match
         except Exception as e:
             log.exception(e)
 
         if not cached:
             file_info, pefile_object = f.get_all()
             file_info["yara_hash"] = File.yara_rules_hash
+            file_info["tools_hash"] = TOOLS_HASH
 
         if category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name

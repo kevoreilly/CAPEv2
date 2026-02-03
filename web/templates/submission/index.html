@@ -451,22 +451,6 @@
                                     </div>
                                 </div>
                                 {% endif %}
-                            </div>
-
-                            <!-- Options Field -->
-                            <div class="mb-3">
-                                <label for="form_options" class="text-white-50">Options</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control border-secondary"
-                                        id="form_options" name="options" placeholder="option1=val1,option2=val2" />
-                                    <button class="btn btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp"><i class="fas fa-info-circle"></i></button>
-                                </div>
-                                <div id="optionwindowshelp" class="collapse mt-2">
-                                    <div class="card card-body bg-dark p-2 border-secondary">
-                                                                                    <div class="mb-3">
-                                                                                        <input type="text" class="form-control bg-dark text-white border-secondary" id="optionsSearch" placeholder="Search options..." onkeyup="filterTableOptions('optionsSearch', 'optionsHelpTabContent')" />
-                                                                                        <small class="text-white-50">Syntax: option1=val1,option2=val2</small>
-                                                                                    </div>
 
                                 <!-- Options Field -->
                                 <div class="mb-3">
@@ -971,145 +955,147 @@
                                         </div>
                                     </div>
 
-                                {% if config.pre_script %}
-                                <div class="mb-3 mt-3">
-                                    <label class="text-white-50">Pre-Execution Script</label>
-                                    <input type="file" class="form-control border-secondary"
-                                        id="preScript" name="pre_script" />
-                                </div>
-                                {% endif %}
+                                    {% if config.pre_script %}
+                                    <div class="mb-3 mt-3">
+                                        <label class="text-white-50">Pre-Execution Script</label>
+                                        <input type="file" class="form-control border-secondary"
+                                               id="preScript" name="pre_script" />
+                                    </div>
+                                    {% endif %}
 
-                                {% if config.during_script %}
-                                <div class="mb-3">
-                                    <label class="text-white-50">During-Execution Script</label>
-                                    <input type="file" class="form-control border-secondary"
-                                        id="duringScript" name="during_script" />
-                                </div>
-                                {% endif %}
-                                <div class="mb-3">
-                                    <label for="form_custom" class="text-white-50">Custom Field</label>
-                                    <input type="text" class="form-control border-secondary"
-                                        id="form_custom" name="custom" />
-                                </div>
+                                    {% if config.during_script %}
+                                    <div class="mb-3">
+                                        <label class="text-white-50">During-Execution Script</label>
+                                        <input type="file" class="form-control border-secondary"
+                                               id="duringScript" name="during_script" />
+                                    </div>
+                                    {% endif %}
+                                    <div class="mb-3">
+                                        <label for="form_custom" class="text-white-50">Custom Field</label>
+                                        <input type="text" class="form-control border-secondary"
+                                               id="form_custom" name="custom" />
+                                    </div>
 
-                                <!-- Extended Checkboxes -->
-                                <div class="mt-3">
-                                    <button class="btn btn-sm btn-outline-warning w-100" type="button"
-                                        data-bs-toggle="collapse" data-bs-target="#extendedCheckboxes">
-                                        Toggle Extended Capabilities
-                                    </button>
-                                    <div class="collapse mt-3" id="extendedCheckboxes">
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="process_dump"
-                                                        name="process_dump" />
-                                                    <label class="form-check-label" for="process_dump">Disable process
-                                                        dumps</label>
-                                                </div>
-                                                {% if config.procmemory %}
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="process_memory"
-                                                        name="process_memory" />
-                                                    <label class="form-check-label" for="process_memory">Full process
-                                                        memory dumps</label>
-                                                </div>
-                                                {% endif %}
-                                                {% if config.amsidump %}
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="amsidump"
-                                                        name="amsidump" />
-                                                    <label class="form-check-label" for="amsidump">AMSI dumps <small
-                                                            class="text-white-50">(Win10+)</small></label>
-                                                </div>
-                                                {% endif %}
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input"
-                                                        id="import_reconstruction" name="import_reconstruction" />
-                                                    <label class="form-check-label" for="import_reconstruction">Import
-                                                        reconstruction</label>
-                                                </div>
-                                                {% if config.memory %}
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="memory"
-                                                        name="memory" />
-                                                    <label class="form-check-label" for="memory">Full Memory Dump <small
-                                                            class="text-white-50">(Volatility)</small></label>
-                                                </div>
-                                                {% endif %}
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="enforce_timeout"
-                                                        name="enforce_timeout" />
-                                                    <label class="form-check-label" for="enforce_timeout">Enforce
-                                                        Timeout</label>
-                                                </div>
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="free"
-                                                        name="free" />
-                                                    <label class="form-check-label" for="free">No monitoring</label>
-                                                </div>
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="unpacker"
-                                                        name="unpacker" />
-                                                    <label class="form-check-label" for="unpacker">Active
-                                                        Unpacking</label>
+                                    <!-- Extended Checkboxes -->
+                                    <div class="mt-3">
+                                        <button class="btn btn-sm btn-outline-warning w-100" type="button"
+                                                data-bs-toggle="collapse" data-bs-target="#extendedCheckboxes">
+                                            Toggle Extended Capabilities
+                                        </button>
+                                        <div class="collapse mt-3" id="extendedCheckboxes">
+                                            <div class="row">
+                                                <div class="col-md-6">
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="process_dump"
+                                                               name="process_dump" />
+                                                        <label class="form-check-label" for="process_dump">Disable process
+                                                            dumps</label>
+                                                    </div>
+                                                    {% if config.procmemory %}
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="process_memory"
+                                                               name="process_memory" />
+                                                        <label class="form-check-label" for="process_memory">Full process
+                                                            memory dumps</label>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if config.amsidump %}
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="amsidump"
+                                                               name="amsidump" />
+                                                        <label class="form-check-label" for="amsidump">AMSI dumps <small
+                                                                   class="text-white-50">(Win10+)</small></label>
+                                                    </div>
+                                                    {% endif %}
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input"
+                                                               id="import_reconstruction" name="import_reconstruction" />
+                                                        <label class="form-check-label" for="import_reconstruction">Import
+                                                            reconstruction</label>
+                                                    </div>
+                                                    {% if config.memory %}
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="memory"
+                                                               name="memory" />
+                                                        <label class="form-check-label" for="memory">Full Memory Dump <small
+                                                                   class="text-white-50">(Volatility)</small></label>
+                                                    </div>
+                                                    {% endif %}
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="enforce_timeout"
+                                                               name="enforce_timeout" />
+                                                        <label class="form-check-label" for="enforce_timeout">Enforce
+                                                            Timeout</label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="free"
+                                                               name="free" />
+                                                        <label class="form-check-label" for="free">No monitoring</label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="unpacker"
+                                                               name="unpacker" />
+                                                        <label class="form-check-label" for="unpacker">Active
+                                                            Unpacking</label>
+                                                    </div>
                                                 </div>
 
-                                            <div class="col-md-6">
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="syscall"
-                                                        name="syscall" checked />
-                                                    <label class="form-check-label" for="syscall">Syscall hooks <small
-                                                            class="text-white-50">(Win10+)</small></label>
-                                                </div>
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="norefer"
-                                                        name="norefer" />
-                                                    <label class="form-check-label" for="norefer">No Fake
-                                                        Referrer</label>
-                                                </div>
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="nohuman"
-                                                        name="nohuman" />
-                                                    <label class="form-check-label" for="nohuman">Disable
-                                                        interaction</label>
-                                                </div>
-                                                {% if config.interactive_desktop %}
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="interactive"
-                                                        name="interactive" />
-                                                    <label class="form-check-label" for="interactive">Interactive
-                                                        Desktop</label>
-                                                </div>
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="manual"
-                                                        name="manual" disabled />
-                                                    <label class="form-check-label" for="manual">Manual
-                                                        Detonation</label>
-                                                </div>
-                                                {% endif %}
-                                                {% if config.kernel %}
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="kernel_analysis"
-                                                        name="kernel_analysis" />
-                                                    <label class="form-check-label" for="kernel_analysis">Kernel
-                                                        Analysis (zer0m0n)</label>
-                                                </div>
-                                                {% endif %}
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="static_config" name="static" />
-                                                    <label class="form-check-label" for="static_config">Try to extract config without VM <small class="text-white-50">(Submit to VM if not extracted)</small></label>
-                                                </div>
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="oldloader"
-                                                        name="oldloader" />
-                                                    <label class="form-check-label" for="oldloader">Thread-based
-                                                        monitor</label>
-                                                </div>
-                                                <div class="form-check mb-2">
-                                                    <input type="checkbox" class="form-check-input" id="screenshots_qr"
-                                                        name="screenshots_qr" />
-                                                    <label class="form-check-label" for="screenshots_qr">QR URL extraction <small class="text-white-50">(Extract and open URLs from QR codes in screenshots)</small></label>
+                                                <div class="col-md-6">
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="syscall"
+                                                               name="syscall" checked />
+                                                        <label class="form-check-label" for="syscall">Syscall hooks <small
+                                                                   class="text-white-50">(Win10+)</small></label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="norefer"
+                                                               name="norefer" />
+                                                        <label class="form-check-label" for="norefer">No Fake
+                                                            Referrer</label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="nohuman"
+                                                               name="nohuman" />
+                                                        <label class="form-check-label" for="nohuman">Disable
+                                                            interaction</label>
+                                                    </div>
+                                                    {% if config.interactive_desktop %}
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="interactive"
+                                                               name="interactive" />
+                                                        <label class="form-check-label" for="interactive">Interactive
+                                                            Desktop</label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="manual"
+                                                               name="manual" disabled />
+                                                        <label class="form-check-label" for="manual">Manual
+                                                            Detonation</label>
+                                                    </div>
+                                                    {% endif %}
+                                                    {% if config.kernel %}
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="kernel_analysis"
+                                                               name="kernel_analysis" />
+                                                        <label class="form-check-label" for="kernel_analysis">Kernel
+                                                            Analysis (zer0m0n)</label>
+                                                    </div>
+                                                    {% endif %}
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="static_config" name="static" />
+                                                        <label class="form-check-label" for="static_config">Try to extract config without VM <small class="text-white-50">(Submit to VM if not extracted)</small></label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="oldloader"
+                                                               name="oldloader" />
+                                                        <label class="form-check-label" for="oldloader">Thread-based
+                                                            monitor</label>
+                                                    </div>
+                                                    <div class="form-check mb-2">
+                                                        <input type="checkbox" class="form-check-input" id="screenshots_qr"
+                                                               name="screenshots_qr" />
+                                                        <label class="form-check-label" for="screenshots_qr">QR URL extraction <small class="text-white-50">(Extract and open URLs from QR codes in screenshots)</small></label>
+                                                    </div>
                                                 </div>
                                             </div>
                                         </div>

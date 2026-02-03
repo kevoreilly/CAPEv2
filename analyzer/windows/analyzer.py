@@ -527,8 +527,19 @@ class Analyzer:
         # Walk through the available auxiliary modules.
         aux_modules = []
 
-        for module in sorted(Auxiliary.__subclasses__(), key=lambda x: x.start_priority, reverse=True):
+        def get_all_subclasses(cls):
+            all_subclasses = []
+            for subclass in cls.__subclasses__():
+                all_subclasses.append(subclass)
+                all_subclasses.extend(get_all_subclasses(subclass))
+            return all_subclasses
+
+        for module in sorted(get_all_subclasses(Auxiliary), key=lambda x: x.start_priority, reverse=True):
             try:
+                # this is not a real module, ignore it
+                if module.__name__ == "ETWAuxiliaryWrapper":
+                    continue
+
                 aux = module(self.options, self.config)
                 log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_modules.append(aux)

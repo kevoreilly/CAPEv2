@@ -1,5 +1,4 @@
 import concurrent.futures
-import functools
 import hashlib
 import json
 import logging
@@ -7,11 +6,10 @@ import os
 import re
 import shlex
 import shutil
-import signal
 import subprocess
 
 # from contextlib import suppress
-from typing import Any, DefaultDict, List, Optional, Set, Union
+from typing import Any, DefaultDict, List, Optional, Set
 
 import pebble
 
@@ -38,7 +36,6 @@ from lib.cuckoo.common.integrations.parse_msi import parse_msi
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import (
-    path_delete,
     path_exists,
     path_get_size,
     path_is_file,
@@ -407,7 +404,7 @@ def _extracted_files_metadata(
     return metadata
 
 
-from lib.cuckoo.common.integrations.utils import pass_signal, run_tool
+from lib.cuckoo.common.integrations.utils import run_tool
 
 def generic_file_extractors(
     file: str,
@@ -955,3 +952,19 @@ def UnGPG_extract(file: str, filetype: str, data_dictionary: dict, options: dict
             ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx
+
+file_info_funcs = [
+    kixtart_extract,
+    vbe_extract,
+    batch_extract,
+    UnAutoIt_extract,
+    UPX_unpack,
+    RarSFX_extract,
+    Inno_extract,
+    SevenZip_unpack,
+    de4dot_deobfuscate,
+    eziriz_deobfuscate,
+    office_one,
+    msix_extract,
+    UnGPG_extract,
+]

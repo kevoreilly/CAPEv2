@@ -49,8 +49,7 @@ def extract_details(file: str, *, filetype: str, **kwargs) -> ExtractorReturnTyp
         if output:
             extracted_files = [
                 extracted_file
-                for extracted_file in list(filter(None, output.split("
-")))
+                for extracted_file in list(filter(None, output.split("\n")))
                 if path_is_file(os.path.join(tempdir, extracted_file))
             ]
         else:

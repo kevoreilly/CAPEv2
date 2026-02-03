@@ -189,7 +189,7 @@ class CAPE(Processing):
             if db_file:
                 yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
 
-                if yara_match and tools_match:
+                if yara_match:
                     file_info = db_file
                     if "_id" in file_info:
                         del file_info["_id"]
@@ -208,7 +208,7 @@ class CAPE(Processing):
 
                     # If tools don't match, we must re-run static_file_info (extractors)
                     # We treat it as not cached so static_file_info runs below
-                    cached = tools_match
+                    cached = True
         except Exception as e:
             log.exception(e)
 

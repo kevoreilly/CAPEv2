@@ -459,7 +459,7 @@ class File:
                 for category_root, _, filenames in os.walk(category_root, followlinks=True):
                     if category_root.endswith("deprecated"):
                         continue
-                    for filename in filenames:
+                    for filename in sorted(filenames):
                         if not filename.endswith((".yar", ".yara")):
                             continue
                         filepath = os.path.join(category_root, filename)

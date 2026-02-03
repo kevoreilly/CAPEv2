@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import collections
+import hashlib
 import json
 import logging
 import os
@@ -31,6 +32,7 @@ from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,
     get_clamav_consensus,
+    get_options,
     make_bytes,
     texttypes,
     wide2str,
@@ -184,21 +186,33 @@ class CAPE(Processing):
 
         cached = False
         pefile_object = None
+        run_static = True
+
+        # Calculate options hash to prevent poisoning
+        opts = get_options(self.task.get("options", ""))
+        sorted_opts = json.dumps(opts, sort_keys=True)
+        options_hash = hashlib.sha256(sorted_opts.encode()).hexdigest()
+
         try:
             db_file = mongo_find_one("files", {"sha256": sha256})
             if db_file:
-                yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
+                # Security Fix: Update path immediately
+                db_file["path"] = file_path
+                if "_id" in db_file:
+                    del db_file["_id"]
 
-                if yara_match:
+                yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
+                options_match = db_file.get("options_hash", "") == options_hash
+
+                if yara_match and options_match:
                     file_info = db_file
-                    if "_id" in file_info:
-                        del file_info["_id"]
                     cached = True
+                    run_static = False
                 else:
-                    # Partial hit: load data but potentially re-run parts
+                    # Partial hit
                     file_info = db_file
-                    if "_id" in file_info:
-                        del file_info["_id"]
+                    cached = True  # We have the base object
+                    run_static = True  # But we need to re-run static/tools
 
                     if not yara_match:
                         # Update YARA
@@ -206,15 +220,15 @@ class CAPE(Processing):
                         file_info["cape_yara"] = f.get_yara(category="CAPE")
                         file_info["yara_hash"] = File.yara_rules_hash
 
-                    # If tools don't match, we must re-run static_file_info (extractors)
-                    # We treat it as not cached so static_file_info runs below
-                    cached = True
         except Exception as e:
             log.exception(e)
 
         if not cached:
             file_info, pefile_object = f.get_all()
             file_info["yara_hash"] = File.yara_rules_hash
+            run_static = True
+
+        file_info["options_hash"] = options_hash
 
         if category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name
@@ -228,7 +242,7 @@ class CAPE(Processing):
                 add_family_detection(self.results, clamav_detection, "ClamAV", file_info["sha256"])
 
         # should we use dropped path here?
-        if not cached:
+        if run_static:
             static_file_info(
                 file_info,
                 file_path,

@@ -14,6 +14,7 @@
                                 <th>Source Port</th>
                                 <th>Destination</th>
                                 <th>Destination Port</th>
+                                {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
                             </tr>
                             {% for p in network.tcp %}
                                 <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},tcp">
@@ -25,6 +26,15 @@
                                         {% endif %}
                                         </td>
                                     <td>{{p.dport}}</td>
+                                    {% if settings.NETWORK_PROC_MAP %}
+                                        <td>
+                                            {% if p.process_name %}
+                                                {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
+                                            {% else %}
+                                                -
+                                            {% endif %}
+                                        </td>
+                                    {% endif %}
                                 </tr>
                             {% endfor %}
                         </table>

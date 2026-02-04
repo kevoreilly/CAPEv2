@@ -24,7 +24,7 @@ import tempfile
 import time
 import traceback
 from io import StringIO
-from threading import Lock
+from threading import Lock, Thread
 from typing import Iterable
 from zipfile import ZipFile
 
@@ -782,6 +782,34 @@ def do_browser_ext():
             ext_fd.write(network_data)
     AGENT_BROWSER_LOCK.release()
     return json_success("OK")
+
+
+@app.route("/update", methods=["POST"])
+        new_content = request.files["agent"].read()
+
+        current_script = os.path.abspath(__file__)
+        # Write to a temporary file to make the update more atomic.
+        temp_script = f"{current_script}.new"
+        with open(temp_script, "wb") as f:
+            f.write(new_content)
+
+        if sys.platform == "win32":
+            # On Windows, an in-use file can't be overwritten.
+            # We rename the current script to a backup file.
+            backup_script = current_script + f".bak_{int(time.time())}"
+            try:
+                os.rename(current_script, backup_script)
+            except OSError as e:
+                os.remove(temp_script)  # Clean up the new script file
+                return json_error(500, f"Failed to backup current script: {e}")
+
+        # Atomically replace the current script with the new one.
+        os.rename(temp_script, current_script)
+
+    except (IOError, OSError) as ex:
+        return json_exception(f"Error updating agent: {ex}")
+
+    return json_success("Agent updated successfully. Reboot and take snapshot...")
 
 
 @app.route("/pinning")

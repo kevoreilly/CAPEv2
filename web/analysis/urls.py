@@ -37,7 +37,8 @@ urlpatterns = [
         views.procdump,
         name="procdump",
     ),
-    re_path(r"^reprocess/(?P<task_id>\d+)/$", views.reprocess_task, name="reprocess_tasks"),
+    re_path(r"^reprocess/(?P<task_id>\d+)/$", views.reprocess_tasks, name="reprocess_tasks"),
+    re_path(r"^failed/(?P<task_id>\d+)/$", views.failed_processing, name="failed_processing"),
     re_path(r"^(?P<task_id>\d+)/pcapstream/(?P<conntuple>[.,\w]+)/$", views.pcapstream, name="pcapstream"),
     re_path(r"^(?P<task_id>\d+)/comments/$", views.comments, name="comments"),
     re_path(

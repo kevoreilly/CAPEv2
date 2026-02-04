@@ -35,6 +35,7 @@ api_cfg = Config("api")
 pro_cfg = Config("processing")
 
 REPROCESS_TASKS = web_cfg.general.reprocess_tasks
+REPROCESS_FAILED_PROCESSING = web_cfg.general.reprocess_failed_processing
 # CSRF TRUSTED ORIGINS
 # For requests that include the Origin header, Django's CSRF protection
 # requires that header match the origin present in the Host header.
@@ -312,6 +313,8 @@ SETTINGS_EXPORT = [
     "WEB_OAUTH",
     "ZIPPED_DOWNLOAD_ALL",
     "NETWORK_PROC_MAP",
+    "REPROCESS_TASKS",
+    "REPROCESS_FAILED_PROCESSING",
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

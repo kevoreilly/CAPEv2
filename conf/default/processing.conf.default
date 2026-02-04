@@ -324,5 +324,5 @@ enabled = no
 # plain-text TLS streams into the task PCAP.
 enabled = no
 
-[network_proc_map]
+[network_process_map]
 enabled = no

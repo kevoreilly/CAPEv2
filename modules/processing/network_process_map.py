@@ -40,6 +40,10 @@ HTTP_HINT_APIS = {
     "winhttpsendrequest",
     "winhttpconnect",
     "winhttpopen",
+    "internetopenurla",
+    "internetopenurlw",
+    "httpopenrequesta",
+    "httpopenrequestw",
 }
 
 

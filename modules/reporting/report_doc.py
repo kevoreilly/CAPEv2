@@ -97,8 +97,10 @@ def get_json_document(results, analysis_path):
         if "processes" in report["behavior"]:
             report["behavior"]["processes"] = [p.copy() for p in report["behavior"]["processes"]]
         if "processtree" in report["behavior"]:
-            with suppress(Exception):
+            try:
                 report["behavior"]["processtree"] = copy.deepcopy(report["behavior"]["processtree"])
+            except Exception as e:
+                log.warning("Failed to deepcopy processtree: %s", e)
 
     if "network" not in report:
         report["network"] = {}

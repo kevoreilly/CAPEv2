@@ -208,15 +208,7 @@ def _extract_first_url(text):
         idx = s.lower().find(scheme)
         if idx != -1:
             return s[idx:].split()[0].strip('"\',')
-
     return None
-
-
-def _norm_hostkey(host):
-    if not host or not isinstance(host, str):
-        return None
-    h = host.strip().strip(".").lower()
-    return h or None
 
 
 def _add_http_host(http_host_map, host, pinfo, sock=None):
@@ -226,7 +218,7 @@ def _add_http_host(http_host_map, host, pinfo, sock=None):
       - normalized host
       - if host is host:port and port parses, also normalized host-only
     """
-    hk = _norm_hostkey(host)
+    hk = _norm_domain(host)
     if not hk:
         return
 

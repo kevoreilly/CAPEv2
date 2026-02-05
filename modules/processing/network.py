@@ -17,7 +17,7 @@ import sys
 import tempfile
 import traceback
 from base64 import b64encode
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict, namedtuple, defaultdict
 from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
@@ -1321,6 +1321,81 @@ class NetworkAnalysis(Processing):
                     host["process_name"] = ", ".join(f"{name} ({pid})" for pid, name in procs.items())
                     host["process_id"] = None
 
+    def _merge_behavior_network(self, results):
+        """
+        Merge network events found in behavior logs but missing in PCAP.
+        Marks them with source='behavior'.
+        """
+        net_map = self._load_network_map()
+        if not net_map:
+            return
+
+        network = results.get("network", {})
+
+        # 1. DNS
+        dns_intents = net_map.get("dns_intents", {})
+        existing_dns = {d.get("request") for d in network.get("dns", [])}
+
+        for domain, intents in dns_intents.items():
+            if domain not in existing_dns:
+                first_intent = intents[0]
+                proc = first_intent.get("process", {})
+                entry = {
+                    "request": domain,
+                    "answers": [],
+                    "type": "A",
+                    "source": "behavior",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                    "time": first_intent.get("ts_epoch"),
+                }
+                network.setdefault("dns", []).append(entry)
+
+        # 2. HTTP
+        http_host_map = net_map.get("http_host_map", {})
+        existing_hosts = {h.get("host") for h in network.get("http", [])}
+        existing_hosts.update({h.get("host") for h in network.get("http_ex", [])})
+        existing_hosts.update({h.get("host") for h in network.get("https_ex", [])})
+
+        for host, procs in http_host_map.items():
+            if host not in existing_hosts:
+                proc = procs[0] if procs else {}
+                entry = {
+                    "host": host,
+                    "port": 80,
+                    "uri": "/",
+                    "method": "GET",
+                    "source": "behavior",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                }
+                network.setdefault("http", []).append(entry)
+
+        # 3. Connections (TCP/UDP)
+        endpoint_map = self._reconstruct_endpoint_map(net_map.get("endpoint_map", {}))
+
+        existing_endpoints = set()
+        for t in network.get("tcp", []):
+            existing_endpoints.add((t.get("dst"), t.get("dport")))
+        for u in network.get("udp", []):
+            existing_endpoints.add((u.get("dst"), u.get("dport")))
+
+        for (ip, port), procs in endpoint_map.items():
+            if (ip, port) not in existing_endpoints:
+                proc = procs[0] if procs else {}
+                entry = {
+                    "src": "behavior",
+                    "sport": 0,
+                    "dst": ip,
+                    "dport": port,
+                    "source": "behavior",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                }
+                # Heuristic: DNS is usually UDP, HTTP/others usually TCP
+                target_list = "udp" if port == 53 else "tcp"
+                network.setdefault(target_list, []).append(entry)
+
     def run(self):
         if not path_exists(self.pcap_path):
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
@@ -1363,6 +1438,7 @@ class NetworkAnalysis(Processing):
 
         if proc_cfg.network.process_map:
             self._process_map(results)
+            self._merge_behavior_network(results)
 
         return results
 

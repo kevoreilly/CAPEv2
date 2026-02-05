@@ -1354,9 +1354,8 @@ class NetworkAnalysis(Processing):
         # 2. HTTP
         http_host_map = net_map.get("http_host_map", {})
         existing_hosts = {h.get("host") for h in network.get("http", [])}
-        existing_hosts.update({h.get("host") for h in network.get("http_ex", [])})
-        existing_hosts.update({h.get("host") for h in network.get("https_ex", [])})
-
+        http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
+        existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
         for host, procs in http_host_map.items():
             if host not in existing_hosts:
                 proc = procs[0] if procs else {}

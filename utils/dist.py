@@ -859,7 +859,7 @@ class Retriever(threading.Thread):
             if path_exists(copy_path):
                 with main_db.session.begin():
                     sample_still_used = main_db.sample_still_used(sample_sha256, task_id)
-                if not sample_used:
+                if not sample_still_used:
                     path_delete(copy_path)
 
     def inject_guest_info(self, main_task_id: int, report_path: str):

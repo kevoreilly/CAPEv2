@@ -218,7 +218,7 @@ class CAPE(Processing):
             }
 
             if not os.path.exists(self.task["target"]):
-                log.errror("Target file doesnt exist anymore. That will prevent data to be shown on webgui")
+                log.error("Target file doesn't exist anymore. That will prevent data to be shown on webgui")
 
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":

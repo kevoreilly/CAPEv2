@@ -299,9 +299,9 @@ if __name__ == "__main__":
             for i in range(RETRY):
                 try:
                     _ = deploy_file(queue, jumpbox)
+                    break
                 except Exception as eee:
-                    print(f"Error {eee}, retry {i}")
-                break
+                    print(f"Error {eee}, retry {i + 1}/{RETRY}")
 
     elif args.delete_file:
         queue = Queue()

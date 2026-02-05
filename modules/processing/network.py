@@ -1438,7 +1438,8 @@ class NetworkAnalysis(Processing):
 
         if proc_cfg.network.process_map:
             self._process_map(results)
-            self._merge_behavior_network(results)
+            if proc_cfg.network.merge_behavior_map:
+                self._merge_behavior_network(results)
 
         return results
 

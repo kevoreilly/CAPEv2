@@ -25,6 +25,7 @@ import guac.routing
 
 application = ProtocolTypeRouter(
     {
+        "http": django_asgi_app,
         "websocket": AuthMiddlewareStack(URLRouter(guac.routing.websocket_urlpatterns)),
     }
 )

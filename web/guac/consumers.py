@@ -46,7 +46,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
         self.client = GuacamoleClient(guacd_hostname, guacd_port)
 
-        self.client.handshake(
+        await sync_to_async(self.client.handshake)(
             protocol=guest_protocol,
             width=guest_width,
             height=guest_height,
@@ -82,14 +82,19 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         """
         if text_data is not None:
             logger.debug("To server: %s", text_data)
-            self.client.send(text_data)
+            await sync_to_async(self.client.send)(text_data)
 
     async def open(self):
         """
         Receive data from GuacamoleClient and pass it to the WebSocket
         """
-        while True:
-            content = await sync_to_async(self.client.receive)()
-            if content:
-                logger.debug("From server: %s", content)
-                await self.send(text_data=content)
+        try:
+            while True:
+                content = await sync_to_async(self.client.receive)()
+                if content:
+                    logger.debug("From server: %s", content)
+                    await self.send(text_data=content)
+                else:
+                    break
+        finally:
+            await self.close()

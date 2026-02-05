@@ -1334,7 +1334,7 @@ class NetworkAnalysis(Processing):
 
         # 1. DNS
         dns_intents = net_map.get("dns_intents", {})
-        existing_dns = {d.get("request") for d in network.get("dns", [])}
+        existing_dns = {_norm_domain(d.get("request")) for d in network.get("dns", []) if d.get("request")}
 
         for domain, intents in dns_intents.items():
             if domain not in existing_dns:

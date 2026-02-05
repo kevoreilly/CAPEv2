@@ -13,7 +13,7 @@
     </tr>
     {% for irc in network.irc %}
     <tr>
-        <td style="word-wrap: break-word;">{{irc.command}}</td>
+        <td style="word-wrap: break-word;">{{irc.command}} {% if irc.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td style="word-wrap: break-word;">{{irc.params}}</td>
         <td style="word-wrap: break-word;">{{irc.type}}</td>
         {% if settings.NETWORK_PROC_MAP %}

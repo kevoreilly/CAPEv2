@@ -14,7 +14,7 @@
     </tr>
     {% for packet in network.icmp %}
     <tr>
-        <td style="word-wrap: break-word;">{{packet.src}}</td>
+        <td style="word-wrap: break-word;">{{packet.src}} {% if packet.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td style="word-wrap: break-word;">{{packet.dst}}</td>
         <td style="word-wrap: break-word;">{{packet.type}}</td>
         <td style="word-wrap: break-word;">{{packet.data}}</td>

@@ -12,7 +12,7 @@
     </tr>
     {% for req in network.smtp_ex %}
     <tr>
-        <td style="word-wrap: break-word;">{{req.dst}}:{{req.dport}}</td>
+        <td style="word-wrap: break-word;">{{req.dst}}:{{req.dport}} {% if req.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td style="word-wrap: break-word;">
             <table class="table table-dark table-striped table-bordered">
             {% if req %}
@@ -66,7 +66,7 @@
     </tr>
     {% for req in network.smtp %}
     <tr>
-        <td style="word-wrap: break-word;">{{req.dst}}</td>
+        <td style="word-wrap: break-word;">{{req.dst}} {% if req.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td style="word-wrap: break-word;"><pre>{{req.raw}}</pre></td>
         {% if settings.NETWORK_PROC_MAP %}
             <td>

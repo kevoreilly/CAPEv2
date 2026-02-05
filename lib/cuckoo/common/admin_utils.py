@@ -372,7 +372,7 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
 
     except (BadHostKeyException, AuthenticationException, PasswordRequiredException) as e:
         log.error(
-            f"Connect error to {server}: {str(e)}. Also pay attention to this log for more details /var/log/auth.log and paramiko might need update.\nAlso ensure that you have added your public ssh key to /root/.ssh/authorized_keys"
+            "Connect error to %s: %s. Also pay attention to this log for more details /var/log/auth.log and paramiko might need update.\nAlso ensure that you have added your public ssh key to /root/.ssh/authorized_keys", server, str(e)
         )
         return None
     except ProxyCommandFailure as e:
@@ -388,7 +388,7 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
 def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
     for server in servers:
         srv = server.split(".")[1] if "." in server else server
-        log.info(f"[*] Connecting to {server}...")
+        log.info("[*] Connecting to %s...", server)
         try:
             ssh = _connect_via_jump_box(server, ssh_proxy)
             if not ssh:
@@ -401,16 +401,16 @@ def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
                 log.info("[+] %s - Service %s", srv, green("restarted successfully and is UP"))
             elif ssh_out:
-                log.info(green(f"[+] {srv} - {ssh_out}"))
+                log.info(green("[+] %s - %s", srv, ssh_out ))
 
             if ssh_err:
-                log.error(red(f"[-] {srv} ERROR - {ssh_err}"))
+                log.error(red("[-] %s ERROR - %s", srv, ssh_err))
 
             if not ssh_out and not ssh_err:
-                log.info(green(f"[+] {srv}"))
+                log.info(green("[+] %s", srv))
 
         except TimeoutError as e:
-            log.error(f"Timeout connecting to {server}: {str(e)}")
+            log.error("Timeout connecting to %s: %s", server, str(e))
         except SSHException as e:
             log.error("Can't read remote bufffer: %s", str(e))
         except Exception as e:
@@ -497,13 +497,13 @@ def deploy_file(queue, ssh_proxy: SSHClient):
                     if ssh_out:
                         log.info(ssh_out)
                     if ssh_err:
-                        log.error(red(f"ERROR: {ssh_err}"))
+                        log.error(red("ERROR: %s", ssh_err))
 
                 _, ssh_stdout, ssh_stderr = ssh.exec_command(f"sha256sum {remote_file} | cut -d' ' -f1", get_pty=True)
                 remote_sha256 = ssh_stdout.read().strip().decode("utf-8")
                 remote_sha256_err = ssh_stderr.read().strip().decode("utf-8")
                 if remote_sha256_err:
-                    log.error(red(f"sha256sum error: {remote_sha256_err}"))
+                    log.error(red("sha256sum error: %s", remote_sha256_err))
 
                 srv = server.split(".")[1] if "." in server else server
                 if local_sha256 == remote_sha256:
@@ -523,9 +523,9 @@ def deploy_file(queue, ssh_proxy: SSHClient):
                 log.error(e)
 
         if not error:
-            log.info(green(f"Completed! {remote_file}\n"))
+            log.info(green("Completed! %s\n", remote_file))
         else:
-            log.info(red(f"Completed with errors. {remote_file}\n"))
+            log.info(red("Completed with errors. %s\n", remote_file))
         queue.task_done()
 
     return error_list
@@ -549,7 +549,7 @@ def delete_file(queue, ssh_proxy: SSHClient):
                 if ssh_out:
                     log.info(ssh_out)
                 if ssh_err:
-                    log.error(red(f"ERROR: {ssh_err}"))
+                    log.error(red("ERROR: %s", ssh_err))
             except TimeoutError as e:
                 log.error(e)
                 error = 1

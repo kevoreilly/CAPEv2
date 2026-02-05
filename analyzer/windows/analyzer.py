@@ -1408,10 +1408,11 @@ class CommandPipeHandler:
 
         return self._inject_process(int(pid), int(tid), int(mode))
 
-    def _handle_file_new(self, file_path):
+    def _handle_file_new(self, data):
         """Notification of a new dropped file."""
-        if os.path.exists(file_path):
-            self.analyzer.files.add_file(file_path.decode(), self.pid)
+        pid, file_path = data.split(b",", 1)
+        if os.path.exists(file_path.decode()):
+            self.analyzer.files.add_file(file_path.decode(), pid.decode())
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
@@ -1432,9 +1433,9 @@ class CommandPipeHandler:
     def _handle_file_del(self, data):
         """Notification of a file being removed (if it exists) - we have to
         dump it before it's being removed."""
-        file_path = data.decode()
-        if os.path.exists(file_path):
-            self.analyzer.files.delete_file(file_path, self.pid)
+        pid, file_path = data.split(b",", 1)
+        if os.path.exists(file_path.decode()):
+            self.analyzer.files.delete_file(file_path.decode(), pid.decode())
 
     def _handle_file_dump(self, file_path):
         # We extract the file path.
@@ -1492,19 +1493,15 @@ class CommandPipeHandler:
         if b"::" not in data:
             log.warning("Received FILE_MOVE command from monitor with an incorrect argument")
             return
-
-        old_filepath, new_filepath = data.split(b"::", 1)
-        new_filepath = new_filepath.decode()
-        self.analyzer.files.move_file(old_filepath.decode(), new_filepath, self.pid)
+        pid, paths = data.split(b",", 1)
+        old_filepath, new_filepath = paths.split(b"::", 1)
+        self.analyzer.files.move_file(old_filepath.decode(), new_filepath.decode(), pid.decode())
 
     def dispatch(self, data):
         response = "NOPE"
         if not data or b":" not in data:
             log.critical("Unknown command received from the monitor: %s", data.strip())
         else:
-            # Backwards compatibility (old syntax is, e.g., "FILE_NEW:" vs the
-            # new syntax, e.g., "1234:FILE_NEW:").
-            # if data[0].isupper():
             command, arguments = data.strip().split(b":", 1)
             # Uncomment to debug monitor commands
             # if command not in (b"DEBUG", b"INFO"):

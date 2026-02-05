@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import re
+import shlex
 
 # from glob import glob
 import shutil
@@ -196,7 +197,7 @@ def compare_hashed_files(files: list, servers: list, ssh_proxy: SSHClient, priva
 
 
 def enumerate_files_on_all_servers(servers: list, ssh_proxy: SSHClient, dir_folder: str, filename: str):
-    cmd = f"python3 {CAPE_PATH}/admin/admin.py -gfl {dir_folder} -f /tmp/{filename} -s"
+    cmd = f"python3 {CAPE_PATH}/admin/admin.py -gfl {shlex.quote(dir_folder)} -f /tmp/{shlex.quote(filename)} -s"
     execute_command_on_all(cmd, servers, ssh_proxy)
     get_file(f"/tmp/{filename}.json", servers, ssh_proxy)
 
@@ -307,9 +308,10 @@ def file_recon(file, yara_category="CAPE"):
         return False
 
     # build command to be executed remotely
-    REMOTE_COMMAND = f"chown {OWNER} {TARGET}; chmod 644 {TARGET};"
+    quoted_target = shlex.quote(TARGET)
+    REMOTE_COMMAND = f"chown {OWNER} {quoted_target}; chmod 644 {quoted_target};"
     if filename.endswith(".py") and TARGET:
-        REMOTE_COMMAND += "rm -f {0}.pyc; ls -la {0}.*".format(TARGET.replace(".py", ""))
+        REMOTE_COMMAND += "rm -f {0}.pyc; ls -la {0}.*".format(shlex.quote(TARGET.replace(".py", "")))
     return TARGET, REMOTE_COMMAND, LOCAL_SHA256
 
 
@@ -499,7 +501,7 @@ def deploy_file(queue, ssh_proxy: SSHClient):
                     if ssh_err:
                         log.error(red("ERROR: %s", ssh_err))
 
-                _, ssh_stdout, ssh_stderr = ssh.exec_command(f"sha256sum {remote_file} | cut -d' ' -f1", get_pty=True)
+                _, ssh_stdout, ssh_stderr = ssh.exec_command(f"sha256sum {shlex.quote(remote_file)} | cut -d' ' -f1", get_pty=True)
                 remote_sha256 = ssh_stdout.read().strip().decode("utf-8")
                 remote_sha256_err = ssh_stderr.read().strip().decode("utf-8")
                 if remote_sha256_err:
@@ -543,7 +545,7 @@ def delete_file(queue, ssh_proxy: SSHClient):
                 ssh = _connect_via_jump_box(server, ssh_proxy)
                 if not ssh:
                     continue
-                _, ssh_stdout, ssh_stderr = ssh.exec_command(f"rm {remote_file}", get_pty=True)
+                _, ssh_stdout, ssh_stderr = ssh.exec_command(f"rm {shlex.quote(remote_file)}", get_pty=True)
                 ssh_out = ssh_stdout.read().decode("utf-8").strip()
                 ssh_err = ssh_stderr.read().decode("utf-8").strip()
                 if ssh_out:

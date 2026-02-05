@@ -99,6 +99,8 @@ enabled = no
 [network]
 enabled = yes
 sort_pcap = no
+# Enable mapping of network events to specific processes using behavioral analysis data
+process_map = yes
 # DNS whitelisting to ignore domains/IPs configured in network.py
 dnswhitelist = yes
 # additional entries
@@ -324,5 +326,3 @@ enabled = no
 # plain-text TLS streams into the task PCAP.
 enabled = no
 
-[network_process_map]
-enabled = no

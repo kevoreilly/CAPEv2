@@ -30,7 +30,6 @@ sys.path.append(CAPE_ROOT)
 
 from lib.cuckoo.common.admin_utils import (
     CAPE_PATH,
-    POSTPROCESS,
     AutoAddPolicy,
     bulk_deploy,
     compare_hashed_files,
@@ -61,6 +60,7 @@ from lib.cuckoo.common.sshclient import SSHJumpClient  # working solution
 
 JUMPBOX_USED = False
 jumpbox = False
+RETRY = 3
 
 logging.getLogger("paramiko").setLevel(logging.WARNING)
 logging.getLogger("paramiko.transport").setLevel(logging.WARNING)
@@ -226,6 +226,13 @@ if __name__ == "__main__":
         required=False,
         default=False,
     )
+    compare_opt.add_argument(
+        "--remove-ssh-keys",
+        help="Remove servers ssh key from known keys on localhost",
+        action="store_true",
+        required=False,
+        default=False,
+    )
 
     args = parser.parse_args()
 
@@ -235,12 +242,15 @@ if __name__ == "__main__":
         logging.getLogger("paramiko.transport").setLevel(logging.DEBUG)
 
     if args.username:
+        from lib.cuckoo.common import admin_utils
+        admin_utils.JUMP_BOX_USERNAME = args.username
         JUMP_BOX_USERNAME = args.username
 
-    # if args.debug:
-    #    log.setLevel(logging.DEBUG)
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
 
     if args.jump_box_second and not args.dry_run:
+
         ssh.connect(
             JUMP_BOX_SECOND,
             username=JUMP_BOX_SECOND_USERNAME,
@@ -286,7 +296,12 @@ if __name__ == "__main__":
                 print(parameters)
                 sys.exit(0)
             queue.put([servers, file] + list(parameters))
-            _ = deploy_file(queue, jumpbox)
+            for i in range(RETRY):
+                try:
+                    _ = deploy_file(queue, jumpbox)
+                except Exception as eee:
+                    print(f"Error {eee}, retry {i}")
+                break
 
     elif args.delete_file:
         queue = Queue()
@@ -342,7 +357,7 @@ if __name__ == "__main__":
         sys.exit()
 
     elif args.enum_all_servers:
-        enumerate_files_on_all_servers()
+        enumerate_files_on_all_servers(servers, jumpbox, "/opt/CAPEv2", args.filename)
     elif args.generate_files_listing and not args.enum_all_servers:
         gen_hashfile(args.generate_files_listing, args.filename)
     elif args.check_files_difference:
@@ -355,8 +370,12 @@ if __name__ == "__main__":
 
         bulk_deploy(files, args.yara_category, args.dry_run, servers, jumpbox)
 
-    if args.restart_service and POSTPROCESS:
-        execute_command_on_all(POSTPROCESS, servers, jumpbox)
+    if args.restart_service:
+        execute_command_on_all("systemctl restart cape-processor; systemctl status cape-processor", servers, jumpbox)
 
     if args.restart_uwsgi:
         execute_command_on_all("touch /tmp/capeuwsgireload", servers, jumpbox)
+
+    if args.remove_ssh_keys:
+        for node in SERVERS_STATIC_LIST:
+            subprocess.run(["ssh-keygen", "-R", node])

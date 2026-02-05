@@ -11,7 +11,7 @@ from hashlib import sha256
 from pathlib import Path
 from queue import Queue
 from socket import if_nameindex
-from threading import Thread
+from threading import Lock, Thread
 
 import urllib3
 
@@ -33,7 +33,6 @@ try:
         SSHException,
     )
     from scp import SCPClient, SCPException
-
 
     conf = SSHConfig()
     conf.parse(open(os.path.expanduser("~/.ssh/config")))
@@ -316,35 +315,43 @@ def file_recon(file, yara_category="CAPE"):
 
 # For session reuse
 sockets = {}
+sockets_lock = Lock()
 
 
 def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
     session_checker()
-    host = conf.lookup(server)
+    try:
+        host = conf.lookup(server)
+    except NameError:
+        log.error("Missed dependencies/activation of venv")
+        return None
+
+    with sockets_lock:
+        if server in sockets:
+            ssh = sockets[server]
+            if ssh.get_transport() and ssh.get_transport().is_active():
+                return ssh
+            else:
+                del sockets[server]
+
     try:
         """
         This is SSH pivoting it ssh to host Y via host X, can be used due to different networks
         We doing direct-tcpip channel and pasing it as socket to be used
         """
         if ssh_proxy and JUMP_BOX_USERNAME:
-            if server not in sockets:
-                ssh = SSHJumpClient(jump_session=ssh_proxy if ssh_proxy else None)
-                ssh.set_missing_host_key_policy(AutoAddPolicy())
-                # ssh_port = 22 if ":" not in server else int(server.split(":")[1])
-                ssh.connect(
-                    server,
-                    username=JUMP_BOX_USERNAME,
-                    key_filename=host.get("identityfile"),
-                    banner_timeout=200,
-                    look_for_keys=False,
-                    allow_agent=True,
-                    # disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]),
-                )
-                sockets[server] = ssh
-            else:
-                # ToDo check if alive and reconnect
-                ssh = sockets[server]
-
+            ssh = SSHJumpClient(jump_session=ssh_proxy if ssh_proxy else None)
+            ssh.set_missing_host_key_policy(AutoAddPolicy())
+            # ssh_port = 22 if ":" not in server else int(server.split(":")[1])
+            ssh.connect(
+                server,
+                username=JUMP_BOX_USERNAME,
+                key_filename=host.get("identityfile"),
+                banner_timeout=200,
+                look_for_keys=False,
+                allow_agent=True,
+                # disabled_algorithms=dict(pubkeys=["rsa-sha2-512", "rsa-sha2-256"]),
+            )
         else:
             ssh = SSHJumpClient()
             ssh.load_system_host_keys()
@@ -357,35 +364,53 @@ def _connect_via_jump_box(server: str, ssh_proxy: SSHClient):
                 banner_timeout=200,
                 look_for_keys=False,
                 allow_agent=True,
-                sock=ProxyCommand(host.get("proxycommand")),
+                sock=ProxyCommand(host.get("proxycommand")) if host.get("proxycommand") else None,
             )
+
+        with sockets_lock:
+            sockets[server] = ssh
+
     except (BadHostKeyException, AuthenticationException, PasswordRequiredException) as e:
-        sys.exit(
-            f"Connect error: {str(e)}. Also pay attention to this log for more details /var/log/auth.log and paramiko might need update.\nAlso ensure that you have added your public ssh key to /root/.ssh/authorized_keys"
+        log.error(
+            f"Connect error to {server}: {str(e)}. Also pay attention to this log for more details /var/log/auth.log and paramiko might need update.\nAlso ensure that you have added your public ssh key to /root/.ssh/authorized_keys"
         )
+        return None
     except ProxyCommandFailure as e:
-        # Todo reconnect
-        log.error("Can't connect to server: %s", str(e))
+        log.error("Can't connect to server %s: %s", server, str(e))
+        return None
+    except Exception as e:
+        log.error("Unexpected error connecting to %s: %s", server, str(e))
+        return None
+
     return ssh
 
 
 def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
     for server in servers:
+        srv = server.split(".")[1] if "." in server else server
+        log.info(f"[*] Connecting to {server}...")
         try:
             ssh = _connect_via_jump_box(server, ssh_proxy)
-            _, ssh_stdout, _ = ssh.exec_command(remote_command)
+            if not ssh:
+                continue
+
+            _, ssh_stdout, ssh_stderr = ssh.exec_command(remote_command, get_pty=True)
             ssh_out = ssh_stdout.read().decode("utf-8").strip()
+            ssh_err = ssh_stderr.read().decode("utf-8").strip()
+
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
-                log.info("[+] Service %s", green("restarted successfully and is UP"))
-            else:
-                srv = str(server.split(".")[1])
-                if ssh_out:
-                    log.info(green(f"[+] {srv} - {ssh_out}"))
-                else:
-                    log.info(green(f"[+] {srv}"))
-            ssh.close()
+                log.info("[+] %s - Service %s", srv, green("restarted successfully and is UP"))
+            elif ssh_out:
+                log.info(green(f"[+] {srv} - {ssh_out}"))
+
+            if ssh_err:
+                log.error(red(f"[-] {srv} ERROR - {ssh_err}"))
+
+            if not ssh_out and not ssh_err:
+                log.info(green(f"[+] {srv}"))
+
         except TimeoutError as e:
-            sys.exit(f"Did you forget to use jump box? {str(e)}")
+            log.error(f"Timeout connecting to {server}: {str(e)}")
         except SSHException as e:
             log.error("Can't read remote bufffer: %s", str(e))
         except Exception as e:
@@ -431,8 +456,10 @@ def bulk_deploy(files, yara_category, dry_run=False, servers: list = [], ssh_pro
 def get_file(path, servers: list, ssh_proxy: SSHClient, yara_category: str = "CAPE", dry_run: bool = False):
     for server in servers:
         try:
-            print(server)
+            print(f"[*] Connecting to {server}...")
             ssh = _connect_via_jump_box(server, ssh_proxy)
+            if not ssh:
+                continue
             with SCPClient(ssh.get_transport()) as scp:
                 try:
                     scp.get(path, f"{server}_{os.path.basename(path)}")
@@ -454,6 +481,8 @@ def deploy_file(queue, ssh_proxy: SSHClient):
         for server in servers:
             try:
                 ssh = _connect_via_jump_box(server, ssh_proxy)
+                if not ssh:
+                    continue
                 with SCPClient(ssh.get_transport()) as scp:
                     try:
                         scp.put(local_file, remote_file)
@@ -461,15 +490,24 @@ def deploy_file(queue, ssh_proxy: SSHClient):
                         print(e)
 
                 if remote_command:
-                    _, ssh_stdout, _ = ssh.exec_command(remote_command)
+                    _, ssh_stdout, ssh_stderr = ssh.exec_command(remote_command, get_pty=True)
 
-                    ssh_out = ssh_stdout.read().decode("utf-8")
-                    log.info(ssh_out)
+                    ssh_out = ssh_stdout.read().decode("utf-8").strip()
+                    ssh_err = ssh_stderr.read().decode("utf-8").strip()
+                    if ssh_out:
+                        log.info(ssh_out)
+                    if ssh_err:
+                        log.error(red(f"ERROR: {ssh_err}"))
 
-                _, ssh_stdout, _ = ssh.exec_command(f"sha256sum {remote_file} | cut -d' ' -f1")
+                _, ssh_stdout, ssh_stderr = ssh.exec_command(f"sha256sum {remote_file} | cut -d' ' -f1", get_pty=True)
                 remote_sha256 = ssh_stdout.read().strip().decode("utf-8")
+                remote_sha256_err = ssh_stderr.read().strip().decode("utf-8")
+                if remote_sha256_err:
+                    log.error(red(f"sha256sum error: {remote_sha256_err}"))
+
+                srv = server.split(".")[1] if "." in server else server
                 if local_sha256 == remote_sha256:
-                    log.info("[+] %s - Hashes are %s: %s - %s", server.split(".")[1], green("correct"), local_sha256, remote_file)
+                    log.info("[+] %s - Hashes are %s: %s - %s", srv, green("correct"), local_sha256, remote_file)
                 else:
                     log.info(
                         "[-] %s - Hashes are %s: \n\tLocal: %s\n\tRemote: %s - %s",
@@ -481,7 +519,6 @@ def deploy_file(queue, ssh_proxy: SSHClient):
                     )
                     error = 1
                     error_list.append(remote_file)
-                ssh.close()
             except TimeoutError as e:
                 log.error(e)
 
@@ -504,11 +541,15 @@ def delete_file(queue, ssh_proxy: SSHClient):
         for server in servers:
             try:
                 ssh = _connect_via_jump_box(server, ssh_proxy)
-                _, ssh_stdout, _ = ssh.exec_command(f"rm {remote_file}")
-                ssh_out = ssh_stdout.read().decode("utf-8")
+                if not ssh:
+                    continue
+                _, ssh_stdout, ssh_stderr = ssh.exec_command(f"rm {remote_file}", get_pty=True)
+                ssh_out = ssh_stdout.read().decode("utf-8").strip()
+                ssh_err = ssh_stderr.read().decode("utf-8").strip()
                 if ssh_out:
                     log.info(ssh_out)
-                ssh.close()
+                if ssh_err:
+                    log.error(red(f"ERROR: {ssh_err}"))
             except TimeoutError as e:
                 log.error(e)
                 error = 1

@@ -1334,7 +1334,7 @@ class NetworkAnalysis(Processing):
 
         # 1. DNS
         dns_intents = net_map.get("dns_intents", {})
-        existing_dns = {d.get("request") for d in network.get("dns", [])}
+        existing_dns = {_norm_domain(d.get("request")) for d in network.get("dns", []) if d.get("request")}
 
         for domain, intents in dns_intents.items():
             if domain not in existing_dns:
@@ -1354,9 +1354,8 @@ class NetworkAnalysis(Processing):
         # 2. HTTP
         http_host_map = net_map.get("http_host_map", {})
         existing_hosts = {h.get("host") for h in network.get("http", [])}
-        existing_hosts.update({h.get("host") for h in network.get("http_ex", [])})
-        existing_hosts.update({h.get("host") for h in network.get("https_ex", [])})
-
+        http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
+        existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
         for host, procs in http_host_map.items():
             if host not in existing_hosts:
                 proc = procs[0] if procs else {}

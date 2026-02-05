@@ -72,6 +72,7 @@
                         <tr>
                             <th width="5%" class="border-top-0">ID</th>
                             <th width="10%" class="border-top-0">Timestamp</th>
+                            <th width="10%" class="border-top-0">Machine</th>
                             <th width="7%" class="border-top-0">Package</th>
                             <th width="25%" class="border-top-0">Filename</th>
                             <th width="18%" class="border-top-0">Hashes</th>
@@ -128,8 +129,11 @@
                                 {% endif %}
                             </td>
                             <td>
+                                <span class="badge text-white bg-dark border border-secondary">{{analysis.machine}}</span>
+                            </td>      
+                            <td>
                                 <span class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span>
-                            </td>
+                            </td>                      
                             <td class="text-truncate" title="{{analysis.filename}}">
                                 {% if analysis.status in "reported,recovered" %}
                                 <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.filename}}</a>

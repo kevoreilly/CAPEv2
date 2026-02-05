@@ -55,9 +55,6 @@ if integrations_conf.flare_capa.enabled and integrations_conf.flare_capa.behavio
     from lib.cuckoo.common.integrations.capa import HAVE_FLARE_CAPA, flare_capa_details
 
 
-
-
-
 class ParseProcessLog(list):
     """Parses process log file."""
 

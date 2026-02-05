@@ -1268,7 +1268,7 @@ class NetworkMap:
                 _add_http_host(self.http_host_map, host, pinfo, sock=sock)
 
         if api in HTTP_HINT_APIS:
-            url = _get_arg_any(args_map, "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
+            url = _get_arg_any(args_map, "URL", "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
             if isinstance(url, str) and url.strip():
                 u = _extract_first_url(url) or url.strip()
                 host = _host_from_url(u)

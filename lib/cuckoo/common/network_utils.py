@@ -37,6 +37,7 @@ HTTP_HINT_APIS = {
     "internetopenurlw",
     "httpopenrequesta",
     "httpopenrequestw",
+    "isvalidurl",
 }
 
 

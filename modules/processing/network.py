@@ -1303,6 +1303,24 @@ class NetworkAnalysis(Processing):
 
                 self._set_proc_fields(h, proc)
 
+        # Aggregate process information for the 'hosts' summary
+        ip_to_procs = defaultdict(dict)
+        for flow_type in ("tcp", "udp"):
+            for flow in network.get(flow_type, []):
+                if flow.get("process_id") and flow.get("dst"):
+                    ip_to_procs[flow["dst"]][flow["process_id"]] = flow.get("process_name", "Unknown")
+
+        for host in network.get("hosts", []):
+            procs = ip_to_procs.get(host["ip"])
+            if procs:
+                if len(procs) == 1:
+                    pid, name = list(procs.items())[0]
+                    host["process_id"] = pid
+                    host["process_name"] = name
+                else:
+                    host["process_name"] = ", ".join(f"{name} ({pid})" for pid, name in procs.items())
+                    host["process_id"] = None
+
     def run(self):
         if not path_exists(self.pcap_path):
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)

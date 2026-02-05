@@ -8,6 +8,7 @@
     <tr>
         <th>Destination</th>
         <th>Data</th>
+        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
     </tr>
     {% for req in network.smtp_ex %}
     <tr>
@@ -42,6 +43,15 @@
             </td></tr>
             </table>
         </td>
+        {% if settings.NETWORK_PROC_MAP %}
+            <td>
+                {% if req.process_name %}
+                    {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>
@@ -52,11 +62,21 @@
     <tr>
         <th>Destination</th>
         <th>Data</th>
+        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
     </tr>
     {% for req in network.smtp %}
     <tr>
         <td style="word-wrap: break-word;">{{req.dst}}</td>
         <td style="word-wrap: break-word;"><pre>{{req.raw}}</pre></td>
+        {% if settings.NETWORK_PROC_MAP %}
+            <td>
+                {% if req.process_name %}
+                    {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

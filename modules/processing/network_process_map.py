@@ -6,6 +6,7 @@ import logging
 from collections import defaultdict
 from contextlib import suppress
 from datetime import datetime
+from typing import Any, Dict, List, Optional, Set
 from urllib.parse import urlparse
 
 from lib.cuckoo.common.abstracts import Processing
@@ -58,38 +59,56 @@ TLS_HINT_APIS = {
 }
 
 
-def _norm_domain(d):
+def _norm_domain(d: Optional[str]) -> Optional[str]:
     if not d or not isinstance(d, str):
         return None
     d = d.strip().strip(".").lower()
     return d or None
 
 
-def _parse_behavior_ts(ts_str):
+def _parse_behavior_ts(ts_str: str) -> Optional[float]:
     """
     Parse behavior timestamp like: '2026-01-22 23:46:58,199' -> epoch float
     Returns None if parsing fails.
     """
     if not ts_str or not isinstance(ts_str, str):
         return None
-    with suppress(Exception):
-        dt = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S,%f")
-        return dt.timestamp()
-    return None
+    try:
+        return datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S,%f").timestamp()
+    except ValueError:
+        return None
 
 
-def _extract_domain_from_call(call):
+def _get_call_args_dict(call: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert arguments list to a dictionary for O(1) access."""
+    return {a["name"]: a["value"] for a in call.get("arguments", []) if "name" in a}
+
+
+def _extract_domain_from_call(call: Dict[str, Any], args_map: Dict[str, Any]) -> Optional[str]:
+    # Check named arguments first
     for name in (
-            "hostname", "host", "node", "nodename", "name", "domain",
-            "szName", "pszName", "lpName", "query", "queryname", "dns_name",
-            "QueryName", "lpstrName", "pName"
+        "hostname",
+        "host",
+        "node",
+        "nodename",
+        "name",
+        "domain",
+        "szName",
+        "pszName",
+        "lpName",
+        "query",
+        "queryname",
+        "dns_name",
+        "QueryName",
+        "lpstrName",
+        "pName",
     ):
-        v = _get_arg(call, name)
+        v = args_map.get(name)
         if isinstance(v, str) and v.strip():
             return v
 
-    for a in call.get("arguments", []) or []:
-        v = a.get("value")
+    # Heuristic scan of all string arguments
+    for v in args_map.values():
         if isinstance(v, str):
             s = v.strip()
             if "." in s and " " not in s and s.count(".") <= 10:
@@ -98,23 +117,15 @@ def _extract_domain_from_call(call):
     return None
 
 
-def _get_arg(call, name):
-    for a in call.get("arguments", []) or []:
-        if a.get("name") == name:
-            return a.get("value")
-    return None
-
-
-def _get_arg_any(call, *names):
+def _get_arg_any(args_map: Dict[str, Any], *names: str) -> Any:
     """Return the first matching argument value for any of the provided names."""
     for n in names:
-        v = _get_arg(call, n)
-        if v is not None:
-            return v
+        if n in args_map:
+            return args_map[n]
     return None
 
 
-def _norm_ip(ip):
+def _norm_ip(ip: Any) -> Optional[str]:
     if ip is None:
         return None
     if not isinstance(ip, str):
@@ -123,7 +134,7 @@ def _norm_ip(ip):
     return ip or None
 
 
-def _looks_like_http(buf):
+def _looks_like_http(buf: Optional[str]) -> bool:
     if not buf or not isinstance(buf, str):
         return False
 
@@ -135,9 +146,7 @@ def _looks_like_http(buf):
     if u.startswith("HTTP/1.") or u.startswith("HTTP/2"):
         return True
 
-    methods = (
-        "GET ", "POST ", "HEAD ", "PUT ", "DELETE ", "OPTIONS ", "PATCH ", "TRACE "
-    )
+    methods = ("GET ", "POST ", "HEAD ", "PUT ", "DELETE ", "OPTIONS ", "PATCH ", "TRACE ")
     if any(u.startswith(m) for m in methods) and " HTTP/1." in u:
         return True
 
@@ -147,7 +156,7 @@ def _looks_like_http(buf):
     return False
 
 
-def _http_host_from_buf(buf):
+def _http_host_from_buf(buf: Optional[str]) -> Optional[str]:
     if not buf or not isinstance(buf, str):
         return None
 
@@ -157,7 +166,10 @@ def _http_host_from_buf(buf):
 
     for line in lines[1:50]:
         if line.lower().startswith("host:"):
-            return line.split(":", 1)[1].strip()
+            try:
+                return line.split(":", 1)[1].strip()
+            except IndexError:
+                continue
 
     with suppress(Exception):
         first = lines[0].strip()
@@ -179,13 +191,13 @@ def _http_host_from_buf(buf):
     return None
 
 
-def _safe_int(x):
+def _safe_int(x: Any) -> Optional[int]:
     with suppress(Exception):
         return int(x)
     return None
 
 
-def _host_from_url(url):
+def _host_from_url(url: Optional[str]) -> Optional[str]:
     if not url or not isinstance(url, str):
         return None
 
@@ -196,7 +208,7 @@ def _host_from_url(url):
     return None
 
 
-def _extract_first_url(text):
+def _extract_first_url(text: Optional[str]) -> Optional[str]:
     if not text or not isinstance(text, str):
         return None
     s = text.strip()
@@ -207,14 +219,14 @@ def _extract_first_url(text):
     return None
 
 
-def _norm_hostkey(host):
+def _norm_hostkey(host: Optional[str]) -> Optional[str]:
     if not host or not isinstance(host, str):
         return None
     h = host.strip().strip(".").lower()
     return h or None
 
 
-def _add_http_host(http_host_map, host, pinfo, sock=None):
+def _add_http_host(http_host_map: Dict, host: str, pinfo: Dict, sock: Any = None):
     """
     Store host keys in a stable way.
     Adds:
@@ -237,19 +249,26 @@ def _add_http_host(http_host_map, host, pinfo, sock=None):
             http_host_map[h_only].append(entry)
 
 
-def _extract_tls_server_name(call):
+def _extract_tls_server_name(call: Dict[str, Any], args_map: Dict[str, Any]) -> Optional[str]:
     """
     Best-effort server name extraction for TLS/SChannel/SSPI.
-    Common arg names seen in hooks vary; keep it conservative.
     """
     for name in (
-            "sni", "SNI",
-            "ServerName", "servername", "server_name",
-            "TargetName", "targetname",
-            "Host", "host", "hostname",
-            "Url", "URL", "url",
+        "sni",
+        "SNI",
+        "ServerName",
+        "servername",
+        "server_name",
+        "TargetName",
+        "targetname",
+        "Host",
+        "host",
+        "hostname",
+        "Url",
+        "URL",
+        "url",
     ):
-        v = _get_arg(call, name)
+        v = args_map.get(name)
         if isinstance(v, str) and v.strip():
             s = v.strip()
             u = _extract_first_url(s)
@@ -258,8 +277,7 @@ def _extract_tls_server_name(call):
             if "." in s and " " not in s and len(s) < 260:
                 return s
 
-    for a in call.get("arguments", []) or []:
-        v = a.get("value")
+    for v in args_map.values():
         if isinstance(v, str):
             s = v.strip()
             if "." in s and " " not in s and len(s) < 260:
@@ -284,7 +302,7 @@ class NetworkProcessMap(Processing):
 
     order = 5
 
-    def _load_behavior(self):
+    def _load_behavior(self) -> Optional[Dict]:
         with suppress(Exception):
             b = self.results.get("behavior")
             if b:
@@ -292,13 +310,13 @@ class NetworkProcessMap(Processing):
 
         return None
 
-    def _load_network(self):
+    def _load_network(self) -> Dict:
         with suppress(Exception):
             return self.results.get("network") or {}
 
         return {}
 
-    def _build_endpoint_to_process_map(self, behavior):
+    def _build_endpoint_to_process_map(self, behavior: Dict):
         """
         Build:
           - endpoint_map[(ip, port)] -> [{process_id, process_name, socket?}, ...]
@@ -310,7 +328,7 @@ class NetworkProcessMap(Processing):
         if not behavior:
             return endpoint_map, http_host_map
 
-        for p in (behavior.get("processes") or []):
+        for p in behavior.get("processes") or []:
             pid = p.get("process_id")
             if pid is None:
                 continue
@@ -325,12 +343,15 @@ class NetworkProcessMap(Processing):
                     continue
 
                 api = (c.get("api") or "").lower()
-                sock = _get_arg_any(c, "socket", "sock", "fd", "handle")
-                ip = _norm_ip(_get_arg_any(c, "ip", "dst", "dstip", "ip_address", "address", "remote_ip", "server"))
-                port = _get_arg_any(c, "port", "dport", "dstport", "remote_port", "server_port")
-                buf = _get_arg_any(c, "Buffer", "buffer", "buf", "data")
+                # Optimize: Convert arguments list to dict once per call
+                args_map = _get_call_args_dict(c)
 
-                if api in ("connect", "wsaconnect", "connectex", "sendto", "wsasendto", "recvfrom", "wsarecvfrom"):
+                sock = _get_arg_any(args_map, "socket", "sock", "fd", "handle")
+                ip = _norm_ip(_get_arg_any(args_map, "ip", "dst", "dstip", "ip_address", "address", "remote_ip", "server"))
+                port = _get_arg_any(args_map, "port", "dport", "dstport", "remote_port", "server_port")
+                buf = _get_arg_any(args_map, "Buffer", "buffer", "buf", "data")
+
+                if api in {"connect", "wsaconnect", "connectex", "sendto", "wsasendto", "recvfrom", "wsarecvfrom"}:
                     p_int = _safe_int(port)
                     if ip and p_int is not None:
                         entry = dict(pinfo)
@@ -339,16 +360,16 @@ class NetworkProcessMap(Processing):
 
                         endpoint_map[(ip, p_int)].append(entry)
 
-                    if api in ("connect", "wsaconnect", "connectex"):
+                    if api in {"connect", "wsaconnect", "connectex"}:
                         continue
 
-                if api in ("send", "wsasend", "sendto", "wsasendto") and _looks_like_http(buf):
+                if api in {"send", "wsasend", "sendto", "wsasendto"} and _looks_like_http(buf):
                     host = _http_host_from_buf(buf)
                     if host:
                         _add_http_host(http_host_map, host, pinfo, sock=sock)
 
                 if api in HTTP_HINT_APIS:
-                    url = _get_arg_any(c, "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
+                    url = _get_arg_any(args_map, "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
                     if isinstance(url, str) and url.strip():
                         u = _extract_first_url(url) or url.strip()
                         host = _host_from_url(u)
@@ -363,7 +384,7 @@ class NetworkProcessMap(Processing):
                                 _add_http_host(http_host_map, host2, pinfo, sock=sock)
 
                 if api in TLS_HINT_APIS:
-                    sni = _extract_tls_server_name(c)
+                    sni = _extract_tls_server_name(c, args_map)
                     if sni:
                         _add_http_host(http_host_map, sni, pinfo, sock=sock)
 
@@ -374,7 +395,7 @@ class NetworkProcessMap(Processing):
 
         return endpoint_map, http_host_map
 
-    def _pick_best(self, candidates):
+    def _pick_best(self, candidates: List[Dict]) -> Optional[Dict]:
         if not candidates:
             return None
 
@@ -384,7 +405,7 @@ class NetworkProcessMap(Processing):
 
         return candidates[0]
 
-    def _build_dns_intents(self, behavior):
+    def _build_dns_intents(self, behavior: Dict) -> Dict[str, List[Dict]]:
         """
         Build: domain -> list of {process info + ts_epoch}
         """
@@ -392,7 +413,7 @@ class NetworkProcessMap(Processing):
         if not behavior:
             return intents
 
-        for p in (behavior.get("processes") or []):
+        for p in behavior.get("processes") or []:
             pid = p.get("process_id")
             if pid is None:
                 continue
@@ -410,7 +431,8 @@ class NetworkProcessMap(Processing):
                 if api not in DNS_APIS:
                     continue
 
-                domain = _norm_domain(_extract_domain_from_call(c))
+                args_map = _get_call_args_dict(c)
+                domain = _norm_domain(_extract_domain_from_call(c, args_map))
                 if not domain:
                     continue
 
@@ -428,7 +450,7 @@ class NetworkProcessMap(Processing):
 
         return intents
 
-    def _match_dns_process(self, dns_entry, dns_intents, max_skew_seconds=10.0):
+    def _match_dns_process(self, dns_entry: Dict, dns_intents: Dict, max_skew_seconds: float = 10.0) -> Optional[Dict]:
         """
         Match a network.dns entry to the closest behavior DNS intent by:
           - same domain
@@ -466,16 +488,16 @@ class NetworkProcessMap(Processing):
 
         return candidates[0].get("process")
 
-    def _pcap_first_epoch(self, network):
+    def _pcap_first_epoch(self, network: Dict) -> Optional[float]:
         ts = []
         for k in ("dns", "http"):
-            for e in (network.get(k) or []):
+            for e in network.get(k) or []:
                 v = e.get("first_seen")
                 if isinstance(v, (int, float)):
                     ts.append(float(v))
         return min(ts) if ts else None
 
-    def _build_dns_events_rel(self, network, dns_intents, max_skew_seconds=10.0):
+    def _build_dns_events_rel(self, network: Dict, dns_intents: Dict, max_skew_seconds: float = 10.0) -> List[Dict]:
         """
         Returns a list of dns events:
         [{"t_rel": float, "process": {...}|None, "request": "example.com"}]
@@ -485,7 +507,7 @@ class NetworkProcessMap(Processing):
         if first_epoch is None:
             return out
 
-        for d in (network.get("dns") or []):
+        for d in network.get("dns") or []:
             first_seen = d.get("first_seen")
             if not isinstance(first_seen, (int, float)):
                 continue
@@ -496,7 +518,7 @@ class NetworkProcessMap(Processing):
         out.sort(key=lambda x: x["t_rel"])
         return out
 
-    def _nearest_dns_process_by_rel_time(self, dns_events_rel, t_rel, max_skew=5.0):
+    def _nearest_dns_process_by_rel_time(self, dns_events_rel: List[Dict], t_rel: Any, max_skew: float = 5.0) -> Optional[Dict]:
         if not dns_events_rel or not isinstance(t_rel, (int, float)):
             return None
 
@@ -512,7 +534,7 @@ class NetworkProcessMap(Processing):
             return best.get("process")
         return None
 
-    def _set_proc_fields(self, obj, proc):
+    def _set_proc_fields(self, obj: Dict, proc: Optional[Dict]):
         """
         Add process_id/process_name onto an existing network entry.
         If proc is None, sets them to None (keeps template stable).
@@ -530,7 +552,7 @@ class NetworkProcessMap(Processing):
 
         endpoint_map, http_host_map = self._build_endpoint_to_process_map(behavior)
 
-        for flow in (network.get("tcp") or []):
+        for flow in network.get("tcp") or []:
             proc = None
             if flow.get("dst") and flow.get("dport") is not None:
                 proc = self._pick_best(endpoint_map.get((flow["dst"], int(flow["dport"])), []))
@@ -539,11 +561,11 @@ class NetworkProcessMap(Processing):
 
         dns_intents = self._build_dns_intents(behavior)
         dns_events_rel = self._build_dns_events_rel(network, dns_intents, max_skew_seconds=10.0)
-        for d in (network.get("dns") or []):
+        for d in network.get("dns") or []:
             proc = self._match_dns_process(d, dns_intents, max_skew_seconds=10.0)
             self._set_proc_fields(d, proc)
 
-        for flow in (network.get("udp") or []):
+        for flow in network.get("udp") or []:
             proc = None
             dst = flow.get("dst")
             dport = flow.get("dport")
@@ -559,7 +581,7 @@ class NetworkProcessMap(Processing):
             self._set_proc_fields(flow, proc)
 
         for key in ("http", "http_ex", "https_ex"):
-            for h in (network.get(key) or []):
+            for h in network.get(key) or []:
                 proc = None
 
                 host = h.get("host")

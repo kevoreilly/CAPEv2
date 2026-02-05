@@ -10,7 +10,6 @@ import os
 import struct
 from collections import defaultdict
 from contextlib import suppress
-from urllib.parse import urlparse
 
 from lib.cuckoo.common.network_utils import (
     DNS_APIS,
@@ -30,7 +29,11 @@ from lib.cuckoo.common.network_utils import (
     _parse_behavior_ts,
     _safe_int,
 )
-from lib.cuckoo.common.objects import File
+
+from lib.cuckoo.common.abstracts import Processing
+from lib.cuckoo.common.compressor import CuckooBsonCompressor
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.replace_patterns_utils import _clean_path, check_deny_pattern
 from lib.cuckoo.common.utils import (
@@ -1316,7 +1319,7 @@ class NetworkMap:
         # Actually, if we store this in behavior result, it will be saved to report.json/bson.
         # BSON/JSON keys must be strings.
         # Let's convert tuple keys to string representation "ip:port"
-        
+
         endpoint_map_str = {}
         for (ip, port), entries in self.endpoint_map.items():
             endpoint_map_str[f"{ip}:{port}"] = entries

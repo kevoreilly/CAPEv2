@@ -207,7 +207,8 @@ def _extract_first_url(text):
     for scheme in ("http://", "https://"):
         idx = s.lower().find(scheme)
         if idx != -1:
-            return s[idx:].split()[0].strip('"',')
+            return s[idx:].split()[0].strip('"\',')
+
     return None
 
 

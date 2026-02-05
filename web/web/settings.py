@@ -98,7 +98,7 @@ COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
 ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
-NETWORK_PROC_MAP = pro_cfg.network_process_map.enabled
+NETWORK_PROC_MAP = pro_cfg.network.process_map
 
 # If false run next command
 # python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown

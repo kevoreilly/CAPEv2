@@ -18,7 +18,7 @@
                             </tr>
                             {% for p in network.udp %}
                                 <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},udp">
-                                    <td>{{p.src}}</td>
+                                    <td>{{p.src}} {% if p.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
                                     <td>{{p.sport}}</td>
                                     <td>{{p.dst}}
                                         {% if network.iplookups %}

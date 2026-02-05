@@ -72,7 +72,7 @@
         </tr>
         {% for request in network.http %}
             <tr>
-                <td style="word-wrap: break-word;">{{request.uri}}</td>
+                <td style="word-wrap: break-word;">{{request.uri}} {% if request.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
                 <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
                 {% if settings.NETWORK_PROC_MAP %}
                     <td style="width: 160px; white-space: nowrap;">

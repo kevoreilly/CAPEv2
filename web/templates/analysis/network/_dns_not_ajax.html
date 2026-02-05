@@ -5,10 +5,11 @@
                 <th>Name</th>
                 <th>Response</th>
                 <th>Post-Analysis Lookup</th>
+                {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
             </tr>
             {% for p in analysis.network.dns %}
                 <tr>
-                <td>{{p.request}} <a href="https://www.virustotal.com/gui/domain/{{p.request}}/detection">[VT]</a>
+                <td>{{p.request}} {% if p.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %} <a href="https://www.virustotal.com/gui/domain/{{p.request}}/detection">[VT]</a>
                 {% if config.display_et_portal %}
                 <a href="https://threatintel.proofpoint.com/search?q={{p.request}}" target="_blank">[ET]</a>
                 {% endif %}
@@ -48,6 +49,15 @@
                         {% endif %}
                         {% endif %}
                     </td>
+                    {% if settings.NETWORK_PROC_MAP %}
+                        <td>
+                            {% if p.process_name %}
+                                {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
+                    {% endif %}
                 </tr>
             {% endfor %}
         </table>

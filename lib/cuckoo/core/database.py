@@ -790,6 +790,7 @@ class _Database:
             resultserver_port=resultserver_port,
             reserved=reserved,
         )
+        self.session.add(machine)
 
         if tags:
             with self.session.no_autoflush:
@@ -798,7 +799,6 @@ class _Database:
         if locked:
             machine.locked = True
 
-        self.session.add(machine)
         return machine
 
     def set_machine_interface(self, label, interface):
@@ -1276,6 +1276,8 @@ class _Database:
 
         else:
             return None
+
+        self.session.add(task)
 
         task.category = obj.__class__.__name__.lower()
         task.timeout = timeout

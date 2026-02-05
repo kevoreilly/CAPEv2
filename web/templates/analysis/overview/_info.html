@@ -194,7 +194,7 @@
 </section>
 
 <!-- Machine Details Card -->
-{% if analysis.info.machine and analysis.info.machine.name %}
+{% if analysis.info.machine %}
     <section id="machine" class="mb-4">
         <div class="card bg-dark border-secondary">
             <div class="card-header border-secondary">
@@ -205,6 +205,7 @@
                     <thead>
                         <tr>
                             <th>Name</th>
+                            {% if analysis.distributed %}<th>Node</th>{% endif %}
                             <th>Label</th>
                             <th>Manager</th>
                             <th>Started On</th>
@@ -214,11 +215,12 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td>{{analysis.info.machine.name}}</td>
-                            <td><span class="badge bg-dark">{{analysis.info.machine.label}}</span></td>
-                            <td>{{analysis.info.machine.manager}}</td>
-                            <td class="text-nowrap">{{analysis.info.machine.started_on}}</td>
-                            <td class="text-nowrap">{{analysis.info.machine.shutdown_on}}</td>
+                            <td>{% if analysis.info.machine.name %}{{analysis.info.machine.name}}{% else %}{{analysis.info.machine}}{% endif %}</td>
+                            {% if analysis.distributed %}<td>{{analysis.distributed.name}}</td>{% endif %}
+                            <td><span class="badge bg-dark">{% if analysis.info.machine.label %}{{analysis.info.machine.label}}{% else %}-{% endif %}</span></td>
+                            <td>{% if analysis.info.machine.manager %}{{analysis.info.machine.manager}}{% else %}-{% endif %}</td>
+                            <td class="text-nowrap">{% if analysis.info.machine.started_on %}{{analysis.info.machine.started_on}}{% else %}-{% endif %}</td>
+                            <td class="text-nowrap">{% if analysis.info.machine.shutdown_on %}{{analysis.info.machine.shutdown_on}}{% else %}-{% endif %}</td>
                             {% if analysis.info.route %}
                                 <td><code>{{analysis.info.route}}</code></td>
                             {% endif %}

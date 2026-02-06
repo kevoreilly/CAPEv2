@@ -82,7 +82,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 await self.close()
 
         except Exception as e:
-            logger.error(f"Error during Guacamole connect: {e}")
+            logger.error("Error during Guacamole connect: %s", str(e))
             await self.close()
 
     async def disconnect(self, code):
@@ -92,13 +92,13 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         # Cancel the reader task if it exists
         if self.task:
             self.task.cancel()
-        
+
         # Close the client safely
         if self.client:
             try:
                 await sync_to_async(self.client.close)()
             except Exception as e:
-                logger.error(f"Error closing guacamole client: {e}")
+                logger.error("Error closing guacamole client: %s", str(e))
 
     async def receive(self, text_data=None, bytes_data=None):
         """
@@ -109,7 +109,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             try:
                 await sync_to_async(self.client.send)(text_data)
             except Exception as e:
-                logger.error(f"Failed to send data to guacd: {e}")
+                logger.error("Failed to send data to guacd: %s", str(e))
 
     async def open(self):
         """

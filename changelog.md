@@ -1,3 +1,13 @@
+### [04.02.2026]
+* Network Analysis:
+    * Integrated process mapping directly into `network` processing module.
+    * Added ability to show network details (DNS, HTTP, TCP/UDP) captured from behavioral analysis in the network results.
+    * This allows recovery of network activity that might be missing from PCAP (e.g., due to capture evasion or failed interception).
+    * Centralized network utility functions into `lib/cuckoo/common/network_utils.py` for better maintainability and performance.
+    * New configuration option `process_map` under `[network]` section in `processing.conf`.
+* Web UI:
+    * Added Process Name and PID columns across all network analysis views (TCP, UDP, ICMP, DNS, HTTP, IRC, SMTP).
+
 ### [28.01.2026]
 * CAPE Agent:
     * Ported to Golang for improved stealth, performance, and zero-dependency deployment.

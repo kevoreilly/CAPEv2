@@ -469,6 +469,14 @@ def polarproxy_disable(interface, client, tls_port, proxy_port):
         "ACCEPT"
     )
 
+def libvirt_fwo_enable(interface, source):
+    """Enable LIBVIRT_FWO for a specific interface and source."""
+    run_iptables("-I", "LIBVIRT_FWO", "1", "-i", interface, "-s", source, "-j", "ACCEPT")
+
+def libvirt_fwo_disable(interface, source):
+    """Disable LIBVIRT_FWO for a specific interface and source."""
+    run_iptables("-D", "LIBVIRT_FWO", "-i", interface, "-s", source, "-j", "ACCEPT")
+
 def init_rttable(rt_table, interface):
     """Initialise routing table for this interface using routes
     from main table."""
@@ -1005,6 +1013,8 @@ handlers = {
     "disable_mitmdump": disable_mitmdump,
     "polarproxy_enable": polarproxy_enable,
     "polarproxy_disable": polarproxy_disable,
+    "libvirt_fwo_enable": libvirt_fwo_enable,
+    "libvirt_fwo_disable": libvirt_fwo_disable,
 }
 
 if __name__ == "__main__":

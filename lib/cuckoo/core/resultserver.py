@@ -61,7 +61,7 @@ BANNED_PATH_CHARS = b"\x00:"
 RESULT_UPLOADABLE = (
     b"CAPE",
     b"aux",
-    b"aux/amsi",
+    b"aux/amsi_etw",
     b"browser",
     b"curtain",
     b"debugger",

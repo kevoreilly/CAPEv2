@@ -15,21 +15,21 @@
                         {% if resubmit %}
                         <li class="nav-item">
                             <a class="nav-link active" id="resubmit-tab" data-bs-toggle="pill" href="#resubmit"
-                               role="tab" aria-controls="resubmit" aria-selected="true">
+                                role="tab" aria-controls="resubmit" aria-selected="true">
                                 <i class="fas fa-sync-alt me-2"></i>Resubmission
                             </a>
                         </li>
                         {% else %}
                         <li class="nav-item">
                             <a class="nav-link active" id="file-tab" data-bs-toggle="pill" href="#file" role="tab"
-                               aria-controls="file" aria-selected="true">
+                                aria-controls="file" aria-selected="true">
                                 <i class="fas fa-file me-2"></i>File(s)
                             </a>
                         </li>
                         {% if config.downloading_service %}
                         <li class="nav-item">
                             <a class="nav-link" id="dl-service-tab" data-bs-toggle="pill" href="#downloading_service"
-                               role="tab" aria-controls="downloading_service" aria-selected="false">
+                                role="tab" aria-controls="downloading_service" aria-selected="false">
                                 <i class="fas fa-cloud-download-alt me-2"></i>Download
                             </a>
                         </li>
@@ -37,7 +37,7 @@
                         {% if config.url_analysis %}
                         <li class="nav-item">
                             <a class="nav-link" id="url-tab" data-bs-toggle="pill" href="#url" role="tab"
-                               aria-controls="url" aria-selected="false">
+                                aria-controls="url" aria-selected="false">
                                 <i class="fas fa-globe me-2"></i>URL
                             </a>
                         </li>
@@ -45,20 +45,20 @@
                         {% if config.dlnexec %}
                         <li class="nav-item">
                             <a class="nav-link" id="dlnexec-tab" data-bs-toggle="pill" href="#dlurl" role="tab"
-                               aria-controls="dlurl" aria-selected="false">
+                                aria-controls="dlurl" aria-selected="false">
                                 <i class="fas fa-bolt me-2"></i>DL & Exec
                             </a>
                         </li>
                         {% endif %}
                         <li class="nav-item">
                             <a class="nav-link" id="pcap-tab" data-bs-toggle="pill" href="#pcap" role="tab"
-                               aria-controls="pcap" aria-selected="false">
+                                aria-controls="pcap" aria-selected="false">
                                 <i class="fas fa-network-wired me-2"></i>PCAP
                             </a>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link" id="static-tab" data-bs-toggle="pill" href="#static" role="tab"
-                               aria-controls="static" aria-selected="false">
+                                aria-controls="static" aria-selected="false">
                                 <i class="fas fa-code me-2"></i>Static
                             </a>
                         </li>
@@ -71,24 +71,24 @@
                         <div class="tab-pane fade show active" id="resubmit" role="tabpanel">
                             <div class="mb-3">
                                 <label for="form_resubmission" class="visually-hidden">Hash</label>
-                                <input type="text" class="form-control bg-dark text-white border-secondary"
-                                       id="form_resubmission" name="hash" value="{{resubmit}}" readonly />
+                                <input type="text" class="form-control border-secondary"
+                                    id="form_resubmission" name="hash" value="{{resubmit}}" readonly />
                             </div>
                         </div>
                         {% else %}
                         <!-- File Upload -->
                         <div class="tab-pane fade show active" id="file" role="tabpanel">
-                            <input type="file" class="form-control bg-dark text-white border-secondary" id="sampleFile"
-                                   name="sample" multiple />
+                            <input type="file" class="form-control border-secondary" id="sampleFile"
+                                name="sample" multiple />
                         </div>
 
                         <!-- Download Service -->
                         {% if config.downloading_service %}
                         <div class="tab-pane fade" id="downloading_service" role="tabpanel">
                             <div class="mb-3">
-                                <input type="text" class="form-control bg-dark text-white border-secondary"
-                                       id="form_downloading_service" name="hashes"
-                                       placeholder="Enter comma separated hashes or just a hash" />
+                                <input type="text" class="form-control border-secondary"
+                                    id="form_downloading_service" name="hashes"
+                                    placeholder="Enter comma separated hashes or just a hash" />
                             </div>
                         </div>
                         {% endif %}
@@ -96,8 +96,8 @@
                         <!-- URL -->
                         <div class="tab-pane fade" id="url" role="tabpanel">
                             <div class="mb-3">
-                                <input type="text" class="form-control bg-dark text-white border-secondary"
-                                       id="form_url" name="url" placeholder="Enter URL to analyze" />
+                                <input type="text" class="form-control border-secondary"
+                                    id="form_url" name="url" placeholder="Enter URL to analyze" />
                             </div>
                         </div>
 
@@ -105,40 +105,40 @@
                         {% if config.dlnexec %}
                         <div class="tab-pane fade" id="dlurl" role="tabpanel">
                             <div class="mb-3">
-                                <input type="text" class="form-control bg-dark text-white border-secondary"
-                                       id="form_dlnexec" name="dlnexec" placeholder="Enter URL to download sample from" />
+                                <input type="text" class="form-control border-secondary"
+                                    id="form_dlnexec" name="dlnexec" placeholder="Enter URL to download sample from" />
                             </div>
                         </div>
                         {% endif %}
 
                         <!-- PCAP -->
                         <div class="tab-pane fade" id="pcap" role="tabpanel">
-                            <input type="file" class="form-control bg-dark text-white border-secondary" id="pcapFile"
-                                   name="pcap" multiple />
+                            <input type="file" class="form-control border-secondary" id="pcapFile"
+                                name="pcap" multiple />
                         </div>
 
                         <!-- Static -->
                         <div class="tab-pane fade" id="static" role="tabpanel">
-                            <input type="file" class="form-control bg-dark text-white border-secondary" id="staticFile"
-                                   name="static" multiple />
+                            <input type="file" class="form-control border-secondary" id="staticFile"
+                                name="static" multiple />
 
                         </div>
                         {% endif %}
                     </div>
 
                     <!-- Advanced Options Sections -->
-                    <div class="card bg-dark border-secondary mb-3">
+                    <div class="card border-secondary mb-3">
                         <div class="card-header border-secondary bg-transparent">
-                            <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-primary"></i>Options
+                            <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-primary"></i>Advanced Options
                             </h5>
                         </div>
-                        <div class="card-body bg-dark">
+                        <div class="card-body">
                             <!-- Non-PCAP Options Block 1 -->
                             <div id="non-pcap-1">
                                 {% if existent_tasks %}
                                 <div class="mb-3">
                                     <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse"
-                                            data-bs-target="#existent_tasks">
+                                        data-bs-target="#existent_tasks">
                                         Show existent tasks
                                     </button>
                                     <div id="existent_tasks" class="collapse mt-2">
@@ -148,7 +148,7 @@
                                             <ul class="mb-0 ps-3">
                                                 {% for block in details %}
                                                 <li>Task <a href="{% url "report" block.info.id %}"
-                                                       class="alert-link">{{block.info.id}}</a> {% if block.family %} -
+                                                        class="alert-link">{{block.info.id}}</a> {% if block.family %} -
                                                     <span class="text-danger">{{block.malfamily}}</span>{% endif %}
                                                 </li>
                                                 {% endfor %}
@@ -162,8 +162,8 @@
                                 {% if resubmit %}
                                 <div class="mb-3">
                                     <label for="form_job_category" class="text-white-50">Task Category</label>
-                                    <select class="form-select bg-dark text-white border-secondary"
-                                            id="form_job_category" name="job_category">
+                                    <select class="form-select border-secondary"
+                                        id="form_job_category" name="job_category">
                                         <option value="hash" selected>Resubmit</option>
                                         <option value="sample">Files</option>
                                         <option value="static">Static analysis</option>
@@ -177,11 +177,11 @@
 
                                 <div class="mb-3">
                                     <label for="form_package" class="text-white-50">Analysis Package</label>
-                                    <select class="form-select bg-dark text-white border-secondary" id="form_package"
-                                            name="package">
+                                    <select class="form-select border-secondary" id="form_package"
+                                        name="package">
                                         <option value="" title="">Detect Automatically</option>
                                         {% for package in packages %}
-                                        <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{ package.summary }}</option>
+                                        <option value="{{package.value}}" title="{{ package.description }}">{{package.name}} - {{package.summary}}</option>
                                         {% endfor %}
                                     </select>
                                     <small id="package_description" class="form-text text-white-50"></small>
@@ -190,8 +190,8 @@
                                 {% if not config.dist_master_storage_only %}
                                 <div class="mb-3">
                                     <label for="form_machine" class="text-white-50">Machine</label>
-                                    <select class="form-select bg-dark text-white border-secondary" id="form_machine"
-                                            name="machine">
+                                    <select class="form-select border-secondary" id="form_machine"
+                                        name="machine">
                                         {% for id,label in machines %}
                                         <option value="{{id}}">{{label}}</option>
                                         {% endfor %}
@@ -203,14 +203,14 @@
                                 <div class="mb-3">
                                     <label for="form_tags" class="text-white-50">Machine Tags</label>
                                     <div class="input-group">
-                                        <input type="text" class="form-control bg-dark text-white border-secondary"
-                                               id="form_tags" name="tags" placeholder="tag1,tag2" />
-                                        <button class="btn btn-outline-light" type="button"
-                                                data-bs-toggle="collapse" data-bs-target="#tagshelp"><i
-                                               class="fas fa-info-circle"></i></button>
+                                        <input type="text" class="form-control border-secondary"
+                                            id="form_tags" name="tags" placeholder="tag1,tag2" />
+                                        <button class="btn btn-outline-info" type="button"
+                                            data-bs-toggle="collapse" data-bs-target="#tagshelp"><i
+                                                class="fas fa-info-circle"></i></button>
                                     </div>
                                     <div id="tagshelp" class="collapse mt-2">
-                                        <div class="card card-body bg-dark p-2">
+                                        <div class="card card-body p-2">
                                             <small>Available tags: {% for tag in tags %}<code>{{tag}}</code>
                                                 {% endfor %}</small>
                                         </div>
@@ -220,8 +220,8 @@
 
                                 <div class="mb-3">
                                     <label for="form_route" class="text-white-50">Network Routing</label>
-                                    <select class="form-select bg-dark text-white border-secondary" id="form_route"
-                                            name="route">
+                                    <select class="form-select border-secondary" id="form_route"
+                                        name="route">
                                         {% if internet != "none" %}
                                         <option value="internet" {% if route == "internet" %} selected{% endif %}>Internet
                                             (dirty line, {{ internet }})</option>
@@ -265,45 +265,187 @@
                                 </div>
                                 <div class="mb-3">
                                     <label for="form_timeout" class="text-white-50">Timeout (seconds)</label>
-                                    <input type="number" class="form-control bg-dark text-white border-secondary"
-                                           id="form_timeout" name="timeout" value="{{config.timeout}}" />
+                                    <input type="number" class="form-control border-secondary"
+                                        id="form_timeout" name="timeout" value="{{config.timeout}}" />
                                 </div>
 
                                 {% if config.linux_on_gui %}
+                                <!-- Linux Options Field -->
                                 <div class="mb-3">
                                     <label for="form_lin_options" class="text-white-50">Linux Options</label>
                                     <div class="input-group">
                                         <input type="text" class="form-control bg-dark text-white border-secondary"
-                                               id="form_lin_options" name="linuxOptions" placeholder="option1=val1,option2=val2" />
-                                        <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#optionlinuxhelp"><i class="fas fa-info-circle"></i></button>
+                                               id="form_lin_options" name="lin_options" placeholder="option1=val1,option2=val2" />
+                                        <button class="btn btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#optionlinuxhelp"><i class="fas fa-info-circle"></i></button>
                                     </div>
                                     <div id="optionlinuxhelp" class="collapse mt-2">
                                         <div class="card card-body bg-dark p-2 border-secondary">
-                                            <p class="text-white-50 mb-2">Use the following syntax: <code>example=value,foo=bar</code>. Do not quote values.</p>
-                                            <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-                                                <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
-                                                    <thead>
-                                                        <tr>
-                                                            <th class="text-center">Option</th>
-                                                            <th class="text-center">Description</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr>
-                                                            <td><code>filename</code></td>
-                                                            <td>Rename the sample file</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td><code>file</code></td>
-                                                            <td>When using the archive package, set the name of the file to execute</td>
-                                                        </tr>
-                                                        <tr>
-                                                            <td><code>password</code></td>
-                                                            <td>When using the archive package, set the password to use for extraction/decryption. Also used when analyzing password-protected Office
-                                                                documents.</td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
+                                            <div class="mb-3">
+                                                <input type="text" class="form-control bg-dark text-white border-secondary" id="linuxOptionsSearch" placeholder="Search options..." onkeyup="filterTableOptions('linuxOptionsSearch', 'linuxOptionsHelpTabContent')">
+                                                <small class="text-white-50">Syntax: option1=val1,option2=val2</small>
+                                            </div>
+
+                                            <ul class="nav nav-tabs border-secondary mb-3" id="linuxOptionsHelpTabs" role="tablist">
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link active text-white-50" id="lin-cat-submission-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-submission" type="button" role="tab">Submission</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link text-white-50" id="lin-cat-monitor-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-monitor" type="button" role="tab">Monitor</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link text-white-50" id="lin-cat-hooks-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-hooks" type="button" role="tab">Hooks & Logs</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link text-white-50" id="lin-cat-dump-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-dump" type="button" role="tab">Dumping</button>
+                                                </li>
+                                                <li class="nav-item" role="presentation">
+                                                    <button class="nav-link text-white-50" id="lin-cat-debug-tab" data-bs-toggle="tab" data-bs-target="#lin-cat-debug" type="button" role="tab">Debug</button>
+                                                </li>
+                                            </ul>
+                                            <div class="tab-content" id="linuxOptionsHelpTabContent">
+                                                <!-- Submission Options -->
+                                                <div class="tab-pane fade show active" id="lin-cat-submission" role="tabpanel">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="text-end"><code>filename</code></td>
+                                                                    <td>Rename the sample file</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>file</code></td>
+                                                                    <td>When using the archive package, set the name of the file to execute</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>password</code></td>
+                                                                    <td>When using the archive package, set the password to use for extraction/decryption. Also used when analyzing password-protected Office documents.</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>arguments</code></td>
+                                                                    <td>Arguments to be passed to the sample (or opened file, if applicable)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>timeout</code></td>
+                                                                    <td>Analysis timeout (in seconds)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>enforce_timeout</code></td>
+                                                                    <td>Enforce the timeout even if the process finishes early</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>clock</code></td>
+                                                                    <td>Set the VM clock (YYYYMMDDhhmm or seconds since epoch)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>package</code></td>
+                                                                    <td>Analysis package to use</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <!-- Monitor Options -->
+                                                <div class="tab-pane fade" id="lin-cat-monitor" role="tabpanel">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="text-end"><code>free</code></td>
+                                                                    <td>Run analysis without the monitor (no behavioral analysis)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>procmemdump</code></td>
+                                                                    <td>Dump process memory</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>simul_human</code></td>
+                                                                    <td>Simulate human interaction (mouse movements, clicks)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>human_click_interval</code></td>
+                                                                    <td>Interval between simulated clicks</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>human_mouse_speed</code></td>
+                                                                    <td>Speed of simulated mouse movements</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <!-- Hooks & Logs Options -->
+                                                <div class="tab-pane fade" id="lin-cat-hooks" role="tabpanel">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="text-end"><code>enable_syslog</code></td>
+                                                                    <td>Enable syslog capturing</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>syslog_port</code></td>
+                                                                    <td>Port for syslog capturing (default: 514)</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <!-- Dumping Options -->
+                                                <div class="tab-pane fade" id="lin-cat-dump" role="tabpanel">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <tr>
+                                                                    <td class="text-end"><code>memory</code></td>
+                                                                    <td>Dump full VM memory</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
+                                                <!-- Debug Options -->
+                                                <div class="tab-pane fade" id="lin-cat-debug" role="tabpanel">
+                                                     <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                        <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th style="width: 25%" class="text-end">Option</th>
+                                                                    <th>Description</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                 <tr>
+                                                                    <td class="text-end"><code>debug</code></td>
+                                                                    <td>Enable debugging features</td>
+                                                                </tr>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
@@ -314,29 +456,26 @@
                                 <div class="mb-3">
                                     <label for="form_options" class="text-white-50">Options</label>
                                     <div class="input-group">
-                                        <input type="text" class="form-control bg-dark text-white border-secondary"
+                                        <input type="text" class="form-control border-secondary"
                                                id="form_options" name="options" placeholder="option1=val1,option2=val2" />
-                                        <button class="btn btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp"><i class="fas fa-info-circle"></i></button>
+                                        <button class="btn btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp"><i class="fas fa-info-circle"></i></button>
                                     </div>
                                     <div id="optionwindowshelp" class="collapse mt-2">
                                         <div class="card card-body bg-dark p-2 border-secondary">
                                             <div class="mb-3">
                                                 <input type="text" class="form-control bg-dark text-white border-secondary" id="optionsSearch" placeholder="Search options..."
-                                                       onkeyup="filterOptions()">
+                                                        onkeyup="filterTableOptions('optionsSearch', 'optionsHelpTabContent')" />
                                                 <small class="text-white-50">Syntax: option1=val1,option2=val2</small>
                                             </div>
                                             <ul class="nav nav-tabs border-secondary mb-3" id="optionsHelpTabs" role="tablist">
                                                 <li class="nav-item" role="presentation">
-                                                    <button class="nav-link active text-white-50" id="cat-submission-tab" data-bs-toggle="tab" data-bs-target="#cat-submission" type="button"
-                                                            role="tab">Submission</button>
+                                                    <button class="nav-link active text-white-50" id="cat-submission-tab" data-bs-toggle="tab" data-bs-target="#cat-submission" type="button" role="tab">Submission</button>
                                                 </li>
                                                 <li class="nav-item" role="presentation">
-                                                    <button class="nav-link text-white-50" id="cat-monitor-tab" data-bs-toggle="tab" data-bs-target="#cat-monitor" type="button"
-                                                            role="tab">Monitor</button>
+                                                    <button class="nav-link text-white-50" id="cat-monitor-tab" data-bs-toggle="tab" data-bs-target="#cat-monitor" type="button" role="tab">Monitor</button>
                                                 </li>
                                                 <li class="nav-item" role="presentation">
-                                                    <button class="nav-link text-white-50" id="cat-hooks-tab" data-bs-toggle="tab" data-bs-target="#cat-hooks" type="button" role="tab">Hooks &
-                                                        Logs</button>
+                                                    <button class="nav-link text-white-50" id="cat-hooks-tab" data-bs-toggle="tab" data-bs-target="#cat-hooks" type="button" role="tab">Hooks & Logs</button>
                                                 </li>
                                                 <li class="nav-item" role="presentation">
                                                     <button class="nav-link text-white-50" id="cat-dump-tab" data-bs-toggle="tab" data-bs-target="#cat-dump" type="button" role="tab">Dumping</button>
@@ -774,72 +913,44 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <script>
-                                                function filterOptions() {
-                                                    const input = document.getElementById("optionsSearch");
-                                                    const filter = input.value.toUpperCase();
-                                                    const tabContent = document.getElementById("optionsHelpTabContent");
-                                                    const tables = tabContent.getElementsByTagName("table");
-
-                                                    for (const table of tables) {
-                                                        const tbody = table.querySelector("tbody");
-                                                        if (!tbody) {
-                                                            continue;
-                                                        }
-                                                        for (const row of tbody.rows) {
-                                                            const optionCell = row.cells[0];
-                                                            const descriptionCell = row.cells[1];
-                                                            if (optionCell && descriptionCell) {
-                                                                const optionText = optionCell.textContent || optionCell.innerText;
-                                                                const descriptionText = descriptionCell.textContent || descriptionCell.innerText;
-                                                                if (optionText.toUpperCase().includes(filter) || descriptionText.toUpperCase().includes(filter)) {
-                                                                    row.style.display = "";
-                                                                } else {
-                                                                    row.style.display = "none";
-                                                                }
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            </script>
                                         </div>
                                     </div>
                                 </div>
-
-                                <div class="row g-3">
-                                    <div class="col-md-6">
-                                        <label for="form_priority" class="text-white-50">Priority</label>
-                                        <select class="form-select bg-dark text-white border-secondary" id="form_priority"
-                                                name="priority">
-                                            <option value="1">Low</option>
-                                            <option value="2" selected>Medium</option>
-                                            <option value="3">High</option>
-                                        </select>
-                                    </div>
-                                    {% if config.tlp %}
-                                    <div class="col-md-6">
-                                        <label for="form_tlp" class="text-white-50">TLP</label>
-                                        <select class="form-select bg-dark text-white border-secondary" id="form_tlp"
-                                                name="tlp">
-                                            <option value="" selected>White</option>
-                                            <option value="Green">Green</option>
-                                            <option value="Amber">Amber</option>
-                                            <option value="Red">Red</option>
-                                        </select>
-                                    </div>
-                                    {% endif %}
+                            </div>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="form_priority" class="text-white-50">Priority</label>
+                                    <select class="form-select border-secondary" id="form_priority"
+                                        name="priority">
+                                        <option value="1">Low</option>
+                                        <option value="2" selected>Medium</option>
+                                        <option value="3">High</option>
+                                    </select>
                                 </div>
+                                {% if config.tlp %}
+                                <div class="col-md-6">
+                                    <label for="form_tlp" class="text-white-50">TLP</label>
+                                    <select class="form-select border-secondary" id="form_tlp"
+                                        name="tlp">
+                                        <option value="" selected>White</option>
+                                        <option value="Green">Green</option>
+                                        <option value="Amber">Amber</option>
+                                        <option value="Red">Red</option>
+                                    </select>
+                                </div>
+                                {% endif %}
+                            </div>
 
-                                <div id="non-pcap-2">
+                            <div id="non-pcap-2">
                                     <div class="row g-3 mt-1">
                                         <div class="col-md-6">
                                             <label for="clock" class="text-white-50">Clock</label>
-                                            <input type="text" class="form-control bg-dark text-white border-secondary"
+                                            <input type="text" class="form-control border-secondary"
                                                    id="clock" name="clock" placeholder="MM-DD-YYYY HH:mm:00" />
                                         </div>
                                         <div class="col-md-6">
                                             <label for="form_tags_tasks" class="text-white-50">Task Tags</label>
-                                            <input type="text" class="form-control bg-dark text-white border-secondary"
+                                            <input type="text" class="form-control border-secondary"
                                                    id="form_tags_tasks" name="tags_tasks" />
                                         </div>
                                     </div>
@@ -847,7 +958,7 @@
                                     {% if config.pre_script %}
                                     <div class="mb-3 mt-3">
                                         <label class="text-white-50">Pre-Execution Script</label>
-                                        <input type="file" class="form-control bg-dark text-white border-secondary"
+                                        <input type="file" class="form-control border-secondary"
                                                id="preScript" name="pre_script" />
                                     </div>
                                     {% endif %}
@@ -855,13 +966,13 @@
                                     {% if config.during_script %}
                                     <div class="mb-3">
                                         <label class="text-white-50">During-Execution Script</label>
-                                        <input type="file" class="form-control bg-dark text-white border-secondary"
+                                        <input type="file" class="form-control border-secondary"
                                                id="duringScript" name="during_script" />
                                     </div>
                                     {% endif %}
                                     <div class="mb-3">
                                         <label for="form_custom" class="text-white-50">Custom Field</label>
-                                        <input type="text" class="form-control bg-dark text-white border-secondary"
+                                        <input type="text" class="form-control border-secondary"
                                                id="form_custom" name="custom" />
                                     </div>
 
@@ -971,10 +1082,8 @@
                                                     </div>
                                                     {% endif %}
                                                     <div class="form-check mb-2">
-                                                        <input type="checkbox" class="form-check-input" id="static_config"
-                                                               name="static" />
-                                                        <label class="form-check-label" for="static_config">Try to extract config without VM <small class="text-white-50">(Submit to VM if not
-                                                                extracted)</label>
+                                                        <input type="checkbox" class="form-check-input" id="static_config" name="static" />
+                                                        <label class="form-check-label" for="static_config">Try to extract config without VM <small class="text-white-50">(Submit to VM if not extracted)</small></label>
                                                     </div>
                                                     <div class="form-check mb-2">
                                                         <input type="checkbox" class="form-check-input" id="oldloader"
@@ -984,20 +1093,18 @@
                                                     </div>
                                                     <div class="form-check mb-2">
                                                         <input type="checkbox" class="form-check-input" id="screenshots_qr"
-                                                               name="screenshots_qr">
-                                                        <label class="form-check-label" for="screenshots_qr">QR URL extraction <small class="text-white-50">(Extract and open URLs from QR codes in
-                                                                screenshots)</small></label>
+                                                               name="screenshots_qr" />
+                                                        <label class="form-check-label" for="screenshots_qr">QR URL extraction <small class="text-white-50">(Extract and open URLs from QR codes in screenshots)</small></label>
                                                     </div>
                                                 </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
+                            </div>
 
-                                <div class="text-center mt-4">
-                                    <button type="submit" class="btn btn-outline-success btn-lg px-5 shadow"><i
-                                           class="fas fa-microscope me-2"></i>Analyze</button>
-                                </div>
+                            <div class="text-center mt-4">
+                                <button type="submit" class="btn btn-outline-info btn-lg px-5 shadow"><i
+                                        class="fas fa-microscope me-2"></i>Analyze</button>
                             </div>
                         </div>
                     </div>
@@ -1006,7 +1113,35 @@
         </div>
     </div>
 </div>
+
 <script type='text/javascript'>
+    function filterTableOptions(searchInputId, tabContentId) {
+        const input = document.getElementById(searchInputId);
+        const filter = input.value.toUpperCase();
+        const tabContent = document.getElementById(tabContentId);
+        const tables = tabContent.getElementsByTagName("table");
+
+        for (const table of tables) {
+            const tbody = table.querySelector("tbody");
+            if (!tbody) {
+                continue;
+            }
+            for (const row of tbody.rows) {
+                const optionCell = row.cells[0];
+                const descriptionCell = row.cells[1];
+                if (optionCell && descriptionCell) {
+                    const optionText = optionCell.textContent || optionCell.innerText;
+                    const descriptionText = descriptionCell.textContent || descriptionCell.innerText;
+                    if (optionText.toUpperCase().includes(filter) || descriptionText.toUpperCase().includes(filter)) {
+                        row.style.display = "";
+                    } else {
+                        row.style.display = "none";
+                    }
+                }
+            }
+        }
+    }
+
     $(document).ready(function () {
         // Tab visibility logic
         $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {

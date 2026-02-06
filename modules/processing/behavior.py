@@ -8,7 +8,27 @@ import logging
 import mmap
 import os
 import struct
+from collections import defaultdict
 from contextlib import suppress
+
+from lib.cuckoo.common.network_utils import (
+    DNS_APIS,
+    HTTP_HINT_APIS,
+    TLS_HINT_APIS,
+    _add_http_host,
+    _extract_domain_from_call,
+    _extract_first_url,
+    _extract_tls_server_name,
+    _get_arg_any,
+    _get_call_args_dict,
+    _host_from_url,
+    _http_host_from_buf,
+    _looks_like_http,
+    _norm_domain,
+    _norm_ip,
+    _parse_behavior_ts,
+    _safe_int,
+)
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
@@ -1201,6 +1221,113 @@ class ProcessTree:
         return self.tree
 
 
+class NetworkMap:
+    """
+    Generates mappings between processes and network events (IPs, Hosts, DNS)
+    to be used by network_process_map.py module.
+    """
+
+    key = "network_map"
+
+    def __init__(self):
+        self.endpoint_map = defaultdict(list)  # (ip, port) -> [pinfo]
+        self.http_host_map = defaultdict(list)  # host -> [pinfo]
+        self.dns_intents = defaultdict(list)  # domain -> [intent]
+
+    def event_apicall(self, call, process):
+        if call.get("category") != "network":
+            return
+
+        api = (call.get("api") or "").lower()
+        args_map = _get_call_args_dict(call)
+
+        pinfo = {
+            "process_id": process.get("process_id"),
+            "process_name": process.get("process_name", ""),
+        }
+
+        # 1. Endpoint Map (Socket/IP/Port)
+        sock = _get_arg_any(args_map, "socket", "sock", "fd", "handle")
+        ip = _norm_ip(_get_arg_any(args_map, "ip", "dst", "dstip", "ip_address", "address", "remote_ip", "server"))
+        port = _get_arg_any(args_map, "port", "dport", "dstport", "remote_port", "server_port")
+        buf = _get_arg_any(args_map, "Buffer", "buffer", "buf", "data")
+
+        if api in {"connect", "wsaconnect", "connectex", "sendto", "wsasendto", "recvfrom", "wsarecvfrom"}:
+            p_int = _safe_int(port)
+            if ip and p_int is not None:
+                entry = dict(pinfo)
+                if sock is not None:
+                    entry["socket"] = sock
+
+                self.endpoint_map[(ip, p_int)].append(entry)
+
+        # 2. HTTP Host Map
+        if api in {"send", "wsasend", "sendto", "wsasendto"} and _looks_like_http(buf):
+            host = _http_host_from_buf(buf)
+            if host:
+                _add_http_host(self.http_host_map, host, pinfo, sock=sock)
+
+        if api in HTTP_HINT_APIS:
+            url = _get_arg_any(args_map, "URL", "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
+            if isinstance(url, str) and url.strip():
+                u = _extract_first_url(url) or url.strip()
+                host = _host_from_url(u)
+                if host:
+                    _add_http_host(self.http_host_map, host, pinfo, sock=sock)
+
+            if isinstance(buf, str):
+                u2 = _extract_first_url(buf)
+                if u2:
+                    host2 = _host_from_url(u2)
+                    if host2:
+                        _add_http_host(self.http_host_map, host2, pinfo, sock=sock)
+
+        if api in TLS_HINT_APIS:
+            sni = _extract_tls_server_name(call, args_map)
+            if sni:
+                _add_http_host(self.http_host_map, sni, pinfo, sock=sock)
+
+            if isinstance(buf, str) and _looks_like_http(buf):
+                host3 = _http_host_from_buf(buf)
+                if host3:
+                    _add_http_host(self.http_host_map, host3, pinfo, sock=sock)
+
+        # 3. DNS Intents
+        if api in DNS_APIS:
+            domain = _norm_domain(_extract_domain_from_call(call, args_map))
+            if domain:
+                ts_epoch = _parse_behavior_ts(call.get("timestamp"))
+                self.dns_intents[domain].append(
+                    {
+                        "process": dict(pinfo),
+                        "ts_epoch": ts_epoch,
+                        "api": api,
+                    }
+                )
+
+    def run(self):
+        # Sort DNS intents by timestamp
+        for d in list(self.dns_intents.keys()):
+            self.dns_intents[d].sort(key=lambda x: (x["ts_epoch"] is None, x["ts_epoch"] or 0.0))
+
+        # We need to return dicts with string keys for JSON serialization
+        # endpoint_map keys are (ip, port) tuples. Convert to "ip:port" strings?
+        # Or list of objects?
+        # Actually, if we store this in behavior result, it will be saved to report.json/bson.
+        # BSON/JSON keys must be strings.
+        # Let's convert tuple keys to string representation "ip:port"
+
+        endpoint_map_str = {}
+        for (ip, port), entries in self.endpoint_map.items():
+            endpoint_map_str[f"{ip}:{port}"] = entries
+
+        return {
+            "endpoint_map": endpoint_map_str,
+            "http_host_map": self.http_host_map,
+            "dns_intents": self.dns_intents,
+        }
+
+
 class EncryptedBuffers:
     """Generates summary information."""
 
@@ -1293,6 +1420,7 @@ class BehaviorAnalysis(Processing):
                 Summary(self.options),
                 Enhanced(),
                 EncryptedBuffers(),
+                NetworkMap(),
             ]
             enabled_instances = [instance for instance in instances if getattr(self.options, instance.key, True)]
 

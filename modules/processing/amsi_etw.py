@@ -8,11 +8,11 @@ from lib.cuckoo.common.abstracts import Processing
 log = logging.getLogger(__name__)
 
 
-class Amsi(Processing):
-    key = "amsi"
+class AMSI_ETW(Processing):
+    key = "amsi_etw"
 
     def run(self):
-        jsonl_file = os.path.join(self.aux_path, "amsi", "amsi.jsonl")
+        jsonl_file = os.path.join(self.aux_path, "amsi_etw", "amsi.jsonl")
         if not os.path.exists(jsonl_file) or os.stat(jsonl_file).st_size == 0:
             return None
 
@@ -46,10 +46,12 @@ class Amsi(Processing):
             "kernel_time": header["KernelTime"],
             "user_time": header["UserTime"],
             "activity_id": header["ActivityId"],
-            "scan_result": cls.scan_result_to_str(event["scanResult"]),
+            "scan_result": cls.scan_result_to_str(int(event["scanResult"])),
             "app_name": event["appname"],
             "content_name": event["contentname"],
             "content_filtered": event["contentFiltered"],
+            "content_size": int(event["contentsize"]),
+            "dump_path": event.get("dump_path", ""),
             "hash": event["hash"][2:].lower(),
         }
 

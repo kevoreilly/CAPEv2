@@ -64,6 +64,8 @@ reports_dl_allowed_to_all = yes
 expose_process_log = no
 # Show button to reprocess the task
 reprocess_tasks = no
+# Allow to reprocess failed processing tasks
+reprocess_failed_processing = no
 # Allows you to define URL splitter, "," is default
 url_splitter = ,
 # Limit number of files extracted from archive in demux.py

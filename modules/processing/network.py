@@ -17,11 +17,12 @@ import sys
 import tempfile
 import traceback
 from base64 import b64encode
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict, namedtuple, defaultdict
 from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
+from typing import Any, Dict, List, Optional
 from urllib.parse import urlunparse
 
 import cachetools.func
@@ -35,6 +36,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dns import resolve
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.irc import ircMessage
+from lib.cuckoo.common.network_utils import _norm_domain
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
@@ -42,6 +44,9 @@ from lib.cuckoo.common.utils import convert_to_printable
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 log = logging.getLogger(__name__)
+
+
+
 
 try:
     import re2 as re
@@ -1109,6 +1114,287 @@ class NetworkAnalysis(Processing):
 
         return ja3_fprints
 
+    def _load_network_map(self) -> Dict:
+        with suppress(Exception):
+            return self.results.get("behavior", {}).get("network_map") or {}
+        return {}
+
+    def _reconstruct_endpoint_map(self, raw_map: Dict[str, List[Dict]]) -> Dict[tuple, List[Dict]]:
+        """
+        Convert JSON-friendly "ip:port" keys back to (ip, int(port)) tuples.
+        """
+        endpoint_map = {}
+        for key, val in raw_map.items():
+            try:
+                ip, port_str = key.rsplit(":", 1)
+                port = int(port_str)
+                endpoint_map[(ip, port)] = val
+            except (ValueError, IndexError):
+                continue
+        return endpoint_map
+
+    def _pick_best(self, candidates: List[Dict]) -> Optional[Dict]:
+        if not candidates:
+            return None
+
+        for c in candidates:
+            if c.get("process_name"):
+                return c
+
+        return candidates[0]
+
+    def _match_dns_process(self, dns_entry: Dict, dns_intents: Dict, max_skew_seconds: float = 10.0) -> Optional[Dict]:
+        """
+        Match a network.dns entry to the closest behavior DNS intent by:
+          - same domain
+          - closest timestamp (if both sides have timestamps)
+
+        Returns process dict or None.
+        """
+        req = _norm_domain(dns_entry.get("request"))
+        if not req:
+            return None
+
+        candidates = dns_intents.get(req) or []
+        if not candidates:
+            return None
+
+        net_ts = dns_entry.get("first_seen")
+        if not isinstance(net_ts, (int, float)):
+            return candidates[0].get("process")
+
+        best = None
+        best_delta = None
+
+        for c in candidates:
+            bts = c.get("ts_epoch")
+            if not isinstance(bts, (int, float)):
+                continue
+
+            delta = abs(net_ts - bts)
+            if best is None or delta < best_delta:
+                best = c
+                best_delta = delta
+
+        if best is not None and best_delta is not None and best_delta <= max_skew_seconds:
+            return best.get("process")
+
+        return candidates[0].get("process")
+
+    def _pcap_first_epoch(self, network: Dict) -> Optional[float]:
+        ts = []
+        for k in ("dns", "http"):
+            for e in network.get(k) or []:
+                v = e.get("first_seen")
+                if isinstance(v, (int, float)):
+                    ts.append(float(v))
+        return min(ts) if ts else None
+
+    def _build_dns_events_rel(self, network: Dict, dns_intents: Dict, max_skew_seconds: float = 10.0) -> List[Dict]:
+        """
+        Returns a list of dns events:
+        [{"t_rel": float, "process": {...}|None, "request": "example.com"}]
+        """
+        out = []
+        first_epoch = self._pcap_first_epoch(network)
+        if first_epoch is None:
+            return out
+
+        for d in network.get("dns") or []:
+            first_seen = d.get("first_seen")
+            if not isinstance(first_seen, (int, float)):
+                continue
+            t_rel = float(first_seen) - float(first_epoch)
+            proc = self._match_dns_process(d, dns_intents, max_skew_seconds=max_skew_seconds)
+            out.append({"t_rel": t_rel, "process": proc, "request": d.get("request")})
+
+        out.sort(key=lambda x: x["t_rel"])
+        return out
+
+    def _nearest_dns_process_by_rel_time(self, dns_events_rel: List[Dict], t_rel: Any, max_skew: float = 5.0) -> Optional[Dict]:
+        if not dns_events_rel or not isinstance(t_rel, (int, float)):
+            return None
+
+        best = None
+        best_delta = None
+        for e in dns_events_rel:
+            delta = abs(e["t_rel"] - float(t_rel))
+            if best is None or delta < best_delta:
+                best = e
+                best_delta = delta
+
+        if best is not None and best_delta is not None and best_delta <= max_skew:
+            return best.get("process")
+        return None
+
+    def _set_proc_fields(self, obj: Dict, proc: Optional[Dict]):
+        """
+        Add process_id/process_name onto an existing network entry.
+        If proc is None, sets them to None (keeps template stable).
+        """
+        if proc:
+            obj["process_id"] = proc.get("process_id")
+            obj["process_name"] = proc.get("process_name")
+        else:
+            obj["process_id"] = None
+            obj["process_name"] = None
+
+    def _process_map(self, network: Dict):
+        net_map = self._load_network_map()
+
+        if not network or not net_map:
+            return
+
+        endpoint_map = self._reconstruct_endpoint_map(net_map.get("endpoint_map", {}))
+        http_host_map = net_map.get("http_host_map", {})
+        dns_intents = net_map.get("dns_intents", {})
+
+        for flow in network.get("tcp") or []:
+            proc = None
+            if flow.get("dst") and flow.get("dport") is not None:
+                proc = self._pick_best(endpoint_map.get((flow["dst"], int(flow["dport"])), []))
+
+            self._set_proc_fields(flow, proc)
+
+        dns_events_rel = self._build_dns_events_rel(network, dns_intents, max_skew_seconds=10.0)
+        for d in network.get("dns") or []:
+            proc = self._match_dns_process(d, dns_intents, max_skew_seconds=10.0)
+            self._set_proc_fields(d, proc)
+
+        for flow in network.get("udp") or []:
+            proc = None
+            dst = flow.get("dst")
+            dport = flow.get("dport")
+            sport = flow.get("sport")
+
+            if dst and dport is not None:
+                proc = self._pick_best(endpoint_map.get((dst, int(dport)), []))
+
+            if not proc and (dport == 53 or sport == 53):
+                t_rel = flow.get("time")
+                proc = self._nearest_dns_process_by_rel_time(dns_events_rel, t_rel, max_skew=5.0)
+
+            self._set_proc_fields(flow, proc)
+
+        for key in ("http", "http_ex", "https_ex"):
+            for h in network.get(key) or []:
+                proc = None
+
+                host = h.get("host")
+                if isinstance(host, str) and host:
+                    # Normalize key for lookup
+                    norm_host = _norm_domain(host)
+                    if norm_host:
+                        proc = self._pick_best(http_host_map.get(norm_host, []))
+
+                    # Try fallback to IP if host lookup failed or wasn't present,
+                    # but only if original logic supported it.
+                    if not proc and ":" in host:
+                        raw = host.rsplit(":", 1)[0].strip()
+                        norm_raw = _norm_domain(raw)
+                        if norm_raw:
+                            proc = self._pick_best(http_host_map.get(norm_raw, []))
+
+                if not proc:
+                    dst = h.get("dst")
+                    dport = h.get("dport")
+                    if dst and dport is not None:
+                        proc = self._pick_best(endpoint_map.get((dst, int(dport)), []))
+
+                self._set_proc_fields(h, proc)
+
+        # Aggregate process information for the 'hosts' summary
+        ip_to_procs = defaultdict(dict)
+        for flow_type in ("tcp", "udp"):
+            for flow in network.get(flow_type, []):
+                if flow.get("process_id") and flow.get("dst"):
+                    ip_to_procs[flow["dst"]][flow["process_id"]] = flow.get("process_name", "Unknown")
+
+        for host in network.get("hosts", []):
+            procs = ip_to_procs.get(host["ip"])
+            if procs:
+                if len(procs) == 1:
+                    pid, name = list(procs.items())[0]
+                    host["process_id"] = pid
+                    host["process_name"] = name
+                else:
+                    host["process_name"] = ", ".join(f"{name} ({pid})" for pid, name in procs.items())
+                    host["process_id"] = None
+
+    def _merge_behavior_network(self, results):
+        """
+        Merge network events found in behavior logs but missing in PCAP.
+        Marks them with source='behavior'.
+        """
+        net_map = self._load_network_map()
+        if not net_map:
+            return
+
+        network = results.get("network", {})
+
+        # 1. DNS
+        dns_intents = net_map.get("dns_intents", {})
+        existing_dns = {_norm_domain(d.get("request")) for d in network.get("dns", []) if d.get("request")}
+
+        for domain, intents in dns_intents.items():
+            if domain not in existing_dns:
+                first_intent = intents[0]
+                proc = first_intent.get("process", {})
+                entry = {
+                    "request": domain,
+                    "answers": [],
+                    "type": "A",
+                    "source": "behavior",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                    "time": first_intent.get("ts_epoch"),
+                }
+                network.setdefault("dns", []).append(entry)
+
+        # 2. HTTP
+        http_host_map = net_map.get("http_host_map", {})
+        existing_hosts = {h.get("host") for h in network.get("http", [])}
+        http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
+        existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
+        for host, procs in http_host_map.items():
+            if host not in existing_hosts:
+                proc = procs[0] if procs else {}
+                entry = {
+                    "host": host,
+                    "port": 80,
+                    "uri": "/",
+                    "method": "GET",
+                    "source": "behavior",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                }
+                network.setdefault("http", []).append(entry)
+
+        # 3. Connections (TCP/UDP)
+        endpoint_map = self._reconstruct_endpoint_map(net_map.get("endpoint_map", {}))
+
+        existing_endpoints = set()
+        for t in network.get("tcp", []):
+            existing_endpoints.add((t.get("dst"), t.get("dport")))
+        for u in network.get("udp", []):
+            existing_endpoints.add((u.get("dst"), u.get("dport")))
+
+        for (ip, port), procs in endpoint_map.items():
+            if (ip, port) not in existing_endpoints:
+                proc = procs[0] if procs else {}
+                entry = {
+                    "src": "behavior",
+                    "sport": 0,
+                    "dst": ip,
+                    "dport": port,
+                    "source": "behavior",
+                    "process_id": proc.get("process_id"),
+                    "process_name": proc.get("process_name"),
+                }
+                # Heuristic: DNS is usually UDP, HTTP/others usually TCP
+                target_list = "udp" if port == 53 else "tcp"
+                network.setdefault(target_list, []).append(entry)
+
     def run(self):
         if not path_exists(self.pcap_path):
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
@@ -1148,6 +1434,11 @@ class NetworkAnalysis(Processing):
                     results.update(p2)
             except Exception:
                 log.exception("Error running httpreplay-based PCAP analysis")
+
+        if proc_cfg.network.process_map:
+            self._process_map(results)
+            if proc_cfg.network.merge_behavior_map:
+                self._merge_behavior_network(results)
 
         return results
 

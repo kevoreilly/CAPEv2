@@ -15,9 +15,12 @@ import sys
 from contextlib import suppress
 from pathlib import Path
 
-# Private
-import custom.signatures
-
+try:
+    # Private
+    import custom.signatures
+    HAS_CUSTOM_SIGNATURES = True
+except ModuleNotFoundError:
+    HAS_CUSTOM_SIGNATURES = False
 try:
     import custom.signatures.all
 except ImportError:
@@ -290,7 +293,8 @@ def init_modules():
     import_package(modules.signatures.windows)
     import_package(modules.signatures.linux)
     # Import all private signatures
-    import_package(custom.signatures)
+    if HAS_CUSTOM_SIGNATURES:
+        import_package(custom.signatures)
     if HAS_CUSTOM_SIGNATURES_ALL:
         import_package(custom.signatures.all)
     if HAS_CUSTOM_SIGNATURES_LINUX:

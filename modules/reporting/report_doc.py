@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import copy
+import datetime
 import logging
 import os
 import re
@@ -49,6 +50,8 @@ def ensure_valid_utf8(obj):
                 v.encode()
             except UnicodeEncodeError:
                 obj[k] = "".join(str(ord(_)) for _ in v).encode()
+        elif isinstance(v, datetime.datetime):
+            obj[k] = v.strftime("%Y-%m-%d %H:%M:%S")
         else:
             ensure_valid_utf8(v)
 
@@ -57,13 +60,47 @@ def get_json_document(results, analysis_path):
     # Create a copy of the dictionary. This is done in order to not modify
     # the original dictionary and possibly
     # compromise the following reporting modules.
-    try:
-        report = copy.deepcopy(results)
-    except AttributeError:
-        if "memory" in results:
-            del results["memory"]
-            log.error("Deleting Volatility results")
-            report = copy.deepcopy(results)
+    # We use a shallow copy of the top level and common sub-dicts to avoid
+    # the extremely expensive deepcopy which often causes OOM on large reports.
+    report = results.copy()
+
+    # Manually copy sections that are often modified by reporting modules
+    for section in (
+        "info",
+        "behavior",
+        "network",
+        "suricata",
+        "target",
+        "CAPE",
+        "static",
+        "procdump",
+        "dropped",
+        "strings",
+        "signatures",
+        "statistics",
+        "memory",
+    ):
+        if section in report:
+            try:
+                if isinstance(report[section], dict):
+                    report[section] = report[section].copy()
+                elif isinstance(report[section], list):
+                    report[section] = list(report[section])
+            except Exception as e:
+                log.warning("Failed to copy section %s: %s", section, e)
+                if section == "memory":
+                    log.error("Deleting 'memory' key from report due to copy failure")
+                    del report["memory"]
+
+    # Deeper copy for behavior processes to avoid modifying metadata
+    if "behavior" in report and isinstance(report.get("behavior"), dict):
+        if "processes" in report["behavior"]:
+            report["behavior"]["processes"] = [p.copy() for p in report["behavior"]["processes"]]
+        if "processtree" in report["behavior"]:
+            try:
+                report["behavior"]["processtree"] = copy.deepcopy(report["behavior"]["processtree"])
+            except Exception as e:
+                log.warning("Failed to deepcopy processtree: %s", e)
 
     if "network" not in report:
         report["network"] = {}
@@ -125,7 +162,7 @@ def insert_calls(report, elastic_db=None, mongodb=False):
                 chunk_id = None
                 # If the chunk size is CHUNK_CALL_SIZE or if the loop is completed then store the chunk in DB.
                 if len(chunk) == CHUNK_CALL_SIZE:
-                    to_insert = {"pid": process["process_id"], "calls": chunk , "task_id": report["info"]["id"]}
+                    to_insert = {"pid": process["process_id"], "calls": chunk, "task_id": report["info"]["id"]}
                     with suppress(Exception):
                         chunk_id = mongo_insert_one("calls", to_insert).inserted_id
                     if chunk_id:

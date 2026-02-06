@@ -99,6 +99,10 @@ enabled = no
 [network]
 enabled = yes
 sort_pcap = no
+# Enable mapping of network events to specific processes using behavioral analysis data
+process_map = no
+# Adds network connections seen in behavior but not in PCAP. Requires process_map = yes
+merge_behavior_map = no
 # DNS whitelisting to ignore domains/IPs configured in network.py
 dnswhitelist = yes
 # additional entries
@@ -323,3 +327,4 @@ enabled = no
 # Enable when using the PolarProxy option during analysis. This will merge the tls.pcap containing
 # plain-text TLS streams into the task PCAP.
 enabled = no
+

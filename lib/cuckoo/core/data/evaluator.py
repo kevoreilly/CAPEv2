@@ -2,48 +2,32 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Any, List, Optional, Union, Tuple, Dict
 from datetime import datetime, timedelta, timezone
-
+from lib.cuckoo.common.exceptions import (
+    CuckooDependencyError
+)
 import sys
 import logging
-from lib.cuckoo.core.db_types import _utcnow_naive, Base
+from .db_common import _utcnow_naive, Base
 
 log = logging.getLogger(__name__)
 
 try:
     from sqlalchemy.engine import make_url
     from sqlalchemy import (
-        Boolean,
-        BigInteger,
         Column,
         DateTime,
-        Enum,
         ForeignKey,
-        Index,
+        func,
         Integer,
         String,
         Table,
         Text,
-        create_engine,
-        # event,
-        func,
-        not_,
-        select,
-        Select,
-        delete,
-        update,
         JSON
     )
-    from sqlalchemy.exc import IntegrityError, SQLAlchemyError
     from sqlalchemy.orm import (
-        aliased,
-        joinedload,
-        subqueryload,
-        relationship,
-        scoped_session,
-        sessionmaker,
-        DeclarativeBase,
         Mapped,
         mapped_column,
+        relationship
     )
 
 except ImportError:  # pragma: no cover
@@ -171,7 +155,7 @@ class TestRun(Base):
         lazy="joined" # Performance boost: loads objectives with the run
     )
 
-class TestHarnessMixIn:            
+class EvaluatorMixIn:            
     def list_test_sessions(
         self,
         limit=None,        
@@ -263,13 +247,13 @@ class TestHarnessMixIn:
                 )
 
                 for obj_data in test['objectives']:
-                    obj = TestObjective(
+                    obj = TestObjectiveInstance(
                         run_id=run.id,
                         name=obj_data.get('name'),
                         description=obj_data.get('description'),
                         state="pending"
                     )
-                    session.add(obj)
+                    self.session.add(obj)
 
                 new_entries.append(new_entry)
             except Exception as e:

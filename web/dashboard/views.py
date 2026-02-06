@@ -12,7 +12,8 @@ from django.views.decorators.http import require_safe
 sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.web_utils import top_detections
-from lib.cuckoo.core.database import (
+from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.data.task import (
     TASK_COMPLETED,
     TASK_DISTRIBUTED,
     TASK_FAILED_ANALYSIS,
@@ -21,8 +22,7 @@ from lib.cuckoo.core.database import (
     TASK_PENDING,
     TASK_RECOVERED,
     TASK_REPORTED,
-    TASK_RUNNING,
-    Database,
+    TASK_RUNNING
 )
 
 

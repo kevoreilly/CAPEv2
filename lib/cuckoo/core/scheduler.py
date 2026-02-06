@@ -21,7 +21,10 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
 from lib.cuckoo.common.utils import CATEGORIES_NEEDING_VM, load_categories
 from lib.cuckoo.core.analysis_manager import AnalysisManager
-from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_PENDING, Database, Machine, Task, _Database, _utcnow_naive
+from lib.cuckoo.core.data.db_common import _utcnow_naive
+from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.data.machines import Machine
+from lib.cuckoo.core.data.task import Task, TASK_FAILED_ANALYSIS, TASK_PENDING 
 from lib.cuckoo.core.machinery_manager import MachineryManager
 
 log = logging.getLogger(__name__)

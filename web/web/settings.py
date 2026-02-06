@@ -233,6 +233,7 @@ ROOT_URLCONF = "web.urls"
 WSGI_APPLICATION = "web.wsgi.application"
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",

@@ -16,7 +16,7 @@
             <div class="progress progress-striped active" style="margin-top: 10px;"></div>
             <button type="button" id="taskStatus">View Task</button>
             <script>
-                var task_url = location.origin + '/submit/status/{{task_id}}'
+                var task_url = location.origin + '/submit/status/{{task_id}}/'
                 document.getElementById("taskStatus").addEventListener("click", function() {
                     location.replace(task_url);
                 }, false);

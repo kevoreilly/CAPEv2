@@ -15,7 +15,6 @@ web_cfg = Config("web")
 class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
     # Channels 4: Explicitly declare supported subprotocols
     subprotocols = ["guacamole"]
-    
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.client = None

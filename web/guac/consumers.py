@@ -96,5 +96,8 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.send(text_data=content)
                 else:
                     break
+        except Exception as e:
+            logger.error("Exception in Guacamole message loop: %s", e)
+            raise
         finally:
             await self.close()

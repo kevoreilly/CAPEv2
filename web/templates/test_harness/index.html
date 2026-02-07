@@ -1,5 +1,9 @@
 {% extends "base.html" %}
 
+
+
+{% block content %}
+
 {% if messages %}
 <ul class="messages">
     {% for message in messages %}
@@ -9,8 +13,6 @@
     {% endfor %}
 </ul>
 {% endif %}
-
-{% block content %}
 
 <style>
     /* Force the body to be a flexbox container on this page only */

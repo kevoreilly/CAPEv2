@@ -55,19 +55,19 @@
 {% endif %}
 
 
-            <div id="session-header-wrapper" style="padding: 12px; padding-bottom: 0px">
-                {% include "test_harness/partials/session_status_header.html" with stats=stats %}
-            </div>
+<div id="session-header-wrapper" style="padding: 12px; padding-bottom: 0px">
+    {% include "test_harness/partials/session_status_header.html" with stats=stats %}
+</div>
 
-            <div class="container-fluid mt-4">
+<div class="container-fluid mt-4">
 
-                {% for run in session.runs %}
-                {% include "test_harness/partials/session_test_run.html" with run=run root_objectives=root_objectives %}
-                {% endfor %}
-            </div>
+    {% for run in session.runs %}
+    {% include "test_harness/partials/session_test_run.html" with run=run root_objectives=root_objectives %}
+    {% endfor %}
+</div>
 
 
-            <script>
+<script>
 
     const SESSION_ID = "{{ session.id }}";
 

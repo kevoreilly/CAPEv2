@@ -9,8 +9,8 @@
                 </small>
             </div>
 
-            <div class="col-md-4">
-                <div  class="mb-0 fw-bold">Tests</div>
+            <div class="col-md-3">
+                <div class="mb-0 fw-bold">All Test Statuses</div>
                 <div class="d-flex border rounded bg-secondary overflow-hidden shadow-sm">
                     <div class="flex-fill text-center border-end py-1 px-1">
                         <div class="text-light fw-bold text-uppercase lh-1 mb-1" style="font-size: 0.6rem;">Unqueued</div>
@@ -38,7 +38,7 @@
             </div>
 
             <div class="col-md-4">
-                <div  class="mb-0 fw-bold">Objectives</div>
+                <div class="mb-0 fw-bold">All Objective Outcomes</div>
                 <div class="d-flex border rounded bg-secondary overflow-hidden shadow-sm">
                     <div class="flex-fill text-center border-end py-1 px-1">
                         <div class="text-muted fw-bold text-uppercase lh-1 mb-1" style="font-size: 0.6rem;">Untested</div>
@@ -68,8 +68,16 @@
             </div>
 
 
-            <div class="col-md-2 text-end">
+            <div class="col-md-3 text-end">
+
                 <div class="d-flex justify-content-end gap-2 ">
+
+                    <button style="display:none" id="btn-refresh"
+                            class="btn btn-outline-secondary text-secondary px-3 rounded me-4">
+
+                        <i class="fas fa-refresh me-1"></i> Refresh
+                    </button>
+
                     <button id="btn-queue-all"
                             class="btn btn-outline-info text-info px-3 rounded {% if stats.not_queued == 0 %}d-none{% endif %}"
                             onclick="queue_all(this, '{{ session.id }}')">
@@ -83,6 +91,6 @@
                 </div>
             </div>
 
+            </div>
         </div>
-    </div>
 </div>

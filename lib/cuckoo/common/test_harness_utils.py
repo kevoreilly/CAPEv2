@@ -3,6 +3,8 @@ import json
 import sys
 import logging
 import zipfile
+import shutil
+from pathlib import Path
 from typing import Any, List, Optional, Union, Tuple, Dict
 import importlib.util
 
@@ -31,24 +33,64 @@ class TestLoader():
             raise ValueError(f"CapeDynamicTest from {module_path} lacks get_metadata() function")
         return tester
 
+    def _extract_payload(self, payload_archive, payload_output_dir, zip_password=None):
+
+        # Verify payload ZIP integrity
+        try:
+            with zipfile.ZipFile(payload_archive, 'r') as z:
+                # If a password is provided in JSON, verify we can access the list
+                if zip_password:
+                    z.setpassword(zip_password.encode())
+                # Test if the zip is actually readable/not corrupt
+                z.testzip() 
+        except zipfile.BadZipFile:
+            if zip_password:
+                raise ValueError(f"{payload_archive} is not usable with the given password")
+            else:
+                raise ValueError(f"{payload_archive} is corrupt")
+
+        try:
+            # delete the unwrapped payload in case a new zip has been uploadedd
+            if os.path.exists(payload_output_dir):
+                shutil.rmtree(payload_output_dir)
+            with zipfile.ZipFile(payload_archive, 'r') as zip_ref:
+                if zip_password:
+                    zip_ref.extractall(payload_output_dir, pwd=zip_password)
+                else:
+                    zip_ref.extractall(payload_output_dir)                    
+        except Exception as ex:
+            raise Exception(f"Failed to extract {payload_archive} to {payload_output_dir}: {ex}")
+
+        payload_path = None
+        try:
+            dir_path = Path(payload_output_dir)
+            payload_path = str(next(dir_path.iterdir()))
+        except Exception as e:
+            raise Exception(f"Failed to get a payload from extracted payload archive: {e}");
+        
+        if not os.path.exists(payload_path):
+            raise FileNotFoundError(f"Nothing extracted from payload archive or it could not be written to disk");
+
+        return payload_path
+
     def validate_test_directory(self, test_path: str) -> Dict[str, Any]:
         """
         Validates a single test directory and returns the metadata from the test module.
         Raises ValueError if the anything is invalid.
         """
-        test_metadata = {}
-        payload_path = os.path.join(test_path, "payload.zip")
+        payload_archive = os.path.join(test_path, "payload.zip")
         module_path = os.path.join(test_path, "test.py")
-        test_metadata['payload_path'] = payload_path
-        test_metadata['module_path'] = module_path
 
-        # 1. Check for required files
-        if not os.path.exists(payload_path):
-            raise ValueError(f"Missing payload.zip in {payload_path}")
+        # Check for required files
+        if not os.path.exists(payload_archive):
+            raise ValueError(f"Missing payload.zip in {payload_archive}")
         if not os.path.exists(module_path):
             raise ValueError(f"Missing test.py in {module_path}")
+        
+        test_metadata = {}
+        test_metadata['module_path'] = module_path
 
-        # 2. Load and instantiate the test module and fetch metadata
+        # Load and instantiate the python test module and fetch metadata
         try:
             tester = self.load_module(module_path)                
             test_metadata['info'] = tester.get_metadata()
@@ -67,27 +109,21 @@ class TestLoader():
         except Exception as e:
             raise ValueError(f"Failed to load test module or fetch metadata from {module_path}: {e}")
 
+        conf = test_metadata['info'].get("Task Config", None)
+        if conf:
+            if conf.get("Request Options",None) == None:
+                test_metadata['info']["Request Options"] = ""
+
         if 'Name' not in test_metadata['info']:
             raise ValueError(f"Metadata in {module_path} missing 'Name' field")
         if 'Package' not in test_metadata['info']:
             raise ValueError(f"Metadata in {module_path} missing 'Package' field")
-
-        # 3. Verify payload ZIP integrity
+        
         zip_password = test_metadata['info'].get("Zip Password", None)
-        try:
-            with zipfile.ZipFile(payload_path, 'r') as z:
-                # If a password is provided in JSON, verify we can access the list
-                if zip_password:
-                    z.setpassword(zip_password.encode())
-                # Test if the zip is actually readable/not corrupt
-                z.testzip() 
-        except zipfile.BadZipFile:
-            if zip_password:
-                raise ValueError(f"{payload_path} is not usable with the given password")
-            else:
-                raise ValueError(f"{payload_path} is corrupt")
-            
-        # 4. Return prepared metadata for DB ingest
+        payload_output_dir = os.path.join(test_path, "payload")
+        test_metadata['payload_path'] = self._extract_payload(payload_archive, payload_output_dir, zip_password)
+
+        # Return prepared metadata for DB ingest
         return test_metadata
 
 
@@ -123,5 +159,5 @@ class TestResultValidator():
         try:
             self.report = json.load(open(report_path, 'r'))
         except Exception as e:
-            raise ValueError(f"Failed to load {report_path}: {e}")
+            raise ValueError(f"Failed to load report {report_path}: {e}")
             self.report = None

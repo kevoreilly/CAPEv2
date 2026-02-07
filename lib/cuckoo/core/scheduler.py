@@ -218,6 +218,12 @@ class Scheduler:
         machine: Optional[Machine] = None
         # Cache available machine stats to avoid repeated DB queries within the loop.
         available_tags_stats = self.get_available_machine_stats()
+        
+        log.info(f"Finding pending tasks. tag stats: {available_tags_stats}")
+
+        for tc in self.db.list_tasks( status=TASK_PENDING):
+            if tc.id > 190:
+                log.info(f"Task #{tc.id}, machine: {tc.machine}, tags:{tc.tags}, pkg:{tc.package}, status:{tc.status},  opts:{tc.options}, errs:{tc.errors}, prio:{tc.priority}")
 
         # Get the list of all pending tasks in the order that they should be processed.
         for task_candidate in self.db.list_tasks(
@@ -230,6 +236,7 @@ class Scheduler:
                 # This task can definitely be processed because it doesn't need a machine.
                 task = task_candidate
                 break
+                            
 
             try:
                 machine = self.machinery_manager.find_machine_to_service_task(task_candidate)
@@ -240,6 +247,7 @@ class Scheduler:
                     "Requested tags: '{tags}'. Available machine tags: {available}. "
                     "Please check your machinery configuration."
                 )
+
 
                 if self.cfg.cuckoo.fail_unserviceable:
                     log.info(

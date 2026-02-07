@@ -195,7 +195,11 @@ def reload_available_tests(request):
     try:
         # This calls the method you added to your Mixin
         count = db.reload_tests(result['available'],result['unavailable'])
-        messages.success(request, f"Successfully reloaded {count} tests from {tests_root} [Avail:{result['available']}, Unavail: {result['unavailable']}].")
+        if result['unavailable']:
+            messages.warning(request, f"Partially reloaded {count} tests from {tests_root} [Avail:{result['available']}, Unavail: {result['unavailable']}].")
+        else:
+            messages.success(request, f"Successfully reloaded all {count} tests from {tests_root} {result['available']}.")
+
     except Exception as e:
         messages.error(request, f"reload_available_tests:: Error reloading tests: {str(e)}")
      
@@ -230,7 +234,7 @@ def session_index(request, session_id):
     stats = get_session_stats(session_data)
 
     if not session_data:
-        messages.error(request, "Session not found.")
+        messages.warning(request, "Session not found.")
         return redirect("test_harness")
     return render(request, "test_harness/session.html", {
         "session": session_data,
@@ -246,18 +250,10 @@ def delete_test_session(request, session_id):
         messages.success(request, f"Session #{session_id} deleted.")
     except Exception as e:
         messages.error(request, f"Error deleting session: {str(e)}")
+        logger.error(f"Error deleting session: {str(e)}")
         
     return redirect("test_harness")
 
-@require_POST
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def queue_test(request,session_id, test_id):
-    db.set_audit_run_status(session_id, test_id, "queued")
-    return JsonResponse({
-            "status": "success", 
-            "message": "Test queued successfully",
-            "test_id": test_id
-        })
 
 def get_run_update(request, session_id, run_id):
     db_test_session = db.get_test_session(session_id)
@@ -344,6 +340,27 @@ def session_status(request,session_id):
     return JsonResponse({'results':session_result})
     '''
     
+
+
+    
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def queue_test(request, session_id, test_id):
+    user_id =  request.user.id or 0
+    task_id = None
+    try:
+        task_id = db.queue_audit_test(session_id, test_id, user_id)
+        db.set_audit_run_status(session_id, test_id, "queued")
+        messages.success(request, f"Task added: id {task_id}")
+    except Exception as ex:
+        messages.error(request, f"Task Exception: {ex}")
+
+    return JsonResponse({
+            "status": "success", 
+            "message": "Test queued successfully",
+            "task_id": task_id
+        })
+
 
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

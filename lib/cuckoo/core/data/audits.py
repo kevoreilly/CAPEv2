@@ -4,7 +4,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 from typing import Any, List, Optional, Union, Tuple, Dict
 from datetime import datetime, timedelta, timezone
 from lib.cuckoo.common.exceptions import CuckooDependencyError
+from lib.cuckoo.common.objects import File
 import sys
+import json
 import logging
 from .db_common import _utcnow_naive, Base
 
@@ -12,7 +14,7 @@ log = logging.getLogger(__name__)
 
 try:
     from sqlalchemy.engine import make_url
-    from sqlalchemy import Column, DateTime, ForeignKey, func, select, Integer, String, Table, Text, JSON
+    from sqlalchemy import (Column, DateTime, ForeignKey, func, select, exists, delete, Integer, String, Table, Text, JSON)
     from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 except ImportError:  # pragma: no cover
@@ -227,63 +229,114 @@ class AuditsMixIn:
         stmt = select(func.count(AvailableTest.id))
         return self.session.scalar(stmt)
 
+    def _load_test(self, test, session):
+        
+        result = {'module_path':test["module_path"]}
+        try:
+            info = test["info"]
+            test_name = info.get("Name")
+
+            stmt = select(AvailableTest).where(AvailableTest.name == test_name)
+            db_test = session.execute(stmt).scalar_one_or_none()
+            if not db_test:
+                db_test = AvailableTest(name=test_name)
+                session.add(db_test)
+                result['added'] = True
+            else:
+                result['updated'] = True
+
+            db_test.description=info.get("Description", None)
+            db_test.payload_notes=info.get("Payload Notes", None)
+            db_test.result_notes=info.get("Result Notes", None)
+            db_test.zip_password=info.get("Zip Password", None)
+            db_test.timeout=info.get("Timeout", None)
+            db_test.package=info.get("Package")
+            db_test.payload_path=test["payload_path"]
+            db_test.module_path=test["module_path"]
+            db_test.targets=info.get("Targets", None)
+            db_test.task_config=info.get("Task Config", {})
+
+            # Recursive upsert for objectives
+            def sync_objective(test_name, obj_data, parent_obj=None):
+                full_name = f"{test_name}::{obj_data.get('name')}"
+                    
+                # Check if this template already exists
+                stmt = select(TestObjectiveTemplate).where(
+                    TestObjectiveTemplate.full_name == full_name
+                )
+                db_obj = session.execute(stmt).scalar_one_or_none()
+
+                if not db_obj:
+                    db_obj = TestObjectiveTemplate(full_name=full_name)
+                    session.add(db_obj)
+
+                # Update attributes
+                db_obj.name = obj_data.get("name")
+                db_obj.requirement = obj_data.get("requirement")
+                db_obj.parent = parent_obj
+
+                # Handle children recursively
+                # Note: This updates existing children or adds new ones
+                for child_data in obj_data.get("children", []):
+                    sync_objective(test_name, child_data, parent_obj=db_obj)
+                    
+                return db_obj
+                    
+            current_test_templates = []
+            for obj_data in test["objectives"]:
+                tpl = sync_objective(test_name, obj_data)
+                current_test_templates.append(tpl)
+                     
+            db_test.objective_templates = current_test_templates
+            
+        except Exception as ex:
+            result['errormsg'] = f"Error preparing test entry for {test['info'].get('Name','unknown')}: {ex}"
+            log.exception(result['errormsg'])
+
+        return result
+
     def reload_tests(self, available_tests, unavailable_tests):
         """Load parsed test info into the database
         @param: available_tests: dictionaries of successfully parsed test metadata
         @param: unavailable_tests: dictionaries of paths and errors for failed test loads
         """
         log.info(f"Reloading available tests into database, currently there are {self.count_available_tests()}")
-        new_entries = []
-        new_objectives = []
-        for test in available_tests:
-            try:
-                info = test["info"]
-                test_name = info.get("Name")
-                new_entry = AvailableTest(
-                    name=test_name,
-                    description=info.get("Description", None),
-                    payload_notes=info.get("Payload Notes", None),
-                    result_notes=info.get("Result Notes", None),
-                    zip_password=info.get("Zip Password", None),
-                    timeout=info.get("Timeout", None),
-                    package=info.get("Package"),
-                    payload_path=test["payload_path"],
-                    module_path=test["module_path"],
-                    targets=info.get("Targets", None),
-                    task_config=info.get("Task Config", {}),
-                )
-
-                
-                def load_objective(test_name, objdata):
-                    children = [load_objective(test_name, oc) for oc in objdata.get("children", [])]
-                    loadedobj = TestObjectiveTemplate(
-                        full_name=test_name + "::" + objdata.get("name"),
-                        name=objdata.get("name"),
-                        requirement=objdata.get("requirement"),
-                        children=children,
-                    )
-                    return loadedobj
-                for obj_data in test["objectives"]:
-                    obj = load_objective(test_name, obj_data)
-                    new_entry.objective_templates.append(obj)
-
-                new_entries.append(new_entry)
-            except Exception as e:
-                unavailable_tests.append(
-                    {"module_path": test.get("module_path", "unknown"), "error": "Exception while parsing metadata: " + str(e)}
-                )
-                log.exception(f"Error preparing test entry for {test['info'].get('Name','unknown')}: {e}")
-                continue
-
-        # Delete pre-existing tests
+        
+        test_count_before_add = self.count_available_tests()
+        current_test_names = []
+        stats = {'added':0, 'updated':0, 'error':0}
         with self.session.session_factory() as sess, sess.begin():
-            sess.execute(delete(AvailableTest))
-            sess.execute(delete(TestObjectiveTemplate))
-            sess.add_all(new_entries)
-            # sess.add_all(new_objectives)
+            for test in available_tests:
+                load_result = self._load_test(test, sess)
+                if 'error' in load_result:
+                    unavailable_tests.append(load_result)
+                    stats['error'] += 1
+                else:
+                    current_test_names.append(test["info"].get("Name"))
+                    if load_result.get('added', False): stats['added'] += 1
+                    if load_result.get('updated', False): stats['updated'] += 1
 
-        log.info(f"Reloaded available tests, there are now {self.count_available_tests()}")
-        return len(new_entries)
+                    
+        test_count_after_add = self.count_available_tests()
+        self.purge_unreferenced_tests(current_test_names)
+        test_count_after_clean = self.count_available_tests()
+        removed = test_count_after_clean - test_count_after_add
+        log.info(f"Reloaded tests, there are now {test_count_after_clean} available "
+                 f"({stats['added']} added, {stats['updated']} updated, {removed} removed, {stats['error']} errored)")
+        return test_count_after_clean
+
+    def purge_unreferenced_tests(self, loaded_test_names):
+        retired_tests_stmt = delete(AvailableTest).where(
+            AvailableTest.name.notin_(loaded_test_names),
+            ~exists().where(TestRun.test_id == AvailableTest.id)
+        )
+        self.session.execute(retired_tests_stmt)
+
+        orphaned_tpl_stmt = delete(TestObjectiveTemplate).where(
+            ~exists().where(test_template_association.c.template_id == TestObjectiveTemplate.id)
+        )
+        self.session.execute(orphaned_tpl_stmt)
+
 
     def get_test_session(self, session_id: int) -> Optional[TestSession]:
         return self.session.query(TestSession).filter_by(id=session_id).first()
@@ -341,3 +394,41 @@ class AuditsMixIn:
         if run:
             run.status = new_status
             self.session.commit()
+
+
+    def queue_audit_test(self, session_id, test_id, user_id=0):
+        audit_session = self.get_test_session(session_id)
+        test_instance = self.get_audit_session_test(session_id, test_id)
+
+        test_definition = test_instance.test_definition
+        
+        conf = test_definition.task_config
+        log.info(f"Audit task added conf: {conf}")
+        task_options = conf.get("Request Options","")
+        if task_options == None: # if None -> pending forever
+            task_options = ""
+
+        new_task_id = self.add(
+            File(test_definition.payload_path),
+            timeout=test_definition.timeout,
+            package=test_definition.package,
+            options=task_options,
+            priority=1,
+            custom=conf.get("Custom Request Params",""),
+            #machine=machine,
+            #platform=platform,
+            tags=conf.get("Tags",None),
+            #memory=memory,
+            #enforce_timeout=enforce_timeout,
+            #clock=clock,
+            #tlp=tlp,
+            #source_url=source_url,
+            route=test_definition.task_config.get("Route",None),
+            #cape=cape,
+            tags_tasks=["audit"],
+            user_id=user_id,
+            #parent_sample=parent_sample,
+            source_url=False
+        )
+        return new_task_id
+        

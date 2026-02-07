@@ -125,7 +125,7 @@ DISABLED_WEB = True
 # if elif else won't work here
 if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
     DISABLED_WEB = False
-    
+
 
 anon_not_viewable_func_list = (
     "file",
@@ -165,8 +165,8 @@ def create_test_session(request):
     if request.method != "POST":
         return redirect("test_harness")
 
-    test_ids = request.POST.getlist('test_ids')
-    
+    test_ids = request.POST.getlist("test_ids")
+
     if not test_ids:
         messages.warning(request, "No tests were selected.")
         return redirect("test_harness")
@@ -174,10 +174,10 @@ def create_test_session(request):
     try:
         # This calls the SQLAlchemy logic we discussed to create the TestSession + TestRuns
         session_id = db.create_session_from_tests(test_ids)
-        
+
         # Success! Now we go to the "Mission Control" page
-        return  redirect("test_session", session_id=session_id)
-        
+        return redirect("test_session", session_id=session_id)
+
     except Exception as e:
         messages.error(request, f"Error creating session: {str(e)}")
         return redirect("test_harness")
@@ -190,29 +190,32 @@ def reload_available_tests(request):
     """Triggers the TestLoader to refresh the AvailableTests table."""
 
     # Path where your test subdirectories live
-    tests_root = os.path.join(settings.CUCKOO_PATH, "tests/dynamic_test_harness") 
+    tests_root = os.path.join(settings.CUCKOO_PATH, "tests/dynamic_test_harness")
     loader = TestLoader(tests_root)
     result = loader.load_tests()
-    logger.info("Test load results: %s",json.dumps(result))
-    
+    logger.info("Test load results: %s", json.dumps(result))
+
     try:
         # This calls the method you added to your Mixin
-        count = db.reload_tests(result['available'],result['unavailable'])
-        if result['unavailable']:
-            messages.warning(request, f"Partially reloaded {count} tests from {tests_root} [Avail:{result['available']}, Unavail: {result['unavailable']}].")
+        count = db.reload_tests(result["available"], result["unavailable"])
+        if result["unavailable"]:
+            messages.warning(
+                request,
+                f"Partially reloaded {count} tests from {tests_root} [Avail:{result['available']}, Unavail: {result['unavailable']}].",
+            )
         else:
             messages.success(request, f"Successfully reloaded all {count} tests from {tests_root} {result['available']}.")
 
     except Exception as e:
         messages.error(request, f"reload_available_tests:: Error reloading tests: {str(e)}")
-     
-    return redirect(reverse('test_harness') + "#available-tests")
+
+    return redirect(reverse("test_harness") + "#available-tests")
 
 
 def test_harness_index(request):
     # Fetch your tests from the DB
-    available_tests = db.list_available_tests() # or however you fetch them
-    
+    available_tests = db.list_available_tests()  # or however you fetch them
+
     # Attach a pretty-printed string version of the config to each test object
     for test in available_tests:
         # We create a new "virtual" attribute on the object
@@ -223,11 +226,7 @@ def test_harness_index(request):
 
     test_sessions = db.list_test_sessions()
 
-
-    return render(request, "test_harness/index.html", {
-        "available_tests": available_tests,
-        "sessions": test_sessions
-    })
+    return render(request, "test_harness/index.html", {"available_tests": available_tests, "sessions": test_sessions})
 
 
 @require_POST
@@ -238,7 +237,7 @@ def delete_test_session(request, session_id):
     except Exception as e:
         messages.error(request, f"Error deleting session: {str(e)}")
         logger.error(f"Error deleting session: {str(e)}")
-        
+
     return redirect("test_harness")
 
 
@@ -255,14 +254,14 @@ def session_index(request, session_id):
     run_html = {}
     for run in session_data.runs:
         run_status = _fetch_run_update(request, session_id, run.id)
-        run_html[run.id] = run_status['html']
+        run_html[run.id] = run_status["html"]
 
-    return render(request, "test_harness/session.html", {
-        "session": session_data,
-        "runs": session_data.runs,
-        "run_html": run_html,
-        "stats": stats
-    })
+    return render(
+        request,
+        "test_harness/session.html",
+        {"session": session_data, "runs": session_data.runs, "run_html": run_html, "stats": stats},
+    )
+
 
 def _fetch_run_update(request, session_id, testrun_id):
     db_test_session = db.get_test_session(session_id)
@@ -272,41 +271,53 @@ def _fetch_run_update(request, session_id, testrun_id):
         cape_task_info = db.view_task(test_run.cape_task_id)
 
     # Render just the partial file with the updated 'run' object
-    html = render_to_string('test_harness/partials/session_test_run.html', 
-                            {'run': test_run, "cape_task": cape_task_info}, 
-                            request=request)
-    return {"html": html, "status": test_run.status,  "id": test_run.id}
+    html = render_to_string(
+        "test_harness/partials/session_test_run.html", {"run": test_run, "cape_task": cape_task_info}, request=request
+    )
+    return {"html": html, "status": test_run.status, "id": test_run.id}
+
 
 def get_run_update(request, session_id, testrun_id):
-    return JsonResponse(
-        _fetch_run_update(request,session_id, testrun_id )
-        )
+    return JsonResponse(_fetch_run_update(request, session_id, testrun_id))
+
 
 def get_session_stats(db_test_session):
     if db_test_session is None:
         return None
 
-    runs = db_test_session.runs    
+    runs = db_test_session.runs
     results = []
     stats = {
-        'tests':{'queued':0, 'unqueued':0, 'complete':0, 'running':0, 'failed':0},
-        'objectives':{'untested':0, 'skipped':0, 'success':0, 'failure':0, 'info':0, 'error':0},
-            }
+        "tests": {
+            "queued": 0,
+            "unqueued": 0,
+            "complete": 0,
+            "running": 0,
+            "failed": 0,
+        },
+        "objectives": {"untested": 0, "skipped": 0, "success": 0, "failure": 0, "info": 0, "error": 0},
+        "complete_but_unevaluated": 0,
+    }
     for run in runs:
-        stats['tests'][run.status] += 1
+        stats["tests"][run.status] += 1
         for objective in run.objectives:
-            stats['objectives'][objective.state] += 1
+            stats["objectives"][objective.state] += 1
+            if run.status == "complete" and objective.state == "untested":
+                stats["complete_but_unevaluated"] += 1
+
     return stats
+
 
 @register.filter
 def get_item(dictionary, key):
     return dictionary.get(key)
 
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def session_status(request, session_id):
     db_test_session = db.get_test_session(session_id)
     if db_test_session is None:
-        logger.warning("Tried to view session_status with in valid session %s",str(session_status))
+        logger.warning("Tried to view session_status with in valid session %s", str(session_status))
         return HttpResponseNotFound
 
     runs = db_test_session.runs
@@ -314,25 +325,28 @@ def session_status(request, session_id):
 
     results = []
     for run in runs:
-        results.append(_fetch_run_update(request, session_id, run.id ))
+        results.append(_fetch_run_update(request, session_id, run.id))
 
-    status_box = render_to_string('test_harness/partials/session_status_header.html', {
-            'stats': stats
-        }, request=request)
+    status_box = render_to_string(
+        "test_harness/partials/session_status_header.html", {"stats": stats, "session": db_test_session}, request=request
+    )
 
-    return JsonResponse({
-        "test_cards": results,
-        "status_box_card": status_box,
-        'count_unqueued': db_test_session.queued_run_count,
-        'count_queued':  db_test_session.unqueued_run_count
-        # Optional: update the top buttons too
+    return JsonResponse(
+        {
+            "test_cards": results,
+            "status_box_card": status_box,
+            "stats": stats,
+            "count_unqueued": db_test_session.queued_run_count,
+            "count_queued": db_test_session.unqueued_run_count,
+            # Optional: update the top buttons too
+        }
+    )
 
-    })
-    
+
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def queue_test(request, session_id, testrun_id):
-    user_id =  request.user.id or 0
+    user_id = request.user.id or 0
     cape_task_id = None
     try:
         cape_task_id = db.queue_audit_test(session_id, testrun_id, user_id)
@@ -341,20 +355,13 @@ def queue_test(request, session_id, testrun_id):
     except Exception as ex:
         messages.error(request, f"Task Exception: {ex}")
 
-    return JsonResponse({
-            "status": "success", 
-            "message": "Test queued successfully",
-            "task_id": cape_task_id
-        })
+    return JsonResponse({"status": "success", "message": "Test queued successfully", "task_id": cape_task_id})
 
 
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def queue_all_tests(request, session_id):
-    return JsonResponse({
-            "status": "success", 
-            "message": "Tests queued successfully"
-        })
+    return JsonResponse({"status": "success", "message": "Tests queued successfully"})
 
 
 @require_safe
@@ -403,9 +410,7 @@ def index(request, page=1):
     first_test = 0
     # On a fresh install, we need handle where there are 0 tests.
     if test_sessions_number > 0:
-        first_session = db.list_test_sessions(limit=1,order_by=TestSession.added_on.asc())[0].to_dict()[
-            "id"
-        ]
+        first_session = db.list_test_sessions(limit=1, order_by=TestSession.added_on.asc())[0].to_dict()["id"]
         paging["show_session_prev"] = "show"
     else:
         paging["show_session_prev"] = "hide"
@@ -420,9 +425,9 @@ def index(request, page=1):
 
     if db_test_sessions:
         for session in db_test_sessions:
-            
+
             for objective in run.objectives:
-                logger.info(f"FfOb {objective.name} ") 
+                logger.info(f"FfOb {objective.name} ")
             new = get_test_session_info(db, session=session)
             if new["id"] == first_session:
                 paging["show_session_next"] = "hide"
@@ -430,7 +435,7 @@ def index(request, page=1):
                 paging["show_session_prev"] = "hide"
             else:
                 paging["show_session_prev"] = "show"
-            #if db.view_errors(session.id):
+            # if db.view_errors(session.id):
             #    new["errors"] = True
 
             test_sessions.append(new)

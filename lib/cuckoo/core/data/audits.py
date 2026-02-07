@@ -1,3 +1,4 @@
+import shutil
 from sqlalchemy import select, delete
 from sqlalchemy.engine.result import _KeyIndexType
 from sqlalchemy.orm import Mapped, mapped_column
@@ -436,9 +437,11 @@ class AuditsMixIn:
             return test_session
         return None
 
-    def delete_test_session(self, session_id: int) -> bool:
+    def delete_test_session(self, session_id: int, purge_storage: bool = True) -> bool:
         """
         Deletes a specific TestSession and all associated objective instances.
+        @param: session_id: audit session to delete
+        @param: purge_storage: if true, also delete the task storage directories of all the test runs
         """
         with self.session.session_factory() as sess, sess.begin():
             stmt = select(TestSession).where(TestSession.id == session_id)
@@ -458,7 +461,15 @@ class AuditsMixIn:
                 log.warning(f"Cannot delete Session {session_id}: one or more runs are still 'running'")
                 return False
 
+            if purge_storage:
+                for run in session_obj.runs:
+                    cape_task_id = run.cape_task_id
+                    if isinstance(cape_task_id, int):
+                        task_storage_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(cape_task_id))
+                        shutil.rmtree(task_storage_dir)
+
             sess.delete(session_obj)
+
             log.info(f"Deleted TestSession {session_id} and all its objective results.")
         
         return True

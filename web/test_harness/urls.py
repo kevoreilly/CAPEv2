@@ -14,6 +14,6 @@ urlpatterns = [
     re_path(r"^reload_available_tests/", views.reload_available_tests, name="reload_available_tests"),
     re_path(r"^create_test_session/$", views.create_test_session, name="create_test_session"),
     re_path(r"^delete_test_session/(?P<session_id>\d+)/$", views.delete_test_session, name="delete_test_session"),
-    path(r"^session/<int:session_id>/queue_tests/", views.queue_all_tests, name="queue_all_tests"),
-    path(r"^session/<int:session_id>/queue_tests/<int:testrun_id>/", views.queue_test, name="queue_test"),
+    path(r"session/<int:session_id>/queue_tests/", views.queue_all_tests, name="queue_all_tests"),
+    path(r"session/<int:session_id>/queue_tests/<int:testrun_id>/", views.queue_test, name="queue_test"),
 ]

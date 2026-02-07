@@ -72,26 +72,74 @@
         border-radius: 3px;
         margin-left: 4px;
     }
+
+    .auto-update-widget {
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        max-width: 300px; /* Adjust to fit your content */
+        opacity: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        margin-top: 4px;
+        margin-left: 12px;
+        width: fit-content;
+    }
+
+        /* The "Gone" state */
+        .auto-update-widget.is-idle {
+            max-width: 0;
+            opacity: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            pointer-events: none;
+        }
 </style>
 
 {% if messages %}
 <ul class="messages">
     {% for message in messages %}
-        {% if message.tags != "success" %}
-        <li class="alert alert-{{ message.tags }}">
-            {{ message }}
-        </li>
-        {% endif %}
+    {% if message.tags != "success" %}
+    <li class="alert alert-{{ message.tags }}">
+        {{ message }}
+    </li>
+    {% endif %}
     {% endfor %}
 </ul>
 {% endif %}
 
 
-<div id="session-header-wrapper" style="padding: 12px; padding-bottom: 0px">
+<div id="auto-update-root"
+     class="auto-update-widget d-flex align-items-center gap-3 py-2 px-3 bg-dark rounded border border-secondary border-opacity-25">
+
+    <div class="form-check form-switch mb-0">
+        <input class="form-check-input shadow-none" type="checkbox" id="autoRefreshToggle" checked>
+        <label class="tech-label form-check-label ms-1" for="autoRefreshToggle">AUTO-REFRESH</label>
+    </div>
+
+    <div id="progress-wrapper" class="d-flex flex-column" style="width: 100px; transition: opacity 0.3s;">
+        <div id="refresh-progress-container" class="progress" style="height: 2px; background-color: rgba(255,255,255,0.1);">
+            <div id="refresh-progress"
+                 class="progress-bar bg-info"
+                 style="width: 0%; transition: none;"></div>
+        </div>
+    </div>
+
+    <button id="manual-refresh" onclick="forceRefresh()" class="btn btn-sm btn-outline-secondary p-1 d-flex align-items-center" title="Refresh Now">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z" />
+            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+        </svg>
+    </button>
+</div>
+
+<div id="session-metadata"
+     data-is-active="{% if stats.tests.running > 0 or stats.tests.queued > 0 %}true{% else %}false{% endif %}">
+</div>
+
+<div id="session-header-wrapper" class="mb-3" style="padding: 12px; padding-bottom: 0px">
     {% include "test_harness/partials/session_status_header.html" with stats=stats session=session %}
 </div>
 
-<div class="container-fluid mt-4">
+<div class="container-fluid">
     {% for run in session.runs %}
     {% with pagehtml=run_html|get_item:run.id %}
     {{ pagehtml|safe }}
@@ -99,12 +147,68 @@
     {% endfor %}
 </div>
 
-
 <script>
 
     const SESSION_ID = "{{ session.id }}";
+
     // Check every 5 seconds
-    var RELOADER = setInterval(updateStatuses, 5000);
+    let DASHBOARD_STATE = {
+        isActive: true,
+        elapsed: 0,
+        refreshTime: 5000,
+        step: 50
+    };
+
+    function tick() {
+        const root = document.getElementById('auto-update-root');
+
+        // 1. Check the variable, not the DOM
+        if (!DASHBOARD_STATE.isActive) {
+            if (root) root.classList.add('is-idle');
+            return;
+        } else {
+            if (root) root.classList.remove('is-idle');
+        }
+
+        // 2. Check the toggle (still need the DOM for user input)
+        const toggle = document.getElementById('autoRefreshToggle');
+        const progressBar = document.getElementById('refresh-progress');
+
+        if (!toggle || !toggle.checked) return;
+
+        // 3. Increment
+        DASHBOARD_STATE.elapsed += DASHBOARD_STATE.step;
+        let percentage = (DASHBOARD_STATE.elapsed / DASHBOARD_STATE.refreshTime) * 100;
+
+        if (progressBar) {
+            progressBar.style.width = percentage + '%';
+        }
+
+        if (DASHBOARD_STATE.elapsed >= DASHBOARD_STATE.refreshTime) {
+            DASHBOARD_STATE.elapsed = 0;
+            updateStatuses();
+        }
+    }
+
+    var RELOADER = setInterval(tick, DASHBOARD_STATE.step);
+
+    function forceRefresh() {
+        updateStatuses();
+
+        // Reset the progress bar immediately for visual feedback
+        DASHBOARD_STATE.elapsed = 0;
+        const progressBar = document.getElementById('refresh-progress');
+        if (progressBar) progressBar.style.width = '0%';
+
+        // Fancy Fancy - spin the icon
+        const refreshBtn = document.getElementById('manual-refresh');
+        const icon = refreshBtn.querySelector('svg');
+        if (icon) {
+            icon.style.transition = 'transform 0.5s ease';
+            icon.style.transform = 'rotate(360deg)';
+            setTimeout(() => { icon.style.transform = 'rotate(0deg)'; icon.style.transition = 'none'; }, 500);
+        }
+    }
 
     async function updateRunCard(test_id) {
         const response = await fetch(`/tests/session/0/run_update/${test_id}`.replace('0', SESSION_ID));
@@ -158,11 +262,12 @@
 
     }
 
-    async function queue_run(btn, session_id, run_id) {
+    async function queue_run(btn, sessionId, runId) {
         // 1. Prepare the URL and UI feedback
-        const url = "{% url 'queue_test' 0 1 %}"
-            .replace('0', SESSION_ID)
-            .replace('1', run_id);
+        //const url = "{% url 'queue_test' 0000 0001 %}"
+        //    .replace('0000', SESSION_ID)
+        //    .replace('0001', run_id);
+        const url = `/tests/session/${SESSION_ID}/queue_tests/${runId}/`;
         const originalContent = btn.innerHTML;
 
         // Prevent double-clicks and show loading state
@@ -187,6 +292,9 @@
                 // 3. Update the button to show it worked
                 btn.classList.replace('btn-outline-info', 'btn-secondary');
                 btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
+                if (!DASHBOARD_STATE.isSessionActive) {
+                    setTimeout(updateStatuses, 650)
+                }
                 // btn.disabled remains true so they can't queue it twice
             } else {
                 throw new Error(data.message || 'Queueing failed');
@@ -202,31 +310,36 @@
         }
     }
 
-    async function updateStatuses() {
-        try {
-            const response = await fetch(`/tests/session/${SESSION_ID}/status`);
-            const data = await response.json();
+    async function updateStatuses()
+    {
+        fetch(`/tests/session/${SESSION_ID}/status`)
+            .then(res => res.json())
+            .then(data => {
+                data.test_cards.forEach(carddata => {
+                    const card = document.getElementById(`run-card-${carddata.id}`);
 
-            data.test_cards.forEach(carddata => {
-                const card = document.getElementById(`run-card-${carddata.id}`);
+                    if (card) {
+                        // We use outerHTML to replace the entire card div
+                        // only if the status has changed or if it's currently "active"
+                        card.outerHTML = carddata.html;
+                    }
+                });
 
-                if (card) {
-                    // We use outerHTML to replace the entire card div
-                    // only if the status has changed or if it's currently "active"
-                    card.outerHTML = carddata.html;
+                const headerWrapper = document.getElementById('session-header-wrapper');
+                if (headerWrapper && data.status_box_card) {
+                    headerWrapper.innerHTML = data.status_box_card
+                }
+                // Update the Logic State
+                DASHBOARD_STATE.isActive = data.stats.tests.running > 0 ||
+                    data.stats.tests.queued > 0 ||
+                    data.stats.complete_but_unevaluated > 0;
+
+                // If it's no longer active, reset the bar
+                if (!data.is_active) {
+                    DASHBOARD_STATE.elapsed = 0;
                 }
             });
-
-            const headerWrapper = document.getElementById('session-header-wrapper');
-            if (headerWrapper && data.status_box_card) {
-                headerWrapper.innerHTML = data.status_box_card
-            }
-
-        } catch (error) {
-            console.error("Polling error:", error);
-        }
     }
-
 </script>
 
 {% endblock %}

@@ -14,7 +14,7 @@ log = logging.getLogger(__name__)
 
 try:
     from sqlalchemy.engine import make_url
-    from sqlalchemy import (Column, DateTime, ForeignKey, func, select, exists, delete, Integer, String, Table, Text, JSON)
+    from sqlalchemy import (Column, DateTime, ForeignKey, func, select, exists, delete, update, Integer, String, Table, Text, JSON, Boolean)
     from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 except ImportError:  # pragma: no cover
@@ -85,6 +85,8 @@ class AvailableTest(Base):
 
     objective_templates: Mapped[List["TestObjectiveTemplate"]] = relationship(secondary="test_template_association")
     runs: Mapped[List["TestRun"]] = relationship(back_populates="test_definition")
+
+    is_active: Mapped[str | None] = mapped_column(Boolean, default=True, nullable=False)
 
 
 test_template_association = Table(
@@ -191,6 +193,7 @@ class AuditsMixIn:
         self,
         limit=None,
         offset=None,
+        active_only=True
     ) -> List[AvailableTest]:
         """Retrieve list of loaded and correctly parsed testcases.
         @param limit: specify a limit of entries.
@@ -200,6 +203,8 @@ class AuditsMixIn:
         log.info("list_available_tests 1")
         # Create a select statement ordered by newest first
         stmt = select(AvailableTest).order_by(AvailableTest.name.desc())
+        if active_only == True:
+            stmt = stmt.where(AvailableTest.is_active)
 
         log.info("list_available_tests 2")
         # Apply pagination if provided
@@ -222,11 +227,13 @@ class AuditsMixIn:
         stmt = select(func.count(TestSession.id))
         return self.session.scalar(stmt)
 
-    def count_available_tests(self) -> int:
+    def count_available_tests(self, active_only=True) -> int:
         """Count number of loaded and corrently parsed test cases
         @return: number of available tests.
         """
         stmt = select(func.count(AvailableTest.id))
+        if active_only == True:
+            stmt = stmt.where(AvailableTest.is_active)
         return self.session.scalar(stmt)
 
     def _load_test(self, test, session):
@@ -326,14 +333,26 @@ class AuditsMixIn:
         return test_count_after_clean
 
     def purge_unreferenced_tests(self, loaded_test_names):
+        # delete tests not in the current loaded set and
+        # not referenced in a previous test session
         retired_tests_stmt = delete(AvailableTest).where(
             AvailableTest.name.notin_(loaded_test_names),
             ~exists().where(TestRun.test_id == AvailableTest.id)
         )
         self.session.execute(retired_tests_stmt)
 
+        # mark deleted tests referenced by past sessions as inactive so 
+        # we can't retask them
+        self.session.execute(
+            update(AvailableTest)
+            .where(AvailableTest.name.notin_(loaded_test_names))
+            .values(is_active=False)
+        )
+
+        # delete objectives not referenced by any tests
         orphaned_tpl_stmt = delete(TestObjectiveTemplate).where(
-            ~exists().where(test_template_association.c.template_id == TestObjectiveTemplate.id)
+            ~exists().where(test_template_association.c.template_id == TestObjectiveTemplate.id),
+            TestObjectiveTemplate.parent_id == None
         )
         self.session.execute(orphaned_tpl_stmt)
 

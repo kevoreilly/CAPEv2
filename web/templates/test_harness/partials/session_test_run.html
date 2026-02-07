@@ -1,0 +1,81 @@
+<div class="card shadow-sm mb-5 border-0" id="run-card-{{ run.id }}">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+        <div>
+            <h5 class="mb-0 text-uppercase tracking-wider">
+                <i class="fas fa-flask me-2 text-info"></i>{{ run.test_definition.name }}
+            </h5>
+            <small class="text-info opacity-75">{{ run.test_definition.description }} | Package: {{ run.test_definition.package }}</small>
+        </div>
+
+        <div class="d-flex align-items-center">
+
+            <div class="d-flex flex-column align-items-center pe-3">todo request</div>
+            <div class="d-flex flex-column align-items-center pe-3 border-start border-secondary ps-3">todo logs</div>
+
+            <div style="min-width: 100px;" class="d-flex flex-column align-items-center pe-3 border-start border-secondary ps-3">
+                <div style="font-size: 0.7rem; letter-spacing: 1px;" class="text-white-50 fw-bold mb-1">
+                    ID: #{{ run.id }}
+                </div>
+
+                {% if run.status == "unqueued" %}
+                <span class="badge rounded-pill bg-secondary text-white-50 pt-2">Not Queued</span>
+                {% elif run.status == "queued" %}
+                <span class="badge rounded-pill border border-info text-info">
+                    <i class="fas fa-hourglass-start me-1"></i>Queued
+                </span>
+                {% elif run.status == "running" %}
+                <span class="badge rounded-pill bg-primary pt-2">
+
+                    <i class="fas fa-circle-notch fa-spin me-1"></i>Running
+                </span>
+                {% elif run.status == "complete" %}
+                <span class="badge rounded-pill bg-success pt-2">
+                    <i class="fas fa-check-circle me-1"></i>Complete
+                </span>
+                {% elif run.status == "failed" %}
+                <span class="badge rounded-pill bg-danger pt-2">
+                    <i class="fas fa-times-circle me-1"></i>Failed
+                </span>
+                {% else %}
+                <span class="badge rounded-pill bg-warning text-dark pt-2">{{run.status}}</span>
+                {% endif %}
+            </div>
+
+            {% if run.status == "unqueued" %}
+            <div class="border-start border-secondary ps-3">
+                <button class="btn btn-sm btn-outline-info px-3 me-3 shadow-sm hover-elevate" onclick="queue_run(this, '{{session.id}}', '{{run.id}}')">
+                    <i class="fas fa-play me-1"></i>Queue
+                </button>
+            </div>
+            {% elif run.status == "queued" %}
+            <div class="border-start border-secondary ps-3">
+                <button class="btn btn-sm btn-outline-danger px-3 me-3 shadow-sm hover-elevate" onclick="unqueue_run(this, '{{session.id}}', '{{run.id}}')">
+                    <i class="fas fa-stop me-1"></i>Dequeue
+                </button>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+        <div>
+            Requirement
+        </div>
+        <div class="d-flex align-items-center">
+            Evaluation
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <div class="list-group list-group-flush border-top border-secondary">
+            {% for obj in run.objectives %}
+                {% if not obj.parent_id %}
+                <div class="list-group-item bg-dark border-secondary py-1">
+                    {% include "test_harness/partials/objective_item.html" with obj=obj %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>

@@ -6,13 +6,15 @@ import zipfile
 from typing import Any, List, Optional, Union, Tuple, Dict
 import importlib.util
 
+from sqlalchemy import exc
+
 log = logging.getLogger(__name__)
 
 class TestLoader():
     def __init__(self, tests_directory):
-	    if not os.path.exists(tests_directory):
-		    raise ValueError(f"Tests directory '{tests_directory}' does not exist.")
-	    self.tests_root = tests_directory
+        if not os.path.exists(tests_directory):
+            raise ValueError(f"Tests directory '{tests_directory}' does not exist.")
+        self.tests_root = tests_directory
     
     def load_module(self, module_path):
         module_name = "test_py_module"
@@ -47,8 +49,24 @@ class TestLoader():
             raise ValueError(f"Missing test.py in {module_path}")
 
         # 2. Load and instantiate the test module and fetch metadata
-        tester = self.load_module(module_path)                
-        test_metadata['info'] = tester.get_metadata()
+        try:
+            tester = self.load_module(module_path)                
+            test_metadata['info'] = tester.get_metadata()
+
+            test_metadata['objectives'] = []
+
+            def load_objective(objective):
+                objdict = {'name': objective.name, 
+                         'requirement': objective.requirement,
+                         'children': [load_objective(child) for child in objective.children]
+                         }
+                return objdict
+            for objective in tester.get_objectives():
+                test_metadata['objectives'].append(load_objective(objective))
+            
+        except Exception as e:
+            raise ValueError(f"Failed to load test module or fetch metadata from {module_path}: {e}")
+
         if 'Name' not in test_metadata['info']:
             raise ValueError(f"Metadata in {module_path} missing 'Name' field")
         if 'Package' not in test_metadata['info']:
@@ -95,7 +113,7 @@ class TestLoader():
             except Exception as e:
                 log.warning(f"Skipping directory {entry.path} due to exception")
                 log.exception("Verify exception %s",e)
-                unavailable_tests.append(entry.path)
+                unavailable_tests.append({"module_path":entry.path, "error":str(e)})
 
         return {'available':available_tests, 'unavailable': unavailable_tests}
 

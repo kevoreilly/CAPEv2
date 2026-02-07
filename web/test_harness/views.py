@@ -5,6 +5,7 @@
 import base64
 import collections
 import datetime
+import http
 import json
 import os
 import subprocess
@@ -23,8 +24,9 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import BadRequest, PermissionDenied
-from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse, JsonResponse, HttpResponseNotFound
 from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
 from django.urls import reverse
@@ -189,13 +191,11 @@ def reload_available_tests(request):
     loader = TestLoader(tests_root)
     result = loader.load_tests()
     logger.info("Test load results: %s",json.dumps(result))
-
-
     
     try:
         # This calls the method you added to your Mixin
         count = db.reload_tests(result['available'],result['unavailable'])
-        messages.success(request, f"Successfully reloaded {count} tests.")
+        messages.success(request, f"Successfully reloaded {count} tests from {tests_root} [Avail:{result['available']}, Unavail: {result['unavailable']}].")
     except Exception as e:
         messages.error(request, f"reload_available_tests:: Error reloading tests: {str(e)}")
      
@@ -227,13 +227,15 @@ def session_index(request, session_id):
     # Fetch the session and join the runs and test metadata in one go
     session_data = db.get_test_session(session_id)
 
+    stats = get_session_stats(session_data)
+
     if not session_data:
         messages.error(request, "Session not found.")
-        return redirect("test_harness_index")
-
+        return redirect("test_harness")
     return render(request, "test_harness/session.html", {
         "session": session_data,
-        "runs": session_data.runs # This is available via the relationship()
+        "runs": session_data.runs,
+        "stats": stats
     })
 
 @require_POST
@@ -246,6 +248,110 @@ def delete_test_session(request, session_id):
         messages.error(request, f"Error deleting session: {str(e)}")
         
     return redirect("test_harness")
+
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def queue_test(request,session_id, test_id):
+    db.set_audit_run_status(session_id, test_id, "queued")
+    return JsonResponse({
+            "status": "success", 
+            "message": "Test queued successfully",
+            "test_id": test_id
+        })
+
+def get_run_update(request, session_id, run_id):
+    db_test_session = db.get_test_session(session_id)
+    run = [x for x in db_test_session.runs if x.id == run_id][0] #todo unfuck
+    
+    # Render just the partial file with the updated 'run' object
+    html = render_to_string('test_harness/partials/session_test_run.html', {'run': run}, request=request)
+    
+    return JsonResponse({"html": html, "status": run.status})
+
+def get_session_stats(db_test_session):
+    if db_test_session is None:
+        return None
+
+    runs = db_test_session.runs
+    
+    results = []
+    stats = {
+        'tests':{'queued':0, 'unqueued':0, 'complete':0, 'running':0, 'failed':0},
+        'objectives':{'untested':0, 'skipped':0, 'success':0, 'failure':0, 'info':0, 'error':0},
+            }
+    for run in runs:
+        stats['tests'][run.status] += 1
+        for objective in run.objectives:
+            stats['objectives'][objective.state] += 1
+    return stats
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def session_status(request,session_id):
+    
+    db_test_session = db.get_test_session(session_id)
+    if db_test_session is None:
+        logger.warning("Tried to view session_status with in valid session %s",str(session_status))
+        return HttpResponseNotFound
+
+    runs = db_test_session.runs
+    stats = get_session_stats(db_test_session)
+
+    results = []
+    for run in runs:
+        # Render the exact same partial used for the initial page load
+        run_html = render_to_string('test_harness/partials/session_test_run.html', 
+                                    { "run": run}, 
+                                    request=request
+                                    )
+        results.append({
+            "id": run.id,
+            "status": run.status, # Still useful for logic
+            "html": run_html
+        })
+
+    status_box = render_to_string('test_harness/partials/session_status_header.html', {
+            'stats': stats
+        }, request=request)
+
+    return JsonResponse({
+        "test_cards": results,
+        "status_box_card": status_box,
+        'count_unqueued': db_test_session.queued_run_count,
+        'count_queued':  db_test_session.unqueued_run_count
+        # Optional: update the top buttons too
+
+    })
+    """
+    "global_buttons_html": render_to_string('test_harness/partials/_global_actions.html', {
+        'has_unqueued': runs.filter(status='unqueued').count(),
+        'has_queued': runs.filter(status='queued').count(),
+        'session': session
+    })
+    """
+    '''
+    db_test_session = db.get_test_session(session_id)
+    session_result = []
+    for db_run in db_test_session.runs:
+        run_result = {'test': db_run.id, 'status':db_run.status, 'objectives':[]}
+        if db_run.status == 'complete':
+            for obj in db_run.objectives:
+                run_result['objectives'].append({'todo':1})
+        session_result.append(run_result)
+
+
+
+    return JsonResponse({'results':session_result})
+    '''
+    
+
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def queue_all_tests(request, session_id):
+    return JsonResponse({
+            "status": "success", 
+            "message": "Tests queued successfully"
+        })
 
 
 @require_safe
@@ -310,6 +416,9 @@ def index(request, page=1):
 
     if db_test_sessions:
         for session in db_test_sessions:
+            
+            for objective in run.objectives:
+                logger.info(f"FfOb {objective.name} ") 
             new = get_test_session_info(db, session=session)
             if new["id"] == first_session:
                 paging["show_session_next"] = "hide"

@@ -1,10 +1,9 @@
 from sqlalchemy import select, delete
+from sqlalchemy.engine.result import _KeyIndexType
 from sqlalchemy.orm import Mapped, mapped_column
 from typing import Any, List, Optional, Union, Tuple, Dict
 from datetime import datetime, timedelta, timezone
-from lib.cuckoo.common.exceptions import (
-    CuckooDependencyError
-)
+from lib.cuckoo.common.exceptions import CuckooDependencyError
 import sys
 import logging
 from .db_common import _utcnow_naive, Base
@@ -13,64 +12,59 @@ log = logging.getLogger(__name__)
 
 try:
     from sqlalchemy.engine import make_url
-    from sqlalchemy import (
-        Column,
-        DateTime,
-        ForeignKey,
-        func,
-        Integer,
-        String,
-        Table,
-        Text,
-        JSON
-    )
-    from sqlalchemy.orm import (
-        Mapped,
-        mapped_column,
-        relationship
-    )
+    from sqlalchemy import Column, DateTime, ForeignKey, func, select, Integer, String, Table, Text, JSON
+    from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
+
 class TestSession(Base):
     """Test session table for tracking test runs."""
+
     __tablename__ = "test_sessions"
     id: Mapped[int] = mapped_column(primary_key=True)
-    added_on: Mapped[datetime] = mapped_column(
-        DateTime(timezone=False), default=_utcnow_naive, nullable=False
-    )
+    added_on: Mapped[datetime] = mapped_column(DateTime(timezone=False), default=_utcnow_naive, nullable=False)
     runs: Mapped[List["TestRun"]] = relationship(back_populates="session", cascade="all, delete-orphan")
+
     def __repr__(self):
         return f"<TestSession({self.id},'{self.name}')>"
-        
+
+    @property
+    def unqueued_run_count(self):
+        return sum(1 for run in self.runs if run.status == "unqueued")
+
+    @property
+    def queued_run_count(self):
+        return sum(1 for run in self.runs if run.status == "queued")
 
 
 class AvailableTest(Base):
     """A test case available for running against a CAPE sandbox
-installation with the test harness"""
+    installation with the test harness"""
+
     __tablename__ = "available_tests"
 
     # db ID for the test
     id: Mapped[int] = mapped_column(primary_key=True)
-    
+
     # unique human readable name for the test
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)    
-    
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+
     # description of test concept, objectives
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
+
     # describe the payload (format, arch, malice)
     payload_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
+
     # give useful info on what to expect from or how to interpret results
     result_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    
-    # password to unwrap the zip, if it is encrypted
-    zip_password: Mapped[str | None] = mapped_column(Text, nullable=True)   
 
-    # CAPE analysis package to use: exe, archive, doc2016, etc 
-    package: Mapped[str | None] = mapped_column(String(64), nullable=False)   
+    # password to unwrap the zip, if it is encrypted
+    zip_password: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # CAPE analysis package to use: exe, archive, doc2016, etc
+    package: Mapped[str | None] = mapped_column(String(64), nullable=False)
 
     # CAPE timeout parameter
     timeout: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -81,16 +75,15 @@ installation with the test harness"""
     # Store absolute paths for execution and verification
     payload_path: Mapped[str] = mapped_column(Text, nullable=False)
     module_path: Mapped[str] = mapped_column(Text, nullable=False)
-    
+
     # Store 'Task Config' and other metadata as a JSON blob
     # we shouldn't need the details in the web view, just parse it
     # in the test tasking logic
     task_config: Mapped[dict | None] = mapped_column(JSON, nullable=False)
 
-    objective_templates: Mapped[List["TestObjectiveTemplate"]] = relationship(
-        secondary="test_template_association"
-    )
+    objective_templates: Mapped[List["TestObjectiveTemplate"]] = relationship(secondary="test_template_association")
     runs: Mapped[List["TestRun"]] = relationship(back_populates="test_definition")
+
 
 test_template_association = Table(
     "test_template_association",
@@ -99,30 +92,43 @@ test_template_association = Table(
     Column("template_id", ForeignKey("test_objectives_templates.id"), primary_key=True),
 )
 
+
 class TestObjectiveTemplate(Base):
-    """A measure of success of a single objective of a dynamic analysis 
-test run. eg: a certain flag was found in a dropped file."""
+    """A measure of success of a single objective of a dynamic analysis
+    test run. eg: a certain flag was found in a dropped file."""
+
     __tablename__ = "test_objectives_templates"
 
     # metadata true for all instances of this objective over all tests
     id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)    
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)  
+    full_name: Mapped[str] = mapped_column(String(512), unique=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    requirement: Mapped[str | None] = mapped_column(Text, nullable=True)
+    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("test_objectives_templates.id"))
+    children: Mapped[List["TestObjectiveTemplate"]] = relationship(back_populates="parent", cascade="all, delete-orphan")
+    parent: Mapped[Optional["TestObjectiveTemplate"]] = relationship(back_populates="children", remote_side=[id])
 
 
 class TestObjectiveInstance(Base):
-    """A measure of success of a single objective of a dynamic analysis 
-test run. eg: a certain flag was found in a dropped file."""
+    """A measure of success of a single objective of a dynamic analysis
+    test run. eg: a certain flag was found in a dropped file."""
+
     __tablename__ = "test_objective_instances"
     id: Mapped[int] = mapped_column(primary_key=True)
 
     # The Link to the objective template
     template_id: Mapped[int] = mapped_column(ForeignKey("test_objectives_templates.id"))
     template: Mapped["TestObjectiveTemplate"] = relationship()
-    
+
     # link back to the test run
     run_id: Mapped[int] = mapped_column(ForeignKey("test_runs.id"), nullable=False)
     run: Mapped["TestRun"] = relationship(back_populates="objectives")
+    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("test_objective_instances.id"))
+    children: Mapped[List["TestObjectiveInstance"]] = relationship(
+        back_populates="parent", cascade="all, delete-orphan",
+    )
+
+    parent: Mapped[Optional["TestObjectiveInstance"]] = relationship(back_populates="children", remote_side=[id])
 
     # per-run state of this objective
     state: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -131,35 +137,35 @@ test run. eg: a certain flag was found in a dropped file."""
 
 class TestRun(Base):
     """Details of a single run of an AvailableTest within a TestSession."""
+
     __tablename__ = "test_runs"
-    
+
     id: Mapped[int] = mapped_column(primary_key=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("test_sessions.id"))
     test_id: Mapped[int] = mapped_column(ForeignKey("available_tests.id"))
-    
+
     # CAPE Specifics
-    cape_task_id: Mapped[Optional[int]] = mapped_column(nullable=True) # ID returned by CAPE API
-    status: Mapped[str] = mapped_column(String(50), default="not queued") # pending, running, completed, failed
-    
+    cape_task_id: Mapped[Optional[int]] = mapped_column(nullable=True)  # ID returned by CAPE API
+    status: Mapped[str] = mapped_column(String(50), default="unqueued")  # pending, running, completed, failed
+
     # Results
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     logs: Mapped[Optional[str]] = mapped_column(Text())
-    raw_results: Mapped[Optional[dict]] = mapped_column(Text()) # Store summary JSON from CAPE
-    
+    raw_results: Mapped[Optional[dict]] = mapped_column(Text())  # Store summary JSON from CAPE
+
     session: Mapped["TestSession"] = relationship(back_populates="runs")
     test_definition: Mapped["AvailableTest"] = relationship(back_populates="runs")
     objectives: Mapped[List["TestObjectiveInstance"]] = relationship(
-        back_populates="run", 
-        cascade="all, delete-orphan",
-        lazy="joined" # Performance boost: loads objectives with the run
+        back_populates="run", cascade="all, delete-orphan", lazy="joined"  # Performance boost: loads objectives with the run
     )
 
-class EvaluatorMixIn:            
+
+class AuditsMixIn:
     def list_test_sessions(
         self,
-        limit=None,        
-        offset=None,       
+        limit=None,
+        offset=None,
     ) -> List[TestSession]:
         """Retrieve list of test harness test sessions.
         @param limit: specify a limit of entries.
@@ -181,8 +187,8 @@ class EvaluatorMixIn:
 
     def list_available_tests(
         self,
-        limit=None,        
-        offset=None,       
+        limit=None,
+        offset=None,
     ) -> List[AvailableTest]:
         """Retrieve list of loaded and correctly parsed testcases.
         @param limit: specify a limit of entries.
@@ -192,21 +198,20 @@ class EvaluatorMixIn:
         log.info("list_available_tests 1")
         # Create a select statement ordered by newest first
         stmt = select(AvailableTest).order_by(AvailableTest.name.desc())
-        
+
         log.info("list_available_tests 2")
         # Apply pagination if provided
         if limit is not None:
             stmt = stmt.limit(limit)
         if offset is not None:
             stmt = stmt.offset(offset)
-            
+
         log.info("list_available_tests 3")
         # Execute and return scalars (the actual objects)
         result = self.session.scalars(stmt)
         testslist = list(result.all())
         log.info(f"Retrieved %d available tests from database", len(testslist))
         return testslist
-
 
     def count_test_sessions(self) -> int:
         """Count number of test sessions created
@@ -223,58 +228,63 @@ class EvaluatorMixIn:
         return self.session.scalar(stmt)
 
     def reload_tests(self, available_tests, unavailable_tests):
-        '''Load parsed test info into the database
+        """Load parsed test info into the database
         @param: available_tests: dictionaries of successfully parsed test metadata
         @param: unavailable_tests: dictionaries of paths and errors for failed test loads
-        '''
+        """
         log.info(f"Reloading available tests into database, currently there are {self.count_available_tests()}")
         new_entries = []
+        new_objectives = []
         for test in available_tests:
             try:
-                info = test['info']
+                info = test["info"]
+                test_name = info.get("Name")
                 new_entry = AvailableTest(
-                    name=info.get('Name'),
-                    description=info.get('Description', None),
-                    payload_notes=info.get('Payload Notes', None),
-                    result_notes=info.get('Result Notes', None),
-                    zip_password=info.get('Zip Password', None),
-                    timeout=info.get('Timeout', None),
-                    package=info.get('Package'),
-                    payload_path=test['payload_path'],
-                    module_path=test['module_path'],
-                    targets=info.get('Targets', None),
-                    task_config=info.get('Task Config', {}),
+                    name=test_name,
+                    description=info.get("Description", None),
+                    payload_notes=info.get("Payload Notes", None),
+                    result_notes=info.get("Result Notes", None),
+                    zip_password=info.get("Zip Password", None),
+                    timeout=info.get("Timeout", None),
+                    package=info.get("Package"),
+                    payload_path=test["payload_path"],
+                    module_path=test["module_path"],
+                    targets=info.get("Targets", None),
+                    task_config=info.get("Task Config", {}),
                 )
 
-                for obj_data in test['objectives']:
-                    obj = TestObjectiveInstance(
-                        run_id=run.id,
-                        name=obj_data.get('name'),
-                        description=obj_data.get('description'),
-                        state="pending"
+                
+                def load_objective(test_name, objdata):
+                    children = [load_objective(test_name, oc) for oc in objdata.get("children", [])]
+                    loadedobj = TestObjectiveTemplate(
+                        full_name=test_name + "::" + objdata.get("name"),
+                        name=objdata.get("name"),
+                        requirement=objdata.get("requirement"),
+                        children=children,
                     )
-                    self.session.add(obj)
+                    return loadedobj
+                for obj_data in test["objectives"]:
+                    obj = load_objective(test_name, obj_data)
+                    new_entry.objective_templates.append(obj)
 
                 new_entries.append(new_entry)
             except Exception as e:
-                unavailable_tests.append({
-                    'module_path': test.get('module_path','unknown'), 
-                    'error': "Exception while parsing metadata: "+str(e)}
+                unavailable_tests.append(
+                    {"module_path": test.get("module_path", "unknown"), "error": "Exception while parsing metadata: " + str(e)}
                 )
                 log.exception(f"Error preparing test entry for {test['info'].get('Name','unknown')}: {e}")
                 continue
 
         # Delete pre-existing tests
-        log.info("executing delete")
         with self.session.session_factory() as sess, sess.begin():
             sess.execute(delete(AvailableTest))
-            log.info("executing add")
+            sess.execute(delete(TestObjectiveTemplate))
             sess.add_all(new_entries)
-
+            # sess.add_all(new_objectives)
 
         log.info(f"Reloaded available tests, there are now {self.count_available_tests()}")
         return len(new_entries)
-        
+
     def get_test_session(self, session_id: int) -> Optional[TestSession]:
         return self.session.query(TestSession).filter_by(id=session_id).first()
 
@@ -289,8 +299,8 @@ class EvaluatorMixIn:
                     # 1. Initialize the new Session
                     new_test_session = TestSession()
                     db_session.add(new_test_session)
-            
-                    # Flush so the DB generates an ID for new_session 
+
+                    # Flush so the DB generates an ID for new_session
                     # without committing the whole transaction yet
                     db_session.flush()
 
@@ -298,19 +308,20 @@ class EvaluatorMixIn:
                     for t_id in test_ids:
                         test_def = db_session.query(AvailableTest).get(int(t_id))
                         run = TestRun(session_id=new_test_session.id, test_id=test_def.id)
+                        
                         db_session.add(run)
-                        db_session.flush()
-
                         for template in test_def.objective_templates:
-                            instance = TestObjectiveInstance(
-                                run_id=run.id,
-                                template_id=template.id,
-                                state="not queued"
-                            )
-                            db_session.add(instance)
+                            def init_objective(obj_template):
+                                children = [init_objective(obj_child) for obj_child in obj_template.children]
+                                result = TestObjectiveInstance(run_id=run.id, template_id=obj_template.id,children=children, state="untested")
+                                return result
+
+                            run.objectives.append(init_objective(template))
+
+                    db_session.flush()
                     # The session ID to return for the redirect
                     test_session_id = new_test_session.id
-            
+
                 return test_session_id
             except Exception as e:
                 db_session.rollback()
@@ -318,3 +329,15 @@ class EvaluatorMixIn:
                 raise
             finally:
                 db_session.close()
+
+    def get_audit_session_test(self, session_id, test_id):
+        stmt = select(TestRun).where(TestRun.id == test_id).where(TestRun.session_id == session_id)
+
+        # Execute and get the result
+        return self.session.execute(stmt).unique().scalar_one_or_none()
+
+    def set_audit_run_status(self, session_id, test_id, new_status):
+        run = self.get_audit_session_test(session_id, test_id)
+        if run:
+            run.status = new_status
+            self.session.commit()

@@ -2,14 +2,18 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file "docs/LICENSE" for copying permission.
 
-from django.urls import re_path
+from django.urls import re_path, path
 
 from test_harness import views
 
 urlpatterns = [
     re_path(r"^$", views.test_harness_index, name="test_harness"),    
     re_path(r"^session/(?P<session_id>\d+)/$", views.session_index, name="test_session"),        
+    re_path(r"^session/(?P<session_id>\d+)/status$", views.session_status, name="session_status"),        
+    re_path(r"^session/(?P<session_id>\d+)/run_update/<int:test_id>/", views.get_run_update, name="get_run_update"),        
     re_path(r"^reload_available_tests/", views.reload_available_tests, name="reload_available_tests"),
     re_path(r"^create_test_session/$", views.create_test_session, name="create_test_session"),
     re_path(r"^delete_test_session/(?P<session_id>\d+)/$", views.delete_test_session, name="delete_test_session"),
+    path(r"^session/<int:session_id>/queue_tests/", views.queue_all_tests, name="queue_all_tests"),
+    path(r"^session/<int:session_id>/queue_tests/<int:test_id>/", views.queue_test, name="queue_test"),
 ]

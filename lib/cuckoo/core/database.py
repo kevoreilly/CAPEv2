@@ -42,7 +42,7 @@ from .data.tasking import TasksMixIn
 from .data.machines import MachinesMixIn
 from .data.samples import SamplesMixIn
 from .data.guests import GuestsMixIn
-from .data.evaluator import EvaluatorMixIn
+from .data.audits import AuditsMixIn
 
 
 # ToDo postgresql+psycopg2 in connection
@@ -127,7 +127,7 @@ class _Database(TasksMixIn,
                 GuestsMixIn, 
                 MachinesMixIn, 
                 SamplesMixIn, 
-                EvaluatorMixIn):
+                AuditsMixIn):
     """Analysis queue database.
 
     This class handles the creation of the database user for internal queue

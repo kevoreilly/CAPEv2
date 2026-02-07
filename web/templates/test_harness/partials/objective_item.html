@@ -1,0 +1,31 @@
+<div class="objective-node border-bottom border-secondary border-opacity-10">
+    <div class="d-flex align-items-center hover-bg-dark">
+
+        <div class="flex-grow-1 min-width-0">
+            <span class="text-info fw-bold d-block text-truncate">{{ obj.template.name }}</span>
+            <div class="text-muted small text-truncate">{{ obj.template.requirement }}</div>
+        </div>
+
+        <div class="d-flex align-items-center flex-shrink-0" style="width: 65%;">
+            <div class="flex-grow-1 px-3 text-end">
+                <small class="text-muted fst-italic">
+                    {{ obj.state_reason|default:"chumble fhseudifhs seuhf suhyeuxhnbcv hsfe88ihxef nsuiepfzpuh h fysof jisejfsew8" }}
+                </small>
+            </div>
+
+            <div style="width: 100px;" class="text-end">
+                <span class="badge bg-dark border {% if obj.state == 'met' %}border-success text-success{% else %}border-secondary{% endif %}">
+                    {{ obj.state|upper }}
+                </span>
+            </div>
+        </div>
+    </div>
+
+    {% if obj.children %}
+    <div class="ms-4 border-start border-secondary border-opacity-25 ps-3">
+        {% for child in obj.children %}
+        {% include "test_harness/partials/objective_item.html" with obj=child %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

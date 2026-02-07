@@ -1,6 +1,48 @@
 {% extends "base.html" %}
 {% block content %}
 
+<style>
+
+    /* This ensures the right-hand metadata stays aligned */
+    .meta-column {
+        width: 550px;
+        flex-shrink: 0;
+    }
+
+    /* Guide lines and hover effects */
+    .objective-node {
+        position: relative;
+        transition: background-color 0.2s;
+    }
+
+        /* Striation: odd rows slightly darker for easier tracking */
+        .objective-node:nth-child(odd) {
+            background-color: rgba(255, 255, 255, 0.01);
+        }
+
+    .hover-bg-dark:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        cursor: default;
+    }
+
+    /* The dotted line that bridges the gap between text and status */
+    .objective-row-content {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        position: relative;
+    }
+
+    /* Optional: Only show dotted line on wide screens */
+    @media (min-width: 1200px) {
+        .objective-info-filler {
+            flex-grow: 1;
+            border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+            margin: 0 20px;
+            height: 1px;
+        }
+    }
+</style>
 
 {% if messages %}
 <ul class="messages">
@@ -13,62 +55,145 @@
 {% endif %}
 
 
-<div class="container-fluid mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <div>
-            <h3 class="mb-0">Test Session #{{ session.id }}</h3>
-            <span class="text-muted">Started: {{ session.added_on|date:"Y-m-d H:i" }}</span>
-        </div>
-        <div class="btn-group shadow-sm">
-            <button class="btn btn-outline-danger"><i class="fas fa-stop me-2"></i>Purge Queue</button>
-            <button class="btn btn-success px-4"><i class="fas fa-play me-2"></i>Queue All</button>
-        </div>
-    </div>
-
-    {% for run in session.runs %}
-    <div class="card shadow-sm mb-5 border-0">
-        <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
-            <div>
-                <h5 class="mb-0 text-uppercase tracking-wider">
-                    <i class="fas fa-flask me-2 text-info"></i> Test: {{ run.test_definition.name }}
-                </h5>
-                <small class="text-info opacity-75">{{ run.test_definition.package }} | {{ run.test_definition.payload_path }}</small>
+            <div id="session-header-wrapper" style="padding: 12px; padding-bottom: 0px">
+                {% include "test_harness/partials/session_status_header.html" with stats=stats %}
             </div>
-            <div class="d-flex align-items-center">
-                <span class="badge bg-{{ run.status_color }} me-3">{{ run.status|upper }}</span>
-                <button class="btn btn-sm btn-success"><i class="fas fa-play"></i></button>
-            </div>
-        </div>
 
-        <div class="table-responsive">
-            <table class="table table-dark table-hover table-striped mb-0">
-                <thead class="thead-dark">
-                    <tr>
-                        <th style="width: 50px;">#</th>
-                        <th>Objective</th>
-                        <th>Requirement</th>
-                        <th class="text-center">Status</th>
-                        <th>Evidence / Note</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for obj in run.test_metadata.objectives %}
-                    <tr>
-                        <td class="text-muted small">{{ forloop.counter }}</td>
-                        <td class="fw-bold">{{ obj.name }}</td>
-                        <td class="small text-muted">{{ obj.description }}</td>
-                        <td class="text-center">
-                            <i class="fas fa-circle-notch fa-spin text-muted" title="Waiting for data..."></i>
-                        </td>
-                        <td>
-                            <em class="text-muted small">Awaiting analysis...</em>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        </div>
-    </div>
-    {% endfor %}
-</div>
-{% endblock %}
+            <div class="container-fluid mt-4">
+
+                {% for run in session.runs %}
+                {% include "test_harness/partials/session_test_run.html" with run=run root_objectives=root_objectives %}
+                {% endfor %}
+            </div>
+
+
+            <script>
+
+    const SESSION_ID = "{{ session.id }}";
+
+    async function updateRunCard(test_id) {
+        const response = await fetch(`/tests/session/0/run_update/${test_id}`.replace('0', SESSION_ID));
+        const data = await response.json();
+
+        const existingCard = document.getElementById(`run-card-${runId}`);
+        if (existingCard) {
+            // Overwrite the old HTML with the fresh Django-rendered HTML
+            existingCard.outerHTML = data.html;
+        }
+    }
+
+    async function queue_all(btn, session_id) {
+        const url = "{% url 'queue_all_tests' 0 %}".replace('0', session_id);
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Queuing...';
+
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // 3. Update the button to show it worked
+                btn.classList.replace('btn-outline-info', 'btn-secondary');
+                btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
+                // btn.disabled remains true so they can't queue it twice
+            } else {
+                throw new Error(data.message || 'Queueing failed');
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not queue tests: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+
+    }
+
+    async function queue_run(btn, session_id, run_id) {
+        // 1. Prepare the URL and UI feedback
+        const url = "{% url 'queue_test' 0 1 %}"
+            .replace('0', SESSION_ID)
+            .replace('1', run_id);
+        const originalContent = btn.innerHTML;
+
+        // Prevent double-clicks and show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Queuing...';
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // 3. Update the button to show it worked
+                btn.classList.replace('btn-outline-info', 'btn-secondary');
+                btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
+                // btn.disabled remains true so they can't queue it twice
+            } else {
+                throw new Error(data.message || 'Queueing failed');
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not queue test: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+
+    async function updateStatuses() {
+        try {
+            const response = await fetch(`/tests/session/${SESSION_ID}/status`);
+            const data = await response.json();
+
+            data.test_cards.forEach(carddata => {
+                const card = document.getElementById(`run-card-${carddata.id}`);
+
+                if (card) {
+                    // We use outerHTML to replace the entire card div
+                    // only if the status has changed or if it's currently "active"
+                    card.outerHTML = carddata.html;
+                }
+            });
+
+            const headerWrapper = document.getElementById('session-header-wrapper');
+            if (headerWrapper && data.status_box_card) {
+                headerWrapper.innerHTML = data.status_box_card
+            }
+
+        } catch (error) {
+            console.error("Polling error:", error);
+        }
+    }
+
+    // Check every 5 seconds
+    //setInterval(updateStatuses, 5000);
+            </script>
+
+            {% endblock %}

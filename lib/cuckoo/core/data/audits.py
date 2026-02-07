@@ -361,7 +361,27 @@ class AuditsMixIn:
         return self.session.query(TestSession).filter_by(id=session_id).first()
 
     def delete_test_session(self, session_id: int) -> bool:
-        self.session.query(TestSession).filter_by(id=session_id).delete()
+        """
+        Deletes a specific TestSession and all associated objective instances.
+        """
+        with self.session.session_factory() as sess, sess.begin():
+            # 1. Fetch the audit session
+            stmt = select(TestSession).where(TestSession.id == session_id)
+            session_obj = sess.execute(stmt).unique().scalar_one_or_none()
+
+            if not session_obj:
+                log.warning(f"Attempted to delete non-existent TestSession ID: {session_id}")
+                return False
+
+            # 2. Safety check: Don't delete active runs unless forced
+            if any(run.status == "running" for run in session_obj.runs):
+                log.error(f"Cannot delete Session {session_id}: one or more runs are still 'running'")
+                return False
+
+            sess.delete(session_obj)
+            log.info(f"Deleted TestSession {session_id} and all its objective results.")
+        
+        return True
 
     def create_session_from_tests(self, test_ids: list) -> int:
         with self.session.session_factory() as db_session:

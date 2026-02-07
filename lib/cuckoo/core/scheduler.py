@@ -218,12 +218,6 @@ class Scheduler:
         machine: Optional[Machine] = None
         # Cache available machine stats to avoid repeated DB queries within the loop.
         available_tags_stats = self.get_available_machine_stats()
-        
-        log.info(f"Finding pending tasks. tag stats: {available_tags_stats}")
-
-        for tc in self.db.list_tasks( status=TASK_PENDING):
-            if tc.id > 190:
-                log.info(f"Task #{tc.id}, machine: {tc.machine}, tags:{tc.tags}, pkg:{tc.package}, status:{tc.status},  opts:{tc.options}, errs:{tc.errors}, prio:{tc.priority}")
 
         # Get the list of all pending tasks in the order that they should be processed.
         for task_candidate in self.db.list_tasks(

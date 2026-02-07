@@ -70,6 +70,8 @@
 <script>
 
     const SESSION_ID = "{{ session.id }}";
+    // Check every 5 seconds
+    var RELOADER = setInterval(updateStatuses, 5000);
 
     async function updateRunCard(test_id) {
         const response = await fetch(`/tests/session/0/run_update/${test_id}`.replace('0', SESSION_ID));
@@ -192,8 +194,6 @@
         }
     }
 
-    // Check every 5 seconds
-    //setInterval(updateStatuses, 5000);
-            </script>
+</script>
 
-            {% endblock %}
+{% endblock %}

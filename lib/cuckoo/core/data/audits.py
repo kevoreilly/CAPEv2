@@ -5,6 +5,9 @@ from typing import Any, List, Optional, Union, Tuple, Dict
 from datetime import datetime, timedelta, timezone
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import File
+from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.test_harness_utils import task_status_to_run_status, TestResultValidator
+import os
 import sys
 import json
 import logging
@@ -15,7 +18,7 @@ log = logging.getLogger(__name__)
 try:
     from sqlalchemy.engine import make_url
     from sqlalchemy import (Column, DateTime, ForeignKey, func, select, exists, delete, update, Integer, String, Table, Text, JSON, Boolean)
-    from sqlalchemy.orm import Mapped, mapped_column, relationship
+    from sqlalchemy.orm import Mapped, mapped_column, relationship, joinedload
 
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
@@ -156,7 +159,7 @@ class TestRun(Base):
     started_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     completed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     logs: Mapped[Optional[str]] = mapped_column(Text())
-    raw_results: Mapped[Optional[dict]] = mapped_column(Text())  # Store summary JSON from CAPE
+    raw_results: Mapped[Optional[dict]] = mapped_column(JSON)  # Store summary JSON from CAPE
 
     session: Mapped["TestSession"] = relationship(back_populates="runs")
     test_definition: Mapped["AvailableTest"] = relationship(back_populates="runs")
@@ -236,7 +239,10 @@ class AuditsMixIn:
             stmt = stmt.where(AvailableTest.is_active)
         return self.session.scalar(stmt)
 
-    def _load_test(self, test, session):
+    def _load_test(self, test: AvailableTest, session: TestSession):
+        '''
+        Upsert loaded test data into the database
+        '''
         
         result = {'module_path':test["module_path"]}
         try:
@@ -283,7 +289,6 @@ class AuditsMixIn:
                 db_obj.parent = parent_obj
 
                 # Handle children recursively
-                # Note: This updates existing children or adds new ones
                 for child_data in obj_data.get("children", []):
                     sync_objective(test_name, child_data, parent_obj=db_obj)
                     
@@ -333,6 +338,11 @@ class AuditsMixIn:
         return test_count_after_clean
 
     def purge_unreferenced_tests(self, loaded_test_names):
+        """
+        Cleanup function to remove tests and test objectives which were not
+        loaded by the previous reload, and are not referenced by any stored test sessions
+        @param: loaded_test_names: names of all tests that were recently loaded
+        """
         # delete tests not in the current loaded set and
         # not referenced in a previous test session
         retired_tests_stmt = delete(AvailableTest).where(
@@ -357,15 +367,80 @@ class AuditsMixIn:
         self.session.execute(orphaned_tpl_stmt)
 
 
+    def store_objective_results(self, run_id: int, results: dict):
+        with self.session.session_factory() as sess, sess.begin():
+            # Fetch the run with its objectives and templates pre-loaded
+            stmt = (
+                select(TestRun)
+                .options(
+                    joinedload(TestRun.objectives)
+                    .joinedload(TestObjectiveInstance.template)
+                )
+                .where(TestRun.id == run_id)
+            )
+            run = sess.execute(stmt).unique().scalar_one_or_none()
+
+            if not run:
+                log.error(f"Run {run_id} not found for result assignment")
+                return
+
+            # Helper to traverse the results dict and update instances
+            def apply_results(instances, current_results_level):
+                for inst in instances:
+                    name = inst.template.name
+                    if name in current_results_level:
+                        data = current_results_level[name]
+                    
+                        # Update the instance state
+                        inst.state = data.get("state")
+                        inst.state_reason = data.get("state_reason")
+                    
+                        # Recurse into children if they exist in both DB and Dict
+                        if inst.children and "children" in data:
+                            apply_results(inst.children, data["children"])
+
+            # We only pass top-level objectives (those without a parent_id)
+            top_level_instances = [obj for obj in run.objectives if obj.parent_id is None]
+            apply_results(top_level_instances, results)
+        
+            # Store the whole thing for posterity
+            run.raw_results = results
+            log.info(f"Updated objective states for Run {run_id}")
+
+    def evaluate_objective_results(self, test_run: TestRun):
+        log.info(f"Starting evaluation of test run #{test_run.id}")
+        task_storage = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(test_run.cape_task_id))
+        validator = TestResultValidator( test_run.test_definition.module_path, task_storage)
+        results_dict = validator.evaluate()
+        self.store_objective_results(test_run.id, results_dict)
+
+
+    def update_audit_tasks_status(self, db_session, session: TestSession):
+        for run in session.runs:
+            if run.cape_task_id:
+                cape_task = self.view_task(run.cape_task_id)
+                if cape_task:
+                    new_status = task_status_to_run_status(cape_task.status)
+                    if run.status != "complete" and new_status == "complete":
+                        self.evaluate_objective_results(run)
+                    run.status = new_status
+
+
+
     def get_test_session(self, session_id: int) -> Optional[TestSession]:
-        return self.session.query(TestSession).filter_by(id=session_id).first()
+        stmt = select(TestSession).where(TestSession.id == session_id)
+        test_session = self.session.execute(stmt).unique().scalar_one_or_none()
+        # do just-in-time refresh of test run statuses
+        if test_session:
+            self.update_audit_tasks_status(self.session, test_session)
+            return test_session
+        return None
 
     def delete_test_session(self, session_id: int) -> bool:
         """
         Deletes a specific TestSession and all associated objective instances.
         """
         with self.session.session_factory() as sess, sess.begin():
-            # 1. Fetch the audit session
             stmt = select(TestSession).where(TestSession.id == session_id)
             session_obj = sess.execute(stmt).unique().scalar_one_or_none()
 
@@ -373,9 +448,14 @@ class AuditsMixIn:
                 log.warning(f"Attempted to delete non-existent TestSession ID: {session_id}")
                 return False
 
-            # 2. Safety check: Don't delete active runs unless forced
-            if any(run.status == "running" for run in session_obj.runs):
-                log.error(f"Cannot delete Session {session_id}: one or more runs are still 'running'")
+            # Safety check: Don't delete active runs unless forced
+            active_runs = sess.query(TestRun).filter(
+                TestRun.session_id == session_id, 
+                TestRun.status == "running"
+            ).count()
+
+            if active_runs > 0:
+                log.warning(f"Cannot delete Session {session_id}: one or more runs are still 'running'")
                 return False
 
             sess.delete(session_obj)
@@ -422,22 +502,38 @@ class AuditsMixIn:
             finally:
                 db_session.close()
 
-    def get_audit_session_test(self, session_id, test_id):
-        stmt = select(TestRun).where(TestRun.id == test_id).where(TestRun.session_id == session_id)
+    def get_audit_session_test(self, session_id, testrun_id):
+        stmt = select(TestRun).where(TestRun.id == testrun_id).where(TestRun.session_id == session_id)
 
         # Execute and get the result
         return self.session.execute(stmt).unique().scalar_one_or_none()
 
-    def set_audit_run_status(self, session_id, test_id, new_status):
-        run = self.get_audit_session_test(session_id, test_id)
+    def set_audit_run_status(self, session_id, testrun_id, new_status):
+        run = self.get_audit_session_test(session_id, testrun_id)
         if run:
             run.status = new_status
             self.session.commit()
 
+    def assign_cape_task_to_testrun(self, run_id: int, cape_task_id: int):
+        """
+        Updates a TestRun with the ID returned from the CAPE sandbox.
+        """
+        with self.session.session_factory() as sess, sess.begin():
+            stmt = select(TestRun).where(TestRun.id == run_id)
+            run = sess.execute(stmt).unique().scalar_one_or_none()
 
-    def queue_audit_test(self, session_id, test_id, user_id=0):
+            if run:
+                run.cape_task_id = cape_task_id
+                run.status = "queued" 
+                log.info(f"TestRun {run_id} successfully linked to CAPE Task {cape_task_id}")
+                return True
+            else:
+                log.error(f"Failed to link task and task ID: TestRun {run_id} not found.")
+                return False
+
+    def queue_audit_test(self, session_id, testrun_id, user_id=0):
         audit_session = self.get_test_session(session_id)
-        test_instance = self.get_audit_session_test(session_id, test_id)
+        test_instance = self.get_audit_session_test(session_id, testrun_id)
 
         test_definition = test_instance.test_definition
         

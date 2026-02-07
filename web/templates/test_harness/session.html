@@ -2,7 +2,7 @@
 {% block content %}
 
 <style>
-
+    /* i don't know where to put this CSS and i'm too afraid to ask */
     /* This ensures the right-hand metadata stays aligned */
     .meta-column {
         width: 550px;
@@ -42,27 +42,60 @@
             height: 1px;
         }
     }
+
+    .tech-label {
+        font-size: 0.65rem;
+        letter-spacing: 0.08rem;
+        opacity: 0.6;
+        font-weight: 800;
+    }
+
+    .tech-value {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.75rem;
+    }
+
+    .tech-link {
+        color: #0d6efd; /* Classic link blue, or use #0dcaf0 for a 'cyan' hacker feel */
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: all 0.2s;
+    }
+
+        .tech-link:hover {
+            color: #0a58ca;
+            border-bottom: 1px solid currentColor;
+        }
+
+    .task-status-tag {
+        padding: 1px 4px;
+        border-radius: 3px;
+        margin-left: 4px;
+    }
 </style>
 
 {% if messages %}
 <ul class="messages">
     {% for message in messages %}
-    <li class="alert alert-{{ message.tags }}">
-        {{ message }}
-    </li>
+        {% if message.tags != "success" %}
+        <li class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </li>
+        {% endif %}
     {% endfor %}
 </ul>
 {% endif %}
 
 
 <div id="session-header-wrapper" style="padding: 12px; padding-bottom: 0px">
-    {% include "test_harness/partials/session_status_header.html" with stats=stats %}
+    {% include "test_harness/partials/session_status_header.html" with stats=stats session=session %}
 </div>
 
 <div class="container-fluid mt-4">
-
     {% for run in session.runs %}
-    {% include "test_harness/partials/session_test_run.html" with run=run root_objectives=root_objectives %}
+    {% with pagehtml=run_html|get_item:run.id %}
+    {{ pagehtml|safe }}
+    {% endwith %}
     {% endfor %}
 </div>
 

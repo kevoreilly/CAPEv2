@@ -26,11 +26,14 @@ from django.contrib.auth.decorators import login_required
 from django.core.exceptions import BadRequest, PermissionDenied
 from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse, JsonResponse, HttpResponseNotFound
 from django.shortcuts import redirect, render
+from django import template
 from django.template.loader import render_to_string
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
 from django.urls import reverse
 from rest_framework.decorators import api_view
+
+register = template.Library()
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -45,6 +48,7 @@ from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.common.test_harness_utils import TestLoader
 from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.data.audits import AuditsMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 
@@ -84,6 +88,7 @@ processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
 integrations_cfg = Config("integrations")
 web_cfg = Config("web")
+db: AuditsMixIn = Database()
 
 # Used for displaying enabled config options in Django UI
 enabledconf = {}
@@ -120,8 +125,7 @@ DISABLED_WEB = True
 # if elif else won't work here
 if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
     DISABLED_WEB = False
-
-db = Database()
+    
 
 anon_not_viewable_func_list = (
     "file",
@@ -167,7 +171,6 @@ def create_test_session(request):
         messages.warning(request, "No tests were selected.")
         return redirect("test_harness")
 
-    db = Database()
     try:
         # This calls the SQLAlchemy logic we discussed to create the TestSession + TestRuns
         session_id = db.create_session_from_tests(test_ids)
@@ -185,7 +188,7 @@ def create_test_session(request):
 def reload_available_tests(request):
     logger.info("Reloading test harness tests via web interface")
     """Triggers the TestLoader to refresh the AvailableTests table."""
-    db = Database()
+
     # Path where your test subdirectories live
     tests_root = os.path.join(settings.CUCKOO_PATH, "tests/dynamic_test_harness") 
     loader = TestLoader(tests_root)
@@ -226,25 +229,9 @@ def test_harness_index(request):
         "sessions": test_sessions
     })
 
-def session_index(request, session_id):
-    db = Database()
-    # Fetch the session and join the runs and test metadata in one go
-    session_data = db.get_test_session(session_id)
-
-    stats = get_session_stats(session_data)
-
-    if not session_data:
-        messages.warning(request, "Session not found.")
-        return redirect("test_harness")
-    return render(request, "test_harness/session.html", {
-        "session": session_data,
-        "runs": session_data.runs,
-        "stats": stats
-    })
 
 @require_POST
 def delete_test_session(request, session_id):
-    db = Database()
     try:
         db.delete_test_session(session_id)
         messages.success(request, f"Session #{session_id} deleted.")
@@ -255,21 +242,51 @@ def delete_test_session(request, session_id):
     return redirect("test_harness")
 
 
-def get_run_update(request, session_id, run_id):
+def session_index(request, session_id):
+    # Fetch the session and join the runs and test metadata in one go
+    session_data = db.get_test_session(session_id)
+    stats = get_session_stats(session_data)
+
+    if not session_data:
+        messages.warning(request, "Session not found.")
+        return redirect("test_harness")
+
+    cape_tasks = {}
+    run_html = {}
+    for run in session_data.runs:
+        run_status = _fetch_run_update(request, session_id, run.id)
+        run_html[run.id] = run_status['html']
+
+    return render(request, "test_harness/session.html", {
+        "session": session_data,
+        "runs": session_data.runs,
+        "run_html": run_html,
+        "stats": stats
+    })
+
+def _fetch_run_update(request, session_id, testrun_id):
     db_test_session = db.get_test_session(session_id)
-    run = [x for x in db_test_session.runs if x.id == run_id][0] #todo unfuck
-    
+    test_run = next((r for r in db_test_session.runs if r.id == testrun_id), None)
+    cape_task_info = None
+    if test_run.cape_task_id != None:
+        cape_task_info = db.view_task(test_run.cape_task_id)
+
     # Render just the partial file with the updated 'run' object
-    html = render_to_string('test_harness/partials/session_test_run.html', {'run': run}, request=request)
-    
-    return JsonResponse({"html": html, "status": run.status})
+    html = render_to_string('test_harness/partials/session_test_run.html', 
+                            {'run': test_run, "cape_task": cape_task_info}, 
+                            request=request)
+    return {"html": html, "status": test_run.status,  "id": test_run.id}
+
+def get_run_update(request, session_id, testrun_id):
+    return JsonResponse(
+        _fetch_run_update(request,session_id, testrun_id )
+        )
 
 def get_session_stats(db_test_session):
     if db_test_session is None:
         return None
 
-    runs = db_test_session.runs
-    
+    runs = db_test_session.runs    
     results = []
     stats = {
         'tests':{'queued':0, 'unqueued':0, 'complete':0, 'running':0, 'failed':0},
@@ -281,10 +298,12 @@ def get_session_stats(db_test_session):
             stats['objectives'][objective.state] += 1
     return stats
 
+@register.filter
+def get_item(dictionary, key):
+    return dictionary.get(key)
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def session_status(request,session_id):
-    
+def session_status(request, session_id):
     db_test_session = db.get_test_session(session_id)
     if db_test_session is None:
         logger.warning("Tried to view session_status with in valid session %s",str(session_status))
@@ -295,16 +314,7 @@ def session_status(request,session_id):
 
     results = []
     for run in runs:
-        # Render the exact same partial used for the initial page load
-        run_html = render_to_string('test_harness/partials/session_test_run.html', 
-                                    { "run": run}, 
-                                    request=request
-                                    )
-        results.append({
-            "id": run.id,
-            "status": run.status, # Still useful for logic
-            "html": run_html
-        })
+        results.append(_fetch_run_update(request, session_id, run.id ))
 
     status_box = render_to_string('test_harness/partials/session_status_header.html', {
             'stats': stats
@@ -318,47 +328,23 @@ def session_status(request,session_id):
         # Optional: update the top buttons too
 
     })
-    """
-    "global_buttons_html": render_to_string('test_harness/partials/_global_actions.html', {
-        'has_unqueued': runs.filter(status='unqueued').count(),
-        'has_queued': runs.filter(status='queued').count(),
-        'session': session
-    })
-    """
-    '''
-    db_test_session = db.get_test_session(session_id)
-    session_result = []
-    for db_run in db_test_session.runs:
-        run_result = {'test': db_run.id, 'status':db_run.status, 'objectives':[]}
-        if db_run.status == 'complete':
-            for obj in db_run.objectives:
-                run_result['objectives'].append({'todo':1})
-        session_result.append(run_result)
-
-
-
-    return JsonResponse({'results':session_result})
-    '''
-    
-
-
     
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def queue_test(request, session_id, test_id):
+def queue_test(request, session_id, testrun_id):
     user_id =  request.user.id or 0
-    task_id = None
+    cape_task_id = None
     try:
-        task_id = db.queue_audit_test(session_id, test_id, user_id)
-        db.set_audit_run_status(session_id, test_id, "queued")
-        messages.success(request, f"Task added: id {task_id}")
+        cape_task_id = db.queue_audit_test(session_id, testrun_id, user_id)
+        db.assign_cape_task_to_testrun(testrun_id, cape_task_id)
+        messages.success(request, f"Task added: id {cape_task_id}")
     except Exception as ex:
         messages.error(request, f"Task Exception: {ex}")
 
     return JsonResponse({
             "status": "success", 
             "message": "Test queued successfully",
-            "task_id": task_id
+            "task_id": cape_task_id
         })
 
 
@@ -374,6 +360,7 @@ def queue_all_tests(request, session_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, page=1):
+    raise Exception("index called")
     page = int(page)
     if page == 0:
         page = 1

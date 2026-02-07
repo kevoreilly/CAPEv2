@@ -1,37 +1,40 @@
+from ntpath import isdir
 import os
 import json
 import sys
 import logging
+from types import NoneType
 import zipfile
 import shutil
 from pathlib import Path
 from typing import Any, List, Optional, Union, Tuple, Dict
 import importlib.util
+from lib.cuckoo.core.data import task as db_task
 
-from sqlalchemy import exc
+from sqlalchemy import exc, try_cast
 
 log = logging.getLogger(__name__)
+
+def load_module(module_path):
+    module_name = "test_py_module"
+    spec = importlib.util.spec_from_file_location(module_name, str(module_path))        
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+        
+    if not hasattr(module, 'CapeDynamicTest'):
+        log.warning(str(dir(module)))
+        raise ValueError(f"Module has no CapeDynamicTest class")                
+    tester = module.CapeDynamicTest()        
+
+    if not hasattr(tester, 'get_metadata'):
+        raise ValueError(f"CapeDynamicTest from {module_path} lacks get_metadata() function")
+    return tester
 
 class TestLoader():
     def __init__(self, tests_directory):
         if not os.path.exists(tests_directory):
             raise ValueError(f"Tests directory '{tests_directory}' does not exist.")
         self.tests_root = tests_directory
-    
-    def load_module(self, module_path):
-        module_name = "test_py_module"
-        spec = importlib.util.spec_from_file_location(module_name, str(module_path))        
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        
-        if not hasattr(module, 'CapeDynamicTest'):
-            log.warning(str(dir(module)))
-            raise ValueError(f"Module has no CapeDynamicTest class")                
-        tester = module.CapeDynamicTest()        
-
-        if not hasattr(tester, 'get_metadata'):
-            raise ValueError(f"CapeDynamicTest from {module_path} lacks get_metadata() function")
-        return tester
 
     def _extract_payload(self, payload_archive, payload_output_dir, zip_password=None):
 
@@ -92,7 +95,7 @@ class TestLoader():
 
         # Load and instantiate the python test module and fetch metadata
         try:
-            tester = self.load_module(module_path)                
+            tester = load_module(module_path)                
             test_metadata['info'] = tester.get_metadata()
 
             test_metadata['objectives'] = []
@@ -126,7 +129,6 @@ class TestLoader():
         # Return prepared metadata for DB ingest
         return test_metadata
 
-
     def load_tests(self) -> List[Dict[str, Any]]:
         """
         Walks the root directory and yields validated test configurations.
@@ -153,11 +155,44 @@ class TestLoader():
 
         return {'available':available_tests, 'unavailable': unavailable_tests}
 
+
 class TestResultValidator():
-    def __init__(self, test_directory: str):
-        report_path = os.path.join(test_directory, "reports/report.json")
+    def __init__(self, test_module_path:str, task_storage_directory: str):
+        
+        if os.path.isdir(task_storage_directory):
+            self.task_directory = task_storage_directory
+        else:
+            raise NotADirectoryError(f"Invalid task directory: {task_storage_directory}")
+
         try:
-            self.report = json.load(open(report_path, 'r'))
+            self.test_module = load_module(test_module_path)    
         except Exception as e:
-            raise ValueError(f"Failed to load report {report_path}: {e}")
-            self.report = None
+            raise ValueError(f"Failed to load test evaluation module {test_module_path}: {e}")
+
+    def evaluate(self):
+        self.test_module.evaluate_results(self.task_directory)
+        return self.test_module.get_results()
+            
+
+
+
+def task_status_to_run_status(cape_task_status):
+    if cape_task_status == db_task.TASK_REPORTED:
+        return "complete"
+    if cape_task_status == db_task.TASK_PENDING:
+        return "queued"
+    if cape_task_status in [db_task.TASK_RUNNING, 
+                            db_task.TASK_DISTRIBUTED, 
+                            db_task.TASK_RECOVERED,
+                            db_task.TASK_COMPLETED,
+                            db_task.TASK_DISTRIBUTED_COMPLETED]:
+        return "running"
+    if cape_task_status in [db_task.TASK_BANNED,
+                            db_task.TASK_FAILED_ANALYSIS,
+                            db_task.TASK_FAILED_PROCESSING,
+                            db_task.TASK_FAILED_REPORTING,
+                            db_task.TASK_DISTRIBUTED_COMPLETED,
+                            ]:
+        return "failed"
+
+    raise Exception(f"Unknown cape task status: {cape_task_status}")

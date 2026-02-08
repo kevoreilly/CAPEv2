@@ -52,7 +52,7 @@
 
     .tech-value {
         font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-        font-size: 0.75rem;
+        font-size: 0.85rem;
     }
 
     .tech-link {
@@ -94,16 +94,19 @@
         }
 </style>
 
-{% if messages %}
-<ul class="messages">
-    {% for message in messages %}
-    {% if message.tags != "success" %}
-    <li class="alert alert-{{ message.tags }}">
-        {{ message }}
-    </li>
-    {% endif %}
-    {% endfor %}
-</ul>
+{% if messages|length > 0 %}
+<div class="bg-dark">
+    <div>Messages</div>
+    <ul class="messages">
+        {% for message in messages %}
+        {% if message.tags != "success" %}
+        <li class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+</div>
 {% endif %}
 
 
@@ -135,8 +138,9 @@
      data-is-active="{% if stats.tests.running > 0 or stats.tests.queued > 0 %}true{% else %}false{% endif %}">
 </div>
 
+
 <div id="session-header-wrapper" class="mb-3" style="padding: 12px; padding-bottom: 0px">
-    {% include "test_harness/partials/session_status_header.html" with stats=stats session=session %}
+    {% include "test_harness/partials/session_status_header.html" with stats=stats session=session csrf_token=csrf_token %}
 </div>
 
 <div class="container-fluid">
@@ -221,46 +225,6 @@
         }
     }
 
-    async function queue_all(btn, session_id) {
-        const url = "{% url 'queue_all_tests' 0 %}".replace('0', session_id);
-
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Queuing...';
-
-
-        try {
-            // 2. Execute the background request
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': '{{ csrf_token }}',
-                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
-                }
-            });
-
-            if (!response.ok) throw new Error('Network response was not ok');
-
-            const data = await response.json();
-
-            if (data.status === 'success') {
-                // 3. Update the button to show it worked
-                btn.classList.replace('btn-outline-info', 'btn-secondary');
-                btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
-                // btn.disabled remains true so they can't queue it twice
-            } else {
-                throw new Error(data.message || 'Queueing failed');
-            }
-
-        } catch (error) {
-            console.error('Error:', error);
-            alert('Could not queue tests: ' + error.message);
-
-            // Reset button on error
-            btn.disabled = false;
-            btn.innerHTML = originalContent;
-        }
-
-    }
 
     async function queue_run(btn, sessionId, runId) {
         // 1. Prepare the URL and UI feedback
@@ -310,17 +274,18 @@
         }
     }
 
-    async function updateStatuses()
-    {
+
+    async function updateStatuses() {
+        // to avoid updates closing expanded info boxes (config/timing), we store what is expanded
+        const expandedIds = Array.from(document.querySelectorAll('.collapse.show'))
+            .map(el => el.id);
+
         fetch(`/tests/session/${SESSION_ID}/status`)
             .then(res => res.json())
             .then(data => {
                 data.test_cards.forEach(carddata => {
                     const card = document.getElementById(`run-card-${carddata.id}`);
-
                     if (card) {
-                        // We use outerHTML to replace the entire card div
-                        // only if the status has changed or if it's currently "active"
                         card.outerHTML = carddata.html;
                     }
                 });
@@ -338,8 +303,22 @@
                 if (!data.is_active) {
                     DASHBOARD_STATE.elapsed = 0;
                 }
+
+                //re-expand elements
+                expandedIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        // Use 'show' class immediately to avoid a double-animation
+                        el.classList.add('show');
+                        // Also update the trigger button's aria-expanded state if needed
+                        const btn = document.querySelector(`[data-bs-target="#${id}"]`);
+                        if (btn) btn.setAttribute('aria-expanded', 'true');
+                    }
+                });
             });
     }
+    window.triggerSessionStatusUpdate = updateStatuses
+    
 </script>
 
 {% endblock %}

@@ -1,19 +1,11 @@
-# Copyright (C) 2010-2015 Cuckoo Foundation.
-# This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
-# See the file 'docs/LICENSE' for copying permission.
-
-import base64
-import collections
 import datetime
 import http
 import json
 import os
-import subprocess
 import sys
-import tempfile
-import zipfile
 import logging
 
+from typing import Optional
 from contextlib import suppress
 from io import BytesIO
 from pathlib import Path
@@ -50,6 +42,7 @@ from lib.cuckoo.common.test_harness_utils import TestLoader
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.audits import AuditsMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
+from lib.cuckoo.core.data.db_common import _utcnow_naive
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 
 try:
@@ -262,17 +255,49 @@ def session_index(request, session_id):
         {"session": session_data, "runs": session_data.runs, "run_html": run_html, "stats": stats},
     )
 
+def generate_task_diagnostics(task, test_run):
+    diagnostics = {}
+    timenow = _utcnow_naive()
+    if task.added_on:
+        if task.started_on:
+            diagnostics['start_wait'] = task.started_on - task.added_on
+        else:
+            diagnostics['start_wait'] = timenow - task.added_on
+
+        if task.started_on:
+            if task.completed_on:
+                diagnostics['run_time'] = task.completed_on - task.started_on
+            else:
+                diagnostics['run_time'] = timenow - task.started_on
+                
+        if task.completed_on:
+            if task.reporting_finished_on:
+                diagnostics['report_wait'] = task.reporting_finished_on - task.completed_on
+            else:
+                # implementing reporting_finished_on was a recent change, it may not be there
+                if test_run.status == "running":
+                    diagnostics['report_wait'] = timenow - task.completed_on
+    
+    return diagnostics
+
+
 
 def _fetch_run_update(request, session_id, testrun_id):
     db_test_session = db.get_test_session(session_id)
     test_run = next((r for r in db_test_session.runs if r.id == testrun_id), None)
     cape_task_info = None
+    diagnostics = None
     if test_run.cape_task_id != None:
-        cape_task_info = db.view_task(test_run.cape_task_id)
+        cape_task_info = db.view_task(test_run.cape_task_id)        
+        if cape_task_info:
+            diagnostics = generate_task_diagnostics(cape_task_info, test_run)
+
+    if test_run.test_definition.task_config:
+        test_run.task_config_pretty = json.dumps(test_run.test_definition.task_config, indent=2)
 
     # Render just the partial file with the updated 'run' object
     html = render_to_string(
-        "test_harness/partials/session_test_run.html", {"run": test_run, "cape_task": cape_task_info}, request=request
+        "test_harness/partials/session_test_run.html", {"run": test_run, "cape_task": cape_task_info, "diagnostics": diagnostics}, request=request
     )
     return {"html": html, "status": test_run.status, "id": test_run.id}
 
@@ -342,27 +367,59 @@ def session_status(request, session_id):
         }
     )
 
-
-@require_POST
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def queue_test(request, session_id, testrun_id):
+def inner_queue_test(request, session_id, testrun_id) -> Optional[int]:
     user_id = request.user.id or 0
     cape_task_id = None
     try:
         cape_task_id = db.queue_audit_test(session_id, testrun_id, user_id)
         db.assign_cape_task_to_testrun(testrun_id, cape_task_id)
         messages.success(request, f"Task added: id {cape_task_id}")
+        return cape_task_id
     except Exception as ex:
         messages.error(request, f"Task Exception: {ex}")
+    return None
 
-    return JsonResponse({"status": "success", "message": "Test queued successfully", "task_id": cape_task_id})
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def queue_test(request, session_id, testrun_id):
+    cape_task_id = inner_queue_test(request, session_id, testrun_id)
+    if cape_task_id:
+        return JsonResponse({"status": "success", "message": "Test queued successfully", "task_id": cape_task_id})
+    else:
+        return JsonResponse({"status": "failure", "message": "Could not queue test", "task_id": None})
 
 
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def queue_all_tests(request, session_id):
-    return JsonResponse({"status": "success", "message": "Tests queued successfully"})
+    task_ids = []
+    db_test_session = db.get_test_session(session_id)
+    for run in db_test_session.runs:
+        task_id = inner_queue_test(request, session_id, run.id)
+        if task_id != None:
+            task_ids.append({'run':run.id, 'task':task_id})
+    return JsonResponse({"task_ids": task_ids})
 
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def unqueue_all_tests(request, session_id):    
+    
+    # note: I tried to use db.delete_tasks(), with the task_id's & TASK_PENDING
+    # filter but couldn't get round commit/transaction errors
+    # there is a chance of some race conditions here
+    db_test_session = db.get_test_session(session_id)
+    deleted_task_ids = []
+    if db_test_session:
+        for run in db_test_session.runs:
+            if run.cape_task_id != None and run.status == "queued":
+                cape_task = db.view_task(run.cape_task_id)
+                if cape_task.status == TASK_PENDING:
+                    db.delete_task(run.cape_task_id)
+                    deleted_task_ids.append(run.cape_task_id)
+                    run.status = "unqueued"
+                    run.cape_task_id = None
+
+    return JsonResponse({'deleted_tasks': len(deleted_task_ids)})
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

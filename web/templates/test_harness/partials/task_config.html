@@ -1,0 +1,19 @@
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-10" style="max-width:800px;">
+            <div class="shadow-sm border rounded overflow-hidden">
+                <div class="bg-secondary px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
+                    <span class="small text-muted font-monospace">
+                        <i class="fas fa-file-code me-2"></i>task_config.json</span>
+                    <button class="btn btn-sm btn-link text-muted p-0"
+                            onclick="window.copyToClipboard('{{ config_pretty|escapejs }}')">
+                        <i class="fas fa-copy"></i>
+                    </button>
+                </div>
+                <div class="p-3" style="background-color: #1e1e1e; max-height: 400px; overflow-y: auto;">
+                    <pre class="m-0" style="border: none; background: transparent;"><code style="color: #dcdcdc; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem; line-height: 1.5;">{{ config_pretty }}</code></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

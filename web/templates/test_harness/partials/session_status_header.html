@@ -78,13 +78,13 @@
                     </button>
 
                     <button id="btn-queue-all"
-                            class="btn btn-outline-info text-info px-3 rounded {% if stats.not_queued == 0 %}d-none{% endif %}"
+                            class="btn btn-outline-info text-info px-3 rounded {% if stats.tests.unqueued == 0 %}d-none{% endif %}"
                             onclick="queue_all(this, '{{ session.id }}')">
                         <i class="fas fa-play me-1"></i> Queue All
                     </button>
                     <button id="btn-clear-queue"
-                            class="btn btn-outline-danger px-3 rounded {% if stats.queued == 0 %}d-none{% endif %}"
-                            onclick="clear_queue(this, '{{ session.id }}')">
+                            class="btn btn-outline-danger px-3 rounded {% if stats.tests.queued == 0 %}d-none{% endif %}"
+                            onclick="unqueue_all(this, '{{ session.id }}')">
                         <i class="fas fa-stop me-1"></i> Clear
                     </button>
                 </div>
@@ -92,3 +92,68 @@
         </div>
     </div>
 </div>
+
+<script>
+    async function queue_all(btn, session_id) {
+        const url = "{% url 'queue_all_tests' 0 %}".replace('0', session_id);
+
+        btn.disabled = true;
+        originalContent = btn.innerHTML
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Unqueueing...';
+
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not queue tests: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+        await window.triggerSessionStatusUpdate()
+
+    }
+
+    async function unqueue_all(btn, session_id) {
+        const url = "{% url 'unqueue_all_tests' 0 %}".replace('0', session_id);
+
+        btn.disabled = true;
+        originalContent = btn.innerHTML
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Queuing...';
+
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+
+            if (!response.ok) throw new Error('Network response was not ok');
+            // don't worry about success, refresh loop will handle state changes
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not unqueue tests: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+        await window.triggerSessionStatusUpdate()
+    }
+</script>

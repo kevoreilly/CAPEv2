@@ -426,8 +426,6 @@ class AuditsMixIn:
                         self.evaluate_objective_results(run)
                     run.status = new_status
 
-
-
     def get_test_session(self, session_id: int) -> Optional[TestSession]:
         stmt = select(TestSession).where(TestSession.id == session_id)
         test_session = self.session.execute(stmt).unique().scalar_one_or_none()
@@ -466,7 +464,8 @@ class AuditsMixIn:
                     cape_task_id = run.cape_task_id
                     if isinstance(cape_task_id, int):
                         task_storage_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(cape_task_id))
-                        shutil.rmtree(task_storage_dir)
+                        if os.path.isdir(task_storage_dir):
+                            shutil.rmtree(task_storage_dir)
 
             sess.delete(session_obj)
 

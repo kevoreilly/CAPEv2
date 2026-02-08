@@ -824,6 +824,8 @@ class TasksMixIn:
             task.started_on = _utcnow_naive()
         elif status in (TASK_COMPLETED, TASK_DISTRIBUTED_COMPLETED):
             task.completed_on = _utcnow_naive()
+        elif status == TASK_REPORTED:
+            task.reporting_finished_on = _utcnow_naive()
 
         self.session.add(task)
         return task
@@ -834,6 +836,7 @@ class TasksMixIn:
         @param status: status string
         @return: operation status
         """
+        log.info(f"setstat task {task_id} status {status}")
         task = self.session.get(Task, task_id)
 
         if not task:

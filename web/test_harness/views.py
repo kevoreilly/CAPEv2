@@ -261,8 +261,10 @@ def test_harness_index(request, page=1):
 @require_POST
 def delete_test_session(request, session_id):
     try:
-        db.delete_test_session(session_id)
-        messages.success(request, f"Session #{session_id} deleted.")
+        session = db.get_test_session(session_id)
+        if session:
+            if not db.delete_test_session(session_id):
+                messages.warning(request, f"Could not delete active session #{session_id}.")
     except Exception as e:
         messages.error(request, f"Error deleting session: {str(e)}")
         logger.error(f"Error deleting session: {str(e)}")
@@ -282,7 +284,7 @@ def session_index(request, session_id):
     cape_tasks = {}
     run_html = {}
     for run in session_data.runs:
-        run_status = _fetch_run_update(request, session_id, run.id)
+        run_status = _render_run_update(request, session_id, run.id)
         run_html[run.id] = run_status["html"]
 
     return render(
@@ -317,8 +319,7 @@ def generate_task_diagnostics(task, test_run):
     return diagnostics
 
 
-
-def _fetch_run_update(request, session_id, testrun_id):
+def _render_run_update(request, session_id, testrun_id):
     db_test_session = db.get_test_session(session_id)
     test_run = next((r for r in db_test_session.runs if r.id == testrun_id), None)
     cape_task_info = None
@@ -339,7 +340,7 @@ def _fetch_run_update(request, session_id, testrun_id):
 
 
 def get_run_update(request, session_id, testrun_id):
-    return JsonResponse(_fetch_run_update(request, session_id, testrun_id))
+    return JsonResponse(_render_run_update(request, session_id, testrun_id))
 
 
 def get_session_stats(db_test_session):
@@ -386,7 +387,7 @@ def session_status(request, session_id):
 
     results = []
     for run in runs:
-        results.append(_fetch_run_update(request, session_id, run.id))
+        results.append(_render_run_update(request, session_id, run.id))
 
     status_box = render_to_string(
         "test_harness/partials/session_status_header.html", {"stats": stats, "session": db_test_session}, request=request

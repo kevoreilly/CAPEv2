@@ -1006,6 +1006,7 @@ class TasksMixIn:
         options_like=False,
         options_not_like=False,
         tags_tasks_like=False,
+        tags_tasks_not_like=False,
         task_ids=False,
         include_hashes=False,
         user_id=None,
@@ -1027,6 +1028,7 @@ class TasksMixIn:
         @param options_like: filter tasks by specific option inside of the options
         @param options_not_like: filter tasks by specific option not inside of the options
         @param tags_tasks_like: filter tasks by specific tag
+        @param tags_tasks_not_like: filter tasks by specific tag not inside of task tags
         @param task_ids: list of task_id
         @param include_hashes: return task+samples details
         @param user_id: list of tasks submitted by user X
@@ -1062,6 +1064,8 @@ class TasksMixIn:
             stmt = stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
         if tags_tasks_like:
             stmt = stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+        if tags_tasks_not_like:
+            stmt = stmt.where(Task.tags_tasks.notlike(f"%{tags_tasks_not_like}%"))
         if task_ids:
             stmt = stmt.where(Task.id.in_(task_ids))
         if user_id is not None:

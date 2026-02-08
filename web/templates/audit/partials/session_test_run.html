@@ -84,12 +84,12 @@
 
     <div id="config-{{  run.id }}" class="collapse">
         <div class="py-3 bg-light">
-            {% include "test_harness/partials/task_config.html" with config_pretty=run.task_config_pretty colspan=5 %}
+            {% include "audit/partials/task_config.html" with config_pretty=run.task_config_pretty colspan=5 %}
         </div>
     </div>
 
     <div id="timing-{{ run.id }}" class="collapse">
-        {% include "test_harness/partials/timing_item.html" with cape_task=cape_task diagnostics=diagnostics colspan=5 %}
+        {% include "audit/partials/timing_item.html" with cape_task=cape_task diagnostics=diagnostics colspan=5 %}
     </div>
 
     <div class="card-header bg-dark text-muted d-flex justify-content-between">
@@ -106,7 +106,7 @@
             {% for obj in run.objectives %}
             {% if not obj.parent_id %}
             <div class="list-group-item bg-dark border-secondary py-1">
-                {% include "test_harness/partials/objective_item.html" with obj=obj %}
+                {% include "audit/partials/objective_item.html" with obj=obj %}
             </div>
             {% endif %}
             {% endfor %}

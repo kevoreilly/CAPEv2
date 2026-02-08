@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, List, Optional, Union, Tuple, Dict
 import importlib.util
 from lib.cuckoo.core.data import task as db_task
+from lib.cuckoo.core.data.audit_data import TEST_RUNNING, TEST_COMPLETE, TEST_FAILED, TEST_QUEUED
 
 from sqlalchemy import exc, try_cast
 
@@ -29,6 +30,7 @@ def load_module(module_path):
     if not hasattr(tester, 'get_metadata'):
         raise ValueError(f"CapeDynamicTest from {module_path} lacks get_metadata() function")
     return tester
+
 
 class TestLoader():
     def __init__(self, tests_directory):
@@ -137,20 +139,17 @@ class TestLoader():
         unavailable_tests = []
         
         if not os.path.exists(self.tests_root):
-            log.error(f"Tests root {self.tests_root} does not exist.")
-            return []
+            log.error("Tests root %s does not exist.", self.tests_root)
+            return {"error": f"Tests root {self.tests_root} does not exist."}
 
         for entry in os.scandir(self.tests_root):
-            if not entry.is_dir():
-                continue
-
+            test_config = None
             try:
                 test_config = self.validate_test_directory(entry.path)
                 available_tests.append(test_config)
                 log.info("Loaded test: %s",test_config['info']['Name'])
             except Exception as e:
-                log.warning(f"Skipping directory {entry.path} due to exception")
-                log.exception("Verify exception %s",e)
+                log.exception("Skipping directory %s due to exception",entry.path)
                 unavailable_tests.append({"module_path":entry.path, "error":str(e)})
 
         return {'available':available_tests, 'unavailable': unavailable_tests}
@@ -178,21 +177,21 @@ class TestResultValidator():
 
 def task_status_to_run_status(cape_task_status):
     if cape_task_status == db_task.TASK_REPORTED:
-        return "complete"
+        return TEST_COMPLETE
     if cape_task_status == db_task.TASK_PENDING:
-        return "queued"
+        return TEST_QUEUED
     if cape_task_status in [db_task.TASK_RUNNING, 
                             db_task.TASK_DISTRIBUTED, 
                             db_task.TASK_RECOVERED,
                             db_task.TASK_COMPLETED,
                             db_task.TASK_DISTRIBUTED_COMPLETED]:
-        return "running"
+        return TEST_RUNNING
     if cape_task_status in [db_task.TASK_BANNED,
                             db_task.TASK_FAILED_ANALYSIS,
                             db_task.TASK_FAILED_PROCESSING,
                             db_task.TASK_FAILED_REPORTING,
                             db_task.TASK_DISTRIBUTED_COMPLETED,
                             ]:
-        return "failed"
+        return TEST_FAILED
 
     raise Exception(f"Unknown cape task status: {cape_task_status}")

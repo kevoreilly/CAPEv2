@@ -17,22 +17,21 @@
                                 <div class="font-monospace small" style="color: #dcdcdc;">{{ cape_task.added_on|default:"--" }}</div>
                             </div>
                             <div class="col-sm-6 col-md-3 border-start-custom">
-                                <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Started</div>
-                                <div class="font-monospace small mb-2" style="color: #dcdcdc;">{{ cape_task.started_on|default:"--" }}</div>
                                 <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Start Delay</div>
-                                <div class="font-monospace small" style="color: #dcdcdc;">{{ diagnostics.start_wait|default:"--" }}</div>
-                            </div>
+                                <div class="font-monospace small mb-2" style="color: #dcdcdc;">{{ diagnostics.start_wait|default:"--" }}</div>
+                                <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Started</div>
+                                <div class="font-monospace small" style="color: #dcdcdc;">{{ cape_task.started_on|default:"--" }}</div>                            </div>
                             <div class="col-sm-6 col-md-3 border-start-custom">
-                                <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Completed</div>
-                                <div class="font-monospace small mb-2" style="color: #dcdcdc;">{{ cape_task.completed_on|default:"--" }}</div>
                                 <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Run Time</div>
-                                <div class="font-monospace small" style="color: #dcdcdc;">{{ diagnostics.run_time|default:"--" }}</div>
+                                <div class="font-monospace small mb-2" style="color: #dcdcdc;">{{ diagnostics.run_time|default:"--" }}</div>
+                                <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Completed</div>
+                                <div class="font-monospace small" style="color: #dcdcdc;">{{ cape_task.completed_on|default:"--" }}</div>
                             </div>
                             <div class="col-sm-6 col-md-3 border-start-custom">
-                                <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Reported</div>
-                                <div class="font-monospace small mb-2" style="color: #dcdcdc;">{{ cape_task.reporting_finished_on|default:"--" }}</div>
                                 <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Processing Wait</div>
-                                <div class="font-monospace small" style="color: #dcdcdc;">{{ diagnostics.report_wait|default:"--" }}</div>
+                                <div class="font-monospace small mb-2" style="color: #dcdcdc;">{{ diagnostics.report_wait|default:"--" }}</div>
+                                <div class="text-uppercase fw-bold mb-1" style="font-size: 0.65rem; color: #666;">Reported</div>
+                                <div class="font-monospace small" style="color: #dcdcdc;">{{ cape_task.reporting_finished_on|default:"--" }}</div>
                             </div>
                         </div>
                     </div>

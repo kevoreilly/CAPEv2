@@ -40,7 +40,7 @@
                 <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><i class="fas fa-upload me-1"></i> Submit</a></li>
                 <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><i class="fas fa-chart-area me-1"></i> Statistics</a></li>
                 {% if settings.TEST_HARNESS %}
-                <li class="nav-item"><a class="nav-link" href="{% url "test_harness" %}"><i class="fas fa-vial me-1"></i> Tests </a></li>
+                <li class="nav-item"><a class="nav-link" href="{% url "audit_index" %}"><i class="fas fa-clipboard-check me-1"></i>Audit</a></li>
                 {% endif %}
                 {% if settings.WEB_AUTHENTICATION %}
                 <li class="nav-item dropdown">

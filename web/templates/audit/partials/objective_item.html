@@ -49,7 +49,7 @@
     {% if obj.children %}
     <div class="ms-4 border-start border-secondary border-opacity-25 ps-3">
         {% for child in obj.children %}
-        {% include "test_harness/partials/objective_item.html" with obj=child %}
+        {% include "audit/partials/objective_item.html" with obj=child %}
         {% endfor %}
     </div>
     {% endif %}

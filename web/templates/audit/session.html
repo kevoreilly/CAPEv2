@@ -140,7 +140,7 @@
 
 
 <div id="session-header-wrapper" class="mb-3" style="padding: 12px; padding-bottom: 0px">
-    {% include "test_harness/partials/session_status_header.html" with stats=stats session=session csrf_token=csrf_token %}
+    {% include "audit/partials/session_status_header.html" with stats=stats session=session csrf_token=csrf_token %}
 </div>
 
 <div class="container-fluid">
@@ -215,7 +215,7 @@
     }
 
     async function updateRunCard(test_id) {
-        const response = await fetch(`/tests/session/0/run_update/${test_id}`.replace('0', SESSION_ID));
+        const response = await fetch(`/audit/session/0/run_update/${test_id}`.replace('0', SESSION_ID));
         const data = await response.json();
 
         const existingCard = document.getElementById(`run-card-${runId}`);
@@ -231,7 +231,7 @@
         //const url = "{% url 'queue_test' 0000 0001 %}"
         //    .replace('0000', SESSION_ID)
         //    .replace('0001', run_id);
-        const url = `/tests/session/${SESSION_ID}/queue_tests/${runId}/`;
+        const url = `/audit/session/${SESSION_ID}/queue_tests/${runId}/`;
         const originalContent = btn.innerHTML;
 
         // Prevent double-clicks and show loading state
@@ -280,7 +280,7 @@
         const expandedIds = Array.from(document.querySelectorAll('.collapse.show'))
             .map(el => el.id);
 
-        fetch(`/tests/session/${SESSION_ID}/status`)
+        fetch(`/audit/session/${SESSION_ID}/status`)
             .then(res => res.json())
             .then(data => {
                 data.test_cards.forEach(carddata => {

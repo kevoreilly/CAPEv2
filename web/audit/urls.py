@@ -3,12 +3,11 @@
 # See the file "docs/LICENSE" for copying permission.
 
 from django.urls import re_path, path
-
-from test_harness import views
+from audit import views
 
 urlpatterns = [
-    re_path(r"^$", views.test_harness_index, name="test_harness"),  
-    re_path(r"^page/(?P<page>\d+)/$", views.test_harness_index, name="test_harness"),
+    re_path(r"^$", views.audit_index, name="audit_index"),  
+    re_path(r"^page/(?P<page>\d+)/$", views.audit_index, name="audit_index"),
     re_path(r"^session/(?P<session_id>\d+)/$", views.session_index, name="test_session"),        
     re_path(r"^session/(?P<session_id>\d+)/status$", views.session_status, name="session_status"),        
     re_path(r"^session/(?P<session_id>\d+)/run_update/<int:testrun_id>/", views.get_run_update, name="get_run_update"),        

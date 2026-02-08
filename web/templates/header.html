@@ -31,35 +31,35 @@
             </button>
 
             <div class="collapse navbar-collapse" id="navbarColor02">
-              <ul class="navbar-nav">
-                <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><i class="fas fa-list me-1"></i> Recent</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><i class="fas fa-clock me-1"></i> Pending</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><i class="fas fa-search me-1"></i> Search</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "apiv2" %}"><i class="fas fa-cog me-1"></i> API</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><i class="fas fa-upload me-1"></i> Submit</a></li>
-                <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><i class="fas fa-chart-area me-1"></i> Statistics</a></li>
-                {% if settings.TEST_HARNESS %}
-                <li class="nav-item"><a class="nav-link" href="{% url "audit_index" %}"><i class="fas fa-clipboard-check me-1"></i>Audit</a></li>
-                {% endif %}
-                {% if settings.WEB_AUTHENTICATION %}
-                <li class="nav-item dropdown">
-                  <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i class="fas fa-users me-1"></i> User</a>
-                  <div class="dropdown-menu dropdown-menu-end bg-dark border-secondary" aria-labelledby="navbarDropdown">
-                    <a class="dropdown-item text-light" href="/admin"><i class="fas fa-users-cog me-2 text-white-50"></i> Admin</a>
-                    <a class="dropdown-item text-light" href="/accounts/signup/"><i class="fas fa-user-plus me-2 text-white-50"></i> Register</a>
-                    <a class="dropdown-item text-light" href="/accounts/login/"><i class="fas fa-sign-in-alt me-2 text-white-50"></i> Login</a>
-                    <a class="dropdown-item text-light" href="/accounts/logout/"><i class="fas fa-sign-out-alt me-2 text-white-50"></i> Logout</a>
-                    <div class="dropdown-divider border-secondary"></div>
-                    <a class="dropdown-item text-light" href="/accounts/password/change/"><i class="fas fa-key me-2 text-white-50"></i> Change password</a>
-                    <a class="dropdown-item text-light" href="/accounts/password/reset/"><i class="fas fa-unlock-alt me-2 text-white-50"></i> Reset password</a>
-                    <a class="dropdown-item text-light" href="/accounts/email/"><i class="fas fa-envelope me-2 text-white-50"></i> Email configuration</a>
-                  </div>
-                </li>
-                {% endif %}
-                <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/" target="_blank"><i class="fas fa-info-circle me-1"></i> Docs</a></li>
-                <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md" target="_blank"><i class="far fa-newspaper me-1"></i> Changelog</a></li>
-              </ul>
+                <ul class="navbar-nav">
+                    <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><i class="fas fa-list me-1"></i> Recent</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><i class="fas fa-clock me-1"></i> Pending</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><i class="fas fa-search me-1"></i> Search</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url "apiv2" %}"><i class="fas fa-cog me-1"></i> API</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><i class="fas fa-upload me-1"></i> Submit</a></li>
+                    <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><i class="fas fa-chart-area me-1"></i> Statistics</a></li>
+                    {% if settings.AUDIT_FRAMEWORK %}
+                    <li class="nav-item"><a class="nav-link" href="{% url "audit_index" %}"><i class="fas fa-clipboard-check me-1"></i>Audit</a></li>
+                    {% endif %}
+                    {% if settings.WEB_AUTHENTICATION %}
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i class="fas fa-users me-1"></i> User</a>
+                        <div class="dropdown-menu dropdown-menu-end bg-dark border-secondary" aria-labelledby="navbarDropdown">
+                            <a class="dropdown-item text-light" href="/admin"><i class="fas fa-users-cog me-2 text-white-50"></i> Admin</a>
+                            <a class="dropdown-item text-light" href="/accounts/signup/"><i class="fas fa-user-plus me-2 text-white-50"></i> Register</a>
+                            <a class="dropdown-item text-light" href="/accounts/login/"><i class="fas fa-sign-in-alt me-2 text-white-50"></i> Login</a>
+                            <a class="dropdown-item text-light" href="/accounts/logout/"><i class="fas fa-sign-out-alt me-2 text-white-50"></i> Logout</a>
+                            <div class="dropdown-divider border-secondary"></div>
+                            <a class="dropdown-item text-light" href="/accounts/password/change/"><i class="fas fa-key me-2 text-white-50"></i> Change password</a>
+                            <a class="dropdown-item text-light" href="/accounts/password/reset/"><i class="fas fa-unlock-alt me-2 text-white-50"></i> Reset password</a>
+                            <a class="dropdown-item text-light" href="/accounts/email/"><i class="fas fa-envelope me-2 text-white-50"></i> Email configuration</a>
+                        </div>
+                    </li>
+                    {% endif %}
+                    <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/" target="_blank"><i class="fas fa-info-circle me-1"></i> Docs</a></li>
+                    <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md" target="_blank"><i class="far fa-newspaper me-1"></i> Changelog</a></li>
+                </ul>
 
             </div>
             <form class="d-flex me-auto" action="{% url "search" %}" method="get">

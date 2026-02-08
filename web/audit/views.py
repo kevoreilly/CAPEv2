@@ -16,7 +16,8 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import BadRequest, PermissionDenied
-from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse, JsonResponse, HttpResponseNotFound
+from django.http import (HttpResponse, HttpResponseRedirect, StreamingHttpResponse, 
+                         JsonResponse, HttpResponseNotFound, HttpResponseForbidden)
 from django.shortcuts import redirect, render
 from django import template
 from django.template.loader import render_to_string
@@ -95,19 +96,29 @@ class conditional_login_required:
         self.condition = condition
 
     def __call__(self, func):
+        
+        if not hasattr(web_cfg, 'audit_framework') or \
+            not hasattr(web_cfg.audit_framework, 'enabled') or \
+            web_cfg.audit_framework.enabled == False:
+                def fail(*args, **kwargs):
+                    return HttpResponseForbidden(f"Audit Framework is not sent to enabled in web config.")
+                return fail
+
         if settings.ANON_VIEW and func.__name__ not in anon_not_viewable_func_list:
             return func
         if not self.condition:
             return func
         return self.decorator(func)
 
-
+    
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def audit_index(request, page=1):
     """
     The main index function for the /audit page with lists of sessions and tests
     Currently only handles paging for sessions as tests are probably better
     viewed as a single page while being picked through for a new session
     """
+
     available_tests = db.list_available_tests()
     for test in available_tests:
         # We create a new "virtual" attribute on the object
@@ -242,6 +253,7 @@ def delete_test_session(request, session_id):
     return redirect("audit_index")
 
 
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def session_index(request, session_id):
     """
     The index function for an invididual audit session
@@ -323,6 +335,7 @@ def _render_run_update(request, session_id, testrun_id):
     return {"html": html, "status": test_run.status, "id": test_run.id}
 
 
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def get_run_update(request, session_id, testrun_id):
     """
     Get an update for a test run of a session without having to reload the whole page

@@ -267,7 +267,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
 ]
 
-TEST_HARNESS = True
+AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
 
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
@@ -317,7 +317,7 @@ SETTINGS_EXPORT = [
     "NETWORK_PROC_MAP",
     "REPROCESS_TASKS",
     "REPROCESS_FAILED_PROCESSING",
-    "TEST_HARNESS"
+    "AUDIT_FRAMEWORK"
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

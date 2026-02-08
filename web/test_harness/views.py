@@ -75,7 +75,7 @@ except ImportError:
     print("Missed dependency: poetry install")
     HAVE_PYZIPPER = False
 
-TEST_LIMIT = 25
+SESSIONS_PER_PAGE = 10
 
 processing_cfg = Config("processing")
 reporting_cfg = Config("reporting")
@@ -205,7 +205,7 @@ def reload_available_tests(request):
     return redirect(reverse("test_harness") + "#available-tests")
 
 
-def test_harness_index(request):
+def test_harness_index(request, page=1):
     # Fetch your tests from the DB
     available_tests = db.list_available_tests()  # or however you fetch them
 
@@ -216,10 +216,46 @@ def test_harness_index(request):
             test.task_config_pretty = json.dumps(test.task_config, indent=2)
         else:
             test.task_config_pretty = "{}"
+           
+    paging = {}
+    
+    first_last_session = db.get_session_id_range()
 
-    test_sessions = db.list_test_sessions()
+    page = int(page)
+    if page == 0:
+        page = 1
+    offset = (page - 1) * SESSIONS_PER_PAGE
+    
+    test_sessions = db.list_test_sessions(offset=offset, limit=SESSIONS_PER_PAGE)
+    
+    paging["show_session_prev"] = "hide"
+    paging["show_session_next"] = "hide"
 
-    return render(request, "test_harness/index.html", {"available_tests": available_tests, "sessions": test_sessions})
+    if test_sessions:
+        if test_sessions[0].id != first_last_session[1]:
+            paging["show_session_prev"] = "show"
+        if test_sessions[-1].id != first_last_session[0]:
+            paging["show_session_next"] = "show"
+
+    sessions_count = db.count_test_sessions()
+    pages_sessions_num = int(sessions_count / SESSIONS_PER_PAGE + 1)
+
+    sessions_pages = []
+    if pages_sessions_num < 11 or page < 6:
+        sessions_pages = list(range(1, min(10, pages_sessions_num) + 1))
+    elif page > 5:
+        sessions_pages = list(range(min(page - 5, pages_sessions_num - 10) + 1, min(page + 5, pages_sessions_num) + 1))
+
+    paging["sessions_page_range"] = sessions_pages
+    paging["next_page"] = str(page + 1)
+    paging["prev_page"] = str(page - 1)
+    paging["current_page"] = page
+
+    return render(request, 
+                  "test_harness/index.html", 
+                  { "available_tests": available_tests, 
+                    "sessions": test_sessions,
+                    "paging": paging})
 
 
 @require_POST
@@ -420,111 +456,3 @@ def unqueue_all_tests(request, session_id):
                     run.cape_task_id = None
 
     return JsonResponse({'deleted_tasks': len(deleted_task_ids)})
-
-@require_safe
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def index(request, page=1):
-    raise Exception("index called")
-    page = int(page)
-    if page == 0:
-        page = 1
-    off = (page - 1) * TEST_LIMIT
-
-    test_sessions = []
-    available_tests = []
-
-    db_test_sessions = db.list_test_sessions(limit=TEST_LIMIT, offset=off)
-    db_available_tests = db.list_available_tests(limit=TEST_LIMIT, offset=off)
-
-    # Vars to define when to show Next/Previous buttons
-    paging = {}
-    paging["show_session_next"] = "show"
-    paging["show_test_next"] = "show"
-    paging["next_page"] = str(page + 1)
-    paging["prev_page"] = str(page - 1)
-
-    pages_sessions_num = 0
-    pages_tests_num = 0
-    test_sessions_number = db.count_test_sessions() or 0
-    tests_available_number = db.count_available_tests() or 0
-    if test_sessions_number:
-        pages_sessions_num = int(test_sessions_number / TEST_LIMIT + 1)
-    if tests_available_number:
-        pages_tests_num = int(tests_available_number / TEST_LIMIT + 1)
-
-    sessions_pages = []
-    tests_pages = []
-    if pages_sessions_num < 11 or page < 6:
-        sessions_pages = list(range(1, min(10, pages_sessions_num) + 1))
-    elif page > 5:
-        sessions_pages = list(range(min(page - 5, pages_sessions_num - 10) + 1, min(page + 5, pages_sessions_num) + 1))
-    if pages_tests_num < 11 or page < 6:
-        tests_pages = list(range(1, min(10, pages_tests_num) + 1))
-    elif page > 5:
-        tests_pages = list(range(min(page - 5, pages_tests_num - 10) + 1, min(page + 5, pages_tests_num) + 1))
-
-    first_session = 0
-    first_test = 0
-    # On a fresh install, we need handle where there are 0 tests.
-    if test_sessions_number > 0:
-        first_session = db.list_test_sessions(limit=1, order_by=TestSession.added_on.asc())[0].to_dict()["id"]
-        paging["show_session_prev"] = "show"
-    else:
-        paging["show_session_prev"] = "hide"
-
-    if tests_available_number > 0:
-        first_test = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=AvailableTest.added_on.asc())[
-            0
-        ].to_dict()["id"]
-        paging["show_test_prev"] = "show"
-    else:
-        paging["show_test_prev"] = "hide"
-
-    if db_test_sessions:
-        for session in db_test_sessions:
-
-            for objective in run.objectives:
-                logger.info(f"FfOb {objective.name} ")
-            new = get_test_session_info(db, session=session)
-            if new["id"] == first_session:
-                paging["show_session_next"] = "hide"
-            if page <= 1:
-                paging["show_session_prev"] = "hide"
-            else:
-                paging["show_session_prev"] = "show"
-            # if db.view_errors(session.id):
-            #    new["errors"] = True
-
-            test_sessions.append(new)
-    else:
-        paging["show_session_next"] = "hide"
-
-    if db_available_tests:
-        for test in db_available_tests:
-            new = get_test_metadata(db, test=test)
-            if new["id"] == first_test:
-                paging["show_test_next"] = "hide"
-            if page <= 1:
-                paging["show_test_prev"] = "hide"
-            else:
-                paging["show_test_prev"] = "show"
-            available_tests.append(new)
-    else:
-        paging["show_test_next"] = "hide"
-
-    paging["sessions_page_range"] = sessions_pages
-    paging["tests_page_range"] = tests_pages
-    paging["current_page"] = page
-    available_tests.sort(key=lambda x: x["name"], reverse=True)
-    test_sessions.sort(key=lambda x: x["id"], reverse=True)
-    return render(
-        request,
-        "test_harness/index.html",
-        {
-            "title": "Testing",
-            "sessions": test_sessions,
-            "tests": available_tests,
-            "paging": paging,
-            "config": enabledconf,
-        },
-    )

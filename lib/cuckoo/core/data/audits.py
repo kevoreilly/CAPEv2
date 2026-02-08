@@ -193,6 +193,19 @@ class AuditsMixIn:
         result = self.session.scalars(stmt)
         return list(result.all())
 
+    def get_session_id_range(self) -> Tuple[Optional[int], Optional[int]]:
+        """
+        Get the (oldest, newest) from the TestSession table for pagination
+        Returns (None, None) if the table is empty.
+        """
+        stmt = select(
+            func.min(TestSession.id), 
+            func.max(TestSession.id)
+        )
+        result = self.session.execute(stmt).tuples().first()
+        return result if result else (None, None)
+
+
     def list_available_tests(
         self,
         limit=None,
@@ -414,7 +427,6 @@ class AuditsMixIn:
         validator = TestResultValidator( test_run.test_definition.module_path, task_storage)
         results_dict = validator.evaluate()
         self.store_objective_results(test_run.id, results_dict)
-
 
     def update_audit_tasks_status(self, db_session, session: TestSession):
         for run in session.runs:

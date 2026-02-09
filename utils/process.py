@@ -14,6 +14,8 @@ import sys
 import time
 from contextlib import suppress
 
+from web.analysis.views import TasksMixIn
+
 log = logging.getLogger()
 
 try:
@@ -54,7 +56,7 @@ from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modul
 cfg = Config()
 logconf = Config("logging")
 repconf = Config("reporting")
-db = Database()
+db: TasksMixIn = Database()
 
 if repconf.mongodb.enabled:
     from bson.objectid import ObjectId

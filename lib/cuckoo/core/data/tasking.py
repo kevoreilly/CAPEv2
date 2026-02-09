@@ -158,8 +158,6 @@ class Error(Base):
     def __repr__(self):
         return f"<Error({self.id},'{self.message}','{self.task_id}')>"
 
-
-
     
 class TasksMixIn:
     def add(

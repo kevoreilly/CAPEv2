@@ -9,6 +9,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.views.decorators.http import require_safe
 
+from web.analysis.views import TasksMixIn
+
 sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.web_utils import top_detections
@@ -47,7 +49,7 @@ def format_number_with_space(number):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request):
-    db = Database()
+    db: TasksMixIn = Database()
 
     report = dict(
         total_samples=format_number_with_space(db.count_samples()),

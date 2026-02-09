@@ -89,7 +89,7 @@
             <div class="card shadow-sm border-0">
                 <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 text-white"><i class="fas fa-history me-2 text-white-50"></i> Recent Audit Sessions</h5>
-                    <span class="badge bg-dark">{{total_sessions}} sessions</span>
+                    <span class="badge bg-dark">{{total_sessions}} session{{total_sessions|pluralize}}</span>
                 </div>
 
                 <div class="table-responsive">
@@ -243,7 +243,7 @@
             <div class="card shadow-sm border-0">
                 <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 text-white"><i class="fas fa-vial me-2 text-white-50"></i>New Audit Session: Available Tests</h5>
-                    <span class="badge bg-dark">{{available_tests|length}} items</span>
+                    <span class="badge bg-dark">{{available_tests|length}} test{{ available_tests|pluralize }} </span>
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mt-2 mb-2 mx-sm-2 ">

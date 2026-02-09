@@ -1272,6 +1272,8 @@ class NetworkMap:
             if isinstance(url, str) and url.strip():
                 u = _extract_first_url(url) or url.strip()
                 host = _host_from_url(u)
+                if not host and "://" not in u:
+                    host = _host_from_url(f"http://{u}")
                 if host:
                     _add_http_host(self.http_host_map, host, pinfo, sock=sock)
 
@@ -1282,8 +1284,8 @@ class NetworkMap:
                     if host2:
                         _add_http_host(self.http_host_map, host2, pinfo, sock=sock)
 
-            if api in ("internetconnectw", "internetconnecta"):
-                server_name = _get_arg_any(args_map, "ServerName", "lpszServerName")
+            if api in ("internetconnectw", "internetconnecta", "winhttpconnect"):
+                server_name = _get_arg_any(args_map, "ServerName", "lpszServerName", "szServerName", "pszServerName")
                 if server_name:
                     _add_http_host(self.http_host_map, server_name, pinfo, sock=sock)
 

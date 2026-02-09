@@ -1268,7 +1268,7 @@ class NetworkMap:
                 _add_http_host(self.http_host_map, host, pinfo, sock=sock)
 
         if api in HTTP_HINT_APIS:
-            url = _get_arg_any(args_map, "URL", "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
+            url = _get_arg_any(args_map, "URL", "Url", "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
             if isinstance(url, str) and url.strip():
                 u = _extract_first_url(url) or url.strip()
                 host = _host_from_url(u)
@@ -1281,6 +1281,11 @@ class NetworkMap:
                     host2 = _host_from_url(u2)
                     if host2:
                         _add_http_host(self.http_host_map, host2, pinfo, sock=sock)
+
+            if api in ("internetconnectw", "internetconnecta"):
+                server_name = _get_arg_any(args_map, "ServerName", "lpszServerName")
+                if server_name:
+                    _add_http_host(self.http_host_map, server_name, pinfo, sock=sock)
 
         if api in TLS_HINT_APIS:
             sni = _extract_tls_server_name(call, args_map)

@@ -8,6 +8,7 @@ import logging
 import os
 
 from lib.cuckoo.common.abstracts import Report
+from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.objects import File
@@ -117,6 +118,7 @@ class ReportHTML(Report):
             )
             env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))
             results["local_conf"] = self.options
+            results["network_proc_map"] = Config("processing").network.process_map
 
             try:
                 tpl = env.get_template("report.html")

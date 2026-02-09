@@ -3,10 +3,11 @@
     <tr>
         <th>Name</th>
         <th>Response</th>
+        {% if results.network_proc_map %}<th>Process Name (PID)</th>{% endif %}
     </tr>
     {% for dns in results.network.dns %}
     <tr>
-        <td><span class="mono">{{dns.request}}</span></td>
+        <td><span class="mono">{{dns.request}}</span> {% if dns.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td>
             {% for a in dns.answers %}
                 <span class="mono">{{a.type}} {{a.data}}</span>
@@ -15,6 +16,15 @@
                 {% endif %}
             {% endfor %}
         </td>
+        {% if results.network_proc_map %}
+            <td>
+                {% if dns.process_name %}
+                    <span class="mono">{{ dns.process_name }}{% if dns.process_id %} ({{ dns.process_id }}){% endif %}</span>
+                {% else %}
+                    <span class="mono">-</span>
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

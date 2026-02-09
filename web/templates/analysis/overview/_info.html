@@ -35,9 +35,9 @@
             {% if settings.REPROCESS_TASKS %}
                 <div>
                     <a class="btn btn-sm btn-secondary" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess Task">
+                      <i class="fas fa-redo"></i>
+                    </a>
                 </div>
-                    <i class="fas fa-redo"></i>
-                </a>
             {% endif %}
         </div>
         <div class="table-responsive">

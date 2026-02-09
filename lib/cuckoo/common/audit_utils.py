@@ -143,14 +143,15 @@ class TestLoader():
             return {"error": f"Tests root {self.tests_root} does not exist."}
 
         for entry in os.scandir(self.tests_root):
-            test_config = None
-            try:
-                test_config = self.validate_test_directory(entry.path)
-                available_tests.append(test_config)
-                log.info("Loaded test: %s",test_config['info']['Name'])
-            except Exception as e:
-                log.exception("Skipping directory %s due to exception",entry.path)
-                unavailable_tests.append({"module_path":entry.path, "error":str(e)})
+            if entry.is_dir(): 
+                test_config = None
+                try:
+                    test_config = self.validate_test_directory(entry.path)
+                    available_tests.append(test_config)
+                    log.info("Loaded test: %s",test_config['info']['Name'])
+                except Exception as e:
+                    log.exception("Skipping directory %s due to exception",entry.path)
+                    unavailable_tests.append({"module_path":entry.path, "error":str(e)})
 
         return {'available':available_tests, 'unavailable': unavailable_tests}
 

@@ -23,7 +23,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooMachineError,
     CuckooUnserviceableTaskError,
 )
-from lib.cuckoo.core.data.tasks import TASK_PENDING, Task
+from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from lib.cuckoo.core.data.machines import Machine
 
 HAVE_AZURE = False

@@ -9,7 +9,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.views.decorators.http import require_safe
 
-from web.analysis.views import TasksMixIn
+from lib.cuckoo.core.data.tasking import TasksMixIn
 
 sys.path.append(settings.CUCKOO_PATH)
 

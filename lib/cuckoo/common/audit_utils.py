@@ -44,31 +44,33 @@ class TestLoader():
                 z.testzip() 
         except zipfile.BadZipFile:
             if zip_password:
-                raise ValueError(f"{payload_archive} is not usable with the given password")
+                raise zipfile.BadZipFile(f"{payload_archive} is not usable with the given password")
             else:
-                raise ValueError(f"{payload_archive} is corrupt")
+                raise zipfile.BadZipFile(f"{payload_archive} is corrupt")
 
-        try:
-            # delete the unwrapped payload in case a new zip has been uploadedd
-            if os.path.exists(payload_output_dir):
-                shutil.rmtree(payload_output_dir)
-            with zipfile.ZipFile(payload_archive, 'r') as zip_ref:
-                if zip_password:
-                    zip_ref.extractall(payload_output_dir, pwd=zip_password)
-                else:
-                    zip_ref.extractall(payload_output_dir)                    
-        except Exception as ex:
-            raise Exception(f"Failed to extract {payload_archive} to {payload_output_dir}: {ex}")
-
-        payload_path = None
-        try:
-            dir_path = Path(payload_output_dir)
-            payload_path = str(next(dir_path.iterdir()))
-        except Exception as e:
-            raise Exception(f"Failed to get a payload from extracted payload archive: {e}");
         
+        # delete the unwrapped payload in case a new zip has been uploaded
+        if os.path.exists(payload_output_dir):
+            shutil.rmtree(payload_output_dir)
+
+        with zipfile.ZipFile(payload_archive, 'r') as zip_ref:
+            if zip_password:
+                zip_ref.extractall(payload_output_dir, pwd=zip_password)
+            else:
+                zip_ref.extractall(payload_output_dir)                    
+
+        payload_path = None        
+        if not os.path.isdir(payload_output_dir):
+            raise NotADirectoryError("Bad payload directory extracted");
+
+        dir_path = Path(payload_output_dir)
+        try:
+            payload_path = str(next(dir_path.iterdir()))
+        except StopIteration as e:
+            raise FileNotFoundError("Nothing in extracted payload directory");
+
         if not os.path.exists(payload_path):
-            raise FileNotFoundError(f"Nothing extracted from payload archive or it could not be written to disk");
+            raise FileNotFoundError("Nothing extracted from payload archive or it could not be written to disk");
 
         return payload_path
 

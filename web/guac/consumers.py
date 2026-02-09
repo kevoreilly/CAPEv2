@@ -76,11 +76,11 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 ports = params.get("vncport", ["5900"])
                 guest_port = int(ports[0])
                 ignore_cert = "false"
-                
+
                 # VNC Performance Optimizations
                 vnc_color_depth = str(getattr(web_cfg.guacamole, "vnc_color_depth", 16))
                 vnc_cursor = getattr(web_cfg.guacamole, "vnc_cursor", "local")
-                
+
                 extra_args = {
                     "color-depth": vnc_color_depth,
                     "cursor": vnc_cursor,

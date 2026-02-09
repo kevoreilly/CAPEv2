@@ -39,14 +39,6 @@ def _utcnow_naive():
         tz = timezone.utc
     return datetime.now(tz).replace(tzinfo=None)
 
-def _utcnow_naive():
-    """Returns the current time in the configured timezone as a naive datetime object."""
-    try:
-        tz = pytz.timezone(tz_name)
-    except pytz.UnknownTimeZoneError:
-        tz = timezone.utc
-    return datetime.now(tz).replace(tzinfo=None)
-
 # Secondary table used in association Machine - Tag.
 machines_tags = Table(
     "machines_tags",
@@ -54,7 +46,6 @@ machines_tags = Table(
     Column("machine_id", Integer, ForeignKey("machines.id")),
     Column("tag_id", Integer, ForeignKey("tags.id")),
 )
-
 
 # Secondary table used in association Task - Tag.
 tasks_tags = Table(

@@ -330,10 +330,14 @@ class AuditsMixIn:
                 return False
 
             # Safety check: Don't delete active runs unless forced
-            active_runs = sess.query(TestRun).filter(
-                TestRun.session_id == session_id, 
-                TestRun.status == "running"
-            ).count()
+            stmt = (
+                select(func.count(TestRun.id))
+                .where(
+                    TestRun.session_id == session_id,
+                    TestRun.status == "running"
+                )
+            )
+            active_runs = sess.execute(stmt).scalar()
 
             if active_runs > 0:
                 log.warning(f"Cannot delete Session %d: one or more runs are still 'running'",session_id)
@@ -367,7 +371,7 @@ class AuditsMixIn:
 
                     # 2. Create a Run entry for every test ID provided
                     for t_id in test_ids:
-                        test_def = db_session.query(AvailableTest).get(int(t_id))
+                        test_def = db_session.get(AvailableTest, int(t_id))
                         run = TestRun(session_id=new_test_session.id, test_id=test_def.id)
                         
                         db_session.add(run)
@@ -429,7 +433,7 @@ class AuditsMixIn:
         conf = test_definition.task_config
         log.info(f"Audit task added conf: {conf}")
         task_options = conf.get("Request Options","")
-        if task_options == None: # if None -> pending forever
+        if task_options is None: # if None -> pending forever
             task_options = ""
 
         new_task_id = self.add(

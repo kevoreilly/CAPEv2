@@ -21,6 +21,10 @@ from .task import (Task, TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED,
                    TASK_FAILED_REPORTING, TASK_BANNED
                    )
 
+# Sflock does a good filetype recon
+from sflock.abstracts import File as SflockFile
+from sflock.ident import identify as sflock_identify
+
 try:
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy import (
@@ -397,9 +401,9 @@ class TasksMixIn:
         # before demux we need to check as msix has zip mime and we don't want it to be extracted:
         tmp_package = False
         if not package:
-            f = None#SflockFile.from_path(file)
+            f = SflockFile.from_path(file)
             try:
-                pass#tmp_package = sflock_identify(f, check_shellcode=check_shellcode)
+                tmp_package = sflock_identify(f, check_shellcode=check_shellcode)
             except Exception as e:
                 log.error("Failed to sflock_ident due to %s", str(e))
                 tmp_package = "generic"

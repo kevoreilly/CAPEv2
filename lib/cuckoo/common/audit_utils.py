@@ -1,9 +1,5 @@
-from ntpath import isdir
 import os
-import json
-import sys
 import logging
-from types import NoneType
 import zipfile
 import shutil
 from pathlib import Path
@@ -11,8 +7,6 @@ from typing import Any, List, Optional, Union, Tuple, Dict
 import importlib.util
 from lib.cuckoo.core.data import task as db_task
 from lib.cuckoo.core.data.audit_data import TEST_RUNNING, TEST_COMPLETE, TEST_FAILED, TEST_QUEUED
-
-from sqlalchemy import exc, try_cast
 
 log = logging.getLogger(__name__)
 
@@ -116,7 +110,7 @@ class TestLoader():
 
         conf = test_metadata['info'].get("Task Config", None)
         if conf:
-            if conf.get("Request Options",None) == None:
+            if conf.get("Request Options",None) is None:
                 test_metadata['info']["Request Options"] = ""
 
         if 'Name' not in test_metadata['info']:
@@ -190,8 +184,7 @@ def task_status_to_run_status(cape_task_status):
     if cape_task_status in [db_task.TASK_BANNED,
                             db_task.TASK_FAILED_ANALYSIS,
                             db_task.TASK_FAILED_PROCESSING,
-                            db_task.TASK_FAILED_REPORTING,
-                            db_task.TASK_DISTRIBUTED_COMPLETED,
+                            db_task.TASK_FAILED_REPORTING
                             ]:
         return TEST_FAILED
 

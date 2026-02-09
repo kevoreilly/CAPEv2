@@ -244,7 +244,7 @@ class AuditsMixIn:
         # delete objectives not referenced by any tests
         orphaned_tpl_stmt = delete(TestObjectiveTemplate).where(
             ~exists().where(test_template_association.c.template_id == TestObjectiveTemplate.id),
-            TestObjectiveTemplate.parent_id == None
+            TestObjectiveTemplate.parent_id.is_(None)
         )
         self.session.execute(orphaned_tpl_stmt)
 

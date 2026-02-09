@@ -82,7 +82,7 @@ class conditional_login_required:
             not hasattr(web_cfg.audit_framework, 'enabled') or \
             web_cfg.audit_framework.enabled == False:
                 def fail(*args, **kwargs):
-                    return HttpResponseForbidden(f"Audit Framework is not sent to enabled in web config.")
+                    return HttpResponseForbidden(f"Audit Framework is not set to enabled in web config.")
                 return fail
 
         if settings.ANON_VIEW and func.__name__ not in anon_not_viewable_func_list:
@@ -496,7 +496,7 @@ def update_task_config(request, availabletest_id):
             # 2. Save the minified version to the DB (or keep pretty if preferred)
             test.task_config = parsed_data
                         
-            messages.success(request, f"Configuration for Test {test.name} (#{test}) updated successfully.")
+            messages.success(request, f"Configuration for Test {test.name} (#{test.id}) updated successfully.")
             return JsonResponse({"success": True})
         
         except json.JSONDecodeError as e:

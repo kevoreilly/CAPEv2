@@ -57,7 +57,7 @@ class AvailableTest(Base):
     zip_password: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # CAPE analysis package to use: exe, archive, doc2016, etc
-    package: Mapped[str | None] = mapped_column(String(64), nullable=False)
+    package: Mapped[str] = mapped_column(String(64), nullable=False)
 
     # CAPE timeout parameter
     timeout: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -72,7 +72,7 @@ class AvailableTest(Base):
     # Store 'Task Config' and other metadata as a JSON blob
     # we shouldn't need the details in the web view, just parse it
     # in the test tasking logic
-    task_config: Mapped[dict | None] = mapped_column(JSON, nullable=False)
+    task_config: Mapped[dict] = mapped_column(JSON, nullable=False)
 
     objective_templates: Mapped[List["TestObjectiveTemplate"]] = relationship(secondary="test_template_association")
     runs: Mapped[List["TestRun"]] = relationship(back_populates="test_definition")

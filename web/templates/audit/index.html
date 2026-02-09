@@ -67,19 +67,19 @@
             <nav aria-label="Page navigation" class="mb-3">
                 <ul class="pagination justify-content-center">
                     {% if paging.show_session_prev == "show" %}
-                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url " audit_index" %}page /{{paging.prev_page}}/">&larr; Newer</a></li>
+                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "audit_index" %}page /{{paging.prev_page}}/">&larr; Newer</a></li>
                     {% endif %}
                     {% if paging.sessions_page_range %}
                     {% for page in paging.sessions_page_range %}
                     {% if page == paging.current_page %}
                     <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
                     {% else %}
-                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url " audit_index" %}page /{{page}}/">{{page}}</a></li>
+                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "audit_index" %}page /{{page}}/">{{page}}</a></li>
                     {% endif %}
                     {% endfor %}
                     {% endif %}
                     {% if paging.show_session_next == "show" %}
-                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url " audit_index" %}page /{{paging.next_page}}/">Older &rarr;</a></li>
+                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "audit_index" %}page /{{paging.next_page}}/">Older &rarr;</a></li>
                     {% endif %}
                 </ul>
             </nav>

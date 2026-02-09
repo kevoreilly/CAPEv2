@@ -1254,6 +1254,9 @@ class NetworkAnalysis(Processing):
             if flow.get("dst") and flow.get("dport") is not None:
                 proc = self._pick_best(endpoint_map.get((flow["dst"], int(flow["dport"])), []))
 
+            if not proc and flow.get("dst"):
+                proc = self._pick_best(http_host_map.get(flow["dst"], []))
+
             self._set_proc_fields(flow, proc)
 
         dns_events_rel = self._build_dns_events_rel(network, dns_intents, max_skew_seconds=10.0)
@@ -1269,6 +1272,9 @@ class NetworkAnalysis(Processing):
 
             if dst and dport is not None:
                 proc = self._pick_best(endpoint_map.get((dst, int(dport)), []))
+
+            if not proc and dst:
+                proc = self._pick_best(http_host_map.get(dst, []))
 
             if not proc and (dport == 53 or sport == 53):
                 t_rel = flow.get("time")
@@ -1320,6 +1326,12 @@ class NetworkAnalysis(Processing):
                 else:
                     host["process_name"] = ", ".join(f"{name} ({pid})" for pid, name in procs.items())
                     host["process_id"] = None
+            else:
+                # Fallback: check http_host_map for this IP
+                proc = self._pick_best(http_host_map.get(host["ip"], []))
+                if proc:
+                    host["process_id"] = proc.get("process_id")
+                    host["process_name"] = proc.get("process_name")
 
     def _merge_behavior_network(self, results):
         """

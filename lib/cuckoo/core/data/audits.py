@@ -82,13 +82,11 @@ class AuditsMixIn:
         @param offset: list offset.
         @return: list of tests.
         """
-        log.info("list_available_tests 1")
         # Create a select statement ordered by newest first
         stmt = select(AvailableTest).order_by(AvailableTest.name.desc())
         if active_only == True:
             stmt = stmt.where(AvailableTest.is_active)
 
-        log.info("list_available_tests 2")
         # Apply pagination if provided
         if limit is not None:
             stmt = stmt.limit(limit)
@@ -147,6 +145,7 @@ class AuditsMixIn:
             db_test.module_path=test["module_path"]
             db_test.targets=info.get("Targets", None)
             db_test.task_config=info.get("Task Config", {})
+            db_test.is_active = True
 
             # Recursive upsert for objectives
             def sync_objective(test_name, obj_data, parent_obj=None):
@@ -224,6 +223,7 @@ class AuditsMixIn:
         """
         # delete tests not in the current loaded set and
         # not referenced in a previous test session
+        log.info("ltn %s",loaded_test_names)
         retired_tests_stmt = delete(AvailableTest).where(
             AvailableTest.name.notin_(loaded_test_names),
             ~exists().where(TestRun.test_id == AvailableTest.id)

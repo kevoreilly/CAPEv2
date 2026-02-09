@@ -222,10 +222,16 @@ def reload_available_tests(request):
         # This calls the method you added to your Mixin
         count = db.reload_tests(result["available"], result["unavailable"])
         if result["unavailable"]:
-            messages.warning(
-                request,
-                f"Partially reloaded {count} tests from {AUDIT_PACKAGES_ROOT} [Avail:{result['available']}, Unavail: {result['unavailable']}].",
-            )
+            if not result["available"]:
+                messages.error(
+                    request,
+                    f"Failed to load {len(result["unavailable"])} tests from {AUDIT_PACKAGES_ROOT} [{result['unavailable']}].",
+                )
+            else:
+                messages.warning(
+                    request,
+                    f"Partial failure to reload tests from {AUDIT_PACKAGES_ROOT} [Failed: {result['unavailable']}].",
+                )
         else:
             messages.success(request, f"Successfully reloaded all {count} tests from {AUDIT_PACKAGES_ROOT}")
 
@@ -375,7 +381,7 @@ def session_status(request, session_id):
     """
     db_test_session = db.get_test_session(session_id)
     if db_test_session is None:
-        logger.warning("Tried to view session_status with in valid session %s", str(session_status))
+        logger.warning("Tried to view session_status with invalid session %s", str(session_status))
         return HttpResponseNotFound
 
     runs = db_test_session.runs

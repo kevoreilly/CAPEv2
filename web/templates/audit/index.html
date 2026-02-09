@@ -247,7 +247,9 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mt-2 mb-2 mx-sm-2 ">
+                    
                     <div class="d-flex gap-2">
+                        {% if available_tests %}
                         <button type="button" id="btnCreateSessionAll" onclick="createSession('all')"
                                 class="btn btn-success px-3 shadow-sm me-2">
                             <i class="fas fa-circle-plus me-2"></i>New Session (All Tests)
@@ -258,6 +260,7 @@
                                 class="btn btn-outline-success px-3 shadow-sm" disabled>
                             <i class="fas fa-circle-check me-2"></i>New Session (Selected Tests) (<span id="selectedCount">0</span>)
                         </button>
+                        {% endif %}
                     </div>
 
                     <form action="{% url 'reload_available_tests' %}" method="POST" class="m-0">
@@ -327,9 +330,9 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="5" class="text-center py-5 text-muted">
+                                <td colspan="{{ colspan|default:6 }}" class="text-center py-5 text-muted">
                                     <i class="fas fa-folder-open fa-3x mb-3 d-block"></i>
-                                    No tests found in the database. Hit "Reload from Disk" to scan.
+                                    No tests available. Place tests in the audits location and reload.
                                 </td>
                             </tr>
                             {% endfor %}

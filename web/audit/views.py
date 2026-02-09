@@ -480,3 +480,31 @@ def unqueue_all_tests(request, session_id: int):
             if task_id:
                 deleted_task_ids.append(task_id)
     return JsonResponse({"deleted_tasks": deleted_task_ids})
+
+
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def update_task_config(request, availabletest_id):
+    if request.method == "POST":
+        test = db.get_test(availabletest_id=availabletest_id)
+        raw_json = request.POST.get("task_config", "").strip()
+
+        try:
+            # 1. Validate JSON syntax
+            parsed_data = json.loads(raw_json)
+            
+            # 2. Save the minified version to the DB (or keep pretty if preferred)
+            test.task_config = parsed_data
+                        
+            messages.success(request, f"Configuration for Test {test.name} (#{test}) updated successfully.")
+            return JsonResponse({"success": True})
+        
+        except json.JSONDecodeError as e:
+            messages.error(request, f"Failed to save: Invalid JSON format. Error: {str(e)}")
+            return JsonResponse({"success": False, "error": "bad json: "+str(e)})
+        
+        except Exception as e:
+            messages.error(request, f"An unexpected error occurred: {str(e)}")
+            return JsonResponse({"success": False, "error": str(e)})
+
+    # Redirect back to the page the user was on

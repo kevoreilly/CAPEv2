@@ -70,6 +70,9 @@ class AuditsMixIn:
         result = self.session.execute(stmt).tuples().first()
         return result if result else (None, None)
 
+    def get_test(self, availabletest_id: int) -> Optional[AvailableTest]:
+        stmt = select(AvailableTest).where(AvailableTest.id == availabletest_id)
+        return self.session.execute(stmt).unique().scalar_one_or_none()
 
     def list_available_tests(
         self,

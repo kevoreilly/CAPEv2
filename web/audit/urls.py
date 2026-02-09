@@ -18,4 +18,5 @@ urlpatterns = [
     path(r"session/<int:session_id>/unqueue_tests/", views.unqueue_all_tests, name="unqueue_all_tests"),
     path(r"session/<int:session_id>/queue_tests/<int:testrun_id>/", views.queue_test, name="queue_test"),
     path(r"session/<int:session_id>/unqueue_tests/<int:testrun_id>/", views.unqueue_test, name="unqueue_test"),
+    re_path(r"^update_task_config/(?P<availabletest_id>\d+)/$", views.update_task_config, name="update_task_config")
 ]

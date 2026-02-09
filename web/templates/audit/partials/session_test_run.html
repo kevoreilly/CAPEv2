@@ -84,7 +84,7 @@
 
     <div id="config-{{  run.id }}" class="collapse">
         <div class="py-3 bg-light">
-            {% include "audit/partials/task_config.html" with config_pretty=run.task_config_pretty colspan=5 %}
+            {% include "audit/partials/task_config.html" with test=run.test_definition config_pretty=run.task_config_pretty colspan=5 %}
         </div>
     </div>
 

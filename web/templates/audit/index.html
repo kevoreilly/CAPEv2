@@ -362,35 +362,6 @@
             }
         });
 
-        //this is reused in the session view later, so we store it globally in the window
-        window.copyToClipboard = function copyToClipboard(text) {
-            // Try the modern way first (requires HTTPS)
-            if (navigator.clipboard && window.isSecureContext) {
-                navigator.clipboard.writeText(text)
-            } else {
-                // Fallback for HTTP: Create a hidden textarea, select it, and copy
-                const textArea = document.createElement("textarea");
-                textArea.value = text;
-
-                // Ensure the textarea is out of the viewport
-                textArea.style.position = "fixed";
-                textArea.style.left = "-999999px";
-                textArea.style.top = "-999999px";
-                document.body.appendChild(textArea);
-
-                textArea.focus();
-                textArea.select();
-
-                try {
-                    document.execCommand('copy');
-                } catch (err) {
-                    console.error('Fallback HTTP cliipboard copy failed', err);
-                }
-
-                document.body.removeChild(textArea);
-            }
-        }
-
         document.addEventListener("DOMContentLoaded", function () {
             const masterCheckbox = document.getElementById('selectAll');
             const checkboxes = document.querySelectorAll('.test-checkbox');
@@ -466,7 +437,25 @@
 
             document.body.appendChild(form);
             form.submit();
+    }
+
+
+    function toggleConfigEdit(testId) {
+        console.log("tce",testId)
+        const viewDiv = document.getElementById(`view-mode-${testId}`);
+        const editDiv = document.getElementById(`edit-mode-${testId}`);
+        const editBtn = document.getElementById(`edit-btn-${testId}`);
+
+        if (viewDiv.classList.contains('d-none')) {
+            viewDiv.classList.remove('d-none');
+            editDiv.classList.add('d-none');
+            editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>Edit';
+        } else {
+            viewDiv.classList.add('d-none');
+            editDiv.classList.remove('d-none');
+            editBtn.innerHTML = '<i class="fas fa-eye me-1"></i>View';
         }
+    }
 </script>
 
 {% endblock %}

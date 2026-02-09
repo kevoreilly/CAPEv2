@@ -197,12 +197,29 @@ vnc_host = localhost
 # You might need to add your server IP to ALLOWED_HOSTS in web/web/settings.py if it not ["*""]
 # vnc or rdp
 guest_protocol = vnc
+# TIP: For KVM/QEMU, using 'qxl' or 'virtio' video drivers in your VM XML 
+# definition provides much better VNC performance than 'vga' or 'cirrus'.
 guacd_recording_path = /opt/CAPEv2/storage/guacrecordings
 guest_width = 1280
 guest_height = 1024
 # rdp settings
 guest_rdp_port = 3389
 ignore_rdp_cert = false
+# RDP Performance Optimizations (Yes = Disable feature for better performance)
+rdp_disable_wallpaper = yes
+rdp_disable_theming = yes
+rdp_enable_font_smoothing = no
+rdp_enable_full_window_drag = no
+rdp_enable_desktop_composition = no
+rdp_enable_menu_animations = no
+# VNC Performance Optimizations
+# Color depth: 8, 16, 24, 32. 16 is a great balance for performance.
+vnc_color_depth = 16
+# Cursor: 'local' renders the mouse on your browser (feels instant). 
+# 'remote' waits for the server (feels laggy).
+vnc_cursor = local
+# Audio (enable only if needed, consumes bandwidth)
+enable_audio = no
 
 [packages]
 # VM tags may be used to specify on which guest machines a sample should be run

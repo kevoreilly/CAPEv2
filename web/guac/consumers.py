@@ -15,6 +15,7 @@ web_cfg = Config("web")
 class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
     # Channels 4: Explicitly declare supported subprotocols
     subprotocols = ["guacamole"]
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.client = None
@@ -25,6 +26,9 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         Initiate the GuacamoleClient and create a connection to it.
         """
         try:
+            # Capture session_id from URL route for logging context
+            session_id = self.scope["url_route"]["kwargs"].get("session_id", "unknown")
+
             # 1. Parse Configuration & Parameters inside a try block
             # This prevents 500 errors from reaching the client as HTML
             guacd_hostname = web_cfg.guacamole.guacd_host or "localhost"
@@ -45,11 +49,42 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 guest_host = hosts[0]
                 guest_port = int(web_cfg.guacamole.guest_rdp_port) or 3389
                 ignore_cert = "true" if web_cfg.guacamole.ignore_rdp_cert is True else "false"
+
+                # RDP Performance Optimizations
+                # Default to safe/fast values if not present in config
+                disable_wallpaper = "true" if getattr(web_cfg.guacamole, "rdp_disable_wallpaper", "yes") == "yes" else "false"
+                disable_theming = "true" if getattr(web_cfg.guacamole, "rdp_disable_theming", "yes") == "yes" else "false"
+                enable_font_smoothing = "true" if getattr(web_cfg.guacamole, "rdp_enable_font_smoothing", "no") == "yes" else "false"
+                enable_full_window_drag = "true" if getattr(web_cfg.guacamole, "rdp_enable_full_window_drag", "no") == "yes" else "false"
+                enable_desktop_composition = "true" if getattr(web_cfg.guacamole, "rdp_enable_desktop_composition", "no") == "yes" else "false"
+                enable_menu_animations = "true" if getattr(web_cfg.guacamole, "rdp_enable_menu_animations", "no") == "yes" else "false"
+                enable_audio = "audio" if getattr(web_cfg.guacamole, "enable_audio", "no") == "yes" else None
+
+                extra_args = {
+                    "disable-wallpaper": disable_wallpaper,
+                    "disable-theming": disable_theming,
+                    "enable-font-smoothing": enable_font_smoothing,
+                    "enable-full-window-drag": enable_full_window_drag,
+                    "enable-desktop-composition": enable_desktop_composition,
+                    "enable-menu-animations": enable_menu_animations,
+                }
+                if enable_audio:
+                    extra_args["enable-audio"] = "true"
+
             else:
                 guest_host = web_cfg.guacamole.vnc_host or "localhost"
                 ports = params.get("vncport", ["5900"])
                 guest_port = int(ports[0])
                 ignore_cert = "false"
+                
+                # VNC Performance Optimizations
+                vnc_color_depth = str(getattr(web_cfg.guacamole, "vnc_color_depth", 16))
+                vnc_cursor = getattr(web_cfg.guacamole, "vnc_cursor", "local")
+                
+                extra_args = {
+                    "color-depth": vnc_color_depth,
+                    "cursor": vnc_cursor,
+                }
 
             guacd_recording_name = params.get("recording_name", ["task-recording"])[0]
 
@@ -67,16 +102,18 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 recording_path=guacd_recording_path,
                 recording_name=guacd_recording_name,
                 ignore_cert=ignore_cert,
+                **extra_args
             )
 
             if self.client.connected:
-                # 3. Start the background reader task
-                # Use asyncio.create_task instead of get_event_loop()
-                self.task = asyncio.create_task(self.open())
-
-                # 4. Accept the WebSocket connection specifically for 'guacamole'
+                # 3. Accept the WebSocket connection specifically for 'guacamole'
+                # Accept first to ensure the channel is open before sending data
                 await self.accept(subprotocol="guacamole")
-                logger.info("Guacamole connection accepted.")
+                logger.info("Guacamole connection accepted for session %s.", session_id)
+
+                # 4. Start the background reader task
+                # Use asyncio.create_task instead of get_event_loop()
+                self.task = asyncio.create_task(self.read_guacd())
             else:
                 logger.warning("Guacamole handshake failed. Closing connection.")
                 await self.close()
@@ -92,6 +129,10 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         # Cancel the reader task if it exists
         if self.task:
             self.task.cancel()
+            try:
+                await self.task
+            except asyncio.CancelledError:
+                pass
 
         # Close the client safely
         if self.client:
@@ -111,21 +152,22 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             except Exception as e:
                 logger.error("Failed to send data to guacd: %s", str(e))
 
-    async def open(self):
+    async def read_guacd(self):
         """
         Receive data from GuacamoleClient and pass it to the WebSocket
         """
         try:
             while True:
                 # This blocks in a thread, releasing the async loop
-                content = await sync_to_async(self.client.receive)()
+                # thread_sensitive=False allows this to run in a separate thread pool, not blocking the main thread
+                content = await sync_to_async(self.client.receive, thread_sensitive=False)()
                 if content:
                     # logger.debug("From server: %s", content)
                     await self.send(text_data=content)
                 else:
                     break
         except asyncio.CancelledError:
-            pass # Task cancellation is normal on disconnect
+            pass  # Task cancellation is normal on disconnect
         except Exception as e:
             logger.error("Exception in Guacamole message loop: %s", e)
         finally:

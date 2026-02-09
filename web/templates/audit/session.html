@@ -227,10 +227,6 @@
 
 
     async function queue_run(btn, sessionId, runId) {
-        // 1. Prepare the URL and UI feedback
-        //const url = "{% url 'queue_test' 0000 0001 %}"
-        //    .replace('0000', SESSION_ID)
-        //    .replace('0001', run_id);
         const url = `/audit/session/${SESSION_ID}/queue_tests/${runId}/`;
         const originalContent = btn.innerHTML;
 
@@ -248,7 +244,10 @@
                 }
             });
 
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${response.status} - ${errorText}`);
+            }
 
             const data = await response.json();
 
@@ -273,6 +272,54 @@
             btn.innerHTML = originalContent;
         }
     }
+
+    async function unqueue_run(btn, sessionId, runId) {
+        const url = `/audit/session/${SESSION_ID}/unqueue_tests/${runId}/`;
+        const originalContent = btn.innerHTML;
+
+        // Prevent double-clicks and show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Unqueuing...';
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${response.status} - ${errorText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // 3. Update the button to show it worked
+                btn.classList.replace('btn-outline-info', 'btn-secondary');
+                btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
+                if (!DASHBOARD_STATE.isSessionActive) {
+                    setTimeout(updateStatuses, 650)
+                }
+                // btn.disabled remains true so they can't queue it twice
+            } else {
+                throw new Error(data.message || 'Queueing failed');
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not unqueue test: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+
 
 
     async function updateStatuses() {

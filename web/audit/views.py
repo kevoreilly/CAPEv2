@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 
 from lib.cuckoo.common.pcap_utils import PcapToNg
 import modules.processing.network as network
+from modules.reporting.report_doc import CHUNK_CALL_SIZE
+
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
@@ -42,10 +44,9 @@ from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_
 from lib.cuckoo.common.audit_utils import TestLoader
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.audits import AuditsMixIn, TestSession
-from lib.cuckoo.core.data.audit_data import TEST_QUEUED, TEST_COMPLETE, TEST_FAILED, TEST_RUNNING, TEST_UNQUEUED
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from lib.cuckoo.core.data.db_common import _utcnow_naive
-from modules.reporting.report_doc import CHUNK_CALL_SIZE
+from lib.cuckoo.core.data.audit_data import (TestRun, TEST_QUEUED, TEST_COMPLETE, TEST_FAILED, TEST_RUNNING, TEST_UNQUEUED)
 
 try:
     from django_ratelimit.decorators import ratelimit
@@ -57,25 +58,6 @@ except ImportError:
 
 from lib.cuckoo.common.webadmin_utils import disable_user
 
-try:
-    import re2 as re
-except ImportError:
-    import re
-
-try:
-    import requests
-
-    HAVE_REQUEST = True
-except ImportError:
-    HAVE_REQUEST = False
-
-try:
-    import pyzipper
-
-    HAVE_PYZIPPER = True
-except ImportError:
-    print("Missed dependency: poetry install")
-    HAVE_PYZIPPER = False
 
 SESSIONS_PER_PAGE = 10
 AUDIT_PACKAGES_ROOT = os.path.join(settings.CUCKOO_PATH, "tests", "audit_packages")
@@ -86,7 +68,6 @@ web_cfg = Config("web")
 db: AuditsMixIn = Database()
 
 anon_not_viewable_func_list = (
-
 )
 
 # Conditional decorator for web authentication
@@ -112,7 +93,7 @@ class conditional_login_required:
 
     
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def audit_index(request, page=1):
+def audit_index(request, page:int = 1):
     """
     The main index function for the /audit page with lists of sessions and tests
     Currently only handles paging for sessions as tests are probably better
@@ -242,7 +223,7 @@ def reload_available_tests(request):
 
 
 @require_POST
-def delete_test_session(request, session_id):
+def delete_test_session(request, session_id: int):
     """
     Purges a tests session and its task storage directory
     Fails if any of the tests are active
@@ -260,7 +241,7 @@ def delete_test_session(request, session_id):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def session_index(request, session_id):
+def session_index(request, session_id: int):
     """
     The index function for an invididual audit session
     """
@@ -284,7 +265,7 @@ def session_index(request, session_id):
     )
 
 
-def generate_task_diagnostics(task, test_run):
+def generate_task_diagnostics(task: Task, test_run: TestRun):
     """
     Gathers CAPE task timestamps
     """
@@ -313,7 +294,7 @@ def generate_task_diagnostics(task, test_run):
     return diagnostics
 
 
-def _render_run_update(request, session_id, testrun_id):
+def _render_run_update(request, session_id: int, testrun_id: int):
     """
     The mechanics of rendering sessions is here
     This framework is currently lazy loaded, so test sessions will be updated
@@ -342,7 +323,7 @@ def _render_run_update(request, session_id, testrun_id):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def get_run_update(request, session_id, testrun_id):
+def get_run_update(request, session_id: int, testrun_id: int):
     """
     Get an update for a test run of a session without having to reload the whole page
     """
@@ -375,7 +356,7 @@ def get_item(dictionary, key):
     return dictionary.get(key)
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def session_status(request, session_id):
+def session_status(request, session_id: int):
     """
     The call used when a session page is being refreshed
     """
@@ -406,7 +387,7 @@ def session_status(request, session_id):
     )
 
 
-def inner_queue_test(request, session_id, testrun_id) -> Optional[int]:
+def inner_queue_test(request, session_id: int, testrun_id: int) -> Optional[int]:
     """
     Queue a test from an audit session as a CAPE task
     Returns the cape task id if success, or None if failure
@@ -416,7 +397,8 @@ def inner_queue_test(request, session_id, testrun_id) -> Optional[int]:
     try:
         cape_task_id = db.queue_audit_test(session_id, testrun_id, user_id)
         db.assign_cape_task_to_testrun(testrun_id, cape_task_id)
-        messages.success(request, f"Test queued as task #{cape_task_id}")
+        logger.info("CAPE queued task %d to service audit [session:%d test:%d user:%d]",
+                    cape_task_id, session_id, testrun_id, user_id)
         return cape_task_id
     except Exception as ex:
         messages.error(request, f"Task Exception: {ex}")
@@ -425,7 +407,7 @@ def inner_queue_test(request, session_id, testrun_id) -> Optional[int]:
 
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def queue_test(request, session_id, testrun_id):
+def queue_test(request, session_id: int, testrun_id: int):
     """
     Path to queue a single test of a session
     """
@@ -434,11 +416,10 @@ def queue_test(request, session_id, testrun_id):
         return JsonResponse({"status": "success", "message": "Test queued successfully", "task_id": cape_task_id})
     else:
         return JsonResponse({"status": "failure", "message": "Could not queue test", "task_id": None})
-
-
+            
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def queue_all_tests(request, session_id):
+def queue_all_tests(request, session_id: int):
     """
     Path to queue all unqueued tests of a session
     Returns the test_run_id -> task_id mapping
@@ -451,27 +432,51 @@ def queue_all_tests(request, session_id):
             task_ids.append({"run": run.id, "task": task_id})
     return JsonResponse({"task_ids": task_ids})
 
-
-@require_POST
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def unqueue_all_tests(request, session_id):
+def inner_unqueue_test(testrun: TestRun) -> Optional[int]:
     """
-    Try to delete all the CAPE tasks of a session which have not been started yet
-    and reset the test runs back to the unqueued state
+    Try to delete a CAPE task of a session which has been queued (but not started yet)
+    @parameter testrun: The TestRun db object of the run to clear
+    Returns the deleted CAPE task id, or None if failed
     """
     # note: I tried to use db.delete_tasks(), with the task_id's & TASK_PENDING
     # filter but couldn't get round commit/transaction errors
     # there is a chance of some race conditions here
-    db_test_session = db.get_test_session(session_id)
-    deleted_task_ids = []
-    if db_test_session:
-        for run in db_test_session.runs:
-            if run.cape_task_id != None and run.status == "queued":
-                cape_task = db.view_task(run.cape_task_id)
-                if cape_task.status == TASK_PENDING:
-                    db.delete_task(run.cape_task_id)
-                    deleted_task_ids.append(run.cape_task_id)
-                    run.status = "unqueued"
-                    run.cape_task_id = None
+    if testrun.cape_task_id != None and testrun.status == "queued":
+        task_id = testrun.cape_task_id 
+        cape_task = db.view_task(task_id)
+        if cape_task.status == TASK_PENDING:
+            db.delete_task(task_id)
+            testrun.status = "unqueued"
+            testrun.cape_task_id = None
+            return task_id
+    return None
 
-    return JsonResponse({"deleted_tasks": len(deleted_task_ids)})
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def unqueue_test(request, session_id, testrun_id):
+    """
+    Path to unqueue a single test of a session
+    """
+    run = db.get_audit_session_test(session_id, testrun_id)
+    if not run:
+        return JsonResponse({"status": "failure", "message": "Could not retrieve test task", "task_id": None})
+
+    cape_task_id = inner_unqueue_test(run)
+    if cape_task_id:
+        return JsonResponse({"status": "success", "message": "Test unqueued successfully", "task_id": cape_task_id})
+    else:
+        return JsonResponse({"status": "failure", "message": "Could not unqueue test", "task_id": None})
+
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def unqueue_all_tests(request, session_id: int):    
+    deleted_task_ids = []
+    db_test_session = db.get_test_session(session_id)
+    if not db_test_session:
+        logger.warning("Request to unqueue all tests of invalid session %d",session_id)
+    else:
+        for run in db_test_session.runs:
+            task_id = inner_unqueue_test(run)
+            if task_id:
+                deleted_task_ids.append(task_id)
+    return JsonResponse({"deleted_tasks": deleted_task_ids})

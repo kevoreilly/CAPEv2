@@ -147,8 +147,10 @@
                     'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
                 }
             });
-
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${response.status} - ${errorText}`);
+            }
         } catch (error) {
             console.error('Error:', error);
             alert('Could not queue tests: ' + error.message);
@@ -178,8 +180,10 @@
                     'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
                 }
             });
-
-            if (!response.ok) throw new Error('Network response was not ok');
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${response.status} - ${errorText}`);
+            }
             // don't worry about success, refresh loop will handle state changes
 
         } catch (error) {

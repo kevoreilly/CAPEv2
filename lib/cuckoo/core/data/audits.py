@@ -388,19 +388,19 @@ class AuditsMixIn:
             finally:
                 db_session.close()
 
-    def get_audit_session_test(self, session_id, testrun_id):
+    def get_audit_session_test(self, session_id: int, testrun_id: int) -> Optional[TestRun]:
         stmt = select(TestRun).where(TestRun.id == testrun_id).where(TestRun.session_id == session_id)
 
         # Execute and get the result
         return self.session.execute(stmt).unique().scalar_one_or_none()
 
-    def set_audit_run_status(self, session_id, testrun_id, new_status):
+    def set_audit_run_status(self, session_id: int, testrun_id: int, new_status: String) -> None:
         run = self.get_audit_session_test(session_id, testrun_id)
         if run:
             run.status = new_status
             self.session.commit()
 
-    def assign_cape_task_to_testrun(self, run_id: int, cape_task_id: int):
+    def assign_cape_task_to_testrun(self, run_id: int, cape_task_id: int) -> bool:
         """
         Updates a TestRun with the ID returned from the CAPE sandbox.
         """

@@ -1285,7 +1285,7 @@ class NetworkMap:
                         _add_http_host(self.http_host_map, host2, pinfo, sock=sock)
 
             if api in ("internetconnectw", "internetconnecta", "winhttpconnect"):
-                server_name = _get_arg_any(args_map, "ServerName", "lpszServerName", "szServerName", "pszServerName")
+                server_name = _get_arg_any(args_map, "ServerName", "lpszServerName", "szServerName", "pszServerName", "pswzServerName")
                 if server_name:
                     _add_http_host(self.http_host_map, server_name, pinfo, sock=sock)
 

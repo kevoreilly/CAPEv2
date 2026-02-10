@@ -1342,7 +1342,7 @@ class NetworkAnalysis(Processing):
         if not net_map:
             return
 
-        network = results.get("network", {})
+        network = results
 
         # 1. DNS
         dns_intents = net_map.get("dns_intents", {})
@@ -1359,7 +1359,7 @@ class NetworkAnalysis(Processing):
                     "source": "behavior",
                     "process_id": proc.get("process_id"),
                     "process_name": proc.get("process_name"),
-                    "time": first_intent.get("ts_epoch"),
+                    "first_seen": first_intent.get("ts_epoch"),
                 }
                 network.setdefault("dns", []).append(entry)
 
@@ -1398,14 +1398,14 @@ class NetworkAnalysis(Processing):
                 if not host and req.get("host"):
                     host = req.get("host")
 
-                uri = parsed.path
+                path = parsed.path
                 if parsed.query:
-                    uri += f"?{parsed.query}"
-                if not uri:
-                    uri = "/"
+                    path += f"?{parsed.query}"
+                if not path:
+                    path = "/"
 
                 # Check for duplicates
-                url_key = f"{host}{uri}"
+                url_key = f"{host}{path}"
                 if url_key in existing_urls:
                     continue
 
@@ -1418,12 +1418,13 @@ class NetworkAnalysis(Processing):
                 entry = {
                     "host": host,
                     "port": port,
-                    "uri": uri,
+                    "uri": url,
+                    "path": path,
                     "method": "GET",
                     "source": "behavior",
                     "process_id": req.get("process_id"),
                     "process_name": req.get("process_name"),
-                    "time": req.get("time"),
+                    "first_seen": req.get("time"),
                 }
                 network.setdefault("http", []).append(entry)
                 if host:
@@ -1440,7 +1441,8 @@ class NetworkAnalysis(Processing):
                 entry = {
                     "host": host,
                     "port": 80,
-                    "uri": "/",
+                    "uri": f"http://{host}/",
+                    "path": "/",
                     "method": "GET",
                     "source": "behavior",
                     "process_id": proc.get("process_id"),

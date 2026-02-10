@@ -193,35 +193,36 @@ class CAPE(Processing):
         sorted_opts = json.dumps(opts, sort_keys=True)
         options_hash = hashlib.sha256(sorted_opts.encode()).hexdigest()
 
-        try:
-            db_file = mongo_find_one("files", {"sha256": sha256})
-            if db_file:
-                # Security Fix: Update path immediately
-                db_file["path"] = file_path
-                if "_id" in db_file:
-                    del db_file["_id"]
+        if processing_conf.CAPE.file_cache:
+            try:
+                db_file = mongo_find_one("files", {"sha256": sha256})
+                if db_file:
+                    # Security Fix: Update path immediately
+                    db_file["path"] = file_path
+                    if "_id" in db_file:
+                        del db_file["_id"]
 
-                yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
-                options_match = db_file.get("options_hash", "") == options_hash
+                    yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
+                    options_match = db_file.get("options_hash", "") == options_hash
 
-                if yara_match and options_match:
-                    file_info = db_file
-                    cached = True
-                    run_static = False
-                else:
-                    # Partial hit
-                    file_info = db_file
-                    cached = True  # We have the base object
-                    run_static = True  # But we need to re-run static/tools
+                    if yara_match and options_match:
+                        file_info = db_file
+                        cached = True
+                        run_static = False
+                    else:
+                        # Partial hit
+                        file_info = db_file
+                        cached = True  # We have the base object
+                        run_static = True  # But we need to re-run static/tools
 
-                    if not yara_match:
-                        # Update YARA
-                        file_info["yara"] = f.get_yara()
-                        file_info["cape_yara"] = f.get_yara(category="CAPE")
-                        file_info["yara_hash"] = File.yara_rules_hash
+                        if not yara_match:
+                            # Update YARA
+                            file_info["yara"] = f.get_yara()
+                            file_info["cape_yara"] = f.get_yara(category="CAPE")
+                            file_info["yara_hash"] = File.yara_rules_hash
 
-        except Exception as e:
-            log.exception(e)
+            except Exception as e:
+                log.exception(e)
 
         if not cached:
             file_info, pefile_object = f.get_all()

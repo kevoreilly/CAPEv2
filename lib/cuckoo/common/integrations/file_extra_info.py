@@ -42,6 +42,7 @@ from lib.cuckoo.common.path_utils import (
     path_mkdir,
     path_read_file,
     path_write_file,
+    path_delete,
 )
 from lib.cuckoo.common.utils import get_files_storage_path, get_options, is_text_file
 

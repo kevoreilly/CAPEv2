@@ -62,6 +62,11 @@ def normalize_file(file_dict, task_id):
         "data",
         "strings",
         "type",
+        "yara",
+        "cape_yara",
+        "yara_hash",
+        "options_hash",
+        "clamav",
     )
     new_dict = {}
     for fld in static_fields:

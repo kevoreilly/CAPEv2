@@ -212,6 +212,11 @@ class CAPE(Processing):
                         # Regenerate fields stripped by mongo_hooks
                         if "type" not in file_info:
                             file_info["type"] = f.get_type()
+
+                        if processing_conf.CAPE.pefile_store:
+                            # Populate internal pe object for self.results["pefiles"]
+                            f.get_type()
+                            pefile_object = f.pe
                     else:
                         # Partial hit
                         file_info = db_file
@@ -221,6 +226,17 @@ class CAPE(Processing):
                         # Regenerate fields stripped by mongo_hooks
                         if "type" not in file_info:
                             file_info["type"] = f.get_type()
+
+                        if processing_conf.CAPE.pefile_store:
+                            # Populate internal pe object for self.results["pefiles"]
+                            f.get_type()
+                            pefile_object = f.pe
+
+                        if "options_hash" not in file_info:
+                            file_info["options_hash"] = options_hash
+
+                        if "yara_hash" not in file_info:
+                            file_info["yara_hash"] = File.yara_rules_hash
 
                         if not yara_match:
                             # Update YARA
@@ -235,6 +251,11 @@ class CAPE(Processing):
             file_info, pefile_object = f.get_all()
             file_info["yara_hash"] = File.yara_rules_hash
             run_static = True
+
+        if "name" not in file_info:
+            file_info["name"] = f.get_name()
+        if "guest_paths" not in file_info:
+            file_info["guest_paths"] = f.guest_paths
 
         file_info["options_hash"] = options_hash
 

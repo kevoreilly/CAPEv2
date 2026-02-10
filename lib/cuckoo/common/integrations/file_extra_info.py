@@ -168,16 +168,16 @@ def static_file_info(
 
     if (
         not HAVE_OLETOOLS
-        and "Zip archive data, at least v2.0" in data_dictionary["type"]
+        and "Zip archive data, at least v2.0" in data_dictionary.get("type", "")
         and package in {"doc", "ppt", "xls", "pub"}
     ):
         log.info("Missed dependencies: pip3 install oletools")
 
-    if "MSI Installer" in data_dictionary["type"] and "msi" not in data_dictionary:
+    if "MSI Installer" in data_dictionary.get("type", "") and "msi" not in data_dictionary:
         data_dictionary["msi"] = parse_msi(file_path)
 
     # ToDo we need type checking as it wont work for most of static jobs
-    if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
+    if HAVE_PEFILE and ("PE32" in data_dictionary.get("type", "") or "MS-DOS executable" in data_dictionary.get("type", "")):
         if "pe" not in data_dictionary:
             with PortableExecutable(file_path) as pe:
                 data_dictionary["pe"] = pe.run(task_id)
@@ -188,12 +188,12 @@ def static_file_info(
             if capa_details:
                 data_dictionary["flare_capa"] = capa_details
 
-        if HAVE_FLOSS and integration_conf.floss.enabled and "Mono" not in data_dictionary["type"] and "floss" not in data_dictionary:
+        if HAVE_FLOSS and integration_conf.floss.enabled and "Mono" not in data_dictionary.get("type", "") and "floss" not in data_dictionary:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
-        if "Mono" in data_dictionary["type"] and "dotnet" not in data_dictionary:
+        if "Mono" in data_dictionary.get("type", "") and "dotnet" not in data_dictionary:
             if integration_conf.general.dotnet:
                 data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
                 if processing_conf.strings.dotnet and "dotnet_strings" not in data_dictionary:
@@ -205,20 +205,20 @@ def static_file_info(
         if "office" not in data_dictionary:
             # options is dict where we need to get pass get_options
             data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
-    elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and integration_conf.general.pdf:
+    elif ("PDF" in data_dictionary.get("type", "") or file_path.endswith(".pdf")) and integration_conf.general.pdf:
         if "pdf" not in data_dictionary:
             data_dictionary["pdf"] = PDF(file_path).run()
     elif (
-        package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf")
+        package in {"wsf", "hta"} or data_dictionary.get("type", "") == "XML document text" or file_path.endswith(".wsf")
     ) and integration_conf.general.windows_script:
         if "wsf" not in data_dictionary:
             data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
-    elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and integration_conf.general.lnk:
+    elif (package == "lnk" or "MS Windows shortcut" in data_dictionary.get("type", "")) and integration_conf.general.lnk:
         if "lnk" not in data_dictionary:
             data_dictionary["lnk"] = LnkShortcut(file_path).run()
-    elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and integration_conf.general.java:
+    elif ("Java Jar" in data_dictionary.get("type", "") or file_path.endswith(".jar")) and integration_conf.general.java:
         if "java" not in data_dictionary:
             if integration_conf.procyon.binary and not path_exists(integration_conf.procyon.binary):
                 log.error("procyon_path specified in processing.conf but the file does not exist")
@@ -229,7 +229,7 @@ def static_file_info(
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
     # yeilding no static analysis results for actual zip files.
-    # elif ("ELF" in data_dictionary["type"] or file_path.endswith(".elf")) and integration_conf.general.elf:
+    # elif ("ELF" in data_dictionary.get("type", "") or file_path.endswith(".elf")) and integration_conf.general.elf:
     #    data_dictionary["elf"] = ELF(file_path).run()
     #    data_dictionary["keys"] = f.get_keys()
     # elif HAVE_OLETOOLS and package == "hwp" and integration_conf.general.hwp:
@@ -246,7 +246,7 @@ def static_file_info(
         if processing_conf.die.enabled and "die" not in data_dictionary:
             data_dictionary["die"] = detect_it_easy_info(file_path)
 
-        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"] and "floss" not in data_dictionary:
+        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary.get("type", "") and "floss" not in data_dictionary:
             floss_strings = Floss(file_path, package).run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
@@ -433,7 +433,7 @@ def generic_file_extractors(
     # Arguments that some extractors need. They will always get passed, so the
     # extractor functions need to accept `**_` and just discard them.
     kwargs = {
-        "filetype": data_dictionary["type"],
+        "filetype": data_dictionary.get("type", ""),
         "data_dictionary": data_dictionary,
         "options": options,
         "tests": tests,

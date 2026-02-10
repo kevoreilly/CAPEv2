@@ -31,6 +31,7 @@ HTTP_HINT_APIS = {
     "internetconnectw",
     "winhttpopenrequest",
     "winhttpsendrequest",
+    "winhttpgetproxyforurl",
     "winhttpconnect",
     "winhttpopen",
     "internetopenurla",

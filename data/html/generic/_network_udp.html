@@ -3,11 +3,21 @@
     <tr>
         <th>IP Address</th>
         <th>Port</th>
+        {% if results.network_proc_map %}<th>Process Name (PID)</th>{% endif %}
     </tr>
     {% for conn in results.network.udp %}
     <tr>
-        <td><span class="mono">{{conn.dst}}</span></td>
+        <td><span class="mono">{{conn.dst}}</span> {% if conn.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td><span class="mono">{{conn.dport}}</span></td>
+        {% if results.network_proc_map %}
+            <td>
+                {% if conn.process_name %}
+                    <span class="mono">{{ conn.process_name }}{% if conn.process_id %} ({{ conn.process_id }}){% endif %}</span>
+                {% else %}
+                    <span class="mono">-</span>
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

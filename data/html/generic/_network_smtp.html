@@ -3,11 +3,21 @@
     <tr>
         <th>Destination</th>
         <th>Data</th>
+        {% if results.network_proc_map %}<th>Process Name (PID)</th>{% endif %}
     </tr>
     {% for smtp in results.network.smtp %}
     <tr>
-        <td><span class="mono">{{smtp.dst}}</span></td>
+        <td><span class="mono">{{smtp.dst}}</span> {% if smtp.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td><span class="mono"><pre>{{smtp.raw}}</pre></span></td>
+        {% if results.network_proc_map %}
+            <td>
+                {% if smtp.process_name %}
+                    <span class="mono">{{ smtp.process_name }}{% if smtp.process_id %} ({{ smtp.process_id }}){% endif %}</span>
+                {% else %}
+                    <span class="mono">-</span>
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

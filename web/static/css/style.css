@@ -1,8 +1,9 @@
 html {
     background: #1c1c1c;
 }
+
 body {
-    font-family: "Helvetica Neue",Helvetica,Arial,sans-serif;
+    font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
     font-size: 14px;
     padding-top: 60px;
     background: #1c1c1c repeat-x;
@@ -15,22 +16,22 @@ body {
 
 @media (max-width: 979px) {
     body {
-        padding-top: 0px;
-        padding-bottom: 0px;
+        padding-top: 0;
+        padding-bottom: 0;
     }
 }
 
 a {
-    color: white
+    color: white;
 }
 
-.navbar-collapse.in {
+/* Bootstrap 5: collapse uses .show (not .in) */
+.navbar-collapse.show {
     display: block !important;
 }
 
-.alert-primary, .alert-info
-{
-    background-color: #1c1c1c
+.alert-primary, .alert-info {
+    background-color: #1c1c1c;
 }
 
 .alert-info code {
@@ -41,96 +42,28 @@ a {
     padding: .5rem 1rem;
 }
 
-element.style {
-    font-size: 14px;
-}
-
 .card-body {
     padding: 1.0rem;
 }
 
 a:hover {
     color: #EE1B2F;
-    text-decoration: underline;
-}
-
-.btn-primary {
-    background-color: #325d88 !important;
-    border-color: #325d88 !important;
-    color: #fff !important;
-}
-
-.btn-primary:hover, .btn-primary:focus, .btn-primary:active {
-    background-color: #264768 !important;
-    border-color: #264768 !important;
-}
-
-.btn-info {
-    background-color: #29aba1 !important;
-    border-color: #29aba1 !important;
-    color: #fff !important;
-}
-
-.btn-info:hover, .btn-info:focus, .btn-info:active {
-    background-color: #1f8179 !important;
-    border-color: #1f8179 !important;
-}
-
-.btn-outline-info {
-    color: #29aba1 !important;
-    border-color: #29aba1 !important;
-}
-
-.btn-outline-info:hover {
-    background-color: #29aba1 !important;
-    border-color: #29aba1 !important;
-    color: #fff !important;
-}
-
-.text-info {
-    color: #4dd0e1 !important;
-}
-
-.bg-primary {
-    background-color: #325d88 !important;
-}
-
-.text-primary {
-    color: #5ebcf3 !important;
-}
-
-.bg-info {
-    background-color: #29aba1 !important;
-}
-
-.badge.bg-primary, .badge.bg-danger, .badge.bg-success {
-    color: #fff !important;
-}
-
-.badge.bg-warning, .badge.bg-info {
-    color: #000 !important;
-}
-
-a.badge:hover, .badge a:hover {
-    color: inherit !important;
-    text-decoration: none;
-    opacity: 0.8;
 }
 
 .btn-link {
-    color: red
+    color: red;
 }
 
 .btn-link:hover {
-    color: #EE1B2F
+    color: #EE1B2F;
 }
 
 .page-link {
-    background-color: #444
+    background-color: #444;
 }
 
 .page-link:hover {
-    background-color: #EE1B2F
+    background-color: #EE1B2F;
 }
 
 .page-link-active {
@@ -138,18 +71,18 @@ a.badge:hover, .badge a:hover {
 }
 
 .text-success {
-    color: #62c462!important
+    color: #62c462 !important;
 }
 
-.text-sucess:hover {
-    color: #62c462
+.text-success:hover {
+    color: #62c462 !important;
 }
 
 .page-item.active .page-link {
-    z-index:3;
-    color:#fff;
-    background-color:#ee1b2f;
-    border-color:transparent
+    z-index: 3;
+    color: #fff;
+    background-color: #ee1b2f;
+    border-color: transparent;
 }
 
 footer {
@@ -159,73 +92,86 @@ footer {
     width: 100%;
     color: #ccc;
 }
+
 footer a:link, footer a:visited {
     color: #ccc;
     text-decoration: none;
 }
+
 footer a:hover {
     color: #ccc;
     text-decoration: underline;
 }
+
 #footer-extra {
     background: #1c1c1c;
     padding: 10px 0;
     font-size: 11px;
     color: #999;
 }
+
 #footer-extra a:link, #footer-extra a:visited {
     color: #999;
     font-weight: bold;
     text-decoration: none;
 }
+
 #footer-extra a:hover {
     color: #ccc;
     text-decoration: underline;
 }
+
 .center {
     text-align: center;
 }
+
 td code {
     white-space: pre-wrap;
     word-break: break-all;
 }
+
 .content {
-    background-color: white;
-    padding: 40px;
-    padding-top: 15px;
-    -moz-border-radius-bottomleft: 15px;
-    -moz-border-radius-bottomright: 15px;
-    -webkit-border-bottom-left-radius: 15px;
-    -webkit-border-bottom-right-radius: 15px;
+    background-color: #fff;
+    padding: 15px 40px 40px; /* top right/left bottom */
+    border-bottom-left-radius: 15px;
+    border-bottom-right-radius: 15px;
 }
+
 .section-title {
     border-bottom: 1px solid #eee;
     margin-bottom: 15px;
     margin-top: 20px;
     padding-bottom: 3px;
 }
+
 span.block-title {
     font-size: 18px;
     font-weight: bold;
 }
+
 img.opaque {
     opacity: 0.3;
     filter: alpha(opacity=30);
 }
+
 img.opaque:hover {
     opacity: 1.0;
     filter: alpha(opacity=100);
 }
+
 .gray {
     color: #666;
 }
+
 .table-centered {
     margin: 0 auto !important;
     float: none !important;
 }
+
 .table-bordered tfoot th, .table-bordered tfoot td {
     border-top: 4px solid #444;
 }
+
 a.tag-label {
     color: white;
 }
@@ -237,14 +183,13 @@ h4, .h4 {
 .page-header {
     margin-bottom: 10px;
 }
+
 .filter-box {
-    display : none;
+    display: none;
     padding-top: 15px;
-	height : auto;
-	width : 40%;
+    height: auto;
+    width: 40%;
 }
-/* Fix the icon tab override */
-.nav-tabs > .active > a > [class^="icon-"],.nav-tabs>.active>a>[class*=" icon-"] { background-image:url("../img/glyphicons-halflings.png") !important; }
 
 td {
     word-wrap: break-word;
@@ -256,14 +201,13 @@ td {
 }
 
 .row-active {
-    background-color:darkred;
+    background-color: darkred;
 }
 
 pre {
-    white-space: -moz-pre-wrap;
-    white-space: -pre-wrap;
-    white-space: -o-pre-wrap;
-    word-wrap: break-word;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .extracted-config > table > tbody > tr > td {
@@ -274,26 +218,27 @@ pre {
 .tcp-flow {
     list-style-type: none;
 }
+
 .tcp-flow li {
     margin-bottom: 20px;
 }
-.tcp-out {
-}
+
 .tcp-out pre {
     padding: 0;
     border: 0;
-    /*background-color: white;*/
     color: #d9534f;
 }
+
 .tcp-in {
     padding-left: 100px;
 }
+
 .tcp-in pre {
     padding: 0;
     border: 0;
-    /*background-color: white;*/
     color: #5bc0de;
 }
+
 .filter-toggle {
     display: inline-block;
     cursor: pointer;
@@ -304,46 +249,57 @@ pre {
     background-color: #ffe3c5;
     color: black;
 }
+
 .registry {
     background-color: #ffc5c5;
     color: black;
 }
+
 .process {
     background-color: #c5e0ff;
     color: black;
 }
+
 .threading {
     background-color: #d3e0ff;
     color: black;
 }
+
 .services {
     background-color: #ccc5ff;
     color: black;
 }
+
 .device {
     background-color: #d3c5cc;
     color: black;
 }
+
 .network {
     background-color: #d3ffc5;
     color: black;
 }
+
 .socket {
     background-color: #d3ffc5;
     color: black;
 }
+
 .synchronization {
     background-color: #f9c5ff;
     color: black;
 }
+
 .browser {
     background-color: #dfffdf;
     color: black;
 }
+
 .crypto {
     background-color: #f0f2c5;
     color: black;
 }
+
 /* Linux Syscall Categories */
 .kernel {
     background-color: #ffc5c5;
@@ -394,42 +350,169 @@ pre {
     background-color: #fffcc5;
     color: black;
 }
+
 .windows {
     background-color: #ffc5ee;
     color: black;
 }
 
-.btn-cat-filesystem { background-color: #ffe3c5 !important; color: black; border-color: #ffe3c5; }
-.btn-cat-filesystem:hover { color: black; }
-.btn-cat-registry { background-color: #ffc5c5 !important; color: black; border-color: #ffc5c5; }
-.btn-cat-registry:hover { color: black; }
-.btn-cat-process { background-color: #c5e0ff !important; color: black; border-color: #c5e0ff; }
-.btn-cat-process:hover { color: black; }
-.btn-cat-threading { background-color: #d3e0ff !important; color: black; border-color: #d3e0ff; }
-.btn-cat-threading:hover { color: black; }
-.btn-cat-services { background-color: #ccc5ff !important; color: black; border-color: #ccc5ff; }
-.btn-cat-services:hover { color: black; }
-.btn-cat-device { background-color: #d3c5cc !important; color: black; border-color: #d3c5cc; }
-.btn-cat-device:hover { color: black; }
-.btn-cat-network { background-color: #d3ffc5 !important; color: black; border-color: #d3ffc5; }
-.btn-cat-network:hover { color: black; }
-.btn-cat-socket { background-color: #d3ffc5 !important; color: black; border-color: #d3ffc5; }
-.btn-cat-socket:hover { color: black; }
-.btn-cat-synchronization { background-color: #f9c5ff !important; color: black; border-color: #f9c5ff; }
-.btn-cat-synchronization:hover { color: black; }
-.btn-cat-browser { background-color: #dfffdf !important; color: black; border-color: #dfffdf; }
-.btn-cat-browser:hover { color: black; }
-.btn-cat-crypto { background-color: #f0f2c5 !important; color: black; border-color: #f0f2c5; }
-.btn-cat-crypto:hover { color: black; }
-
-/* Remove default underline, add on hover (exclude buttons if needed) */
-a:not(.btn, [class*="btn"]) {
-    text-decoration: none !important;
-}
-a:not(.btn, [class*="btn"]):hover {
-    text-decoration: underline !important;
+/* Category buttons (base colors) */
+.btn-cat-default {
+    background-color: #696969;
+    color: #000;
+    border-color: #696969;
 }
 
+.btn-cat-filesystem {
+    background-color: #ffe3c5;
+    color: #000;
+    border-color: #ffe3c5;
+}
+
+.btn-cat-registry {
+    background-color: #ffc5c5;
+    color: #000;
+    border-color: #ffc5c5;
+}
+
+.btn-cat-process {
+    background-color: #c5e0ff;
+    color: #000;
+    border-color: #c5e0ff;
+}
+
+.btn-cat-threading {
+    background-color: #d3e0ff;
+    color: #000;
+    border-color: #d3e0ff;
+}
+
+.btn-cat-services {
+    background-color: #ccc5ff;
+    color: #000;
+    border-color: #ccc5ff;
+}
+
+.btn-cat-device {
+    background-color: #d3c5cc;
+    color: #000;
+    border-color: #d3c5cc;
+}
+
+.btn-cat-network {
+    background-color: #d3ffc5;
+    color: #000;
+    border-color: #d3ffc5;
+}
+
+.btn-cat-socket {
+    background-color: #d3ffc5;
+    color: #000;
+    border-color: #d3ffc5;
+}
+
+.btn-cat-synchronization {
+    background-color: #f9c5ff;
+    color: #000;
+    border-color: #f9c5ff;
+}
+
+.btn-cat-browser {
+    background-color: #dfffdf;
+    color: #000;
+    border-color: #dfffdf;
+}
+
+.btn-cat-crypto {
+    background-color: #f0f2c5;
+    color: #000;
+    border-color: #f0f2c5;
+}
+
+.btn-cat-all {
+    background-color: #198754;
+    color: #000;
+    border-color: #198754;
+}
+
+/* Active state border colors (your current behavior) */
+.btn-cat-default.active,
+.btn-cat-default:active,
+.show > .btn-cat-default.dropdown-toggle {
+    border-color: #696969;
+}
+
+.btn-cat-filesystem.active,
+.btn-cat-filesystem:active,
+.show > .btn-cat-filesystem.dropdown-toggle {
+    border-color: #ffe3c5;
+}
+
+.btn-cat-registry.active,
+.btn-cat-registry:active,
+.show > .btn-cat-registry.dropdown-toggle {
+    border-color: #ffc5c5;
+}
+
+.btn-cat-process.active,
+.btn-cat-process:active,
+.show > .btn-cat-process.dropdown-toggle {
+    border-color: #c5e0ff;
+}
+
+.btn-cat-threading.active,
+.btn-cat-threading:active,
+.show > .btn-cat-threading.dropdown-toggle {
+    border-color: #d3e0ff;
+}
+
+.btn-cat-services.active,
+.btn-cat-services:active,
+.show > .btn-cat-services.dropdown-toggle {
+    border-color: #ccc5ff;
+}
+
+.btn-cat-device.active,
+.btn-cat-device:active,
+.show > .btn-cat-device.dropdown-toggle {
+    border-color: #dcd1d6;
+}
+
+.btn-cat-network.active,
+.btn-cat-network:active,
+.show > .btn-cat-network.dropdown-toggle {
+    border-color: #dcffd1;
+}
+
+.btn-cat-socket.active,
+.btn-cat-socket:active,
+.show > .btn-cat-socket.dropdown-toggle {
+    border-color: #dcffd1;
+}
+
+.btn-cat-synchronization.active,
+.btn-cat-synchronization:active,
+.show > .btn-cat-synchronization.dropdown-toggle {
+    border-color: #fad1ff;
+}
+
+.btn-cat-browser.active,
+.btn-cat-browser:active,
+.show > .btn-cat-browser.dropdown-toggle {
+    border-color: #e5ffe5;
+}
+
+.btn-cat-crypto.active,
+.btn-cat-crypto:active,
+.show > .btn-cat-crypto.dropdown-toggle {
+    border-color: #f3f5d1;
+}
+
+.btn-cat-all.active,
+.btn-cat-all:active,
+.show > .btn-cat-all.dropdown-toggle {
+    border-color: #479f76;
+}
 
 /* Make category background apply to table cells in BS5 */
 .table tbody tr.filesystem > td,
@@ -481,42 +564,44 @@ a:not(.btn, [class*="btn"]):hover {
 }
 
 /* Hover/focus states */
-.form-control[type="file"]::file-selector-button:hover{
-  background-color: #3f474e;
+.form-control[type="file"]::file-selector-button:hover {
+    background-color: #3f474e;
 }
 
-/* Mid-gray form controls for Darkly */
+/* Mid-gray form controls */
 :root {
-  --form-bg: #5c5c5c;                 /* ← adjust here (try #4f4f4f to #5c5c5c) */
-  --form-border: #666;
-  --form-text: #fff;
-  --form-placeholder: rgba(255,255,255,.55);
+    --form-bg: #5c5c5c;
+    --form-border: #666;
+    --form-text: #fff;
+    --form-placeholder: rgba(255, 255, 255, .55);
 }
 
-/* Fix green highlight on search box focus */
-.form-control:focus {
-    border-color: #5ebcf3;
-    box-shadow: 0 0 0 0.2rem rgba(94, 188, 243, 0.25);
-}
-
-/* Disabled */
-.form-control[type="file"]:disabled{
-  background-color: #1c1f23;
-  color: rgba(255,255,255,.5);
-}
-.form-control[type="file"]:disabled::file-selector-button{
-  background-color: #2b3035;
-  color: rgba(255,255,255,.5);
+.form-control,
+.form-select {
+    background-color: var(--form-bg) !important;
+    color: var(--form-text) !important;
+    border-color: var(--form-border) !important;
 }
 
 .form-control::placeholder {
-  color: var(--form-placeholder) !important;
+    color: var(--form-placeholder) !important;
 }
 
 .form-control:focus,
 .form-select:focus {
-  background-color: var(--form-bg) !important;
-  border-color: #00bc8c !important;        /* Darkly success color */
-  box-shadow: 0 0 0 .25rem rgba(0,188,140,.25);
+    background-color: var(--form-bg) !important;
+    border-color: #007ABCFF !important;
+    box-shadow: 0 0 0 .25rem rgba(0, 38, 60, 0.25);
+}
+
+/* Global: no underlines anywhere in BS5 UI */
+a, a:hover, a:focus, a:active {
+    text-decoration: none !important;
+}
+
+/* Keep footer behavior only (if you want underline there) */
+footer a:hover,
+#footer-extra a:hover {
+    text-decoration: underline !important;
 }
 

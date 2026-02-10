@@ -544,7 +544,7 @@ class AnalysisManager(threading.Thread):
         elif self.route == "internet" and routing.routing.internet != "none":
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
-            self.no_local_routing = routing.routing.no_local_routing
+            self.no_local_routing = routing.routing.no_local_routing and not routing.routing.nat
             if routing.routing.reject_segments != "none":
                 self.reject_segments = routing.routing.reject_segments
             if routing.routing.reject_hostports != "none":

@@ -32,8 +32,10 @@ cfg = Config("reporting")
 aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
 api_cfg = Config("api")
+pro_cfg = Config("processing")
 
 REPROCESS_TASKS = web_cfg.general.reprocess_tasks
+REPROCESS_FAILED_PROCESSING = web_cfg.general.reprocess_failed_processing
 # CSRF TRUSTED ORIGINS
 # For requests that include the Origin header, Django's CSRF protection
 # requires that header match the origin present in the Host header.
@@ -96,6 +98,7 @@ COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
 ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
+NETWORK_PROC_MAP = pro_cfg.network.process_map
 
 # If false run next command
 # python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
@@ -309,6 +312,9 @@ SETTINGS_EXPORT = [
     "WEB_AUTHENTICATION",
     "WEB_OAUTH",
     "ZIPPED_DOWNLOAD_ALL",
+    "NETWORK_PROC_MAP",
+    "REPROCESS_TASKS",
+    "REPROCESS_FAILED_PROCESSING",
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

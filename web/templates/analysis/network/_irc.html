@@ -9,12 +9,22 @@
         <th>Command</th>
         <th>Params</th>
         <th>Type</th>
+        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
     </tr>
     {% for irc in network.irc %}
     <tr>
-        <td style="word-wrap: break-word;">{{irc.command}}</td>
+        <td style="word-wrap: break-word;">{{irc.command}} {% if irc.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td style="word-wrap: break-word;">{{irc.params}}</td>
         <td style="word-wrap: break-word;">{{irc.type}}</td>
+        {% if settings.NETWORK_PROC_MAP %}
+            <td>
+                {% if irc.process_name %}
+                    {{ irc.process_name }}{% if irc.process_id %} ({{ irc.process_id }}){% endif %}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

@@ -216,6 +216,10 @@ class CAPE(Processing):
                 "category": category,
                 "file": file_info,
             }
+
+            if not os.path.exists(self.task["target"]):
+                log.error("Target file doesn't exist anymore. That will prevent data to be shown on webgui")
+
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))

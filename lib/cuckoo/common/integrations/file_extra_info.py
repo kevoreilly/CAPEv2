@@ -1,5 +1,4 @@
 import concurrent.futures
-import functools
 import hashlib
 import json
 import logging
@@ -7,11 +6,10 @@ import os
 import re
 import shlex
 import shutil
-import signal
 import subprocess
 
 # from contextlib import suppress
-from typing import Any, DefaultDict, List, Optional, Set, Union
+from typing import Any, DefaultDict, List, Optional, Set
 
 import pebble
 
@@ -38,7 +36,6 @@ from lib.cuckoo.common.integrations.parse_msi import parse_msi
 from lib.cuckoo.common.load_extra_modules import file_extra_info_load_modules
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import (
-    path_delete,
     path_exists,
     path_get_size,
     path_is_file,
@@ -176,52 +173,58 @@ def static_file_info(
     ):
         log.info("Missed dependencies: pip3 install oletools")
 
-    if "MSI Installer" in data_dictionary["type"]:
+    if "MSI Installer" in data_dictionary["type"] and "msi" not in data_dictionary:
         data_dictionary["msi"] = parse_msi(file_path)
 
     # ToDo we need type checking as it wont work for most of static jobs
     if HAVE_PEFILE and ("PE32" in data_dictionary["type"] or "MS-DOS executable" in data_dictionary["type"]):
-        with PortableExecutable(file_path) as pe:
-            data_dictionary["pe"] = pe.run(task_id)
+        if "pe" not in data_dictionary:
+            with PortableExecutable(file_path) as pe:
+                data_dictionary["pe"] = pe.run(task_id)
 
-        if HAVE_FLARE_CAPA:
+        if HAVE_FLARE_CAPA and "flare_capa" not in data_dictionary:
             # https://github.com/mandiant/capa/issues/2620
             capa_details = flare_capa_details(file_path, "static")
             if capa_details:
                 data_dictionary["flare_capa"] = capa_details
 
-        if HAVE_FLOSS and integration_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
+        if HAVE_FLOSS and integration_conf.floss.enabled and "Mono" not in data_dictionary["type"] and "floss" not in data_dictionary:
             floss_strings = Floss(file_path, "static", "pe").run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
 
-        if "Mono" in data_dictionary["type"]:
+        if "Mono" in data_dictionary["type"] and "dotnet" not in data_dictionary:
             if integration_conf.general.dotnet:
                 data_dictionary["dotnet"] = DotNETExecutable(file_path).run()
-                if processing_conf.strings.dotnet:
+                if processing_conf.strings.dotnet and "dotnet_strings" not in data_dictionary:
                     dotnet_strings = dotnet_user_strings(file_path)
                     if dotnet_strings:
                         data_dictionary.setdefault("dotnet_strings", dotnet_strings)
 
     elif (HAVE_OLETOOLS and package in {"doc", "ppt", "xls", "pub"} and integration_conf.general.office) or data_dictionary.get("name", "").endswith((".doc", ".ppt", ".xls", ".pub")):
-        # options is dict where we need to get pass get_options
-        data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
+        if "office" not in data_dictionary:
+            # options is dict where we need to get pass get_options
+            data_dictionary["office"] = Office(file_path, task_id, data_dictionary["sha256"], options_dict).run()
     elif ("PDF" in data_dictionary["type"] or file_path.endswith(".pdf")) and integration_conf.general.pdf:
-        data_dictionary["pdf"] = PDF(file_path).run()
+        if "pdf" not in data_dictionary:
+            data_dictionary["pdf"] = PDF(file_path).run()
     elif (
         package in {"wsf", "hta"} or data_dictionary["type"] == "XML document text" or file_path.endswith(".wsf")
     ) and integration_conf.general.windows_script:
-        data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
+        if "wsf" not in data_dictionary:
+            data_dictionary["wsf"] = WindowsScriptFile(file_path).run()
     # elif package in {"js", "vbs"}:
     #    data_dictionary["js"] = EncodedScriptFile(file_path).run()
     elif (package == "lnk" or "MS Windows shortcut" in data_dictionary["type"]) and integration_conf.general.lnk:
-        data_dictionary["lnk"] = LnkShortcut(file_path).run()
+        if "lnk" not in data_dictionary:
+            data_dictionary["lnk"] = LnkShortcut(file_path).run()
     elif ("Java Jar" in data_dictionary["type"] or file_path.endswith(".jar")) and integration_conf.general.java:
-        if integration_conf.procyon.binary and not path_exists(integration_conf.procyon.binary):
-            log.error("procyon_path specified in processing.conf but the file does not exist")
-        else:
-            data_dictionary["java"] = Java(file_path, integration_conf.procyon.binary).run()
-    elif file_path.endswith(".rdp") or data_dictionary.get("name", {}).endswith(".rdp"):
+        if "java" not in data_dictionary:
+            if integration_conf.procyon.binary and not path_exists(integration_conf.procyon.binary):
+                log.error("procyon_path specified in processing.conf but the file does not exist")
+            else:
+                data_dictionary["java"] = Java(file_path, integration_conf.procyon.binary).run()
+    elif (file_path.endswith(".rdp") or data_dictionary.get("name", {}).endswith(".rdp")) and "rdp" not in data_dictionary:
         data_dictionary["rdp"] = parse_rdp_file(file_path)
     # It's possible to fool libmagic into thinking our 2007+ file is a zip.
     # So until we have static analysis for zip files, we can use oleid to fail us out silently,
@@ -237,13 +240,13 @@ def static_file_info(
     if not file_path.startswith(exclude_startswith) and not file_path.endswith(excluded_extensions):
         data_dictionary["data"] = is_text_file(data_dictionary, file_path, processing_conf.CAPE.buffer, data)
 
-        if processing_conf.trid.enabled:
+        if processing_conf.trid.enabled and "trid" not in data_dictionary:
             data_dictionary["trid"] = trid_info(file_path)
 
-        if processing_conf.die.enabled:
+        if processing_conf.die.enabled and "die" not in data_dictionary:
             data_dictionary["die"] = detect_it_easy_info(file_path)
 
-        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"]:
+        if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary["type"] and "floss" not in data_dictionary:
             floss_strings = Floss(file_path, package).run()
             if floss_strings:
                 data_dictionary["floss"] = floss_strings
@@ -253,7 +256,7 @@ def static_file_info(
             # think that we want to look them up on-demand (i.e. display the
             # "strings" button linking to an on_demand URL).
             data_dictionary["strings"] = []
-        elif HAVE_STRINGS:
+        elif HAVE_STRINGS and "strings" not in data_dictionary:
             strings = extract_strings(file_path, dedup=True)
             data_dictionary["strings"] = strings
         else:
@@ -262,7 +265,7 @@ def static_file_info(
             pass
 
         # ToDo we need url support
-        if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled:
+        if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled and "virustotal" not in data_dictionary:
             vt_details = vt_lookup("file", file_path, results)
             if vt_details:
                 data_dictionary["virustotal"] = vt_details
@@ -401,25 +404,7 @@ def _extracted_files_metadata(
     return metadata
 
 
-def pass_signal(proc, signum, frame):
-    proc.send_signal(signum)
-
-
-def run_tool(*args, **kwargs) -> Union[bytes, str]:
-    """Start a subprocess to run the given tool. Make sure to pass a SIGTERM signal to
-    that process if it is received.
-    """
-    kwargs["stdout"] = subprocess.PIPE
-    old_handler = None
-    try:
-        proc = subprocess.Popen(*args, **kwargs)
-        old_handler = signal.signal(signal.SIGTERM, functools.partial(pass_signal, proc))
-        (stdout, stderr) = proc.communicate()
-        return stdout
-    finally:
-        if old_handler:
-            signal.signal(signal.SIGTERM, old_handler)
-
+from lib.cuckoo.common.integrations.utils import run_tool
 
 def generic_file_extractors(
     file: str,
@@ -454,24 +439,8 @@ def generic_file_extractors(
         "tests": tests,
     }
 
-    file_info_funcs = [
-        msi_extract,
-        kixtart_extract,
-        vbe_extract,
-        batch_extract,
-        UnAutoIt_extract,
-        UPX_unpack,
-        RarSFX_extract,
-        Inno_extract,
-        SevenZip_unpack,
-        de4dot_deobfuscate,
-        eziriz_deobfuscate,
-        office_one,
-        msix_extract,
-        UnGPG_extract,
-    ]
-
     futures = {}
+    executed_tools = data_dictionary.setdefault("executed_tools", [])
     with pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers)) as pool:
         # Prefer custom modules over the built-in ones, since only 1 is allowed
         # to be the extracted_files_tool.
@@ -479,6 +448,9 @@ def generic_file_extractors(
             for module in extra_info_modules:
                 func_timeout = int(getattr(module, "timeout", 60))
                 funcname = module.__name__.split(".")[-1]
+                if funcname in executed_tools:
+                    continue
+                executed_tools.append(funcname)
                 futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
 
         for extraction_func in file_info_funcs:
@@ -488,6 +460,10 @@ def generic_file_extractors(
                 and getattr(extraction_func, "enabled", False) is False
             ):
                 continue
+
+            if funcname in executed_tools:
+                continue
+            executed_tools.append(funcname)
 
             func_timeout = int(getattr(integration_conf, funcname, {}).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
@@ -677,51 +653,6 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     return ctx
 
 
-@time_tracker
-def msi_extract(file: str, *, filetype: str, **kwargs) -> ExtractorReturnType:
-    """Work on MSI Installers"""
-
-    if "MSI Installer" not in filetype:
-        return
-
-    # ToDo replace MsiExtract with pymsi
-    extracted_files = []
-    # sudo apt install msitools
-    with extractor_ctx(file, "MsiExtract", prefix="msidump_", folder=tools_folder) as ctx:
-        tempdir = ctx["tempdir"]
-        output = False
-        if not kwargs.get("tests"):
-            # msiextract in different way that 7z, we need to add subfolder support
-            output = run_tool(
-                [integration_conf.msi_extract.binary, file, "--directory", tempdir],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
-        if output:
-            extracted_files = [
-                extracted_file
-                for extracted_file in list(filter(None, output.split("\n")))
-                if path_is_file(os.path.join(tempdir, extracted_file))
-            ]
-        else:
-            output = run_tool(
-                [sevenzip_binary, "e", f"-o{tempdir}", "-y", file],
-                universal_newlines=True,
-                stderr=subprocess.PIPE,
-            )
-            valid_msi_filetypes = ["PE32", "text", "Microsoft Cabinet archive"]
-            for root, _, filenames in os.walk(tempdir):
-                for filename in filenames:
-                    path = os.path.join(root, filename)
-                    if any([x in File(path).get_type() for x in valid_msi_filetypes]):
-                        os.rename(path, os.path.join(root, filename.split(".")[-1].strip("'").strip("!")))
-                    else:
-                        path_delete(path)
-            extracted_files = collect_extracted_filenames(tempdir)
-
-        ctx["extracted_files"] = extracted_files
-
-    return ctx
 
 
 @time_tracker
@@ -1021,3 +952,19 @@ def UnGPG_extract(file: str, filetype: str, data_dictionary: dict, options: dict
             ctx["extracted_files"] = collect_extracted_filenames(tempdir)
 
     return ctx
+
+file_info_funcs = [
+    kixtart_extract,
+    vbe_extract,
+    batch_extract,
+    UnAutoIt_extract,
+    UPX_unpack,
+    RarSFX_extract,
+    Inno_extract,
+    SevenZip_unpack,
+    de4dot_deobfuscate,
+    eziriz_deobfuscate,
+    office_one,
+    msix_extract,
+    UnGPG_extract,
+]

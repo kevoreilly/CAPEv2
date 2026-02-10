@@ -24,7 +24,7 @@ from lib.cuckoo.core.analysis_manager import AnalysisManager
 from lib.cuckoo.core.data.db_common import _utcnow_naive
 from lib.cuckoo.core.database import Database, _Database
 from lib.cuckoo.core.data.machines import Machine
-from lib.cuckoo.core.data.task import Task, TASK_FAILED_ANALYSIS, TASK_PENDING 
+from lib.cuckoo.core.data.task import Task, TASK_FAILED_ANALYSIS, TASK_PENDING
 from lib.cuckoo.core.machinery_manager import MachineryManager
 
 log = logging.getLogger(__name__)
@@ -230,7 +230,6 @@ class Scheduler:
                 # This task can definitely be processed because it doesn't need a machine.
                 task = task_candidate
                 break
-                            
 
             try:
                 machine = self.machinery_manager.find_machine_to_service_task(task_candidate)

@@ -6,7 +6,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import (
     CuckooDependencyError, CuckooUnserviceableTaskError
 )
-from .db_common import Base, tasks_tags, machines_tags, _utcnow_naive, Tag
+from .db_common import Base,  machines_tags, _utcnow_naive, Tag
 from .task import Task
 from .guests import Guest
 
@@ -14,16 +14,13 @@ from .guests import Guest
 try:
     from sqlalchemy import (
         Boolean,
-        Column,
         DateTime,
         delete,
-        ForeignKey,
         func,
         Integer,
         select,
         Select,
         String,
-        Table,        
     )
     from sqlalchemy.orm import (
         Mapped,
@@ -101,10 +98,7 @@ class Machine(Base):
         self.resultserver_port = resultserver_port
         self.reserved = reserved
 
-
-
-        
-class MachinesMixIn:        
+class MachinesMixIn:
     def clean_machines(self):
         """Clean old stored machines and related tables."""
         # Secondary table.

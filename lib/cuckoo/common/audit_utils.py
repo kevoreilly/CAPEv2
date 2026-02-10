@@ -3,7 +3,7 @@ import logging
 import zipfile
 import shutil
 from pathlib import Path
-from typing import Any, List, Optional, Union, Tuple, Dict
+from typing import Any, List, Dict
 import importlib.util
 from lib.cuckoo.core.data import task as db_task
 from lib.cuckoo.core.data.audit_data import TEST_RUNNING, TEST_COMPLETE, TEST_FAILED, TEST_QUEUED
@@ -12,14 +12,14 @@ log = logging.getLogger(__name__)
 
 def load_module(module_path):
     module_name = "test_py_module"
-    spec = importlib.util.spec_from_file_location(module_name, str(module_path))        
+    spec = importlib.util.spec_from_file_location(module_name, str(module_path))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-        
+
     if not hasattr(module, 'CapeDynamicTest'):
         log.warning(str(dir(module)))
-        raise ValueError(f"Module has no CapeDynamicTest class")                
-    tester = module.CapeDynamicTest()        
+        raise ValueError("Module has no CapeDynamicTest class")
+    tester = module.CapeDynamicTest()
 
     if not hasattr(tester, 'get_metadata'):
         raise ValueError(f"CapeDynamicTest from {module_path} lacks get_metadata() function")
@@ -41,7 +41,7 @@ class TestLoader():
                 if zip_password:
                     z.setpassword(zip_password.encode())
                 # Test if the zip is actually readable/not corrupt
-                z.testzip() 
+                z.testzip()
         except zipfile.BadZipFile:
             if zip_password:
                 raise zipfile.BadZipFile(f"{payload_archive} is not usable with the given password")
@@ -61,7 +61,7 @@ class TestLoader():
 
         payload_path = None        
         if not os.path.isdir(payload_output_dir):
-            raise NotADirectoryError("Bad payload directory extracted");
+            raise NotADirectoryError("Bad payload directory extracted")
 
         dir_path = Path(payload_output_dir)
         dir_contents = list(dir_path.iterdir())
@@ -72,7 +72,7 @@ class TestLoader():
         payload_path = str(dir_contents[0])
 
         if not os.path.exists(payload_path):
-            raise FileNotFoundError("Nothing extracted from payload archive or it could not be written to disk");
+            raise FileNotFoundError("Nothing extracted from payload archive or it could not be written to disk")
 
         return payload_path
 
@@ -89,13 +89,13 @@ class TestLoader():
             raise ValueError(f"Missing payload.zip in {payload_archive}")
         if not os.path.exists(module_path):
             raise ValueError(f"Missing test.py in {module_path}")
-        
+
         test_metadata = {}
         test_metadata['module_path'] = module_path
 
         # Load and instantiate the python test module and fetch metadata
         try:
-            tester = load_module(module_path)                
+            tester = load_module(module_path)
             test_metadata['info'] = tester.get_metadata()
 
             test_metadata['objectives'] = []
@@ -108,7 +108,7 @@ class TestLoader():
                 return objdict
             for objective in tester.get_objectives():
                 test_metadata['objectives'].append(load_objective(objective))
-            
+
         except Exception as e:
             raise ValueError(f"Failed to load test module or fetch metadata from {module_path}: {e}")
 
@@ -121,7 +121,7 @@ class TestLoader():
             raise ValueError(f"Metadata in {module_path} missing 'Name' field")
         if 'Package' not in test_metadata['info']:
             raise ValueError(f"Metadata in {module_path} missing 'Package' field")
-        
+
         zip_password = test_metadata['info'].get("Zip Password", None)
         payload_output_dir = os.path.join(test_path, "payload")
         test_metadata['payload_path'] = self._extract_payload(payload_archive, payload_output_dir, zip_password)
@@ -135,7 +135,7 @@ class TestLoader():
         """
         available_tests = []
         unavailable_tests = []
-        
+
         if not os.path.exists(self.tests_root):
             log.error("Tests root %s does not exist.", self.tests_root)
             return {"error": f"Tests root {self.tests_root} does not exist."}
@@ -156,7 +156,6 @@ class TestLoader():
 
 class TestResultValidator():
     def __init__(self, test_module_path:str, task_storage_directory: str):
-        
         if os.path.isdir(task_storage_directory):
             self.task_directory = task_storage_directory
         else:
@@ -170,9 +169,6 @@ class TestResultValidator():
     def evaluate(self):
         self.test_module.evaluate_results(self.task_directory)
         return self.test_module.get_results()
-            
-
-
 
 def task_status_to_run_status(cape_task_status):
     if cape_task_status == db_task.TASK_REPORTED:

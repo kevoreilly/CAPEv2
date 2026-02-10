@@ -1,5 +1,4 @@
-from .db_common import Base, _utcnow_naive, tasks_tags
-from datetime import datetime
+from .db_common import Base, _utcnow_naive
 import json
 import logging
 from typing import List, Optional, Tuple, Dict
@@ -28,16 +27,8 @@ from sflock.ident import identify as sflock_identify
 try:
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy import (
-        Boolean,
-        Column,
-        DateTime,
-        Enum,
         ForeignKey,
-        Index,
-        Integer,
         String,
-        Table,
-        Text,
         delete,
         func,
         not_,
@@ -158,7 +149,7 @@ class Error(Base):
     def __repr__(self):
         return f"<Error({self.id},'{self.message}','{self.task_id}')>"
 
-    
+
 class TasksMixIn:
     def add(
         self,
@@ -838,7 +829,7 @@ class TasksMixIn:
         @param status: status string
         @return: operation status
         """
-        log.info(f"setstat task {task_id} status {status}")
+        log.info("setstat task %d status %s",task_id,status)
         task = self.session.get(Task, task_id)
 
         if not task:
@@ -880,8 +871,6 @@ class TasksMixIn:
         # outside of this function, the error will always be committed to the database.
         with self.session.session_factory() as sess, sess.begin():
             sess.add(error)
-
-   
 
     def reschedule(self, task_id):
         """Reschedule a task.

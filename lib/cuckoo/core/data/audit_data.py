@@ -83,8 +83,8 @@ class AvailableTest(Base):
 test_template_association = Table(
     "test_template_association",
     Base.metadata,
-    Column("test_id", ForeignKey("available_tests.id"), primary_key=True),
-    Column("template_id", ForeignKey("test_objectives_templates.id"), primary_key=True),
+    Column("test_id", ForeignKey("available_tests.id", ondelete="CASCADE"), primary_key=True),
+    Column("template_id", ForeignKey("test_objectives_templates.id", ondelete="CASCADE"), primary_key=True),
 )
 
 

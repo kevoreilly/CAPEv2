@@ -14,14 +14,12 @@ try:
     )    
     from sqlalchemy import (
         Boolean,
-        Column,
         DateTime,
         Enum,
         ForeignKey,
         Index,
         Integer,
         String,
-        Table,
         Text,
     )
 

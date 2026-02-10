@@ -21,7 +21,7 @@
                 </div>
 
                 <div id="edit-mode-{{ test.id }}" class="p-3 d-none" style="background-color: #1e1e1e;">
-                    <form action="{% url 'update_task_config' test.id %}" method="POST">
+                    <form onsubmit="saveTaskConfig(event, '{{ test.id }}')" method="POST">
                         {% csrf_token %}
                         <textarea name="task_config" class="form-control font-monospace mb-2"
                                   style="background: #252526; color: #dcdcdc; border: 1px solid #333; height: 300px; font-size: 0.9rem;">{{ config_pretty }}</textarea>
@@ -69,5 +69,34 @@
 
             document.body.removeChild(textArea);
         }
+    }
+
+    function saveTaskConfig(event, testId) {
+        event.preventDefault(); // This stops the browser from redirecting!
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const url = `{% url 'update_task_config' 0 %}`.replace('0', testId);
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest', // Good practice for Django views
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success === true) {
+                    alert('Config saved successfully!');
+                    toggleConfigEdit(testId); // Close the edit mode automatically
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error occurred'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to save. Check the console.');
+            });
     }
 </script>

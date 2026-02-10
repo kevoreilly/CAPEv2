@@ -1,4 +1,4 @@
-from typing import Any, List, Optional, Union, Tuple, Dict
+from typing import Optional
 from datetime import datetime
 import json
 from lib.cuckoo.common.exceptions import (
@@ -6,7 +6,7 @@ from lib.cuckoo.common.exceptions import (
 )
 
 from .db_common import (
-    Base, 
+    Base,
     _utcnow_naive
     )
 

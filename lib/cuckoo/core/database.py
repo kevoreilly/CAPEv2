@@ -5,37 +5,23 @@
 # https://blog.miguelgrinberg.com/post/what-s-new-in-sqlalchemy-2-0
 # https://docs.sqlalchemy.org/en/20/changelog/migration_20.html#
 
-import hashlib
-import json
 import logging
 import os
 import sys
 from contextlib import suppress
-from datetime import datetime, timedelta, timezone
-from typing import Any, List, Optional, Union, Tuple, Dict
-import pytz
+from typing import Any, Optional
 
-
-# Sflock does a good filetype recon
-#from sflock.abstracts import File as SflockFile
-#from sflock.ident import identify as sflock_identify
-
-from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.exceptions import (
     CuckooDatabaseError,
     CuckooDatabaseInitializationError,
     CuckooDependencyError,
-    CuckooOperationalError,
-    CuckooUnserviceableTaskError,
+    CuckooOperationalError
 )
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
-from lib.cuckoo.common.objects import PCAP, URL, File, Static
-from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.utils import bytes2str, create_folder, get_options
+from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.utils import create_folder
 
 from .data.db_common import Base
 from .data.tasking import TasksMixIn
@@ -48,36 +34,11 @@ from .data.audits import AuditsMixIn
 # ToDo postgresql+psycopg2 in connection
 try:
     from sqlalchemy.engine import make_url
-    from sqlalchemy import (
-        Boolean,
-        BigInteger,
-        Column,
-        DateTime,
-        Enum,
-        ForeignKey,
-        Index,
-        Integer,
-        String,
-        Table,
-        Text,
-        create_engine,
-        # event,
-        func,
-        not_,
-        select,
-        Select,
-        delete,
-        update,
-    )
-    from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+    from sqlalchemy import String, create_engine, event, func, select
+    from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.orm import (
-        aliased,
-        joinedload,
-        subqueryload,
-        relationship,
         scoped_session,
         sessionmaker,
-        DeclarativeBase,
         Mapped,
         mapped_column,
     )
@@ -98,14 +59,9 @@ LINUX_ENABLED = web_conf.linux.enabled
 LINUX_STATIC = web_conf.linux.static_only
 DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
 
-if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_find
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import elastic_handler  # , get_analysis_index
-
     es = elastic_handler
-
-
 
 def get_count(q, property):
     count_q = q.statement.with_only_columns(func.count(property)).order_by(None)
@@ -123,10 +79,10 @@ class AlembicVersion(Base):
 
 
 
-class _Database(TasksMixIn, 
-                GuestsMixIn, 
-                MachinesMixIn, 
-                SamplesMixIn, 
+class _Database(TasksMixIn,
+                GuestsMixIn,
+                MachinesMixIn,
+                SamplesMixIn,
                 AuditsMixIn):
     """Analysis queue database.
 

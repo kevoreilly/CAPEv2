@@ -33,6 +33,7 @@ try:
     from sqlalchemy.orm import (
         aliased,
         Mapped,
+        joinedload,
         mapped_column,
         relationship,
     )
@@ -122,7 +123,6 @@ class Sample(Base):
         #    self.parent_sample = parent_sample
         if source_url:
             self.source_url = source_url
-     
 
 class SamplesMixIn:
     def register_sample(self, obj, source_url=False):
@@ -153,7 +153,7 @@ class SamplesMixIn:
                 log.exception(e)
         return sample
 
-    
+
     def check_file_uniq(self, sha256: str, hours: int = 0):
         # TODO This function is poorly named. It returns True if a sample with the given
         # sha256 already exists in the database, rather than returning True if the given
@@ -174,9 +174,8 @@ class SamplesMixIn:
                 uniq = False
             else:
                 uniq = True
-
         return uniq
-    
+
     def get_file_types(self) -> List[str]:
         """Gets a sorted list of unique sample file types."""
         # .distinct() is cleaner than group_by() for a single column.
@@ -394,7 +393,7 @@ class SamplesMixIn:
         except (TypeError, ValueError):
             # Handle cases where sample_id is not a valid integer.
             return None
-    
+
     def get_parent_sample_from_task(self, task_id: int) -> Optional[Sample]:
         """Finds the Parent Sample using the ID of the child's Task."""
 

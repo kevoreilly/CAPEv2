@@ -7,7 +7,7 @@ from lib.cuckoo.common.exceptions import (
 
 from datetime import datetime, timezone
 import pytz
-try:    
+try:
     from sqlalchemy import (
         Column,
         ForeignKey,

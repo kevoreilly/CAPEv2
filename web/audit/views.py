@@ -1,30 +1,18 @@
-import datetime
-import http
 import json
 import os
 import sys
 import logging
-
 from typing import Optional, Dict
-from contextlib import suppress
-from io import BytesIO
-from pathlib import Path
-from urllib.parse import quote
-from wsgiref.util import FileWrapper
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.core.exceptions import BadRequest, PermissionDenied
-from django.http import (HttpResponse, HttpResponseRedirect, StreamingHttpResponse, 
-                         JsonResponse, HttpResponseNotFound, HttpResponseForbidden)
+from django.http import JsonResponse, HttpResponseNotFound, HttpResponseForbidden
 from django.shortcuts import redirect, render
 from django import template
 from django.template.loader import render_to_string
-from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_POST, require_safe
+from django.views.decorators.http import require_POST
 from django.urls import reverse
-from rest_framework.decorators import api_view
 
 register = template.Library()
 
@@ -32,15 +20,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 logger = logging.getLogger(__name__)
 
-from lib.cuckoo.common.pcap_utils import PcapToNg
-import modules.processing.network as network
-from modules.reporting.report_doc import CHUNK_CALL_SIZE
-
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
-from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
-from lib.cuckoo.common.utils import delete_folder, yara_detected
-from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
 from lib.cuckoo.common.audit_utils import TestLoader
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.audits import AuditsMixIn, TestSession
@@ -77,12 +57,11 @@ class conditional_login_required:
         self.condition = condition
 
     def __call__(self, func):
-        
         if not hasattr(web_cfg, 'audit_framework') or \
             not hasattr(web_cfg.audit_framework, 'enabled') or \
-            web_cfg.audit_framework.enabled == False:
+            not web_cfg.audit_framework.enabled:
                 def fail(*args, **kwargs):
-                    return HttpResponseForbidden(f"Audit Framework is not set to enabled in web config.")
+                    return HttpResponseForbidden("Audit Framework is not set to enabled in web config.")
                 return fail
 
         if settings.ANON_VIEW and func.__name__ not in anon_not_viewable_func_list:
@@ -91,7 +70,6 @@ class conditional_login_required:
             return func
         return self.decorator(func)
 
-    
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def audit_index(request, page:int = 1):
     """
@@ -179,7 +157,7 @@ def create_test_session(request):
         return redirect("test_session", session_id=session_id)
 
     except Exception as e:
-        messages.error(request, f"Error creating session: {str(e)}")
+        messages.error(request, "Error creating session: %s",str(e))
         return redirect("audit_index")
 
 
@@ -223,6 +201,7 @@ def reload_available_tests(request):
 
 
 @require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def delete_test_session(request, session_id: int):
     """
     Purges a tests session and its task storage directory
@@ -252,7 +231,6 @@ def session_index(request, session_id: int):
         messages.warning(request, "Session not found.")
         return redirect("audit_index")
 
-    cape_tasks = {}
     run_html = {}
     for run in session_data.runs:
         run_status = _render_run_update(request, session_id, run.id)
@@ -305,7 +283,7 @@ def _render_run_update(request, session_id: int, testrun_id: int):
     test_run = next((r for r in db_test_session.runs if r.id == testrun_id), None)
     cape_task_info = None
     diagnostics = None
-    if test_run.cape_task_id != None:
+    if test_run.cape_task_id is not None:
         cape_task_info = db.view_task(test_run.cape_task_id)
         if cape_task_info:
             diagnostics = generate_task_diagnostics(cape_task_info, test_run)
@@ -416,7 +394,7 @@ def queue_test(request, session_id: int, testrun_id: int):
         return JsonResponse({"status": "success", "message": "Test queued successfully", "task_id": cape_task_id})
     else:
         return JsonResponse({"status": "failure", "message": "Could not queue test", "task_id": None})
-            
+
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def queue_all_tests(request, session_id: int):
@@ -428,7 +406,7 @@ def queue_all_tests(request, session_id: int):
     db_test_session = db.get_test_session(session_id)
     for run in db_test_session.runs:
         task_id = inner_queue_test(request, session_id, run.id)
-        if task_id != None:
+        if task_id is not None:
             task_ids.append({"run": run.id, "task": task_id})
     return JsonResponse({"task_ids": task_ids})
 
@@ -469,7 +447,7 @@ def unqueue_test(request, session_id, testrun_id):
 
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-def unqueue_all_tests(request, session_id: int):    
+def unqueue_all_tests(request, session_id: int):
     deleted_task_ids = []
     db_test_session = db.get_test_session(session_id)
     if not db_test_session:
@@ -492,19 +470,17 @@ def update_task_config(request, availabletest_id):
         try:
             # 1. Validate JSON syntax
             parsed_data = json.loads(raw_json)
-            
+
             # 2. Save the minified version to the DB (or keep pretty if preferred)
             test.task_config = parsed_data
                         
             messages.success(request, f"Configuration for Test {test.name} (#{test.id}) updated successfully.")
             return JsonResponse({"success": True})
-        
+
         except json.JSONDecodeError as e:
             messages.error(request, f"Failed to save: Invalid JSON format. Error: {str(e)}")
             return JsonResponse({"success": False, "error": "bad json: "+str(e)})
-        
+
         except Exception as e:
             messages.error(request, f"An unexpected error occurred: {str(e)}")
             return JsonResponse({"success": False, "error": str(e)})
-
-    # Redirect back to the page the user was on

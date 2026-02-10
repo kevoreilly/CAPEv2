@@ -6,11 +6,11 @@ from django.urls import re_path, path
 from audit import views
 
 urlpatterns = [
-    re_path(r"^$", views.audit_index, name="audit_index"),  
+    re_path(r"^$", views.audit_index, name="audit_index"),
     re_path(r"^page/(?P<page>\d+)/$", views.audit_index, name="audit_index"),
-    re_path(r"^session/(?P<session_id>\d+)/$", views.session_index, name="test_session"),        
-    re_path(r"^session/(?P<session_id>\d+)/status$", views.session_status, name="session_status"),        
-    re_path(r"^session/(?P<session_id>\d+)/run_update/<int:testrun_id>/", views.get_run_update, name="get_run_update"),        
+    re_path(r"^session/(?P<session_id>\d+)/$", views.session_index, name="test_session"),
+    re_path(r"^session/(?P<session_id>\d+)/status$", views.session_status, name="session_status"),
+    re_path(r"^session/(?P<session_id>\d+)/run_update/<int:testrun_id>/", views.get_run_update, name="get_run_update"),
     re_path(r"^reload_available_tests/", views.reload_available_tests, name="reload_available_tests"),
     re_path(r"^create_test_session/$", views.create_test_session, name="create_test_session"),
     re_path(r"^delete_test_session/(?P<session_id>\d+)/$", views.delete_test_session, name="delete_test_session"),

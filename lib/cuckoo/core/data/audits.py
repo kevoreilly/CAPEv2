@@ -3,18 +3,15 @@ import sys
 import json
 import logging
 import shutil
-from typing import Any, List, Optional, Union, Tuple, Dict
-from datetime import datetime, timedelta, timezone
+from typing import List, Optional, Tuple
 
 from sqlalchemy import select, delete
-from sqlalchemy.engine.result import _KeyIndexType
 from sqlalchemy.orm import Mapped, mapped_column
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.audit_utils import task_status_to_run_status, TestResultValidator
 
-from .db_common import _utcnow_naive, Base
 from .audit_data import (TestSession, AvailableTest, TestRun,
                         TestObjectiveTemplate, TestObjectiveInstance,
                         test_template_association,
@@ -23,9 +20,8 @@ from .audit_data import (TestSession, AvailableTest, TestRun,
 log = logging.getLogger(__name__)
 
 try:
-    from sqlalchemy.engine import make_url
-    from sqlalchemy import (Column, DateTime, ForeignKey, func, select, exists, delete, update, Integer, String, Table, Text, JSON, Boolean)
-    from sqlalchemy.orm import Mapped, mapped_column, relationship, joinedload
+    from sqlalchemy import (func, select, exists, delete, update, String)
+    from sqlalchemy.orm import joinedload
 
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
@@ -64,7 +60,7 @@ class AuditsMixIn:
         Returns (None, None) if the table is empty.
         """
         stmt = select(
-            func.min(TestSession.id), 
+            func.min(TestSession.id),
             func.max(TestSession.id)
         )
         result = self.session.execute(stmt).tuples().first()
@@ -87,7 +83,7 @@ class AuditsMixIn:
         """
         # Create a select statement ordered by newest first
         stmt = select(AvailableTest).order_by(AvailableTest.name.desc())
-        if active_only == True:
+        if active_only:
             stmt = stmt.where(AvailableTest.is_active)
 
         # Apply pagination if provided
@@ -100,7 +96,7 @@ class AuditsMixIn:
         # Execute and return scalars (the actual objects)
         result = self.session.scalars(stmt)
         testslist = list(result.all())
-        log.info(f"Retrieved %d available tests from database", len(testslist))
+        log.info("Retrieved %d available tests from database", len(testslist))
         return testslist
 
     def count_test_sessions(self) -> int:
@@ -115,7 +111,7 @@ class AuditsMixIn:
         @return: number of available tests.
         """
         stmt = select(func.count(AvailableTest.id))
-        if active_only == True:
+        if active_only:
             stmt = stmt.where(AvailableTest.is_active)
         return self.session.scalar(stmt)
 
@@ -123,7 +119,6 @@ class AuditsMixIn:
         '''
         Upsert loaded test data into the database
         '''
-        
         result = {'module_path':test["module_path"]}
         try:
             info = test["info"]
@@ -172,16 +167,15 @@ class AuditsMixIn:
                 # Handle children recursively
                 for child_data in obj_data.get("children", []):
                     sync_objective(test_name, child_data, parent_obj=db_obj)
-                    
                 return db_obj
-                    
+
             current_test_templates = []
             for obj_data in test["objectives"]:
                 tpl = sync_objective(test_name, obj_data)
                 current_test_templates.append(tpl)
-                     
+
             db_test.objective_templates = current_test_templates
-            
+
         except Exception as ex:
             result['errormsg'] = f"Error preparing test entry for {test['info'].get('Name','unknown')}: {ex}"
             log.exception(result['errormsg'])
@@ -193,8 +187,8 @@ class AuditsMixIn:
         @param: available_tests: dictionaries of successfully parsed test metadata
         @param: unavailable_tests: dictionaries of paths and errors for failed test loads
         """
-        log.info(f"Reloading available tests into database, currently there are {self.count_available_tests()}")
-        
+        log.info("Reloading available tests into database, currently there are %d",self.count_available_tests())
+
         test_count_before_add = self.count_available_tests()
         current_test_names = []
         stats = {'added':0, 'updated':0, 'error':0}
@@ -209,7 +203,6 @@ class AuditsMixIn:
                     if load_result.get('added', False): stats['added'] += 1
                     if load_result.get('updated', False): stats['updated'] += 1
 
-                    
         test_count_after_add = self.count_available_tests()
         self.purge_unreferenced_tests(current_test_names)
         test_count_after_clean = self.count_available_tests()
@@ -272,11 +265,11 @@ class AuditsMixIn:
                     name = inst.template.name
                     if name in current_results_level:
                         data = current_results_level[name]
-                    
+
                         # Update the instance state
                         inst.state = data.get("state")
                         inst.state_reason = data.get("state_reason")
-                    
+
                         # Recurse into children if they exist in both DB and Dict
                         if inst.children and "children" in data:
                             apply_results(inst.children, data["children"])
@@ -284,7 +277,7 @@ class AuditsMixIn:
             # We only pass top-level objectives (those without a parent_id)
             top_level_instances = [obj for obj in run.objectives if obj.parent_id is None]
             apply_results(top_level_instances, results)
-        
+
             # Store the whole thing for posterity
             run.raw_results = results
             log.info(f"Updated objective states for Run {run_id}")
@@ -353,7 +346,6 @@ class AuditsMixIn:
 
             sess.delete(session_obj)
             log.info(f"Deleted TestSession %d and all its objective results.",session_id)
-        
         return True
 
     def create_session_from_tests(self, test_ids: list) -> int:
@@ -429,7 +421,7 @@ class AuditsMixIn:
         test_instance = self.get_audit_session_test(session_id, testrun_id)
 
         test_definition = test_instance.test_definition
-        
+
         conf = test_definition.task_config
         log.info(f"Audit task added conf: {conf}")
         task_options = conf.get("Request Options","")
@@ -457,4 +449,3 @@ class AuditsMixIn:
             source_url=False
         )
         return new_task_id
-        

@@ -861,6 +861,7 @@ class RunReporting:
         current.set_options(options)
         # Load the content of the analysis.conf file.
         current.cfg = AnalysisConfig(current.conf_path)
+        current.reprocess = self.reprocess
 
         try:
             log.debug('Executing reporting module "%s"', current.__class__.__name__)

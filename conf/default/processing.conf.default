@@ -230,6 +230,8 @@ userdb_signature = no
 replace_patterns = no
 # Use file cache to speed up processing by looking up already processed files in MongoDB
 file_cache = no
+# Store pefile objects for later usage? useful if you doing something in signatures/reporting
+pefile_store = no
 
 # Deduplicate screenshots - You need to install dependency ImageHash>=4.3.1
 [deduplication]

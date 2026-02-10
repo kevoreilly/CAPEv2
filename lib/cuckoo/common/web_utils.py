@@ -34,7 +34,6 @@ from lib.cuckoo.common.utils import (
     validate_ttp,
 )
 from lib.cuckoo.core.data.task import (
-         
     ALL_DB_STATUSES,
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,

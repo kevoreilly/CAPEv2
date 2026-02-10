@@ -28,6 +28,7 @@ from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from lib.cuckoo.core.data.db_common import _utcnow_naive
 from lib.cuckoo.core.data.audit_data import (TestRun, TEST_QUEUED, TEST_COMPLETE, TEST_FAILED, TEST_RUNNING, TEST_UNQUEUED)
 
+'''
 try:
     from django_ratelimit.decorators import ratelimit
 except ImportError:
@@ -35,9 +36,7 @@ except ImportError:
         from ratelimit.decorators import ratelimit
     except ImportError:
         print("missed dependency: poetry install")
-
-from lib.cuckoo.common.webadmin_utils import disable_user
-
+'''
 
 SESSIONS_PER_PAGE = 10
 AUDIT_PACKAGES_ROOT = os.path.join(settings.CUCKOO_PATH, "tests", "audit_packages")
@@ -170,7 +169,8 @@ def reload_available_tests(request):
     """
     # Path where your test subdirectories live
     if not os.path.isdir(AUDIT_PACKAGES_ROOT):
-        messages.error(request, f"reload_available_tests::Audit packages root is not an existing directory: " + AUDIT_PACKAGES_ROOT)
+        errmsg = "reload_available_tests::Audit packages root is not an existing directory: " + AUDIT_PACKAGES_ROOT
+        messages.error(request, errmsg)
         return redirect(reverse("audit_index") + "#available-tests")
 
     loader = TestLoader(AUDIT_PACKAGES_ROOT)
@@ -214,8 +214,7 @@ def delete_test_session(request, session_id: int):
                 messages.warning(request, f"Could not delete active session #{session_id}.")
     except Exception as e:
         messages.error(request, f"Error deleting session: {str(e)}")
-        logger.error(f"Error deleting session: {str(e)}")
-
+        logger.error("Error deleting session: %s",str(e))
     return redirect("audit_index")
 
 
@@ -276,7 +275,7 @@ def _render_run_update(request, session_id: int, testrun_id: int):
     """
     The mechanics of rendering sessions is here
     This framework is currently lazy loaded, so test sessions will be updated
-    and objectives evaluated when this is called, making it potentially slow on 
+    and objectives evaluated when this is called, making it potentially slow on
     some occasions.
     """
     db_test_session = db.get_test_session(session_id)
@@ -314,7 +313,6 @@ def get_session_stats(db_test_session: TestSession) -> Optional[Dict]:
     if db_test_session is None:
         return None
     runs = db_test_session.runs
-    results = []
     stats = {
         "tests": { TEST_QUEUED: 0, TEST_UNQUEUED: 0, TEST_COMPLETE: 0, TEST_RUNNING: 0, TEST_FAILED: 0},
         "objectives": {"untested": 0, "skipped": 0, "success": 0, "failure": 0, "info": 0, "error": 0},
@@ -419,8 +417,8 @@ def inner_unqueue_test(testrun: TestRun) -> Optional[int]:
     # note: I tried to use db.delete_tasks(), with the task_id's & TASK_PENDING
     # filter but couldn't get round commit/transaction errors
     # there is a chance of some race conditions here
-    if testrun.cape_task_id != None and testrun.status == "queued":
-        task_id = testrun.cape_task_id 
+    if testrun.cape_task_id is not None and testrun.status == "queued":
+        task_id = testrun.cape_task_id
         cape_task = db.view_task(task_id)
         if cape_task.status == TASK_PENDING:
             db.delete_task(task_id)
@@ -473,7 +471,6 @@ def update_task_config(request, availabletest_id):
 
             # 2. Save the minified version to the DB (or keep pretty if preferred)
             test.task_config = parsed_data
-                        
             messages.success(request, f"Configuration for Test {test.name} (#{test.id}) updated successfully.")
             return JsonResponse({"success": True})
 

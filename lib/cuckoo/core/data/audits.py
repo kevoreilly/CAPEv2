@@ -1,12 +1,9 @@
 import os
-import sys
-import json
 import logging
 import shutil
 from typing import List, Optional, Tuple
 
 from sqlalchemy import select, delete
-from sqlalchemy.orm import Mapped, mapped_column
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -148,7 +145,7 @@ class AuditsMixIn:
             # Recursive upsert for objectives
             def sync_objective(test_name, obj_data, parent_obj=None):
                 full_name = f"{test_name}::{obj_data.get('name')}"
-                    
+
                 # Check if this template already exists
                 stmt = select(TestObjectiveTemplate).where(
                     TestObjectiveTemplate.full_name == full_name
@@ -189,7 +186,6 @@ class AuditsMixIn:
         """
         log.info("Reloading available tests into database, currently there are %d",self.count_available_tests())
 
-        test_count_before_add = self.count_available_tests()
         current_test_names = []
         stats = {'added':0, 'updated':0, 'error':0}
         with self.session.session_factory() as sess, sess.begin():
@@ -200,15 +196,19 @@ class AuditsMixIn:
                     stats['error'] += 1
                 else:
                     current_test_names.append(test["info"].get("Name"))
-                    if load_result.get('added', False): stats['added'] += 1
-                    if load_result.get('updated', False): stats['updated'] += 1
+                    if load_result.get('added', False): 
+                        stats['added'] += 1
+                    if load_result.get('updated', False): 
+                        stats['updated'] += 1
 
         test_count_after_add = self.count_available_tests()
         self.purge_unreferenced_tests(current_test_names)
         test_count_after_clean = self.count_available_tests()
         removed = test_count_after_clean - test_count_after_add
-        log.info(f"Reloaded tests, there are now {test_count_after_clean} available "
-                 f"({stats['added']} added, {stats['updated']} updated, {removed} removed, {stats['error']} errored)")
+        msg = f"Reloaded tests, there are now {test_count_after_clean} available \
+                 ({stats['added']} added, {stats['updated']} updated, \
+                 {removed} removed, {stats['error']} errored)"
+        log.info(msg)
         return test_count_after_clean
 
     def purge_unreferenced_tests(self, loaded_test_names):
@@ -226,7 +226,7 @@ class AuditsMixIn:
         )
         self.session.execute(retired_tests_stmt)
 
-        # mark deleted tests referenced by past sessions as inactive so 
+        # mark deleted tests referenced by past sessions as inactive so
         # we can't retask them
         self.session.execute(
             update(AvailableTest)
@@ -256,7 +256,7 @@ class AuditsMixIn:
             run = sess.execute(stmt).unique().scalar_one_or_none()
 
             if not run:
-                log.error(f"Run {run_id} not found for result assignment")
+                log.error("Run %d not found for result assignment",run_id)
                 return
 
             # Helper to traverse the results dict and update instances
@@ -280,7 +280,7 @@ class AuditsMixIn:
 
             # Store the whole thing for posterity
             run.raw_results = results
-            log.info(f"Updated objective states for Run {run_id}")
+            log.info("Updated objective states for Run %d",run_id)
 
     def evaluate_objective_results(self, test_run: TestRun):
         log.info(f"Starting evaluation of test run #{test_run.id}")
@@ -319,7 +319,7 @@ class AuditsMixIn:
             session_obj = sess.execute(stmt).unique().scalar_one_or_none()
 
             if not session_obj:
-                log.warning(f"Attempted to delete non-existent TestSession ID: {session_id}")
+                log.warning("Attempted to delete non-existent TestSession ID: %d",session_id)
                 return False
 
             # Safety check: Don't delete active runs unless forced
@@ -333,7 +333,7 @@ class AuditsMixIn:
             active_runs = sess.execute(stmt).scalar()
 
             if active_runs > 0:
-                log.warning(f"Cannot delete Session %d: one or more runs are still 'running'",session_id)
+                log.warning("Cannot delete Session %d: one or more runs are still 'running'",session_id)
                 return False
 
             if purge_storage:
@@ -345,7 +345,7 @@ class AuditsMixIn:
                             shutil.rmtree(task_storage_dir)
 
             sess.delete(session_obj)
-            log.info(f"Deleted TestSession %d and all its objective results.",session_id)
+            log.info("Deleted TestSession %d and all its objective results.",session_id)
         return True
 
     def create_session_from_tests(self, test_ids: list) -> int:
@@ -382,7 +382,7 @@ class AuditsMixIn:
                 return test_session_id
             except Exception as e:
                 db_session.rollback()
-                log.error(f"Failed to create test session: {e}")
+                log.error("Failed to create test session: %s",str(e))
                 raise
             finally:
                 db_session.close()
@@ -410,20 +410,17 @@ class AuditsMixIn:
             if run:
                 run.cape_task_id = cape_task_id
                 run.status = "queued" 
-                log.info(f"TestRun {run_id} successfully linked to CAPE Task {cape_task_id}")
+                log.info("TestRun %d successfully linked to CAPE Task %d",run_id,cape_task_id)
                 return True
             else:
-                log.error(f"Failed to link task and task ID: TestRun {run_id} not found.")
+                log.error("Failed to link task and task ID: TestRun %d not found.",run_id)
                 return False
 
     def queue_audit_test(self, session_id, testrun_id, user_id=0):
-        audit_session = self.get_test_session(session_id)
         test_instance = self.get_audit_session_test(session_id, testrun_id)
-
         test_definition = test_instance.test_definition
 
         conf = test_definition.task_config
-        log.info(f"Audit task added conf: {conf}")
         task_options = conf.get("Request Options","")
         if task_options is None: # if None -> pending forever
             task_options = ""

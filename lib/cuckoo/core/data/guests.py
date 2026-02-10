@@ -76,7 +76,7 @@ class Guest(Base):
         self.task_id = task_id
 
 
-class GuestsMixIn:  
+class GuestsMixIn:
     def guest_get_status(self, task_id: int):
         """Gets the status for a given guest."""
         stmt = select(Guest).where(Guest.task_id == task_id)

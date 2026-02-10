@@ -5,13 +5,13 @@ from lib.cuckoo.common.exceptions import (
     CuckooDependencyError
 )
 
-from .db_common import Base, _utcnow_naive, tasks_tags, machines_tags
+from .db_common import Base, _utcnow_naive, tasks_tags
 try:
     from sqlalchemy.orm import (
         Mapped,
         mapped_column,
         relationship,
-    )    
+    )
     from sqlalchemy import (
         Boolean,
         DateTime,

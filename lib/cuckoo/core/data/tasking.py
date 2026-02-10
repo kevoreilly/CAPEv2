@@ -14,8 +14,8 @@ from lib.cuckoo.common.utils import bytes2str, get_options
 from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from .task import (Task, TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED, 
-                   TASK_COMPLETED, TASK_RECOVERED, TASK_REPORTED, 
+from .task import (Task, TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED,
+                   TASK_COMPLETED, TASK_RECOVERED, TASK_REPORTED,
                    TASK_FAILED_PROCESSING, TASK_DISTRIBUTED_COMPLETED,
                    TASK_FAILED_REPORTING, TASK_BANNED
                    )
@@ -1332,7 +1332,6 @@ class TasksMixIn:
         stmt = select(Error).where(Error.task_id == task_id)
         return self.session.scalars(stmt).all()
 
-    
     # Submission hooks to manipulate arguments of tasks execution
     def recon(
         self,

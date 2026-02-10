@@ -48,7 +48,6 @@ class TestLoader():
             else:
                 raise zipfile.BadZipFile(f"{payload_archive} is corrupt")
 
-        
         # delete the unwrapped payload in case a new zip has been uploaded
         if os.path.exists(payload_output_dir):
             shutil.rmtree(payload_output_dir)
@@ -57,9 +56,9 @@ class TestLoader():
             if zip_password:
                 zip_ref.extractall(payload_output_dir, pwd=zip_password)
             else:
-                zip_ref.extractall(payload_output_dir)                    
+                zip_ref.extractall(payload_output_dir)
 
-        payload_path = None        
+        payload_path = None
         if not os.path.isdir(payload_output_dir):
             raise NotADirectoryError("Bad payload directory extracted")
 
@@ -101,7 +100,7 @@ class TestLoader():
             test_metadata['objectives'] = []
 
             def load_objective(objective):
-                objdict = {'name': objective.name, 
+                objdict = {'name': objective.name,
                          'requirement': objective.requirement,
                          'children': [load_objective(child) for child in objective.children]
                          }
@@ -141,7 +140,7 @@ class TestLoader():
             return {"error": f"Tests root {self.tests_root} does not exist."}
 
         for entry in os.scandir(self.tests_root):
-            if entry.is_dir(): 
+            if entry.is_dir():
                 test_config = None
                 try:
                     test_config = self.validate_test_directory(entry.path)
@@ -162,7 +161,7 @@ class TestResultValidator():
             raise NotADirectoryError(f"Invalid task directory: {task_storage_directory}")
 
         try:
-            self.test_module = load_module(test_module_path)    
+            self.test_module = load_module(test_module_path)
         except Exception as e:
             raise ValueError(f"Failed to load test evaluation module {test_module_path}: {e}")
 
@@ -175,8 +174,8 @@ def task_status_to_run_status(cape_task_status):
         return TEST_COMPLETE
     if cape_task_status == db_task.TASK_PENDING:
         return TEST_QUEUED
-    if cape_task_status in [db_task.TASK_RUNNING, 
-                            db_task.TASK_DISTRIBUTED, 
+    if cape_task_status in [db_task.TASK_RUNNING,
+                            db_task.TASK_DISTRIBUTED,
                             db_task.TASK_RECOVERED,
                             db_task.TASK_COMPLETED,
                             db_task.TASK_DISTRIBUTED_COMPLETED]:

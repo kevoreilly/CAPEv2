@@ -34,7 +34,7 @@ from .data.audits import AuditsMixIn
 # ToDo postgresql+psycopg2 in connection
 try:
     from sqlalchemy.engine import make_url
-    from sqlalchemy import String, create_engine, event, func, select
+    from sqlalchemy import String, create_engine, func, select
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy.orm import (
         scoped_session,

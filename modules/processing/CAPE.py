@@ -209,11 +209,18 @@ class CAPE(Processing):
                         file_info = db_file
                         cached = True
                         run_static = False
+                        # Regenerate fields stripped by mongo_hooks
+                        if "type" not in file_info:
+                            file_info["type"] = f.get_type()
                     else:
                         # Partial hit
                         file_info = db_file
                         cached = True  # We have the base object
                         run_static = True  # But we need to re-run static/tools
+
+                        # Regenerate fields stripped by mongo_hooks
+                        if "type" not in file_info:
+                            file_info["type"] = f.get_type()
 
                         if not yara_match:
                             # Update YARA

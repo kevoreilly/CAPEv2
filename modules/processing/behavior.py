@@ -1232,6 +1232,7 @@ class NetworkMap:
     def __init__(self):
         self.endpoint_map = defaultdict(list)  # (ip, port) -> [pinfo]
         self.http_host_map = defaultdict(list)  # host -> [pinfo]
+        self.http_requests = []  # url -> [pinfo]
         self.dns_intents = defaultdict(list)  # domain -> [intent]
 
     def event_apicall(self, call, process):
@@ -1276,6 +1277,17 @@ class NetworkMap:
                     host = _host_from_url(f"http://{u}")
                 if host:
                     _add_http_host(self.http_host_map, host, pinfo, sock=sock)
+
+                if u:
+                    self.http_requests.append(
+                        {
+                            "url": u,
+                            "host": host,
+                            "process_id": process.get("process_id"),
+                            "process_name": process.get("process_name"),
+                            "time": _parse_behavior_ts(call.get("timestamp")),
+                        }
+                    )
 
             if isinstance(buf, str):
                 u2 = _extract_first_url(buf)
@@ -1332,6 +1344,7 @@ class NetworkMap:
             "endpoint_map": endpoint_map_str,
             "http_host_map": self.http_host_map,
             "dns_intents": self.dns_intents,
+            "http_requests": self.http_requests,
         }
 
 

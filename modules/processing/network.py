@@ -23,7 +23,7 @@ from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlunparse
+from urllib.parse import urlparse, urlunparse
 
 import cachetools.func
 import dns.resolver
@@ -1365,11 +1365,77 @@ class NetworkAnalysis(Processing):
 
         # 2. HTTP
         http_host_map = net_map.get("http_host_map", {})
-        existing_hosts = {h.get("host") for h in network.get("http", [])}
-        http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
-        existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
+        http_requests = net_map.get("http_requests", [])
+
+        existing_hosts = set()
+        existing_urls = set()
+        for h in (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or []):
+            host = h.get("host")
+            if host:
+                existing_hosts.add(_norm_domain(host))
+                uri = h.get("uri", "/")
+                # Store simplistic URL representation for deduplication
+                existing_urls.add(f"{host}{uri}")
+
+        # Process full requests from behavior
+        for req in http_requests:
+            url = req.get("url")
+            if not url:
+                continue
+
+            # Parse URL to components
+            try:
+                parsed = urlparse(url)
+                if not parsed.netloc and not parsed.path:
+                    continue
+
+                host = parsed.netloc or req.get("host")
+                # Handle cases where URL might be just a domain or path
+                if not host and url and "." in url and "/" not in url:
+                    host = url
+
+                # Fallback host normalization
+                if not host and req.get("host"):
+                    host = req.get("host")
+
+                uri = parsed.path
+                if parsed.query:
+                    uri += f"?{parsed.query}"
+                if not uri:
+                    uri = "/"
+
+                # Check for duplicates
+                url_key = f"{host}{uri}"
+                if url_key in existing_urls:
+                    continue
+
+                port = 80
+                if parsed.port:
+                    port = parsed.port
+                elif parsed.scheme == "https":
+                    port = 443
+
+                entry = {
+                    "host": host,
+                    "port": port,
+                    "uri": uri,
+                    "method": "GET",
+                    "source": "behavior",
+                    "process_id": req.get("process_id"),
+                    "process_name": req.get("process_name"),
+                    "time": req.get("time"),
+                }
+                network.setdefault("http", []).append(entry)
+                if host:
+                    existing_hosts.add(_norm_domain(host))
+                existing_urls.add(url_key)
+
+            except Exception:
+                log.warning("Failed to parse behavior URL: %s", url)
+
+        # Process host-only map for remaining missing hosts
         for host, procs in http_host_map.items():
-            if host not in existing_hosts:
+            if _norm_domain(host) not in existing_hosts:
                 proc = procs[0] if procs else {}
                 entry = {
                     "host": host,

@@ -2102,7 +2102,7 @@ class _Database:
             # Must explicitly check for NULL and empty string
             stmt = stmt.where(
                 or_(
-                    Task.options == None,
+                    Task.options is None,
                     Task.options == "",
                     not_(Task.options.like(f"%{options_not_like.replace('*', '%')}%"))
                 )

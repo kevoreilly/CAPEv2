@@ -2,6 +2,7 @@
 # in https://github.com/CheckPointSW/Cuckoo-AWS.
 # Modified by the Canadian Centre for Cyber Security to support Azure.
 
+import itertools
 import logging
 import re
 import socket
@@ -23,7 +24,7 @@ from lib.cuckoo.common.exceptions import (
     CuckooMachineError,
     CuckooUnserviceableTaskError,
 )
-from lib.cuckoo.core.database import TASK_PENDING, Machine, Task
+from lib.cuckoo.core.database import TASK_PENDING, TASK_RUNNING, Machine, Task
 
 HAVE_AZURE = False
 cfg = Config()
@@ -95,6 +96,7 @@ reimage_lock = threading.Lock()
 delete_lock = threading.Lock()
 vms_currently_being_deleted_lock = threading.Lock()
 current_operations_lock = threading.Lock()
+scaling_lock = threading.Lock()
 
 # This is the number of operations that are taking place at the same time
 current_vmss_operations = 0
@@ -441,6 +443,7 @@ class Azure(Machinery):
         """
         try:
             self._remove_placeholder_machine(vmss_name)
+            self.db.session.flush()  # Fix: Commit delete before insert to prevent duplicate key
             self.db.add_machine(
                 name=f"{vmss_name}_placeholder",
                 label=f"{vmss_name}_placeholder",
@@ -636,8 +639,16 @@ class Azure(Machinery):
             filtered_machines = self.db.filter_machines_to_task(include_reserved=True, **filter_kwargs)
             machine = get_first_machine(filtered_machines)
 
+        # Fix: Check if machine is placeholder (reserved=True) and trigger scaling
+        # Placeholder is not a real VM, just a DB entry for tag provisioning
         if machine is None:
             self._scale_from_zero(task, os_version, task_tags)
+        elif machine.reserved:
+            log.info("Found placeholder machine %s, triggering zero-scale", machine.name)
+            self._scale_from_zero(task, os_version, task_tags)
+            # If placeholder found, return None so task waits for real VM
+            return None
+
         if machine and machine.locked:
             # There aren't any machines that can service the task NOW, but there is at least one in the pool
             # that could service it once it's available.
@@ -657,7 +668,7 @@ class Azure(Machinery):
             if tags and len(tags) == 1 and vals["tag"] == tags[0]:
                 assignable_vmss = vals
                 break
-            if vals["platform"] == task.platform:
+            if vals["platform"].lower() == task.platform.lower():
                 assignable_vmss = vals
                 break
 
@@ -673,124 +684,159 @@ class Azure(Machinery):
     def _add_machines_to_db(self, vmss_name):
         """
         Adding machines to database that did not exist there before.
+
+        Fix: Azure API returns success immediately, but VM provisioning
+        takes ~60s more. Implement retry loop to wait for VMs.
         @param vmss_name: the name of the VMSS to be queried
         """
-        try:
-            log.debug("Adding machines to database for %s.", vmss_name)
-            # We don't want to re-add machines! Therefore, let's see what we're working with
-            machines_in_db = self.db.list_machines()
-            db_machine_labels = [machine.label for machine in machines_in_db]
-            # We want to avoid collisions where the IP is already associated with a machine
-            db_machine_ips = [machine.ip for machine in machines_in_db]
+        max_retries = 12  # 12 * 5s = 60s max wait
+        retry_delay = 5   # seconds
 
-            # Get all VMs in the VMSS
-            paged_vmss_vms = Azure._azure_api_call(
-                self.options.az.sandbox_resource_group,
-                vmss_name,
-                operation=self.compute_client.virtual_machine_scale_set_vms.list,
-            )
-
-            # Get all network interface cards for the machines in the VMSS
-            paged_vmss_vm_nics = Azure._azure_api_call(
-                self.options.az.sandbox_resource_group,
-                vmss_name,
-                operation=self.network_client.network_interfaces.list_virtual_machine_scale_set_network_interfaces,
-            )
-
-            # Turn the Paged result into a list
+        for attempt in range(max_retries):
             try:
-                vmss_vm_nics = [vmss_vm_nic for vmss_vm_nic in paged_vmss_vm_nics]
-            except ResourceNotFoundError:
-                log.debug("No network interfaces found for VMSS %s (capacity=0)", vmss_name)
-                vmss_vm_nics = []
+                if attempt > 0:
+                    log.info("Retry #%d - waiting %ds for VMs in %s...",
+                             attempt, retry_delay, vmss_name)
+                    time.sleep(retry_delay)
 
-            # This will be used if we are in the initializing phase of the system
-            ready_vmss_vm_threads = {}
-            with vms_currently_being_deleted_lock:
-                vms_to_avoid_adding = vms_currently_being_deleted
+                log.debug("Adding machines to database for %s (attempt %d/%d)",
+                          vmss_name, attempt + 1, max_retries)
 
-            try:
-                for vmss_vm in paged_vmss_vms:
-                    if vmss_vm.name in db_machine_labels:
-                        # Don't add it if it already exists!
-                        continue
-                    if vmss_vm.name in vms_to_avoid_adding:
-                        # Don't add it if it is currently being deleted!
-                        log.debug("%s is currently being deleted!", vmss_vm.name)
-                        continue
-                    # According to Microsoft, the OS type is...
-                    platform = vmss_vm.storage_profile.os_disk.os_type.lower()
+                # We don't want to re-add machines! Therefore, let's see what we're working with
+                machines_in_db = self.db.list_machines()
+                db_machine_labels = [machine.label for machine in machines_in_db]
+                # We want to avoid collisions where the IP is already associated with a machine
+                db_machine_ips = [machine.ip for machine in machines_in_db]
 
-                    if not vmss_vm.network_profile:
-                        log.error("%s does not have a network profile", vmss_vm.name)
-                        continue
+                # Get all VMs in the VMSS
+                paged_vmss_vms = Azure._azure_api_call(
+                    self.options.az.sandbox_resource_group,
+                    vmss_name,
+                    operation=self.compute_client.virtual_machine_scale_set_vms.list,
+                )
 
-                    vmss_vm_nic = next(
-                        (
-                            vmss_vm_nic
-                            for vmss_vm_nic in vmss_vm_nics
-                            if vmss_vm.network_profile.network_interfaces[0].id.lower() == vmss_vm_nic.id.lower()
-                        ),
-                        None,
-                    )
-                    if not vmss_vm_nic:
-                        log.error(
-                            "%s does not match any NICs in %s", vmss_vm.network_profile.network_interfaces[0].id.lower(), str([vmss_vm_nic.id.lower() for vmss_vm_nic in vmss_vm_nics])
-                        )
-                        continue
-                    # Sets "new_machine" object in configuration object to
-                    # avoid raising an exception.
-                    setattr(self.options, vmss_vm.name, {})
+                # Check if we got any VMs
+                vmss_vms_list = list(paged_vmss_vms)
+                if len(vmss_vms_list) == 0 and attempt < max_retries - 1:
+                    # No VMs yet, but not last attempt - retry
+                    log.debug("No VMs found yet for %s, retrying...", vmss_name)
+                    continue
 
-                    private_ip = vmss_vm_nic.ip_configurations[0].private_ip_address
-                    if private_ip in db_machine_ips:
-                        existing_machines = [machine for machine in machines_in_db if machine.ip == private_ip]
-                        vmss_name, _ = existing_machines[0].label.split("_")
-                        self._delete_machines_from_db_if_missing(vmss_name)
+                # Re-create paged result for processing below
+                paged_vmss_vms = iter(vmss_vms_list)
 
-                    # Add machine to DB.
-                    # TODO: What is the point of name vs label?
-                    self.db.add_machine(
-                        name=vmss_vm.name,
-                        label=vmss_vm.name,
-                        ip=private_ip,
-                        platform=platform,
-                        tags=self.options.az.scale_sets[vmss_name].pool_tag,
-                        arch=self.options.az.scale_sets[vmss_name].arch,
-                        interface=self.options.az.interface,
-                        snapshot=vmss_vm.storage_profile.image_reference.id,
-                        resultserver_ip=self.options.az.resultserver_ip,
-                        resultserver_port=self.options.az.resultserver_port,
-                        reserved=False,
-                    )
-                    # We always wait for Cuckoo agent to finish setting up if 'wait_for_agent_before_starting' is true or if we are initializing.
-                    # Else, the machine should become immediately available in DB.
-                    if self.initializing or self.options.az.wait_for_agent_before_starting:
-                        thr = threading.Thread(
-                            target=Azure._thr_wait_for_ready_machine,
-                            args=(
-                                vmss_vm.name,
-                                private_ip,
+                # Get all network interface cards for the machines in the VMSS
+                paged_vmss_vm_nics = Azure._azure_api_call(
+                    self.options.az.sandbox_resource_group,
+                    vmss_name,
+                    operation=self.network_client.network_interfaces.list_virtual_machine_scale_set_network_interfaces,
+                )
+
+                # Turn the Paged result into a list
+                try:
+                    vmss_vm_nics = [vmss_vm_nic for vmss_vm_nic in paged_vmss_vm_nics]
+                except ResourceNotFoundError:
+                    log.debug("No network interfaces found for VMSS %s (capacity=0)", vmss_name)
+                    vmss_vm_nics = []
+
+                # This will be used if we are in the initializing phase of the system
+                ready_vmss_vm_threads = {}
+                with vms_currently_being_deleted_lock:
+                    vms_to_avoid_adding = vms_currently_being_deleted
+
+                try:
+                    for vmss_vm in paged_vmss_vms:
+                        if vmss_vm.name in db_machine_labels:
+                            # Don't add it if it already exists!
+                            continue
+                        if vmss_vm.name in vms_to_avoid_adding:
+                            # Don't add it if it is currently being deleted!
+                            log.debug("%s is currently being deleted!", vmss_vm.name)
+                            continue
+                        # According to Microsoft, the OS type is...
+                        platform = vmss_vm.storage_profile.os_disk.os_type.lower()
+
+                        if not vmss_vm.network_profile:
+                            log.error("%s does not have a network profile", vmss_vm.name)
+                            continue
+
+                        vmss_vm_nic = next(
+                            (
+                                vmss_vm_nic
+                                for vmss_vm_nic in vmss_vm_nics
+                                if vmss_vm.network_profile.network_interfaces[0].id.lower() == vmss_vm_nic.id.lower()
                             ),
+                            None,
                         )
-                        ready_vmss_vm_threads[vmss_vm.name] = thr
-                        thr.start()
-            except ResourceNotFoundError:
-                log.debug("No VMs found for VMSS %s (capacity=0)", vmss_name)
+                        if not vmss_vm_nic:
+                            log.error(
+                                "%s does not match any NICs in %s", vmss_vm.network_profile.network_interfaces[0].id.lower(), str([vmss_vm_nic.id.lower() for vmss_vm_nic in vmss_vm_nics])
+                            )
+                            continue
+                        # Sets "new_machine" object in configuration object to
+                        # avoid raising an exception.
+                        setattr(self.options, vmss_vm.name, {})
 
-            if ready_vmss_vm_threads:
-                for vm, thr in ready_vmss_vm_threads.items():
-                    try:
-                        thr.join()
-                    except CuckooGuestCriticalTimeout:
-                        log.debug("Rough start for %s, deleting.", vm)
-                        self.delete_machine(vm)
-                        raise
-        except Exception as e:
-            log.exception(repr(e))
+                        private_ip = vmss_vm_nic.ip_configurations[0].private_ip_address
+                        if private_ip in db_machine_ips:
+                            existing_machines = [machine for machine in machines_in_db if machine.ip == private_ip]
+                            vmss_name, _ = existing_machines[0].label.split("_")
+                            self._delete_machines_from_db_if_missing(vmss_name)
 
-            # If no machines on any VMSSs are in the db when we leave this method, CAPE will crash.
-            if not self.machines() and self.required_vmsss[vmss_name]["retries"] > 0:
+                        # Add machine to DB.
+                        # TODO: What is the point of name vs label?
+                        self.db.add_machine(
+                            name=vmss_vm.name,
+                            label=vmss_vm.name,
+                            ip=private_ip,
+                            platform=platform,
+                            tags=self.options.az.scale_sets[vmss_name].pool_tag,
+                            arch=self.options.az.scale_sets[vmss_name].arch,
+                            interface=self.options.az.interface,
+                            snapshot=vmss_vm.storage_profile.image_reference.id,
+                            resultserver_ip=self.options.az.resultserver_ip,
+                            resultserver_port=self.options.az.resultserver_port,
+                            reserved=False,
+                        )
+                        # We always wait for Cuckoo agent to finish setting up if 'wait_for_agent_before_starting' is true or if we are initializing.
+                        # Else, the machine should become immediately available in DB.
+                        if self.initializing or self.options.az.wait_for_agent_before_starting:
+                            thr = threading.Thread(
+                                target=Azure._thr_wait_for_ready_machine,
+                                args=(
+                                    vmss_vm.name,
+                                    private_ip,
+                                ),
+                            )
+                            ready_vmss_vm_threads[vmss_vm.name] = thr
+                            thr.start()
+                except ResourceNotFoundError:
+                    log.debug("No VMs found for VMSS %s (capacity=0)", vmss_name)
+
+                if ready_vmss_vm_threads:
+                    for vm, thr in ready_vmss_vm_threads.items():
+                        try:
+                            thr.join()
+                        except CuckooGuestCriticalTimeout:
+                            log.debug("Rough start for %s, deleting.", vm)
+                            self.delete_machine(vm)
+                            raise
+
+                # Success! Break out of retry loop
+                log.info("Successfully added machines from %s to database", vmss_name)
+                break
+
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    # Last attempt, give up
+                    log.exception("Failed to add machines after %d attempts: %s", max_retries, repr(e))
+                    raise
+                else:
+                    # Retry
+                    log.debug("Retrying due to exception: %s", str(e))
+                    continue
+
+        if not self.machines() and self.required_vmsss[vmss_name]["retries"] > 0:
                 log.warning("No available VMs after initializing %s. Attempting to reinitialize VMSS.", vmss_name)
                 self.required_vmsss[vmss_name]["retries"] -= 1
                 start_time = timeit.default_timer()
@@ -1081,19 +1127,18 @@ class Azure(Machinery):
         elif per_platform and Azure.LINUX_TAG_PREFIX in tag:
             platform = Azure.LINUX_PLATFORM
 
-        # If the designated VMSS is already being scaled for the given platform, don't mess with it
-        if platform and is_platform_scaling[platform]:
-            return
-
         # Get the VMSS name by the tag
         vmss_name = next(name for name, vals in self.required_vmsss.items() if vals["tag"] == tag)
 
-        # TODO: Remove large try-catch once all bugs have been caught
-        # It has been observed that there are times when the is_scaling flag is not returned to False even though
-        # scaling has completed. Therefore we need this try-catch to figure out why.
-        try:
+        # Fix: Use lock for atomic flag check and set to prevent race conditions
+        with scaling_lock:
+            # If the designated VMSS is already being scaled for the given platform, don't mess with it
+            if platform and is_platform_scaling[platform]:
+                return
+
             # If this VMSS is already being scaled, don't mess with it
             if machine_pools[vmss_name]["is_scaling"]:
+                log.debug("VMSS %s is already scaling, skipping", vmss_name)
                 return
 
             # This is the flag that is used to indicate if the VMSS is being scaled by a thread
@@ -1103,6 +1148,8 @@ class Azure(Machinery):
             # it is being scaled by a thread
             if platform:
                 is_platform_scaling[platform] = True
+
+        try:
 
             relevant_machines = self._get_relevant_machines(tag)
             number_of_relevant_machines = len(relevant_machines)
@@ -1302,18 +1349,16 @@ class Azure(Machinery):
                 if len(self.db.list_machines(tags=[tag], include_reserved=True)) == 0:
                     self._insert_placeholder_machine(vmss_name, self.required_vmsss[vmss_name])
 
-            # I release you from your earthly bonds!
-            machine_pools[vmss_name]["wait"] = False
-            machine_pools[vmss_name]["is_scaling"] = False
-            if platform:
-                is_platform_scaling[platform] = False
             log.debug("Scaling %s has completed.", vmss_name)
         except Exception as exc:
+            log.exception("Scaling %s has completed with errors %s.", vmss_name, str(exc))
+        finally:
+            # Fix: ALWAYS reset flags in finally block to prevent deadlock
+            # If exception occurs before flags are reset, they stay True forever
             machine_pools[vmss_name]["wait"] = False
             machine_pools[vmss_name]["is_scaling"] = False
             if platform:
                 is_platform_scaling[platform] = False
-            log.exception("Scaling %s has completed with errors %s.", vmss_name, str(exc))
 
     @staticmethod
     def _handle_poller_result(lro_poller_object):
@@ -1340,20 +1385,22 @@ class Azure(Machinery):
         @param platform: The platform used for finding relevant tasks
         @return int: The number of relevant tasks for the given tag
         """
-        # Getting all tasks in the queue
-        tasks = self.db.list_tasks(status=TASK_PENDING)
+        # Fix: Count BOTH pending AND running tasks
+        # Previous code only counted PENDING, causing VMs to be deleted while tasks running
+        pending_tasks = self.db.list_tasks(status=TASK_PENDING)
+        running_tasks = self.db.list_tasks(status=TASK_RUNNING)
 
         # The task queue that will be used to prepare machines will be relative to the virtual
         # machine tag that is targeted in the task (win7, win10, etc) or platform (windows, linux)
         relevant_task_queue = 0
 
         if not platform:
-            for task in tasks:
+            for task in itertools.chain(pending_tasks, running_tasks):
                 for t in task.tags:
                     if t.name == tag:
                         relevant_task_queue += 1
         else:
-            for task in tasks:
+            for task in itertools.chain(pending_tasks, running_tasks):
                 if task.platform == platform:
                     relevant_task_queue += 1
         return relevant_task_queue

@@ -4,6 +4,7 @@
 
 import datetime
 import re
+from collections import defaultdict
 from contextlib import suppress
 from urllib.parse import urlparse
 
@@ -488,6 +489,7 @@ def winhttp_finalize_sessions(state):
             continue
 
         sessions_by_domain = {}
+        sessions_by_domain_keys = defaultdict(set)
 
         for s in sessions.values():
             ua = s.get("user_agent") or ""
@@ -540,17 +542,10 @@ def winhttp_finalize_sessions(state):
                         "proxy_bypass": proxy_bypass,
                     }
 
-                    lst = sessions_by_domain.setdefault(dom, [])
                     key = (obj, verb, ua, access_type, proxy_name, proxy_bypass)
-                    exists = False
-                    for e in lst:
-                        if (e.get("uri"), e.get("method"), e.get("user_agent"),
-                            e.get("access_type"), e.get("proxy_name"), e.get("proxy_bypass")) == key:
-                            exists = True
-                            break
-
-                    if not exists:
-                        lst.append(entry)
+                    if key not in sessions_by_domain_keys[dom]:
+                        sessions_by_domain.setdefault(dom, []).append(entry)
+                        sessions_by_domain_keys[dom].add(key)
 
         if sessions_by_domain:
             out.append({

@@ -6,8 +6,7 @@ from datetime import datetime
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooUnserviceableTaskError
 from .db_common import Base, machines_tags
-if TYPE_CHECKING:
-    from .db_common import Tag
+from .db_common import Tag
 from .db_common import _utcnow_naive
 from .task import Task
 from .guests import Guest

@@ -10,6 +10,7 @@ import os
 import sys
 from contextlib import suppress
 from typing import Any, Optional
+from datetime import datetime
 
 from lib.cuckoo.common.colors import red
 from lib.cuckoo.common.constants import CUCKOO_ROOT

@@ -11,6 +11,12 @@ class Jar(Package):
 
     PATHS = [
         ("ProgramFiles", "Java", "jre*", "bin", "java.exe"),
+        ("ProgramFiles", "Java", "jdk*", "bin", "java.exe"),
+        ("ProgramFiles", "Java", "jdk-*", "bin", "java.exe"),
+        ("ProgramFiles", "Microsoft", "jdk-*", "bin", "java.exe"),
+        ("ProgramFiles", "Eclipse Adoptium", "jdk-*", "bin", "java.exe"),
+        ("ProgramFiles", "Eclipse Adoptium", "jre-*", "bin", "java.exe"),
+        ("ProgramFiles", "OpenJDK", "jdk-*", "bin", "java.exe"),
     ]
     summary = "Executes a java class using java.exe."
     description = f"""Uses 'java.exe -jar [path]' to run the given sample.

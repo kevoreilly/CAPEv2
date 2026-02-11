@@ -182,10 +182,11 @@ def reload_available_tests(request):
         count = db.reload_tests(result["available"], result["unavailable"])
         if result["unavailable"]:
             if not result["available"]:
-                messages.error(
-                    request,
-                    f"Failed to load {len(result["unavailable"])} tests from {AUDIT_PACKAGES_ROOT} [{result['unavailable']}].",
-                )
+                errmg = "Failed to load %d tests from %s [%s]."%\
+                    (len(result["unavailable"]),
+                     AUDIT_PACKAGES_ROOT,
+                     str(result['unavailable']))
+                messages.error(request,errmsg)
             else:
                 messages.warning(
                     request,

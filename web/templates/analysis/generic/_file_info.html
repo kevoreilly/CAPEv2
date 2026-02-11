@@ -11,7 +11,7 @@
                     <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download file"><i class="fas fa-download"></i></a>
                 {% endif %}
                 <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download password-protected archive"><i class="fas fa-file-archive"></i></a>
-                <a href="/submit/resubmit/{{id}}/{{file.sha256}}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Resubmit"><i class="fas fa-sync"></i></a>
+                <a href="/submit/resubmit/{{id}}/{{file.sha256}}/" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Resubmit"><i class="fas fa-sync"></i></a>
                 {% if config.vtupload and analysis.info.tlp != "Red" %}
                     <a href="{% url "vtupload" tab_name id file.name file.sha256 %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Upload to VirusTotal"><i class="fas fa-cloud-upload-alt"></i> VT</a>
                 {% endif %}

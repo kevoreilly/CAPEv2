@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import collections
+import hashlib
 import json
 import logging
 import os
@@ -31,10 +32,12 @@ from lib.cuckoo.common.utils import (
     add_family_detection,
     convert_to_printable_and_truncate,
     get_clamav_consensus,
+    get_options,
     make_bytes,
     texttypes,
     wide2str,
 )
+from dev_utils.mongodb import mongo_find_one
 
 processing_conf = Config("processing")
 integrations_conf = Config("integrations")
@@ -130,7 +133,7 @@ class CAPE(Processing):
             file_info["module_path"] = _clean_path(metastrings[2], self.options.replace_patterns)
 
         if "pids" in metadata:
-            file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(metadata["pids"])
+            file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(str(p) for p in metadata["pids"])
 
         if metastrings and metastrings[0] and metastrings[0].isdigit():
             file_info["cape_type_code"] = int(metastrings[0])
@@ -181,7 +184,66 @@ class CAPE(Processing):
         else:
             duplicated["sha256"].add(sha256)
 
-        file_info, pefile_object = f.get_all()
+        cached = False
+        pefile_object = None
+        run_static = True
+
+        # Calculate options hash to prevent poisoning
+        opts = get_options(self.task.get("options", ""))
+        sorted_opts = json.dumps(opts, sort_keys=True)
+        options_hash = hashlib.sha256(sorted_opts.encode()).hexdigest()
+
+        if processing_conf.CAPE.file_cache:
+            try:
+                db_file = mongo_find_one("files", {"sha256": sha256})
+                if db_file:
+                    # Security Fix: Update path immediately
+                    db_file["path"] = file_path
+                    if "_id" in db_file:
+                        del db_file["_id"]
+
+                    yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
+                    options_match = db_file.get("options_hash", "") == options_hash
+                    file_info = db_file
+                    cached = True
+                    if yara_match and options_match:
+                        run_static = False
+                    else:
+                        # We need to re-run static/tools
+                        run_static = True
+
+                    if not yara_match:
+                        # Update YARA
+                        file_info["yara"] = f.get_yara()
+                        file_info["cape_yara"] = f.get_yara(category="CAPE")
+                        file_info["yara_hash"] = File.yara_rules_hash
+
+                    if "options_hash" not in file_info:
+                        file_info["options_hash"] = options_hash
+                    if "yara_hash" not in file_info:
+                        file_info["yara_hash"] = File.yara_rules_hash
+
+                    if processing_conf.CAPE.pefile_store:
+                        # Populate internal pe object for self.results["pefiles"]
+                        f.get_type()
+                        pefile_object = f.pe
+
+            except Exception as e:
+                log.exception(e)
+
+        if not cached:
+            file_info, pefile_object = f.get_all()
+            file_info["yara_hash"] = File.yara_rules_hash
+            run_static = True
+
+        if "type" not in file_info:
+            file_info["type"] = f.get_type()
+        if "name" not in file_info:
+            file_info["name"] = f.get_name()
+        if "guest_paths" not in file_info:
+            file_info["guest_paths"] = f.guest_paths
+
+        file_info["options_hash"] = options_hash
 
         if category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name
@@ -195,16 +257,17 @@ class CAPE(Processing):
                 add_family_detection(self.results, clamav_detection, "ClamAV", file_info["sha256"])
 
         # should we use dropped path here?
-        static_file_info(
-            file_info,
-            file_path,
-            str(self.task["id"]),
-            self.task.get("package", ""),
-            self.task.get("options", ""),
-            self.self_extracted,
-            self.results,
-            duplicated,
-        )
+        if run_static:
+            static_file_info(
+                file_info,
+                file_path,
+                str(self.task["id"]),
+                self.task.get("package", ""),
+                self.task.get("options", ""),
+                self.self_extracted,
+                self.results,
+                duplicated,
+            )
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
 

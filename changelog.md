@@ -1,3 +1,7 @@
+### [11.02.2026]
+* Guacamole integration:
+    * New dependency `channels[daphne]>=4.0.0` added.
+
 ### [04.02.2026]
 * Network Analysis:
     * Integrated process mapping directly into `network` processing module.

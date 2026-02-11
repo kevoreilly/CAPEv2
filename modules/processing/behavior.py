@@ -11,29 +11,33 @@ import struct
 from collections import defaultdict
 from contextlib import suppress
 
-from lib.cuckoo.common.network_utils import (
-    DNS_APIS,
-    HTTP_HINT_APIS,
-    TLS_HINT_APIS,
-    _add_http_host,
-    _extract_domain_from_call,
-    _extract_first_url,
-    _extract_tls_server_name,
-    _get_arg_any,
-    _get_call_args_dict,
-    _host_from_url,
-    _http_host_from_buf,
-    _looks_like_http,
-    _norm_domain,
-    _norm_ip,
-    _parse_behavior_ts,
-    _safe_int,
-)
-
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
+from lib.cuckoo.common.network_utils import (
+    _get_call_args_dict,
+    _get_arg_any,
+    _norm_ip,
+    _looks_like_http,
+    _http_host_from_buf,
+    _extract_first_url,
+    _host_from_url,
+    _add_http_host,
+    _extract_domain_from_call,
+    _extract_tls_server_name,
+    _parse_behavior_ts,
+    _norm_domain,
+    _safe_int,
+    DNS_APIS,
+    HTTP_HINT_APIS,
+    TLS_HINT_APIS,
+    _get_call_ret_handle,
+    _winhttp_get_proc_state,
+    _call_ok,
+    winhttp_update_from_call,
+    winhttp_finalize_sessions,
+)
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.replace_patterns_utils import _clean_path, check_deny_pattern
 from lib.cuckoo.common.utils import (
@@ -1232,7 +1236,9 @@ class NetworkMap:
     def __init__(self):
         self.endpoint_map = defaultdict(list)  # (ip, port) -> [pinfo]
         self.http_host_map = defaultdict(list)  # host -> [pinfo]
+        self.http_requests = []  # url -> [pinfo]
         self.dns_intents = defaultdict(list)  # domain -> [intent]
+        self._winhttp_state = {"processes": {}}
 
     def event_apicall(self, call, process):
         if call.get("category") != "network":
@@ -1250,7 +1256,7 @@ class NetworkMap:
         sock = _get_arg_any(args_map, "socket", "sock", "fd", "handle")
         ip = _norm_ip(_get_arg_any(args_map, "ip", "dst", "dstip", "ip_address", "address", "remote_ip", "server"))
         port = _get_arg_any(args_map, "port", "dport", "dstport", "remote_port", "server_port")
-        buf = _get_arg_any(args_map, "Buffer", "buffer", "buf", "data")
+        buf = _get_arg_any(args_map, "buffer", "buf", "data")
 
         if api in {"connect", "wsaconnect", "connectex", "sendto", "wsasendto", "recvfrom", "wsarecvfrom"}:
             p_int = _safe_int(port)
@@ -1268,7 +1274,7 @@ class NetworkMap:
                 _add_http_host(self.http_host_map, host, pinfo, sock=sock)
 
         if api in HTTP_HINT_APIS:
-            url = _get_arg_any(args_map, "URL", "Url", "url", "lpszUrl", "lpUrl", "uri", "pszUrl", "pUrl")
+            url = _get_arg_any(args_map, "url", "lpszurl", "lpurl", "uri", "pszurl", "purl")
             if isinstance(url, str) and url.strip():
                 u = _extract_first_url(url) or url.strip()
                 host = _host_from_url(u)
@@ -1276,6 +1282,17 @@ class NetworkMap:
                     host = _host_from_url(f"http://{u}")
                 if host:
                     _add_http_host(self.http_host_map, host, pinfo, sock=sock)
+
+                if u:
+                    self.http_requests.append(
+                        {
+                            "url": u,
+                            "host": host,
+                            "process_id": process.get("process_id"),
+                            "process_name": process.get("process_name"),
+                            "time": _parse_behavior_ts(call.get("timestamp")),
+                        }
+                    )
 
             if isinstance(buf, str):
                 u2 = _extract_first_url(buf)
@@ -1312,6 +1329,15 @@ class NetworkMap:
                     }
                 )
 
+        # 4. WinHTTP rebuild (incremental)
+        if api.startswith("winhttp") and _call_ok(call):
+            ret_h = None
+            with suppress(Exception):
+                ret_h = _get_call_ret_handle(call)
+
+            pstate = _winhttp_get_proc_state(self._winhttp_state, process)
+            winhttp_update_from_call(pstate, api, args_map, ret_h)
+
     def run(self):
         # Sort DNS intents by timestamp
         for d in list(self.dns_intents.keys()):
@@ -1332,6 +1358,8 @@ class NetworkMap:
             "endpoint_map": endpoint_map_str,
             "http_host_map": self.http_host_map,
             "dns_intents": self.dns_intents,
+            "http_requests": self.http_requests,
+            "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
         }
 
 

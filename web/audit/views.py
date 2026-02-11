@@ -186,7 +186,7 @@ def reload_available_tests(request):
                     (len(result["unavailable"]),
                      AUDIT_PACKAGES_ROOT,
                      str(result['unavailable']))
-                messages.error(request,errmsg)
+                messages.error(request,errmg)
             else:
                 messages.warning(
                     request,

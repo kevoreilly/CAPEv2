@@ -266,7 +266,7 @@ def generate_task_diagnostics(task: Task, test_run: TestRun):
                 diagnostics["report_wait"] = task.reporting_finished_on - task.completed_on
             else:
                 # implementing reporting_finished_on was a recent change, it may not be there
-                if test_run.status == "running":
+                if test_run.status == TEST_RUNNING:
                     diagnostics["report_wait"] = timenow - task.completed_on
 
     return diagnostics
@@ -323,7 +323,7 @@ def get_session_stats(db_test_session: TestSession) -> Optional[Dict]:
         stats["tests"][run.status] += 1
         for objective in run.objectives:
             stats["objectives"][objective.state] += 1
-            if run.status == "complete" and objective.state == "untested":
+            if run.status == TEST_COMPLETE and objective.state == "untested":
                 stats["complete_but_unevaluated"] += 1
     return stats
 
@@ -404,6 +404,8 @@ def queue_all_tests(request, session_id: int):
     task_ids = []
     db_test_session = db.get_test_session(session_id)
     for run in db_test_session.runs:
+        if run.status != TEST_UNQUEUED:
+            continue
         task_id = inner_queue_test(request, session_id, run.id)
         if task_id is not None:
             task_ids.append({"run": run.id, "task": task_id})
@@ -418,12 +420,12 @@ def inner_unqueue_test(testrun: TestRun) -> Optional[int]:
     # note: I tried to use db.delete_tasks(), with the task_id's & TASK_PENDING
     # filter but couldn't get round commit/transaction errors
     # there is a chance of some race conditions here
-    if testrun.cape_task_id is not None and testrun.status == "queued":
+    if testrun.cape_task_id is not None and testrun.status == TEST_QUEUED:
         task_id = testrun.cape_task_id
         cape_task = db.view_task(task_id)
         if cape_task.status == TASK_PENDING:
             db.delete_task(task_id)
-            testrun.status = "unqueued"
+            testrun.status = TEST_UNQUEUED
             testrun.cape_task_id = None
             return task_id
     return None

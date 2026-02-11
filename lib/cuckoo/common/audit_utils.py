@@ -66,9 +66,12 @@ class TestLoader():
         dir_contents = list(dir_path.iterdir())
         if not dir_contents:
             raise FileNotFoundError("Nothing in extracted payload directory")
-        if len(dir_contents) > 1:
-            raise ValueError(f"Payload archive {payload_archive} contains multiple items in its root, but only one is supported.")
-        payload_path = str(dir_contents[0])
+        
+        if len(dir_contents) == 1:
+            payload_path = str(dir_contents[0])
+        else:
+            # If multiple items, treat the directory itself as the payload
+            payload_path = payload_output_dir
 
         if not os.path.exists(payload_path):
             raise FileNotFoundError("Nothing extracted from payload archive or it could not be written to disk")

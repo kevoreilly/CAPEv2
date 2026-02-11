@@ -12,7 +12,8 @@ from lib.cuckoo.common.audit_utils import task_status_to_run_status, TestResultV
 from .audit_data import (TestSession, AvailableTest, TestRun,
                         TestObjectiveTemplate, TestObjectiveInstance,
                         test_template_association,
-                        TEST_COMPLETE)
+                        TEST_COMPLETE, TEST_RUNNING, TEST_FAILED,
+                        TEST_QUEUED, TEST_UNQUEUED)
 
 log = logging.getLogger(__name__)
 
@@ -86,7 +87,6 @@ class AuditsMixIn:
         if offset is not None:
             stmt = stmt.offset(offset)
 
-        log.info("list_available_tests 3")
         # Execute and return scalars (the actual objects)
         result = self.session.scalars(stmt)
         testslist = list(result.all())
@@ -101,7 +101,7 @@ class AuditsMixIn:
         return self.session.scalar(stmt)
 
     def count_available_tests(self, active_only=True) -> int:
-        """Count number of loaded and corrently parsed test cases
+        """Count number of loaded and correctly parsed test cases
         @return: number of available tests.
         """
         stmt = select(func.count(AvailableTest.id))
@@ -287,14 +287,19 @@ class AuditsMixIn:
         self.store_objective_results(test_run.id, results_dict)
 
     def update_audit_tasks_status(self, db_session, session: TestSession):
+        changed = False
         for run in session.runs:
             if run.cape_task_id:
                 cape_task = self.view_task(run.cape_task_id)
                 if cape_task:
                     new_status = task_status_to_run_status(cape_task.status)
-                    if run.status != TEST_COMPLETE and new_status == TEST_COMPLETE:
-                        self.evaluate_objective_results(run)
-                    run.status = new_status
+                    if run.status != new_status:
+                        if run.status != TEST_COMPLETE and new_status == TEST_COMPLETE:
+                            self.evaluate_objective_results(run)
+                        run.status = new_status
+                        changed = True
+        if changed:
+            db_session.commit()
 
     def get_test_session(self, session_id: int) -> Optional[TestSession]:
         stmt = select(TestSession).where(TestSession.id == session_id)
@@ -324,7 +329,7 @@ class AuditsMixIn:
                 select(func.count(TestRun.id))
                 .where(
                     TestRun.session_id == session_id,
-                    TestRun.status == "running"
+                    TestRun.status == TEST_RUNNING
                 )
             )
             active_runs = sess.execute(stmt).scalar()
@@ -406,7 +411,7 @@ class AuditsMixIn:
 
             if run:
                 run.cape_task_id = cape_task_id
-                run.status = "queued"
+                run.status = TEST_QUEUED
                 log.info("TestRun %d successfully linked to CAPE Task %d",run_id,cape_task_id)
                 return True
             else:

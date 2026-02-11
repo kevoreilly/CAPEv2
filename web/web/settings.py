@@ -231,8 +231,11 @@ ROOT_URLCONF = "web.urls"
 
 # Python dotted path to the WSGI application used by Django's runserver_plus.
 WSGI_APPLICATION = "web.wsgi.application"
+# Ensure ASGI_APPLICATION points to your updated file
+ASGI_APPLICATION = "web.asgi.application"
 
 INSTALLED_APPS = [
+    "daphne",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",

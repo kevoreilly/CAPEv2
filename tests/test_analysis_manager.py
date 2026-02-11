@@ -12,7 +12,10 @@ from sqlalchemy import select
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config, ConfigMeta
 from lib.cuckoo.core.analysis_manager import AnalysisManager
-from lib.cuckoo.core.database import TASK_RUNNING, Guest, Machine, Task, _Database
+from lib.cuckoo.core.data.task import TASK_RUNNING, Task
+from lib.cuckoo.core.data.guests import Guest
+from lib.cuckoo.core.data.machines import Machine
+from lib.cuckoo.core.database import _Database
 from lib.cuckoo.core.machinery_manager import MachineryManager
 from lib.cuckoo.core.scheduler import Scheduler
 

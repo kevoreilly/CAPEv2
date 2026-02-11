@@ -5,7 +5,7 @@ import pytest
 from django.test import SimpleTestCase
 
 from lib.cuckoo.common.config import ConfigMeta
-from lib.cuckoo.core.database import (
+from lib.cuckoo.core.data.task import (
     TASK_BANNED,
     TASK_COMPLETED,
     TASK_DISTRIBUTED,

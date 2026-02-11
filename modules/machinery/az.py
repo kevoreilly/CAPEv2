@@ -1392,13 +1392,15 @@ class Azure(Machinery):
         # machine tag that is targeted in the task (win7, win10, etc) or platform (windows, linux)
         relevant_task_queue = 0
 
-        for task in current_tasks:
-            if not platform:
-                if any([t.name == tag for t in task.tags]):
-                    relevant_task_queue += 1
-            else:
-                if task.platform == platform:
-                    relevant_task_queue += 1
+        if not platform:
+            relevant_task_queue = sum(
+                1 for task in current_tasks if any(t.name == tag for t in task.tags)
+            )
+        else:
+            relevant_task_queue = sum(
+                1 for task in current_tasks if task.platform == platform
+            )
+        return relevant_task_queue
         return relevant_task_queue
 
     def _get_relevant_machines(self, tag):

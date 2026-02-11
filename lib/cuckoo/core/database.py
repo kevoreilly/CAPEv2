@@ -56,6 +56,7 @@ try:
         # event,
         func,
         not_,
+        or_,
         select,
         Select,
         delete,
@@ -2097,7 +2098,15 @@ class _Database:
         if options_like:
             stmt = stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
         if options_not_like:
-            stmt = stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
+            # Fix: SQL NULL NOT LIKE returns NULL, not TRUE
+            # Must explicitly check for NULL and empty string
+            stmt = stmt.where(
+                or_(
+                    Task.options is None,
+                    Task.options == "",
+                    not_(Task.options.like(f"%{options_not_like.replace('*', '%')}%"))
+                )
+            )
         if tags_tasks_like:
             stmt = stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
         if task_ids:

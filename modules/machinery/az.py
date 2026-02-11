@@ -657,7 +657,7 @@ class Azure(Machinery):
             if tags and len(tags) == 1 and vals["tag"] == tags[0]:
                 assignable_vmss = vals
                 break
-            if vals["platform"] == task.platform:
+            if vals["platform"].lower() == task.platform.lower():
                 assignable_vmss = vals
                 break
 

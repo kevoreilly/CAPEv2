@@ -66,7 +66,7 @@ class TestLoader():
         dir_contents = list(dir_path.iterdir())
         if not dir_contents:
             raise FileNotFoundError("Nothing in extracted payload directory")
-        
+
         if len(dir_contents) == 1:
             payload_path = str(dir_contents[0])
         else:

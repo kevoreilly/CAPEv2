@@ -12,8 +12,7 @@ from lib.cuckoo.common.audit_utils import task_status_to_run_status, TestResultV
 from .audit_data import (TestSession, AvailableTest, TestRun,
                         TestObjectiveTemplate, TestObjectiveInstance,
                         test_template_association,
-                        TEST_COMPLETE, TEST_RUNNING, TEST_FAILED,
-                        TEST_QUEUED, TEST_UNQUEUED)
+                        TEST_COMPLETE, TEST_RUNNING, TEST_QUEUED)
 
 log = logging.getLogger(__name__)
 

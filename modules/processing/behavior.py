@@ -1331,11 +1331,12 @@ class NetworkMap:
 
         # 4. WinHTTP rebuild (incremental)
         if api.startswith("winhttp") and _call_ok(call):
-                with suppress(Exception):
-                    ret_h = _get_call_ret_handle(call)
+            ret_h = None
+            with suppress(Exception):
+                ret_h = _get_call_ret_handle(call)
 
-                pstate = _winhttp_get_proc_state(self._winhttp_state, process)
-                winhttp_update_from_call(pstate, api, args_map, ret_h)
+            pstate = _winhttp_get_proc_state(self._winhttp_state, process)
+            winhttp_update_from_call(pstate, api, args_map, ret_h)
 
     def run(self):
         # Sort DNS intents by timestamp

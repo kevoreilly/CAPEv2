@@ -1,9 +1,11 @@
-
-from typing import List
+from __future__ import annotations
+import json
+from typing import TYPE_CHECKING, List
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import (
-    CuckooDependencyError
-)
+from lib.cuckoo.common.exceptions import CuckooDependencyError
+if TYPE_CHECKING:
+    from .machines import Machine
+    from .task import Task
 
 from datetime import datetime, timezone
 import pytz
@@ -12,6 +14,7 @@ try:
         Column,
         ForeignKey,
         Integer,
+        String,
         Table,
     )
     from sqlalchemy.orm import (
@@ -71,3 +74,42 @@ class Tag(Base):
     def __init__(self, name):
         self.name = name
 
+
+class Error(Base):
+    """Analysis errors."""
+
+    __tablename__ = "errors"
+    MAX_LENGTH = 1024
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    message: Mapped[str] = mapped_column(String(MAX_LENGTH), nullable=False)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False)
+    task: Mapped["Task"] = relationship(back_populates="errors")
+
+    def to_dict(self):
+        """Converts object to dict.
+        @return: dict
+        """
+        d = {}
+        for column in self.__table__.columns:
+            d[column.name] = getattr(self, column.name)
+        return d
+
+    def to_json(self):
+        """Converts object to JSON.
+        @return: JSON data
+        """
+        return json.dumps(self.to_dict())
+
+    def __init__(self, message, task_id):
+        if len(message) > self.MAX_LENGTH:
+            # Make sure that we don't try to insert an error message longer than what's allowed
+            # in the database. Provide the beginning and the end of the error.
+            left_of_ellipses = self.MAX_LENGTH // 2 - 2
+            right_of_ellipses = self.MAX_LENGTH - left_of_ellipses - 3
+            message = "...".join((message[:left_of_ellipses], message[-right_of_ellipses:]))
+        self.message = message
+        self.task_id = task_id
+
+    def __repr__(self):
+        return f"<Error({self.id},'{self.message}','{self.task_id}')>"

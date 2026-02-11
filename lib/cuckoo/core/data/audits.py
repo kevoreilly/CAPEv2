@@ -24,9 +24,6 @@ except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
 
-
-
-
 class AuditsMixIn:
     def list_test_sessions(
         self,
@@ -196,9 +193,9 @@ class AuditsMixIn:
                     stats['error'] += 1
                 else:
                     current_test_names.append(test["info"].get("Name"))
-                    if load_result.get('added', False): 
+                    if load_result.get('added', False):
                         stats['added'] += 1
-                    if load_result.get('updated', False): 
+                    if load_result.get('updated', False):
                         stats['updated'] += 1
 
         test_count_after_add = self.count_available_tests()
@@ -283,7 +280,7 @@ class AuditsMixIn:
             log.info("Updated objective states for Run %d",run_id)
 
     def evaluate_objective_results(self, test_run: TestRun):
-        log.info(f"Starting evaluation of test run #{test_run.id}")
+        log.info("Starting evaluation of test run #%d",test_run.id)
         task_storage = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(test_run.cape_task_id))
         validator = TestResultValidator( test_run.test_definition.module_path, task_storage)
         results_dict = validator.evaluate()
@@ -365,7 +362,7 @@ class AuditsMixIn:
                     for t_id in test_ids:
                         test_def = db_session.get(AvailableTest, int(t_id))
                         run = TestRun(session_id=new_test_session.id, test_id=test_def.id)
-                        
+
                         db_session.add(run)
                         for template in test_def.objective_templates:
                             def init_objective(obj_template):
@@ -409,7 +406,7 @@ class AuditsMixIn:
 
             if run:
                 run.cape_task_id = cape_task_id
-                run.status = "queued" 
+                run.status = "queued"
                 log.info("TestRun %d successfully linked to CAPE Task %d",run_id,cape_task_id)
                 return True
             else:

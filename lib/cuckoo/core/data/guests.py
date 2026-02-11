@@ -1,28 +1,14 @@
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from datetime import datetime
 import json
-from lib.cuckoo.common.exceptions import (
-    CuckooDependencyError
-)
-
-from .db_common import (
-    Base,
-    _utcnow_naive
-    )
+from lib.cuckoo.common.exceptions import CuckooDependencyError
+if TYPE_CHECKING:
+    from lib.cuckoo.core.data.task import Task
+from .db_common import Base, _utcnow_naive
 
 try:
-    from sqlalchemy import (
-        DateTime,
-        ForeignKey,
-        select,
-
-        )
-    from sqlalchemy.orm import (
-        Mapped,
-        mapped_column,
-        relationship
-    )
-
+    from sqlalchemy import DateTime, ForeignKey, select
+    from sqlalchemy.orm import Mapped, mapped_column, relationship
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 

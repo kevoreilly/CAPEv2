@@ -1,5 +1,4 @@
-from .db_common import Base, _utcnow_naive
-import json
+from .db_common import _utcnow_naive
 import logging
 from typing import List, Optional, Tuple, Dict
 from datetime import datetime, timedelta, timezone
@@ -7,13 +6,13 @@ from datetime import datetime, timedelta, timezone
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import PCAP, URL, File, Static
-from lib.cuckoo.common.exceptions import (
-    CuckooDependencyError
-)
+from lib.cuckoo.common.exceptions import CuckooDependencyError
 from lib.cuckoo.common.utils import bytes2str, get_options
 from lib.cuckoo.common.demux import demux_sample
 from lib.cuckoo.common.cape_utils import static_config_lookup, static_extraction
 from lib.cuckoo.common.path_utils import path_delete, path_exists
+from .samples import Sample, SampleAssociation
+from .db_common import Tag, Error
 from .task import (Task, TASK_PENDING, TASK_RUNNING, TASK_DISTRIBUTED,
                    TASK_COMPLETED, TASK_RECOVERED, TASK_REPORTED,
                    TASK_FAILED_PROCESSING, TASK_DISTRIBUTED_COMPLETED,
@@ -27,27 +26,16 @@ from sflock.ident import identify as sflock_identify
 try:
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy import (
-        ForeignKey,
-        String,
         delete,
         func,
         not_,
         select,
         update,
     )
-    from sqlalchemy.orm import (
-        joinedload,
-        relationship,
-        subqueryload,
-        Mapped,
-        mapped_column,
-    )
-
+    from sqlalchemy.orm import joinedload, subqueryload
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
-from .samples import Sample, SampleAssociation
-from .db_common import Tag
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
@@ -109,46 +97,6 @@ sandbox_packages = (
     "one",
     "inf",
 )
-
-class Error(Base):
-    """Analysis errors."""
-
-    __tablename__ = "errors"
-    MAX_LENGTH = 1024
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    message: Mapped[str] = mapped_column(String(MAX_LENGTH), nullable=False)
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False)
-    task: Mapped["Task"] = relationship(back_populates="errors")
-
-    def to_dict(self):
-        """Converts object to dict.
-        @return: dict
-        """
-        d = {}
-        for column in self.__table__.columns:
-            d[column.name] = getattr(self, column.name)
-        return d
-
-    def to_json(self):
-        """Converts object to JSON.
-        @return: JSON data
-        """
-        return json.dumps(self.to_dict())
-
-    def __init__(self, message, task_id):
-        if len(message) > self.MAX_LENGTH:
-            # Make sure that we don't try to insert an error message longer than what's allowed
-            # in the database. Provide the beginning and the end of the error.
-            left_of_ellipses = self.MAX_LENGTH // 2 - 2
-            right_of_ellipses = self.MAX_LENGTH - left_of_ellipses - 3
-            message = "...".join((message[:left_of_ellipses], message[-right_of_ellipses:]))
-        self.message = message
-        self.task_id = task_id
-
-    def __repr__(self):
-        return f"<Error({self.id},'{self.message}','{self.task_id}')>"
-
 
 class TasksMixIn:
     def add(

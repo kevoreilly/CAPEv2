@@ -1,17 +1,15 @@
 import json
 from datetime import datetime
-from typing import List, Optional
-from lib.cuckoo.common.exceptions import (
-    CuckooDependencyError
-)
+from typing import List, Optional, TYPE_CHECKING
+from lib.cuckoo.common.exceptions import CuckooDependencyError
+if TYPE_CHECKING:
+    from lib.cuckoo.core.data.samples import Sample, SampleAssociation
+    from lib.cuckoo.core.data.guests import Guest
+    from lib.cuckoo.core.data.db_common import Tag, Error
 
 from .db_common import Base, _utcnow_naive, tasks_tags
 try:
-    from sqlalchemy.orm import (
-        Mapped,
-        mapped_column,
-        relationship,
-    )
+    from sqlalchemy.orm import Mapped, mapped_column, relationship
     from sqlalchemy import (
         Boolean,
         DateTime,
@@ -22,7 +20,6 @@ try:
         String,
         Text,
     )
-
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 

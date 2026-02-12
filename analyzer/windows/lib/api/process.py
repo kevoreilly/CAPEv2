@@ -17,48 +17,53 @@ from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof
 from pathlib import Path
 from shutil import copy
 
-from lib.common.defines import (
-    CREATE_NEW_CONSOLE,
-    CREATE_SUSPENDED,
-    EVENT_MODIFY_STATE,
-    GENERIC_READ,
-    GENERIC_WRITE,
-    MAX_PATH,
-    OPEN_EXISTING,
-    PROCESS_ALL_ACCESS,
-    PROCESS_INFORMATION,
-    PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESSENTRY32,
-    STARTUPINFO,
-    STILL_ACTIVE,
-    SYSTEM_INFO,
-    TH32CS_SNAPPROCESS,
-    THREAD_ALL_ACCESS,
-    ULONG_PTR,
-)
-
-if sys.platform == "win32":
-    from lib.common.constants import (
-        CAPEMON32_NAME,
-        CAPEMON64_NAME,
-        LOADER32_NAME,
-        LOADER64_NAME,
-        LOGSERVER_PREFIX,
-        PATHS,
-        PIPE,
-        SHUTDOWN_MUTEX,
-        TERMINATE_EVENT,
-        TTD32_NAME,
-        TTD64_NAME,
-        SIDELOADER32_NAME,
-        SIDELOADER64_NAME,
-    )
+if sys.platform.startswith("win"):
     from lib.common.defines import (
+        CREATE_NEW_CONSOLE,
+        CREATE_SUSPENDED,
+        EVENT_MODIFY_STATE,
+        GENERIC_READ,
+        GENERIC_WRITE,
+        MAX_PATH,
+        OPEN_EXISTING,
+        PROCESS_ALL_ACCESS,
+        PROCESS_INFORMATION,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+        PROCESSENTRY32,
+        STARTUPINFO,
+        STILL_ACTIVE,
+        SYSTEM_INFO,
+        TH32CS_SNAPPROCESS,
+        THREAD_ALL_ACCESS,
+        ULONG_PTR,
+    )
+
+
+    from lib.common.constants import (
+            CAPEMON32_NAME,
+            CAPEMON64_NAME,
+            LOADER32_NAME,
+            LOADER64_NAME,
+            LOGSERVER_PREFIX,
+            PATHS,
+            PIPE,
+            SHUTDOWN_MUTEX,
+            TERMINATE_EVENT,
+            TTD32_NAME,
+            TTD64_NAME,
+            SIDELOADER32_NAME,
+            SIDELOADER64_NAME,
+        )
+
+from lib.common.defines import (
         KERNEL32,
         NTDLL,
         PSAPI,
     )
-    from lib.core.log import LogServer
+
+# Set return value to signed 32bit integer.
+NTDLL.NtQueryInformationProcess.restype = c_int
+from lib.core.log import LogServer
 
 from lib.common.constants import OPT_CURDIR, OPT_EXECUTIONDIR
 from lib.common.errors import get_error_string
@@ -236,14 +241,11 @@ class Process:
         pbi = create_string_buffer(530)
         size = c_int()
 
-        # Set return value to signed 32bit integer.
-        NTDLL.NtQueryInformationProcess.restype = c_int
-
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 27, byref(pbi), sizeof(pbi), byref(size))
-
-        if NT_SUCCESS(ret) and size.value > 8:
+        if NT_SUCCESS(ret):
+            offset = 4 + sizeof(ULONG_PTR)
             try:
-                fbuf = pbi.raw[8:]
+                fbuf = pbi.raw[offset:]
                 fbuf = fbuf[: fbuf.find(b"\0\0") + 1]
                 return fbuf.decode("utf16", errors="ignore")
             except Exception as e:
@@ -296,9 +298,6 @@ class Process:
 
         pbi = (ULONG_PTR * 6)()
         size = c_ulong()
-
-        # Set return value to signed 32bit integer.
-        NTDLL.NtQueryInformationProcess.restype = c_int
 
         ret = NTDLL.NtQueryInformationProcess(self.h_process, 0, byref(pbi), sizeof(pbi), byref(size))
 
@@ -529,12 +528,7 @@ class Process:
 
         # Use the custom execution directory if provided, otherwise launch in the same location
         # where the sample resides (default %TEMP%)
-        if OPT_EXECUTIONDIR in self.options.keys():
-            execution_directory = self.options[OPT_EXECUTIONDIR]
-        elif OPT_CURDIR in self.options.keys():
-            execution_directory = self.options[OPT_CURDIR]
-        else:
-            execution_directory = os.getenv("TEMP")
+        execution_directory = self.options.get(OPT_EXECUTIONDIR) or self.options.get(OPT_CURDIR) or os.getenv("TEMP")
 
         # Try to create the custom directories so that the execution path is deemed valid
         create_custom_folders(execution_directory)
@@ -603,6 +597,10 @@ class Process:
                 text=True,
                 timeout=1,
             )
+            if result.stdout:
+                log.info(" ".join(result.stdout.split()))
+            if result.stderr:
+                log.error(" ".join(result.stderr.split()))
         except subprocess.TimeoutExpired as e:
             if e.stdout:
                 log.info(" ".join(e.stdout.split()))
@@ -610,11 +608,6 @@ class Process:
                 log.error(" ".join(e.stderr.split()))
         except Exception as e:
             log.error("Exception attempting TTD stop for %s process with pid %d: %s", bit_str, self.pid, e)
-
-        if result.stdout:
-            log.info(" ".join(result.stdout.split()))
-        if result.stderr:
-            log.error(" ".join(result.stderr.split()))
 
         log.info("Stopped TTD for %s process with pid %d", bit_str, self.pid)
 
@@ -809,7 +802,7 @@ class Process:
             return True
 
         try:
-            ret = subprocess.run(
+            result = subprocess.run(
                 [
                     os.path.join(Path.cwd(), ttd_name),
                     "-accepteula",
@@ -823,6 +816,10 @@ class Process:
                 text=True,
                 timeout=1,
             )
+            if result.stdout:
+                log.info(" ".join(result.stdout.split()))
+            if result.stderr:
+                log.error(" ".join(result.stderr.split()))
         except subprocess.TimeoutExpired as e:
             if e.stdout:
                 log.info(" ".join(e.stdout.split()))

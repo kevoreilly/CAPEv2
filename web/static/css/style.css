@@ -559,8 +559,8 @@ pre {
 .table tbody tr.system > th,
 .table tbody tr.windows > td,
 .table tbody tr.windows > th {
-    background-color: inherit; /* inherit the TR background-color */
-    color: inherit; /* inherit the TR text color */
+  background-color: inherit; /* inherit the TR background-color */
+  color: inherit;            /* inherit the TR text color */
 }
 
 /* Hover/focus states */

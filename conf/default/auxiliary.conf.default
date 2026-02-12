@@ -27,6 +27,9 @@ windows_static_route_gateway = 192.168.1.1
 evtx = no
 human_windows = yes
 human_linux = no
+# If enabling procmon:
+# You must download Procmon.exe from https://learn.microsoft.com/en-us/sysinternals/downloads/procmon
+# And place it to: analyzer/windows/bin/Procmon.exe
 procmon = no
 recentfiles = no
 screenshots_windows = yes

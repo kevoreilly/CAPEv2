@@ -24,7 +24,8 @@ from lib.cuckoo.common.exceptions import (
     CuckooMachineError,
     CuckooUnserviceableTaskError,
 )
-from lib.cuckoo.core.database import TASK_PENDING, TASK_RUNNING, Machine, Task
+from lib.cuckoo.core.data.task import TASK_PENDING, TASK_RUNNING, Task
+from lib.cuckoo.core.data.machines import Machine
 
 HAVE_AZURE = False
 cfg = Config()

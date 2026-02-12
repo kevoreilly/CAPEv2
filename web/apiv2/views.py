@@ -53,12 +53,11 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import (
+from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.data.task import (
     TASK_RECOVERED,
     TASK_RUNNING,
-    Database,
     Task,
-    _Database,
 )
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 

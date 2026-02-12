@@ -246,3 +246,6 @@ enabled = no
 
 [pcap_ng]
 enabled = no
+
+[audit_framework]
+enabled = no

@@ -24,3 +24,4 @@ installer/cape-config.sh
 installer/kvm-config.sh
 
 docs/book/src/_build
+/.vs

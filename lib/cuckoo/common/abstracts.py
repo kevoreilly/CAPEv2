@@ -40,7 +40,9 @@ from lib.cuckoo.common.integrations.mitre import mitre_load
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.url_validate import url as url_validator
 from lib.cuckoo.common.utils import create_folder, get_memdump_path, load_categories
-from lib.cuckoo.core.database import Database, Machine, _Database, Task
+from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.data.task import Task
+from lib.cuckoo.core.data.machines import Machine
 
 try:
     import re2 as re

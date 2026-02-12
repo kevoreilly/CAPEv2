@@ -33,17 +33,17 @@ from lib.cuckoo.common.utils import (
     validate_referrer,
     validate_ttp,
 )
-from lib.cuckoo.core.database import (
+from lib.cuckoo.core.data.task import (
     ALL_DB_STATUSES,
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
     TASK_RECOVERED,
     TASK_REPORTED,
-    Database,
-    Sample,
     Task,
-)
+    )
+from lib.cuckoo.core.data.samples import Sample
+from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 from lib.downloaders import Downloaders
 

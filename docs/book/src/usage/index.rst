@@ -12,6 +12,7 @@ This chapter explains how to use CAPE.
     submit
     web
     api
+    audit
     dist
     cluster_administration
     packages

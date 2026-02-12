@@ -1,0 +1,56 @@
+<div class="objective-node border-bottom border-secondary border-opacity-10">
+    <div class="d-flex align-items-center hover-bg-dark">
+
+        <div class="flex-grow-1 min-width-0">
+            <span class="text-info fw-bold d-block text-truncate">{{ obj.template.name }}</span>
+            <div class="text-muted small text-truncate">{{ obj.template.requirement }}</div>
+        </div>
+
+        <div class="d-flex align-items-center flex-shrink-0" style="width: 65%;">
+
+            <div class="flex-grow-1 px-3 text-end">
+                {% if obj.state_reason %}
+                <small class="text-muted fst-italic">
+                    {{ obj.state_reason }}
+                </small>
+                {% endif %}
+            </div>
+
+            <div style="width: 200px;" class="text-start">
+                {% if obj.state == "success" %}
+                <span class="badge bg-dark border border-success text-success" style="padding-top: 6px;">
+                    REQUIREMENT MET
+                </span>
+                {% elif obj.state == "failure" %}
+                <span class="badge bg-dark border border-warning text-warning" style="padding-top: 6px;">
+                    REQUIREMENT UNMET
+                </span>
+                {% elif obj.state == "untested" %}
+                <span class="badge bg-dark border border-secondary text-secondary" style="padding-top: 6px;">
+                    REQUIREMENT UNTESTED
+                </span>
+                {% elif obj.state == "skipped" %}
+                <span class="badge bg-dark border border-light text-light" style="padding-top: 6px;">
+                    EVALUATION SKIPPED
+                </span>
+                {% elif obj.state == "error" %}
+                <span class="badge bg-dark border border-danger text-danger" style="padding-top: 6px;">
+                    EVALUATION ERROR
+                </span>
+                {% elif obj.state == "info" %}
+                <span class="badge bg-dark border border-info text-info" style="padding-top: 6px;">
+                    INFORMATIONAL RESULT
+                </span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    {% if obj.children %}
+    <div class="ms-4 border-start border-secondary border-opacity-25 ps-3">
+        {% for child in obj.children %}
+        {% include "audit/partials/objective_item.html" with obj=child %}
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

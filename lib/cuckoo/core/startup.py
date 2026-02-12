@@ -52,7 +52,8 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import create_folders
-from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
+from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.data.task import TASK_FAILED_ANALYSIS, TASK_RUNNING
 from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns

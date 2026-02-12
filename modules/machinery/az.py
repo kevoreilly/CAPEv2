@@ -2,7 +2,6 @@
 # in https://github.com/CheckPointSW/Cuckoo-AWS.
 # Modified by the Canadian Centre for Cyber Security to support Azure.
 
-import itertools
 import logging
 import re
 import socket
@@ -1388,22 +1387,21 @@ class Azure(Machinery):
         """
         # Fix: Count BOTH pending AND running tasks
         # Previous code only counted PENDING, causing VMs to be deleted while tasks running
-        pending_tasks = self.db.list_tasks(status=TASK_PENDING)
-        running_tasks = self.db.list_tasks(status=TASK_RUNNING)
+        current_tasks = self.db.list_tasks(status=f"{TASK_PENDING}|{TASK_RUNNING}")
 
         # The task queue that will be used to prepare machines will be relative to the virtual
         # machine tag that is targeted in the task (win7, win10, etc) or platform (windows, linux)
         relevant_task_queue = 0
 
         if not platform:
-            for task in itertools.chain(pending_tasks, running_tasks):
-                for t in task.tags:
-                    if t.name == tag:
-                        relevant_task_queue += 1
+            relevant_task_queue = sum(
+                1 for task in current_tasks if any(t.name == tag for t in task.tags)
+            )
         else:
-            for task in itertools.chain(pending_tasks, running_tasks):
-                if task.platform == platform:
-                    relevant_task_queue += 1
+            relevant_task_queue = sum(
+                1 for task in current_tasks if task.platform == platform
+            )
+        return relevant_task_queue
         return relevant_task_queue
 
     def _get_relevant_machines(self, tag):

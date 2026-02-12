@@ -238,14 +238,14 @@ class AuditsMixIn:
             orphaned_tpl_stmt = delete(TestObjectiveTemplate).where(
                 # Not linked to any AvailableTest (active or inactive)
                 ~exists().where(test_template_association.c.template_id == TestObjectiveTemplate.id),
-        
+
                 # AND not linked to any historical test results
                 ~exists().where(TestObjectiveInstance.template_id == TestObjectiveTemplate.id)
             )
-    
+
             # Pass 1: Delete Leaf nodes that meet the criteria
             db_session.execute(orphaned_tpl_stmt.where(TestObjectiveTemplate.parent_id.is_not(None)))
-    
+
             # Pass 2: Delete Root nodes that meet the criteria
             db_session.execute(orphaned_tpl_stmt.where(TestObjectiveTemplate.parent_id.is_(None)))
             db_session.commit()

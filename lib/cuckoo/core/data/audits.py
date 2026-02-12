@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 
 try:
     from sqlalchemy import (func, select, exists, delete, update, String)
-    from sqlalchemy.orm import joinedload
+    from sqlalchemy.orm import joinedload, selectinload, Session
 
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
@@ -27,8 +27,9 @@ except ImportError:  # pragma: no cover
 class AuditsMixIn:
     def list_test_sessions(
         self,
-        limit=None,
-        offset=None,
+        db_session: Session,
+        limit:int = None,
+        offset:int = None,
     ) -> List[TestSession]:
         """Retrieve list of test harness test sessions.
         @param limit: specify a limit of entries.
@@ -36,7 +37,9 @@ class AuditsMixIn:
         @return: list of test sessions.
         """
         # Create a select statement ordered by newest first
-        stmt = select(TestSession).order_by(TestSession.added_on.desc())
+        stmt = (select(TestSession)
+                .order_by(TestSession.added_on.desc())
+                .options(selectinload(TestSession.runs)))
 
         # Apply pagination if provided
         if limit is not None:
@@ -45,7 +48,7 @@ class AuditsMixIn:
             stmt = stmt.offset(offset)
 
         # Execute and return scalars (the actual objects)
-        result = self.session.scalars(stmt)
+        result = db_session.scalars(stmt).unique()
         return list(result.all())
 
     def get_session_id_range(self) -> Tuple[Optional[int], Optional[int]]:
@@ -60,12 +63,13 @@ class AuditsMixIn:
         result = self.session.execute(stmt).tuples().first()
         return result if result else (None, None)
 
-    def get_test(self, availabletest_id: int) -> Optional[AvailableTest]:
+    def get_test(self, availabletest_id: int, db_session: Session) -> Optional[AvailableTest]:
         stmt = select(AvailableTest).where(AvailableTest.id == availabletest_id)
-        return self.session.execute(stmt).unique().scalar_one_or_none()
+        return db_session.execute(stmt).unique().scalar_one_or_none()
 
     def list_available_tests(
         self,
+        db_session,
         limit=None,
         offset=None,
         active_only=True
@@ -87,9 +91,8 @@ class AuditsMixIn:
             stmt = stmt.offset(offset)
 
         # Execute and return scalars (the actual objects)
-        result = self.session.scalars(stmt)
+        result = db_session.scalars(stmt)
         testslist = list(result.all())
-        log.info("Retrieved %d available tests from database", len(testslist))
         return testslist
 
     def count_test_sessions(self) -> int:
@@ -108,7 +111,7 @@ class AuditsMixIn:
             stmt = stmt.where(AvailableTest.is_active)
         return self.session.scalar(stmt)
 
-    def _load_test(self, test: AvailableTest, session: TestSession):
+    def _load_test(self, test: AvailableTest, db_session: Session):
         '''
         Upsert loaded test data into the database
         '''
@@ -118,25 +121,25 @@ class AuditsMixIn:
             test_name = info.get("Name")
 
             stmt = select(AvailableTest).where(AvailableTest.name == test_name)
-            db_test = session.execute(stmt).scalar_one_or_none()
-            if not db_test:
-                db_test = AvailableTest(name=test_name)
-                session.add(db_test)
+            test_template = db_session.execute(stmt).scalar_one_or_none()
+            if not test_template:
+                test_template = AvailableTest(name=test_name)
+                db_session.add(test_template)
                 result['added'] = True
             else:
                 result['updated'] = True
 
-            db_test.description=info.get("Description", None)
-            db_test.payload_notes=info.get("Payload Notes", None)
-            db_test.result_notes=info.get("Result Notes", None)
-            db_test.zip_password=info.get("Zip Password", None)
-            db_test.timeout=info.get("Timeout", None)
-            db_test.package=info.get("Package")
-            db_test.payload_path=test["payload_path"]
-            db_test.module_path=test["module_path"]
-            db_test.targets=info.get("Targets", None)
-            db_test.task_config=info.get("Task Config", {})
-            db_test.is_active = True
+            test_template.description=info.get("Description", None)
+            test_template.payload_notes=info.get("Payload Notes", None)
+            test_template.result_notes=info.get("Result Notes", None)
+            test_template.zip_password=info.get("Zip Password", None)
+            test_template.timeout=info.get("Timeout", None)
+            test_template.package=info.get("Package")
+            test_template.payload_path=test["payload_path"]
+            test_template.module_path=test["module_path"]
+            test_template.targets=info.get("Targets", None)
+            test_template.task_config=info.get("Task Config", {})
+            test_template.is_active = True
 
             # Recursive upsert for objectives
             def sync_objective(test_name, obj_data, parent_obj=None):
@@ -146,28 +149,28 @@ class AuditsMixIn:
                 stmt = select(TestObjectiveTemplate).where(
                     TestObjectiveTemplate.full_name == full_name
                 )
-                db_obj = session.execute(stmt).scalar_one_or_none()
+                objective_template = db_session.execute(stmt).scalar_one_or_none()
 
-                if not db_obj:
-                    db_obj = TestObjectiveTemplate(full_name=full_name)
-                    session.add(db_obj)
+                if not objective_template:
+                    objective_template = TestObjectiveTemplate(full_name=full_name)
+                    db_session.add(objective_template)
 
                 # Update attributes
-                db_obj.name = obj_data.get("name")
-                db_obj.requirement = obj_data.get("requirement")
-                db_obj.parent = parent_obj
+                objective_template.name = obj_data.get("name")
+                objective_template.requirement = obj_data.get("requirement")
+                objective_template.parent = parent_obj
 
                 # Handle children recursively
                 for child_data in obj_data.get("children", []):
-                    sync_objective(test_name, child_data, parent_obj=db_obj)
-                return db_obj
+                    sync_objective(test_name, child_data, parent_obj=objective_template)
+                return objective_template
 
             current_test_templates = []
             for obj_data in test["objectives"]:
                 tpl = sync_objective(test_name, obj_data)
                 current_test_templates.append(tpl)
 
-            db_test.objective_templates = current_test_templates
+            test_template.objective_templates = current_test_templates
 
         except Exception as ex:
             result['errormsg'] = f"Error preparing test entry for {test['info'].get('Name','unknown')}: {ex}"
@@ -184,9 +187,9 @@ class AuditsMixIn:
 
         current_test_names = []
         stats = {'added':0, 'updated':0, 'error':0}
-        with self.session.session_factory() as sess, sess.begin():
+        with self.session.session_factory() as db_session, db_session.begin():
             for test in available_tests:
-                load_result = self._load_test(test, sess)
+                load_result = self._load_test(test, db_session)
                 if 'error' in load_result:
                     unavailable_tests.append(load_result)
                     stats['error'] += 1
@@ -196,6 +199,8 @@ class AuditsMixIn:
                         stats['added'] += 1
                     if load_result.get('updated', False):
                         stats['updated'] += 1
+            if stats['added'] > 0:
+                db_session.commit()
 
         test_count_after_add = self.count_available_tests()
         self.purge_unreferenced_tests(current_test_names)
@@ -215,31 +220,31 @@ class AuditsMixIn:
         """
         # delete tests not in the current loaded set and
         # not referenced in a previous test session
-        log.info("ltn %s",loaded_test_names)
-        retired_tests_stmt = delete(AvailableTest).where(
-            AvailableTest.name.notin_(loaded_test_names),
-            ~exists().where(TestRun.test_id == AvailableTest.id)
-        )
-        self.session.execute(retired_tests_stmt)
+        with self.session.session_factory() as db_session, db_session.begin():
+            retired_tests_stmt = delete(AvailableTest).where(
+                AvailableTest.name.notin_(loaded_test_names),
+                ~exists().where(TestRun.test_id == AvailableTest.id)
+            )
+            db_session.execute(retired_tests_stmt)
 
-        # mark deleted tests referenced by past sessions as inactive so
-        # we can't retask them
-        self.session.execute(
-            update(AvailableTest)
-            .where(AvailableTest.name.notin_(loaded_test_names))
-            .values(is_active=False)
-        )
+            # mark deleted tests referenced by past sessions as inactive so
+            # we can't retask them
+            db_session.execute(
+                update(AvailableTest)
+                .where(AvailableTest.name.notin_(loaded_test_names))
+                .values(is_active=False)
+            )
 
-        # delete objectives not referenced by any tests
-        orphaned_tpl_stmt = delete(TestObjectiveTemplate).where(
-            ~exists().where(test_template_association.c.template_id == TestObjectiveTemplate.id),
-            TestObjectiveTemplate.parent_id.is_(None)
-        )
-        self.session.execute(orphaned_tpl_stmt)
-
+            # delete objectives not referenced by any tests
+            orphaned_tpl_stmt = delete(TestObjectiveTemplate).where(
+                ~exists().where(test_template_association.c.template_id == TestObjectiveTemplate.id),
+                TestObjectiveTemplate.parent_id.is_(None)
+            )
+            db_session.execute(orphaned_tpl_stmt)
+            db_session.commit()
 
     def store_objective_results(self, run_id: int, results: dict):
-        with self.session.session_factory() as sess, sess.begin():
+        with self.session.session_factory() as db_sess, db_sess.begin():
             # Fetch the run with its objectives and templates pre-loaded
             stmt = (
                 select(TestRun)
@@ -249,7 +254,7 @@ class AuditsMixIn:
                 )
                 .where(TestRun.id == run_id)
             )
-            run = sess.execute(stmt).unique().scalar_one_or_none()
+            run = db_sess.execute(stmt).unique().scalar_one_or_none()
 
             if not run:
                 log.error("Run %d not found for result assignment",run_id)
@@ -277,6 +282,7 @@ class AuditsMixIn:
             # Store the whole thing for posterity
             run.raw_results = results
             log.info("Updated objective states for Run %d",run_id)
+            db_sess.commit()
 
     def evaluate_objective_results(self, test_run: TestRun):
         log.info("Starting evaluation of test run #%d",test_run.id)
@@ -285,9 +291,9 @@ class AuditsMixIn:
         results_dict = validator.evaluate()
         self.store_objective_results(test_run.id, results_dict)
 
-    def update_audit_tasks_status(self, db_session, session: TestSession):
+    def update_audit_tasks_status(self, db_session: Session, audit_session: TestSession):
         changed = False
-        for run in session.runs:
+        for run in audit_session.runs:
             if run.cape_task_id:
                 cape_task = self.view_task(run.cape_task_id)
                 if cape_task:
@@ -301,13 +307,33 @@ class AuditsMixIn:
             db_session.commit()
 
     def get_test_session(self, session_id: int) -> Optional[TestSession]:
-        stmt = select(TestSession).where(TestSession.id == session_id)
-        test_session = self.session.execute(stmt).unique().scalar_one_or_none()
-        # do just-in-time refresh of test run statuses
-        if test_session:
-            self.update_audit_tasks_status(self.session, test_session)
-            return test_session
-        return None
+        with self.session.session_factory() as db_session, db_session.begin():
+            stmt = (
+                    select(TestSession)
+                    .options(
+                        # Branch A: Load the test definitions for the runs
+                        selectinload(TestSession.runs)
+                        .joinedload(TestRun.test_definition),
+
+                        # Branch B: Load the objectives, their templates, AND their children
+                        selectinload(TestSession.runs)
+                        .selectinload(TestRun.objectives)
+                        .options(
+                            joinedload(TestObjectiveInstance.template),
+                            selectinload(TestObjectiveInstance.children)
+                            .joinedload(TestObjectiveInstance.template)
+                        )
+                    )
+                    .where(TestSession.id == session_id)
+                )
+
+            test_session = db_session.execute(stmt).unique().scalar_one_or_none()
+            # do just-in-time refresh of test run statuses
+            if test_session:
+                self.update_audit_tasks_status(db_session, test_session)
+                db_session.expunge_all()
+                return test_session
+            return None
 
     def delete_test_session(self, session_id: int, purge_storage: bool = True) -> bool:
         """
@@ -315,9 +341,10 @@ class AuditsMixIn:
         @param: session_id: audit session to delete
         @param: purge_storage: if true, also delete the task storage directories of all the test runs
         """
-        with self.session.session_factory() as sess, sess.begin():
+        session_id = int(session_id)
+        with self.session.session_factory() as db_session, db_session.begin():
             stmt = select(TestSession).where(TestSession.id == session_id)
-            session_obj = sess.execute(stmt).unique().scalar_one_or_none()
+            session_obj = db_session.execute(stmt).unique().scalar_one_or_none()
 
             if not session_obj:
                 log.warning("Attempted to delete non-existent TestSession ID: %d",session_id)
@@ -331,7 +358,7 @@ class AuditsMixIn:
                     TestRun.status == TEST_RUNNING
                 )
             )
-            active_runs = sess.execute(stmt).scalar()
+            active_runs = db_session.execute(stmt).scalar()
 
             if active_runs > 0:
                 log.warning("Cannot delete Session %d: one or more runs are still 'running'",session_id)
@@ -345,40 +372,39 @@ class AuditsMixIn:
                         if os.path.isdir(task_storage_dir):
                             shutil.rmtree(task_storage_dir)
 
-            sess.delete(session_obj)
+            db_session.delete(session_obj)
+            db_session.commit()
             log.info("Deleted TestSession %d and all its objective results.",session_id)
         return True
 
     def create_session_from_tests(self, test_ids: list) -> int:
-        with self.session.session_factory() as db_session:
+        with self.session.session_factory() as db_session, db_session.begin():
             try:
-                # Using a transaction context
-                with db_session.begin():
-                    # 1. Initialize the new Session
-                    new_test_session = TestSession()
-                    db_session.add(new_test_session)
+                # 1. Initialize the new Session
+                new_test_session = TestSession()
+                db_session.add(new_test_session)
 
-                    # Flush so the DB generates an ID for new_session
-                    # without committing the whole transaction yet
-                    db_session.flush()
+                # Flush so the DB generates an ID for new_session
+                # without committing the whole transaction yet
+                db_session.flush()
 
-                    # 2. Create a Run entry for every test ID provided
-                    for t_id in test_ids:
-                        test_def = db_session.get(AvailableTest, int(t_id))
-                        run = TestRun(session_id=new_test_session.id, test_id=test_def.id)
+                # 2. Create a Run entry for every test ID provided
+                for t_id in test_ids:
+                    test_def = db_session.get(AvailableTest, int(t_id))
+                    run = TestRun(session_id=new_test_session.id, test_id=test_def.id)
 
-                        db_session.add(run)
-                        for template in test_def.objective_templates:
-                            def init_objective(obj_template):
-                                children = [init_objective(obj_child) for obj_child in obj_template.children]
-                                result = TestObjectiveInstance(run_id=run.id, template_id=obj_template.id,children=children, state="untested")
-                                return result
+                    db_session.add(run)
+                    for template in test_def.objective_templates:
+                        def init_objective(obj_template):
+                            children = [init_objective(obj_child) for obj_child in obj_template.children]
+                            result = TestObjectiveInstance(run_id=run.id, template_id=obj_template.id,children=children, state="untested")
+                            return result
 
-                            run.objectives.append(init_objective(template))
+                        run.objectives.append(init_objective(template))
 
-                    db_session.flush()
-                    # The session ID to return for the redirect
-                    test_session_id = new_test_session.id
+                db_session.commit()
+                # The session ID to return for the redirect
+                test_session_id = new_test_session.id
 
                 return test_session_id
             except Exception as e:
@@ -389,28 +415,42 @@ class AuditsMixIn:
                 db_session.close()
 
     def get_audit_session_test(self, session_id: int, testrun_id: int) -> Optional[TestRun]:
-        stmt = select(TestRun).where(TestRun.id == testrun_id).where(TestRun.session_id == session_id)
+        stmt = (
+            select(TestRun)
+            .options(
+                joinedload(TestRun.test_definition),
+                selectinload(TestRun.objectives).joinedload(TestObjectiveInstance.template),
+                selectinload(TestRun.objectives).selectinload(TestObjectiveInstance.children)
+            )
+            .where(TestRun.id == testrun_id)
+            .where(TestRun.session_id == session_id)
+        )
 
-        # Execute and get the result
-        return self.session.execute(stmt).unique().scalar_one_or_none()
+        with self.session.session_factory() as db_sess, db_sess.begin():
+            result = db_sess.execute(stmt).unique().scalar_one_or_none()
+            if result:
+                db_sess.expunge_all()
+            return result
 
     def set_audit_run_status(self, session_id: int, testrun_id: int, new_status: String) -> None:
-        run = self.get_audit_session_test(session_id, testrun_id)
-        if run:
-            run.status = new_status
-            self.session.commit()
+        with self.session.session_factory() as db_sess, db_sess.begin():
+            run = self.get_audit_session_test(session_id, testrun_id)
+            if run:
+                run.status = new_status
+                db_sess.commit()
 
     def assign_cape_task_to_testrun(self, run_id: int, cape_task_id: int) -> bool:
         """
         Updates a TestRun with the ID returned from the CAPE sandbox.
         """
-        with self.session.session_factory() as sess, sess.begin():
+        with self.session.session_factory() as db_sess, db_sess.begin():
             stmt = select(TestRun).where(TestRun.id == run_id)
-            run = sess.execute(stmt).unique().scalar_one_or_none()
+            run = db_sess.execute(stmt).unique().scalar_one_or_none()
 
             if run:
                 run.cape_task_id = cape_task_id
                 run.status = TEST_QUEUED
+                db_sess.commit()
                 log.info("TestRun %d successfully linked to CAPE Task %d",run_id,cape_task_id)
                 return True
             else:

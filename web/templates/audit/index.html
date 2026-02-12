@@ -250,15 +250,15 @@
                     
                     <div class="d-flex gap-2">
                         {% if available_tests %}
-                        <button type="button" id="btnCreateSessionAll" onclick="createSession('all')"
-                                class="btn btn-success px-3 shadow-sm me-2">
-                            <i class="fas fa-circle-plus me-2"></i>New Session (All Tests)
-                        </button>
-
                         <button type="button" id="btnCreateSessionSelected"
                                 onclick="createSession('selected')"
-                                class="btn btn-outline-success px-3 shadow-sm" disabled>
+                                class="btn btn-outline-light px-3 shadow-sm" disabled>
                             <i class="fas fa-circle-check me-2"></i>New Session (Selected Tests) (<span id="selectedCount">0</span>)
+                        </button>
+
+                        <button type="button" id="btnCreateSessionAll" onclick="createSession('all')"
+                                class="btn btn-outline-success px-3 shadow-sm me-2">
+                            <i class="fas fa-circle-plus me-2"></i>New Session (All Tests)
                         </button>
                         {% endif %}
                     </div>
@@ -376,14 +376,14 @@
                 if (checkedCount === 0)
                 {
                     btnSelected.disabled = true;
-                    btnSelected.classList.remove('btn-outline-success');
+                    btnSelected.classList.remove('btn-success');
                     btnSelected.classList.add('btn-outline-light');
                 }
                 else
                 {
                     btnSelected.disabled = false;
                     btnSelected.classList.remove('btn-outline-light');
-                    btnSelected.classList.add('btn-outline-success');
+                    btnSelected.classList.add('btn-success');
                 }
 
                 // Sync the master checkbox state
@@ -440,21 +440,7 @@
     }
 
 
-    function toggleConfigEdit(testId) {
-        const viewDiv = document.getElementById(`view-mode-${testId}`);
-        const editDiv = document.getElementById(`edit-mode-${testId}`);
-        const editBtn = document.getElementById(`edit-btn-${testId}`);
 
-        if (viewDiv.classList.contains('d-none')) {
-            viewDiv.classList.remove('d-none');
-            editDiv.classList.add('d-none');
-            editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>Edit';
-        } else {
-            viewDiv.classList.add('d-none');
-            editDiv.classList.remove('d-none');
-            editBtn.innerHTML = '<i class="fas fa-eye me-1"></i>View';
-        }
-    }
 </script>
 
 {% endblock %}

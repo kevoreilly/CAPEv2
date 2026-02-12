@@ -76,59 +76,63 @@ def audit_index(request, page:int = 1):
     Currently only handles paging for sessions as tests are probably better
     viewed as a single page while being picked through for a new session
     """
+    with db.session.session_factory() as db_session, db_session.begin():
+        available_tests = db.list_available_tests(db_session=db_session)
+        for test in available_tests:
+            # We create a new "virtual" attribute on the object
+            if test.task_config:
+                test.task_config_pretty = json.dumps(test.task_config, indent=2)
+            else:
+                test.task_config_pretty = "{}"
 
-    available_tests = db.list_available_tests()
-    for test in available_tests:
-        # We create a new "virtual" attribute on the object
-        if test.task_config:
-            test.task_config_pretty = json.dumps(test.task_config, indent=2)
-        else:
-            test.task_config_pretty = "{}"
+        paging = {}
+        first_last_session = db.get_session_id_range()
+        page = int(page)
+        if page == 0:
+            page = 1
+        offset = (page - 1) * SESSIONS_PER_PAGE
 
-    paging = {}
-    first_last_session = db.get_session_id_range()
-    page = int(page)
-    if page == 0:
-        page = 1
-    offset = (page - 1) * SESSIONS_PER_PAGE
+        test_sessions = db.list_test_sessions(db_session=db_session, offset=offset, limit=SESSIONS_PER_PAGE)
+        for audit_session in test_sessions:
+            for run in audit_session.runs:
+                if run.status not in [TEST_COMPLETE, TEST_FAILED]:
+                    db.update_audit_tasks_status(db_session=db_session, audit_session=audit_session)
+                    break
+            audit_session.stats = get_session_stats(audit_session)
 
-    test_sessions = db.list_test_sessions(offset=offset, limit=SESSIONS_PER_PAGE)
-    for session in test_sessions:
-        session.stats = get_session_stats(session)
+        paging["show_session_prev"] = "hide"
+        paging["show_session_next"] = "hide"
 
-    paging["show_session_prev"] = "hide"
-    paging["show_session_next"] = "hide"
+        if test_sessions:
+            if test_sessions[0].id != first_last_session[1]:
+                paging["show_session_prev"] = "show"
+            if test_sessions[-1].id != first_last_session[0]:
+                paging["show_session_next"] = "show"
 
-    if test_sessions:
-        if test_sessions[0].id != first_last_session[1]:
-            paging["show_session_prev"] = "show"
-        if test_sessions[-1].id != first_last_session[0]:
-            paging["show_session_next"] = "show"
+        sessions_count = db.count_test_sessions()
+        pages_sessions_num = int(sessions_count / SESSIONS_PER_PAGE + 1)
 
-    sessions_count = db.count_test_sessions()
-    pages_sessions_num = int(sessions_count / SESSIONS_PER_PAGE + 1)
+        sessions_pages = []
+        if pages_sessions_num < 11 or page < 6:
+            sessions_pages = list(range(1, min(10, pages_sessions_num) + 1))
+        elif page > 5:
+            sessions_pages = list(range(min(page - 5, pages_sessions_num - 10) + 1, min(page + 5, pages_sessions_num) + 1))
 
-    sessions_pages = []
-    if pages_sessions_num < 11 or page < 6:
-        sessions_pages = list(range(1, min(10, pages_sessions_num) + 1))
-    elif page > 5:
-        sessions_pages = list(range(min(page - 5, pages_sessions_num - 10) + 1, min(page + 5, pages_sessions_num) + 1))
+        paging["sessions_page_range"] = sessions_pages
+        paging["next_page"] = str(page + 1)
+        paging["prev_page"] = str(page - 1)
+        paging["current_page"] = page
 
-    paging["sessions_page_range"] = sessions_pages
-    paging["next_page"] = str(page + 1)
-    paging["prev_page"] = str(page - 1)
-    paging["current_page"] = page
-
-    return render(
-        request,
-        "audit/index.html",
-        {
-            "available_tests": available_tests,
-            "total_sessions": sessions_count,
-            "sessions": test_sessions,
-            "paging": paging,
-        },
-    )
+        return render(
+            request,
+            "audit/index.html",
+            {
+                "available_tests": available_tests,
+                "total_sessions": sessions_count,
+                "sessions": test_sessions,
+                "paging": paging,
+            },
+        )
 
 
 @require_POST
@@ -271,6 +275,8 @@ def generate_task_diagnostics(task: Task, test_run: TestRun):
 
     return diagnostics
 
+def _format_json_config(config_raw):
+    return json.dumps(config_raw, indent=2)
 
 def _render_run_update(request, session_id: int, testrun_id: int):
     """
@@ -289,7 +295,7 @@ def _render_run_update(request, session_id: int, testrun_id: int):
             diagnostics = generate_task_diagnostics(cape_task_info, test_run)
 
     if test_run.test_definition.task_config:
-        test_run.task_config_pretty = json.dumps(test_run.test_definition.task_config, indent=2)
+        test_run.task_config_pretty = _format_json_config(test_run.test_definition.task_config)
 
     # Render just the partial file with the updated 'run' object
     html = render_to_string(
@@ -392,7 +398,7 @@ def queue_test(request, session_id: int, testrun_id: int):
     if cape_task_id:
         return JsonResponse({"status": "success", "message": "Test queued successfully", "task_id": cape_task_id})
     else:
-        return JsonResponse({"status": "failure", "message": "Could not queue test", "task_id": None})
+        return JsonResponse({"status": "failure", "message": "Could not queue test - see messages.", "task_id": None})
 
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -465,22 +471,24 @@ def unqueue_all_tests(request, session_id: int):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def update_task_config(request, availabletest_id):
     if request.method == "POST":
-        test = db.get_test(availabletest_id=availabletest_id)
-        raw_json = request.POST.get("task_config", "").strip()
+        with db.session.session_factory() as db_session, db_session.begin():
+            test = db.get_test(availabletest_id=availabletest_id, db_session=db_session)
+            raw_json = request.POST.get("task_config", "").strip()
 
-        try:
-            # 1. Validate JSON syntax
-            parsed_data = json.loads(raw_json)
+            try:
+                # 1. Validate JSON syntax
+                parsed_data = json.loads(raw_json)
 
-            # 2. Save the minified version to the DB (or keep pretty if preferred)
-            test.task_config = parsed_data
-            messages.success(request, f"Configuration for Test {test.name} (#{test.id}) updated successfully.")
-            return JsonResponse({"success": True})
+                # 2. Save the minified version to the DB (or keep pretty if preferred)
+                test.task_config = parsed_data
+                db_session.commit()
+                messages.success(request, f"Configuration for Test {test.name} (#{test.id}) updated successfully.")
+                return JsonResponse({"success": True, "config_pretty": _format_json_config(parsed_data)})
 
-        except json.JSONDecodeError as e:
-            messages.error(request, f"Failed to save: Invalid JSON format. Error: {str(e)}")
-            return JsonResponse({"success": False, "error": "bad json: "+str(e)})
+            except json.JSONDecodeError as e:
+                messages.error(request, f"Failed to save: Invalid JSON format. Error: {str(e)}")
+                return JsonResponse({"success": False, "error": "bad json: "+str(e)})
 
-        except Exception as e:
-            messages.error(request, f"An unexpected error occurred: {str(e)}")
-            return JsonResponse({"success": False, "error": str(e)})
+            except Exception as e:
+                messages.error(request, f"An unexpected error occurred: {str(e)}")
+                return JsonResponse({"success": False, "error": str(e)})

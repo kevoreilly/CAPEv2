@@ -119,7 +119,9 @@ class TestObjectiveInstance(Base):
     run: Mapped["TestRun"] = relationship(back_populates="objectives")
     parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("test_objective_instances.id"))
     children: Mapped[List["TestObjectiveInstance"]] = relationship(
-        back_populates="parent", cascade="all, delete-orphan",
+        back_populates="parent",
+        cascade="all, delete-orphan",
+        lazy="selectin"
     )
 
     parent: Mapped[Optional["TestObjectiveInstance"]] = relationship(back_populates="children", remote_side=[id])

@@ -156,8 +156,8 @@
     const SESSION_ID = "{{ session.id }}";
 
     // Check every 5 seconds
-    let DASHBOARD_STATE = {
-        isActive: true,
+    window.DASHBOARD_STATE = {
+        isAutoRefreshing: true,
         elapsed: 0,
         refreshTime: 5000,
         step: 50
@@ -165,9 +165,10 @@
 
     function tick() {
         const root = document.getElementById('auto-update-root');
+        let dashboard_state = window.DASHBOARD_STATE
 
         // 1. Check the variable, not the DOM
-        if (!DASHBOARD_STATE.isActive) {
+        if (!dashboard_state.isAutoRefreshing) {
             if (root) root.classList.add('is-idle');
             return;
         } else {
@@ -180,27 +181,26 @@
 
         if (!toggle || !toggle.checked) return;
 
-        // 3. Increment
-        DASHBOARD_STATE.elapsed += DASHBOARD_STATE.step;
-        let percentage = (DASHBOARD_STATE.elapsed / DASHBOARD_STATE.refreshTime) * 100;
+        dashboard_state.elapsed += dashboard_state.step;
+        let percentage = (dashboard_state.elapsed / dashboard_state.refreshTime) * 100;
 
         if (progressBar) {
             progressBar.style.width = percentage + '%';
         }
 
-        if (DASHBOARD_STATE.elapsed >= DASHBOARD_STATE.refreshTime) {
-            DASHBOARD_STATE.elapsed = 0;
+        if (dashboard_state.elapsed >= dashboard_state.refreshTime) {
+            dashboard_state.elapsed = 0;
             updateStatuses();
         }
     }
 
-    var RELOADER = setInterval(tick, DASHBOARD_STATE.step);
+    var RELOADER = setInterval(tick, window.DASHBOARD_STATE.step);
 
     function forceRefresh() {
         updateStatuses();
 
         // Reset the progress bar immediately for visual feedback
-        DASHBOARD_STATE.elapsed = 0;
+        window.DASHBOARD_STATE.elapsed = 0;
         const progressBar = document.getElementById('refresh-progress');
         if (progressBar) progressBar.style.width = '0%';
 
@@ -255,7 +255,7 @@
                 // 3. Update the button to show it worked
                 btn.classList.replace('btn-outline-info', 'btn-secondary');
                 btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
-                if (!DASHBOARD_STATE.isSessionActive) {
+                if (!window.DASHBOARD_STATE.isAutoRefreshing) {
                     setTimeout(updateStatuses, 650)
                 }
                 // btn.disabled remains true so they can't queue it twice
@@ -302,7 +302,7 @@
                 // 3. Update the button to show it worked
                 btn.classList.replace('btn-outline-info', 'btn-secondary');
                 btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
-                if (!DASHBOARD_STATE.isSessionActive) {
+                if (!window.DASHBOARD_STATE.isAutoRefreshing) {
                     setTimeout(updateStatuses, 650)
                 }
                 // btn.disabled remains true so they can't queue it twice
@@ -342,13 +342,13 @@
                     headerWrapper.innerHTML = data.status_box_card
                 }
                 // Update the Logic State
-                DASHBOARD_STATE.isActive = data.stats.tests.running > 0 ||
+                window.DASHBOARD_STATE.isAutoRefreshing = data.stats.tests.running > 0 ||
                     data.stats.tests.queued > 0 ||
                     data.stats.complete_but_unevaluated > 0;
 
                 // If it's no longer active, reset the bar
                 if (!data.is_active) {
-                    DASHBOARD_STATE.elapsed = 0;
+                    window.DASHBOARD_STATE.elapsed = 0;
                 }
 
                 //re-expand elements

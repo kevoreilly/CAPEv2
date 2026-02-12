@@ -228,19 +228,26 @@ class AuditsMixIn:
             db_session.execute(retired_tests_stmt)
 
             # mark deleted tests referenced by past sessions as inactive so
-            # we can't retask them
             db_session.execute(
                 update(AvailableTest)
                 .where(AvailableTest.name.notin_(loaded_test_names))
                 .values(is_active=False)
             )
 
-            # delete objectives not referenced by any tests
+            # Only delete if they are NOT used by ANY test AND NOT used by ANY results
             orphaned_tpl_stmt = delete(TestObjectiveTemplate).where(
+                # Not linked to any AvailableTest (active or inactive)
                 ~exists().where(test_template_association.c.template_id == TestObjectiveTemplate.id),
-                TestObjectiveTemplate.parent_id.is_(None)
+        
+                # AND not linked to any historical test results
+                ~exists().where(TestObjectiveInstance.template_id == TestObjectiveTemplate.id)
             )
-            db_session.execute(orphaned_tpl_stmt)
+    
+            # Pass 1: Delete Leaf nodes that meet the criteria
+            db_session.execute(orphaned_tpl_stmt.where(TestObjectiveTemplate.parent_id.is_not(None)))
+    
+            # Pass 2: Delete Root nodes that meet the criteria
+            db_session.execute(orphaned_tpl_stmt.where(TestObjectiveTemplate.parent_id.is_(None)))
             db_session.commit()
 
     def store_objective_results(self, run_id: int, results: dict):

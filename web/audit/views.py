@@ -201,6 +201,7 @@ def reload_available_tests(request):
 
     except Exception as e:
         messages.error(request, f"reload_available_tests:: Error reloading tests: {str(e)}")
+        logger.exception("reload_available_tests::exception")
 
     return redirect(reverse("audit_index") + "#available-tests")
 

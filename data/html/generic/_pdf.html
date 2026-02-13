@@ -101,7 +101,7 @@
                         <th>Keyword</th>
                         <th>Count</th>
                     </tr>
-                    {% for keyword, count in file.pdf.Keywords.items %}
+                    {% for keyword, count in file.pdf.Keywords.items() %}
                     <tr>
                         <td>{{keyword}}</td>
                         <td>{{count}}</td>

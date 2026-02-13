@@ -288,6 +288,8 @@ def move_mouse_realistically(dest_x, dest_y):
 
     # Calculate distance to determine total duration
     distance = math.sqrt((dest_x - start_x)**2 + (dest_y - start_y)**2)
+    if distance < 1:
+        return
 
     # 1. Create random control points for a natural curve
     # These points 'pull' the path away from a perfect straight line

@@ -14,6 +14,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
+from dev_utils.mongodb import mongo_find_one
 
 try:
     import re2 as re
@@ -185,7 +186,7 @@ def get_vt_consensus(namelist: list):
     return ""
 
 
-def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = False):
+def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = False, file_category: str = ""):
     if not processing_conf.virustotal.enabled or processing_conf.virustotal.get("on_demand", False) and not on_demand:
         return {}
     if category not in ("file", "url"):
@@ -199,6 +200,20 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
             return {"error": True, "msg": "File doesn't exist"}
 
         sha256 = target if len(target) == 64 else File(target).get_sha256()
+
+        if file_category:
+            cache_setting = processing_conf.virustotal.get(f"cache_{file_category.lower()}")
+            if cache_setting is None:
+                cache_setting = processing_conf.virustotal.get("cache_default", False)
+
+            if cache_setting:
+                try:
+                    db_file = mongo_find_one("files", {"sha256": sha256})
+                    if db_file and "virustotal" in db_file:
+                        return db_file["virustotal"]
+                except Exception as e:
+                    log.error("Error checking VT cache: %s", e)
+
         url = VIRUSTOTAL_FILE_URL.format(id=sha256)
 
     elif category == "url":

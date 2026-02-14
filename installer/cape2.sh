@@ -1891,6 +1891,8 @@ case "$COMMAND" in
     install_IntroVirt;;
 'passivedns')
     install_passivedns;;
+'libvirt')
+    install_libvirt;;
 *)
     usage;;
 esac

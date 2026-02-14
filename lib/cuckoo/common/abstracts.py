@@ -435,7 +435,7 @@ class LibVirtMachinery(Machinery):
     def __init__(self):
         if not HAVE_LIBVIRT:
             raise CuckooDependencyError(
-                "Unable to import libvirt. Ensure that you properly installed it by running: cd /opt/CAPEv2/ ; sudo -u cape poetry run extra/libvirt_installer.sh"
+                "Unable to import libvirt. Ensure cape is being run from the same python environment configured by the installer script."
             )
 
         super().__init__()

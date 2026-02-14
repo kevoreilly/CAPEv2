@@ -333,7 +333,7 @@ def check_snapshot_state():
     except ImportError:
         raise CuckooStartupError(
             "The 'libvirt-python' library is required for KVM/QEMU machinery but could not be imported. "
-            "Please ensure the python interpreter being used to execute cape is the same one configured by the install script."
+            "Please ensure that CAPE is being launched by the same Python environment configured by the install script."
         )
 
     machinery_config = Config(cuckoo.cuckoo.machinery)

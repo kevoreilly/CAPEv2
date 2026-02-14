@@ -214,7 +214,7 @@ class CAPE(Processing):
                     cached = True
                     if yara_match and options_match:
                         run_static = False
-                        if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
+                        if HAVE_VIRUSTOTAL:
                             # We might want to refresh VT based on cache policy
                             vt_details = vt_lookup("file", sha256, self.results, file_category=category)
                             if vt_details:

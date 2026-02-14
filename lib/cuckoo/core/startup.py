@@ -332,8 +332,8 @@ def check_snapshot_state():
         from xml.etree import ElementTree
     except ImportError:
         raise CuckooStartupError(
-            "The 'libvirt-python' library is required for KVM/QEMU machinery but is not installed. "
-            "Please install it (e.g., 'cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/libvirt_installer.sh')."
+            "The 'libvirt-python' library is required for KVM/QEMU machinery but could not be imported. "
+            "Please ensure the python interpreter being used to execute cape is the same one configured by the install script."
         )
 
     machinery_config = Config(cuckoo.cuckoo.machinery)

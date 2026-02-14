@@ -904,7 +904,7 @@ function install_libvirt() {
     export PKG_CONFIG_PATH=$export_path
 
     # Run build and install within the project environment
-    # We use sudo -u cape ... to install into the user's environment managed by poetry/uv
+    # We use sudo -u cape ... to install into the user's environment managed by poetry/uv/pip
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
         # sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install /tmp/libvirt-python-${LIB_VERSION}"
         sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install libvirt-python==${LIB_VERSION}"

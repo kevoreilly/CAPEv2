@@ -8,7 +8,7 @@ try:
 
     LIBVIRT_AVAILABLE = True
 except ImportError:
-    print("Unable to import python-libvirt. Check the python environment.")
+    print("Unable to import python-libvirt. Check that the CAPE python environment has it installed.")
     LIBVIRT_AVAILABLE = False
 
 machinery = Config().cuckoo.machinery

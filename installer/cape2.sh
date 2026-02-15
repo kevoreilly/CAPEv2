@@ -894,6 +894,12 @@ function install_libvirt() {
     sudo apt-get install -y locate && sudo updatedb # used by install_libvirt
     temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
     temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
+
+    if [ -z "$temp_libvirt_so_path" ] || [ -z "$temp_export_path" ]; then
+        echo "[-] libvirt headers not found, skipping libvirt-python installation. Please install it using: sudo bash ./kvm-qemu.sh libvirt."
+        return
+    fi
+
     libvirt_so_path="${temp_libvirt_so_path%/*}/"
     if [[ $libvirt_so_path == "/usr/lib/x86_64-linux-gnu/" ]]; then
         temp_libvirt_so_path=$(locate libvirt-qemu.so | tail -1 | awk '{print $1;}')

@@ -2521,9 +2521,9 @@ sqlalchemy==2.0.41 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:dd5ec3aa6ae6e4d5b5de9357d2133c07be1aff6405b136dad753a16afb6717dd \
     --hash=sha256:edba70118c4be3c2b1f90754d308d0b79c6fe2c0fdc52d8ddf603916f83f4db9 \
     --hash=sha256:ff8e80c4c4932c10493ff97028decfdb622de69cae87e0f127a7ebe32b4069c6
-sqlparse==0.5.3 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:09f67787f56a0b16ecdbde1bfc7f5d9c3371ca683cfeaa8e6ff60b4807ec9272 \
-    --hash=sha256:cf2196ed3418f3ba5de6af7e82c694a9fbdbfecccdfc72e281548517081f16ca
+sqlparse==0.5.4 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:4396a7d3cf1cd679c1be976cf3dc6e0a51d0111e87787e7a8d780e7d5a998f9e \
+    --hash=sha256:99a9f0314977b76d776a0fcb8554de91b9bb8a18560631d6bc48721d07023dcb
 storage3==0.12.1 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:32ea8f5eb2f7185c2114a4f6ae66d577722e32503f0a30b56e7ed5c7f13e6b48 \
     --hash=sha256:9da77fd4f406b019fdcba201e9916aefbf615ef87f551253ce427d8136459a34

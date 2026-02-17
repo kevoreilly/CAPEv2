@@ -35,3 +35,18 @@ Windows automatically enables the Virus Real-time Protection
 One possible annoying behavior of Windows occurs when it automatically enables the real-time protection whenever an analysis is started therefore deleting the sample (if it identifies the sample as malware).
 
 To definitely turn it off you can follow one or more options listed in `this site <https://www.tenforums.com/tutorials/3569-turn-off-real-time-protection-microsoft-defender-antivirus.html>`_.
+
+Enable AutoLogon
+----------------
+
+For features like "Reboot Analysis" (not implemented) to work properly, the VM must automatically log in the user upon boot so the agent can restart.
+
+To enable AutoLogon via the Registry, open an Administrator command prompt and run the following commands (replace ``<USERNAME>`` and ``<PASSWORD>`` with your specific user credentials):
+
+.. code-block:: bat
+
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v AutoAdminLogon /t REG_SZ /d 1 /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultUserName /t REG_SZ /d <USERNAME> /f
+    reg add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon" /v DefaultPassword /t REG_SZ /d <PASSWORD> /f
+
+Alternatively, you can use the Microsoft Sysinternals tool `Autologon <https://learn.microsoft.com/en-us/sysinternals/downloads/autologon>`_.

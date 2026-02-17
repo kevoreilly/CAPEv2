@@ -225,6 +225,13 @@ auth_only = no
 rps = 1/s
 rpm = 20/m
 
+# Pull the self extracted files from a specific task
+[taskselfextracted]
+enabled = no
+auth_only = no
+rps = 1/s
+rpm = 20/m
+
 # Pull the captured suricata files from a specific task
 [tasksurifile]
 enabled = yes

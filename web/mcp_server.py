@@ -2,7 +2,7 @@ import json
 import os
 import mimetypes
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict
 
 import httpx
 from fastmcp import FastMCP
@@ -36,7 +36,7 @@ async def _request(method: str, endpoint: str, **kwargs) -> Any:
                     return response.json()
                  except json.JSONDecodeError:
                     return {"error": True, "message": f"HTTP {response.status_code}", "body": response.text}
-            
+
             try:
                 return response.json()
             except json.JSONDecodeError:
@@ -53,27 +53,27 @@ async def _download_file(endpoint: str, destination: str, default_filename: str 
 
     url = f"{API_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     headers = get_headers()
-    
+
     async with httpx.AsyncClient() as client:
         try:
             async with client.stream("GET", url, headers=headers) as response:
                 if response.status_code != 200:
                     content = await response.read()
                     return json.dumps({"error": True, "message": f"HTTP {response.status_code}", "body": content.decode('utf-8', errors='ignore')}, indent=2)
-                
+
                 filename = default_filename
                 content_disposition = response.headers.get("content-disposition")
                 if content_disposition:
                     match = re.search(r'filename="?([^"]+)"?', content_disposition)
                     if match:
                         filename = os.path.basename(match.group(1))
-                
+
                 filepath = os.path.join(destination, filename)
-                
+
                 with open(filepath, "wb") as f:
                     async for chunk in response.aiter_bytes():
                         f.write(chunk)
-                        
+
                 return json.dumps({"error": False, "message": f"Saved to {filepath}", "path": filepath}, indent=2)
         except Exception as e:
             return json.dumps({"error": True, "message": str(e)}, indent=2)
@@ -85,7 +85,7 @@ def _build_submission_data(**kwargs) -> Dict[str, str]:
         # Skip empty values (None, "", 0, False) to match original behavior
         if not value:
             continue
-            
+
         if isinstance(value, bool):
             data[key] = "1"
         elif isinstance(value, int):
@@ -116,14 +116,14 @@ async def submit_file(
     """
     if not os.path.exists(file_path):
         return json.dumps({"error": True, "message": "File not found"})
-    
+
     # Security check: Ensure file is within allowed directory
     abs_file_path = os.path.abspath(file_path)
     abs_allowed_dir = os.path.abspath(ALLOWED_SUBMISSION_DIR)
-    
+
     if not abs_file_path.startswith(abs_allowed_dir):
         return json.dumps({
-            "error": True, 
+            "error": True,
             "message": f"Security Violation: File submission is restricted to {abs_allowed_dir}"
         })
 
@@ -131,7 +131,7 @@ async def submit_file(
     mime_type, _ = mimetypes.guess_type(file_path)
     if not mime_type:
         mime_type = "application/octet-stream"
-        
+
     data = _build_submission_data(
         machine=machine, package=package, options=options, tags=tags,
         priority=priority, timeout=timeout, platform=platform,
@@ -140,7 +140,7 @@ async def submit_file(
     )
 
     url = f"{API_URL.rstrip('/')}/tasks/create/file/"
-    
+
     async with httpx.AsyncClient() as client:
         try:
             with open(file_path, "rb") as f:
@@ -152,7 +152,7 @@ async def submit_file(
                     result = {"error": response.status_code >= 400, "data": response.text}
         except Exception as e:
             result = {"error": True, "message": str(e)}
-            
+
     return json.dumps(result, indent=2)
 
 @mcp.tool()
@@ -178,7 +178,7 @@ async def submit_url(
         memory=memory, enforce_timeout=enforce_timeout, clock=clock,
         custom=custom
     ))
-    
+
     result = await _request("POST", "tasks/create/url/", data=data)
     return json.dumps(result, indent=2)
 
@@ -196,7 +196,7 @@ async def submit_dlnexec(
     data.update(_build_submission_data(
         machine=machine, package=package, options=options, tags=tags, priority=priority
     ))
-    
+
     result = await _request("POST", "tasks/create/dlnexec/", data=data)
     return json.dumps(result, indent=2)
 
@@ -209,14 +209,14 @@ async def submit_static(
     """Submit a file for static extraction only."""
     if not os.path.exists(file_path):
         return json.dumps({"error": True, "message": "File not found"})
-    
+
     # Security check: Ensure file is within allowed directory
     abs_file_path = os.path.abspath(file_path)
     abs_allowed_dir = os.path.abspath(ALLOWED_SUBMISSION_DIR)
-    
+
     if not abs_file_path.startswith(abs_allowed_dir):
         return json.dumps({
-            "error": True, 
+            "error": True,
             "message": f"Security Violation: File submission is restricted to {abs_allowed_dir}"
         })
 
@@ -224,11 +224,11 @@ async def submit_static(
     mime_type, _ = mimetypes.guess_type(file_path)
     if not mime_type:
         mime_type = "application/octet-stream"
-        
+
     data = _build_submission_data(priority=priority, options=options)
 
     url = f"{API_URL.rstrip('/')}/tasks/create/static/"
-    
+
     async with httpx.AsyncClient() as client:
         try:
             with open(file_path, "rb") as f:
@@ -240,7 +240,7 @@ async def submit_static(
                     result = {"error": response.status_code >= 400, "data": response.text}
         except Exception as e:
             result = {"error": True, "message": str(e)}
-            
+
     return json.dumps(result, indent=2)
 
 # --- Task Management & Search ---
@@ -253,7 +253,7 @@ async def search_task(hash_value: str) -> str:
         algo = "sha1"
     elif len(hash_value) == 64:
         algo = "sha256"
-        
+
     result = await _request("GET", f"tasks/search/{algo}/{hash_value}/")
     return json.dumps(result, indent=2)
 
@@ -273,7 +273,7 @@ async def list_tasks(limit: int = 10, offset: int = 0, status: str = "") -> str:
     params = {}
     if status:
         params["status"] = status
-    
+
     endpoint = f"tasks/list/{limit}/{offset}/"
     result = await _request("GET", endpoint, params=params)
     return json.dumps(result, indent=2)

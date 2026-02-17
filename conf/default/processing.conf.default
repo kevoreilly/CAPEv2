@@ -29,7 +29,7 @@ enabled = no
 [dumptls]
 enabled = no
 
-[amsi]
+[amsi_etw]
 enabled = no
 
 [behavior]

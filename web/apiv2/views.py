@@ -1860,9 +1860,9 @@ def tasks_selfextracted(request, task_id, tool="all"):
 
                         fname = sha256
                         if fmeta.get("guest_paths"):
-                            fname = fmeta["guest_paths"][0]
+                            fname = os.path.basename(fmeta["guest_paths"][0])
                         elif fmeta.get("name") and fmeta["name"] != sha256:
-                            fname = fmeta["name"]
+                            fname = os.path.basename(fmeta["name"])
 
                         arcname = os.path.join(tname, fname)
                         zf.write(fpath, arcname)

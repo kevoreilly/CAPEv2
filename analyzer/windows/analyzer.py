@@ -389,7 +389,7 @@ class Analyzer:
         # 4. Initiate Reboot
         log.info("Initiating system reboot")
         # Using shutdown command is robust
-        subprocess.call("shutdown /r /t 0 /f", shell=True)
+        subprocess.run(["shutdown", "/r", "/t", "0", "/f"], check=False)
 
         # Stop the analysis loop so we don't interfere while shutting down
         self.do_run = False

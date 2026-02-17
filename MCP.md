@@ -80,8 +80,8 @@ Add the following to your `claude_desktop_config.json`:
 {
   "mcpServers": {
     "cape": {
-      "command": "python3",
-      "args": ["/path/to/CAPEv2/web/mcp_server.py"],
+      "command": "poetry",
+      "args": ["run", "python", "/opt/CAPEv2/web/mcp_server.py"],
       "env": {
         "CAPE_API_URL": "http://127.0.0.1:8000/apiv2",
         "CAPE_API_TOKEN": "YOUR_API_TOKEN_HERE"

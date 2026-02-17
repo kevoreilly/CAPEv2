@@ -15,6 +15,10 @@ API_TOKEN = os.environ.get("CAPE_API_TOKEN", "")
 # Initialize FastMCP
 mcp = FastMCP("cape-sandbox")
 
+# Security: Restrict file submission to a specific directory
+# Defaults to current working directory if not set
+ALLOWED_SUBMISSION_DIR = os.environ.get("CAPE_ALLOWED_SUBMISSION_DIR", os.getcwd())
+
 def get_headers() -> Dict[str, str]:
     headers = {}
     if API_TOKEN:
@@ -62,7 +66,7 @@ async def _download_file(endpoint: str, destination: str, default_filename: str 
                 if content_disposition:
                     match = re.search(r'filename="?([^"]+)"?', content_disposition)
                     if match:
-                        filename = match.group(1)
+                        filename = os.path.basename(match.group(1))
                 
                 filepath = os.path.join(destination, filename)
                 
@@ -73,6 +77,22 @@ async def _download_file(endpoint: str, destination: str, default_filename: str 
                 return json.dumps({"error": False, "message": f"Saved to {filepath}", "path": filepath}, indent=2)
         except Exception as e:
             return json.dumps({"error": True, "message": str(e)}, indent=2)
+
+def _build_submission_data(**kwargs) -> Dict[str, str]:
+    """Helper to build submission data dictionary, handling type conversions."""
+    data = {}
+    for key, value in kwargs.items():
+        # Skip empty values (None, "", 0, False) to match original behavior
+        if not value:
+            continue
+            
+        if isinstance(value, bool):
+            data[key] = "1"
+        elif isinstance(value, int):
+            data[key] = str(value)
+        else:
+            data[key] = value
+    return data
 
 # --- Tasks Creation ---
 
@@ -97,23 +117,27 @@ async def submit_file(
     if not os.path.exists(file_path):
         return json.dumps({"error": True, "message": "File not found"})
     
+    # Security check: Ensure file is within allowed directory
+    abs_file_path = os.path.abspath(file_path)
+    abs_allowed_dir = os.path.abspath(ALLOWED_SUBMISSION_DIR)
+    
+    if not abs_file_path.startswith(abs_allowed_dir):
+        return json.dumps({
+            "error": True, 
+            "message": f"Security Violation: File submission is restricted to {abs_allowed_dir}"
+        })
+
     filename = os.path.basename(file_path)
     mime_type, _ = mimetypes.guess_type(file_path)
     if not mime_type:
         mime_type = "application/octet-stream"
         
-    data = {}
-    if machine: data["machine"] = machine
-    if package: data["package"] = package
-    if options: data["options"] = options
-    if tags: data["tags"] = tags
-    if priority: data["priority"] = str(priority)
-    if timeout: data["timeout"] = str(timeout)
-    if platform: data["platform"] = platform
-    if memory: data["memory"] = "1"
-    if enforce_timeout: data["enforce_timeout"] = "1"
-    if clock: data["clock"] = clock
-    if custom: data["custom"] = custom
+    data = _build_submission_data(
+        machine=machine, package=package, options=options, tags=tags,
+        priority=priority, timeout=timeout, platform=platform,
+        memory=memory, enforce_timeout=enforce_timeout, clock=clock,
+        custom=custom
+    )
 
     url = f"{API_URL.rstrip('/')}/tasks/create/file/"
     
@@ -124,7 +148,7 @@ async def submit_file(
                 response = await client.post(url, data=data, files=files, headers=get_headers())
                 try:
                     result = response.json()
-                except:
+                except json.JSONDecodeError:
                     result = {"error": response.status_code >= 400, "data": response.text}
         except Exception as e:
             result = {"error": True, "message": str(e)}
@@ -148,17 +172,12 @@ async def submit_url(
 ) -> str:
     """Submit a URL for analysis."""
     data = {"url": url}
-    if machine: data["machine"] = machine
-    if package: data["package"] = package
-    if options: data["options"] = options
-    if tags: data["tags"] = tags
-    if priority: data["priority"] = priority
-    if timeout: data["timeout"] = timeout
-    if platform: data["platform"] = platform
-    if memory: data["memory"] = "1"
-    if enforce_timeout: data["enforce_timeout"] = "1"
-    if clock: data["clock"] = clock
-    if custom: data["custom"] = custom
+    data.update(_build_submission_data(
+        machine=machine, package=package, options=options, tags=tags,
+        priority=priority, timeout=timeout, platform=platform,
+        memory=memory, enforce_timeout=enforce_timeout, clock=clock,
+        custom=custom
+    ))
     
     result = await _request("POST", "tasks/create/url/", data=data)
     return json.dumps(result, indent=2)
@@ -174,11 +193,9 @@ async def submit_dlnexec(
 ) -> str:
     """Submit a URL for Download & Execute analysis."""
     data = {"dlnexec": url}
-    if machine: data["machine"] = machine
-    if package: data["package"] = package
-    if options: data["options"] = options
-    if tags: data["tags"] = tags
-    if priority: data["priority"] = priority
+    data.update(_build_submission_data(
+        machine=machine, package=package, options=options, tags=tags, priority=priority
+    ))
     
     result = await _request("POST", "tasks/create/dlnexec/", data=data)
     return json.dumps(result, indent=2)
@@ -193,14 +210,22 @@ async def submit_static(
     if not os.path.exists(file_path):
         return json.dumps({"error": True, "message": "File not found"})
     
+    # Security check: Ensure file is within allowed directory
+    abs_file_path = os.path.abspath(file_path)
+    abs_allowed_dir = os.path.abspath(ALLOWED_SUBMISSION_DIR)
+    
+    if not abs_file_path.startswith(abs_allowed_dir):
+        return json.dumps({
+            "error": True, 
+            "message": f"Security Violation: File submission is restricted to {abs_allowed_dir}"
+        })
+
     filename = os.path.basename(file_path)
     mime_type, _ = mimetypes.guess_type(file_path)
     if not mime_type:
         mime_type = "application/octet-stream"
         
-    data = {}
-    if priority: data["priority"] = str(priority)
-    if options: data["options"] = options
+    data = _build_submission_data(priority=priority, options=options)
 
     url = f"{API_URL.rstrip('/')}/tasks/create/static/"
     
@@ -211,7 +236,7 @@ async def submit_static(
                 response = await client.post(url, data=data, files=files, headers=get_headers())
                 try:
                     result = response.json()
-                except:
+                except json.JSONDecodeError:
                     result = {"error": response.status_code >= 400, "data": response.text}
         except Exception as e:
             result = {"error": True, "message": str(e)}

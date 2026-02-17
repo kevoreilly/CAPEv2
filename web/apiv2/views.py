@@ -1851,7 +1851,7 @@ def tasks_selfextracted(request, task_id, tool="all"):
                 for tname, tdata in selfextract_data.items():
                     for fmeta in tdata.get("extracted_files", []):
                         sha256 = fmeta.get("sha256")
-                        if not sha256:
+                        if not sha256 or not re.match(r"^[a-fA-F0-9]{64}$", sha256):
                             continue
 
                         fpath = os.path.join(srcdir, sha256)
@@ -1878,7 +1878,7 @@ def tasks_selfextracted(request, task_id, tool="all"):
             tdata = selfextract_data[tool]
             for fmeta in tdata.get("extracted_files", []):
                 sha256 = fmeta.get("sha256")
-                if not sha256:
+                if not sha256 or not re.match(r"^[a-fA-F0-9]{64}$", sha256):
                     continue
 
                 fpath = os.path.join(srcdir, sha256)

@@ -2573,6 +2573,9 @@ def dist_tasks_notification(request, task_id: int):
 @api_view(["POST"])
 def yara_uploader(request):
     try:
+        if not apiconf.yara_uploader.get("enabled"):
+            return Response({"error": True, "error_value": "Yara Uploader API is Disabled"})
+
         category = request.data.get("category")
         if not category or category not in ALLOWED_YARA_CATEGORIES:
             return Response(

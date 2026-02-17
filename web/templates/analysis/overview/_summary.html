@@ -7,8 +7,8 @@
         <div class="card-body">
             <div class="row">
                 <div class="col-md-3 mb-3">
-                    <div class="nav flex-column nav-pills" id="summaryTabs" role="tablist" aria-orientation="vertical">
-                        {% if analysis.behavior.summary.files %}<a class="nav-link active" id="v-pills-files-tab" data-bs-toggle="pill" href="#summary_files" role="tab" aria-controls="summary_files" aria-selected="true"><i class="fas fa-file me-2"></i> Accessed Files</a>{% endif %}
+                    <div class="nav flex-column nav-pills p-4" id="summaryTabs" role="tablist" aria-orientation="vertical">
+                        {% if analysis.behavior.summary.files %}<a class="nav-link" id="v-pills-files-tab" data-bs-toggle="pill" href="#summary_files" role="tab" aria-controls="summary_files" aria-selected="true"><i class="fas fa-file me-2"></i> Accessed Files</a>{% endif %}
                         {% if analysis.behavior.summary.read_files %}<a class="nav-link" id="v-pills-read-files-tab" data-bs-toggle="pill" href="#summary_read_files" role="tab" aria-controls="summary_read_files" aria-selected="false"><i class="fas fa-file-alt me-2"></i> Read Files</a>{% endif %}
                         {% if analysis.behavior.summary.write_files %}<a class="nav-link" id="v-pills-write-files-tab" data-bs-toggle="pill" href="#summary_write_files" role="tab" aria-controls="summary_write_files" aria-selected="false"><i class="fas fa-file-signature me-2"></i> Modified Files</a>{% endif %}
                         {% if analysis.behavior.summary.delete_files %}<a class="nav-link" id="v-pills-delete-files-tab" data-bs-toggle="pill" href="#summary_delete_files" role="tab" aria-controls="summary_delete_files" aria-selected="false"><i class="fas fa-trash-alt me-2"></i> Deleted Files</a>{% endif %}
@@ -26,7 +26,7 @@
                 </div>
                 <div class="col-md-9">
                     <div class="tab-content" id="v-pills-tabContent">
-                        <div class="tab-pane fade show active" id="summary_files" role="tabpanel" aria-labelledby="v-pills-files-tab">
+                        <div class="tab-pane fade" id="summary_files" role="tabpanel" aria-labelledby="v-pills-files-tab">
                             <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
                                 {% if analysis.behavior.summary.files %}
                                     <ul class="list-unstyled mb-0">
@@ -210,3 +210,20 @@
     </div>
 </section>
 {% endif %}
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const container = document.getElementById("summaryTabs");
+  if (!container) return;
+
+  // If something is already active, don’t touch it.
+  if (container.querySelector(".nav-link.active")) return;
+
+  const firstLink = container.querySelector('a.nav-link[data-bs-toggle="pill"]');
+  if (!firstLink) return;
+
+  // Bootstrap 5 Tab API
+  const tab = bootstrap.Tab.getOrCreateInstance(firstLink);
+  tab.show();
+});
+</script>

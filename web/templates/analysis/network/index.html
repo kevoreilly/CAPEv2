@@ -1,3 +1,4 @@
+<script src="{{ STATIC_URL }}js/hexdump.js"></script>
 {% if network.pcap_sha256 %}
 
     <div class="alert alert-secondary center">
@@ -26,11 +27,7 @@
             </a>
         </li>
         {% if network.tcp %}
-        <li class="nav-item">
-            <a class="nav-link" id="network_tcp-tab" href="#network_tcp_tab" data-bs-toggle="tab" role="tab" aria-controls="network_tcp_tab" aria-selected="false">
-                <i class="fas fa-exchange-alt me-2"></i>TCP ({{ network.tcp|length }})
-            </a>
-        </li>
+            <li class="nav-item"><a class="nav-link" id="network_tcp-tab" href="#network_tcp_tab" data-bs-toggle="tab" role="tab" aria-controls="network_tcp_tab" aria-selected="false"><i class="fas fa-exchange-alt me-2"></i>TCP ({{ network.tcp|length }})</a></li>
         {% endif %}
         {% if network.udp %}
         <li class="nav-item">

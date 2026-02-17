@@ -160,7 +160,7 @@
         <div id="options_collapse" class="collapse mb-3">
             <div class="card card-body bg-dark text-white border-secondary">
                 <h6 class="card-title text-white-50">Options</h6>
-                <pre class="mb-0 text-light small">{% for key, val in analysis.info.options.items %}{{ key }}={{ val }}<br>{% endfor %}</pre>
+                <pre class="mb-0 small">{% for key, val in analysis.info.options.items %}{{ key }}={{ val }}<br>{% endfor %}</pre>
             </div>
         </div>
     {% endif %}

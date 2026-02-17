@@ -158,12 +158,28 @@ class GuestManager:
 
         while self.do_run and self.get_status_from_db() == "starting":
             try:
-                socket.create_connection((self.ipaddr, self.port), 1).close()
-                break
-            except socket.timeout:
-                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
-            except socket.error:
-                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
+                # Support for DNS and IPv6 by resolving first
+                connected = False
+                for res in socket.getaddrinfo(self.ipaddr, self.port, socket.AF_UNSPEC, socket.SOCK_STREAM):
+                    af, socktype, proto, canonname, sa = res
+                    try:
+                        with socket.socket(af, socktype, proto) as s:
+                            s.settimeout(1)
+                            s.connect(sa)
+                        connected = True
+                        break
+                    except OSError as e:
+                        log.debug("Task #%s: %s is not ready yet (timeout). %s", self.task_id, self.vmid, str(e))
+                        continue
+
+                if connected:
+                    break
+
+                # If we reach here, we failed to connect to any resolved address
+                raise socket.error(f"Could not connect to {self.ipaddr}:{self.port}")
+
+            except (OSError, Exception) as e:
+                log.debug("Task #%s: %s is not ready yet (error: %s)", self.task_id, self.vmid, e)
                 time.sleep(1)
 
             if timeit.default_timer() - start > self.timeout:
@@ -378,19 +394,33 @@ class GuestManager:
         hard_limit = effective_timeout + cfg.timeouts.critical
 
         while self.do_run:
+            # --- REWORKED: HARD STOP ENFORCEMENT (Moved to Top) ---
+            # If we exceed the (Timeout + Critical) limit, we kill the loop.
+            # This handles the case where the Agent is dead (network timeout)
+            # or any other component hangs inside the loop.
+            elapsed = timeit.default_timer() - start
+            if elapsed > hard_limit:
+                log.error(
+                    "Task #%s: Hard Timeout reached! (Running for %ds, Limit %ds). "
+                    "Agent is likely unresponsive or analysis is stuck.",
+                    self.task_id,
+                    elapsed,
+                    hard_limit
+                )
+                self.set_status_in_db("failed")
+                return
+
             # FORCE REFRESH: Tell SQLAlchemy to expire the cache and fetch fresh data
-            # Note: Depending on your exact Cuckoo version, the session access might vary.
-            # This is the generic fix:
             try:
                 # Re-fetch the task status directly from DB logic
                 current_status = self.get_status_from_db()
-            except Exception:
+            except Exception as e:
                 # If the task was deleted, this query might fail.
-                # If it fails, we should ABORT.
-                log.info("Task #%s: Task deleted or DB error. Aborting.", self.task_id)
+                log.info("Task #%s: Task deleted or DB error. Aborting. Error: %s", self.task_id, e)
                 return
 
             if current_status != "running":
+                log.info("Task #%s: Task status changed to %s. Exiting wait loop.", self.task_id, current_status)
                 break
 
             time.sleep(1)
@@ -399,38 +429,32 @@ class GuestManager:
                 if count == 0:
                     # indicate screenshot captures have started
                     log.info("Task #%s: Started capturing screenshots for %s", self.task_id, self.vmid)
-                self.analysis_manager.screenshot_machine()
-            count += 1
-            if count % 5 == 0:
-                log.debug("Task #%s: Analysis is still running (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
+                try:
+                    self.analysis_manager.screenshot_machine()
+                except Exception as e:
+                    log.warning("Task #%s: Failed to take machinery screenshot: %s", self.task_id, e)
 
-            # --- REWORKED: HARD STOP ENFORCEMENT ---
-            # If we exceed the (Timeout + Critical) limit, we kill the loop.
-            # This handles the case where the Agent is dead (network timeout)
-            # and the 'except' block below keeps "continuing" forever.
-            if timeit.default_timer() - start > hard_limit:
-                log.error(
-                    "Task #%s: Hard Timeout reached! (Running for %ds, Limit %ds). "
-                    "Agent is likely unresponsive.",
-                    self.task_id,
-                    timeit.default_timer() - start,
-                    hard_limit
-                )
-                self.set_status_in_db("failed")
-                return
+            count += 1
+            if count % 30 == 0:
+                log.debug("Task #%s: Analysis is still running (id=%s, ip=%s, elapsed=%ds/%ds)",
+                          self.task_id, self.vmid, self.ipaddr, elapsed, hard_limit)
 
             try:
                 status = self.get("/status", timeout=5).json()
+                # If we reached here, the agent is responding. Reset failure counter.
+                consecutive_failures = 0
             except (CuckooGuestError, requests.exceptions.ReadTimeout) as e:
                 # Add a counter for consecutive failures
-                consecutive_failures += 1  # You need to init this to 0 outside loop
+                consecutive_failures += 1
 
                 log.warning("Task #%s: Agent unreachable (%s/10). Error: %s", self.task_id, consecutive_failures, e)
 
-                # If we fail 10 times in a row (approx 10-15 seconds), give up.
+                # If we fail 10 times in a row (approx 50-60 seconds), give up.
                 if consecutive_failures > 10:
-                    log.error("Task #%s: Agent is dead. Virtual Machine %s /status failed. This can indicate the guest losing network connectivity. Killing analysis.", self.task_id, self.vmid)
-                    return # Or raise exception
+                    log.error("Task #%s: Agent is dead. Virtual Machine %s /status failed. "
+                              "Killing analysis.", self.task_id, self.vmid)
+                    self.set_status_in_db("failed")
+                    return
                 continue
             except Exception as e:
                 log.exception("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e)

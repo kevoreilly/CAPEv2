@@ -548,17 +548,17 @@ server {
     }
     # SSL configuration
     listen 443 ssl http2;
-    //listen [::]:443 ssl http2;
-    //listen 443 http3 reuseport;  # UDP listener for QUIC+HTTP/3
-    ssl        on;
-    //ssl_protocols       TLSv1.3; # QUIC requires TLS 1.3
+    #listen [::]:443 ssl http2;
+    listen 443 http3 reuseport;  # UDP listener for QUIC+HTTP/3
+    #ssl        on; # Obsolete in Nginx > 1.25.1
+    ssl_protocols       TLSv1.2 TLSv1.3; # QUIC requires TLS 1.3
     ssl_certificate         /etc/letsencrypt/live/$1/fullchain.pem;
     ssl_certificate_key     /etc/letsencrypt/live/$1/privkey.pem;
     ssl_client_certificate /etc/ssl/certs/cloudflare.crt;
     ssl_verify_client on;
 
-    //add_header Alt-Svc 'quic=":443"'; # Advertise that QUIC is available
-    //add_header QUIC-Status $quic;     # Sent when QUIC was used
+    add_header Alt-Svc 'h3=":443"; ma=86400'; # Advertise that QUIC is available
+    add_header QUIC-Status $quic;     # Sent when QUIC was used
 
     server_name $1 www.$1;
     location / {

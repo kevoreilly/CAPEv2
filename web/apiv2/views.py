@@ -1879,13 +1879,7 @@ def tasks_selfextracted(request, task_id, tool="all"):
                 if not os.path.exists(fpath):
                     continue
 
-                fname = sha256
-                if fmeta.get("guest_paths"):
-                    fname = fmeta["guest_paths"][0]
-                elif fmeta.get("name") and fmeta["name"] != sha256:
-                    fname = fmeta["name"]
-
-                zf.write(fpath, fname)
+                zf.write(fpath, sha256)
 
     mem_zip.seek(0)
     resp = StreamingHttpResponse(mem_zip, content_type="application/zip")

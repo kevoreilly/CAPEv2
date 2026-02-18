@@ -3,7 +3,7 @@ import os
 import sys
 import mimetypes
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 # Ensure CAPE root is in path for lib imports
 CAPE_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
@@ -80,7 +80,7 @@ ALLOWED_SUBMISSION_DIR = os.environ.get("CAPE_ALLOWED_SUBMISSION_DIR", os.getcwd
 def get_headers(token: str = "") -> Dict[str, str]:
     headers = {}
     auth_token = token if token else API_TOKEN
-    
+
     if auth_token:
         headers["Authorization"] = f"Token {auth_token}"
     return headers

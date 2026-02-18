@@ -29,7 +29,6 @@ try:
         delete,
         func,
         not_,
-        or_,
         select,
         update,
     )
@@ -1005,9 +1004,7 @@ class TasksMixIn:
         if tags_tasks_like:
             stmt = stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
         if tags_tasks_not_like:
-            stmt = stmt.where(
-                or_(Task.tags_tasks.is_(None), Task.tags_tasks.notlike(f"%{tags_tasks_not_like}%"))
-            )
+            stmt = stmt.where(func.coalesce(Task.tags_tasks, "").notlike(f"%{tags_tasks_not_like}%"))
         if task_ids:
             stmt = stmt.where(Task.id.in_(task_ids))
         if user_id is not None:

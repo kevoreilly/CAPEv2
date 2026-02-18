@@ -1,4 +1,5 @@
 ### [18.02.2026]
+* UPX Unpacker: enable import reconstruction
 * Monitor updates:
     * Fix issue with VerifyHeaders() checking EP RVA in file: FileOffsetFromRVA()
     * Add pids to FILE_NEW, FILE_DEL & FILE_MOVE monitor messages to accompany analyzer fix

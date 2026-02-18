@@ -1000,7 +1000,7 @@ class TasksMixIn:
         if options_like:
             stmt = stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
         if options_not_like:
-            stmt = stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
+            stmt = stmt.where(func.coalesce(Task.options, "").notlike(f"%{options_not_like.replace('*', '%')}%"))
         if tags_tasks_like:
             stmt = stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
         if tags_tasks_not_like:
@@ -1108,7 +1108,7 @@ class TasksMixIn:
             delete_stmt = delete_stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
             filters_applied = True
         if options_not_like:
-            delete_stmt = delete_stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
+            delete_stmt = delete_stmt.where(func.coalesce(Task.options, "").notlike(f"%{options_not_like.replace('*', '%')}%"))
             filters_applied = True
         if tags_tasks_like:
             delete_stmt = delete_stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))

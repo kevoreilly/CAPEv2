@@ -24,7 +24,6 @@ from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpRespons
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
-from django.urls import reverse
 from rest_framework.decorators import api_view
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -2652,7 +2651,7 @@ def reprocess_tasks(request, task_id: int):
     if error:
         return render(request, "error.html", {"error": msg})
     else:
-        return HttpResponseRedirect(reverse("submission_status", args=[task_id]))
+        return redirect("submission_status", task_id=task_id)
 
 
 @require_safe

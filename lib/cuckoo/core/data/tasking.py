@@ -777,7 +777,7 @@ class TasksMixIn:
         @param status: status string
         @return: operation status
         """
-        log.info("setstat task %d status %s",task_id,status)
+        log.info("setstat task %s status %s", task_id, status)
         task = self.session.get(Task, task_id)
 
         if not task:
@@ -1004,7 +1004,7 @@ class TasksMixIn:
         if tags_tasks_like:
             stmt = stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
         if tags_tasks_not_like:
-            stmt = stmt.where(Task.tags_tasks.notlike(f"%{tags_tasks_not_like}%"))
+            stmt = stmt.where(func.coalesce(Task.tags_tasks, "").notlike(f"%{tags_tasks_not_like}%"))
         if task_ids:
             stmt = stmt.where(Task.id.in_(task_ids))
         if user_id is not None:

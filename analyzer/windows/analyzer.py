@@ -351,6 +351,49 @@ class Analyzer:
 
         log.info("Analysis completed")
 
+    def handle_reboot(self):
+        """Handle system reboot request."""
+        # We need to persist the analyzer so it runs again after reboot.
+        # We will use the RunOnce registry key.
+
+        # 1. Determine paths
+        python_path = sys.executable
+        analyzer_path = os.path.abspath(sys.argv[0])
+        working_dir = os.getcwd()
+
+        # 2. Formulate command
+        # We use cmd.exe to ensure the working directory is correct.
+        # cmd /c "cd /d <cwd> && <python> <analyzer>"
+        command = 'cmd /c "cd /d "{}" && "{}" "{}"'.format(working_dir, python_path, analyzer_path)
+
+        # 3. Write to Registry
+        from lib.common.registry import set_regkey_full
+        from lib.common.rand import random_string
+
+        # Randomize the key name to avoid detection
+        key_name = random_string(8)
+
+        # Determine root key based on privileges
+        if SHELL32.IsUserAnAdmin():
+            key_path = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\{}".format(key_name)
+        else:
+            key_path = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\{}".format(key_name)
+
+        log.info("Setting reboot persistence: %s -> %s", key_path, command)
+        try:
+            set_regkey_full(key_path, "REG_SZ", command)
+        except Exception as e:
+            log.error("Failed to set persistence key: %s", e)
+            return
+
+        # 4. Initiate Reboot
+        log.info("Initiating system reboot")
+        # Using shutdown command is robust
+        subprocess.run(["shutdown", "/r", "/t", "0", "/f"], check=False)
+
+        # Stop the analysis loop so we don't interfere while shutting down
+        self.do_run = False
+
     def get_completion_key(self):
         return getattr(self.config, "completion_key", "")
 
@@ -1259,6 +1302,11 @@ class CommandPipeHandler:
         # RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = timeit.default_timer()
         self._handle_process(data)
+
+    def _handle_reboot(self, data):
+        """Handle reboot request from the monitor."""
+        log.info("Received reboot request from monitored process")
+        self.analyzer.handle_reboot()
 
     def _handle_shutdown(self, data):
         """Handle attempted shutdowns/restarts.

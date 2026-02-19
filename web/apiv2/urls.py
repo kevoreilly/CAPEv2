@@ -51,6 +51,8 @@ urlpatterns = [
     re_path(r"^tasks/get/tlspcap/(?P<task_id>\d+)/$", views.tasks_tlspcap),
     re_path(r"^tasks/get/evtx/(?P<task_id>\d+)/$", views.tasks_evtx),
     re_path(r"^tasks/get/dropped/(?P<task_id>\d+)/$", views.tasks_dropped),
+    re_path(r"^tasks/get/selfextracted/(?P<task_id>\d+)/$", views.tasks_selfextracted),
+    re_path(r"^tasks/get/selfextracted/(?P<task_id>\d+)/(?P<tool>[\w\-\.]+)/$", views.tasks_selfextracted),
     re_path(r"^tasks/get/surifile/(?P<task_id>\d+)/$", views.tasks_surifile),
     re_path(r"^tasks/get/mitmdump/(?P<task_id>\d+)/$", views.tasks_mitmdump),
     re_path(r"^tasks/get/payloadfiles/(?P<task_id>\d+)/$", views.tasks_payloadfiles),

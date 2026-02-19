@@ -76,7 +76,7 @@ Environment Variables
 ~~~~~~~~~~~~~~~~~~~~~
 
 *   ``CAPE_API_URL``: (Optional) The full path to your CAPE API v2 endpoint (e.g., ``http://127.0.0.1:8000/apiv2``). If not set, it defaults to the ``url`` in ``api.conf`` + ``/apiv2``.
-*   ``CAPE_API_TOKEN``: (Optional) A global/admin API token used by default for all requests.
+*   ``CAPE_API_TOKEN``: (Optional) Your API token. Recommended to set this in the **Client Configuration** (e.g. ``claude_desktop_config.json``) rather than your system's global environment variables to ensure isolation.
 *   ``CAPE_ALLOWED_SUBMISSION_DIR``: (Optional) Restricts ``submit_file`` to a specific local directory for security. Defaults to the current working directory.
 
 Granular Tool Control (``api.conf``)
@@ -96,14 +96,39 @@ You can enable or disable specific tools for the MCP server by modifying ``conf/
 
 **Note:** Tools disabled via ``mcp = no`` are not even registered with the MCP server; the AI agent will not see them in its available toolset.
 
-Authentication & Multi-User Support
------------------------------------
+Authentication & Security Architecture
+--------------------------------------
 
-The MCP server supports two authentication modes depending on your ``api.conf`` settings:
+Proper security depends on how you deploy the MCP server.
 
-1.  **Global Token Mode:** Set ``CAPE_API_TOKEN`` in your environment. This token will be used for all operations if no user-specific token is provided.
-2.  **Per-Request Token:** Every tool accepts an optional ``token`` argument. If provided, it overrides the global environment token. This allows users to pass their own API keys through the agent.
-3.  **Strict Mode:** If ``token_auth_enabled = yes`` is set in the ``[api]`` section of ``api.conf``, the server will refuse any request that doesn't have a token (either from the environment or the tool argument).
+Scenario A: Local / Stdio (Recommended)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this mode, the AI Client (Claude, Gemini, etc.) spawns a private instance of the MCP server process for your session. This is the most secure method.
+
+1.  **Configuration:** Add your ``CAPE_API_TOKEN`` to the **Client's Configuration file** (e.g., ``claude_desktop_config.json``), **not** your system's global environment variables.
+2.  **Isolation:** Because the process is spawned by your client, the token is isolated to your session. Other users on the machine cannot see or use your token.
+3.  **Usage:** You do **not** need to provide a token in your prompts. The server automatically uses the environment variable provided by the client.
+
+Scenario B: Remote / Shared Server (SSE)
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+In this mode, a single MCP server instance runs continuously and accepts connections from multiple clients over the network.
+
+1.  **Configuration:** Start the server **without** a ``CAPE_API_TOKEN`` environment variable.
+2.  **Strict Mode:** Ensure ``token_auth_enabled = yes`` is set in ``conf/api.conf``.
+3.  **Usage:** Users **must** provide their API token in the ``token`` argument for every tool call (e.g., ``submit_file(..., token="MyKey")``).
+4.  **Risk:** Do not set a global token in this mode, or all users will inherit those privileges.
+
+Authentication Priority
+~~~~~~~~~~~~~~~~~~~~~~~
+
+The server determines which token to use in this specific order:
+
+1.  **Per-Request Token:** Argument passed to the specific tool (e.g., ``token="xyz"``).
+2.  **Environment Token:** ``CAPE_API_TOKEN`` variable (set in Client Config for Stdio).
+
+If ``token_auth_enabled = yes`` and no token is found in either location, the request is rejected.
 
 Running the Server
 ------------------

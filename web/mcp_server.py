@@ -17,6 +17,12 @@ except ImportError:
 
 try:
     from lib.cuckoo.common.config import Config
+    from lib.cuckoo.common.web_utils import (
+        search_term_map,
+        perform_search_filters,
+        hash_searches,
+        normalized_lower_terms,
+    )
 except ImportError:
     sys.exit("Could not import lib.cuckoo.common.config. Ensure you are running from CAPE root.")
 
@@ -69,6 +75,11 @@ def is_auth_required() -> bool:
         return api_config.api.token_auth_enabled
     except AttributeError:
         return False
+
+# Startup Check: Warn if Auth is enabled but no default token is provided
+if is_auth_required() and not API_TOKEN:
+    print("WARNING: Token authentication is enabled in api.conf, but CAPE_API_TOKEN is not set.", file=sys.stderr)
+    print("         All MCP tool calls must include a valid 'token' argument.", file=sys.stderr)
 
 # Initialize FastMCP
 mcp = FastMCP("cape-sandbox")
@@ -355,6 +366,19 @@ async def extended_search(option: str, argument: str, token: str = "") -> str:
     result = await _request("POST", "tasks/extendedsearch/", token=token, data=data)
     return json.dumps(result, indent=2)
 
+@mcp_tool("extendedtasksearch")
+async def get_search_info() -> str:
+    """
+    Retrieve the available advanced search terms, filters, and hash types.
+    Use this information to construct valid queries for `extended_search`.
+    """
+    return json.dumps({
+        "search_term_map": search_term_map,
+        "perform_search_filters": perform_search_filters,
+        "hash_searches": hash_searches,
+        "normalized_lower_terms": normalized_lower_terms
+    }, indent=2, default=str)
+
 @mcp_tool("tasklist")
 async def list_tasks(limit: int = 10, offset: int = 0, status: str = "", token: str = "") -> str:
     """List tasks with optional limit, offset and status filter."""
@@ -522,6 +546,20 @@ async def get_cuckoo_status(token: str = "") -> str:
     """Get the status of the CAPE host."""
     result = await _request("GET", "cuckoo/status/", token=token)
     return json.dumps(result, indent=2)
+
+@mcp.tool()
+async def verify_auth(token: str = "") -> str:
+    """
+    Verify if the provided API token is valid.
+    Useful for checking authentication status before performing other operations.
+    """
+    # We use a lightweight endpoint like cuckoo status to check auth
+    result = await _request("GET", "cuckoo/status/", token=token)
+
+    if isinstance(result, dict) and result.get("error"):
+        return json.dumps({"authenticated": False, "message": "Invalid token or authentication failed.", "details": result}, indent=2)
+
+    return json.dumps({"authenticated": True, "message": "Token is valid.", "user": "Authenticated User"}, indent=2)
 
 if __name__ == "__main__":
     mcp.run()

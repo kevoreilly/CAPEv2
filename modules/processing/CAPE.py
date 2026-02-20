@@ -43,6 +43,12 @@ processing_conf = Config("processing")
 integrations_conf = Config("integrations")
 externalservices_conf = Config("externalservices")
 
+HAVE_VIRUSTOTAL = False
+if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
+    with suppress(ImportError):
+        from lib.cuckoo.common.integrations.virustotal import vt_lookup
+        HAVE_VIRUSTOTAL = True
+
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if integrations_conf.flare_capa.enabled and not integrations_conf.flare_capa.on_demand:
@@ -208,6 +214,11 @@ class CAPE(Processing):
                     cached = True
                     if yara_match and options_match:
                         run_static = False
+                        if HAVE_VIRUSTOTAL:
+                            # We might want to refresh VT based on cache policy
+                            vt_details = vt_lookup("file", sha256, self.results, file_category=category)
+                            if vt_details:
+                                file_info["virustotal"] = vt_details
                     else:
                         # We need to re-run static/tools
                         run_static = True
@@ -267,6 +278,7 @@ class CAPE(Processing):
                 self.self_extracted,
                 self.results,
                 duplicated,
+                category=category,
             )
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)

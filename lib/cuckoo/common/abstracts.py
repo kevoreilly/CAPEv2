@@ -149,8 +149,11 @@ class Machinery:
 
     def _initialize(self) -> None:
         """Read configuration."""
+        multiworker_enabled = cfg.resultserver.get("multiworker", False)
+        base_port = cfg.resultserver.get("base_port", 2042)
+
         mmanager_opts = self.options.get(self.module_name)
-        for machine_id in mmanager_opts["machines"]:
+        for machine_index, machine_id in enumerate(mmanager_opts["machines"]):
             try:
                 machine_opts = self.options.get(machine_id.strip())
                 machine = Dictionary()
@@ -176,12 +179,16 @@ class Machinery:
                 machine.resultserver_ip = machine_opts.get("resultserver_ip", cfg.resultserver.ip)
                 machine.resultserver_port = machine_opts.get("resultserver_port")
                 if machine.resultserver_port is None:
-                    # The ResultServer port might have been dynamically changed,
-                    # get it from the ResultServer singleton. Also avoid import
-                    # recursion issues by importing ResultServer here.
-                    from lib.cuckoo.core.resultserver import ResultServer
+                    if multiworker_enabled:
+                        # In multiworker mode, auto-assign sequential ports
+                        machine.resultserver_port = base_port + machine_index
+                    else:
+                        # The ResultServer port might have been dynamically changed,
+                        # get it from the ResultServer singleton. Also avoid import
+                        # recursion issues by importing ResultServer here.
+                        from lib.cuckoo.core.resultserver import ResultServer
 
-                    machine.resultserver_port = ResultServer().port
+                        machine.resultserver_port = ResultServer().port
 
                 # Strip parameters.
                 for key, value in machine.items():

@@ -632,6 +632,15 @@ class SingleVMResultServerWorker(GeventResultServerWorker):
             except EOFError:
                 return
 
+            # Re-check task_id after negotiation - the task could have been
+            # cancelled and a new one started while we were blocking on I/O
+            if self._shared_task_id.value != task_id:
+                log.warning(
+                    "Task #%d for VM %s was cancelled during negotiation, new task is %s",
+                    task_id, self._vm_ip, self._shared_task_id.value or "none",
+                )
+                return
+
             if not protocol:
                 return
 
@@ -712,7 +721,7 @@ class ResultServerWorkerProcess(multiprocessing.Process):
         self._task_id.value = task_id
         self._ready.wait(timeout=10)
 
-    def clear_task(self, task_id):
+    def clear_task(self):
         """Clear the current task (called from parent process)."""
         self._task_id.value = 0
 
@@ -823,7 +832,7 @@ class ResultServer(metaclass=Singleton):
         """Clear task from worker. Worker stays alive for reuse."""
         worker = self.workers.get(machine.ip)
         if worker and worker.is_alive():
-            worker.clear_task(task.id)
+            worker.clear_task()
             log.debug("Task #%s: Cleared from worker for %s", task.id, machine.ip)
         else:
             log.warning("Task #%s: No alive worker found for %s", task.id, machine.ip)

@@ -53,6 +53,10 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
+try:
+    from mcp_filters import lean_search_filters
+except ImportError:
+    from mcp.filters import lean_search_filters
 from lib.cuckoo.core.database import Database, _Database
 from lib.cuckoo.core.data.task import (
     TASK_RECOVERED,
@@ -756,7 +760,8 @@ def ext_tasks_search(request):
             value = tmp_value
             del tmp_value
         try:
-            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False)
+            projection = lean_search_filters if request.data.get("lean") else None
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False, projection=projection)
         except ValueError:
             if not term:
                 resp = {"error": True, "error_value": "No option provided."}

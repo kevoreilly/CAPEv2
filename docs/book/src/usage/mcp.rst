@@ -118,7 +118,7 @@ Scenario B: Remote / Shared Server (SSE)
 
 In this mode, a single MCP server instance runs continuously and accepts connections from multiple clients over the network.
 
-0.  **Execution:** Start the server using ``python3 web/mcp_server.py --transport sse``.
+0.  **Execution:** Start the server using ``poetry run python mcp/server.py --transport sse``.
 1.  **Configuration:** Start the server **without** a ``CAPE_API_TOKEN`` environment variable.
 2.  **Strict Mode:** Ensure ``token_auth_enabled = yes`` is set in ``conf/api.conf``.
 3.  **Usage:** Users **must** provide their API token in the ``token`` argument for every tool call (e.g., ``submit_file(..., token="MyKey")``).
@@ -142,7 +142,7 @@ Standard execution (Stdio)
 
 .. code-block:: bash
 
-    CAPE_API_URL=http://your-cape-ip:8000/apiv2 CAPE_API_TOKEN=your_token python3 web/mcp_server.py
+    CAPE_API_URL=http://your-cape-ip:8000/apiv2 CAPE_API_TOKEN=your_token poetry run python mcp/server.py
 
 Remote / SSE execution
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -151,7 +151,7 @@ To run the server as a persistent service accessible over the network:
 
 .. code-block:: bash
 
-    python3 web/mcp_server.py --transport sse --port 9004
+    poetry run python mcp/server.py --transport sse --port 9004
 
 Deployment behind Nginx
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -192,7 +192,7 @@ Add the following to your ``claude_desktop_config.json``:
       "mcpServers": {
         "cape": {
           "command": "poetry",
-          "args": ["run", "python", "/opt/CAPEv2/web/mcp_server.py"],
+          "args": ["run", "python", "/opt/CAPEv2/mcp/server.py"],
           "env": {
             "CAPE_API_URL": "http://127.0.0.1:8000/apiv2",
             "CAPE_API_TOKEN": "YOUR_API_TOKEN_HERE",
@@ -209,7 +209,7 @@ You can add the server using the CLI command:
 
 .. code-block:: bash
 
-    gemini mcp add cape poetry run python /opt/CAPEv2/web/mcp_server.py \
+    gemini mcp add cape poetry run python /opt/CAPEv2/mcp/server.py \
       -e CAPE_API_URL=http://127.0.0.1:8000/apiv2 \
       -e CAPE_API_TOKEN=YOUR_API_TOKEN_HERE \
       -e CAPE_ALLOWED_SUBMISSION_DIR=/home/user/samples
@@ -222,7 +222,7 @@ Or manually add it to your ``~/.gemini/settings.json``:
       "mcpServers": {
         "cape": {
           "command": "poetry",
-          "args": ["run", "python", "/opt/CAPEv2/web/mcp_server.py"],
+          "args": ["run", "python", "/opt/CAPEv2/mcp/server.py"],
           "env": {
             "CAPE_API_URL": "http://127.0.0.1:8000/apiv2",
             "CAPE_API_TOKEN": "YOUR_API_TOKEN_HERE",
@@ -243,7 +243,7 @@ Open **Agent Panel** -> **...** -> **MCP Servers** -> **Manage MCP Servers** -> 
       "mcpServers": {
         "cape": {
           "command": "poetry",
-          "args": ["run", "python", "/opt/CAPEv2/web/mcp_server.py"],
+          "args": ["run", "python", "/opt/CAPEv2/mcp/server.py"],
           "env": {
             "CAPE_API_URL": "http://127.0.0.1:8000/apiv2",
             "CAPE_API_TOKEN": "YOUR_API_TOKEN_HERE",

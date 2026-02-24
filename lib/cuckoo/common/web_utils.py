@@ -1422,7 +1422,7 @@ def perform_search(
                 # Stage 8: Make the task doc the new root
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
                 # Stage 9: Add your custom projection
-                {"$project": perform_search_filters},
+                {"$project": projection or perform_search_filters},
             ]
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
             if not retval:
@@ -1453,7 +1453,7 @@ def perform_search(
         return retval
 
     if es_as_db:
-        _source_fields = list(perform_search_filters.keys())[:-1]
+        _source_fields = list((projection or perform_search_filters).keys())[:-1]
         if isinstance(search_term_map[term], str):
             q = {"query": {"match": {search_term_map[term]: value}}}
             return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]

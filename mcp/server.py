@@ -381,6 +381,9 @@ def _apply_lean_report(result):
 @mcp_tool("tasksearch")
 async def search_task(hash_value: str, lean: bool = True, token: str = "") -> str:
     """Search for tasks by MD5, SHA1, or SHA256."""
+    if not re.match(r"^[a-fA-F0-9]+$", hash_value):
+        return json.dumps({"error": True, "message": "Invalid hash value provided. Only hexadecimal characters are allowed."}, indent=2)
+
     algo = "md5"
     if len(hash_value) == 40:
         algo = "sha1"
@@ -471,6 +474,10 @@ async def get_statistics(days: int = 7, token: str = "") -> str:
 @mcp_tool("taskreport")
 async def get_task_report(task_id: int, format: str = "json", token: str = "") -> str:
     """Get the analysis report for a task (json, lite, maec, metadata, lean)."""
+    allowed_formats = {"json", "lite", "maec", "metadata", "lean"}
+    if format not in allowed_formats:
+        return json.dumps({"error": True, "message": f"Invalid format provided. Allowed formats: {', '.join(allowed_formats)}"}, indent=2)
+
     if format == "lean":
         data = {"option": "id", "argument": str(task_id), "lean": True}
         result = await _request("POST", "tasks/extendedsearch/", token=token, data=data)
@@ -570,11 +577,15 @@ async def download_task_fullmemory(task_id: int, destination: str, token: str = 
 @mcp_tool("fileview")
 async def view_file(hash_value: str, hash_type: str = "sha256", token: str = "") -> str:
     """View information about a file in the database."""
+    if not re.match(r"^[a-fA-F0-9]+$", hash_value):
+        return json.dumps({"error": True, "message": "Invalid hash value provided. Only hexadecimal characters are allowed."}, indent=2)
     return await _request("GET", f"files/view/{hash_type}/{hash_value}/", token=token)
 
 @mcp_tool("sampledl")
 async def download_sample(hash_value: str, destination: str, hash_type: str = "sha256", token: str = "") -> str:
     """Download a sample from the database."""
+    if not re.match(r"^[a-fA-F0-9]+$", hash_value):
+        return json.dumps({"error": True, "message": "Invalid hash value provided. Only hexadecimal characters are allowed."}, indent=2)
     return await _download_file(f"files/get/{hash_type}/{hash_value}/", destination, f"{hash_value}.bin", token=token)
 
 @mcp_tool("machinelist")

@@ -348,7 +348,7 @@ def get_lean_cape_report(raw_cape_json):
     """Filters a 50MB CAPE report down to a 500-token LLM payload."""
     return {
         "score": raw_cape_json.get("info", {}).get("score", 0),
-        "family": raw_cape_json.get("malfamily", "Unknown") if "malfamily" in raw_cape_json else raw_cape_json.get("detections", {}).get("family", "Unknown"),
+        "family": raw_cape_json.get("malfamily") or raw_cape_json.get("detections", {}).get("family") or "Unknown",
         "extracted_configs": raw_cape_json.get("CAPE", []),
         "high_severity_signatures": [
             {"name": sig["name"], "desc": sig["description"]}

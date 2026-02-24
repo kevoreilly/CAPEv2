@@ -474,14 +474,14 @@ async def get_task_report(task_id: int, format: str = "json", token: str = "") -
     if format == "lean":
         data = {"option": "id", "argument": str(task_id), "lean": True}
         result = await _request("POST", "tasks/extendedsearch/", token=token, data=data)
-        
+
         # Extract the single task report from the search results
         if isinstance(result, dict) and not result.get("error") and isinstance(result.get("data"), list):
             if len(result["data"]) > 0:
                 result["data"] = result["data"][0]
             else:
                 result = {"error": True, "message": "Task report not found via lean search."}
-        
+
         result = _apply_lean_report(result)
         return json.dumps(result, indent=2)
 

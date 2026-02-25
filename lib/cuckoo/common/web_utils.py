@@ -1447,7 +1447,8 @@ def perform_search(
                 else:
                     pipeline.append({"$match": {"info.user_id": user_id}})
 
-            # Stage 9: Add your custom projection            pipeline.append({"$project": projection or perform_search_filters})
+            # Stage 9: Add your custom projection
+            pipeline.append({"$project": projection or perform_search_filters})
 
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
             if not retval:

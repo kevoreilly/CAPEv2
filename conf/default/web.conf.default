@@ -123,8 +123,6 @@ package = edge
 # TLP markings on submission and webgui
 [tlp]
 enabled = no
-# Should TLP: RED tasks be searchable by other users?
-public_red = yes
 
 #AMSI dump submission checkbox: can be useful to disable if no Win10+ instances
 #(amsidump is enabled by default in the monitor for Win10+)

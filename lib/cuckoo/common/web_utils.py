@@ -1505,26 +1505,7 @@ def perform_search(
     if es_as_db:
         _source_fields = list((projection or perform_search_filters).keys())[:-1]
 
-        user_filter = None
-        if not privs:
-            if force_bool(web_cfg.general.get("public_searches", True)):
-                if not force_bool(web_cfg.tlp.get("public_red", False)):
-                    shoulds = [{"bool": {"must_not": [{"terms": {"info.tlp": ["red", "Red", "RED"]}}]}}]
-                    if user_id:
-                        shoulds.append({"term": {"info.user_id": user_id}})
-                    else:
-                        shoulds.append({"bool": {"must_not": {"exists": {"field": "info.user_id"}}}})
-                    user_filter = {
-                        "bool": {
-                            "should": shoulds,
-                            "minimum_should_match": 1
-                        }
-                    }
-            else:
-                if user_id:
-                    user_filter = {"term": {"info.user_id": user_id}}
-                else:
-                    user_filter = {"bool": {"must_not": {"exists": {"field": "info.user_id"}}}}
+        user_filter = _build_es_user_filter(privs, user_id)
 
         if isinstance(search_term_map[term], str):
             q = {"query": {"match": {search_term_map[term]: value}}}

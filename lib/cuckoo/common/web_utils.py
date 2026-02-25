@@ -1308,6 +1308,30 @@ normalized_int_terms = (
 )
 
 
+def _build_es_user_filter(privs: bool, user_id: int):
+    user_filter = None
+    if not privs:
+        if force_bool(web_cfg.general.get("public_searches", True)):
+            if not force_bool(web_cfg.tlp.get("public_red", False)):
+                shoulds = [{"bool": {"must_not": [{"terms": {"info.tlp": ["red", "Red", "RED"]}}]}}]
+                if user_id:
+                    shoulds.append({"term": {"info.user_id": user_id}})
+                else:
+                    shoulds.append({"bool": {"must_not": {"exists": {"field": "info.user_id"}}}})
+                user_filter = {
+                    "bool": {
+                        "should": shoulds,
+                        "minimum_should_match": 1
+                    }
+                }
+        else:
+            if user_id:
+                user_filter = {"term": {"info.user_id": user_id}}
+            else:
+                user_filter = {"bool": {"must_not": {"exists": {"field": "info.user_id"}}}}
+    return user_filter
+
+
 def perform_search(
     term: str, value: str, search_limit: int = 0, user_id: int = 0, privs: bool = False, web: bool = True, projection: dict = None
 ):
@@ -1329,25 +1353,7 @@ def perform_search(
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
         if not privs:
-            user_filter = None
-            if force_bool(web_cfg.general.get("public_searches", True)):
-                if not force_bool(web_cfg.tlp.get("public_red", False)):
-                    shoulds = [{"bool": {"must_not": [{"terms": {"info.tlp": ["red", "Red", "RED"]}}]}}]
-                    if user_id:
-                        shoulds.append({"term": {"info.user_id": user_id}})
-                    else:
-                        shoulds.append({"bool": {"must_not": {"exists": {"field": "info.user_id"}}}})
-                    user_filter = {
-                        "bool": {
-                            "should": shoulds,
-                            "minimum_should_match": 1
-                        }
-                    }
-            else:
-                if user_id:
-                    user_filter = {"term": {"info.user_id": user_id}}
-                else:
-                    user_filter = {"bool": {"must_not": {"exists": {"field": "info.user_id"}}}}
+            user_filter = _build_es_user_filter(privs, user_id)
             if user_filter:
                 multi_match_search = {"query": {"bool": {"must": [{"multi_match": {"query": value, "fields": ["*"]}}], "filter": [user_filter]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]

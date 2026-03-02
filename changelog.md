@@ -1,3 +1,8 @@
+### [02.03.2026]
+* Monitor updates:
+    * Disable manifest generation: prevent mui load attempts on 22H2+
+    * WMI fixes (thanks doomedraven)
+
 ### [18.02.2026]
 * UPX Unpacker: enable import reconstruction
 * Monitor updates:
@@ -5,11 +10,10 @@
     * Add pids to FILE_NEW, FILE_DEL & FILE_MOVE monitor messages to accompany analyzer fix
     * New hooks: RtlRemoveVectoredExceptionHandler, UnhandledExceptionFilter, GetPhysicallyInstalledSystemMemory, K32EnumProcesses, WTSEnumerateProcessesW, WTSEnumerateProcessesExW, LdrGetDllHandleEx, WTGetSignatureInfo, RtlWow64SetThreadContext
     * YaraHarness: add 'coverage' action to remove dll from system 'range'
-    * Trace: improve recognition and handling of distinct code regions during debugging/tracing, expand ProcessOEP() action to allow shellcode dumpingrefine StrTest(W) functions  to filter more control characters from debugger log
+    * Trace: improve recognition and handling of distinct code regions during debugging/tracing, expand ProcessOEP() action to allow shellcode dumping, refine StrTest(W) functions  to filter more control characters from debugger log
     * Add ntdll unhook protection (ntdll-unhook=1) via prevent_module_unhooking() from NtReadFile hook
     * Add general hook protection (hook-protect=1) to protect hooks other than ntdll (ntdll-protect) - off by default
     * Hooking: replace (allocating) convert_address_to_dll_name_and_offset() with non-allocating get_module_name()
-    * misc: prevent_module_unhooking() & gettib()
 
 ### [11.02.2026]
 * Guacamole integration:

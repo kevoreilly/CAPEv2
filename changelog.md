@@ -1,4 +1,5 @@
 ### [02.03.2026]
+* PPLinject V2: Compatibility with all Win10 (22H2+) & Win11 (<=23H2)
 * Monitor updates:
     * Disable manifest generation: prevent mui load attempts on 22H2+
     * WMI fixes (thanks doomedraven)

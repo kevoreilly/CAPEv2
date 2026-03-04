@@ -16,8 +16,8 @@ guide, so please refer to the virtualization software's official documentation.
 
     .. note::
 
-        For analysis purposes, it is recommended to use Windows 10 21H2 with User
-        Access Control disabled.
+        For analysis purposes, it is recommended to use Windows 10 or Windows 11 23H2
+        with User Access Control disabled.
 
     .. note::
 

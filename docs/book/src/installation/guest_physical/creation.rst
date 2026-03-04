@@ -15,8 +15,8 @@ guide, so please refer to the official documentation.
         chapter.
 
     .. note::
-        For analysis purposes, you are recommended to use Windows 10 21H2 with User
-        Access Control disabled.
+        For analysis purposes, it is recommended to use Windows 10 or Windows 11 23H2
+        with User Access Control disabled.
 
 
 When creating the physical machine, CAPE doesn't require any specific

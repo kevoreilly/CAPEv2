@@ -1293,7 +1293,7 @@ class CommandPipeHandler:
                     servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
-                    KERNEL32.Sleep(1000)
+                    KERNEL32.Sleep(2000)
                     self.analyzer.MONITORED_SERVICES = True
                 else:
                     log.error("Unable to monitor service %s", servname)

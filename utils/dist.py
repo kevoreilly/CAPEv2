@@ -42,19 +42,21 @@ from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_ses
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_size, path_mkdir, path_mount_point, path_write_file
 from lib.cuckoo.common.socket_utils import send_socket_command
 from lib.cuckoo.common.utils import get_options
-from lib.cuckoo.core.database import (
+from lib.cuckoo.core.data.task import (
     TASK_BANNED,
     TASK_DISTRIBUTED,
     TASK_DISTRIBUTED_COMPLETED,
     TASK_FAILED_REPORTING,
     TASK_PENDING,
     TASK_REPORTED,
-    TASK_RUNNING,
+    TASK_RUNNING
+)
+from lib.cuckoo.core.database import (
     Database,
     _Database,
     init_database,
 )
-from lib.cuckoo.core.database import Task as MD_Task
+from lib.cuckoo.core.data.task import Task as MD_Task
 from dev_utils.mongodb import mongo_update_one
 
 dist_conf = Config("distributed")

@@ -1422,7 +1422,7 @@ def perform_search(
                 # Stage 8: Make the task doc the new root
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
                 # Stage 9: Add your custom projection
-                {"$project": perform_search_filters},
+                {"$project": projection or perform_search_filters},
             ]
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
             if not retval:

@@ -1,3 +1,6 @@
+### [06.03.2026]
+* Monitor update: Thread resume: fix issue with thread id passed in RESUME: message causing detonation issues
+
 ### [02.03.2026]
 * PPLinject V2: Compatibility with all Win10 (22H2+) & Win11 (<=23H2)
 * Monitor updates:

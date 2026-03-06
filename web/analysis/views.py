@@ -26,6 +26,14 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
 from rest_framework.decorators import api_view
 
+MONGO_DOCUMENT_TOO_LARGE_ERRORS = ()
+try:
+    from pymongo.errors import DocumentTooLarge
+
+    MONGO_DOCUMENT_TOO_LARGE_ERRORS = (DocumentTooLarge,)
+except Exception:
+    pass
+
 sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.pcap_utils import PcapToNg
@@ -2534,7 +2542,9 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         else:
             path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
     else:
-        category = "target.file"
+        # selfextracted storage is shared by multiple categories; keep non-static category intact
+        if category == "static":
+            category = "target.file"
         extractedfile = True
 
     if path and (not _path_safe(path) or not path_exists(path)):
@@ -2587,21 +2597,30 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         details = Floss(path, package, on_demand=True).run()
         if not details:
             details = {"msg": "No results"}
+    def _set_service_by_sha256(node, target_sha256, service_name, service_details):
+        if isinstance(node, dict):
+            if node.get("sha256") == target_sha256:
+                node[service_name] = service_details
+                return True
+            for value in node.values():
+                if isinstance(value, (dict, list)) and _set_service_by_sha256(value, target_sha256, service_name, service_details):
+                    return True
+            return False
+        if isinstance(node, list):
+            for item in node:
+                if _set_service_by_sha256(item, target_sha256, service_name, service_details):
+                    return True
+        return False
+
     if details:
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
 
         servicedata = {}
         if category == "CAPE":
-            for block in buf[category].get("payloads", []) or []:
-                if block.get("sha256") == sha256:
-                    block[service] = details
-                    break
+            _set_service_by_sha256(buf[category].get("payloads", []) or [], sha256, service, details)
             servicedata = buf[category]
         elif category in ("procdump", "procmemory", "dropped"):
-            for block in buf[category] or []:
-                if block.get("sha256") == sha256:
-                    block[service] = details
-                    break
+            _set_service_by_sha256(buf[category] or [], sha256, service, details)
             servicedata = buf[category]
         elif "target" in category:
             servicedata = buf.get("target", {}).get("file", {})
@@ -2609,15 +2628,33 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 if service == "xlsdeobf":
                     servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 elif extractedfile:
-                    for block in servicedata.get("extracted_files", []):
-                        if block.get("sha256") == sha256:
-                            block[service] = details
-                            break
+                    _set_service_by_sha256(servicedata, sha256, service, details)
                 else:
                     servicedata.setdefault(service, details)
 
         if servicedata:
-            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
+            try:
+                mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
+            except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
+                return render(
+                    request,
+                    "error.html",
+                    {
+                        "error": (
+                            f"Generated {service} data is too large to store for this file. "
+                            "Please narrow extraction scope or use offline extraction."
+                        )
+                    },
+                    status=413,
+                )
+            except Exception as e:
+                print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
+                return render(
+                    request,
+                    "error.html",
+                    {"error": f"Failed to store generated {service} data."},
+                    status=500,
+                )
         del details
 
     return redirect("report", task_id=task_id)

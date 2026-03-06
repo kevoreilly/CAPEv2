@@ -278,7 +278,7 @@
 
             {% if config.strings %}
                 {% if "strings" not in sub_file %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "strings" id "static" sub_file.sha256 %}">Gen Strings</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "strings" id tab_name sub_file.sha256 %}">Gen Strings</a>
                 {% elif sub_file.strings %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#strings_{{sub_file.sha256}}">Strings</a>
                 {% endif %}
@@ -286,7 +286,7 @@
 
             {% if config.floss %}
                 {% if not sub_file.floss %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "floss" id "static" sub_file.sha256 %}">Gen Floss</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "floss" id tab_name sub_file.sha256 %}">Gen Floss</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#floss_{{sub_file.sha256}}">Floss</a>
                 {% endif %}
@@ -350,7 +350,7 @@
             <div class="card bg-dark text-white">
                 <div class="card-header"><h6 class="mb-0">Strings</h6></div>
                 <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                    {{sub_file.strings|safe}}
+                    <pre class="mb-0 small">{% for string in sub_file.strings %}{{string}}<br>{% endfor %}</pre>
                 </div>
             </div>
         </div>
@@ -361,7 +361,7 @@
             <div class="card bg-dark text-white">
                 <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
                 <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                    {% for string in sub_file.dotnet_strings %}<div>{{string|safe}}</div>{% endfor %}
+                    <pre class="mb-0 small">{% for string in sub_file.dotnet_strings %}{{string}}<br>{% endfor %}</pre>
                 </div>
             </div>
         </div>
@@ -418,3 +418,4 @@
         </div>
     {% endif %}
 </div>
+

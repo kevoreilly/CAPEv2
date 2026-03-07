@@ -34,6 +34,7 @@ except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
 MACHINE_RUNNING = "running"
+MACHINE_POWEROFF = "poweroff"
 
 log = logging.getLogger(__name__)
 web_conf = Config("web")
@@ -340,6 +341,7 @@ class MachinesMixIn:
         """
         machine.locked = False
         machine.locked_changed_on = _utcnow_naive()
+        self.set_machine_status(machine, MACHINE_POWEROFF)
         self.session.merge(machine)
         return machine
 

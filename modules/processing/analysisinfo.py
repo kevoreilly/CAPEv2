@@ -73,8 +73,8 @@ class AnalysisInfo(Processing):
                         'INFO: analysis package selected: "',
                         'INFO: Automatically selected analysis package "',
                     ):
-                        if marker in analysis_log:
-                            idx = analysis_log.index(marker)
+                        idx = analysis_log.find(marker)
+                        if idx != -1:
                             package = analysis_log[idx + len(marker) :].split('"', 1)[0]
                             break
         return package

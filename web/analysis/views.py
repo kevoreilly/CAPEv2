@@ -31,7 +31,7 @@ try:
     from pymongo.errors import DocumentTooLarge
 
     MONGO_DOCUMENT_TOO_LARGE_ERRORS = (DocumentTooLarge,)
-except Exception:
+except ImportError:
     pass
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -2529,6 +2529,11 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     ).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
+    # Restrict category to known report sections writable by this endpoint.
+    allowed_categories = {"static", "CAPE", "procdump", "procmemory", "dropped"}
+    if category not in allowed_categories:
+        return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
+
     # Self Extracted support folder
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
 
@@ -2597,6 +2602,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         details = Floss(path, package, on_demand=True).run()
         if not details:
             details = {"msg": "No results"}
+
     def _set_service_by_sha256(node, target_sha256, service_name, service_details):
         if isinstance(node, dict):
             if node.get("sha256") == target_sha256:
@@ -2622,7 +2628,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         elif category in ("procdump", "procmemory", "dropped"):
             _set_service_by_sha256(buf[category] or [], sha256, service, details)
             servicedata = buf[category]
-        elif "target" in category:
+        elif category == "target.file":
             servicedata = buf.get("target", {}).get("file", {})
             if servicedata:
                 if service == "xlsdeobf":

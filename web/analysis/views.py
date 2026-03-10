@@ -12,6 +12,7 @@ import sys
 import tempfile
 import zipfile
 from contextlib import suppress
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
@@ -20,7 +21,7 @@ from wsgiref.util import FileWrapper
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import BadRequest, PermissionDenied
-from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
@@ -89,6 +90,13 @@ if processing_cfg.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
 
     HAVE_STRINGS = True
+
+try:
+    from evtx import PyEvtxParser
+
+    HAVE_EVTX = True
+except ImportError:
+    HAVE_EVTX = False
 
 HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
@@ -569,6 +577,185 @@ def _load_file(task_id, sha256, existen_details, name):
     return existen_details
 
 
+EVTX_LEVEL_MAP = {0: "Info", 1: "Critical", 2: "Error", 3: "Warning", 4: "Info", 5: "Verbose"}
+EVTX_PAGE_SIZE = 100
+
+
+def _evtx_member_display_name(member):
+    return os.path.splitext(member)[0].replace("%4", "/")
+
+
+def _flatten_evtx_detail(detail, prefix=""):
+    items = []
+    if isinstance(detail, dict):
+        for key, value in detail.items():
+            full_key = f"{prefix}.{key}" if prefix else str(key)
+            if isinstance(value, dict):
+                items.extend(_flatten_evtx_detail(value, full_key))
+            elif isinstance(value, list):
+                for index, item in enumerate(value):
+                    item_key = f"{full_key}[{index}]"
+                    if isinstance(item, dict):
+                        items.extend(_flatten_evtx_detail(item, item_key))
+                    else:
+                        items.append({"key": item_key, "value": item})
+            else:
+                items.append({"key": full_key, "value": value})
+    return items
+
+
+def _list_evtx_members(zip_path):
+    """List safe EVTX members from an archive without extracting them."""
+    members = []
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for member in zf.namelist():
+                normalized = member.replace("\\", "/")
+                if normalized != os.path.basename(normalized):
+                    log.warning("Skipping suspicious EVTX archive member: %s", member)
+                    continue
+                if not normalized.lower().endswith(".evtx"):
+                    continue
+                members.append({"member": normalized, "channel": _evtx_member_display_name(normalized)})
+    except Exception:
+        return []
+
+    members.sort(key=lambda item: item["channel"].lower())
+    return members
+
+
+@lru_cache(maxsize=128)
+def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime):
+    del mtime
+    events = []
+    total_events = 0
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            normalized = member.replace("\\", "/")
+            if normalized != os.path.basename(normalized) or normalized not in zf.namelist():
+                raise ValueError(f"Invalid EVTX member requested: {member}")
+
+            real_tmpdir = os.path.realpath(tmpdir)
+            target = os.path.realpath(os.path.join(tmpdir, normalized))
+            if not target.startswith(real_tmpdir + os.sep) and target != real_tmpdir:
+                raise ValueError(f"Zip slip attempt in evtx.zip: {member}")
+
+            zf.extract(normalized, tmpdir)
+
+        evtx_path = os.path.join(tmpdir, normalized)
+        parser = PyEvtxParser(evtx_path)
+        start_index = max(page - 1, 0) * page_size
+        end_index = start_index + page_size
+
+        for index, record in enumerate(parser.records_json()):
+            total_events += 1
+            if index < start_index or index >= end_index:
+                continue
+
+            try:
+                evt = json.loads(record["data"])
+                event_data = evt.get("Event", {})
+                system = event_data.get("System", {})
+
+                event_id_raw = system.get("EventID", "")
+                if isinstance(event_id_raw, dict):
+                    event_id = event_id_raw.get("#text", 0)
+                else:
+                    event_id = event_id_raw
+
+                level_num = system.get("Level", 4)
+                try:
+                    level_num = int(level_num)
+                except (TypeError, ValueError):
+                    level_num = 4
+                level = EVTX_LEVEL_MAP.get(level_num, "Info")
+
+                time_created = system.get("TimeCreated", {})
+                if isinstance(time_created, dict):
+                    timestamp = time_created.get("#attributes", {}).get("SystemTime", "")
+                else:
+                    timestamp = str(time_created)
+
+                provider = system.get("Provider", {})
+                if isinstance(provider, dict):
+                    provider_name = provider.get("#attributes", {}).get("Name", "")
+                else:
+                    provider_name = str(provider)
+
+                detail = event_data.get("EventData", event_data.get("UserData", {}))
+                flat_detail = _flatten_evtx_detail(detail)
+                events.append(
+                    {
+                        "timestamp": timestamp,
+                        "event_id": event_id,
+                        "level": level,
+                        "level_num": level_num,
+                        "provider": provider_name,
+                        "computer": system.get("Computer", ""),
+                        "detail": detail,
+                        "flat_detail": flat_detail,
+                        "detail_summary": "; ".join(f"{item['key']}={item['value']}" for item in flat_detail),
+                    }
+                )
+            except (json.JSONDecodeError, KeyError, TypeError):
+                continue
+
+    return {
+        "member": member,
+        "channel": _evtx_member_display_name(member),
+        "events": events,
+        "page": page,
+        "page_size": page_size,
+        "total_events": total_events,
+        "total_pages": (total_events + page_size - 1) // page_size,
+    }
+
+
+@lru_cache(maxsize=256)
+def _count_evtx_channel_events_cached(zip_path, member, mtime):
+    del mtime
+    if not HAVE_EVTX:
+        return None
+
+    count = 0
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            normalized = member.replace("\\", "/")
+            if normalized != os.path.basename(normalized) or normalized not in zf.namelist():
+                raise ValueError(f"Invalid EVTX member requested: {member}")
+
+            real_tmpdir = os.path.realpath(tmpdir)
+            target = os.path.realpath(os.path.join(tmpdir, normalized))
+            if not target.startswith(real_tmpdir + os.sep) and target != real_tmpdir:
+                raise ValueError(f"Zip slip attempt in evtx.zip: {member}")
+
+            zf.extract(normalized, tmpdir)
+
+        evtx_path = os.path.join(tmpdir, normalized)
+        parser = PyEvtxParser(evtx_path)
+        for _ in parser.records_json():
+            count += 1
+
+    return count
+
+
+def _load_evtx_channel_page(zip_path, member, page, page_size=EVTX_PAGE_SIZE):
+    if not HAVE_EVTX:
+        return {"member": member, "channel": _evtx_member_display_name(member), "error": "EVTX parser is not installed on the web node."}
+
+    try:
+        page = max(int(page), 1)
+    except (TypeError, ValueError):
+        page = 1
+
+    try:
+        mtime = os.path.getmtime(zip_path)
+        return _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime)
+    except Exception:
+        return None
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 # @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -589,6 +776,7 @@ def load_files(request, task_id, category):
         "procmemory",
         "memory",
         "tracee",
+        "eventlogs",
     ):
         data = {}
         debugger_logs = {}
@@ -685,6 +873,12 @@ def load_files(request, task_id, category):
                     {"info.id": int(task_id)},
                     {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "pcapng": 1, "_id": 0},
                 )
+            elif category == "eventlogs":
+                data = mongo_find_one(
+                    "analysis",
+                    {"info.id": int(task_id)},
+                    {"sigma": 1, "sysmon": 1, "info.tlp": 1, "info.id": 1, "_id": 0},
+                )
             else:
                 data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
         elif enabledconf["elasticsearchdb"]:
@@ -704,6 +898,12 @@ def load_files(request, task_id, category):
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
                     _source=[category, "suricata", "cif", "info.tlp"],
+                )["hits"]["hits"][0]["_source"]
+            elif category == "eventlogs":
+                data = elastic_handler.search(
+                    index=get_analysis_index(),
+                    query=get_query_by_info_id(task_id),
+                    _source=["sigma", "sysmon", "info.tlp", "info.id"],
                 )["hits"]["hits"][0]["_source"]
             else:
                 data = elastic_handler.search(
@@ -732,9 +932,21 @@ def load_files(request, task_id, category):
         # ES isn't supported
         page = "analysis/{}/index.html".format(category)
 
+        category_data = data.get(category, {})
+        if category == "eventlogs":
+            evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+            evtx_channels = []
+            if path_exists(evtx_zip):
+                evtx_channels = _list_evtx_members(evtx_zip)
+            category_data = {
+                "sigma": data.get("sigma", {}),
+                "sysmon": data.get("sysmon", []),
+                "evtx_channels": evtx_channels,
+            }
+
         ajax_response = {
-            category: data.get(category, {}),
-            "tlp": data.get("info").get("tlp", ""),
+            category: category_data,
+            "tlp": data.get("info", {}).get("tlp", ""),
             "id": task_id,
             "graphs": {
                 "bingraph": {"enabled": enabledconf["bingraph"], "content": bingraph_dict_content},
@@ -758,6 +970,9 @@ def load_files(request, task_id, category):
             mitmdump_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "mitmdump", "dump.har")
             if _path_safe(mitmdump_path):
                 ajax_response["mitmdump_exists"] = _path_safe(mitmdump_path)
+            decrypted_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_decrypted.pcap")
+            if _path_safe(decrypted_pcap_path):
+                ajax_response["decrypted_pcap_exists"] = True
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
@@ -1588,6 +1803,10 @@ def report(request, task_id):
     if path_exists(debugger_log_path) and os.listdir(debugger_log_path):
         report["debugger_logs"] = 1
 
+    evtx_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+    if path_exists(evtx_path):
+        report["has_evtx"] = True
+
     if settings.MOLOCH_ENABLED and "suricata" in report:
         suricata = report["suricata"]
         if settings.MOLOCH_BASE[-1] != "/":
@@ -1715,6 +1934,48 @@ def report(request, task_id):
             "existent_tasks": existent_tasks,
         },
     )
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def load_evtx_channel(request, task_id):
+    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+        raise PermissionDenied
+
+    member = request.GET.get("member", "")
+    page = request.GET.get("page", "1")
+    evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+    if not path_exists(evtx_zip):
+        raise PermissionDenied
+
+    evtx_page = _load_evtx_channel_page(evtx_zip, member, page)
+    if not evtx_page:
+        evtx_page = {"member": member, "channel": _evtx_member_display_name(member), "error": "Failed to load EVTX channel."}
+
+    return render(request, "analysis/eventlogs/_evtx_channel.html", {"evtx_page": evtx_page})
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def load_evtx_channel_count(request, task_id):
+    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+        raise PermissionDenied
+
+    member = request.GET.get("member", "")
+    evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+    if not path_exists(evtx_zip):
+        raise PermissionDenied
+
+    if not HAVE_EVTX:
+        return JsonResponse({"ok": False, "error": "EVTX parser is not installed on the web node."})
+
+    try:
+        mtime = os.path.getmtime(evtx_zip)
+        count = _count_evtx_channel_events_cached(evtx_zip, member, mtime)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Failed to count EVTX events."})
+
+    return JsonResponse({"ok": True, "member": member, "count": count})
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -1881,6 +2142,10 @@ def file(request, category, task_id, dlfile):
         pcapng = PcapToNg(pcap_path, tls_log_path, ssl_key_log_path)
         pcapng.generate(path)
         file_name += ".pcapng"
+        cd = "application/vnd.tcpdump.pcap"
+    elif category == "decrypted_pcap":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_decrypted.pcap")
+        file_name += ".pcap"
         cd = "application/vnd.tcpdump.pcap"
     elif category == "debugger_log":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")

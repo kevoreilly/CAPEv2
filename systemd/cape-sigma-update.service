@@ -1,0 +1,14 @@
+[Unit]
+Description=Update CAPE Sigma rules via Zircolite
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=cape
+Group=cape
+WorkingDirectory=/opt/zircolite
+ExecStart=/etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python zircolite.py --update-rules
+ExecStartPost=/bin/bash -c 'for f in /opt/zircolite/rules/*.json; do dest="/opt/CAPEv2/data/sigma/$(basename "$f")"; [ -f "$dest" ] && cp "$f" "$dest"; done'
+ExecStartPost=+/bin/systemctl restart cape-processor.service
+TimeoutStartSec=300

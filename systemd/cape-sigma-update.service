@@ -9,6 +9,6 @@ User=cape
 Group=cape
 WorkingDirectory=/opt/zircolite
 ExecStart=/etc/poetry/bin/poetry --directory /opt/CAPEv2/ run python zircolite.py --update-rules
-ExecStartPost=/bin/bash -c 'for f in /opt/zircolite/rules/*.json; do dest="/opt/CAPEv2/data/sigma/$(basename "$f")"; [ -f "$dest" ] && cp "$f" "$dest"; done'
+ExecStartPost=/bin/bash -c 'for f in /opt/zircolite/rules/*.json; do cp "$f" "/opt/CAPEv2/data/sigma/$(basename "$f")"; done'
 ExecStartPost=+/bin/systemctl restart cape-processor.service
 TimeoutStartSec=300

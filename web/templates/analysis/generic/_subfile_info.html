@@ -270,7 +270,7 @@
             
             {% if config.flare_capa %}
                 {% if not sub_file.flare_capa and on_demand.flare_capa %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "flare_capa" id tab_name sub_file.sha256 %}">Gen CAPA</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "flare_capa" id tab_name sub_file.sha256 %}">Extract: CAPA</a>
                 {% elif sub_file.flare_capa %}
                     <a class="btn btn-sm btn-outline-warning me-2 mb-2" data-bs-toggle="collapse" href="#flare_capa_{{sub_file.sha256}}">View CAPA</a>
                 {% endif %}
@@ -278,7 +278,7 @@
 
             {% if config.strings %}
                 {% if "strings" not in sub_file %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "strings" id tab_name sub_file.sha256 %}">Gen Strings</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "strings" id tab_name sub_file.sha256 %}">Extract: Strings</a>
                 {% elif sub_file.strings %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#strings_{{sub_file.sha256}}">Strings</a>
                 {% endif %}
@@ -286,7 +286,7 @@
 
             {% if config.floss %}
                 {% if not sub_file.floss %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "floss" id tab_name sub_file.sha256 %}">Gen Floss</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "floss" id tab_name sub_file.sha256 %}">Extract: Floss</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#floss_{{sub_file.sha256}}">Floss</a>
                 {% endif %}
@@ -294,7 +294,7 @@
 
             {% if config.bingraph %}
                 {% if not graphs.bingraph.content|getkey:sub_file.sha256 and on_demand.bingraph %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "bingraph" id tab_name sub_file.sha256 %}">Gen BinGraph</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "bingraph" id tab_name sub_file.sha256 %}">Extract: BinGraph</a>
                 {% elif graphs.bingraph.content|getkey:sub_file.sha256 %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" href="{% url "file_nl" "bingraph" id sub_file.sha256 %}">BinGraph</a>
                 {% endif %}
@@ -418,4 +418,3 @@
         </div>
     {% endif %}
 </div>
-

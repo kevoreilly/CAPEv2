@@ -156,6 +156,7 @@ def static_file_info(
     destination_folder: str,
     results: dict,
     duplicated: DuplicatesType,
+    category: str = "files",
 ):
     size_mb = int(path_get_size(file_path) / (1024 * 1024))
     if size_mb > int(processing_conf.CAPE.max_file_size):
@@ -266,7 +267,7 @@ def static_file_info(
 
         # ToDo we need url support
         if HAVE_VIRUSTOTAL and processing_conf.virustotal.enabled and "virustotal" not in data_dictionary:
-            vt_details = vt_lookup("file", file_path, results)
+            vt_details = vt_lookup("file", file_path, results, file_category=category)
             if vt_details:
                 data_dictionary["virustotal"] = vt_details
 

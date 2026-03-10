@@ -208,8 +208,8 @@
                 for (var j = 0; j < eventOrder.length; j++) {
                     var eid = eventOrder[j];
                     var active = j === 0 ? " active" : "";
-                    tabsHtml += '<li class="nav-item"><a class="nav-link' + active + '" data-bs-toggle="tab" href="#sysmon_eid_' + eid + '" role="tab">' +
-                        getEventName(eid) + ' (' + grouped[eid].length + ')</a></li>';
+                    tabsHtml += '<li class="nav-item"><a class="nav-link' + active + '" data-bs-toggle="tab" href="#sysmon_eid_' + escapeHtml(eid) + '" role="tab">' +
+                        escapeHtml(getEventName(eid)) + ' (' + grouped[eid].length + ')</a></li>';
                 }
                 tabsHtml += '</ul>';
 
@@ -220,7 +220,7 @@
                     var events = grouped[eid];
                     var showActive = j === 0 ? " show active" : "";
 
-                    contentHtml += '<div class="tab-pane fade' + showActive + '" id="sysmon_eid_' + eid + '">';
+                    contentHtml += '<div class="tab-pane fade' + showActive + '" id="sysmon_eid_' + escapeHtml(eid) + '">';
 
                     // Determine columns from EventData.Data
                     var columns = [];
@@ -265,7 +265,7 @@
                         var evt = events[e];
                         var pageNum = Math.floor(e / PAGE_SIZE) + 1;
                         var hidden = pageNum > 1 ? ' style="display:none"' : '';
-                        contentHtml += '<tr class="sysmon-row" data-page="' + pageNum + '" data-eid="' + eid + '"' + hidden + '>';
+                        contentHtml += '<tr class="sysmon-row" data-page="' + pageNum + '" data-eid="' + escapeHtml(eid) + '"' + hidden + '>';
                         for (var c = 0; c < columns.length; c++) {
                             var val = "";
                             if (columns[c] === "TimeCreated") {
@@ -284,7 +284,7 @@
 
                     // Pagination controls
                     if (totalPages > 1) {
-                        contentHtml += '<nav aria-label="Sysmon pagination"><ul class="pagination justify-content-center eventlogs-pagination" data-eid="' + eid + '">';
+                        contentHtml += '<nav aria-label="Sysmon pagination"><ul class="pagination justify-content-center eventlogs-pagination" data-eid="' + escapeHtml(eid) + '">';
                         for (var p = 1; p <= totalPages; p++) {
                             var activeClass = p === 1 ? " active" : "";
                             contentHtml += '<li class="page-item' + activeClass + '"><a class="page-link" data-page="' + p + '">' + p + '</a></li>';

@@ -1,0 +1,474 @@
+<style>
+.severity-critical { background-color: #dc3545; color: #fff; }
+.severity-high { background-color: #fd7e14; color: #fff; }
+.severity-medium { background-color: #ffc107; color: #212529; }
+.severity-low { background-color: #0dcaf0; color: #212529; }
+.severity-informational { background-color: #6c757d; color: #fff; }
+.sigma-card .card-header { cursor: pointer; }
+.sigma-card .card-header:hover { opacity: 0.9; }
+.sysmon-table td { max-width: 500px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sysmon-table td:hover { white-space: normal; word-break: break-all; }
+.eventlogs-pagination .page-link { cursor: pointer; }
+.evtx-channel-list .list-group-item { cursor: pointer; }
+</style>
+
+<ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1 mb-3" id="eventlogsTabs" role="tablist">
+    {% if eventlogs.sigma and eventlogs.sigma.detections %}
+    <li class="nav-item">
+        <a class="nav-link active" id="sigma-tab" href="#sigma_tab" data-bs-toggle="tab" role="tab" aria-controls="sigma_tab" aria-selected="true">
+            <i class="fas fa-shield-alt me-2"></i>Sigma Detections ({{ eventlogs.sigma.detections|length }})
+        </a>
+    </li>
+    {% endif %}
+    {% if eventlogs.sysmon %}
+    <li class="nav-item">
+        <a class="nav-link {% if not eventlogs.sigma or not eventlogs.sigma.detections %}active{% endif %}" id="sysmon-tab" href="#sysmon_tab" data-bs-toggle="tab" role="tab" aria-controls="sysmon_tab" aria-selected="false">
+            <i class="fas fa-eye me-2"></i>Sysmon Events ({{ eventlogs.sysmon|length }})
+        </a>
+    </li>
+    {% endif %}
+    {% if eventlogs.evtx_channels %}
+    <li class="nav-item">
+        <a class="nav-link {% if not eventlogs.sigma.detections and not eventlogs.sysmon %}active{% endif %}" id="evtx-tab" href="#evtx_tab" data-bs-toggle="tab" role="tab" aria-controls="evtx_tab" aria-selected="false">
+            <i class="fas fa-list-alt me-2"></i>EVTX Events
+        </a>
+    </li>
+    {% endif %}
+</ul>
+
+<div class="tab-content">
+    <!-- Sigma Detections Tab -->
+    {% if eventlogs.sigma and eventlogs.sigma.detections %}
+    <div class="tab-pane fade show active" id="sigma_tab">
+        {% if eventlogs.sigma.statistics %}
+        <div class="alert alert-secondary mb-3">
+            <strong>Summary:</strong>
+            {{ eventlogs.sigma.statistics.total }} detection{{ eventlogs.sigma.statistics.total|pluralize }}
+            {% if eventlogs.sigma.statistics.critical %} | <span class="badge severity-critical">{{ eventlogs.sigma.statistics.critical }} Critical</span>{% endif %}
+            {% if eventlogs.sigma.statistics.high %} | <span class="badge severity-high">{{ eventlogs.sigma.statistics.high }} High</span>{% endif %}
+            {% if eventlogs.sigma.statistics.medium %} | <span class="badge severity-medium">{{ eventlogs.sigma.statistics.medium }} Medium</span>{% endif %}
+            {% if eventlogs.sigma.statistics.low %} | <span class="badge severity-low">{{ eventlogs.sigma.statistics.low }} Low</span>{% endif %}
+            {% if eventlogs.sigma.statistics.informational %} | <span class="badge severity-informational">{{ eventlogs.sigma.statistics.informational }} Info</span>{% endif %}
+            {% if eventlogs.sigma.mitre_techniques %}
+            <br><strong>MITRE Techniques:</strong>
+            {% for technique in eventlogs.sigma.mitre_techniques %}
+                <span class="badge bg-secondary">{{ technique }}</span>
+            {% endfor %}
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="list-group">
+        {% for detection in eventlogs.sigma.detections %}
+            <div class="list-group-item p-2 sigma-card">
+                <div class="card-header d-flex align-items-center justify-content-between" data-bs-toggle="collapse" data-bs-target="#sigma_det_{{ forloop.counter0 }}">
+                    <div>
+                        <i class="fas fa-chevron-right me-1 sigma-chevron"></i>
+                        <span class="badge severity-{{ detection.level }} me-2">{{ detection.level|upper }}</span>
+                        <strong>{{ detection.title }}</strong>
+                        <span class="badge bg-secondary ms-2">{{ detection.count }} event{{ detection.count|pluralize }}</span>
+                    </div>
+                    <div>
+                        {% if detection.id %}
+                        <small class="text-muted me-3">{{ detection.id }}</small>
+                        {% endif %}
+                        {% for tech in detection.mitre_techniques %}
+                            <span class="badge bg-info text-dark">{{ tech }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% if detection.description %}
+                <small class="text-muted">{{ detection.description }}</small>
+                {% endif %}
+                <div class="collapse" id="sigma_det_{{ forloop.counter0 }}">
+                    {% if detection.sigma_query %}
+                    <div class="mt-2"><small class="text-muted"><strong>Sigma Query:</strong></small>
+                        <pre class="bg-dark text-light p-2 rounded mt-1 mb-1" style="font-size:0.8em; white-space:pre-wrap; word-break:break-all; max-height:150px; overflow-y:auto">{{ detection.sigma_query }}</pre>
+                    </div>
+                    {% endif %}
+                    {% if detection.matched_events %}
+                    {% for event in detection.matched_events %}
+                    <div class="p-2 bg-dark text-light rounded mt-2" style="font-size:0.85em">
+                        {% if detection.matched_events|length > 1 %}<strong class="text-muted">Event {{ forloop.counter }} of {{ detection.matched_events|length }}</strong><br>{% endif %}
+                        <table class="table table-sm table-dark table-bordered mt-1 mb-0" style="font-size:0.9em"><tbody>
+                        {% for key, val in event.items %}
+                            {% if val %}
+                            <tr><td class="text-info" style="width:250px;word-break:break-all">{{ key }}</td><td style="word-break:break-all">{{ val }}</td></tr>
+                            {% endif %}
+                        {% endfor %}
+                        </tbody></table>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+        {% endfor %}
+        </div>
+        <script>
+        $(function() {
+            $('.sigma-card .collapse').on('show.bs.collapse', function() {
+                $(this).closest('.sigma-card').find('.sigma-chevron').removeClass('fa-chevron-right').addClass('fa-chevron-down');
+            }).on('hide.bs.collapse', function() {
+                $(this).closest('.sigma-card').find('.sigma-chevron').removeClass('fa-chevron-down').addClass('fa-chevron-right');
+            });
+        });
+        </script>
+    </div>
+    {% endif %}
+
+    <!-- Sysmon Events Tab -->
+    {% if eventlogs.sysmon %}
+    <div class="tab-pane fade {% if not eventlogs.sigma or not eventlogs.sigma.detections %}show active{% endif %}" id="sysmon_tab">
+        <script>
+        (function() {
+            var SYSMON_EVENT_NAMES = {
+                "1": "Process Create",
+                "2": "File Creation Time Changed",
+                "3": "Network Connect",
+                "4": "Sysmon Service State Changed",
+                "5": "Process Terminated",
+                "6": "Driver Loaded",
+                "7": "Image Loaded",
+                "8": "CreateRemoteThread",
+                "9": "RawAccessRead",
+                "10": "ProcessAccess",
+                "11": "File Create",
+                "12": "Registry Object Added/Deleted",
+                "13": "Registry Value Set",
+                "14": "Registry Key/Value Renamed",
+                "15": "File Create Stream Hash",
+                "16": "Sysmon Config State Changed",
+                "17": "Pipe Created",
+                "18": "Pipe Connected",
+                "19": "WmiEventFilter",
+                "20": "WmiEventConsumer",
+                "21": "WmiEventConsumerToFilter",
+                "22": "DNS Query",
+                "23": "File Delete (archived)",
+                "24": "Clipboard Change",
+                "25": "Process Tampering",
+                "26": "File Delete Logged",
+                "255": "Error"
+            };
+
+            var PAGE_SIZE = 100;
+
+            function escapeHtml(str) {
+                if (!str) return "";
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+            }
+
+            function getEventName(eid) {
+                return SYSMON_EVENT_NAMES[eid] || ("Event " + eid);
+            }
+
+            function getDataField(dataArr, name) {
+                if (!dataArr) return "";
+                for (var i = 0; i < dataArr.length; i++) {
+                    if (dataArr[i]["@Name"] === name) {
+                        return dataArr[i]["#text"] || "";
+                    }
+                }
+                return "";
+            }
+
+            $(function() {
+                var sysmonContainer = $("#sysmon_events_container");
+                if (!sysmonContainer.length) return;
+
+                // Group events by EventID
+                var allEvents = [];
+                try {
+                    var dataEl = document.getElementById("sysmon-data");
+                    if (dataEl) {
+                        allEvents = JSON.parse(dataEl.textContent);
+                    }
+                } catch(e) {}
+
+                var grouped = {};
+                var eventOrder = [];
+                for (var i = 0; i < allEvents.length; i++) {
+                    var evt = allEvents[i];
+                    var eid = "0";
+                    if (evt.System && evt.System.EventID) {
+                        eid = typeof evt.System.EventID === "object" ? (evt.System.EventID["#text"] || "0") : evt.System.EventID;
+                    }
+                    if (!grouped[eid]) {
+                        grouped[eid] = [];
+                        eventOrder.push(eid);
+                    }
+                    grouped[eid].push(evt);
+                }
+
+                // Sort event IDs numerically
+                eventOrder.sort(function(a, b) { return parseInt(a) - parseInt(b); });
+
+                // Build sub-tabs
+                var tabsHtml = '<ul class="nav nav-pills nav-fill bg-secondary rounded shadow-sm p-1 mb-3" role="tablist">';
+                for (var j = 0; j < eventOrder.length; j++) {
+                    var eid = eventOrder[j];
+                    var active = j === 0 ? " active" : "";
+                    tabsHtml += '<li class="nav-item"><a class="nav-link' + active + '" data-bs-toggle="tab" href="#sysmon_eid_' + escapeHtml(eid) + '" role="tab">' +
+                        escapeHtml(getEventName(eid)) + ' (' + grouped[eid].length + ')</a></li>';
+                }
+                tabsHtml += '</ul>';
+
+                // Build tab content
+                var contentHtml = '<div class="tab-content">';
+                for (var j = 0; j < eventOrder.length; j++) {
+                    var eid = eventOrder[j];
+                    var events = grouped[eid];
+                    var showActive = j === 0 ? " show active" : "";
+
+                    contentHtml += '<div class="tab-pane fade' + showActive + '" id="sysmon_eid_' + escapeHtml(eid) + '">';
+
+                    // Determine columns from EventData.Data
+                    var columns = [];
+                    // Always show time first
+                    columns.push("TimeCreated");
+                    if (events[0] && events[0].EventData && events[0].EventData.Data) {
+                        var dataArr = events[0].EventData.Data;
+                        if (Array.isArray(dataArr)) {
+                            for (var k = 0; k < dataArr.length; k++) {
+                                if (dataArr[k]["@Name"]) {
+                                    columns.push(dataArr[k]["@Name"]);
+                                }
+                            }
+                        }
+                    }
+
+                    // Limit columns to key fields based on event type
+                    var keyFields = {
+                        "1": ["TimeCreated", "Image", "CommandLine", "ParentImage", "ParentCommandLine", "User", "ProcessId"],
+                        "3": ["TimeCreated", "Image", "DestinationIp", "DestinationPort", "DestinationHostname", "Protocol", "User"],
+                        "7": ["TimeCreated", "Image", "ImageLoaded", "Signed", "Signature"],
+                        "11": ["TimeCreated", "Image", "TargetFilename", "CreationUtcTime"],
+                        "12": ["TimeCreated", "Image", "EventType", "TargetObject"],
+                        "13": ["TimeCreated", "Image", "EventType", "TargetObject", "Details"],
+                        "22": ["TimeCreated", "Image", "QueryName", "QueryResults", "QueryStatus"]
+                    };
+                    if (keyFields[eid]) {
+                        columns = keyFields[eid];
+                    } else if (columns.length > 8) {
+                        columns = columns.slice(0, 8);
+                    }
+
+                    contentHtml += '<div class="table-responsive"><table class="table table-sm table-striped table-hover sysmon-table">';
+                    contentHtml += '<thead class="table-dark"><tr>';
+                    for (var c = 0; c < columns.length; c++) {
+                        contentHtml += '<th>' + escapeHtml(columns[c]) + '</th>';
+                    }
+                    contentHtml += '</tr></thead><tbody>';
+
+                    var totalPages = Math.ceil(events.length / PAGE_SIZE);
+                    for (var e = 0; e < events.length; e++) {
+                        var evt = events[e];
+                        var pageNum = Math.floor(e / PAGE_SIZE) + 1;
+                        var hidden = pageNum > 1 ? ' style="display:none"' : '';
+                        contentHtml += '<tr class="sysmon-row" data-page="' + pageNum + '" data-eid="' + escapeHtml(eid) + '"' + hidden + '>';
+                        for (var c = 0; c < columns.length; c++) {
+                            var val = "";
+                            if (columns[c] === "TimeCreated") {
+                                if (evt.System && evt.System.TimeCreated) {
+                                    val = evt.System.TimeCreated["@SystemTime"] || "";
+                                }
+                            } else if (evt.EventData && evt.EventData.Data) {
+                                val = getDataField(Array.isArray(evt.EventData.Data) ? evt.EventData.Data : [], columns[c]);
+                            }
+                            var displayVal = val.length > 120 ? val.substring(0, 120) + "..." : val;
+                            contentHtml += '<td title="' + escapeHtml(val) + '">' + escapeHtml(displayVal) + '</td>';
+                        }
+                        contentHtml += '</tr>';
+                    }
+                    contentHtml += '</tbody></table></div>';
+
+                    // Pagination controls
+                    if (totalPages > 1) {
+                        contentHtml += '<nav aria-label="Sysmon pagination"><ul class="pagination justify-content-center eventlogs-pagination" data-eid="' + escapeHtml(eid) + '">';
+                        for (var p = 1; p <= totalPages; p++) {
+                            var activeClass = p === 1 ? " active" : "";
+                            contentHtml += '<li class="page-item' + activeClass + '"><a class="page-link" data-page="' + p + '">' + p + '</a></li>';
+                        }
+                        contentHtml += '</ul></nav>';
+                    }
+
+                    contentHtml += '</div>';
+                }
+                contentHtml += '</div>';
+
+                sysmonContainer.html(tabsHtml + contentHtml);
+
+                // Pagination click handler
+                sysmonContainer.on("click", ".eventlogs-pagination .page-link", function(e) {
+                    e.preventDefault();
+                    var page = parseInt($(this).data("page"));
+                    var eid = $(this).closest(".eventlogs-pagination").data("eid");
+                    // Hide all rows for this eid, show the selected page
+                    $('tr.sysmon-row[data-eid="' + eid + '"]').hide();
+                    $('tr.sysmon-row[data-eid="' + eid + '"][data-page="' + page + '"]').show();
+                    $(this).closest(".eventlogs-pagination").find(".page-item").removeClass("active");
+                    $(this).parent().addClass("active");
+                });
+            });
+        })();
+        </script>
+
+        <div id="sysmon_events_container">
+            {{ eventlogs.sysmon|json_script:"sysmon-data" }}
+            <div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Loading Sysmon events...</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- EVTX Events Tab -->
+    {% if eventlogs.evtx_channels %}
+    <div class="tab-pane fade {% if not eventlogs.sigma.detections and not eventlogs.sysmon %}show active{% endif %}" id="evtx_tab">
+        <div class="d-flex align-items-center mb-3">
+            <a class="btn btn-outline-primary btn-sm me-3" href="{% url "file" "evtx" id "evtx" %}">
+                <i class="fas fa-download me-2"></i>Download EVTX Archive
+            </a>
+            <small class="text-muted">Channels load on demand and each fetched page is cached in the browser for this report view.</small>
+        </div>
+
+        <script>
+        (function() {
+            function escapeHtml(str) {
+                if (str === null || str === undefined) return "";
+                str = String(str);
+                return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#039;');
+            }
+
+            $(function() {
+                var container = $("#evtx_events_container");
+                if (!container.length) return;
+
+                var channels = [];
+                try {
+                    var dataEl = document.getElementById("evtx-channels-data");
+                    if (dataEl) {
+                        channels = JSON.parse(dataEl.textContent);
+                    }
+                } catch(e) {}
+
+                if (channels.length === 0) {
+                    container.html('<div class="alert alert-info">No EVTX channels found.</div>');
+                    return;
+                }
+
+                var pageCache = {};
+                var countCache = {};
+
+                function loadChannelPage(member, page, paneId, listItem) {
+                    var cacheKey = member + "::" + page;
+                    var pane = $("#" + paneId);
+                    if (!pane.length) return;
+                    $(".evtx-channel-list .list-group-item").removeClass("active");
+                    if (listItem) {
+                        listItem.addClass("active");
+                    } else {
+                        $('.evtx-channel-list .list-group-item[data-member="' + member.replace(/"/g, '&quot;') + '"]').addClass("active");
+                    }
+
+                    if (pageCache[cacheKey]) {
+                        pane.html(pageCache[cacheKey]);
+                        return;
+                    }
+
+                    pane.html('<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Loading EVTX events...</div>');
+                    $.ajax({
+                        url: "{% url 'load_evtx_channel' id %}",
+                        data: {member: member, page: page},
+                        headers: {"X-Requested-With": "XMLHttpRequest"},
+                        success: function(html) {
+                            pageCache[cacheKey] = html;
+                            pane.html(html);
+                        },
+                        error: function() {
+                            pane.html('<div class="alert alert-danger">Failed to load EVTX channel page.</div>');
+                        }
+                    });
+                }
+
+                function loadChannelCount(member, badge) {
+                    if (!badge || !badge.length || countCache.hasOwnProperty(member)) {
+                        if (badge && badge.length && countCache.hasOwnProperty(member)) {
+                            badge.text(countCache[member]);
+                        }
+                        return;
+                    }
+
+                    $.ajax({
+                        url: "{% url 'load_evtx_channel_count' id %}",
+                        data: {member: member},
+                        headers: {"X-Requested-With": "XMLHttpRequest"},
+                        success: function(resp) {
+                            if (resp && resp.ok) {
+                                countCache[member] = resp.count;
+                                badge.text(resp.count);
+                            } else {
+                                badge.text("?");
+                            }
+                        },
+                        error: function() {
+                            badge.text("?");
+                        }
+                    });
+                }
+
+                var listHtml = '<div class="row g-3">';
+                listHtml += '<div class="col-lg-4"><div class="list-group evtx-channel-list">';
+                for (var i = 0; i < channels.length; i++) {
+                    var channel = channels[i];
+                    var active = i === 0 ? " active" : "";
+                    listHtml += '<button type="button" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center' + active + '" data-member="' + escapeHtml(channel.member) + '">' +
+                        '<span class="text-break pe-2">' + escapeHtml(channel.channel) + '</span>' +
+                        '<span class="badge bg-secondary evtx-count" data-member="' + escapeHtml(channel.member) + '">...</span>' +
+                    '</button>';
+                }
+                listHtml += '</div></div>';
+                listHtml += '<div class="col-lg-8"><div id="evtx_channel_content" class="border rounded p-2 bg-body-tertiary">';
+                listHtml += '<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Select a channel to load EVTX events...</div>';
+                listHtml += '</div></div></div>';
+
+                container.html(listHtml);
+
+                container.find(".evtx-count").each(function() {
+                    var badge = $(this);
+                    loadChannelCount(badge.data("member"), badge);
+                });
+
+                container.on("click", ".evtx-channel-list .list-group-item", function() {
+                    var listItem = $(this);
+                    loadChannelPage(listItem.data("member"), 1, "evtx_channel_content", listItem);
+                });
+
+                container.on("click", ".evtx-pagination .page-link", function(e) {
+                    e.preventDefault();
+                    var member = $(this).data("member");
+                    var page = $(this).data("page");
+                    var listItem = container.find('.evtx-channel-list .list-group-item[data-member="' + member.replace(/"/g, '&quot;') + '"]');
+                    loadChannelPage(member, page, "evtx_channel_content", listItem);
+                });
+
+                var firstItem = container.find('.evtx-channel-list .list-group-item').first();
+
+                function ensureInitialChannelLoaded() {
+                    if (!firstItem.length || !$("#evtx-tab").hasClass("active")) {
+                        return;
+                    }
+                    loadChannelPage(firstItem.data("member"), 1, "evtx_channel_content", firstItem);
+                }
+
+                ensureInitialChannelLoaded();
+                $("#evtx-tab").on("shown.bs.tab", ensureInitialChannelLoaded);
+            });
+        })();
+        </script>
+
+        <div id="evtx_events_container">
+            {{ eventlogs.evtx_channels|json_script:"evtx-channels-data" }}
+            <div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Loading EVTX events...</div>
+        </div>
+    </div>
+    {% endif %}
+</div>

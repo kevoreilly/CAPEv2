@@ -612,7 +612,6 @@ def _list_evtx_members(zip_path):
             for member in zf.namelist():
                 normalized = member.replace("\\", "/")
                 if normalized != os.path.basename(normalized):
-                    log.warning("Skipping suspicious EVTX archive member: %s", member)
                     continue
                 if not normalized.lower().endswith(".evtx"):
                     continue

@@ -78,6 +78,10 @@ a:hover {
     color: #62c462 !important;
 }
 
+#top_pagination {
+    scroll-margin-top: 75px;
+}
+
 .page-item.active .page-link {
     z-index: 3;
     color: #fff;

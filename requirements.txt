@@ -2052,9 +2052,9 @@ pygments==2.19.1 ; python_version >= "3.10" and python_version < "4.0" \
 pyguacamole==0.11 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:7f8d8652ce2e86473d72a50e0c9d8a8e0c3c74e373c6b926ca4c851774cae608 \
     --hash=sha256:d6facde097a1b1a3048b20fb2ff88b024744ceb2865fb912525da7ebb7779695
-pyjwt==2.10.1 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953 \
-    --hash=sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb
+pyjwt==2.12.0 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:2f62390b667cd8257de560b850bb5a883102a388829274147f1d724453f8fb02 \
+    --hash=sha256:9bb459d1bdd0387967d287f5656bf7ec2b9a26645d1961628cda1764e087fd6e
 pymongo==4.11 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:0197fe47e31bee488e82e7ab73e6a351a191bbd6e25cf4a380622e4b1ffcd143 \
     --hash=sha256:06e82968ea031aebc18820898b102efed1ea8dc21b51eff2a81dc9ba4191fa6b \

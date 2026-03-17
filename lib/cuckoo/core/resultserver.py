@@ -64,6 +64,7 @@ RESULT_UPLOADABLE = (
     b"CAPE",
     b"aux",
     b"aux/amsi_etw",
+    b"aux/sslkeylogfile",
     b"browser",
     b"curtain",
     b"debugger",

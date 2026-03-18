@@ -1,0 +1,21 @@
+Received: from bogus.com
+Authentication-Results: spf=pass (sender IP is 1.2.3.4)
+Received-SPF: Pass (protection.outlook.com: domain of bogus.com
+Received: from bogus.bogus.com
+Authentication-Results-Original: mx-bogus.com;
+Date: Wed, 18 Mar 2026 09:59:38 +0000
+From: "Alice Bogus" <alice@bogus.com>
+Reply-To: "Alice Bogus" <alice@bogus.com>
+To: <bob@bogus.com>
+Message-ID: <12345@bogus.com>
+Subject: Hi Bob
+
+Hi Bob,
+
+How's it going?
+
+Did you import that file I sent you last week?
+
+Please let me know. Thanks.
+
+Alice

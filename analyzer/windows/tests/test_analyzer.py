@@ -81,6 +81,12 @@ class TestAnalyzerInternals(unittest.TestCase):
 
 
 class TestAnalyzerChoosePackage(unittest.TestCase):
+    def setUp(self):
+        patch_process = patch("analyzer.Process")
+        self.mock_process = patch_process.start()
+        self.mock_process.return_value = MagicMock()
+        self.addCleanup(patch_process.stop)
+
     def test_choose_package_shellcode(self):
         test = analyzer.Analyzer()
         test.config = MagicMock()
@@ -620,6 +626,34 @@ class TestAnalyzerChoosePackage(unittest.TestCase):
         pkg_name, pkg_class = test.choose_package()
         self.assertEqual("modules.packages.zip_compound", pkg_name)
         self.assertEqual(pkg_class.__class__.__name__, "ZipCompound")
+
+    def _assert_autodetected_package(self, file_name, expected_pkg_module, expected_pkg_class_name, file_type="ASCII text"):
+        """Helper: auto-detect a package from a file in test_data and assert the result."""
+        file_path = os.path.join(os.path.dirname(__file__), "test_data", file_name)
+        test = analyzer.Analyzer()
+        test.config = MagicMock()
+        test.options = MagicMock()
+        test.config.package = ""
+        test.config.category = "file"
+        test.config.file_name = file_name
+        test.config.file_type = file_type
+        test.config.exports = ""
+        test.target = file_path
+        pkg_name, pkg_class = test.choose_package()
+        self.assertEqual(f"modules.packages.{expected_pkg_module}", pkg_name)
+        self.assertEqual(expected_pkg_class_name, pkg_class.__class__.__name__)
+
+    def test_choose_package_from_eml_file(self):
+        """Auto-detect eml package by reading test_email.eml from test_data."""
+        self._assert_autodetected_package("test_email.eml", "eml", "EML")
+
+    def test_choose_package_from_python_py_file(self):
+        """Auto-detect python package from test_python_file1.py via file extension."""
+        self._assert_autodetected_package("test_python_file1.py", "python", "Python")
+
+    def test_choose_package_from_python_data_file(self):
+        """Auto-detect python package from test_python_file2.data via #!/usr/bin/env python in content."""
+        self._assert_autodetected_package("test_python_file2.data", "python", "Python")
 
 
 class TestAnalyzerMonitoring(unittest.TestCase):

@@ -69,7 +69,7 @@ def choose_package(file_type, file_name, exports, target):
         return "rar"
     elif "Macromedia Flash" in file_type or file_name.endswith((".swf", ".fws")):
         return "swf"
-    elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type:
+    elif file_name.endswith((".py", ".pyc")) or "Python script" in file_type or (file_content.startswith(b'#!/') and b'python' in file_content.split(b'\n', 1)[0]):
         return "python"
     elif file_name.endswith(".ps1"):
         return "ps1"

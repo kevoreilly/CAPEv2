@@ -6,6 +6,7 @@ import argparse
 import gc
 import json
 import logging
+import multiprocessing
 import os
 import platform
 import resource
@@ -426,7 +427,7 @@ def autoprocess(
         if not disable_memory_limit:
             memory_limit()
         log.info("Processing analysis data")
-        with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
+        with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker, context=multiprocessing.get_context("forkserver")) as pool:
             # CAUTION - big ugly loop ahead.
             while count < maxcount or not maxcount:
                 # If not enough free disk space is available, then we print an

@@ -230,7 +230,7 @@ def load_vms_tags(force: bool = False):
     global _all_vms_tags
     with _load_vms_tags_lock:
         if _all_vms_tags is not None and not force:
-            return _all_vms_tags
+            return _all_vms_tags or []
         all_tags = []
         if HAVE_DIST and dist_conf.distributed.enabled:
             try:
@@ -242,11 +242,13 @@ def load_vms_tags(force: bool = False):
             except Exception as e:
                 print(e)
 
-        for machine in Database().list_machines(include_reserved=True):
+        machines = Database().list_machines(include_reserved=True)
+        for machine in machines:
             all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
 
-        _all_vms_tags = list(sorted(set(all_tags)))
-        return _all_vms_tags
+        if machines:
+            _all_vms_tags = list(sorted(set(all_tags)))
+        return _all_vms_tags or []
 
 
 def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:

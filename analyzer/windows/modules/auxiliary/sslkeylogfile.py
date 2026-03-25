@@ -11,7 +11,14 @@ SSLKEYLOGFILE = "SSLKEYLOGFILE"
 
 
 class SslKeyLogFile(Auxiliary):
-    """Collect SSLKEYLOGFILE logs from guests."""
+    """Collect SSLKEYLOGFILE logs from guests.
+
+    For Schannel (Windows native TLS) key capture, the registry key
+    HKLM\\SYSTEM\\CurrentControlSet\\Control\\SecurityProviders\\SCHANNEL\\KeyLogging
+    must have Enable=1 (REG_DWORD). This requires a reboot to take effect, so
+    it should be baked into the VM snapshot — not set at runtime.
+    This module handles setting the SSLKEYLOGFILE path at analysis start.
+    """
 
     def __init__(self, options, config):
         Auxiliary.__init__(self, options, config)

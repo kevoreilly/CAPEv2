@@ -1535,7 +1535,6 @@ class NetworkAnalysis(Processing):
             return {}
 
         global PCAP_TYPE
-        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         self.key = "network"
         self.ja3_file = self.options.get("ja3_file", os.path.join(CUCKOO_ROOT, "data", "ja3", "ja3fingerprint.json"))
         if not IS_DPKT:
@@ -1546,21 +1545,34 @@ class NetworkAnalysis(Processing):
             log.error('The PCAP file at path "%s" is empty', self.pcap_path)
             return {}
 
+        # Prefer the mixed (original + decrypted TLS) pcap if available
+        original_pcap_path = self.pcap_path
+        using_mixed_pcap = False
+        mixed_pcap_path = os.path.join(self.analysis_path, "dump_mixed.pcap")
+        if path_exists(mixed_pcap_path) and os.path.getsize(mixed_pcap_path) > 24:
+            log.info("Using mixed pcap with decrypted TLS traffic: %s", mixed_pcap_path)
+            self.pcap_path = mixed_pcap_path
+            using_mixed_pcap = True
+
+        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         ja3_fprints = self._import_ja3_fprints()
 
-        results = {"pcap_sha256": File(self.pcap_path).get_sha256()}
+        results = {"pcap_sha256": File(original_pcap_path).get_sha256()}
         self.options["sorted"] = False
         results.update(Pcap(self.pcap_path, ja3_fprints, self.options).run())
 
         if proc_cfg.network.sort_pcap:
-            sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
+            if using_mixed_pcap:
+                sorted_path = os.path.join(self.analysis_path, "dump_mixed_sorted.pcap")
+            else:
+                sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
             if path_exists(sorted_path):
                 results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
                 self.options["sorted"] = True
                 results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
 
-        if HAVE_HTTPREPLAY:
+        if HAVE_HTTPREPLAY and not using_mixed_pcap:
             try:
                 tls_master = self.get_tlsmaster()
                 p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()

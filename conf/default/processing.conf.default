@@ -122,6 +122,14 @@ country_lookup = no
 # For ipinfo use: Free IP to Country + IP to ASN
 maxmind_database = data/GeoLite2-Country.mmdb
 
+[decryptpcap]
+enabled = yes
+# Path to GoGoRoboCap binary (relative to CUCKOO_ROOT or absolute)
+gogorobocap = data/gogorobocap/gogorobocap-linux-amd64
+# Decryption source: auto (default), pcap_with_keylog, or sslproxy_synth_pcap
+# auto: uses sslproxy synthetic pcap when available, falls back to keylog decryption
+pcapsrc = auto
+
 [pcapng]
 enabled = no
 

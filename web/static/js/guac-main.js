@@ -27,6 +27,33 @@ function GuacMe(element, guest_ip, vncport, session_id, recording_name) {
         /* Show the terminal.  */
         $('#terminal').append(terminal_element);
 
+        /* Scale display to fit the browser window. */
+        var scaleDisplay = function() {
+            var display = terminal_client.getDisplay();
+            var displayWidth = display.getWidth();
+            var displayHeight = display.getHeight();
+            if (!displayWidth || !displayHeight) return;
+
+            var container = document.getElementById('container');
+            var containerWidth = container.offsetWidth;
+            var containerHeight = container.offsetHeight;
+            if (!containerWidth || !containerHeight) return;
+
+            var scale = Math.min(
+                containerWidth / displayWidth,
+                containerHeight / displayHeight
+            );
+            display.scale(scale);
+        };
+
+        /* Re-scale when the display size changes (initial connect). */
+        terminal_client.getDisplay().onresize = function() {
+            scaleDisplay();
+        };
+
+        /* Re-scale on browser window resize. */
+        window.addEventListener('resize', scaleDisplay);
+
         /* Disconnect on tab close. */
         window.onunload = function() {
             terminal_client.disconnect();
@@ -38,6 +65,9 @@ function GuacMe(element, guest_ip, vncport, session_id, recording_name) {
         mouse.onmousedown =
         mouse.onmouseup   =
         mouse.onmousemove = function(mouseState) {
+            var scale = terminal_client.getDisplay().getScale();
+            mouseState.x = mouseState.x / scale;
+            mouseState.y = mouseState.y / scale;
             terminal_client.sendMouseState(mouseState);
         };
 

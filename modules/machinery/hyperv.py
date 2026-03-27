@@ -36,7 +36,7 @@ class HyperV(Machinery):
 
         self.username = self.options.hyperv.username
         if not self.options.hyperv.ssh_key:
-            raise CuckooMachineError("Hyper-V ssh private key path missing from hyperv.conf")                       
+            raise CuckooMachineError("Hyper-V ssh private key path missing from hyperv.conf")
         self.ssh_key = self.options.hyperv.ssh_key
 
         super(HyperV, self)._initialize_check()
@@ -44,7 +44,7 @@ class HyperV(Machinery):
         log.info("Hyper-V machinery module initialised (%s).", self.host)
 
     def run_cmd(self, cmd):
-        r = subprocess.Popen("ssh -i {key} {user}@{host} '{cmd}'".format(key=self.ssh_key, user=self.username, host=self.host, cmd="powershell.exe " + cmd), 
+        r = subprocess.Popen("ssh -i {key} {user}@{host} '{cmd}'".format(key=self.ssh_key, user=self.username, host=self.host, cmd="powershell.exe " + cmd),
             shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
         return(r[0].decode().strip())
 

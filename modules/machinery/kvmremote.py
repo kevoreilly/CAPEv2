@@ -28,7 +28,7 @@ class KVMRemote(LibVirtMachinery):
 
         for machine in self.machines():
             machine.dsn = self.dsn
-            machine.interface = self.interface        
+            machine.interface = self.interface
 
         super(KVMRemote, self)._initialize_check()
 

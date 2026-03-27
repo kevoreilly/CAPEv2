@@ -51,8 +51,12 @@ function GuacMe(element, guest_ip, vncport, session_id, recording_name) {
             scaleDisplay();
         };
 
-        /* Re-scale on browser window resize. */
-        window.addEventListener('resize', scaleDisplay);
+        /* Re-scale on browser window resize (debounced). */
+        var resizeTimeout;
+        window.addEventListener('resize', function() {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(scaleDisplay, 100);
+        });
 
         /* Disconnect on tab close. */
         window.onunload = function() {
@@ -65,10 +69,7 @@ function GuacMe(element, guest_ip, vncport, session_id, recording_name) {
         mouse.onmousedown =
         mouse.onmouseup   =
         mouse.onmousemove = function(mouseState) {
-            var scale = terminal_client.getDisplay().getScale();
-            mouseState.x = mouseState.x / scale;
-            mouseState.y = mouseState.y / scale;
-            terminal_client.sendMouseState(mouseState);
+            terminal_client.sendMouseState(mouseState, true);
         };
 
         /* Keyboard handling.  */

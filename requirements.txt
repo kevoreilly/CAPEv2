@@ -2280,9 +2280,9 @@ realtime==2.4.2 ; python_version >= "3.10" and python_version < "4.0" \
 requests-file==2.1.0 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:0f549a3f3b0699415ac04d167e9cb39bccfb730cb832b4d20be3d9867356e658 \
     --hash=sha256:cf270de5a4c5874e84599fc5778303d496c10ae5e870bfa378818f35d21bda5c
-requests==2.32.4 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:27babd3cda2a6d50b30443204ee89830707d396671944c998b5975b031ac2b2c \
-    --hash=sha256:27d0316682c8a29834d3264820024b62a36942083d52caf2f14c0591336d3422
+requests==2.33.0 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:3324635456fa185245e24865e810cecec7b4caf933d7eb133dcde67d48cee69b \
+    --hash=sha256:c7ebc5e8b0f21837386ad0e1c8fe8b829fa5f544d8df3b2253bff14ef29d7652
 rich-click==1.9.4 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:af73dc68e85f3bebb80ce302a642b9fe3b65f3df0ceb42eb9a27c467c1b678c8 \
     --hash=sha256:d70f39938bcecaf5543e8750828cbea94ef51853f7d0e174cda1e10543767389

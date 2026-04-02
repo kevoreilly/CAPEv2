@@ -35,6 +35,7 @@ handler403 = "web.views.handler403"
 handler404 = "web.views.handler404"
 
 urlpatterns = [
+    re_path(r"^guac/", include("guac.urls")),
     path("accounts/", include("allauth.urls")),
     path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain")),
     re_path(r"^$", dashboard_views.index, name="dashboard"),

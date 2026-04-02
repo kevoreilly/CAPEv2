@@ -162,11 +162,22 @@ def cleanup_rooter():
     run_iptables("-I", "FORWARD", "-j", "CAPE_REJECTED_SEGMENTS")
     run_iptables("-I", "FORWARD", "-j", "CAPE_ACCEPTED_SEGMENTS")
 
-    # Clean up any leftover SSLproxy iptables-legacy mangle rules
-    # (cleanup_rooter's iptables-save/restore only handles nft rules, not legacy)
-    run(IPTABLES_LEGACY, "-t", "mangle", "-F", "FORWARD")
-    run(IPTABLES_LEGACY, "-t", "mangle", "-F", "PREROUTING")
-    run(IPTABLES_LEGACY, "-t", "mangle", "-F", "POSTROUTING")
+    # Clean up any leftover SSLproxy iptables-legacy mangle rules tagged with CAPE-rooter.
+    # Only remove CAPE rules, not unrelated host firewall rules.
+    if os.path.isfile(IPTABLES_LEGACY):
+        for chain in ("FORWARD", "PREROUTING", "POSTROUTING"):
+            try:
+                output = subprocess.check_output(
+                    [IPTABLES_LEGACY, "-t", "mangle", "-S", chain],
+                    stderr=subprocess.DEVNULL,
+                    universal_newlines=True,
+                )
+                for line in reversed(output.strip().splitlines()):
+                    if "CAPE-rooter" in line and line.startswith("-A "):
+                        delete_args = line.replace("-A ", "-D ", 1).split()
+                        run(IPTABLES_LEGACY, "-t", "mangle", *delete_args)
+            except (subprocess.CalledProcessError, OSError):
+                pass
 
 
 def nic_available(interface):

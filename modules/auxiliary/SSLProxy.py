@@ -30,7 +30,6 @@ class SSLProxy(Auxiliary):
 
     def __init__(self):
         Auxiliary.__init__(self)
-        Thread.__init__(self)
         self.sslproxy_thread = None
 
     def start(self):

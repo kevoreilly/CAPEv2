@@ -1266,9 +1266,10 @@ def gen_moloch_from_suri_http(suricata):
                     + "?date=-1&expression=http.user-agent"
                     + quote("\x3d\x3d\x22%s\x22" % (e["ua"].encode()), safe="")
                 )
-            if e.get("method"):
+            http_method = e.get("http_method") or e.get("method")
+            if http_method:
                 e["moloch_http_method_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=http.method" + quote("\x3d\x3d\x22%s\x22" % (e["method"]), safe="")
+                    settings.MOLOCH_BASE + "?date=-1&expression=http.method" + quote("\x3d\x3d\x22%s\x22" % (http_method), safe="")
                 )
     return suricata
 

@@ -315,11 +315,11 @@ class Suricata(Processing):
                             continue
                         if http_data.get("version") == "2" and "request_headers" in http_data:
                             # HTTP/2: extract fields from pseudo-headers and header arrays
-                            req_headers = {h["name"]: h["value"] for h in http_data.get("request_headers", []) if "name" in h}
+                            req_headers = {h["name"]: h["value"] for h in http_data.get("request_headers", []) if "name" in h and "value" in h}
                             # Skip HTTP/2 control frames (SETTINGS, WINDOW_UPDATE, etc.) that have no :method
                             if ":method" not in req_headers:
                                 continue
-                            resp_headers = {h["name"]: h["value"] for h in http_data.get("response_headers", []) if "name" in h}
+                            resp_headers = {h["name"]: h["value"] for h in http_data.get("response_headers", []) if "name" in h and "value" in h}
                             hlog["hostname"] = req_headers.get(":authority", None)
                             hlog["uri"] = req_headers.get(":path", None)
                             hlog["http_method"] = req_headers.get(":method", None)

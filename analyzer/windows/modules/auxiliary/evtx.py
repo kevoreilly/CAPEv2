@@ -317,7 +317,7 @@ class Evtx(Thread, Auxiliary):
 
         with zipfile.ZipFile(self.evtx_dump, "w", zipfile.ZIP_DEFLATED) as zip_obj:
             if os.path.isdir(snapshot_base):
-                for snap_name in sorted(os.listdir(snapshot_base)):
+                for snap_name in sorted(os.listdir(snapshot_base), key=lambda x: int(x) if x.isdigit() else x):
                     snap_dir = os.path.join(snapshot_base, snap_name)
                     if not os.path.isdir(snap_dir):
                         continue

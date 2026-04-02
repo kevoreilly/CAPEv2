@@ -692,6 +692,33 @@ def _list_evtx_members(zip_path):
 
 
 @lru_cache(maxsize=128)
+def _load_evtx_noise_filters():
+    """Load analyzer noise filter sets from sigma filters config."""
+    parents = set()
+    images = set()
+    paths = set()
+    try:
+        for fp in ["data/sigma/filters_local.json", "data/sigma/filters.json"]:
+            full = os.path.join(CUCKOO_ROOT, fp)
+            if os.path.exists(full):
+                with open(full) as f:
+                    data = json.load(f)
+                pf = data.get("pre_filters", {})
+                for p in pf.get("exclude_parent_processes", []):
+                    parents.add(p.lower())
+                for p in pf.get("exclude_image_processes", []):
+                    images.add(p.lower())
+                for p in pf.get("exclude_target_paths", []):
+                    paths.add(p.lower())
+    except Exception:
+        pass
+    if not parents:
+        parents = {"icacls.exe", "python.exe", "wevtutil.exe"}
+    if not images:
+        images = {"wevtutil.exe", "conhost.exe"}
+    return parents, images, paths
+
+
 def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, search_query=""):
     del mtime
     events = []
@@ -720,7 +747,7 @@ def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, sea
                     members_to_extract.append(m)
             if not members_to_extract:
                 raise ValueError(f"No EVTX members found for channel: {channel}")
-            members_to_extract.sort()
+            members_to_extract.sort(key=lambda x: int(x.split("_")[0]) if "_" in x and x.split("_")[0].isdigit() else x)
 
             real_tmpdir = os.path.realpath(tmpdir)
             for m in members_to_extract:
@@ -732,11 +759,11 @@ def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, sea
                     continue
                 zf.extract(normalized, tmpdir)
 
-        # Parse all extracted evtx files for this channel in order
-        evtx_paths = sorted(
+        # Parse all extracted evtx files for this channel in order (preserving numeric sort)
+        evtx_paths = [
             os.path.join(tmpdir, m) for m in members_to_extract
             if os.path.exists(os.path.join(tmpdir, m))
-        )
+        ]
 
         # Chain records from all snapshot files
         import itertools
@@ -752,36 +779,7 @@ def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, sea
         start_index = max(page - 1, 0) * page_size
         end_index = start_index + page_size
 
-        # Load analyzer noise filter from shared config
-        _ANALYZER_PARENTS = set()
-        _ANALYZER_IMAGES = set()
-        try:
-            import os as _os
-            _cape_root = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
-            for _fp in ["data/sigma/filters_local.json", "data/sigma/filters.json"]:
-                _full = _os.path.join(_cape_root, _fp)
-                if _os.path.exists(_full):
-                    with open(_full) as _f:
-                        _data = json.load(_f)
-                    _pf = _data.get("pre_filters", {})
-                    for _p in _pf.get("exclude_parent_processes", []):
-                        _ANALYZER_PARENTS.add(_p.lower())
-                    for _p in _pf.get("exclude_image_processes", []):
-                        _ANALYZER_IMAGES.add(_p.lower())
-            _ANALYZER_PATHS = set()
-            for _fp2 in ["data/sigma/filters_local.json", "data/sigma/filters.json"]:
-                _full2 = _os.path.join(_cape_root, _fp2)
-                if _os.path.exists(_full2):
-                    with open(_full2) as _f2:
-                        _data2 = json.load(_f2)
-                    for _p in _data2.get("pre_filters", {}).get("exclude_target_paths", []):
-                        _ANALYZER_PATHS.add(_p.lower())
-        except Exception:
-            pass
-        if not _ANALYZER_PARENTS:
-            _ANALYZER_PARENTS = {"icacls.exe", "python.exe", "wevtutil.exe"}
-        if not _ANALYZER_IMAGES:
-            _ANALYZER_IMAGES = {"wevtutil.exe", "conhost.exe"}
+        _ANALYZER_PARENTS, _ANALYZER_IMAGES, _ANALYZER_PATHS = _load_evtx_noise_filters()
 
         for record in parser_iter:
             try:
@@ -889,30 +887,7 @@ def _count_evtx_channel_events_cached(zip_path, member, mtime):
     if not HAVE_EVTX:
         return None
 
-    # Load the same noise filters used by the page loader
-    _ANALYZER_PARENTS = set()
-    _ANALYZER_IMAGES = set()
-    _ANALYZER_PATHS = set()
-    try:
-        _cape_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        for _fp in ["data/sigma/filters_local.json", "data/sigma/filters.json"]:
-            _full = os.path.join(_cape_root, _fp)
-            if os.path.exists(_full):
-                with open(_full) as _f:
-                    _data = json.load(_f)
-                _pf = _data.get("pre_filters", {})
-                for _p in _pf.get("exclude_parent_processes", []):
-                    _ANALYZER_PARENTS.add(_p.lower())
-                for _p in _pf.get("exclude_image_processes", []):
-                    _ANALYZER_IMAGES.add(_p.lower())
-                for _p in _pf.get("exclude_target_paths", []):
-                    _ANALYZER_PATHS.add(_p.lower())
-    except Exception:
-        pass
-    if not _ANALYZER_PARENTS:
-        _ANALYZER_PARENTS = {"icacls.exe", "python.exe", "wevtutil.exe"}
-    if not _ANALYZER_IMAGES:
-        _ANALYZER_IMAGES = {"wevtutil.exe", "conhost.exe"}
+    _ANALYZER_PARENTS, _ANALYZER_IMAGES, _ANALYZER_PATHS = _load_evtx_noise_filters()
 
     count = 0
     with tempfile.TemporaryDirectory() as tmpdir:

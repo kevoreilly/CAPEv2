@@ -4,6 +4,7 @@
 <div class="mb-2">
     <small class="text-muted">
         {{ evtx_page.channel }} - {{ evtx_page.total_events }} event{{ evtx_page.total_events|pluralize }} - page {{ evtx_page.page }} of {{ evtx_page.total_pages|default:1 }}
+        {% if evtx_page.search_query %}<br>Regex filter: <code>{{ evtx_page.search_query }}</code>{% endif %}
     </small>
 </div>
 

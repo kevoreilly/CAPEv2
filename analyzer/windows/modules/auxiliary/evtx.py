@@ -2,6 +2,7 @@ import itertools
 import logging
 import os
 import subprocess
+import time
 import zipfile
 from threading import Thread
 
@@ -88,12 +89,17 @@ class Evtx(Thread, Auxiliary):
         "Microsoft-Windows-DriverFrameworks-UserMode/Operational",
     ]
 
+    # Interval in seconds between periodic snapshots
+    SNAPSHOT_INTERVAL = 30
+
     def __init__(self, options=None, config=None):
         if options is None:
             options = {}
         Thread.__init__(self)
         Auxiliary.__init__(self, options, config)
         self.enabled = config.evtx
+        self.do_run = True
+        self.snapshot_count = 0
         self.startupinfo = subprocess.STARTUPINFO()
         self.startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
@@ -181,27 +187,56 @@ class Evtx(Thread, Auxiliary):
             except Exception as err:
                 log.error("Cannot enable audit policy %s (%s) - %s", description, guid, err)
 
-    def collect_windows_logs(self):
-        """Collect selected evtx files, as specified in self.windows_logs."""
-        logs_folder = None
+    def export_windows_logs(self, output_zip):
+        """Export event logs using wevtutil epl (proper export, flushes buffers).
+
+        Unlike raw file copy, wevtutil epl ensures all buffered events are
+        written and the exported file is a consistent snapshot.
+
+        """
+        export_dir = os.path.join(os.environ.get("TEMP", "C:\\Windows\\Temp"), "evtx_export")
+        os.makedirs(export_dir, exist_ok=True)
+
+        exported = []
+        for channel in self.windows_logs:
+            safe_name = channel.replace("/", "%4") + ".evtx"
+            export_path = os.path.join(export_dir, safe_name)
+            try:
+                # Remove previous export if exists
+                if os.path.exists(export_path):
+                    os.unlink(export_path)
+                cmd = f'wevtutil epl "{channel}" "{export_path}" /ow:true'
+                result = subprocess.call(cmd, startupinfo=self.startupinfo,
+                                         timeout=30)
+                if result == 0 and os.path.exists(export_path):
+                    size = os.path.getsize(export_path)
+                    if size > 0:
+                        exported.append((export_path, safe_name))
+            except subprocess.TimeoutExpired:
+                log.debug("Timeout exporting %s", channel)
+            except Exception as err:
+                log.debug("Cannot export %s - %s", channel, err)
+
+        if not exported:
+            return
+
+        with zipfile.ZipFile(output_zip, "w", zipfile.ZIP_DEFLATED) as zip_obj:
+            for export_path, safe_name in exported:
+                try:
+                    zip_obj.write(export_path, safe_name)
+                except Exception as err:
+                    log.debug("Cannot add %s to zip - %s", safe_name, err)
+
+        # Clean up exported files
+        for export_path, _ in exported:
+            try:
+                os.unlink(export_path)
+            except Exception:
+                pass
         try:
-            logs_folder = "C:/windows/Sysnative/winevt/Logs"
-            os.listdir(logs_folder)
+            os.rmdir(export_dir)
         except Exception:
-            logs_folder = "C:/Windows/System32/winevt/Logs"
-
-        with zipfile.ZipFile(self.evtx_dump, "w", zipfile.ZIP_DEFLATED) as zip_obj:
-            for evtx_file_name, selected_evtx in itertools.product(os.listdir(logs_folder), self.windows_logs):
-                _selected_evtx = f"{selected_evtx}.evtx"
-                _selected_evtx = _selected_evtx.replace("/", "%4")
-                if _selected_evtx == evtx_file_name:
-                    full_path = os.path.join(logs_folder, evtx_file_name)
-                    if os.path.exists(full_path):
-                        log.debug("Adding %s to zip dump", full_path)
-                        zip_obj.write(full_path, evtx_file_name)
-
-        log.debug("Uploading %s to host", self.evtx_dump)
-        upload_to_host(self.evtx_dump, f"evtx/{self.evtx_dump}")
+            pass
 
     def wipe_windows_logs(self):
         """Wipe sequentially Windows logs."""
@@ -213,16 +248,100 @@ class Evtx(Thread, Auxiliary):
         except Exception as err:
             log.error("Module error - %s", err)
 
-    def run(self):
-        if self.enabled:
-            self.enable_cmdline_logging()
-            self.configure_log_sizes()
-            self.enable_advanced_logging()
+    def take_snapshot(self):
+        """Export current logs to a local snapshot dir, then wipe.
+
+        Snapshots are kept locally on the guest and merged into a single
+        evtx.zip at stop() time. This protects against malware clearing
+        logs — each snapshot captures events since the last wipe.
+        """
+        self.snapshot_count += 1
+        snapshot_dir = os.path.join(
+            os.environ.get("TEMP", "C:\\Windows\\Temp"),
+            "evtx_snapshots",
+            str(self.snapshot_count),
+        )
+        os.makedirs(snapshot_dir, exist_ok=True)
+
+        try:
+            for channel in self.windows_logs:
+                safe_name = channel.replace("/", "%4") + ".evtx"
+                export_path = os.path.join(snapshot_dir, safe_name)
+                try:
+                    cmd = f'wevtutil epl "{channel}" "{export_path}" /ow:true'
+                    subprocess.call(cmd, startupinfo=self.startupinfo, timeout=30)
+                except Exception:
+                    pass
+
             self.wipe_windows_logs()
-            return True
-        return False
+            log.debug("Took evtx snapshot %d", self.snapshot_count)
+        except Exception as err:
+            log.error("Failed to take evtx snapshot - %s", err)
+
+    def run(self):
+        if not self.enabled:
+            return False
+
+        self.enable_cmdline_logging()
+        self.configure_log_sizes()
+        self.enable_advanced_logging()
+        self.wipe_windows_logs()
+
+        # Periodic snapshot loop — captures events even if malware wipes logs
+        while self.do_run:
+            for _ in range(self.SNAPSHOT_INTERVAL):
+                if not self.do_run:
+                    break
+                time.sleep(1)
+            if self.do_run:
+                self.take_snapshot()
+
+        return True
 
     def stop(self):
-        if self.enabled:
-            self.collect_windows_logs()
+        self.do_run = False
+        if not self.enabled:
+            return True
+
+        # Take final snapshot of remaining events
+        self.take_snapshot()
+
+        # Merge all snapshots into a single evtx.zip.
+        # Each snapshot is incremental (logs wiped after each), so we
+        # include ALL snapshots. Since evtx files can't be concatenated,
+        # we add each snapshot's evtx with a unique name (channel_N.evtx).
+        snapshot_base = os.path.join(
+            os.environ.get("TEMP", "C:\\Windows\\Temp"),
+            "evtx_snapshots",
+        )
+
+        with zipfile.ZipFile(self.evtx_dump, "w", zipfile.ZIP_DEFLATED) as zip_obj:
+            if os.path.isdir(snapshot_base):
+                for snap_name in sorted(os.listdir(snapshot_base)):
+                    snap_dir = os.path.join(snapshot_base, snap_name)
+                    if not os.path.isdir(snap_dir):
+                        continue
+                    for evtx_file in os.listdir(snap_dir):
+                        if not evtx_file.lower().endswith(".evtx"):
+                            continue
+                        full_path = os.path.join(snap_dir, evtx_file)
+                        if os.path.getsize(full_path) == 0:
+                            continue
+                        # Add with snapshot number prefix to avoid name collisions
+                        arc_name = f"{snap_name}_{evtx_file}"
+                        try:
+                            zip_obj.write(full_path, arc_name)
+                        except Exception:
+                            pass
+
+        if os.path.exists(self.evtx_dump):
+            upload_to_host(self.evtx_dump, f"evtx/{self.evtx_dump}")
+
+        # Clean up
+        try:
+            import shutil
+            shutil.rmtree(snapshot_base, ignore_errors=True)
+        except Exception:
+            pass
+
         return True

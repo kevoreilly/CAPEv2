@@ -590,7 +590,13 @@ EVTX_PAGE_SIZE = 100
 
 
 def _evtx_member_display_name(member):
-    return os.path.splitext(member)[0].replace("%4", "/")
+    name = os.path.splitext(member)[0].replace("%4", "/")
+    # Strip snapshot prefix (e.g., "1_Security" -> "Security")
+    if "_" in name:
+        parts = name.split("_", 1)
+        if parts[0].isdigit():
+            name = parts[1]
+    return name
 
 
 def _flatten_evtx_detail(detail, prefix=""):
@@ -612,9 +618,45 @@ def _flatten_evtx_detail(detail, prefix=""):
     return items
 
 
+def _compile_evtx_search_pattern(search_query):
+    search_query = (search_query or "").strip()
+    if not search_query:
+        return None, ""
+
+    try:
+        return re.compile(search_query, re.IGNORECASE), ""
+    except re.error as e:
+        return None, str(e)
+
+
+def _evtx_record_matches_search(search_pattern, raw_record):
+    if not search_pattern:
+        return True
+
+    if not isinstance(raw_record, str):
+        raw_record = str(raw_record)
+
+    return bool(search_pattern.search(raw_record))
+
+
+def _evtx_has_records(data):
+    """Check if raw evtx file data contains any records by reading the header.
+    EVTX header offset 24: NextRecordIdentifier (uint64). Starts at 1 for
+    empty files, so > 1 means records exist."""
+    if len(data) < 32 or data[:8] != b"ElfFile\x00":
+        return False
+    import struct
+    next_record = struct.unpack_from("<Q", data, 24)[0]
+    return next_record > 1
+
+
 def _list_evtx_members(zip_path):
-    """List safe EVTX members from an archive without extracting them."""
-    members = []
+    """List safe EVTX members from an archive, grouped by channel.
+    Snapshot-prefixed files (e.g., 1_Security.evtx, 2_Security.evtx) are
+    grouped under one channel entry. Channels where no file contains any
+    records are excluded."""
+    channel_members = {}
+    channel_has_records = {}
     try:
         with zipfile.ZipFile(zip_path, "r") as zf:
             for member in zf.namelist():
@@ -623,46 +665,166 @@ def _list_evtx_members(zip_path):
                     continue
                 if not normalized.lower().endswith(".evtx"):
                     continue
-                members.append({"member": normalized, "channel": _evtx_member_display_name(normalized)})
+                channel = _evtx_member_display_name(normalized)
+                if channel not in channel_members:
+                    channel_members[channel] = []
+                    channel_has_records[channel] = False
+                channel_members[channel].append(normalized)
+                if not channel_has_records[channel]:
+                    # Read just the first 32 bytes to check the header
+                    header = zf.read(member)[:32]
+                    if _evtx_has_records(header):
+                        channel_has_records[channel] = True
     except Exception:
         return []
 
-    members.sort(key=lambda item: item["channel"].lower())
+    members = []
+    for channel, member_list in sorted(channel_members.items()):
+        if not channel_has_records.get(channel, False):
+            continue
+        member_list.sort()
+        members.append({
+            "member": member_list[0],
+            "members": member_list,
+            "channel": channel,
+        })
     return members
 
 
 @lru_cache(maxsize=128)
-def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime):
+def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, search_query=""):
     del mtime
     events = []
     total_events = 0
+    search_pattern, search_error = _compile_evtx_search_pattern(search_query)
+    if search_error:
+        return {
+            "member": member,
+            "channel": _evtx_member_display_name(member),
+            "events": [],
+            "page": 1,
+            "page_size": page_size,
+            "total_events": 0,
+            "total_pages": 0,
+            "search_query": search_query,
+            "error": f"Invalid regex: {search_error}",
+        }
 
     with tempfile.TemporaryDirectory() as tmpdir:
         with zipfile.ZipFile(zip_path, "r") as zf:
-            normalized = member.replace("\\", "/")
-            if normalized != os.path.basename(normalized) or normalized not in zf.namelist():
-                raise ValueError(f"Invalid EVTX member requested: {member}")
+            # Find all members for this channel (handles snapshot-prefixed names)
+            channel = _evtx_member_display_name(member)
+            members_to_extract = []
+            for m in zf.namelist():
+                if _evtx_member_display_name(m) == channel and m.lower().endswith(".evtx"):
+                    members_to_extract.append(m)
+            if not members_to_extract:
+                raise ValueError(f"No EVTX members found for channel: {channel}")
+            members_to_extract.sort()
 
             real_tmpdir = os.path.realpath(tmpdir)
-            target = os.path.realpath(os.path.join(tmpdir, normalized))
-            if not target.startswith(real_tmpdir + os.sep) and target != real_tmpdir:
-                raise ValueError(f"Zip slip attempt in evtx.zip: {member}")
+            for m in members_to_extract:
+                normalized = m.replace("\\", "/")
+                if normalized != os.path.basename(normalized):
+                    continue
+                target = os.path.realpath(os.path.join(tmpdir, normalized))
+                if not target.startswith(real_tmpdir + os.sep) and target != real_tmpdir:
+                    continue
+                zf.extract(normalized, tmpdir)
 
-            zf.extract(normalized, tmpdir)
+        # Parse all extracted evtx files for this channel in order
+        evtx_paths = sorted(
+            os.path.join(tmpdir, m) for m in members_to_extract
+            if os.path.exists(os.path.join(tmpdir, m))
+        )
 
-        evtx_path = os.path.join(tmpdir, normalized)
-        parser = PyEvtxParser(evtx_path)
+        # Chain records from all snapshot files
+        import itertools
+        def _iter_all_records():
+            for ep in evtx_paths:
+                try:
+                    p = PyEvtxParser(ep)
+                    yield from p.records_json()
+                except Exception:
+                    pass
+
+        parser_iter = _iter_all_records()
         start_index = max(page - 1, 0) * page_size
         end_index = start_index + page_size
 
-        for index, record in enumerate(parser.records_json()):
+        # Load analyzer noise filter from shared config
+        _ANALYZER_PARENTS = set()
+        _ANALYZER_IMAGES = set()
+        try:
+            import os as _os
+            _cape_root = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+            for _fp in ["data/sigma/filters_local.json", "data/sigma/filters.json"]:
+                _full = _os.path.join(_cape_root, _fp)
+                if _os.path.exists(_full):
+                    with open(_full) as _f:
+                        _data = json.load(_f)
+                    _pf = _data.get("pre_filters", {})
+                    for _p in _pf.get("exclude_parent_processes", []):
+                        _ANALYZER_PARENTS.add(_p.lower())
+                    for _p in _pf.get("exclude_image_processes", []):
+                        _ANALYZER_IMAGES.add(_p.lower())
+            _ANALYZER_PATHS = set()
+            for _fp2 in ["data/sigma/filters_local.json", "data/sigma/filters.json"]:
+                _full2 = _os.path.join(_cape_root, _fp2)
+                if _os.path.exists(_full2):
+                    with open(_full2) as _f2:
+                        _data2 = json.load(_f2)
+                    for _p in _data2.get("pre_filters", {}).get("exclude_target_paths", []):
+                        _ANALYZER_PATHS.add(_p.lower())
+        except Exception:
+            pass
+        if not _ANALYZER_PARENTS:
+            _ANALYZER_PARENTS = {"icacls.exe", "python.exe", "wevtutil.exe"}
+        if not _ANALYZER_IMAGES:
+            _ANALYZER_IMAGES = {"wevtutil.exe", "conhost.exe"}
+
+        for record in parser_iter:
+            try:
+                evt = json.loads(record["data"])
+            except (json.JSONDecodeError, KeyError, TypeError):
+                total_events += 1
+                continue
+
+            event_data = evt.get("Event", {})
+
+            skip = False
+            # Skip events from the CAPE analyzer process
+            _ed = event_data.get("EventData", {})
+            if isinstance(_ed, dict):
+                _parent = _ed.get("ParentProcessName", "")
+                if isinstance(_parent, str):
+                    _pname = _parent.rsplit("\\", 1)[-1].lower()
+                    if _pname in _ANALYZER_PARENTS:
+                        continue
+                _image = _ed.get("Image", "")
+                if isinstance(_image, str):
+                    _iname = _image.rsplit("\\", 1)[-1].lower()
+                    if _iname in _ANALYZER_IMAGES:
+                        continue
+                _target = _ed.get("TargetFilename", _ed.get("TargetFileName", ""))
+                if isinstance(_target, str) and _target:
+                    _tlow = _target.lower()
+                    for _ep in _ANALYZER_PATHS:
+                        if _ep in _tlow:
+                            skip = True
+                            break
+                    if skip:
+                        continue
+
+            if not _evtx_record_matches_search(search_pattern, record.get("data", "")):
+                continue
+
             total_events += 1
+            index = total_events - 1
             if index < start_index or index >= end_index:
                 continue
 
             try:
-                evt = json.loads(record["data"])
-                event_data = evt.get("Event", {})
                 system = event_data.get("System", {})
 
                 event_id_raw = system.get("EventID", "")
@@ -716,38 +878,101 @@ def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime):
         "page_size": page_size,
         "total_events": total_events,
         "total_pages": (total_events + page_size - 1) // page_size,
+        "search_query": search_query,
     }
 
 
 @lru_cache(maxsize=256)
 def _count_evtx_channel_events_cached(zip_path, member, mtime):
+    """Count events for a channel, applying the same noise filters as the page loader."""
     del mtime
     if not HAVE_EVTX:
         return None
 
+    # Load the same noise filters used by the page loader
+    _ANALYZER_PARENTS = set()
+    _ANALYZER_IMAGES = set()
+    _ANALYZER_PATHS = set()
+    try:
+        _cape_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        for _fp in ["data/sigma/filters_local.json", "data/sigma/filters.json"]:
+            _full = os.path.join(_cape_root, _fp)
+            if os.path.exists(_full):
+                with open(_full) as _f:
+                    _data = json.load(_f)
+                _pf = _data.get("pre_filters", {})
+                for _p in _pf.get("exclude_parent_processes", []):
+                    _ANALYZER_PARENTS.add(_p.lower())
+                for _p in _pf.get("exclude_image_processes", []):
+                    _ANALYZER_IMAGES.add(_p.lower())
+                for _p in _pf.get("exclude_target_paths", []):
+                    _ANALYZER_PATHS.add(_p.lower())
+    except Exception:
+        pass
+    if not _ANALYZER_PARENTS:
+        _ANALYZER_PARENTS = {"icacls.exe", "python.exe", "wevtutil.exe"}
+    if not _ANALYZER_IMAGES:
+        _ANALYZER_IMAGES = {"wevtutil.exe", "conhost.exe"}
+
     count = 0
     with tempfile.TemporaryDirectory() as tmpdir:
         with zipfile.ZipFile(zip_path, "r") as zf:
-            normalized = member.replace("\\", "/")
-            if normalized != os.path.basename(normalized) or normalized not in zf.namelist():
-                raise ValueError(f"Invalid EVTX member requested: {member}")
+            channel = _evtx_member_display_name(member)
+            members_to_extract = []
+            for m in zf.namelist():
+                if _evtx_member_display_name(m) == channel and m.lower().endswith(".evtx"):
+                    members_to_extract.append(m)
+            if not members_to_extract:
+                raise ValueError(f"No EVTX members found for channel: {channel}")
+            members_to_extract.sort()
 
             real_tmpdir = os.path.realpath(tmpdir)
-            target = os.path.realpath(os.path.join(tmpdir, normalized))
-            if not target.startswith(real_tmpdir + os.sep) and target != real_tmpdir:
-                raise ValueError(f"Zip slip attempt in evtx.zip: {member}")
+            for m in members_to_extract:
+                normalized = m.replace("\\", "/")
+                if normalized != os.path.basename(normalized):
+                    continue
+                target = os.path.realpath(os.path.join(tmpdir, normalized))
+                if not target.startswith(real_tmpdir + os.sep) and target != real_tmpdir:
+                    continue
+                zf.extract(normalized, tmpdir)
 
-            zf.extract(normalized, tmpdir)
+        evtx_paths = sorted(
+            os.path.join(tmpdir, m) for m in members_to_extract
+            if os.path.exists(os.path.join(tmpdir, m))
+        )
 
-        evtx_path = os.path.join(tmpdir, normalized)
-        parser = PyEvtxParser(evtx_path)
-        for _ in parser.records_json():
-            count += 1
+        for ep in evtx_paths:
+            try:
+                p = PyEvtxParser(ep)
+                for record in p.records_json():
+                    try:
+                        evt = json.loads(record["data"])
+                    except (json.JSONDecodeError, KeyError, TypeError):
+                        count += 1
+                        continue
+
+                    event_data = evt.get("Event", {})
+                    _ed = event_data.get("EventData", {})
+                    if isinstance(_ed, dict):
+                        _parent = _ed.get("ParentProcessName", "")
+                        if isinstance(_parent, str) and _parent.rsplit("\\", 1)[-1].lower() in _ANALYZER_PARENTS:
+                            continue
+                        _image = _ed.get("Image", "")
+                        if isinstance(_image, str) and _image.rsplit("\\", 1)[-1].lower() in _ANALYZER_IMAGES:
+                            continue
+                        _target = _ed.get("TargetFilename", _ed.get("TargetFileName", ""))
+                        if isinstance(_target, str) and _target:
+                            _tlow = _target.lower()
+                            if any(_ep in _tlow for _ep in _ANALYZER_PATHS):
+                                continue
+                    count += 1
+            except Exception:
+                pass
 
     return count
 
 
-def _load_evtx_channel_page(zip_path, member, page, page_size=EVTX_PAGE_SIZE):
+def _load_evtx_channel_page(zip_path, member, page, page_size=EVTX_PAGE_SIZE, search_query=""):
     if not HAVE_EVTX:
         return {"member": member, "channel": _evtx_member_display_name(member), "error": "EVTX parser is not installed on the web node."}
 
@@ -758,7 +983,7 @@ def _load_evtx_channel_page(zip_path, member, page, page_size=EVTX_PAGE_SIZE):
 
     try:
         mtime = os.path.getmtime(zip_path)
-        return _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime)
+        return _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, search_query)
     except Exception:
         return None
 
@@ -1955,13 +2180,19 @@ def load_evtx_channel(request, task_id):
 
     member = request.GET.get("member", "")
     page = request.GET.get("page", "1")
+    search_query = request.GET.get("search", "")
     evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
     if not path_exists(evtx_zip):
         raise PermissionDenied
 
-    evtx_page = _load_evtx_channel_page(evtx_zip, member, page)
+    evtx_page = _load_evtx_channel_page(evtx_zip, member, page, search_query=search_query)
     if not evtx_page:
-        evtx_page = {"member": member, "channel": _evtx_member_display_name(member), "error": "Failed to load EVTX channel."}
+        evtx_page = {
+            "member": member,
+            "channel": _evtx_member_display_name(member),
+            "search_query": search_query,
+            "error": "Failed to load EVTX channel.",
+        }
 
     return render(request, "analysis/eventlogs/_evtx_channel.html", {"evtx_page": evtx_page})
 

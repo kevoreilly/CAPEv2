@@ -980,6 +980,9 @@ def load_files(request, task_id, category):
             decrypted_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_decrypted.pcap")
             if _path_safe(decrypted_pcap_path):
                 ajax_response["decrypted_pcap_exists"] = True
+            mixed_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_mixed.pcap")
+            if _path_safe(mixed_pcap_path):
+                ajax_response["mixed_pcap_exists"] = True
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
@@ -1263,9 +1266,10 @@ def gen_moloch_from_suri_http(suricata):
                     + "?date=-1&expression=http.user-agent"
                     + quote("\x3d\x3d\x22%s\x22" % (e["ua"].encode()), safe="")
                 )
-            if e.get("method"):
+            http_method = e.get("http_method") or e.get("method")
+            if http_method:
                 e["moloch_http_method_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=http.method" + quote("\x3d\x3d\x22%s\x22" % (e["method"]), safe="")
+                    settings.MOLOCH_BASE + "?date=-1&expression=http.method" + quote("\x3d\x3d\x22%s\x22" % (http_method), safe="")
                 )
     return suricata
 
@@ -2136,10 +2140,23 @@ def file(request, category, task_id, dlfile):
     elif category.startswith("memdumpzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
         file_name += ".dmp"
-    elif category in ("pcap", "pcapzip"):
+    elif category == "pcap":
         file_name += ".pcap"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
         cd = "application/vnd.tcpdump.pcap"
+    elif category == "pcapzip":
+        analysis_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
+        pcap_files = [
+            ("dump.pcap", os.path.join(analysis_dir, "dump.pcap")),
+            ("dump_decrypted.pcap", os.path.join(analysis_dir, "dump_decrypted.pcap")),
+            ("dump_mixed.pcap", os.path.join(analysis_dir, "dump_mixed.pcap")),
+            ("sslproxy.pcap", os.path.join(analysis_dir, "sslproxy", "sslproxy.pcap")),
+            ("sslproxy_clean.pcap", os.path.join(analysis_dir, "sslproxy", "sslproxy_clean.pcap")),
+        ]
+        path = [p for _, p in pcap_files if path_exists(p) and os.path.getsize(p) > 0]
+        if not path:
+            path = os.path.join(analysis_dir, "dump.pcap")
+        cd = "application/zip"
     elif category == "pcapng":
         analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
         pcap_path = os.path.join(analysis_path, "dump.pcap")
@@ -2152,6 +2169,10 @@ def file(request, category, task_id, dlfile):
         cd = "application/vnd.tcpdump.pcap"
     elif category == "decrypted_pcap":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_decrypted.pcap")
+        file_name += ".pcap"
+        cd = "application/vnd.tcpdump.pcap"
+    elif category == "mixed_pcap":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_mixed.pcap")
         file_name += ".pcap"
         cd = "application/vnd.tcpdump.pcap"
     elif category == "debugger_log":

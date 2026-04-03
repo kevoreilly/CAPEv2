@@ -1,5 +1,4 @@
 .idea
-*.DS_Store
 *.log
 *.db
 *.sqlite

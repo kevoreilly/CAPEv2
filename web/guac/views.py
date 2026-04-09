@@ -1,6 +1,5 @@
 import uuid
 from base64 import urlsafe_b64decode
-from xml.etree import ElementTree as ET
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required

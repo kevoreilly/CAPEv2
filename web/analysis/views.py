@@ -766,7 +766,6 @@ def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, sea
         ]
 
         # Chain records from all snapshot files
-        import itertools
         def _iter_all_records():
             for ep in evtx_paths:
                 try:

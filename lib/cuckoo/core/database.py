@@ -226,7 +226,6 @@ class _Database(TasksMixIn,
 
     def create_guac_session(self, token, task_id, vm_label, guest_ip):
         """Create a new guac session for a task."""
-        from lib.cuckoo.core.data.guac_session import GuacSession
         session = self.session()
         try:
             guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)

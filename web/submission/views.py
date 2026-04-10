@@ -491,7 +491,13 @@ def index(request, task_id=None, resubmit_hash=None):
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
-                    filename = base_dir + "/" + sanitize_filename(hash)
+                    # Try to recover the original filename from the task
+                    original_filename = ""
+                    if task_id:
+                        task = db.view_task(task_id)
+                        if task and task.target:
+                            original_filename = sanitize_filename(os.path.basename(task.target))
+                    filename = base_dir + "/" + (original_filename or sanitize_filename(hash))
                 path = store_temp_file(content, filename)
                 list_of_tasks.append((content, path, hash))
 

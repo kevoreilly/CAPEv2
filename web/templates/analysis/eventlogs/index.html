@@ -330,6 +330,13 @@
             <small class="text-muted">Channels load on demand and each fetched page is cached in the browser for this report view.</small>
         </div>
 
+        <div class="input-group input-group-sm mb-3">
+            <span class="input-group-text">Regex Search</span>
+            <input type="text" class="form-control" id="evtx_regex_search" placeholder="Applies to the selected EVTX channel">
+            <button class="btn btn-outline-primary" type="button" id="evtx_regex_search_btn">Search</button>
+            <button class="btn btn-outline-secondary" type="button" id="evtx_regex_clear_btn">Clear</button>
+        </div>
+
         <script>
         (function() {
             function escapeHtml(str) {
@@ -357,11 +364,18 @@
 
                 var pageCache = {};
                 var countCache = {};
+                var activeMember = null;
+
+                function getActiveSearch() {
+                    return ($("#evtx_regex_search").val() || "").trim();
+                }
 
                 function loadChannelPage(member, page, paneId, listItem) {
-                    var cacheKey = member + "::" + page;
+                    var search = getActiveSearch();
+                    var cacheKey = member + "::" + page + "::" + search;
                     var pane = $("#" + paneId);
                     if (!pane.length) return;
+                    activeMember = member;
                     $(".evtx-channel-list .list-group-item").removeClass("active");
                     if (listItem) {
                         listItem.addClass("active");
@@ -377,7 +391,7 @@
                     pane.html('<div class="text-center p-3"><i class="fas fa-spinner fa-spin"></i> Loading EVTX events...</div>');
                     $.ajax({
                         url: "{% url 'load_evtx_channel' id %}",
-                        data: {member: member, page: page},
+                        data: {member: member, page: page, search: search},
                         headers: {"X-Requested-With": "XMLHttpRequest"},
                         success: function(html) {
                             pageCache[cacheKey] = html;
@@ -440,6 +454,28 @@
                 container.on("click", ".evtx-channel-list .list-group-item", function() {
                     var listItem = $(this);
                     loadChannelPage(listItem.data("member"), 1, "evtx_channel_content", listItem);
+                });
+
+                $("#evtx_regex_search_btn").on("click", function() {
+                    var member = activeMember || container.find('.evtx-channel-list .list-group-item').first().data("member");
+                    if (!member) return;
+                    var listItem = container.find('.evtx-channel-list .list-group-item[data-member="' + member.replace(/"/g, '&quot;') + '"]');
+                    loadChannelPage(member, 1, "evtx_channel_content", listItem);
+                });
+
+                $("#evtx_regex_search").on("keydown", function(e) {
+                    if (e.key === "Enter") {
+                        e.preventDefault();
+                        $("#evtx_regex_search_btn").trigger("click");
+                    }
+                });
+
+                $("#evtx_regex_clear_btn").on("click", function() {
+                    $("#evtx_regex_search").val("");
+                    var member = activeMember || container.find('.evtx-channel-list .list-group-item').first().data("member");
+                    if (!member) return;
+                    var listItem = container.find('.evtx-channel-list .list-group-item[data-member="' + member.replace(/"/g, '&quot;') + '"]');
+                    loadChannelPage(member, 1, "evtx_channel_content", listItem);
                 });
 
                 container.on("click", ".evtx-pagination .page-link", function(e) {

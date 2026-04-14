@@ -4,6 +4,7 @@ import sys
 from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
+from lib.cuckoo.common.config import Config
 
 CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
@@ -37,6 +38,8 @@ except ImportError:
 DEBUG = True
 
 LOGGING_CONFIG = None
+
+WEB_AUTHENTICATION = Config("web").web_auth.get("enabled", False)
 
 ALLOWED_HOSTS = [
     "*",
@@ -179,4 +182,3 @@ if _CapeConfig('web').guacamole.get('enabled', False):
     from lib.cuckoo.core.data.guac_session import GuacSession  # noqa: F401
     from lib.cuckoo.core.data.db_common import Base
     Base.metadata.create_all(_db.engine)
-

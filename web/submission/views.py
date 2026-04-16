@@ -88,11 +88,16 @@ def parse_expr(expr, context):
         # Figure out what function is being called, with what arguments.
         func = parse_expr(expr.func, context)
         args = tuple([parse_expr(item, context) for item in expr.args])
-        # We deem these functions safe to use with "eval".
-        allowed_functions = ("sorted", "set", "os.path.join")
+
+        allowed_functions = {
+            "sorted": sorted,
+            "set": set,
+            "os.path.join": os.path.join,
+        }
+
         if func in allowed_functions:
             # Actually call the function, passing the args, and return the result.
-            return eval(f"{func}{args}")
+            return allowed_functions[func](*args)
         # Don't execute the call, but instead, give back a string representation.
         return f"<{func}{args}>"
     if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):

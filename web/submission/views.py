@@ -56,6 +56,12 @@ disable_warnings()
 
 logger = logging.getLogger(__name__)
 
+allowed_functions = {
+    "sorted": sorted,
+    "set": set,
+    "os.path.join": os.path.join,
+}
+
 
 def parse_expr(expr, context):
     """Return the value from a python AST expression.
@@ -88,12 +94,6 @@ def parse_expr(expr, context):
         # Figure out what function is being called, with what arguments.
         func = parse_expr(expr.func, context)
         args = tuple([parse_expr(item, context) for item in expr.args])
-
-        allowed_functions = {
-            "sorted": sorted,
-            "set": set,
-            "os.path.join": os.path.join,
-        }
 
         if func in allowed_functions:
             # Actually call the function, passing the args, and return the result.

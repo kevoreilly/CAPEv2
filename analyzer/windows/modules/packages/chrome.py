@@ -9,8 +9,8 @@ class Chrome(Package):
     """Chrome analysis package."""
 
     PATHS = [
+        ("LOCALAPPDATA", "Google", "Chrome", "Application", "chrome.exe"),
         ("ProgramFiles", "Google", "Chrome", "Application", "chrome.exe"),
-        ("LOCALAPPDATA", "Chromium", "Application", "chrome.exe"),
     ]
     summary = "Opens the URL in Google Chrome."
     description = """Uses 'chrome.exe --disable-features=RendererCodeIntegrity "<url>"' to open the supplied url."""

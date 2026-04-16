@@ -10,7 +10,7 @@ class Chromium(Package):
 
     PATHS = [
         ("LOCALAPPDATA", "Chromium", "Application", "chrome.exe"),
-        ("ProgramFiles", "Google", "Chrome", "Application", "chrome.exe"),
+        ("ProgramFiles", "Chromium", "Application", "chrome.exe"),
     ]
     summary = "Opens the URL in Chromium."
     description = """Uses 'chrome.exe --disable-features=RendererCodeIntegrity "<url>"' to open the supplied url."""

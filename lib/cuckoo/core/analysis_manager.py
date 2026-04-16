@@ -606,7 +606,7 @@ class AnalysisManager(threading.Thread):
             )
             self.rooter_response = rooter("libvirt_fwo_enable", self.machine.interface, self.machine.ip)
 
-        elif self.route in ("none", "None", "drop"):
+        elif self.route in ("none", "None", "drop", "false"):
             self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.machine.resultserver_port))
         elif self.route[:3] == "tun" and is_network_interface(self.route):
             self.log.info("Network interface %s is tunnel", self.interface)
@@ -743,7 +743,7 @@ class AnalysisManager(threading.Thread):
             )
             self.rooter_response = rooter("libvirt_fwo_disable", self.machine.interface, self.machine.ip)
 
-        elif self.route in ("none", "None", "drop"):
+        elif self.route in ("none", "None", "drop", "false"):
             self.rooter_response = rooter("drop_disable", self.machine.ip, str(self.machine.resultserver_port))
         elif self.route[:3] == "tun":
             self.log.info("Disable tunnel interface: %s", self.interface)

@@ -2602,6 +2602,9 @@ def tasks_file_stream(request, task_id):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
         filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
+        if not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
+            resp = {"error": True, "error_value": "Path traversal detected"}
+            return Response(resp)
         if not os.path.isfile(filepath):
             resp = {"error": True, "error_value": "file does not exist"}
             return Response(resp)

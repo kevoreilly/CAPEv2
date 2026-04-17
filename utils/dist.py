@@ -770,7 +770,7 @@ class Retriever(threading.Thread):
                     last_checks[node.name] += 1
 
                     if hasattr(node, "last_check") and node.last_check:
-                        last_check = int(node.last_check.strftime("%s"))
+                        last_check = int(node.last_check.timestamp())
                     else:
                         last_check = 0
 

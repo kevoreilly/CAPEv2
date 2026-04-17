@@ -1207,11 +1207,10 @@ class Retriever(threading.Thread):
 
         """
         nodes = {}
-        db = session()
-        for node in db.scalars(select(Node)):
-            nodes.setdefault(node.id, node)
-            self.t_is_none.setdefault(node.id, set())
-        db.close()
+        with session() as db:
+            for node in db.scalars(select(Node)):
+                nodes.setdefault(node.id, node)
+                self.t_is_none.setdefault(node.id, set())
         while True:
             details = {}
             # print("cleaner size is ", self.cleaner_queue.qsize())

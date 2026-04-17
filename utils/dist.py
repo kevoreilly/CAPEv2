@@ -1598,7 +1598,7 @@ class StatusThread(threading.Thread):
                     for node in nodes:  # noqa
                         status = node_status(node.url, node.name, node.apikey)
                         if not status:
-                            log.error("No data form nod: %s", node.name)
+                            log.error("No data from node: %s", node.name)
                             failed_count.setdefault(node.name, 0)
                             failed_count[node.name] += 1
                             # This will declare worker as dead after X failed connections checks

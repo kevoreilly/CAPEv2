@@ -1119,9 +1119,7 @@ class NetworkAnalysis(Processing):
                 return {}
 
             # Create a separate dictionary to avoid modifying self.results in place
-            net_map = {}
-            for k, v in behavior_net_map.items():
-                net_map[k] = v
+            net_map = behavior_net_map.copy()
 
             raw_http_host_map = net_map.get("http_host_map", {})
             if isinstance(raw_http_host_map, list):

@@ -260,7 +260,8 @@ class CAPE(Processing):
         if category == "dropped" and any("GravityRAT" in i.get("name", "") for i in file_info.get("cape_yara", [])):
             # delete file and continue
             log.info("GravityRAT detected, removing file: %s", file_path)
-            os.remove(file_path)
+            with suppress(OSError):
+                os.remove(file_path)
             return
 
         if category in ("static", "file"):
@@ -462,7 +463,7 @@ class CAPE(Processing):
                     json_path = os.environ.get("CAPE_REPORT") or os.path.join(self.reports_path, "report.json")
                     if path_exists(json_path):
                         try:
-                            with open(json_path) as f:
+                            with open(json_path, "r", encoding="utf-8") as f:
                                 report_data = json.load(f)
                                 if "target" in report_data:
                                     self.results["target"] = report_data["target"]

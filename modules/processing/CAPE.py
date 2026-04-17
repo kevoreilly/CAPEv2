@@ -256,6 +256,13 @@ class CAPE(Processing):
 
         file_info["options_hash"] = options_hash
 
+        # GravityRAT is infector so it will produce a lot of files. we don't need them
+        if category == "dropped" and any("GravityRAT" in i.get("name", "") for i in file_info.get("cape_yara", [])):
+            # delete file and continue
+            log.info("GravityRAT detected, removing file: %s", file_path)
+            os.remove(file_path)
+            return
+
         if category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name
 
@@ -440,6 +447,28 @@ class CAPE(Processing):
             self.process_file(
                 self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
             )
+            if "target" not in self.results:
+                target_restored = False
+                try:
+                    db_analysis = mongo_find_one("analysis", {"info.id": int(self.task["id"])}, {"target": 1, "_id": 0})
+                    if db_analysis and "target" in db_analysis:
+                        self.results["target"] = db_analysis["target"]
+                        target_restored = True
+                        log.info("Restored missing target info from MongoDB analysis collection")
+                except Exception as e:
+                    log.error("Failed to restore target info from MongoDB: %s", e)
+                
+                if not target_restored:
+                    json_path = os.environ.get("CAPE_REPORT") or os.path.join(self.reports_path, "report.json")
+                    if path_exists(json_path):
+                        try:
+                            with open(json_path) as f:
+                                report_data = json.load(f)
+                                if "target" in report_data:
+                                    self.results["target"] = report_data["target"]
+                                    log.info("Restored missing target info from existing report.json")
+                        except Exception as e:
+                            log.error("Failed to restore target info from existing report: %s", e)
 
         for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
             category = folder.replace("_path", "").replace("_files", "")

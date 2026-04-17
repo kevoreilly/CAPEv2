@@ -46,8 +46,6 @@ from lib.cuckoo.common.utils import convert_to_printable
 log = logging.getLogger(__name__)
 
 
-
-
 try:
     import re2 as re
 except ImportError:
@@ -1116,21 +1114,57 @@ class NetworkAnalysis(Processing):
 
     def _load_network_map(self) -> Dict:
         with suppress(Exception):
-            return self.results.get("behavior", {}).get("network_map") or {}
+            behavior_net_map = self.results.get("behavior", {}).get("network_map") or {}
+            if not behavior_net_map:
+                return {}
+            
+            # Create a separate dictionary to avoid modifying self.results in place
+            net_map = {}
+            for k, v in behavior_net_map.items():
+                net_map[k] = v
+            
+            raw_http_host_map = net_map.get("http_host_map", {})
+            if isinstance(raw_http_host_map, list):
+                net_map["http_host_map"] = {item["host"]: item["pinfo"] for item in raw_http_host_map}
+                
+            raw_dns_intents = net_map.get("dns_intents", {})
+            if isinstance(raw_dns_intents, list):
+                net_map["dns_intents"] = {item["domain"]: item["intents"] for item in raw_dns_intents}
+
+            # We need to deep copy winhttp_sessions if we are modifying its internal dicts
+            raw_winhttp = net_map.get("winhttp_sessions", [])
+            new_winhttp = []
+            for p in raw_winhttp:
+                new_p = dict(p)
+                raw_sessions = p.get("sessions", {})
+                if isinstance(raw_sessions, list):
+                    new_p["sessions"] = {item["host"]: item["events"] for item in raw_sessions}
+                new_winhttp.append(new_p)
+            net_map["winhttp_sessions"] = new_winhttp
+                
+            return net_map
         return {}
 
-    def _reconstruct_endpoint_map(self, raw_map: Dict[str, List[Dict]]) -> Dict[tuple, List[Dict]]:
+    def _reconstruct_endpoint_map(self, raw_map) -> Dict[tuple, List[Dict]]:
         """
         Convert JSON-friendly "ip:port" keys back to (ip, int(port)) tuples.
         """
         endpoint_map = {}
-        for key, val in raw_map.items():
-            try:
-                ip, port_str = key.rsplit(":", 1)
-                port = int(port_str)
-                endpoint_map[(ip, port)] = val
-            except (ValueError, IndexError):
-                continue
+        if isinstance(raw_map, list):
+            for item in raw_map:
+                try:
+                    ip, port_str = item["ip_port"].rsplit(":", 1)
+                    endpoint_map[(ip, int(port_str))] = item["pinfo"]
+                except (ValueError, IndexError, KeyError):
+                    continue
+        elif isinstance(raw_map, dict):
+            for key, val in raw_map.items():
+                try:
+                    ip, port_str = key.rsplit(":", 1)
+                    port = int(port_str)
+                    endpoint_map[(ip, port)] = val
+                except (ValueError, IndexError):
+                    continue
         return endpoint_map
 
     def _pick_best(self, candidates: List[Dict]) -> Optional[Dict]:

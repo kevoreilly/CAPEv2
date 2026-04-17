@@ -1117,16 +1117,16 @@ class NetworkAnalysis(Processing):
             behavior_net_map = self.results.get("behavior", {}).get("network_map") or {}
             if not behavior_net_map:
                 return {}
-            
+
             # Create a separate dictionary to avoid modifying self.results in place
             net_map = {}
             for k, v in behavior_net_map.items():
                 net_map[k] = v
-            
+
             raw_http_host_map = net_map.get("http_host_map", {})
             if isinstance(raw_http_host_map, list):
                 net_map["http_host_map"] = {item["host"]: item["pinfo"] for item in raw_http_host_map}
-                
+
             raw_dns_intents = net_map.get("dns_intents", {})
             if isinstance(raw_dns_intents, list):
                 net_map["dns_intents"] = {item["domain"]: item["intents"] for item in raw_dns_intents}
@@ -1141,7 +1141,7 @@ class NetworkAnalysis(Processing):
                     new_p["sessions"] = {item["host"]: item["events"] for item in raw_sessions}
                 new_winhttp.append(new_p)
             net_map["winhttp_sessions"] = new_winhttp
-                
+
             return net_map
         return {}
 

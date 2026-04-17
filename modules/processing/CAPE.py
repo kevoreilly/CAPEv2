@@ -457,7 +457,7 @@ class CAPE(Processing):
                         log.info("Restored missing target info from MongoDB analysis collection")
                 except Exception as e:
                     log.error("Failed to restore target info from MongoDB: %s", e)
-                
+
                 if not target_restored:
                     json_path = os.environ.get("CAPE_REPORT") or os.path.join(self.reports_path, "report.json")
                     if path_exists(json_path):

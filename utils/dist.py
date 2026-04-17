@@ -255,6 +255,30 @@ def node_list_exitnodes(url, apikey):
         abort(404, message="Invalid CAPE node (%s): %s" % (url, e))
 
 
+def node_get_report(task_id, fmt, url, apikey, stream=False):
+    """
+    Fetches a report for a given task from a specified URL.
+
+    Args:
+        task_id (int): The ID of the task for which the report is to be fetched.
+        fmt (str): The format of the report (e.g., 'json', 'html').
+        url (str): The base URL of the server from which to fetch the report.
+        apikey (str): The API key for authorization.
+        stream (bool, optional): Whether to stream the response. Defaults to False.
+
+    Returns:
+        requests.Response: The response object containing the report.
+
+    Raises:
+        Exception: If there is an error fetching the report.
+    """
+    try:
+        url = os.path.join(url, "tasks", "get", "report", "%d/" % task_id, fmt)
+        return requests.get(url, stream=stream, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=800)
+    except Exception as e:
+        log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
+
+
 def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
     """
     Retrieves a report from a worker node via NFS and copies it to the main task's analysis directory.

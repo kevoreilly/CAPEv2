@@ -465,6 +465,9 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                 )
             except requests.RequestException as e:
                 log.error("Error submitting url task (Main: %d): %s", task.main_task_id, e)
+                if session_managed:
+                    db.close()
+                return
         elif task.category == "static":
             url = urljoin(node.url, "tasks/create/static/")
             try:

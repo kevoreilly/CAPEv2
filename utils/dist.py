@@ -940,9 +940,8 @@ class Retriever(threading.Thread):
                         ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id,
                     )
                     """
-                    log.debug(
-                        f"[FETCH ] {ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id:<15} <== Task {t.id:<6} - (Main ID: {t.main_task_id})"
-                    )
+                    dbg_line = f"[FETCH ] {ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id:<15} <== Task {t.id:<6} - (Main ID: {t.main_task_id})"
+                    log.debug(dbg_line)
                     with main_db.session.begin():
                         # set completed_on time
                         main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
@@ -971,7 +970,8 @@ class Retriever(threading.Thread):
                         t.main_task_id,
                     )
                     """
-                    log.debug(f"[PERF  ] Copied Task {t.task_id} in {timediff:.2f}s")
+                    dbg_line = f"[PERF  ] Copied Task {t.task_id} in {timediff:.2f}s"
+                    log.debug(dbg_line)
                     self.cleaner_queue.put((node_id, task.get("id")))
                     # this doesn't exist for some reason
                     sample_parent = None
@@ -1049,163 +1049,6 @@ class Retriever(threading.Thread):
                 self.current_queue[node_id].remove(task["id"])
                 db.commit()
 
-    # This should be executed as external thread as it generates bottle neck
-    def fetch_latest_reports(self):
-        """
-        Continuously fetches the latest reports from distributed nodes and processes them.
-
-        This method runs in an infinite loop until `self.stop_dist` is set. It retrieves tasks from the `fetcher_queue`,
-        fetches the corresponding reports from the nodes, and processes them. The reports are saved to the local storage
-        and the task status is updated in the database.
-
-        The method handles various scenarios such as:
-        - Task not found or already processed.
-        - Report retrieval failures.
-        - Report extraction and saving.
-        - Handling of sample binaries associated with the tasks.
-
-        The method also manages a cleaner queue to handle tasks that need to be cleaned up.
-
-        Raises:
-            Exception: If any unexpected error occurs during the report fetching and processing.
-        """
-        db = session()
-        # to not exit till cleaner works
-        while True:
-            if self.stop_dist.is_set():
-                time.sleep(60)
-                continue
-            task, node_id = self.fetcher_queue.get()
-
-            self.current_queue.setdefault(node_id, []).append(task["id"])
-
-            try:
-                # In the case that a Cuckoo node has been reset over time it"s
-                # possible that there are multiple combinations of
-                # node-id/task-id, in this case we take the last one available.
-                # (This makes it possible to re-setup a Cuckoo node).
-                stmt = (
-                    select(Task)
-                    .where(
-                        Task.node_id == node_id,
-                        Task.task_id == task["id"],
-                        Task.retrieved.is_(False),
-                        Task.finished.is_(False),
-                    )
-                    .order_by(Task.id.desc())
-                )
-                t = db.scalar(stmt)
-                if t is None:
-                    self.t_is_none.setdefault(node_id, []).append(task["id"])
-
-                    # sometime it not deletes tasks in workers of some fails or something
-                    # this will do the trick
-                    # log.debug("tf else,")
-                    if (node_id, task.get("id")) not in self.cleaner_queue.queue:
-                        self.cleaner_queue.put((node_id, task.get("id")))
-                    continue
-
-                log.debug(
-                    "Fetching dist report for: id: %d, task_id: %d, main_task_id: %d from node: %s",
-                    t.id,
-                    t.task_id,
-                    t.main_task_id,
-                    ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id,
-                )
-                with main_db.session.begin():
-                    # set completed_on time
-                    main_db.set_status(t.main_task_id, TASK_DISTRIBUTED_COMPLETED)
-                    # set reported time
-                    main_db.set_status(t.main_task_id, TASK_REPORTED)
-
-                # Fetch each requested report.
-                node = db.scalar(select(Node).where(Node.id == node_id))
-                report = node_get_report(t.task_id, "dist/", node.url, node.apikey, stream=True)
-
-                if report is None:
-                    log.info("dist report retrieve failed NONE: task_id: %d from node: %d", t.task_id, node_id)
-                    continue
-
-                if report.status_code != 200:
-                    log.info(
-                        "dist report retrieve failed - status_code %d: task_id: %d from node: %s",
-                        report.status_code,
-                        t.task_id,
-                        node_id,
-                    )
-                    if report.status_code == 400 and (node_id, task.get("id")) not in self.cleaner_queue.queue:
-                        self.cleaner_queue.put((node_id, task.get("id")))
-                        log.info("Status code: %d - MSG: %s", report.status_code, report.text)
-                    continue
-
-                log.info(
-                    "Report size for task %s is: %s MB",
-                    t.task_id,
-                    f"{int(report.headers.get('Content-length', 1)) / int(1 << 20):,.0f}",
-                )
-
-                report_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(t.main_task_id))
-                if not path_exists(report_path):
-                    path_mkdir(report_path, mode=0o755)
-                try:
-                    if report.content:
-                        # with pyzipper.AESZipFile(BytesIO(report.content)) as zf:
-                        #    zf.setpassword(zip_pwd)
-                        with zipfile.ZipFile(BytesIO(report.content)) as zf:
-                            try:
-                                zf.extractall(report_path)
-                                if (node_id, task.get("id")) not in self.cleaner_queue.queue:
-                                    self.cleaner_queue.put((node_id, task.get("id")))
-                            except OSError:
-                                log.error("Permission denied: %s", report_path)
-
-                        if path_exists(t.path):
-                            sample_sha256 = None
-                            with main_db.session.begin():
-                                samples = main_db.find_sample(task_id=t.main_task_id)
-                                if samples:
-                                    sample_sha256 = samples[0].sample.sha256
-                            if sample_sha256 is None:
-                                # keep fallback for now
-                                with open(t.path, "rb") as f:
-                                    sample = f.read()
-                                sample_sha256 = hashlib.sha256(sample).hexdigest()
-
-                            destination = os.path.join(CUCKOO_ROOT, "storage", "binaries")
-                            if not path_exists(destination):
-                                path_mkdir(destination, mode=0o755)
-
-                            destination = os.path.join(destination, sample_sha256)
-                            if not path_exists(destination) and path_exists(t.path):
-                                shutil.move(t.path, destination)
-
-                            # creating link to analysis folder
-                            if path_exists(t.path):
-                                with suppress(Exception):
-                                    os.symlink(destination, os.path.join(report_path, "binary"))
-
-                                self.delete_target_file(t.main_task_id, sample_sha256, t.path)
-
-                        else:
-                            log.debug("%s doesn't exist", t.path)
-
-                        t.retrieved = True
-                        t.finished = True
-                        db.commit()
-
-                    else:
-                        log.error("Zip file is empty")
-                except pyzipper.zipfile.BadZipFile:
-                    log.error("File is not a zip file")
-                except Exception as e:
-                    log.exception("Exception: %s", str(e))
-                    if path_exists(os.path.join(report_path, "reports", "report.json")):
-                        path_delete(os.path.join(report_path, "reports", "report.json"))
-            except Exception as e:
-                log.exception(e)
-            self.current_queue[node_id].remove(task["id"])
-            db.commit()
-        db.close()
 
     def remove_from_worker(self):
         """

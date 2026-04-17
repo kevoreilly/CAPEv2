@@ -260,7 +260,8 @@ class CAPE(Processing):
         if category == "dropped" and any("GravityRAT" in i.get("name", "") for i in file_info.get("cape_yara", [])):
             # delete file and continue
             log.info("GravityRAT detected, removing file: %s", file_path)
-            os.remove(file_path)
+            with suppress(OSError):
+                os.remove(file_path)
             return
 
         if category in ("static", "file"):

@@ -872,9 +872,9 @@ class Retriever(threading.Thread):
         Raises:
             Exception: If any error occurs during the processing of tasks.
         """
-        with session() as db:
-            # to not exit till cleaner works
-            while True:
+        while True:
+            with session() as db:
+                # to not exit till cleaner works
                 if self.stop_dist.is_set():
                     time.sleep(60)
                     continue

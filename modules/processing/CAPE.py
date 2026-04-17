@@ -463,7 +463,7 @@ class CAPE(Processing):
                     json_path = os.environ.get("CAPE_REPORT") or os.path.join(self.reports_path, "report.json")
                     if path_exists(json_path):
                         try:
-                            with open(json_path) as f:
+                            with open(json_path, "r", encoding="utf-8") as f:
                                 report_data = json.load(f)
                                 if "target" in report_data:
                                     self.results["target"] = report_data["target"]

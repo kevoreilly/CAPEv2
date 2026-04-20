@@ -351,6 +351,49 @@ class Analyzer:
 
         log.info("Analysis completed")
 
+    def handle_reboot(self):
+        """Handle system reboot request."""
+        # We need to persist the analyzer so it runs again after reboot.
+        # We will use the RunOnce registry key.
+
+        # 1. Determine paths
+        python_path = sys.executable
+        analyzer_path = os.path.abspath(sys.argv[0])
+        working_dir = os.getcwd()
+
+        # 2. Formulate command
+        # We use cmd.exe to ensure the working directory is correct.
+        # cmd /c "cd /d <cwd> && <python> <analyzer>"
+        command = 'cmd /c "cd /d "{}" && "{}" "{}"'.format(working_dir, python_path, analyzer_path)
+
+        # 3. Write to Registry
+        from lib.common.registry import set_regkey_full
+        from lib.common.rand import random_string
+
+        # Randomize the key name to avoid detection
+        key_name = random_string(8)
+
+        # Determine root key based on privileges
+        if SHELL32.IsUserAnAdmin():
+            key_path = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\{}".format(key_name)
+        else:
+            key_path = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\{}".format(key_name)
+
+        log.info("Setting reboot persistence: %s -> %s", key_path, command)
+        try:
+            set_regkey_full(key_path, "REG_SZ", command)
+        except Exception as e:
+            log.error("Failed to set persistence key: %s", e)
+            return
+
+        # 4. Initiate Reboot
+        log.info("Initiating system reboot")
+        # Using shutdown command is robust
+        subprocess.run(["shutdown", "/r", "/t", "0", "/f"], check=False)
+
+        # Stop the analysis loop so we don't interfere while shutting down
+        self.do_run = False
+
     def get_completion_key(self):
         return getattr(self.config, "completion_key", "")
 
@@ -1250,7 +1293,7 @@ class CommandPipeHandler:
                     servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
-                    KERNEL32.Sleep(1000)
+                    KERNEL32.Sleep(2000)
                     self.analyzer.MONITORED_SERVICES = True
                 else:
                     log.error("Unable to monitor service %s", servname)
@@ -1259,6 +1302,11 @@ class CommandPipeHandler:
         # RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = timeit.default_timer()
         self._handle_process(data)
+
+    def _handle_reboot(self, data):
+        """Handle reboot request from the monitor."""
+        log.info("Received reboot request from monitored process")
+        self.analyzer.handle_reboot()
 
     def _handle_shutdown(self, data):
         """Handle attempted shutdowns/restarts.
@@ -1408,10 +1456,11 @@ class CommandPipeHandler:
 
         return self._inject_process(int(pid), int(tid), int(mode))
 
-    def _handle_file_new(self, file_path):
+    def _handle_file_new(self, data):
         """Notification of a new dropped file."""
-        if os.path.exists(file_path):
-            self.analyzer.files.add_file(file_path.decode(), self.pid)
+        pid, file_path = data.split(b",", 1)
+        if os.path.exists(file_path.decode()):
+            self.analyzer.files.add_file(file_path.decode(), pid.decode())
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
@@ -1432,9 +1481,9 @@ class CommandPipeHandler:
     def _handle_file_del(self, data):
         """Notification of a file being removed (if it exists) - we have to
         dump it before it's being removed."""
-        file_path = data.decode()
-        if os.path.exists(file_path):
-            self.analyzer.files.delete_file(file_path, self.pid)
+        pid, file_path = data.split(b",", 1)
+        if os.path.exists(file_path.decode()):
+            self.analyzer.files.delete_file(file_path.decode(), pid.decode())
 
     def _handle_file_dump(self, file_path):
         # We extract the file path.
@@ -1492,19 +1541,15 @@ class CommandPipeHandler:
         if b"::" not in data:
             log.warning("Received FILE_MOVE command from monitor with an incorrect argument")
             return
-
-        old_filepath, new_filepath = data.split(b"::", 1)
-        new_filepath = new_filepath.decode()
-        self.analyzer.files.move_file(old_filepath.decode(), new_filepath, self.pid)
+        pid, paths = data.split(b",", 1)
+        old_filepath, new_filepath = paths.split(b"::", 1)
+        self.analyzer.files.move_file(old_filepath.decode(), new_filepath.decode(), pid.decode())
 
     def dispatch(self, data):
         response = "NOPE"
         if not data or b":" not in data:
             log.critical("Unknown command received from the monitor: %s", data.strip())
         else:
-            # Backwards compatibility (old syntax is, e.g., "FILE_NEW:" vs the
-            # new syntax, e.g., "1234:FILE_NEW:").
-            # if data[0].isupper():
             command, arguments = data.strip().split(b":", 1)
             # Uncomment to debug monitor commands
             # if command not in (b"DEBUG", b"INFO"):

@@ -149,6 +149,9 @@ class GCS(Report):
             )
             return
 
+        if self.reprocess:
+            return
+
         tlp = results.get("info", {}).get("tlp")
         analysis_id = results.get("info", {}).get("id")
 

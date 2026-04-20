@@ -21,7 +21,10 @@ from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, get_memdump_path
-from lib.cuckoo.core.database import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING, Database, Guest, Machine, Task, _Database
+from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING, Task
+from lib.cuckoo.core.data.machines import Machine
+from lib.cuckoo.core.data.guests import Guest
 from lib.cuckoo.core.guest import GuestManager
 from lib.cuckoo.core.machinery_manager import MachineryManager
 from lib.cuckoo.core.plugins import RunAuxiliary
@@ -544,7 +547,7 @@ class AnalysisManager(threading.Thread):
         elif self.route == "internet" and routing.routing.internet != "none":
             self.interface = routing.routing.internet
             self.rt_table = routing.routing.rt_table
-            self.no_local_routing = routing.routing.no_local_routing
+            self.no_local_routing = routing.routing.no_local_routing and not routing.routing.nat
             if routing.routing.reject_segments != "none":
                 self.reject_segments = routing.routing.reject_segments
             if routing.routing.reject_hostports != "none":
@@ -580,7 +583,7 @@ class AnalysisManager(threading.Thread):
                 self.machine.ip,
                 str(routing.inetsim.server),
                 str(routing.inetsim.dnsport),
-                str(self.cfg.resultserver.port),
+                str(self.machine.resultserver_port),
                 str(routing.inetsim.ports),
             )
 
@@ -588,7 +591,7 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter(
                 "socks5_enable",
                 self.machine.ip,
-                str(self.cfg.resultserver.port),
+                str(self.machine.resultserver_port),
                 str(routing.tor.dnsport),
                 str(routing.tor.proxyport),
             )
@@ -597,14 +600,14 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter(
                 "socks5_enable",
                 self.machine.ip,
-                str(self.cfg.resultserver.port),
+                str(self.machine.resultserver_port),
                 str(self.socks5s[self.route]["dnsport"]),
                 str(self.socks5s[self.route]["port"]),
             )
             self.rooter_response = rooter("libvirt_fwo_enable", self.machine.interface, self.machine.ip)
 
         elif self.route in ("none", "None", "drop"):
-            self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.cfg.resultserver.port))
+            self.rooter_response = rooter("drop_enable", self.machine.ip, str(self.machine.resultserver_port))
         elif self.route[:3] == "tun" and is_network_interface(self.route):
             self.log.info("Network interface %s is tunnel", self.interface)
             self.rooter_response = rooter("interface_route_tun_enable", self.machine.ip, self.route, str(self.task.id))
@@ -645,7 +648,7 @@ class AnalysisManager(threading.Thread):
                     self.machine.ip,
                     self.cfg.resultserver.ip,
                     "tcp",
-                    str(self.cfg.resultserver.port),
+                    str(self.machine.resultserver_port),
                 )
                 self.rooter_response = rooter(
                     "forward_enable", input_interface, self.machine.interface, self.cfg.resultserver.ip, self.machine.ip
@@ -693,7 +696,7 @@ class AnalysisManager(threading.Thread):
                     self.machine.ip,
                     self.cfg.resultserver.ip,
                     "tcp",
-                    str(self.cfg.resultserver.port),
+                    str(self.machine.resultserver_port),
                 )
                 self.rooter_response = rooter(
                     "forward_disable", input_interface, self.machine.interface, self.cfg.resultserver.ip, self.machine.ip
@@ -717,7 +720,7 @@ class AnalysisManager(threading.Thread):
                 self.machine.ip,
                 routing.inetsim.server,
                 str(routing.inetsim.dnsport),
-                str(self.cfg.resultserver.port),
+                str(self.machine.resultserver_port),
                 str(routing.inetsim.ports),
             )
 
@@ -725,7 +728,7 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter(
                 "socks5_disable",
                 self.machine.ip,
-                str(self.cfg.resultserver.port),
+                str(self.machine.resultserver_port),
                 str(routing.tor.dnsport),
                 str(routing.tor.proxyport),
             )
@@ -734,14 +737,14 @@ class AnalysisManager(threading.Thread):
             self.rooter_response = rooter(
                 "socks5_disable",
                 self.machine.ip,
-                str(self.cfg.resultserver.port),
+                str(self.machine.resultserver_port),
                 str(self.socks5s[self.route]["dnsport"]),
                 str(self.socks5s[self.route]["port"]),
             )
             self.rooter_response = rooter("libvirt_fwo_disable", self.machine.interface, self.machine.ip)
 
         elif self.route in ("none", "None", "drop"):
-            self.rooter_response = rooter("drop_disable", self.machine.ip, str(self.cfg.resultserver.port))
+            self.rooter_response = rooter("drop_disable", self.machine.ip, str(self.machine.resultserver_port))
         elif self.route[:3] == "tun":
             self.log.info("Disable tunnel interface: %s", self.interface)
             self.rooter_response = rooter("interface_route_tun_disable", self.machine.ip, self.route, str(self.task.id))

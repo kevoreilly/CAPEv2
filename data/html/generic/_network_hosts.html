@@ -4,6 +4,7 @@
         <th width="10%">Direct</th>
         <th>IP Address</th>
         <th>Country Name</th>
+        {% if results.network_proc_map %}<th>Process Name (PID)</th>{% endif %}
     </tr>
     {% for host in results.network.hosts %}
         {% if host.ip[:7] != "192.168" %}
@@ -18,6 +19,15 @@
             {% endif %}
             <td><span class="mono">{{host.ip}}</span></td>
             <td>{{host.country_name}}</td>
+            {% if results.network_proc_map %}
+                <td>
+                    {% if host.process_name %}
+                        <span class="mono">{{ host.process_name }}{% if host.process_id %} ({{ host.process_id }}){% endif %}</span>
+                    {% else %}
+                        <span class="mono">-</span>
+                    {% endif %}
+                </td>
+            {% endif %}
         </tr>
         {% endif %}
     {% endfor %}

@@ -13,7 +13,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, windll, ArgumentError
+from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, ArgumentError
 from pathlib import Path
 from shutil import copy
 
@@ -38,6 +38,7 @@ from lib.common.defines import (
 )
 
 if sys.platform == "win32":
+    from ctypes import windll
     from lib.common.constants import (
         CAPEMON32_NAME,
         CAPEMON64_NAME,

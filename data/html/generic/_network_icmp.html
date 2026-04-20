@@ -5,13 +5,23 @@
        <th>Destination</th>
        <th>ICMP Type</th>
        <th>Data</th>
+       {% if results.network_proc_map %}<th>Process Name (PID)</th>{% endif %}
     </tr>
     {% for icmp in results.network.icmp %}
     <tr>
-       <td><span class="mono">{{icmp.src}}</span></td>
+       <td><span class="mono">{{icmp.src}}</span> {% if icmp.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
        <td><span class="mono">{{icmp.dst}}</span></td>
        <td><span class="mono">{{icmp.type}}</span></td>
        <td><span class="mono"><pre>{{icmp.data}}</pre></span></td>
+        {% if results.network_proc_map %}
+            <td>
+                {% if icmp.process_name %}
+                    <span class="mono">{{ icmp.process_name }}{% if icmp.process_id %} ({{ icmp.process_id }}){% endif %}</span>
+                {% else %}
+                    <span class="mono">-</span>
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

@@ -18,23 +18,19 @@ from sqlalchemy.exc import SQLAlchemyError
 from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
 from lib.cuckoo.common.path_utils import path_mkdir
 from lib.cuckoo.common.utils import store_temp_file
-from lib.cuckoo.core import database
-from lib.cuckoo.core.database import (
+from lib.cuckoo.core.data import tasking
+from lib.cuckoo.core.data.task import (
     TASK_BANNED,
     TASK_COMPLETED,
     TASK_PENDING,
     TASK_REPORTED,
     TASK_RUNNING,
-    Error,
-    Guest,
-    Machine,
-    Sample,
-    Tag,
-    Task,
-    _Database,
-    _utcnow_naive,
-    machines_tags,
-)
+    Task)
+from lib.cuckoo.core.data.guests import Guest
+from lib.cuckoo.core.data.samples import Sample
+from lib.cuckoo.core.data.machines import Machine, machines_tags
+from lib.cuckoo.core.data.db_common import _utcnow_naive, Tag, Error
+from lib.cuckoo.core.database import _Database
 
 
 @dataclasses.dataclass
@@ -447,7 +443,7 @@ class TestDatabaseEngine:
         with db.session.begin():
             task_id = db.add_url("https://www.google.com")
             now = _utcnow_naive()
-            monkeypatch.setattr(database.datetime, "utcnow", lambda: now)
+            monkeypatch.setattr(tasking.datetime, "utcnow", lambda: now)
             # URL's are unaffected by the daydelta setting.
             monkeypatch.setattr(db.cfg.cuckoo, "daydelta", 1)
             assert db.update_clock(task_id) == now

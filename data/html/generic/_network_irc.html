@@ -4,12 +4,22 @@
         <th>Command</th>
         <th>Params</th>
         <th>Type</th>
+        {% if results.network_proc_map %}<th>Process Name (PID)</th>{% endif %}
     </tr>
     {% for irc in results.network.irc %}
     <tr>
-        <td><span class="mono">{{irc.command}}</span></td>
+        <td><span class="mono">{{irc.command}}</span> {% if irc.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td><span class="mono"><pre>{{irc.params}}</pre></span></td>
         <td><span class="mono"><pre>{{irc.type}}</pre></span></td>
+        {% if results.network_proc_map %}
+            <td>
+                {% if irc.process_name %}
+                    <span class="mono">{{ irc.process_name }}{% if irc.process_id %} ({{ irc.process_id }}){% endif %}</span>
+                {% else %}
+                    <span class="mono">-</span>
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

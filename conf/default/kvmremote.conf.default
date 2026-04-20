@@ -1,0 +1,12 @@
+[kvmremote]
+machines = win10-1
+interface = ens10
+dsn = qemu+ssh://ubuntu@192.168.50.121/system
+
+[win10-1]
+label = win10-1
+platform = windows
+ip = 192.168.1.11
+tags = x64,win10
+snapshot = Ready
+arch = x64

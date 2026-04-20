@@ -3,6 +3,7 @@
     <tr>
         <th>URI</th>
         <th>Details</th>
+        {% if results.network_proc_map %}<th>Process Name (PID)</th>{% endif %}
     </tr>
     {% for http in (results.network.http_ex|list + results.network.https_ex|list) %}
     <tr>
@@ -43,6 +44,15 @@
             </td></tr>
             </table>
         </td>
+        {% if results.network_proc_map %}
+            <td>
+                {% if http.process_name %}
+                    <span class="mono">{{ http.process_name }}{% if http.process_id %} ({{ http.process_id }}){% endif %}</span>
+                {% else %}
+                    <span class="mono">-</span>
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>
@@ -51,11 +61,21 @@
         <tr>
             <th>URI</th>
             <th>Data</th>
+            {% if results.network_proc_map %}<th>Process Name (PID)</th>{% endif %}
         </tr>
         {% for request in results.network.http %}
         <tr>
-            <td style="word-wrap: break-word;">{{request.uri}}</td>
+            <td style="word-wrap: break-word;">{{request.uri}} {% if request.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
             <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
+            {% if results.network_proc_map %}
+                <td>
+                    {% if request.process_name %}
+                        <span class="mono">{{ request.process_name }}{% if request.process_id %} ({{ request.process_id }}){% endif %}</span>
+                    {% else %}
+                        <span class="mono">-</span>
+                    {% endif %}
+                </td>
+            {% endif %}
         </tr>
         {% endfor %}
     </table>

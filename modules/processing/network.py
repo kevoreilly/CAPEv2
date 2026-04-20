@@ -23,7 +23,7 @@ from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
 from typing import Any, Dict, List, Optional
-from urllib.parse import urlunparse
+from urllib.parse import urlparse, urlunparse
 
 import cachetools.func
 import dns.resolver
@@ -44,8 +44,6 @@ from lib.cuckoo.common.utils import convert_to_printable
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 log = logging.getLogger(__name__)
-
-
 
 
 try:
@@ -799,8 +797,8 @@ class Pcap:
                         self._tcp_dissect(connection, tcp.data, ts)
                         src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                         if not (
-                            (dst, dport, src, sport) in self.tcp_connections_seen
-                            or (src, sport, dst, dport) in self.tcp_connections_seen
+                                (dst, dport, src, sport) in self.tcp_connections_seen
+                                or (src, sport, dst, dport) in self.tcp_connections_seen
                         ):
                             self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                             self.tcp_connections_seen.add((src, sport, dst, dport))
@@ -831,8 +829,8 @@ class Pcap:
 
                     src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                     if not (
-                        (dst, dport, src, sport) in self.udp_connections_seen
-                        or (src, sport, dst, dport) in self.udp_connections_seen
+                            (dst, dport, src, sport) in self.udp_connections_seen
+                            or (src, sport, dst, dport) in self.udp_connections_seen
                     ):
                         self.udp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.udp_connections_seen.add((src, sport, dst, dport))
@@ -1116,21 +1114,55 @@ class NetworkAnalysis(Processing):
 
     def _load_network_map(self) -> Dict:
         with suppress(Exception):
-            return self.results.get("behavior", {}).get("network_map") or {}
+            behavior_net_map = self.results.get("behavior", {}).get("network_map") or {}
+            if not behavior_net_map:
+                return {}
+
+            # Create a separate dictionary to avoid modifying self.results in place
+            net_map = behavior_net_map.copy()
+
+            raw_http_host_map = net_map.get("http_host_map", {})
+            if isinstance(raw_http_host_map, list):
+                net_map["http_host_map"] = {item["host"]: item["pinfo"] for item in raw_http_host_map}
+
+            raw_dns_intents = net_map.get("dns_intents", {})
+            if isinstance(raw_dns_intents, list):
+                net_map["dns_intents"] = {item["domain"]: item["intents"] for item in raw_dns_intents}
+
+            # We need to deep copy winhttp_sessions if we are modifying its internal dicts
+            raw_winhttp = net_map.get("winhttp_sessions", [])
+            new_winhttp = []
+            for p in raw_winhttp:
+                new_p = dict(p)
+                raw_sessions = p.get("sessions", {})
+                if isinstance(raw_sessions, list):
+                    new_p["sessions"] = {item["host"]: item["events"] for item in raw_sessions}
+                new_winhttp.append(new_p)
+            net_map["winhttp_sessions"] = new_winhttp
+
+            return net_map
         return {}
 
-    def _reconstruct_endpoint_map(self, raw_map: Dict[str, List[Dict]]) -> Dict[tuple, List[Dict]]:
+    def _reconstruct_endpoint_map(self, raw_map) -> Dict[tuple, List[Dict]]:
         """
         Convert JSON-friendly "ip:port" keys back to (ip, int(port)) tuples.
         """
         endpoint_map = {}
-        for key, val in raw_map.items():
-            try:
-                ip, port_str = key.rsplit(":", 1)
-                port = int(port_str)
-                endpoint_map[(ip, port)] = val
-            except (ValueError, IndexError):
-                continue
+        if isinstance(raw_map, list):
+            for item in raw_map:
+                try:
+                    ip, port_str = item["ip_port"].rsplit(":", 1)
+                    endpoint_map[(ip, int(port_str))] = item["pinfo"]
+                except (ValueError, IndexError, KeyError):
+                    continue
+        elif isinstance(raw_map, dict):
+            for key, val in raw_map.items():
+                try:
+                    ip, port_str = key.rsplit(":", 1)
+                    port = int(port_str)
+                    endpoint_map[(ip, port)] = val
+                except (ValueError, IndexError):
+                    continue
         return endpoint_map
 
     def _pick_best(self, candidates: List[Dict]) -> Optional[Dict]:
@@ -1254,6 +1286,9 @@ class NetworkAnalysis(Processing):
             if flow.get("dst") and flow.get("dport") is not None:
                 proc = self._pick_best(endpoint_map.get((flow["dst"], int(flow["dport"])), []))
 
+            if not proc and flow.get("dst"):
+                proc = self._pick_best(http_host_map.get(flow["dst"], []))
+
             self._set_proc_fields(flow, proc)
 
         dns_events_rel = self._build_dns_events_rel(network, dns_intents, max_skew_seconds=10.0)
@@ -1269,6 +1304,9 @@ class NetworkAnalysis(Processing):
 
             if dst and dport is not None:
                 proc = self._pick_best(endpoint_map.get((dst, int(dport)), []))
+
+            if not proc and dst:
+                proc = self._pick_best(http_host_map.get(dst, []))
 
             if not proc and (dport == 53 or sport == 53):
                 t_rel = flow.get("time")
@@ -1320,8 +1358,14 @@ class NetworkAnalysis(Processing):
                 else:
                     host["process_name"] = ", ".join(f"{name} ({pid})" for pid, name in procs.items())
                     host["process_id"] = None
+            else:
+                # Fallback: check http_host_map for this IP
+                proc = self._pick_best(http_host_map.get(host["ip"], []))
+                if proc:
+                    host["process_id"] = proc.get("process_id")
+                    host["process_name"] = proc.get("process_name")
 
-    def _merge_behavior_network(self, results):
+    def _merge_behavior_network(self, network):
         """
         Merge network events found in behavior logs but missing in PCAP.
         Marks them with source='behavior'.
@@ -1330,9 +1374,63 @@ class NetworkAnalysis(Processing):
         if not net_map:
             return
 
-        network = results.get("network", {})
+        # WinHTTP Sessions (behavior-derived URLs)
+        winhttp_sessions = net_map.get("winhttp_sessions")
+        if winhttp_sessions:
+            # Recompute current http host set (includes http/http_ex/https_ex)
+            http_events = (
+                (network.get("http", []) or []) +
+                (network.get("http_ex", []) or []) +
+                (network.get("https_ex", []) or [])
+            )
 
-        # 1. DNS
+            existing_hosts = {
+                _norm_domain(h.get("host"))
+                for h in http_events
+                if h.get("host")
+            }
+
+            for p in winhttp_sessions:
+                proc_sessions = (p or {}).get("sessions") or {}
+
+                for host, sessions in proc_sessions.items():
+                    hnorm = _norm_domain(host)
+                    if not hnorm:
+                        continue
+
+                    # Mirror HTTP behavior merge rule: only add if host missing
+                    if hnorm in existing_hosts:
+                        continue
+
+                    if not sessions:
+                        continue
+
+                    # Use first session entry as representative
+                    s0 = sessions[0] or {}
+                    method = s0.get("method") or ""
+                    dport = s0.get("port")
+                    uri = s0.get("uri") or "/"
+                    protocol = s0.get("protocol")
+
+                    entry = {
+                        "host": hnorm,
+                        "dport": dport,
+                        "uri": uri,
+                        "method": method,
+                        "data": s0.get("request"),
+                        "protocol": protocol,
+                        "access_type": s0.get("access_type"),
+                        "proxy_name": s0.get("proxy_name"),
+                        "proxy_bypass": s0.get("proxy_bypass"),
+                        "source": "behavior",
+                        "process_id": p.get("process_id"),
+                        "process_name": p.get("process_name"),
+                    }
+
+                    network.setdefault("http", []).append(entry)
+                    existing_hosts.add(hnorm)
+
+        # DNS
         dns_intents = net_map.get("dns_intents", {})
         existing_dns = {_norm_domain(d.get("request")) for d in network.get("dns", []) if d.get("request")}
 
@@ -1347,22 +1445,90 @@ class NetworkAnalysis(Processing):
                     "source": "behavior",
                     "process_id": proc.get("process_id"),
                     "process_name": proc.get("process_name"),
-                    "time": first_intent.get("ts_epoch"),
+                    "first_seen": first_intent.get("ts_epoch"),
                 }
                 network.setdefault("dns", []).append(entry)
 
-        # 2. HTTP
+        # HTTP
         http_host_map = net_map.get("http_host_map", {})
-        existing_hosts = {h.get("host") for h in network.get("http", [])}
-        http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
-        existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
+        http_requests = net_map.get("http_requests", [])
+
+        existing_hosts = set()
+        existing_urls = set()
+        for h in (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or []):
+            host = h.get("host")
+            if host:
+                existing_hosts.add(_norm_domain(host))
+                uri = h.get("uri", "/")
+                # Store simplistic URL representation for deduplication
+                existing_urls.add(f"{host}{uri}")
+
+        # Process full requests from behavior
+        for req in http_requests:
+            url = req.get("url")
+            if not url:
+                continue
+
+            # Parse URL to components
+            try:
+                parsed = urlparse(url)
+                if not parsed.netloc and not parsed.path:
+                    continue
+
+                host = parsed.netloc or req.get("host")
+                # Handle cases where URL might be just a domain or path
+                if not host and url and "." in url and "/" not in url:
+                    host = url
+
+                # Fallback host normalization
+                if not host and req.get("host"):
+                    host = req.get("host")
+
+                path = parsed.path
+                if parsed.query:
+                    path += f"?{parsed.query}"
+                if not path:
+                    path = "/"
+
+                # Check for duplicates
+                url_key = f"{host}{path}"
+                if url_key in existing_urls:
+                    continue
+
+                port = 80
+                if parsed.port:
+                    port = parsed.port
+                elif parsed.scheme == "https":
+                    port = 443
+
+                entry = {
+                    "host": host,
+                    "port": port,
+                    "uri": url,
+                    "path": path,
+                    "method": "GET",
+                    "source": "behavior",
+                    "process_id": req.get("process_id"),
+                    "process_name": req.get("process_name"),
+                    "first_seen": req.get("time"),
+                }
+                network.setdefault("http", []).append(entry)
+                if host:
+                    existing_hosts.add(_norm_domain(host))
+                existing_urls.add(url_key)
+
+            except Exception:
+                log.warning("Failed to parse behavior URL: %s", url)
+
+        # Process host-only map for remaining missing hosts
         for host, procs in http_host_map.items():
-            if host not in existing_hosts:
+            if _norm_domain(host) not in existing_hosts:
                 proc = procs[0] if procs else {}
                 entry = {
                     "host": host,
                     "port": 80,
-                    "uri": "/",
+                    "uri": f"http://{host}/",
+                    "path": "/",
                     "method": "GET",
                     "source": "behavior",
                     "process_id": proc.get("process_id"),
@@ -1370,7 +1536,7 @@ class NetworkAnalysis(Processing):
                 }
                 network.setdefault("http", []).append(entry)
 
-        # 3. Connections (TCP/UDP)
+        # Connections (TCP/UDP)
         endpoint_map = self._reconstruct_endpoint_map(net_map.get("endpoint_map", {}))
 
         existing_endpoints = set()
@@ -1401,7 +1567,6 @@ class NetworkAnalysis(Processing):
             return {}
 
         global PCAP_TYPE
-        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         self.key = "network"
         self.ja3_file = self.options.get("ja3_file", os.path.join(CUCKOO_ROOT, "data", "ja3", "ja3fingerprint.json"))
         if not IS_DPKT:
@@ -1412,21 +1577,34 @@ class NetworkAnalysis(Processing):
             log.error('The PCAP file at path "%s" is empty', self.pcap_path)
             return {}
 
+        # Prefer the mixed (original + decrypted TLS) pcap if available
+        original_pcap_path = self.pcap_path
+        using_mixed_pcap = False
+        mixed_pcap_path = os.path.join(self.analysis_path, "dump_mixed.pcap")
+        if path_exists(mixed_pcap_path) and os.path.getsize(mixed_pcap_path) > 24:
+            log.info("Using mixed pcap with decrypted TLS traffic: %s", mixed_pcap_path)
+            self.pcap_path = mixed_pcap_path
+            using_mixed_pcap = True
+
+        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         ja3_fprints = self._import_ja3_fprints()
 
-        results = {"pcap_sha256": File(self.pcap_path).get_sha256()}
+        results = {"pcap_sha256": File(original_pcap_path).get_sha256()}
         self.options["sorted"] = False
         results.update(Pcap(self.pcap_path, ja3_fprints, self.options).run())
 
         if proc_cfg.network.sort_pcap:
-            sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
+            if using_mixed_pcap:
+                sorted_path = os.path.join(self.analysis_path, "dump_mixed_sorted.pcap")
+            else:
+                sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
             if path_exists(sorted_path):
                 results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
                 self.options["sorted"] = True
                 results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
 
-        if HAVE_HTTPREPLAY:
+        if HAVE_HTTPREPLAY and not using_mixed_pcap:
             try:
                 tls_master = self.get_tlsmaster()
                 p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()

@@ -12,6 +12,7 @@ import sys
 import tempfile
 import zipfile
 from contextlib import suppress
+from functools import lru_cache
 from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
@@ -20,12 +21,19 @@ from wsgiref.util import FileWrapper
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import BadRequest, PermissionDenied
-from django.http import HttpResponse, HttpResponseRedirect, StreamingHttpResponse
+from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
-from django.urls import reverse
 from rest_framework.decorators import api_view
+
+MONGO_DOCUMENT_TOO_LARGE_ERRORS = ()
+try:
+    from pymongo.errors import DocumentTooLarge
+
+    MONGO_DOCUMENT_TOO_LARGE_ERRORS = (DocumentTooLarge,)
+except ImportError:
+    pass
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -36,7 +44,8 @@ from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_exists, path_get_size, path_mkdir, path_read_file, path_safe
 from lib.cuckoo.common.utils import delete_folder, yara_detected
 from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_rate_seconds, perform_search, rateblock, statistics
-from lib.cuckoo.core.database import TASK_PENDING, Database, Task
+from lib.cuckoo.core.database import Database, TasksMixIn
+from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 
 try:
@@ -89,6 +98,13 @@ if processing_cfg.strings.on_demand:
     from lib.cuckoo.common.integrations.strings import extract_strings
 
     HAVE_STRINGS = True
+
+try:
+    from evtx import PyEvtxParser
+
+    HAVE_EVTX = True
+except ImportError:
+    HAVE_EVTX = False
 
 HAVE_VBA2GRAPH = False
 if processing_cfg.vba2graph.on_demand:
@@ -161,7 +177,7 @@ DISABLED_WEB = True
 if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
     DISABLED_WEB = False
 
-db = Database()
+db: TasksMixIn = Database()
 
 anon_not_viewable_func_list = (
     "file",
@@ -339,7 +355,7 @@ def index(request, page=1):
     analyses_pcaps = []
     analyses_static = []
 
-    tasks_files = db.list_tasks(limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING)
+    tasks_files = db.list_tasks(limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING, tags_tasks_not_like="audit")
     tasks_static = db.list_tasks(limit=TASK_LIMIT, offset=off, category="static", not_status=TASK_PENDING)
     tasks_urls = db.list_tasks(limit=TASK_LIMIT, offset=off, category="url", not_status=TASK_PENDING)
     tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING)
@@ -569,6 +585,383 @@ def _load_file(task_id, sha256, existen_details, name):
     return existen_details
 
 
+EVTX_LEVEL_MAP = {0: "Info", 1: "Critical", 2: "Error", 3: "Warning", 4: "Info", 5: "Verbose"}
+EVTX_PAGE_SIZE = 100
+
+
+def _evtx_member_display_name(member):
+    name = os.path.splitext(member)[0].replace("%4", "/")
+    # Strip snapshot prefix (e.g., "1_Security" -> "Security")
+    if "_" in name:
+        parts = name.split("_", 1)
+        if parts[0].isdigit():
+            name = parts[1]
+    return name
+
+
+def _flatten_evtx_detail(detail, prefix=""):
+    items = []
+    if isinstance(detail, dict):
+        for key, value in detail.items():
+            full_key = f"{prefix}.{key}" if prefix else str(key)
+            if isinstance(value, dict):
+                items.extend(_flatten_evtx_detail(value, full_key))
+            elif isinstance(value, list):
+                for index, item in enumerate(value):
+                    item_key = f"{full_key}[{index}]"
+                    if isinstance(item, dict):
+                        items.extend(_flatten_evtx_detail(item, item_key))
+                    else:
+                        items.append({"key": item_key, "value": item})
+            else:
+                items.append({"key": full_key, "value": value})
+    return items
+
+
+def _compile_evtx_search_pattern(search_query):
+    search_query = (search_query or "").strip()
+    if not search_query:
+        return None, ""
+
+    try:
+        return re.compile(search_query, re.IGNORECASE), ""
+    except re.error as e:
+        return None, str(e)
+
+
+def _evtx_record_matches_search(search_pattern, raw_record):
+    if not search_pattern:
+        return True
+
+    if not isinstance(raw_record, str):
+        raw_record = str(raw_record)
+
+    return bool(search_pattern.search(raw_record))
+
+
+def _evtx_has_records(data):
+    """Check if raw evtx file data contains any records by reading the header.
+    EVTX header offset 24: NextRecordIdentifier (uint64). Starts at 1 for
+    empty files, so > 1 means records exist."""
+    if len(data) < 32 or data[:8] != b"ElfFile\x00":
+        return False
+    import struct
+    next_record = struct.unpack_from("<Q", data, 24)[0]
+    return next_record > 1
+
+
+def _list_evtx_members(zip_path):
+    """List safe EVTX members from an archive, grouped by channel.
+    Snapshot-prefixed files (e.g., 1_Security.evtx, 2_Security.evtx) are
+    grouped under one channel entry. Channels where no file contains any
+    records are excluded."""
+    channel_members = {}
+    channel_has_records = {}
+    try:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            for member in zf.namelist():
+                normalized = member.replace("\\", "/")
+                if normalized != os.path.basename(normalized):
+                    continue
+                if not normalized.lower().endswith(".evtx"):
+                    continue
+                channel = _evtx_member_display_name(normalized)
+                if channel not in channel_members:
+                    channel_members[channel] = []
+                    channel_has_records[channel] = False
+                channel_members[channel].append(normalized)
+                if not channel_has_records[channel]:
+                    # Read just the first 32 bytes to check the header
+                    header = zf.read(member)[:32]
+                    if _evtx_has_records(header):
+                        channel_has_records[channel] = True
+    except Exception:
+        return []
+
+    members = []
+    for channel, member_list in sorted(channel_members.items()):
+        if not channel_has_records.get(channel, False):
+            continue
+        member_list.sort()
+        members.append({
+            "member": member_list[0],
+            "members": member_list,
+            "channel": channel,
+        })
+    return members
+
+
+@lru_cache(maxsize=128)
+def _load_evtx_noise_filters():
+    """Load analyzer noise filter sets from sigma filters config."""
+    parents = set()
+    images = set()
+    paths = set()
+    try:
+        for fp in ["data/sigma/filters_local.json", "data/sigma/filters.json"]:
+            full = os.path.join(CUCKOO_ROOT, fp)
+            if os.path.exists(full):
+                with open(full) as f:
+                    data = json.load(f)
+                pf = data.get("pre_filters", {})
+                for p in pf.get("exclude_parent_processes", []):
+                    parents.add(p.lower())
+                for p in pf.get("exclude_image_processes", []):
+                    images.add(p.lower())
+                for p in pf.get("exclude_target_paths", []):
+                    paths.add(p.lower())
+    except Exception:
+        pass
+    if not parents:
+        parents = {"icacls.exe", "python.exe", "wevtutil.exe"}
+    if not images:
+        images = {"wevtutil.exe", "conhost.exe"}
+    return parents, images, paths
+
+
+def _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, search_query=""):
+    del mtime
+    events = []
+    total_events = 0
+    search_pattern, search_error = _compile_evtx_search_pattern(search_query)
+    if search_error:
+        return {
+            "member": member,
+            "channel": _evtx_member_display_name(member),
+            "events": [],
+            "page": 1,
+            "page_size": page_size,
+            "total_events": 0,
+            "total_pages": 0,
+            "search_query": search_query,
+            "error": f"Invalid regex: {search_error}",
+        }
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            # Find all members for this channel (handles snapshot-prefixed names)
+            channel = _evtx_member_display_name(member)
+            members_to_extract = []
+            for m in zf.namelist():
+                if _evtx_member_display_name(m) == channel and m.lower().endswith(".evtx"):
+                    members_to_extract.append(m)
+            if not members_to_extract:
+                raise ValueError(f"No EVTX members found for channel: {channel}")
+            members_to_extract.sort(key=lambda x: int(x.split("_")[0]) if "_" in x and x.split("_")[0].isdigit() else x)
+
+            real_tmpdir = os.path.realpath(tmpdir)
+            for m in members_to_extract:
+                normalized = m.replace("\\", "/")
+                if normalized != os.path.basename(normalized):
+                    continue
+                target = os.path.realpath(os.path.join(tmpdir, normalized))
+                if not target.startswith(real_tmpdir + os.sep) and target != real_tmpdir:
+                    continue
+                zf.extract(normalized, tmpdir)
+
+        # Parse all extracted evtx files for this channel in order (preserving numeric sort)
+        evtx_paths = [
+            os.path.join(tmpdir, m) for m in members_to_extract
+            if os.path.exists(os.path.join(tmpdir, m))
+        ]
+
+        # Chain records from all snapshot files
+        def _iter_all_records():
+            for ep in evtx_paths:
+                try:
+                    p = PyEvtxParser(ep)
+                    yield from p.records_json()
+                except Exception:
+                    pass
+
+        parser_iter = _iter_all_records()
+        start_index = max(page - 1, 0) * page_size
+        end_index = start_index + page_size
+
+        _ANALYZER_PARENTS, _ANALYZER_IMAGES, _ANALYZER_PATHS = _load_evtx_noise_filters()
+
+        for record in parser_iter:
+            try:
+                evt = json.loads(record["data"])
+            except (json.JSONDecodeError, KeyError, TypeError):
+                total_events += 1
+                continue
+
+            event_data = evt.get("Event", {})
+
+            skip = False
+            # Skip events from the CAPE analyzer process
+            _ed = event_data.get("EventData", {})
+            if isinstance(_ed, dict):
+                _parent = _ed.get("ParentProcessName", "")
+                if isinstance(_parent, str):
+                    _pname = _parent.rsplit("\\", 1)[-1].lower()
+                    if _pname in _ANALYZER_PARENTS:
+                        continue
+                _image = _ed.get("Image", "")
+                if isinstance(_image, str):
+                    _iname = _image.rsplit("\\", 1)[-1].lower()
+                    if _iname in _ANALYZER_IMAGES:
+                        continue
+                _target = _ed.get("TargetFilename", _ed.get("TargetFileName", ""))
+                if isinstance(_target, str) and _target:
+                    _tlow = _target.lower()
+                    for _ep in _ANALYZER_PATHS:
+                        if _ep in _tlow:
+                            skip = True
+                            break
+                    if skip:
+                        continue
+
+            if not _evtx_record_matches_search(search_pattern, record.get("data", "")):
+                continue
+
+            total_events += 1
+            index = total_events - 1
+            if index < start_index or index >= end_index:
+                continue
+
+            try:
+                system = event_data.get("System", {})
+
+                event_id_raw = system.get("EventID", "")
+                if isinstance(event_id_raw, dict):
+                    event_id = event_id_raw.get("#text", 0)
+                else:
+                    event_id = event_id_raw
+
+                level_num = system.get("Level", 4)
+                try:
+                    level_num = int(level_num)
+                except (TypeError, ValueError):
+                    level_num = 4
+                level = EVTX_LEVEL_MAP.get(level_num, "Info")
+
+                time_created = system.get("TimeCreated", {})
+                if isinstance(time_created, dict):
+                    timestamp = time_created.get("#attributes", {}).get("SystemTime", "")
+                else:
+                    timestamp = str(time_created)
+
+                provider = system.get("Provider", {})
+                if isinstance(provider, dict):
+                    provider_name = provider.get("#attributes", {}).get("Name", "")
+                else:
+                    provider_name = str(provider)
+
+                detail = event_data.get("EventData", event_data.get("UserData", {}))
+                flat_detail = _flatten_evtx_detail(detail)
+                events.append(
+                    {
+                        "timestamp": timestamp,
+                        "event_id": event_id,
+                        "level": level,
+                        "level_num": level_num,
+                        "provider": provider_name,
+                        "computer": system.get("Computer", ""),
+                        "detail": detail,
+                        "flat_detail": flat_detail,
+                        "detail_summary": "; ".join(f"{item['key']}={item['value']}" for item in flat_detail),
+                    }
+                )
+            except (json.JSONDecodeError, KeyError, TypeError):
+                continue
+
+    return {
+        "member": member,
+        "channel": _evtx_member_display_name(member),
+        "events": events,
+        "page": page,
+        "page_size": page_size,
+        "total_events": total_events,
+        "total_pages": (total_events + page_size - 1) // page_size,
+        "search_query": search_query,
+    }
+
+
+@lru_cache(maxsize=256)
+def _count_evtx_channel_events_cached(zip_path, member, mtime):
+    """Count events for a channel, applying the same noise filters as the page loader."""
+    del mtime
+    if not HAVE_EVTX:
+        return None
+
+    _ANALYZER_PARENTS, _ANALYZER_IMAGES, _ANALYZER_PATHS = _load_evtx_noise_filters()
+
+    count = 0
+    with tempfile.TemporaryDirectory() as tmpdir:
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            channel = _evtx_member_display_name(member)
+            members_to_extract = []
+            for m in zf.namelist():
+                if _evtx_member_display_name(m) == channel and m.lower().endswith(".evtx"):
+                    members_to_extract.append(m)
+            if not members_to_extract:
+                raise ValueError(f"No EVTX members found for channel: {channel}")
+            members_to_extract.sort()
+
+            real_tmpdir = os.path.realpath(tmpdir)
+            for m in members_to_extract:
+                normalized = m.replace("\\", "/")
+                if normalized != os.path.basename(normalized):
+                    continue
+                target = os.path.realpath(os.path.join(tmpdir, normalized))
+                if not target.startswith(real_tmpdir + os.sep) and target != real_tmpdir:
+                    continue
+                zf.extract(normalized, tmpdir)
+
+        evtx_paths = sorted(
+            os.path.join(tmpdir, m) for m in members_to_extract
+            if os.path.exists(os.path.join(tmpdir, m))
+        )
+
+        for ep in evtx_paths:
+            try:
+                p = PyEvtxParser(ep)
+                for record in p.records_json():
+                    try:
+                        evt = json.loads(record["data"])
+                    except (json.JSONDecodeError, KeyError, TypeError):
+                        count += 1
+                        continue
+
+                    event_data = evt.get("Event", {})
+                    _ed = event_data.get("EventData", {})
+                    if isinstance(_ed, dict):
+                        _parent = _ed.get("ParentProcessName", "")
+                        if isinstance(_parent, str) and _parent.rsplit("\\", 1)[-1].lower() in _ANALYZER_PARENTS:
+                            continue
+                        _image = _ed.get("Image", "")
+                        if isinstance(_image, str) and _image.rsplit("\\", 1)[-1].lower() in _ANALYZER_IMAGES:
+                            continue
+                        _target = _ed.get("TargetFilename", _ed.get("TargetFileName", ""))
+                        if isinstance(_target, str) and _target:
+                            _tlow = _target.lower()
+                            if any(_ep in _tlow for _ep in _ANALYZER_PATHS):
+                                continue
+                    count += 1
+            except Exception:
+                pass
+
+    return count
+
+
+def _load_evtx_channel_page(zip_path, member, page, page_size=EVTX_PAGE_SIZE, search_query=""):
+    if not HAVE_EVTX:
+        return {"member": member, "channel": _evtx_member_display_name(member), "error": "EVTX parser is not installed on the web node."}
+
+    try:
+        page = max(int(page), 1)
+    except (TypeError, ValueError):
+        page = 1
+
+    try:
+        mtime = os.path.getmtime(zip_path)
+        return _load_evtx_channel_page_cached(zip_path, member, page, page_size, mtime, search_query)
+    except Exception:
+        return None
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 # @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -589,6 +982,7 @@ def load_files(request, task_id, category):
         "procmemory",
         "memory",
         "tracee",
+        "eventlogs",
     ):
         data = {}
         debugger_logs = {}
@@ -685,6 +1079,12 @@ def load_files(request, task_id, category):
                     {"info.id": int(task_id)},
                     {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "pcapng": 1, "_id": 0},
                 )
+            elif category == "eventlogs":
+                data = mongo_find_one(
+                    "analysis",
+                    {"info.id": int(task_id)},
+                    {"sigma": 1, "sysmon": 1, "info.tlp": 1, "info.id": 1, "_id": 0},
+                )
             else:
                 data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
         elif enabledconf["elasticsearchdb"]:
@@ -704,6 +1104,12 @@ def load_files(request, task_id, category):
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
                     _source=[category, "suricata", "cif", "info.tlp"],
+                )["hits"]["hits"][0]["_source"]
+            elif category == "eventlogs":
+                data = elastic_handler.search(
+                    index=get_analysis_index(),
+                    query=get_query_by_info_id(task_id),
+                    _source=["sigma", "sysmon", "info.tlp", "info.id"],
                 )["hits"]["hits"][0]["_source"]
             else:
                 data = elastic_handler.search(
@@ -732,9 +1138,21 @@ def load_files(request, task_id, category):
         # ES isn't supported
         page = "analysis/{}/index.html".format(category)
 
+        category_data = data.get(category, {})
+        if category == "eventlogs":
+            evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+            evtx_channels = []
+            if path_exists(evtx_zip):
+                evtx_channels = _list_evtx_members(evtx_zip)
+            category_data = {
+                "sigma": data.get("sigma", {}),
+                "sysmon": data.get("sysmon", []),
+                "evtx_channels": evtx_channels,
+            }
+
         ajax_response = {
-            category: data.get(category, {}),
-            "tlp": data.get("info").get("tlp", ""),
+            category: category_data,
+            "tlp": data.get("info", {}).get("tlp", ""),
             "id": task_id,
             "graphs": {
                 "bingraph": {"enabled": enabledconf["bingraph"], "content": bingraph_dict_content},
@@ -758,6 +1176,12 @@ def load_files(request, task_id, category):
             mitmdump_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "mitmdump", "dump.har")
             if _path_safe(mitmdump_path):
                 ajax_response["mitmdump_exists"] = _path_safe(mitmdump_path)
+            decrypted_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_decrypted.pcap")
+            if _path_safe(decrypted_pcap_path):
+                ajax_response["decrypted_pcap_exists"] = True
+            mixed_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_mixed.pcap")
+            if _path_safe(mixed_pcap_path):
+                ajax_response["mixed_pcap_exists"] = True
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
@@ -1041,9 +1465,10 @@ def gen_moloch_from_suri_http(suricata):
                     + "?date=-1&expression=http.user-agent"
                     + quote("\x3d\x3d\x22%s\x22" % (e["ua"].encode()), safe="")
                 )
-            if e.get("method"):
+            http_method = e.get("http_method") or e.get("method")
+            if http_method:
                 e["moloch_http_method_url"] = (
-                    settings.MOLOCH_BASE + "?date=-1&expression=http.method" + quote("\x3d\x3d\x22%s\x22" % (e["method"]), safe="")
+                    settings.MOLOCH_BASE + "?date=-1&expression=http.method" + quote("\x3d\x3d\x22%s\x22" % (http_method), safe="")
                 )
     return suricata
 
@@ -1588,6 +2013,10 @@ def report(request, task_id):
     if path_exists(debugger_log_path) and os.listdir(debugger_log_path):
         report["debugger_logs"] = 1
 
+    evtx_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+    if path_exists(evtx_path):
+        report["has_evtx"] = True
+
     if settings.MOLOCH_ENABLED and "suricata" in report:
         suricata = report["suricata"]
         if settings.MOLOCH_BASE[-1] != "/":
@@ -1715,6 +2144,54 @@ def report(request, task_id):
             "existent_tasks": existent_tasks,
         },
     )
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def load_evtx_channel(request, task_id):
+    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+        raise PermissionDenied
+
+    member = request.GET.get("member", "")
+    page = request.GET.get("page", "1")
+    search_query = request.GET.get("search", "")
+    evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+    if not path_exists(evtx_zip):
+        raise PermissionDenied
+
+    evtx_page = _load_evtx_channel_page(evtx_zip, member, page, search_query=search_query)
+    if not evtx_page:
+        evtx_page = {
+            "member": member,
+            "channel": _evtx_member_display_name(member),
+            "search_query": search_query,
+            "error": "Failed to load EVTX channel.",
+        }
+
+    return render(request, "analysis/eventlogs/_evtx_channel.html", {"evtx_page": evtx_page})
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def load_evtx_channel_count(request, task_id):
+    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+        raise PermissionDenied
+
+    member = request.GET.get("member", "")
+    evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
+    if not path_exists(evtx_zip):
+        raise PermissionDenied
+
+    if not HAVE_EVTX:
+        return JsonResponse({"ok": False, "error": "EVTX parser is not installed on the web node."})
+
+    try:
+        mtime = os.path.getmtime(evtx_zip)
+        count = _count_evtx_channel_events_cached(evtx_zip, member, mtime)
+    except Exception:
+        return JsonResponse({"ok": False, "error": "Failed to count EVTX events."})
+
+    return JsonResponse({"ok": True, "member": member, "count": count})
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
@@ -1868,10 +2345,23 @@ def file(request, category, task_id, dlfile):
     elif category.startswith("memdumpzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", file_name + ".dmp")
         file_name += ".dmp"
-    elif category in ("pcap", "pcapzip"):
+    elif category == "pcap":
         file_name += ".pcap"
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump.pcap")
         cd = "application/vnd.tcpdump.pcap"
+    elif category == "pcapzip":
+        analysis_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
+        pcap_files = [
+            ("dump.pcap", os.path.join(analysis_dir, "dump.pcap")),
+            ("dump_decrypted.pcap", os.path.join(analysis_dir, "dump_decrypted.pcap")),
+            ("dump_mixed.pcap", os.path.join(analysis_dir, "dump_mixed.pcap")),
+            ("sslproxy.pcap", os.path.join(analysis_dir, "sslproxy", "sslproxy.pcap")),
+            ("sslproxy_clean.pcap", os.path.join(analysis_dir, "sslproxy", "sslproxy_clean.pcap")),
+        ]
+        path = [p for _, p in pcap_files if path_exists(p) and os.path.getsize(p) > 0]
+        if not path:
+            path = os.path.join(analysis_dir, "dump.pcap")
+        cd = "application/zip"
     elif category == "pcapng":
         analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
         pcap_path = os.path.join(analysis_path, "dump.pcap")
@@ -1881,6 +2371,14 @@ def file(request, category, task_id, dlfile):
         pcapng = PcapToNg(pcap_path, tls_log_path, ssl_key_log_path)
         pcapng.generate(path)
         file_name += ".pcapng"
+        cd = "application/vnd.tcpdump.pcap"
+    elif category == "decrypted_pcap":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_decrypted.pcap")
+        file_name += ".pcap"
+        cd = "application/vnd.tcpdump.pcap"
+    elif category == "mixed_pcap":
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "dump_mixed.pcap")
+        file_name += ".pcap"
         cd = "application/vnd.tcpdump.pcap"
     elif category == "debugger_log":
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "debugger", str(dlfile) + ".log")
@@ -2521,6 +3019,11 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     ).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
+    # Restrict category to known report sections writable by this endpoint.
+    allowed_categories = {"static", "CAPE", "procdump", "procmemory", "dropped"}
+    if category not in allowed_categories:
+        return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
+
     # Self Extracted support folder
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
 
@@ -2534,7 +3037,9 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         else:
             path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
     else:
-        category = "target.file"
+        # selfextracted storage is shared by multiple categories; keep non-static category intact
+        if category == "static":
+            category = "target.file"
         extractedfile = True
 
     if path and (not _path_safe(path) or not path_exists(path)):
@@ -2587,37 +3092,65 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         details = Floss(path, package, on_demand=True).run()
         if not details:
             details = {"msg": "No results"}
+
+    def _set_service_by_sha256(node, target_sha256, service_name, service_details):
+        if isinstance(node, dict):
+            if node.get("sha256") == target_sha256:
+                node[service_name] = service_details
+                return True
+            for value in node.values():
+                if isinstance(value, (dict, list)) and _set_service_by_sha256(value, target_sha256, service_name, service_details):
+                    return True
+            return False
+        if isinstance(node, list):
+            for item in node:
+                if _set_service_by_sha256(item, target_sha256, service_name, service_details):
+                    return True
+        return False
+
     if details:
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
 
         servicedata = {}
         if category == "CAPE":
-            for block in buf[category].get("payloads", []) or []:
-                if block.get("sha256") == sha256:
-                    block[service] = details
-                    break
+            _set_service_by_sha256(buf[category].get("payloads", []) or [], sha256, service, details)
             servicedata = buf[category]
         elif category in ("procdump", "procmemory", "dropped"):
-            for block in buf[category] or []:
-                if block.get("sha256") == sha256:
-                    block[service] = details
-                    break
+            _set_service_by_sha256(buf[category] or [], sha256, service, details)
             servicedata = buf[category]
-        elif "target" in category:
+        elif category == "target.file":
             servicedata = buf.get("target", {}).get("file", {})
             if servicedata:
                 if service == "xlsdeobf":
                     servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
                 elif extractedfile:
-                    for block in servicedata.get("extracted_files", []):
-                        if block.get("sha256") == sha256:
-                            block[service] = details
-                            break
+                    _set_service_by_sha256(servicedata, sha256, service, details)
                 else:
                     servicedata.setdefault(service, details)
 
         if servicedata:
-            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
+            try:
+                mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
+            except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
+                return render(
+                    request,
+                    "error.html",
+                    {
+                        "error": (
+                            f"Generated {service} data is too large to store for this file. "
+                            "Please narrow extraction scope or use offline extraction."
+                        )
+                    },
+                    status=413,
+                )
+            except Exception as e:
+                print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
+                return render(
+                    request,
+                    "error.html",
+                    {"error": f"Failed to store generated {service} data."},
+                    status=500,
+                )
         del details
 
     return redirect("report", task_id=task_id)
@@ -2651,7 +3184,7 @@ def reprocess_tasks(request, task_id: int):
     if error:
         return render(request, "error.html", {"error": msg})
     else:
-        return HttpResponseRedirect(reverse("analysis"))
+        return redirect("submission_status", task_id=task_id)
 
 
 @require_safe

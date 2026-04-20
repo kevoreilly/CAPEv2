@@ -1,45 +1,99 @@
 {% load analysis_tags %}
-<div class="card bg-dark border-secondary mb-3">
-    <div class="card-header border-secondary text-white">Admin Information</div>
+<div class="card bg-dark border-secondary mb-3 shadow-sm">
+    <div class="card-header border-secondary text-white bg-transparent">
+        <h5 class="mb-0"><i class="fas fa-user-shield me-2 text-info"></i>Admin Information</h5>
+    </div>
     <div class="card-body">
-        <dl class="row mb-0">
-            <dt class="col-sm-3 text-white">Task ID</dt>
-            <dd class="col-sm-9 d-flex align-items-center text-white">
-                {{analysis.info.id}}
-                <a href="{% url "remove" analysis.info.id %}" class="btn btn-danger btn-sm ms-3" data-bs-toggle="tooltip" title="Delete task"><i class="fas fa-trash-alt me-1"></i> Delete</a>
-            </dd>
-        </dl>
+        <!-- Task ID -->
+        <div class="row mb-3 border-bottom border-secondary pb-2">
+            <div class="col-sm-3 text-light d-flex align-items-center">
+                <i class="fas fa-id-badge me-2 text-muted"></i><strong>Task ID</strong>
+            </div>
+            <div class="col-sm-9 text-white d-flex align-items-center justify-content-between">
+                <span class="font-monospace fs-5">{{analysis.info.id}}</span>
+                <a href="{% url 'remove' analysis.info.id %}" 
+                   class="btn btn-outline-danger btn-sm" 
+                   data-bs-toggle="tooltip" 
+                   title="Delete this task permanently"
+                   onclick="return confirm('Are you sure you want to delete this task? This action cannot be undone.');">
+                    <i class="fas fa-trash-alt me-1"></i> Delete Task
+                </a>
+            </div>
+        </div>
 
+        <!-- Database IDs -->
         {% if config.mongodb %}
-        <dl class="row mb-0">
-            <dt class="col-sm-3 text-white">Mongo ID</dt>
-            <dd class="col-sm-9 text-white">{{analysis|mongo_id}}</dd>
-        </dl>
+        <div class="row mb-3">
+            <div class="col-sm-3 text-light">
+                <i class="fas fa-database me-2 text-muted"></i><strong>Mongo ID</strong>
+            </div>
+            <div class="col-sm-9 text-white font-monospace">
+                {{analysis|mongo_id}}
+            </div>
+        </div>
         {% elif config.elasticsearchdb %}
-        <dl class="row mb-0">
-            <dt class="col-sm-3 text-white">ElasticSearch Index</dt>
-            <dd class="col-sm-9 text-white">{{analysis.es.index}}</dd>
-        </dl>
-        <dl class="row mb-0">
-            <dt class="col-sm-3 text-white">ElasticSearch ID</dt>
-            <dd class="col-sm-9 text-white">{{analysis.es.id}}</dd>
-        </dl>
+        <div class="row mb-3">
+            <div class="col-sm-3 text-light">
+                <i class="fas fa-search me-2 text-muted"></i><strong>ElasticSearch Index</strong>
+            </div>
+            <div class="col-sm-9 text-white font-monospace">
+                {{analysis.es.index}}
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-sm-3 text-light">
+                <i class="fas fa-fingerprint me-2 text-muted"></i><strong>ElasticSearch ID</strong>
+            </div>
+            <div class="col-sm-9 text-white font-monospace">
+                {{analysis.es.id}}
+            </div>
+        </div>
         {% endif %}
 
-        <dl class="row mb-0">
-            <dt class="col-sm-3 text-white">CAPE release</dt>
-            <dd class="col-sm-9 text-white">{{analysis.info.version}}</dd>
-        </dl>
+        <!-- CAPE Version -->
+        <div class="row mb-3">
+            <div class="col-sm-3 text-light">
+                <i class="fas fa-code-branch me-2 text-muted"></i><strong>CAPE Release</strong>
+            </div>
+            <div class="col-sm-9 text-white">
+                <span class="badge bg-secondary border border-secondary">{{analysis.info.version}}</span>
+            </div>
+        </div>
 
+        <!-- User Info -->
         {% if analysis.info.user_id %}
-        <dl class="row mb-0">
-            <dt class="col-sm-3 text-white">Task created by user</dt>
-            <dd class="col-sm-9 d-flex align-items-center">
-                <a href="{% url "admin:auth_user_change" analysis.info.user_id  %}" class="text-info me-3">{{analysis.info.user_id}}</a>
-                <a href="{% url "ban_user" analysis.info.user_id  %}" class="btn btn-danger btn-sm me-2" data-bs-toggle="tooltip" title="Ban user"><i class="fas fa-user-lock me-1"></i> Ban User</a>
-                <a href="{% url "ban_all_user_tasks" analysis.info.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="Ban all tasks of this user"><i class="fas fa-tasks me-1"></i><i class="fas fa-user-lock me-1"></i> Ban All User Tasks</a>
-            </dd>
-        </dl>
+        <div class="row mb-0 pt-2 border-top border-secondary">
+            <div class="col-sm-3 text-light d-flex align-items-center">
+                <i class="fas fa-user me-2 text-muted"></i><strong>Created By</strong>
+            </div>
+            <div class="col-sm-9">
+                <div class="d-flex align-items-center flex-wrap gap-3 mt-2">
+                    <a href="{% url 'admin:auth_user_change' analysis.info.user_id %}" 
+                       class="badge bg-info text-dark text-decoration-none p-2"
+                       data-bs-toggle="tooltip" 
+                       title="View User in Admin Panel">
+                        <i class="fas fa-user-circle me-1"></i> User ID: {{analysis.info.user_id}}
+                    </a>
+                    
+                    <div class="btn-group btn-group-sm" role="group" aria-label="User Actions">
+                        <a href="{% url 'ban_user' analysis.info.user_id %}" 
+                           class="btn btn-outline-warning" 
+                           data-bs-toggle="tooltip" 
+                           title="Ban this user"
+                           onclick="return confirm('Are you sure you want to ban this user?');">
+                            <i class="fas fa-user-lock me-1"></i> Ban User
+                        </a>
+                        <a href="{% url 'ban_all_user_tasks' analysis.info.user_id %}" 
+                           class="btn btn-outline-danger" 
+                           data-bs-toggle="tooltip" 
+                           title="Ban all tasks submitted by this user"
+                           onclick="return confirm('Are you sure you want to ban ALL tasks from this user? This cannot be undone.');">
+                            <i class="fas fa-ban me-1"></i> Ban All Tasks
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
         {% endif %}
     </div>
 </div>

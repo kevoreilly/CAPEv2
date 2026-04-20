@@ -1,37 +1,46 @@
-# Copyright (C) 2010-2015 Cuckoo Foundation.
-# This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
-# See the file 'docs/LICENSE' for copying permission.
-
 """
 ASGI config for web project.
-Please read https://channels.readthedocs.io/en/latest/deploying.html#nginx-supervisor-ubuntu
 """
-
 import sys
-
-# These lines ensure that imports used by the ASGI daemon can be found
-from os import chdir, environ
+import os
 from os.path import abspath, dirname, join
 
-from channels.auth import AuthMiddlewareStack
-from channels.routing import ProtocolTypeRouter, URLRouter
+# --- 1. SETUP PATHS FIRST (Moved from bottom to top) ---
+# Add / and /web (relative to CAPE/Cuckoo install location) to our path
+# This ensures imports below can actually find the modules.
+current_dir = dirname(abspath(__file__)) # The directory this file is in
+webdir = abspath(join(current_dir, "..")) # The parent directory (web)
+
+sys.path.append(abspath(join(webdir, ".."))) # Add CAPE root
+sys.path.append(webdir) # Add web root
+os.chdir(webdir) # Change working directory
+
+# --- 2. DJANGO SETUP ---
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "web.guac_settings")
+
+# Initialize Django ASGI application early to ensure the AppRegistry
+# is populated before importing code that may import ORM models.
 from django.core.asgi import get_asgi_application
-
-environ.setdefault("DJANGO_SETTINGS_MODULE", "web.guac_settings")
-
 django_asgi_app = get_asgi_application()
 
+# --- 3. CHANNELS IMPORTS ---
+from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.security.websocket import AllowedHostsOriginValidator # Import this
+
+# Import local routing after Django is setup
 import guac.routing
 
+# --- 4. APPLICATION DEFINITION ---
 application = ProtocolTypeRouter(
     {
-        "websocket": AuthMiddlewareStack(URLRouter(guac.routing.websocket_urlpatterns)),
+        "http": django_asgi_app,
+        # Wrap the websocket router in AllowedHostsOriginValidator
+        # This prevents 403 Forbidden errors that confuse the Guacamole client
+        "websocket": AllowedHostsOriginValidator(
+            AuthMiddlewareStack(
+                URLRouter(guac.routing.websocket_urlpatterns)
+            )
+        ),
     }
 )
-
-# Add / and /web (relative to CAPE install location) to our path
-webdir = abspath(join(dirname(abspath(__file__)), ".."))
-sys.path.append(abspath(join(webdir, "..")))
-sys.path.append(webdir)
-
-chdir(webdir)

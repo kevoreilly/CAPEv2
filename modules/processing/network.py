@@ -46,8 +46,6 @@ from lib.cuckoo.common.utils import convert_to_printable
 log = logging.getLogger(__name__)
 
 
-
-
 try:
     import re2 as re
 except ImportError:
@@ -1116,21 +1114,55 @@ class NetworkAnalysis(Processing):
 
     def _load_network_map(self) -> Dict:
         with suppress(Exception):
-            return self.results.get("behavior", {}).get("network_map") or {}
+            behavior_net_map = self.results.get("behavior", {}).get("network_map") or {}
+            if not behavior_net_map:
+                return {}
+
+            # Create a separate dictionary to avoid modifying self.results in place
+            net_map = behavior_net_map.copy()
+
+            raw_http_host_map = net_map.get("http_host_map", {})
+            if isinstance(raw_http_host_map, list):
+                net_map["http_host_map"] = {item["host"]: item["pinfo"] for item in raw_http_host_map}
+
+            raw_dns_intents = net_map.get("dns_intents", {})
+            if isinstance(raw_dns_intents, list):
+                net_map["dns_intents"] = {item["domain"]: item["intents"] for item in raw_dns_intents}
+
+            # We need to deep copy winhttp_sessions if we are modifying its internal dicts
+            raw_winhttp = net_map.get("winhttp_sessions", [])
+            new_winhttp = []
+            for p in raw_winhttp:
+                new_p = dict(p)
+                raw_sessions = p.get("sessions", {})
+                if isinstance(raw_sessions, list):
+                    new_p["sessions"] = {item["host"]: item["events"] for item in raw_sessions}
+                new_winhttp.append(new_p)
+            net_map["winhttp_sessions"] = new_winhttp
+
+            return net_map
         return {}
 
-    def _reconstruct_endpoint_map(self, raw_map: Dict[str, List[Dict]]) -> Dict[tuple, List[Dict]]:
+    def _reconstruct_endpoint_map(self, raw_map) -> Dict[tuple, List[Dict]]:
         """
         Convert JSON-friendly "ip:port" keys back to (ip, int(port)) tuples.
         """
         endpoint_map = {}
-        for key, val in raw_map.items():
-            try:
-                ip, port_str = key.rsplit(":", 1)
-                port = int(port_str)
-                endpoint_map[(ip, port)] = val
-            except (ValueError, IndexError):
-                continue
+        if isinstance(raw_map, list):
+            for item in raw_map:
+                try:
+                    ip, port_str = item["ip_port"].rsplit(":", 1)
+                    endpoint_map[(ip, int(port_str))] = item["pinfo"]
+                except (ValueError, IndexError, KeyError):
+                    continue
+        elif isinstance(raw_map, dict):
+            for key, val in raw_map.items():
+                try:
+                    ip, port_str = key.rsplit(":", 1)
+                    port = int(port_str)
+                    endpoint_map[(ip, port)] = val
+                except (ValueError, IndexError):
+                    continue
         return endpoint_map
 
     def _pick_best(self, candidates: List[Dict]) -> Optional[Dict]:
@@ -1535,7 +1567,6 @@ class NetworkAnalysis(Processing):
             return {}
 
         global PCAP_TYPE
-        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         self.key = "network"
         self.ja3_file = self.options.get("ja3_file", os.path.join(CUCKOO_ROOT, "data", "ja3", "ja3fingerprint.json"))
         if not IS_DPKT:
@@ -1546,21 +1577,34 @@ class NetworkAnalysis(Processing):
             log.error('The PCAP file at path "%s" is empty', self.pcap_path)
             return {}
 
+        # Prefer the mixed (original + decrypted TLS) pcap if available
+        original_pcap_path = self.pcap_path
+        using_mixed_pcap = False
+        mixed_pcap_path = os.path.join(self.analysis_path, "dump_mixed.pcap")
+        if path_exists(mixed_pcap_path) and os.path.getsize(mixed_pcap_path) > 24:
+            log.info("Using mixed pcap with decrypted TLS traffic: %s", mixed_pcap_path)
+            self.pcap_path = mixed_pcap_path
+            using_mixed_pcap = True
+
+        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         ja3_fprints = self._import_ja3_fprints()
 
-        results = {"pcap_sha256": File(self.pcap_path).get_sha256()}
+        results = {"pcap_sha256": File(original_pcap_path).get_sha256()}
         self.options["sorted"] = False
         results.update(Pcap(self.pcap_path, ja3_fprints, self.options).run())
 
         if proc_cfg.network.sort_pcap:
-            sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
+            if using_mixed_pcap:
+                sorted_path = os.path.join(self.analysis_path, "dump_mixed_sorted.pcap")
+            else:
+                sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
             if path_exists(sorted_path):
                 results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
                 self.options["sorted"] = True
                 results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
 
-        if HAVE_HTTPREPLAY:
+        if HAVE_HTTPREPLAY and not using_mixed_pcap:
             try:
                 tls_master = self.get_tlsmaster()
                 p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()

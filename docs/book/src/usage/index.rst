@@ -12,6 +12,7 @@ This chapter explains how to use CAPE.
     submit
     web
     api
+    audit
     dist
     cluster_administration
     packages
@@ -23,3 +24,4 @@ This chapter explains how to use CAPE.
     monitor
     interactive_desktop
     patterns_replacement
+    mcp

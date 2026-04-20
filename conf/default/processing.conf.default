@@ -29,7 +29,7 @@ enabled = no
 [dumptls]
 enabled = no
 
-[amsi]
+[amsi_etw]
 enabled = no
 
 [behavior]
@@ -122,6 +122,14 @@ country_lookup = no
 # For ipinfo use: Free IP to Country + IP to ASN
 maxmind_database = data/GeoLite2-Country.mmdb
 
+[decryptpcap]
+enabled = yes
+# Path to GoGoRoboCap binary (relative to CUCKOO_ROOT or absolute)
+gogorobocap = data/gogorobocap/gogorobocap-linux-amd64
+# Decryption source: auto (default), pcap_with_keylog, or sslproxy_synth_pcap
+# auto: uses sslproxy synthetic pcap when available, falls back to keylog decryption
+pcapsrc = auto
+
 [pcapng]
 enabled = no
 
@@ -160,6 +168,13 @@ remove_empty = yes
 key = a0283a2c3d55728300d064874239b5346fb991317e8449fe43c902879d758088
 do_file_lookup = yes
 do_url_lookup = yes
+# Use cached results from MongoDB if available
+cache_default = no
+cache_static = no
+cache_file = no
+cache_dropped = no
+cache_cape = no
+cache_procdump = no
 urlscrub = (^http:\/\/serw\.clicksor\.com\/redir\.php\?url=|&InjectedParam=.+$)
 
 # Since Suricata 8, socket mode is deprecated.

@@ -70,6 +70,7 @@ reprocess_failed_processing = no
 url_splitter = ,
 # Limit number of files extracted from archive in demux.py
 demux_files_limit = 10
+public_searches = yes
 
 # ratelimit for anon users
 [ratelimit]
@@ -123,6 +124,8 @@ package = edge
 # TLP markings on submission and webgui
 [tlp]
 enabled = no
+# Should TLP: RED tasks be searchable by other users?
+public_red = yes
 
 #AMSI dump submission checkbox: can be useful to disable if no Win10+ instances
 #(amsidump is enabled by default in the monitor for Win10+)
@@ -197,7 +200,7 @@ vnc_host = localhost
 # You might need to add your server IP to ALLOWED_HOSTS in web/web/settings.py if it not ["*""]
 # vnc or rdp
 guest_protocol = vnc
-# TIP: For KVM/QEMU, using 'qxl' or 'virtio' video drivers in your VM XML 
+# TIP: For KVM/QEMU, using 'qxl' or 'virtio' video drivers in your VM XML
 # definition provides much better VNC performance than 'vga' or 'cirrus'.
 guacd_recording_path = /opt/CAPEv2/storage/guacrecordings
 guest_width = 1280
@@ -215,7 +218,7 @@ rdp_enable_menu_animations = no
 # VNC Performance Optimizations
 # Color depth: 8, 16, 24, 32. 16 is a great balance for performance.
 vnc_color_depth = 16
-# Cursor: 'local' renders the mouse on your browser (feels instant). 
+# Cursor: 'local' renders the mouse on your browser (feels instant).
 # 'remote' waits for the server (feels laggy).
 vnc_cursor = local
 # Audio (enable only if needed, consumes bandwidth)
@@ -245,4 +248,7 @@ packages =
 enabled = no
 
 [pcap_ng]
+enabled = no
+
+[audit_framework]
 enabled = no

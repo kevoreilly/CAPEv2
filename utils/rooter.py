@@ -124,6 +124,19 @@ def run_iptables(*args, **kwargs):
     return run(*iptables_args)
 
 
+# SSLproxy TPROXY/NFQUEUE rules must use iptables-legacy because the nftables
+# compat layer does not correctly propagate NFQUEUE verdict marks within the
+# same mangle chain traversal. The legacy xtables backend handles this correctly.
+IPTABLES_LEGACY = "/usr/sbin/iptables-legacy"
+
+
+def run_iptables_legacy(*args):
+    iptables_args = [IPTABLES_LEGACY]
+    iptables_args.extend(list(args))
+    iptables_args.extend(["-m", "comment", "--comment", "CAPE-rooter"])
+    return run(*iptables_args)
+
+
 def cleanup_rooter():
     """Filter out all CAPE rooter entries from iptables-save and
     restore the resulting ruleset."""
@@ -148,6 +161,23 @@ def cleanup_rooter():
     run_iptables("-N", "CAPE_REJECTED_SEGMENTS")
     run_iptables("-I", "FORWARD", "-j", "CAPE_REJECTED_SEGMENTS")
     run_iptables("-I", "FORWARD", "-j", "CAPE_ACCEPTED_SEGMENTS")
+
+    # Clean up any leftover SSLproxy iptables-legacy mangle rules tagged with CAPE-rooter.
+    # Only remove CAPE rules, not unrelated host firewall rules.
+    if os.path.isfile(IPTABLES_LEGACY):
+        for chain in ("FORWARD", "PREROUTING", "POSTROUTING"):
+            try:
+                output = subprocess.check_output(
+                    [IPTABLES_LEGACY, "-t", "mangle", "-S", chain],
+                    stderr=subprocess.DEVNULL,
+                    universal_newlines=True,
+                )
+                for line in reversed(output.strip().splitlines()):
+                    if "CAPE-rooter" in line and line.startswith("-A "):
+                        delete_args = line.replace("-A ", "-D ", 1).split()
+                        run(IPTABLES_LEGACY, "-t", "mangle", *delete_args)
+            except (subprocess.CalledProcessError, OSError):
+                pass
 
 
 def nic_available(interface):
@@ -977,6 +1007,72 @@ def drop_disable(ipaddr, resultserver_port):
     run_iptables("-D", "OUTPUT", "--destination", ipaddr, "-j", "DROP")
 
 
+def sslproxy_enable(interface, client, proxy_port, resultserver_port, rt_table="", fwmark=""):
+    """Enable SSLproxy interception for a specific VM.
+
+    NAT REDIRECT sends all VM TCP (except ResultServer) to SSLproxy.
+    Per-analysis fwmark + ip rule routes SSLproxy upstream through the correct VPN.
+    """
+    log.info("Enabling SSLproxy for client %s (port=%s, fwmark=%s)", client, proxy_port, fwmark)
+
+    # Exclude ResultServer traffic
+    run_iptables("-t", "nat", "-I", "PREROUTING", "1",
+                 "-i", interface, "--source", client, "-p", "tcp",
+                 "--dport", resultserver_port, "-j", "ACCEPT")
+
+    # Redirect all other TCP from this VM to SSLproxy autossl listener
+    run_iptables("-t", "nat", "-I", "PREROUTING", "2",
+                 "-i", interface, "--source", client, "-p", "tcp",
+                 "-j", "REDIRECT", "--to", proxy_port)
+
+    # Accept connections to the SSLproxy listener port
+    run_iptables("-A", "INPUT", "-i", interface, "-p", "tcp",
+                 "--dport", proxy_port, "-m", "state", "--state", "NEW", "-j", "ACCEPT")
+
+    # Per-analysis cgroup + fwmark for upstream VPN routing
+    cgroup_path = f"sslproxy/{client}"
+    cgroup_dir = f"/sys/fs/cgroup/{cgroup_path}"
+    run("mkdir", "-p", cgroup_dir)
+    if rt_table and fwmark:
+        mark_hex = f"0x{int(fwmark):x}"
+        run_iptables("-t", "mangle", "-A", "OUTPUT",
+                     "-m", "cgroup", "--path", cgroup_path,
+                     "-p", "tcp", "-j", "MARK", "--set-mark", mark_hex)
+        run(ServicePaths.ip, "rule", "add", "fwmark", fwmark, "lookup", rt_table, "priority", "32750")
+        log.info("SSLproxy upstream routing: cgroup %s → fwmark %s → table %s", cgroup_path, fwmark, rt_table)
+
+
+def sslproxy_disable(interface, client, proxy_port, resultserver_port, rt_table="", fwmark=""):
+    """Disable SSLproxy interception for a specific VM."""
+    log.info("Disabling SSLproxy for client %s (fwmark=%s)", client, fwmark)
+
+    # Remove ResultServer exclusion
+    run_iptables("-t", "nat", "-D", "PREROUTING",
+                 "-i", interface, "--source", client, "-p", "tcp",
+                 "--dport", resultserver_port, "-j", "ACCEPT")
+
+    # Remove NAT REDIRECT
+    run_iptables("-t", "nat", "-D", "PREROUTING",
+                 "-i", interface, "--source", client, "-p", "tcp",
+                 "-j", "REDIRECT", "--to", proxy_port)
+
+    # Remove INPUT accept
+    run_iptables("-D", "INPUT", "-i", interface, "-p", "tcp",
+                 "--dport", proxy_port, "-m", "state", "--state", "NEW", "-j", "ACCEPT")
+
+    # Remove cgroup and routing rules
+    cgroup_path = f"sslproxy/{client}"
+    cgroup_dir = f"/sys/fs/cgroup/{cgroup_path}"
+    if rt_table and fwmark:
+        mark_hex = f"0x{int(fwmark):x}"
+        run_iptables("-t", "mangle", "-D", "OUTPUT",
+                     "-m", "cgroup", "--path", cgroup_path,
+                     "-p", "tcp", "-j", "MARK", "--set-mark", mark_hex)
+        run(ServicePaths.ip, "rule", "del", "fwmark", fwmark, "lookup", rt_table, "priority", "32750")
+    run("rmdir", cgroup_dir)
+
+
+
 handlers = {
     "nic_available": nic_available,
     "rt_available": rt_available,
@@ -1015,6 +1111,8 @@ handlers = {
     "polarproxy_disable": polarproxy_disable,
     "libvirt_fwo_enable": libvirt_fwo_enable,
     "libvirt_fwo_disable": libvirt_fwo_disable,
+    "sslproxy_enable": sslproxy_enable,
+    "sslproxy_disable": sslproxy_disable,
 }
 
 if __name__ == "__main__":

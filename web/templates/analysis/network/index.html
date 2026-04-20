@@ -13,6 +13,12 @@
         {% if mitmdump_exists %}
             <a class="btn btn-primary btn-sm" href="{% url "file" "mitmdump" id 0 %}"><span class="fas fa-download"></span> Mitmdump </a>
         {% endif %}
+        {% if decrypted_pcap_exists %}
+            <a class="btn btn-success btn-sm" title="TLS-only decrypted traffic as plaintext" href="{% url "file" "decrypted_pcap" id "dump" %}"><span class="fas fa-lock-open"></span><span class="fas fa-download"></span> Decrypted PCAP</a>
+        {% endif %}
+        {% if mixed_pcap_exists %}
+            <a class="btn btn-success btn-sm" title="Original traffic + decrypted TLS flows" href="{% url "file" "mixed_pcap" id "dump" %}"><span class="fas fa-lock-open"></span><span class="fas fa-download"></span> Mixed PCAP</a>
+        {% endif %}
     </div>
 {% endif %}
     <ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1 mb-3" id="networkTabs" role="tablist">

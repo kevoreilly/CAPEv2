@@ -52,7 +52,8 @@ from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import create_folders
-from lib.cuckoo.core.database import TASK_FAILED_ANALYSIS, TASK_RUNNING, Database
+from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.data.task import TASK_FAILED_ANALYSIS, TASK_RUNNING
 from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import rooter, socks5s, vpns
@@ -331,8 +332,8 @@ def check_snapshot_state():
         from xml.etree import ElementTree
     except ImportError:
         raise CuckooStartupError(
-            "The 'libvirt-python' library is required for KVM/QEMU machinery but is not installed. "
-            "Please install it (e.g., 'cd /opt/CAPEv2/ ; sudo -u cape /etc/poetry/bin/poetry run extra/libvirt_installer.sh')."
+            "The 'libvirt-python' library is required for KVM/QEMU machinery but could not be imported. "
+            "Please ensure that CAPE is being launched by the same Python environment configured by the install script."
         )
 
     machinery_config = Config(cuckoo.cuckoo.machinery)
@@ -492,6 +493,7 @@ def init_rooter():
         log.debug("UFW command not found. Assuming UFW is not in use.")
     except Exception as e:
         log.debug("An unexpected error occurred while checking UFW status: %s", e)
+
 
 
 def init_routing():

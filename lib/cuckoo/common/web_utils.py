@@ -34,17 +34,17 @@ from lib.cuckoo.common.utils import (
     validate_referrer,
     validate_ttp,
 )
-from lib.cuckoo.core.database import (
+from lib.cuckoo.core.data.task import (
     ALL_DB_STATUSES,
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
     TASK_RECOVERED,
     TASK_REPORTED,
-    Database,
-    Sample,
     Task,
-)
+    )
+from lib.cuckoo.core.data.samples import Sample
+from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 from lib.downloaders import Downloaders
 
@@ -231,7 +231,7 @@ def load_vms_tags(force: bool = False):
     global _all_vms_tags
     with _load_vms_tags_lock:
         if _all_vms_tags is not None and not force:
-            return _all_vms_tags
+            return _all_vms_tags or []
         all_tags = []
         if HAVE_DIST and dist_conf.distributed.enabled:
             try:
@@ -243,11 +243,13 @@ def load_vms_tags(force: bool = False):
             except Exception as e:
                 print(e)
 
-        for machine in Database().list_machines(include_reserved=True):
+        machines = Database().list_machines(include_reserved=True)
+        for machine in machines:
             all_tags += [tag.name for tag in machine.tags if tag not in all_tags]
 
-        _all_vms_tags = list(sorted(set(all_tags)))
-        return _all_vms_tags
+        if machines:
+            _all_vms_tags = list(sorted(set(all_tags)))
+        return _all_vms_tags or []
 
 
 def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
@@ -1324,6 +1326,30 @@ normalized_int_terms = (
 )
 
 
+def _build_es_user_filter(privs: bool, user_id: int):
+    user_filter = None
+    if not privs:
+        if force_bool(web_cfg.general.get("public_searches", True)):
+            if not force_bool(web_cfg.tlp.get("public_red", False)):
+                shoulds = [{"bool": {"must_not": [{"terms": {"info.tlp": ["red", "Red", "RED"]}}]}}]
+                if user_id:
+                    shoulds.append({"term": {"info.user_id": user_id}})
+                else:
+                    shoulds.append({"bool": {"must_not": {"exists": {"field": "info.user_id"}}}})
+                user_filter = {
+                    "bool": {
+                        "should": shoulds,
+                        "minimum_should_match": 1
+                    }
+                }
+        else:
+            if user_id:
+                user_filter = {"term": {"info.user_id": user_id}}
+            else:
+                user_filter = {"bool": {"must_not": {"exists": {"field": "info.user_id"}}}}
+    return user_filter
+
+
 def perform_search(
     term: str, value: str, search_limit: int = 0, user_id: int = 0, privs: bool = False, web: bool = True, projection: dict = None
 ):
@@ -1344,6 +1370,10 @@ def perform_search(
     """
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
+        if not privs:
+            user_filter = _build_es_user_filter(privs, user_id)
+            if user_filter:
+                multi_match_search = {"query": {"bool": {"must": [{"multi_match": {"query": value, "fields": ["*"]}}], "filter": [user_filter]}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
         return [
             d["_source"]
@@ -1437,9 +1467,18 @@ def perform_search(
                 {"$unwind": "$task_doc"},
                 # Stage 8: Make the task doc the new root
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
-                # Stage 9: Add your custom projection
-                {"$project": perform_search_filters},
             ]
+
+            if not privs:
+                if force_bool(web_cfg.general.get("public_searches", True)):
+                    if not force_bool(web_cfg.tlp.get("public_red", False)):
+                        pipeline.append({"$match": {"$or": [{"info.tlp": {"$nin": ["red", "Red", "RED"]}}, {"info.user_id": user_id}]}})
+                else:
+                    pipeline.append({"$match": {"info.user_id": user_id}})
+
+            # Stage 9: Add your custom projection
+            pipeline.append({"$project": projection or perform_search_filters})
+
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
             if not retval:
                 return []
@@ -1460,6 +1499,19 @@ def perform_search(
                 projection[f"target.file.{FILE_REF_KEY}"] = 1
             if term in search_term_map_repetetive_blocks:
                 mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
+
+            if not privs:
+                if force_bool(web_cfg.general.get("public_searches", True)):
+                    if not force_bool(web_cfg.tlp.get("public_red", False)):
+                        mongo_search_query = {
+                            "$and": [
+                                mongo_search_query,
+                                {"$or": [{"info.tlp": {"$nin": ["red", "Red", "RED"]}}, {"info.user_id": user_id}]}
+                            ]
+                        }
+                else:
+                    mongo_search_query["info.user_id"] = user_id
+
             retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
 
         for doc in retval:
@@ -1469,13 +1521,20 @@ def perform_search(
         return retval
 
     if es_as_db:
-        _source_fields = list(perform_search_filters.keys())[:-1]
+        _source_fields = list((projection or perform_search_filters).keys())[:-1]
+
+        user_filter = _build_es_user_filter(privs, user_id)
+
         if isinstance(search_term_map[term], str):
             q = {"query": {"match": {search_term_map[term]: value}}}
+            if user_filter:
+                q = {"query": {"bool": {"must": [q["query"]], "filter": [user_filter]}}}
             return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
         else:
             queries = [{"match": {search_term: value}} for search_term in search_term_map[term]]
             q = {"query": {"bool": {"should": queries, "minimum_should_match": 1}}}
+            if user_filter:
+                q["query"]["bool"]["filter"] = [user_filter]
             return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
 
 

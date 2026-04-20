@@ -1347,14 +1347,15 @@ class NetworkMap:
         # BSON/JSON keys must be strings.
         # Let's convert tuple keys to string representation "ip:port"
 
-        endpoint_map_str = {}
-        for (ip, port), entries in self.endpoint_map.items():
-            endpoint_map_str[f"{ip}:{port}"] = entries
+        endpoint_map_list = [{"ip_port": f"{ip}:{port}", "pinfo": entries} for (ip, port), entries in self.endpoint_map.items()]
+
+        http_host_map_list = [{"host": k, "pinfo": v} for k, v in self.http_host_map.items()]
+        dns_intents_list = [{"domain": k, "intents": v} for k, v in self.dns_intents.items()]
 
         return {
-            "endpoint_map": endpoint_map_str,
-            "http_host_map": self.http_host_map,
-            "dns_intents": self.dns_intents,
+            "endpoint_map": endpoint_map_list,
+            "http_host_map": http_host_map_list,
+            "dns_intents": dns_intents_list,
             "http_requests": self.http_requests,
             "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
         }
@@ -1465,6 +1466,9 @@ class BehaviorAnalysis(Processing):
                                 instance.event_apicall(call, process)
                             except Exception:
                                 log.exception('Failure in partial behavior "%s"', instance.key)
+                    # Reset the iterator so reporting modules can read the calls again
+                    with suppress(AttributeError):
+                        process["calls"].reset()
 
             for instance in instances:
                 try:

@@ -101,6 +101,9 @@ enabled = no
 [network]
 enabled = yes
 sort_pcap = no
+# Which capture to analyze when decryptpcap produced additional outputs:
+# auto | original | mixed | decrypted
+pcapsrc = auto
 # Enable mapping of network events to specific processes using behavioral analysis data
 process_map = no
 # Adds network connections seen in behavior but not in PCAP. Requires process_map = yes
@@ -181,6 +184,9 @@ urlscrub = (^http:\/\/serw\.clicksor\.com\/redir\.php\?url=|&InjectedParam=.+$)
 [suricata]
 enabled = no
 runmode = cli
+# Which capture to analyze when decryptpcap produced additional outputs:
+# auto | original | mixed | decrypted
+pcapsrc = auto
 # Outputfiles
 # if evelog is specified, it will be used instead of the per-protocol log files
 evelog = eve.json
@@ -247,6 +253,16 @@ replace_patterns = no
 file_cache = no
 # Store pefile objects for later usage? useful if you doing something in signatures/reporting
 pefile_store = no
+
+[decryptpcap]
+enabled = no
+gogorobocap = data/gogorobocap/gogorobocap-linux-amd64
+# Select how decrypted captures are generated:
+# auto | pcap_with_keylog | sslproxy_synth_pcap
+pcapsrc = auto
+
+[network_etw]
+enabled = no
 
 # Deduplicate screenshots - You need to install dependency ImageHash>=4.3.1
 [deduplication]
@@ -348,4 +364,3 @@ enabled = no
 # Enable when using the PolarProxy option during analysis. This will merge the tls.pcap containing
 # plain-text TLS streams into the task PCAP.
 enabled = no
-

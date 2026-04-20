@@ -5,25 +5,27 @@
         </div>
         {% if suricata.http %}
             <div class="card-body">
-                <table class="table table-dark table-striped table-bordered" style="table-layout: fixed; width: 100%">
+                <table class="table table-dark table-striped table-bordered">
                     <tr>
-                        <th width="8%">Timestamp</th>
-                        <th width="9%">Source IP</th>
-                        <th width="5%">Source Port</th>
-                        <th width="9%">Destination IP</th>
-                        <th width="5%">Destination Port</th>
-                        <th width="4%">Method</th>
-                        <th width="4%">Status</th>
-                        <th width="10%">Hostname</th>
-                        <th width="13%">URI</th>
-                        <th width="8%">Content Type</th>
-                        <th width="8%">User Agent</th>
-                        <th width="13%">Referrer</th>
-                        <th width="4%">Length</th>
+                        <th>Timestamp</th>
+                        <th>Process</th>
+                        <th>Source IP</th>
+                        <th>Source Port</th>
+                        <th>Destination IP</th>
+                        <th>Destination Port</th>
+                        <th>Method</th>
+                        <th>Status</th>
+                        <th>Hostname</th>
+                        <th>URI</th>
+                        <th>Content Type</th>
+                        <th>User Agent</th>
+                        <th>Referrer</th>
+                        <th>Length</th>
                     </tr>
                     {% for http in suricata.http %}
                     <tr>
                         <td>{{http.timestamp}}</td>
+                        <td>{% if http.process_name %}<span class="badge bg-warning text-dark" title="PID: {{http.process_id}}">{{http.process_name}} ({{http.process_id}})</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
                         <td>{{http.srcip}}
                             <a href="https://www.virustotal.com/en/ip-address/{{http.srcip}}/information/">[VT]</a>
                             {% if config.display_et_portal %}

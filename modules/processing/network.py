@@ -41,6 +41,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
+from modules.processing.decryptpcap import resolve_processing_pcap_path
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 log = logging.getLogger(__name__)
@@ -1561,7 +1562,12 @@ class NetworkAnalysis(Processing):
                 target_list = "udp" if port == 53 else "tcp"
                 network.setdefault(target_list, []).append(entry)
 
+    def _resolve_pcap_path(self):
+        pcapsrc = self.options.get("pcapsrc", "auto") if self.options else "auto"
+        return resolve_processing_pcap_path(self.analysis_path, self.pcap_path, pcapsrc=pcapsrc)
+
     def run(self):
+        self.pcap_path = self._resolve_pcap_path()
         if not path_exists(self.pcap_path):
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}

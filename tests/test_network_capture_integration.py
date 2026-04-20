@@ -2,8 +2,6 @@ import sys
 from types import ModuleType
 from unittest.mock import mock_open, patch
 
-import pytest
-
 
 # Tests for the network_etw / decryptpcap / resultserver code paths run in
 # isolation from the full CAPE runtime. The modules-under-test transitively
@@ -85,7 +83,6 @@ log_mod.task_log_stop_force = lambda *args, **kwargs: None
 sys.modules.setdefault("lib.cuckoo.core.log", log_mod)
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.core.resultserver import FileUpload
 from modules.processing import decryptpcap as decryptpcap_mod
 from modules.processing.network_etw import AttributionIndex

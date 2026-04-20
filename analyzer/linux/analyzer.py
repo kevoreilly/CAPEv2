@@ -8,6 +8,7 @@ import logging
 import os
 import pkgutil
 import re
+import subprocess
 import sys
 import tempfile
 import time
@@ -100,33 +101,29 @@ def dump_memory(pid):
     if pid in DUMPED_LIST:
         return  # Skip if already dumped
     try:
-        maps_file = open(f"/proc/{pid}/maps", "r")
-        mem_file = open(f"/proc/{pid}/mem", "rb", 0)
-        output_file = open(f"{MEM_PATH}/{pid}.dmp", "wb")
-
-        for line in maps_file.readlines():
-            # Reference: https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
-            m = re.match(r"^([0-9a-f]+)-([0-9a-f]+) ([-rwxsp]{4}) ([0-9a-f]+) (\d\d:\d\d) (\d+) *(.*)$", line)
-            if not m:
-                log.error("Could not parse memory map line for pid %s: %s", pid, line)
-                continue
-            perms = m.group(3)
-            pathname = m.group(7)
-            if "r" in perms:
-                # Testing: Uncomment to skip memory regions associated with dynamic libraries
-                # if pathname and (pathname.endswith('.so') or 'lib' in pathname or '[' in pathname):
-                # continue
-                start = int(m.group(1), 16)
-                end = int(m.group(2), 16)
-                try:
-                    mem_file.seek(start)
-                    chunk = mem_file.read(end - start)
-                    output_file.write(chunk)
-                except (OSError, ValueError) as e:
-                    log.error("Could not read memory range %x-%x (%s) (%s): %s", start, end, perms, pathname, e)
-        maps_file.close()
-        mem_file.close()
-        output_file.close()
+        with open(f"/proc/{pid}/maps", "r") as maps_file, open(f"/proc/{pid}/mem", "rb", 0) as mem_file, open(
+            f"{MEM_PATH}/{pid}.dmp", "wb"
+        ) as output_file:
+            for line in maps_file:
+                # Reference: https://man7.org/linux/man-pages/man5/proc_pid_maps.5.html
+                m = re.match(r"^([0-9a-f]+)-([0-9a-f]+) ([-rwxsp]{4}) ([0-9a-f]+) (\d\d:\d\d) (\d+) *(.*)$", line)
+                if not m:
+                    log.error("Could not parse memory map line for pid %s: %s", pid, line)
+                    continue
+                perms = m.group(3)
+                pathname = m.group(7)
+                if "r" in perms:
+                    # Testing: Uncomment to skip memory regions associated with dynamic libraries
+                    # if pathname and (pathname.endswith('.so') or 'lib' in pathname or '[' in pathname):
+                    # continue
+                    start = int(m.group(1), 16)
+                    end = int(m.group(2), 16)
+                    try:
+                        mem_file.seek(start)
+                        chunk = mem_file.read(end - start)
+                        output_file.write(chunk)
+                    except (OSError, ValueError) as e:
+                        log.error("Could not read memory range %x-%x (%s) (%s): %s", start, end, perms, pathname, e)
     except FileNotFoundError:
         log.error("Process with PID %s not found.", str(pid))
     except PermissionError:
@@ -166,7 +163,7 @@ class Analyzer:
             # Set virtual machine clock.
             clock = datetime.datetime.strptime(self.config.clock, "%Y%m%dT%H:%M:%S")
             # Setting date and time.
-            os.system(f'date -s "{clock.strftime("%y-%m-%d %H:%M:%S")}"')
+            subprocess.run(["date", "-s", clock.strftime("%y-%m-%d %H:%M:%S")], check=True)
 
         # We update the target according to its category. If it's a file, then
         # we store the path.

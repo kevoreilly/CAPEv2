@@ -9,12 +9,14 @@ import threading
 from typing import Callable
 
 try:
+try:
     import requests
 
     HAVE_REQUESTS = True
     DOH_SESSION = requests.Session()
 except Exception:
     HAVE_REQUESTS = False
+    DOH_SESSION = None
     DOH_SESSION = None
 
 try:

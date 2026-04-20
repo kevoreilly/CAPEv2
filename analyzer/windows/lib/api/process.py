@@ -18,6 +18,7 @@ from pathlib import Path
 from shutil import copy
 
 if sys.platform.startswith("win"):
+    from ctypes import windll
     from lib.common.defines import (
         CREATE_NEW_CONSOLE,
         CREATE_SUSPENDED,

@@ -125,12 +125,12 @@ class Scheduler:
                     analysis.machinery_manager.stop_machine(analysis.machine)
             except Exception as e:
                 log.error("Failed to kill stuck VM for task #%s: %s", analysis.task.id, e)
-                    try:
-                        if analysis.machinery_manager and analysis.machine:
-                            with self.db.session.begin():
-                                analysis.machinery_manager.stop_machine(analysis.machine)
-                    except Exception as e:
-                        log.error("Failed to kill stuck VM for task #%s: %s", analysis.task.id, e)
+                try:
+                    if analysis.machinery_manager and analysis.machine:
+                        with self.db.session.begin():
+                            analysis.machinery_manager.stop_machine(analysis.machine)
+                except Exception as e:
+                    log.error("Failed to kill stuck VM for task #%s: %s", analysis.task.id, e)
 
         if self.loop_state == LoopState.STOPPING:
             # This blocks the main loop until the analyses are finished.

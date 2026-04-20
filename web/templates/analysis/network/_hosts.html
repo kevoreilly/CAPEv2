@@ -44,6 +44,11 @@
                                                 {% if p.process_name %}{{ p.process_name }}{% else %}(unknown){% endif %}{% if p.pid %} ({{ p.pid }}){% endif %}
                                             </span>
                                         {% endfor %}
+                                    {% elif host.process_name or host.process_id %}
+                                        {# Legacy single-owner attribution from CAPE's existing process_map enrichment in network.py — used when network_etw module isn't enabled #}
+                                        <span class="badge bg-warning text-dark">
+                                            {% if host.process_name %}{{ host.process_name }}{% else %}(unknown){% endif %}{% if host.process_id %} ({{ host.process_id }}){% endif %}
+                                        </span>
                                     {% else %}
                                         <span class="text-muted">-</span>
                                     {% endif %}

@@ -116,7 +116,7 @@ class AttributionIndex:
             return
         pid = str(pid)
         dst_ip = _clean_ip(dst_ip)
-        if not dst_ip or dst_ip in ("127.0.0.1", "::1", "0.0.0.0"):
+        if not dst_ip or dst_ip in ("127.0.0.1", "::1", "0.0.0.0", "::"):
             return
         if process_name:
             self.add_pid_name(pid, process_name)
@@ -250,7 +250,9 @@ class AttributionIndex:
 
     def for_http(self, host, uri):
         """(pid, name) from an already-enriched HTTP transaction. Prefer an
-        exact (host, uri) match; fall back to host alone; finally DNS."""
+        exact (host, uri) match; fall back to host alone; finally DNS.
+        Hostnames are normalised to lowercase per RFC 4343."""
+        host = host.lower() if host else ""
         if host and uri:
             hit = self._http_by_uri.get((host, uri))
             if hit:
@@ -266,6 +268,7 @@ class AttributionIndex:
         if not pid:
             return
         pid = str(pid)
+        host = host.lower() if host else ""
         if host and uri:
             self._http_by_uri.setdefault((host, uri), (pid, name))
         if host:
@@ -343,7 +346,7 @@ class NetworkETW(Processing):
             # normalise to "" so callers can distinguish "missing" via .get()
             # default vs "present but empty" via "" — same as before, but now
             # entity-decoded (&amp; → &, &lt; → <, &#xNN; → unicode char).
-            out[name] = d.text or ""
+            out[name] = (d.text or "").strip()
         return out
 
     def _parse_sysmon_evtx(self):
@@ -422,7 +425,7 @@ class NetworkETW(Processing):
 
     def _parse_kernel_network_etw(self, pid_to_name):
         """Parse aux/network_etw.json from the Microsoft-Windows-Kernel-Network
-        ETW provider (captured by the dns_etw auxiliary at analysis time)."""
+        ETW provider (captured by the network_etw auxiliary at analysis time)."""
         connections = []
         etw_path = os.path.join(self.analysis_path, "aux", "network_etw.json")
         if not os.path.exists(etw_path):
@@ -604,7 +607,7 @@ class NetworkETW(Processing):
         for c in merged:
             pid = c["pid"]
             dst = c["dst_ip"]
-            if not dst or dst in ("127.0.0.1", "::1", "0.0.0.0"):
+            if not dst or dst in ("127.0.0.1", "::1", "0.0.0.0", "::"):
                 continue
             by_pid.setdefault(pid, {
                 "pid": pid,
@@ -717,7 +720,8 @@ class NetworkETW(Processing):
                 seen_procs.add(key)
                 procs.append({
                     "pid": pid,
-                    "process_name": image,
+                    "process_name": os.path.basename(image) if image else "",
+                    "process_path": image,
                     "command_line": ev.get("CommandLine", ""),
                     "parent_pid": ev.get("ParentProcessId"),
                     "parent_image": ev.get("ParentImage", ""),

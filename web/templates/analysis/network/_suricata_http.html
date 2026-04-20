@@ -8,7 +8,7 @@
                 <table class="table table-dark table-striped table-bordered">
                     <tr>
                         <th>Timestamp</th>
-                        <th>Process</th>
+                        {% if settings.NETWORK_PROC_MAP %}<th>Process</th>{% endif %}
                         <th>Source IP</th>
                         <th>Source Port</th>
                         <th>Destination IP</th>
@@ -25,7 +25,7 @@
                     {% for http in suricata.http %}
                     <tr>
                         <td>{{http.timestamp}}</td>
-                        <td>{% if http.process_name %}<span class="badge bg-warning text-dark" title="PID: {{http.process_id}}">{{http.process_name}} ({{http.process_id}})</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                        {% if settings.NETWORK_PROC_MAP %}<td>{% if http.process_name %}<span class="badge bg-warning text-dark" title="PID: {{http.process_id}}">{{http.process_name}} ({{http.process_id}})</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>{% endif %}
                         <td>{{http.srcip}}
                             <a href="https://www.virustotal.com/en/ip-address/{{http.srcip}}/information/">[VT]</a>
                             {% if config.display_et_portal %}

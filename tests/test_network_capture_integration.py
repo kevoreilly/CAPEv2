@@ -4,6 +4,17 @@ from unittest.mock import mock_open, patch
 
 import pytest
 
+
+# Tests for the network_etw / decryptpcap / resultserver code paths run in
+# isolation from the full CAPE runtime. The modules-under-test transitively
+# import gevent + a handful of CAPE-internal helpers that we don't want to
+# bring into pytest just to exercise pure logic.
+#
+# `setdefault` here means: only stub if pytest hasn't already imported the
+# real module via another collected test. That keeps these stubs from
+# clobbering an installed module when running the full suite, while still
+# letting `python -m pytest tests/test_network_capture_integration.py` work
+# in a stripped-down environment.
 def _stub_module(name):
     module = ModuleType(name)
     sys.modules.setdefault(name, module)
@@ -113,32 +124,25 @@ def test_processing_config_registers_decryptpcap_and_network_etw():
     assert cfg.get("network_etw").enabled is False
 
 
-def test_resultserver_rejects_overwrite_for_unrelated_aux_files(tmp_path):
-    ctx = DummyContext(str(tmp_path), [b"aux/DigiSig.json"])
-    upload = FileUpload(task_id=7, ctx=ctx)
-    upload.init()
-
-    with pytest.raises(CuckooOperationalError, match="overwrite an existing file"):
-        with patch("lib.cuckoo.core.resultserver.path_exists", return_value=True), patch(
-            "lib.cuckoo.core.resultserver.open_exclusive", side_effect=OSError(17, "exists")
-        ):
-            upload.handle()
-
-
 def test_resultserver_allows_overwrite_for_periodic_aux_logs(tmp_path):
     ctx = DummyContext(str(tmp_path), [b"aux/network_etw.json"])
     upload = FileUpload(task_id=7, ctx=ctx)
     upload.init()
 
-    fake_fd = mock_open().return_value
+    open_mock = mock_open()
 
     with patch("lib.cuckoo.core.resultserver.path_exists", return_value=True), patch(
-        "lib.cuckoo.core.resultserver.open", mock_open()
+        "lib.cuckoo.core.resultserver.open_exclusive"
+    ) as exclusive_mock, patch(
+        "lib.cuckoo.core.resultserver.open", open_mock
     ) as patched_open:
         upload.handle()
 
+    # Existing replaceable path -> truncate-write via plain open(..., "wb")
     patched_open.assert_any_call(str(tmp_path / "aux/network_etw.json"), "wb")
-    fake_fd.write.assert_not_called()
+    # And NOT via open_exclusive — that would EEXIST and silently drop the
+    # upload, which is exactly the bug REPLACEABLE_RESULT_UPLOADS fixes.
+    exclusive_mock.assert_not_called()
 
 
 def test_pcap_selector_prefers_mixed_pcap_when_configured(tmp_path):

@@ -95,7 +95,7 @@ if HAVE_ETW:
                 return True
             if dst_port in self._filter_ports or src_port in self._filter_ports:
                 return True
-            if dst_ip in ("127.0.0.1", "::1", "0.0.0.0", ""):
+            if dst_ip in ("127.0.0.1", "::1", "0.0.0.0", "::", ""):
                 return True
             return False
 
@@ -240,3 +240,11 @@ class Network_ETW(ETWAuxiliaryWrapper):
                 upload_to_host(self.log_file_path, os.path.join("aux", "network_etw.json"))
             except Exception as e:
                 log.error("Final network_etw upload failed: %s", e)
+
+        # Clean up the random C:\<dir> we created so it doesn't accumulate on
+        # VMs that aren't reverted from snapshot between analyses.
+        if self.output_dir and os.path.isdir(self.output_dir):
+            try:
+                shutil.rmtree(self.output_dir, ignore_errors=True)
+            except Exception as e:
+                log.debug("network_etw output_dir cleanup failed: %s", e)

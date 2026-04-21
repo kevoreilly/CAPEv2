@@ -60,6 +60,7 @@ if web_cfg.web_reporting.get("enabled", True):
 WEB_AUTHENTICATION = web_cfg.web_auth.get("enabled", False)
 WEB_OAUTH = web_cfg.oauth
 REMOTE_SESSION = web_cfg.guacamole.enabled
+USE_ASYNC_MONGO = web_cfg.general.get("async_enabled", False)
 
 # Get connection options from reporting.conf.
 MONGO_HOST = cfg.mongodb.get("host", "127.0.0.1")
@@ -98,6 +99,7 @@ COMMENTS = web_cfg.comments.enabled
 ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
 ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
+REAL_TIME_UPDATES = web_cfg.general.get("real_time_updates", False)
 NETWORK_PROC_MAP = pro_cfg.network.process_map
 
 # If false run next command
@@ -272,6 +274,18 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
 ]
 
+# Channels / ASGI
+if REAL_TIME_UPDATES:
+    INSTALLED_APPS = ["daphne", "channels"] + INSTALLED_APPS
+    ASGI_APPLICATION = "web.asgi.application"
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [(web_cfg.channels.get("redis_host", "127.0.0.1"), web_cfg.channels.get("redis_port", 6379))],
+            },
+        },
+    }
 AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
 
 if api_cfg.api.token_auth_enabled:
@@ -319,6 +333,7 @@ SETTINGS_EXPORT = [
     "WEB_AUTHENTICATION",
     "WEB_OAUTH",
     "ZIPPED_DOWNLOAD_ALL",
+    "REAL_TIME_UPDATES",
     "NETWORK_PROC_MAP",
     "REPROCESS_TASKS",
     "REPROCESS_FAILED_PROCESSING",

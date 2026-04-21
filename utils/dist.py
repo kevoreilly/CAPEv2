@@ -1490,13 +1490,8 @@ class StatusThread(threading.Thread):
                         failed_count[node.name] = 0
                         # log.info("Status.. %s -> %s", node.name, status["tasks"])
 
-                        log.info(
-                            f"STATUS | {node.name:<15} | "
-                            f"Pend: {status['tasks']['pending']:>3} | "
-                            f"Run: {status['tasks']['running']:>3} | "
-                            f"Done: {status['tasks']['completed']:>3} | "
-                            f"Rep: {status['tasks']['reported']:>4}"
-                        )
+                        log_line = f"STATUS | {node.name:<15} | Pend: {status['tasks']['pending']:>3} | Run: {status['tasks']['running']:>3} | Done: {status['tasks']['completed']:>3} | Rep: {status['tasks']['reported']:>4}"
+                        log.info(log_line)
 
                         statuses[node.name] = status
                         statuses[node.name]["enabled"] = True

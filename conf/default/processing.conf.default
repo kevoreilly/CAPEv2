@@ -126,7 +126,7 @@ country_lookup = no
 maxmind_database = data/GeoLite2-Country.mmdb
 
 [decryptpcap]
-enabled = yes
+enabled = no
 # Path to GoGoRoboCap binary (relative to CUCKOO_ROOT or absolute)
 gogorobocap = data/gogorobocap/gogorobocap-linux-amd64
 # Decryption source: auto (default), pcap_with_keylog, or sslproxy_synth_pcap

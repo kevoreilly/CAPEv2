@@ -1,0 +1,371 @@
+{% extends "base.html" %}
+{% block content %}
+
+<style>
+    /* i don't know where to put this CSS and i'm too afraid to ask */
+    /* This ensures the right-hand metadata stays aligned */
+    .meta-column {
+        width: 550px;
+        flex-shrink: 0;
+    }
+
+    /* Guide lines and hover effects */
+    .objective-node {
+        position: relative;
+        transition: background-color 0.2s;
+    }
+
+        /* Striation: odd rows slightly darker for easier tracking */
+        .objective-node:nth-child(odd) {
+            background-color: rgba(255, 255, 255, 0.01);
+        }
+
+    .hover-bg-dark:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        cursor: default;
+    }
+
+    /* The dotted line that bridges the gap between text and status */
+    .objective-row-content {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        position: relative;
+    }
+
+    /* Optional: Only show dotted line on wide screens */
+    @media (min-width: 1200px) {
+        .objective-info-filler {
+            flex-grow: 1;
+            border-bottom: 1px dotted rgba(255, 255, 255, 0.1);
+            margin: 0 20px;
+            height: 1px;
+        }
+    }
+
+    .tech-label {
+        font-size: 0.65rem;
+        letter-spacing: 0.08rem;
+        opacity: 0.6;
+        font-weight: 800;
+    }
+
+    .tech-value {
+        font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+        font-size: 0.85rem;
+    }
+
+    .tech-link {
+        color: #0d6efd; /* Classic link blue, or use #0dcaf0 for a 'cyan' hacker feel */
+        text-decoration: none;
+        border-bottom: 1px solid transparent;
+        transition: all 0.2s;
+    }
+
+        .tech-link:hover {
+            color: #0a58ca;
+            border-bottom: 1px solid currentColor;
+        }
+
+    .task-status-tag {
+        padding: 1px 4px;
+        border-radius: 3px;
+        margin-left: 4px;
+    }
+
+    .auto-update-widget {
+        transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        max-width: 300px; /* Adjust to fit your content */
+        opacity: 1;
+        overflow: hidden;
+        white-space: nowrap;
+        margin-top: 4px;
+        margin-left: 12px;
+        width: fit-content;
+    }
+
+        /* The "Gone" state */
+        .auto-update-widget.is-idle {
+            max-width: 0;
+            opacity: 0;
+            margin: 0 !important;
+            padding: 0 !important;
+            pointer-events: none;
+        }
+</style>
+
+{% if messages|length > 0 %}
+<div class="bg-dark">
+    <div>Messages</div>
+    <ul class="messages">
+        {% for message in messages %}
+        {% if message.tags != "success" %}
+        <li class="alert alert-{{ message.tags }}">
+            {{ message }}
+        </li>
+        {% endif %}
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+
+<div id="auto-update-root"
+     class="auto-update-widget d-flex align-items-center gap-3 py-2 px-3 bg-dark rounded border border-secondary border-opacity-25">
+
+    <div class="form-check form-switch mb-0">
+        <input class="form-check-input shadow-none" type="checkbox" id="autoRefreshToggle" checked>
+        <label class="tech-label form-check-label ms-1" for="autoRefreshToggle">AUTO-REFRESH</label>
+    </div>
+
+    <div id="progress-wrapper" class="d-flex flex-column" style="width: 100px; transition: opacity 0.3s;">
+        <div id="refresh-progress-container" class="progress" style="height: 2px; background-color: rgba(255,255,255,0.1);">
+            <div id="refresh-progress"
+                 class="progress-bar bg-info"
+                 style="width: 0%; transition: none;"></div>
+        </div>
+    </div>
+
+    <button id="manual-refresh" onclick="forceRefresh()" class="btn btn-sm btn-outline-secondary p-1 d-flex align-items-center" title="Refresh Now">
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-arrow-clockwise" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2v1z" />
+            <path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466z" />
+        </svg>
+    </button>
+</div>
+
+<div id="session-metadata"
+     data-is-active="{% if stats.tests.running > 0 or stats.tests.queued > 0 %}true{% else %}false{% endif %}">
+</div>
+
+
+<div id="session-header-wrapper" class="mb-3" style="padding: 12px; padding-bottom: 0px">
+    {% include "audit/partials/session_status_header.html" with stats=stats session=session csrf_token=csrf_token %}
+</div>
+
+<div class="container-fluid">
+    {% for run in session.runs %}
+    {% with pagehtml=run_html|get_item:run.id %}
+    {{ pagehtml|safe }}
+    {% endwith %}
+    {% endfor %}
+</div>
+
+<script>
+
+    const SESSION_ID = "{{ session.id }}";
+
+    // Check every 5 seconds
+    window.DASHBOARD_STATE = {
+        isAutoRefreshing: true,
+        elapsed: 0,
+        refreshTime: 5000,
+        step: 50
+    };
+
+    function tick() {
+        const root = document.getElementById('auto-update-root');
+        let dashboard_state = window.DASHBOARD_STATE
+
+        // 1. Check the variable, not the DOM
+        if (!dashboard_state.isAutoRefreshing) {
+            if (root) root.classList.add('is-idle');
+            return;
+        } else {
+            if (root) root.classList.remove('is-idle');
+        }
+
+        // 2. Check the toggle (still need the DOM for user input)
+        const toggle = document.getElementById('autoRefreshToggle');
+        const progressBar = document.getElementById('refresh-progress');
+
+        if (!toggle || !toggle.checked) return;
+
+        dashboard_state.elapsed += dashboard_state.step;
+        let percentage = (dashboard_state.elapsed / dashboard_state.refreshTime) * 100;
+
+        if (progressBar) {
+            progressBar.style.width = percentage + '%';
+        }
+
+        if (dashboard_state.elapsed >= dashboard_state.refreshTime) {
+            dashboard_state.elapsed = 0;
+            updateStatuses();
+        }
+    }
+
+    var RELOADER = setInterval(tick, window.DASHBOARD_STATE.step);
+
+    function forceRefresh() {
+        updateStatuses();
+
+        // Reset the progress bar immediately for visual feedback
+        window.DASHBOARD_STATE.elapsed = 0;
+        const progressBar = document.getElementById('refresh-progress');
+        if (progressBar) progressBar.style.width = '0%';
+
+        // Fancy Fancy - spin the icon
+        const refreshBtn = document.getElementById('manual-refresh');
+        const icon = refreshBtn.querySelector('svg');
+        if (icon) {
+            icon.style.transition = 'transform 0.5s ease';
+            icon.style.transform = 'rotate(360deg)';
+            setTimeout(() => { icon.style.transform = 'rotate(0deg)'; icon.style.transition = 'none'; }, 500);
+        }
+    }
+
+    async function updateRunCard(test_id) {
+        const response = await fetch(`/audit/session/0/run_update/${test_id}`.replace('0', SESSION_ID));
+        const data = await response.json();
+
+        const existingCard = document.getElementById(`run-card-${runId}`);
+        if (existingCard) {
+            // Overwrite the old HTML with the fresh Django-rendered HTML
+            existingCard.outerHTML = data.html;
+        }
+    }
+
+
+    async function queue_run(btn, sessionId, runId) {
+        const url = `/audit/session/${SESSION_ID}/queue_tests/${runId}/`;
+        const originalContent = btn.innerHTML;
+
+        // Prevent double-clicks and show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Queuing...';
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${response.status} - ${errorText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // 3. Update the button to show it worked
+                btn.classList.replace('btn-outline-info', 'btn-secondary');
+                btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
+                if (!window.DASHBOARD_STATE.isAutoRefreshing) {
+                    setTimeout(updateStatuses, 650)
+                }
+                // btn.disabled remains true so they can't queue it twice
+            } else {
+                throw new Error(data.message || 'Queueing failed');
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not queue test: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+
+    async function unqueue_run(btn, sessionId, runId) {
+        const url = `/audit/session/${SESSION_ID}/unqueue_tests/${runId}/`;
+        const originalContent = btn.innerHTML;
+
+        // Prevent double-clicks and show loading state
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Unqueuing...';
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${response.status} - ${errorText}`);
+            }
+
+            const data = await response.json();
+
+            if (data.status === 'success') {
+                // 3. Update the button to show it worked
+                btn.classList.replace('btn-outline-info', 'btn-secondary');
+                btn.innerHTML = '<i class="fas fa-spin me-1"></i>Requested';
+                if (!window.DASHBOARD_STATE.isAutoRefreshing) {
+                    setTimeout(updateStatuses, 650)
+                }
+                // btn.disabled remains true so they can't queue it twice
+            } else {
+                throw new Error(data.message || 'Queueing failed');
+            }
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not unqueue test: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+    }
+
+
+
+    async function updateStatuses() {
+        // to avoid updates closing expanded info boxes (config/timing), we store what is expanded
+        const expandedIds = Array.from(document.querySelectorAll('.collapse.show'))
+            .map(el => el.id);
+
+        fetch(`/audit/session/${SESSION_ID}/status`)
+            .then(res => res.json())
+            .then(data => {
+                data.test_cards.forEach(carddata => {
+                    const card = document.getElementById(`run-card-${carddata.id}`);
+                    if (card) {
+                        card.outerHTML = carddata.html;
+                    }
+                });
+
+                const headerWrapper = document.getElementById('session-header-wrapper');
+                if (headerWrapper && data.status_box_card) {
+                    headerWrapper.innerHTML = data.status_box_card
+                }
+                // Update the Logic State
+                window.DASHBOARD_STATE.isAutoRefreshing = data.stats.tests.running > 0 ||
+                    data.stats.tests.queued > 0 ||
+                    data.stats.complete_but_unevaluated > 0;
+
+                // If it's no longer active, reset the bar
+                if (!data.is_active) {
+                    window.DASHBOARD_STATE.elapsed = 0;
+                }
+
+                //re-expand elements
+                expandedIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) {
+                        // Use 'show' class immediately to avoid a double-animation
+                        el.classList.add('show');
+                        // Also update the trigger button's aria-expanded state if needed
+                        const btn = document.querySelector(`[data-bs-target="#${id}"]`);
+                        if (btn) btn.setAttribute('aria-expanded', 'true');
+                    }
+                });
+            });
+    }
+    window.triggerSessionStatusUpdate = updateStatuses
+    
+</script>
+
+{% endblock %}

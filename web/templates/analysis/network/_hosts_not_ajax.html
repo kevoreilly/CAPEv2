@@ -6,6 +6,7 @@
                 <th>IP</th>
                 <th>Country Name</th>
                 <th>ASN</th>
+                {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
             </tr>
             {% for host in analysis.network.hosts %}
             {% if host.ip|slice:":7" != "192.168" %}
@@ -28,6 +29,15 @@
                     <td>{{host.country_name}}</td>
                     {% if host.asn %}
                         <td><a href="/analysis/search/asn:{{host.asn}}"><span title="{{host.asn_name}}" style="font-weight: bold;">{{host.asn}}</span></a></td>
+                    {% endif %}
+                    {% if settings.NETWORK_PROC_MAP %}
+                        <td>
+                            {% if host.process_name %}
+                                {{ host.process_name }}{% if host.process_id %} ({{ host.process_id }}){% endif %}
+                            {% else %}
+                                -
+                            {% endif %}
+                        </td>
                     {% endif %}
                 </tr>
             {% endif %}

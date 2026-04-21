@@ -29,7 +29,7 @@ enabled = no
 [dumptls]
 enabled = no
 
-[amsi]
+[amsi_etw]
 enabled = no
 
 [behavior]
@@ -53,6 +53,8 @@ ram_boost = no
 # https://capev2.readthedocs.io/en/latest/usage/patterns_replacement.html
 replace_patterns = no
 file_activities = no
+# Get network details from behavior
+network_map = no
 
 # process behavior files in ram to speedup processing a little bit?
 ram_mmap = no
@@ -99,6 +101,10 @@ enabled = no
 [network]
 enabled = yes
 sort_pcap = no
+# Enable mapping of network events to specific processes using behavioral analysis data
+process_map = no
+# Adds network connections seen in behavior but not in PCAP. Requires process_map = yes
+merge_behavior_map = no
 # DNS whitelisting to ignore domains/IPs configured in network.py
 dnswhitelist = yes
 # additional entries
@@ -115,6 +121,14 @@ country_lookup = no
 # For maxmind use: GeoLite2 Country
 # For ipinfo use: Free IP to Country + IP to ASN
 maxmind_database = data/GeoLite2-Country.mmdb
+
+[decryptpcap]
+enabled = yes
+# Path to GoGoRoboCap binary (relative to CUCKOO_ROOT or absolute)
+gogorobocap = data/gogorobocap/gogorobocap-linux-amd64
+# Decryption source: auto (default), pcap_with_keylog, or sslproxy_synth_pcap
+# auto: uses sslproxy synthetic pcap when available, falls back to keylog decryption
+pcapsrc = auto
 
 [pcapng]
 enabled = no
@@ -154,6 +168,13 @@ remove_empty = yes
 key = a0283a2c3d55728300d064874239b5346fb991317e8449fe43c902879d758088
 do_file_lookup = yes
 do_url_lookup = yes
+# Use cached results from MongoDB if available
+cache_default = no
+cache_static = no
+cache_file = no
+cache_dropped = no
+cache_cape = no
+cache_procdump = no
 urlscrub = (^http:\/\/serw\.clicksor\.com\/redir\.php\?url=|&InjectedParam=.+$)
 
 # Since Suricata 8, socket mode is deprecated.
@@ -222,6 +243,10 @@ max_file_size = 90
 userdb_signature = no
 # https://capev2.readthedocs.io/en/latest/usage/patterns_replacement.html
 replace_patterns = no
+# Use file cache to speed up processing by looking up already processed files in MongoDB
+file_cache = no
+# Store pefile objects for later usage? useful if you doing something in signatures/reporting
+pefile_store = no
 
 # Deduplicate screenshots - You need to install dependency ImageHash>=4.3.1
 [deduplication]
@@ -323,3 +348,4 @@ enabled = no
 # Enable when using the PolarProxy option during analysis. This will merge the tls.pcap containing
 # plain-text TLS streams into the task PCAP.
 enabled = no
+

@@ -31,11 +31,13 @@
     <!-- Analysis Details Card -->
     <div class="card bg-dark border-secondary mb-3">
         <div class="card-header border-secondary d-flex justify-content-between align-items-center">
-            <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-primary"></i> Analysis Details</h5>
+            <h5 class="mb-0 text-white"><i class="fas fa-info-circle me-2 text-info"></i> Analysis Details</h5>
             {% if settings.REPROCESS_TASKS %}
-                <a class="btn btn-sm btn-outline-secondary" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess Task">
-                    <i class="fas fa-redo"></i>
-                </a>
+                <div>
+                    <a class="btn btn-sm btn-secondary" href="{% url "reprocess_tasks" id %}" role="button" data-bs-toggle="tooltip" title="Reprocess Task">
+                      <i class="fas fa-redo"></i>
+                    </a>
+                </div>
             {% endif %}
         </div>
         <div class="table-responsive">
@@ -63,7 +65,7 @@
                         <td class="text-nowrap">{{analysis.info.ended}}</td>
                         <td>{{analysis.info.duration}}s</td>
                         {% if analysis.info.options %}
-                            <td><button class="btn btn-sm btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
+                            <td><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>
                         {% endif %}
                         {% if user.is_staff and analysis.distributed %}
                             <td>{{analysis.distributed.name}} <small class="text-white-50">({{analysis.distributed.task_id}})</small></td>
@@ -194,7 +196,7 @@
 </section>
 
 <!-- Machine Details Card -->
-{% if analysis.info.machine and analysis.info.machine.name %}
+{% if analysis.info.machine %}
     <section id="machine" class="mb-4">
         <div class="card bg-dark border-secondary">
             <div class="card-header border-secondary">
@@ -205,6 +207,7 @@
                     <thead>
                         <tr>
                             <th>Name</th>
+                            {% if analysis.distributed %}<th>Node</th>{% endif %}
                             <th>Label</th>
                             <th>Manager</th>
                             <th>Started On</th>
@@ -214,11 +217,12 @@
                     </thead>
                     <tbody>
                         <tr>
-                            <td>{{analysis.info.machine.name}}</td>
-                            <td><span class="badge bg-dark">{{analysis.info.machine.label}}</span></td>
-                            <td>{{analysis.info.machine.manager}}</td>
-                            <td class="text-nowrap">{{analysis.info.machine.started_on}}</td>
-                            <td class="text-nowrap">{{analysis.info.machine.shutdown_on}}</td>
+                            <td>{% if analysis.info.machine.name %}{{analysis.info.machine.name}}{% else %}{{analysis.info.machine}}{% endif %}</td>
+                            {% if analysis.distributed %}<td>{{analysis.distributed.name}}</td>{% endif %}
+                            <td><span class="badge bg-dark">{% if analysis.info.machine.label %}{{analysis.info.machine.label}}{% else %}-{% endif %}</span></td>
+                            <td>{% if analysis.info.machine.manager %}{{analysis.info.machine.manager}}{% else %}-{% endif %}</td>
+                            <td class="text-nowrap">{% if analysis.info.machine.started_on %}{{analysis.info.machine.started_on}}{% else %}-{% endif %}</td>
+                            <td class="text-nowrap">{% if analysis.info.machine.shutdown_on %}{{analysis.info.machine.shutdown_on}}{% else %}-{% endif %}</td>
                             {% if analysis.info.route %}
                                 <td><code>{{analysis.info.route}}</code></td>
                             {% endif %}

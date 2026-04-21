@@ -8,12 +8,36 @@ import logging
 import mmap
 import os
 import struct
+from collections import defaultdict
 from contextlib import suppress
 
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.compressor import CuckooBsonCompressor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.netlog import BsonParser
+from lib.cuckoo.common.network_utils import (
+    _get_call_args_dict,
+    _get_arg_any,
+    _norm_ip,
+    _looks_like_http,
+    _http_host_from_buf,
+    _extract_first_url,
+    _host_from_url,
+    _add_http_host,
+    _extract_domain_from_call,
+    _extract_tls_server_name,
+    _parse_behavior_ts,
+    _norm_domain,
+    _safe_int,
+    DNS_APIS,
+    HTTP_HINT_APIS,
+    TLS_HINT_APIS,
+    _get_call_ret_handle,
+    _winhttp_get_proc_state,
+    _call_ok,
+    winhttp_update_from_call,
+    winhttp_finalize_sessions,
+)
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.replace_patterns_utils import _clean_path, check_deny_pattern
 from lib.cuckoo.common.utils import (
@@ -1198,6 +1222,145 @@ class ProcessTree:
         return roots
 
 
+class NetworkMap:
+    """
+    Generates mappings between processes and network events (IPs, Hosts, DNS)
+    to be used by network_process_map.py module.
+    """
+
+    key = "network_map"
+
+    def __init__(self):
+        self.endpoint_map = defaultdict(list)  # (ip, port) -> [pinfo]
+        self.http_host_map = defaultdict(list)  # host -> [pinfo]
+        self.http_requests = []  # url -> [pinfo]
+        self.dns_intents = defaultdict(list)  # domain -> [intent]
+        self._winhttp_state = {"processes": {}}
+
+    def event_apicall(self, call, process):
+        if call.get("category") != "network":
+            return
+
+        api = (call.get("api") or "").lower()
+        args_map = _get_call_args_dict(call)
+
+        pinfo = {
+            "process_id": process.get("process_id"),
+            "process_name": process.get("process_name", ""),
+        }
+
+        # 1. Endpoint Map (Socket/IP/Port)
+        sock = _get_arg_any(args_map, "socket", "sock", "fd", "handle")
+        ip = _norm_ip(_get_arg_any(args_map, "ip", "dst", "dstip", "ip_address", "address", "remote_ip", "server"))
+        port = _get_arg_any(args_map, "port", "dport", "dstport", "remote_port", "server_port")
+        buf = _get_arg_any(args_map, "buffer", "buf", "data")
+
+        if api in {"connect", "wsaconnect", "connectex", "sendto", "wsasendto", "recvfrom", "wsarecvfrom"}:
+            p_int = _safe_int(port)
+            if ip and p_int is not None:
+                entry = dict(pinfo)
+                if sock is not None:
+                    entry["socket"] = sock
+
+                self.endpoint_map[(ip, p_int)].append(entry)
+
+        # 2. HTTP Host Map
+        if api in {"send", "wsasend", "sendto", "wsasendto"} and _looks_like_http(buf):
+            host = _http_host_from_buf(buf)
+            if host:
+                _add_http_host(self.http_host_map, host, pinfo, sock=sock)
+
+        if api in HTTP_HINT_APIS:
+            url = _get_arg_any(args_map, "url", "lpszurl", "lpurl", "uri", "pszurl", "purl")
+            if isinstance(url, str) and url.strip():
+                u = _extract_first_url(url) or url.strip()
+                host = _host_from_url(u)
+                if not host and "://" not in u:
+                    host = _host_from_url(f"http://{u}")
+                if host:
+                    _add_http_host(self.http_host_map, host, pinfo, sock=sock)
+
+                if u:
+                    self.http_requests.append(
+                        {
+                            "url": u,
+                            "host": host,
+                            "process_id": process.get("process_id"),
+                            "process_name": process.get("process_name"),
+                            "time": _parse_behavior_ts(call.get("timestamp")),
+                        }
+                    )
+
+            if isinstance(buf, str):
+                u2 = _extract_first_url(buf)
+                if u2:
+                    host2 = _host_from_url(u2)
+                    if host2:
+                        _add_http_host(self.http_host_map, host2, pinfo, sock=sock)
+
+            if api in ("internetconnectw", "internetconnecta", "winhttpconnect"):
+                server_name = _get_arg_any(args_map, "ServerName", "lpszServerName", "szServerName", "pszServerName", "pswzServerName")
+                if server_name:
+                    _add_http_host(self.http_host_map, server_name, pinfo, sock=sock)
+
+        if api in TLS_HINT_APIS:
+            sni = _extract_tls_server_name(call, args_map)
+            if sni:
+                _add_http_host(self.http_host_map, sni, pinfo, sock=sock)
+
+            if isinstance(buf, str) and _looks_like_http(buf):
+                host3 = _http_host_from_buf(buf)
+                if host3:
+                    _add_http_host(self.http_host_map, host3, pinfo, sock=sock)
+
+        # 3. DNS Intents
+        if api in DNS_APIS:
+            domain = _norm_domain(_extract_domain_from_call(call, args_map))
+            if domain:
+                ts_epoch = _parse_behavior_ts(call.get("timestamp"))
+                self.dns_intents[domain].append(
+                    {
+                        "process": dict(pinfo),
+                        "ts_epoch": ts_epoch,
+                        "api": api,
+                    }
+                )
+
+        # 4. WinHTTP rebuild (incremental)
+        if api.startswith("winhttp") and _call_ok(call):
+            ret_h = None
+            with suppress(Exception):
+                ret_h = _get_call_ret_handle(call)
+
+            pstate = _winhttp_get_proc_state(self._winhttp_state, process)
+            winhttp_update_from_call(pstate, api, args_map, ret_h)
+
+    def run(self):
+        # Sort DNS intents by timestamp
+        for d in list(self.dns_intents.keys()):
+            self.dns_intents[d].sort(key=lambda x: (x["ts_epoch"] is None, x["ts_epoch"] or 0.0))
+
+        # We need to return dicts with string keys for JSON serialization
+        # endpoint_map keys are (ip, port) tuples. Convert to "ip:port" strings?
+        # Or list of objects?
+        # Actually, if we store this in behavior result, it will be saved to report.json/bson.
+        # BSON/JSON keys must be strings.
+        # Let's convert tuple keys to string representation "ip:port"
+
+        endpoint_map_list = [{"ip_port": f"{ip}:{port}", "pinfo": entries} for (ip, port), entries in self.endpoint_map.items()]
+
+        http_host_map_list = [{"host": k, "pinfo": v} for k, v in self.http_host_map.items()]
+        dns_intents_list = [{"domain": k, "intents": v} for k, v in self.dns_intents.items()]
+
+        return {
+            "endpoint_map": endpoint_map_list,
+            "http_host_map": http_host_map_list,
+            "dns_intents": dns_intents_list,
+            "http_requests": self.http_requests,
+            "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
+        }
+
+
 class EncryptedBuffers:
     """Generates summary information."""
 
@@ -1290,6 +1453,7 @@ class BehaviorAnalysis(Processing):
                 Summary(self.options),
                 Enhanced(),
                 EncryptedBuffers(),
+                NetworkMap(),
             ]
             enabled_instances = [instance for instance in instances if getattr(self.options, instance.key, True)]
 
@@ -1302,6 +1466,9 @@ class BehaviorAnalysis(Processing):
                                 instance.event_apicall(call, process)
                             except Exception:
                                 log.exception('Failure in partial behavior "%s"', instance.key)
+                    # Reset the iterator so reporting modules can read the calls again
+                    with suppress(AttributeError):
+                        process["calls"].reset()
 
             for instance in instances:
                 try:

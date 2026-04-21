@@ -14,17 +14,16 @@ from lib.cuckoo.common.dist_db import Task as DTask
 from lib.cuckoo.common.dist_db import create_session
 from lib.cuckoo.common.exceptions import CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date, path_is_dir, path_mkdir
-from lib.cuckoo.core.database import (
+from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.data.samples import Sample
+from lib.cuckoo.core.data.task import (
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
     TASK_PENDING,
     TASK_RECOVERED,
     TASK_REPORTED,
-    Database,
-    Sample,
-    Task,
-    _Database,
+    Task
 )
 from lib.cuckoo.core.startup import create_structure, init_console_logging
 
@@ -820,7 +819,7 @@ def cleanup_files_collection_by_id(task_id: int):
         { bytesFreed: Long('107198922752'), ok: 1 }
 
     """
-    mongo_update_many({}, {"$pull": {"_task_ids": {"$lt": task_id}}})
+    mongo_update_many({"_task_ids": {"$lt": task_id}}, {"$pull": {"_task_ids": {"$lt": task_id}}})
 
 
 def execute_cleanup(args: dict, init_log=True):

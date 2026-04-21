@@ -10,13 +10,23 @@
         <th>Destination</th>
         <th>ICMP Type</th>
         <th>Data</th>
+        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
     </tr>
     {% for packet in network.icmp %}
     <tr>
-        <td style="word-wrap: break-word;">{{packet.src}}</td>
+        <td style="word-wrap: break-word;">{{packet.src}} {% if packet.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
         <td style="word-wrap: break-word;">{{packet.dst}}</td>
         <td style="word-wrap: break-word;">{{packet.type}}</td>
         <td style="word-wrap: break-word;">{{packet.data}}</td>
+        {% if settings.NETWORK_PROC_MAP %}
+            <td>
+                {% if packet.process_name %}
+                    {{ packet.process_name }}{% if packet.process_id %} ({{ packet.process_id }}){% endif %}
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+        {% endif %}
     </tr>
     {% endfor %}
 </table>

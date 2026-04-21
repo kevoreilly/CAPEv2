@@ -61,6 +61,12 @@ disable_warnings()
 
 logger = logging.getLogger(__name__)
 
+allowed_functions = {
+    "sorted": sorted,
+    "set": set,
+    "os.path.join": os.path.join,
+}
+
 
 def parse_expr(expr, context):
     """Return the value from a python AST expression.
@@ -93,11 +99,10 @@ def parse_expr(expr, context):
         # Figure out what function is being called, with what arguments.
         func = parse_expr(expr.func, context)
         args = tuple([parse_expr(item, context) for item in expr.args])
-        # We deem these functions safe to use with "eval".
-        allowed_functions = ("sorted", "set", "os.path.join")
+
         if func in allowed_functions:
             # Actually call the function, passing the args, and return the result.
-            return eval(f"{func}{args}")
+            return allowed_functions[func](*args)
         # Don't execute the call, but instead, give back a string representation.
         return f"<{func}{args}>"
     if isinstance(expr, ast.BinOp) and isinstance(expr.op, ast.Add):
@@ -500,8 +505,14 @@ async def index(request, task_id=None, resubmit_hash=None):
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
-                    filename = base_dir + "/" + sanitize_filename(hash)
-                path = await sync_to_async(store_temp_file)(content, filename)
+                    # Try to recover the original filename from the task
+                    original_filename = ""
+                    if task_id:
+                        task = db.view_task(task_id)
+                        if task and task.target:
+                            original_filename = sanitize_filename(os.path.basename(task.target))
+                    filename = base_dir + "/" + (original_filename or sanitize_filename(hash))
+                path = store_temp_file(content, filename)
                 list_of_tasks.append((content, path, hash))
 
         # Hack for resubmit first find all files and then put task as proper category

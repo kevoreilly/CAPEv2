@@ -3,7 +3,7 @@ import sys
 import time
 
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.core.database import Machine
+from lib.cuckoo.core.data.machines import Machine
 
 cfg = Config()
 HAVE_BOTO3 = False

@@ -31,11 +31,11 @@
             document.getElementById("stopTask").addEventListener("click", function () {
                 stopTask("{{task_id}}");
             });
-            var task_url = location.origin + '/submit/status/{{task_id}}'
+            var task_url = location.origin + '/submit/status/{{task_id}}/'
             document.getElementById("taskStatus").addEventListener("click", function() {
                 location.replace(task_url);
             }, false);
-	        GuacMe("html", "{{guest_ip}}","{{vncport}}", "{{session_id}}", "{{recording_name}}");
+	        GuacMe("html", "{{session_id}}", "{{recording_name}}");
         </script>
     </div>
 </body>

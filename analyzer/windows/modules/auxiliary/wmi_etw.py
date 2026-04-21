@@ -1,179 +1,82 @@
-import json
 import logging
 import os
-import pprint
-from collections.abc import Iterable, Mapping
 
-from lib.common.abstracts import Auxiliary
 from lib.common.results import upload_to_host
-from lib.core.config import Config
+from lib.common.rand import random_string
+from lib.common.etw_utils import (
+    ETWAuxiliaryWrapper,
+    ETWProviderWrapper,
+    HAVE_ETW,
+    ProviderInfo,
+    GUID,
+    et,
+)
 
 log = logging.getLogger(__name__)
-
-SAFELIST = []
-
-ETW = False
-HAVE_ETW = False
-try:
-    from etw import ETW, ProviderInfo
-    from etw import evntrace as et
-    from etw.GUID import GUID
-
-    HAVE_ETW = True
-except ImportError as e:
-    log.debug(
-        "Could not load auxiliary module WMI_ETW due to '%s'\nIn order to use WMI_ETW functionality, it "
-        "is required to have pywintrace setup in python", str(e)
-    )
 
 __author__ = "[Andrea Oliveri starting from code of Canadian Centre for Cyber Security]"
 
 
-def encode(data, encoding="utf-8"):
-    if isinstance(data, str):
-        return data.encode(encoding, "ignore")
-    elif isinstance(data, Mapping):
-        return dict(map(encode, data.items()))
-    elif isinstance(data, Iterable):
-        return type(data)(map(encode, data))
-    else:
-        return data
-
-
 if HAVE_ETW:
 
-    class ETW_provider(ETW):
-
+    class WMIETWProvider(ETWProviderWrapper):
         def __init__(
             self,
-            ring_buf_size=4096,
-            max_str_len=4096,
-            min_buffers=0,
-            max_buffers=0,
-            level=et.TRACE_LEVEL_INFORMATION,  # If >= 5 print more useless (?) stuff
-            any_keywords=None,
-            all_keywords=None,
-            filters=None,
-            event_callback=None,
+            level=et.TRACE_LEVEL_INFORMATION,
             logfile=None,
             no_conout=False,
         ):
-            """
-            Initializes an instance of WMI_ETW. The default parameters represent a very typical use case and should not be
-            overridden unless the user knows what they are doing.
-
-            :param ring_buf_size: The size of the ring buffer used for capturing events.
-            :param max_str_len: The maximum length of the strings the proceed the structure.
-                                Unless you know what you are doing, do not modify this value.
-            :param min_buffers: The minimum number of buffers for an event tracing session.
-                                Unless you know what you are doing, do not modify this value.
-            :param max_buffers: The maximum number of buffers for an event tracing session.
-                                Unless you know what you are doing, do not modify this value.
-            :param level: Logging level
-            :param any_keywords: List of keywords to match
-            :param all_keywords: List of keywords that all must match
-            :param filters: List of filters to apply to capture.
-            :param event_callback: Callback for processing events
-            :param logfile: Path to logfile.
-            :param no_conout: If true does not output live capture to console.
-            """
-
-            self.logfile = logfile
-            self.no_conout = no_conout
-            if event_callback:
-                self.event_callback = event_callback
-            else:
-                self.event_callback = self.on_event
-
             providers = [
                 ProviderInfo(
                     "Microsoft-Windows-WMI-Activity",
                     GUID("{1418EF04-B0B4-4623-BF7E-D74AB47BBDAA}"),
                     level,
-                    any_keywords,
-                    all_keywords,
                 )
             ]
-            self.event_id_filters = []
             super().__init__(
                 session_name="WMI_ETW",
-                ring_buf_size=ring_buf_size,
-                max_str_len=max_str_len,
-                min_buffers=min_buffers,
-                max_buffers=max_buffers,
-                event_callback=self.event_callback,
-                task_name_filters=filters,
                 providers=providers,
-                event_id_filters=self.event_id_filters,
+                ring_buf_size=4096,
+                max_str_len=4096,
+                logfile=logfile,
+                no_conout=no_conout,
             )
 
-        def on_event(self, event_tufo):
-            """
-            Starts the capture using ETW.
-            :param event_tufo: tufo containing event information
-            :param logfile: Path to logfile.
-            :param no_conout: If true does not output live capture to console.
-            :return: Does not return anything.
-            """
-            event_id, event = event_tufo
 
-            if self.no_conout is False:
-                log.info("%d (%s)\n%s\n", event_id, event["Task Name"], pprint.pformat(encode(event)))
+class WMI_ETW(ETWAuxiliaryWrapper):
+    """ETW logging"""
 
-            if self.logfile is not None:
-                with open(self.logfile, "a") as file:
-                    json.dump({"event_id": event_id, "event": event}, file)
-                    file.write("\n")
+    def __init__(self, options, config):
+        super().__init__(options, config, "wmi_etw")
 
-        def start(self):
-            super().start()
+        self.output_dir = os.path.join("C:\\", random_string(5, 10))
+        try:
+            os.mkdir(self.output_dir)
+        except FileExistsError:
+            pass
 
-        def stop(self):
-            super().stop()
+        log_file_path = os.path.join(self.output_dir, f"{random_string(5, 10)}.log")
+        self.log_file = None
 
-    class WMI_ETW(Auxiliary):
-        """ETW logging"""
-
-        def __init__(self, options, config):
-            Auxiliary.__init__(self, options, config)
-            self.config = Config(cfg="analysis.conf")
-            self.enabled = self.config.wmi_etw
-            self.do_run = self.enabled
-
-            self.output_dir = "C:\\wmi\\"
+        if HAVE_ETW and self.enabled:
             try:
-                os.mkdir(self.output_dir)
+                self.log_file = open(log_file_path, "w", encoding="utf-8")
+                self.capture = WMIETWProvider(
+                    logfile=self.log_file, level=255, no_conout=True
+                )
             except Exception as e:
-                print(e)
-                import traceback
+                log.error("Failed to open WMI ETW log file: %s", e)
 
-                log.exception(traceback.format_exc())
-
-            self.log_file = os.path.join(self.output_dir, "wmi_provider.log")
-            if HAVE_ETW:
-                self.capture = ETW_provider(logfile=self.log_file, level=255, no_conout=True)
-
-        def start(self):
-            if not self.enabled or not HAVE_ETW:
-                return False
+    def upload_results(self):
+        if self.log_file:
             try:
-                log.debug("Starting WMI ETW")
-                # Start WMI_ETW_provider in the background
-                self.capture.start()
+                self.log_file.close()
             except Exception as e:
-                print(e)
-                import traceback
+                log.error("Failed to close WMI ETW log file: %s", e)
+            self.log_file = None
 
-                log.exception(traceback.format_exc())
-            return True
-
-        def stop(self):
-            if not HAVE_ETW:
-                return
-            log.debug("Stopping WMI_ETW...")
-            self.capture.stop()
-            files_to_upload = set()
-
+        files_to_upload = set()
+        if os.path.exists(self.output_dir):
             for d in os.listdir(self.output_dir):
                 path = os.path.join(self.output_dir, d)
                 if os.path.isfile(path):
@@ -182,11 +85,9 @@ if HAVE_ETW:
                 for f in os.listdir(path):
                     file_path = os.path.join(path, f)
                     files_to_upload.add(file_path)
-                continue
 
-            # Upload the ETW log files to the host.
-            log.debug(files_to_upload)
-            for f in files_to_upload:
-                dumppath = os.path.join("aux", "wmi_etw.json")
-                log.debug("WMI_ETW Aux Module is uploading %s", f)
-                upload_to_host(f, dumppath)
+        log.debug(files_to_upload)
+        for f in files_to_upload:
+            dumppath = os.path.join("aux", "wmi_etw.json")
+            log.debug("WMI_ETW Aux Module is uploading %s", f)
+            upload_to_host(f, dumppath)

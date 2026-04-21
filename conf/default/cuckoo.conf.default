@@ -3,6 +3,10 @@
 # Ignore Signals, will quit CAPE inmediatelly instead wait jobs to finish
 ignore_signals = yes
 
+# Specify the timezone for the system (e.g., UTC, Europe/Madrid, America/New_York).
+# Default is utc.
+timezone = utc
+
 # Which category of tasks do you want to analyze?
 categories = static, pcap, url, file
 
@@ -149,6 +153,12 @@ upload_max_size = 100000000
 # To enable trimming of huge binaries go to -> web.conf -> general -> enable_trim
 # Prevent upload of files that passes upload_max_size?
 do_upload_max_size = no
+
+# Enable multi-worker mode: one ResultServer process per VM
+multiworker = no
+# Base port for auto-assigning per-VM ports (multiworker mode)
+# VM 1 gets base_port, VM 2 gets base_port+1, etc.
+base_port = 2042
 
 [processing]
 # Set the maximum size of analyses generated files to process. This is used

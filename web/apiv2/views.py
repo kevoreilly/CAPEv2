@@ -58,15 +58,17 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import (
+
+from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.data.task import (
     TASK_RECOVERED,
     TASK_RUNNING,
-    Database,
     Task,
-    _Database,
 )
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
+# from mcp.filters import lean_search_filters
+lean_search_filters = {}
 try:
     import psutil
 
@@ -769,7 +771,8 @@ def ext_tasks_search(request):
             value = tmp_value
             del tmp_value
         try:
-            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False)
+            projection = lean_search_filters if request.data.get("lean") else None
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False, projection=projection)
         except ValueError:
             if not term:
                 resp = {"error": True, "error_value": "No option provided."}
@@ -1816,6 +1819,104 @@ def tasks_dropped(request, task_id):
 
 @csrf_exempt
 @api_view(["GET"])
+def tasks_selfextracted(request, task_id, tool="all"):
+    if not apiconf.taskselfextracted.get("enabled"):
+        resp = {"error": True, "error_value": "Self Extracted File download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "selfextracted")
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
+
+    if not path_exists(srcdir) or not len(os.listdir(srcdir)):
+        resp = {"error": True, "error_value": "No self extracted files for task %s" % task_id}
+        return Response(resp)
+
+    selfextract_data = {}
+
+    if repconf.mongodb.enabled:
+        tmp = mongo_find_one("analysis", {"info.id": int(task_id)}, {"selfextract": 1})
+        if tmp and "selfextract" in tmp:
+            selfextract_data = tmp["selfextract"]
+    elif es_as_db:
+        tmp = es.search(
+            index=get_analysis_index(), query=get_query_by_info_id(str(task_id)), _source=["selfextract"]
+        )["hits"]["hits"]
+        if tmp:
+            selfextract_data = tmp[-1]["_source"].get("selfextract", {})
+
+    if not selfextract_data:
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+        if path_exists(jfile):
+            try:
+                with open(jfile, "r") as f:
+                    rep = json.load(f)
+                    selfextract_data = rep.get("selfextract", {})
+            except Exception as e:
+                log.error(e)
+
+    if tool != "all" and tool not in selfextract_data:
+        resp = {"error": True, "error_value": f"Tool {tool} not found in analysis data"}
+        return Response(resp)
+
+    mem_zip = BytesIO()
+    with zipfile.ZipFile(mem_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        if tool == "all":
+            if selfextract_data:
+                processed_sha256s = set()
+                for tname, tdata in selfextract_data.items():
+                    for fmeta in tdata.get("extracted_files", []):
+                        sha256 = fmeta.get("sha256")
+                        if not sha256 or not re.match(r"^[a-fA-F0-9]{64}$", sha256):
+                            continue
+
+                        fpath = os.path.join(srcdir, sha256)
+                        if not os.path.exists(fpath):
+                            continue
+
+                        arcname = os.path.join(tname, sha256)
+                        zf.write(fpath, arcname)
+                        processed_sha256s.add(sha256)
+
+                for f in os.listdir(srcdir):
+                    if f not in processed_sha256s:
+                        zf.write(os.path.join(srcdir, f), f)
+            else:
+                for f in os.listdir(srcdir):
+                    zf.write(os.path.join(srcdir, f), f)
+        else:
+            tdata = selfextract_data[tool]
+            for fmeta in tdata.get("extracted_files", []):
+                sha256 = fmeta.get("sha256")
+                if not sha256 or not re.match(r"^[a-fA-F0-9]{64}$", sha256):
+                    continue
+
+                fpath = os.path.join(srcdir, sha256)
+                if not os.path.exists(fpath):
+                    continue
+
+                zf.write(fpath, sha256)
+
+    mem_zip.seek(0)
+    resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+    resp["Content-Length"] = len(mem_zip.getvalue())
+    resp["Content-Disposition"] = f"attachment; filename={task_id}_selfextracted_{tool}.zip"
+    return resp
+
+
+@csrf_exempt
+@api_view(["GET"])
 def tasks_surifile(request, task_id):
     if not apiconf.taskdropped.get("enabled"):
         resp = {"error": True, "error_value": "Suricata File download API is disabled"}
@@ -2522,6 +2623,10 @@ def tasks_file_stream(request, task_id):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
         filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
+        task_dir = os.path.join(ANALYSIS_BASE_PATH, "analyses", f"{task_id}")
+        if not os.path.normpath(filepath).startswith(task_dir + os.sep):
+            resp = {"error": True, "error_value": "Path traversal detected"}
+            return Response(resp)
         if not os.path.isfile(filepath):
             resp = {"error": True, "error_value": "file does not exist"}
             return Response(resp)

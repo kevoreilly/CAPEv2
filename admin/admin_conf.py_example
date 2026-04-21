@@ -23,7 +23,7 @@ JUMP_BOX_SECOND_USERNAME = ""
 JUMP_BOX_SECOND_PORT = 22
 
 NUM_THREADS = 5
-POSTPROCESS = "systemctl restart cape-processor; systemctl status cape-processor"
+POSTPROCESS = "systemctl restart cape-processor; systemctl status --no-pager cape-processor"
 
 EXCLUDE_DIRS = set(
     [

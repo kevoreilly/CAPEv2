@@ -32,8 +32,10 @@ cfg = Config("reporting")
 aux_cfg = Config("auxiliary")
 web_cfg = Config("web")
 api_cfg = Config("api")
+pro_cfg = Config("processing")
 
 REPROCESS_TASKS = web_cfg.general.reprocess_tasks
+REPROCESS_FAILED_PROCESSING = web_cfg.general.reprocess_failed_processing
 # CSRF TRUSTED ORIGINS
 # For requests that include the Origin header, Django's CSRF protection
 # requires that header match the origin present in the Host header.
@@ -98,6 +100,7 @@ ADMIN = web_cfg.admin.enabled
 ANON_VIEW = web_cfg.general.anon_viewable
 ALLOW_DL_REPORTS_TO_ALL = web_cfg.general.reports_dl_allowed_to_all
 REAL_TIME_UPDATES = web_cfg.general.get("real_time_updates", False)
+NETWORK_PROC_MAP = pro_cfg.network.process_map
 
 # If false run next command
 # python3 manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
@@ -230,8 +233,13 @@ ROOT_URLCONF = "web.urls"
 
 # Python dotted path to the WSGI application used by Django's runserver_plus.
 WSGI_APPLICATION = "web.wsgi.application"
+# Ensure ASGI_APPLICATION points to your updated file
+ASGI_APPLICATION = "web.asgi.application"
 
 INSTALLED_APPS = [
+    "daphne",
+    "channels",
+    "guac",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",
@@ -278,6 +286,7 @@ if REAL_TIME_UPDATES:
             },
         },
     }
+AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
 
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
@@ -325,6 +334,10 @@ SETTINGS_EXPORT = [
     "WEB_OAUTH",
     "ZIPPED_DOWNLOAD_ALL",
     "REAL_TIME_UPDATES",
+    "NETWORK_PROC_MAP",
+    "REPROCESS_TASKS",
+    "REPROCESS_FAILED_PROCESSING",
+    "AUDIT_FRAMEWORK"
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

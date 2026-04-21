@@ -1,4 +1,5 @@
-### [24.01.2026]
+
+### [21.04.2026]
 * **Async Web Server Core**:
     * Full migration of high-traffic web views (APIv2 and File Submission) to asynchronous Python. This allows CAPE to handle significantly more concurrent requests and slow uploads without thread exhaustion.
     * Support for **ASGI** via Daphne/Uvicorn as a modern serving method.
@@ -11,6 +12,76 @@
     * **psycopg3 Support**: Upgraded the PostgreSQL driver to `psycopg` (v3) for improved performance and native async compatibility.
         * Update your connection in `cuckoo.conf` from `postgres://` to `postgresql+psycopg://`. Otherwise it will keep using v2.
     * **Modular Extra Dependencies**: `pyproject.toml` updated with a `[websockets]` extra group to keep the base installation lightweight.
+
+### [26.03.2026]
+* Monitor update: RtlDispatchException hook: check module_name pointer before dereference
+* KVMRemote machinery updated and  moved to main repo
+* New Hyper-V machinery module
+
+### [17.03.2026]
+* Monitor updates:
+    * Fix issue with multiple DumpCount increments causing excessive dump limiting
+    * AddTrackedRegion: Remove logging failure of GetEntropy()
+    * Fix GetTrackedRegion() issue with empty list entry
+    * 64-bit browser compatibility: enhance CheckDontMonitorList() for 64-bit paths
+    * Add option: include-apis - colon-separated list of apinames
+    * ClearThreadBreakpoint: only call ClearThreadBreakpoint() if address set, improve debug output in ClearDebugRegister()
+    * SetFileInformationByHandle: standardise FILE_DEL message
+    * Debugger: Fix iterator invalidation bug in ClearSoftwareBreakpoints(), ClearSoftwareBreakpointsInRange()
+
+### [06.03.2026]
+* Monitor update: Thread resume: fix issue with thread id passed in RESUME: message causing detonation issues
+
+### [02.03.2026]
+* PPLinject V2: Compatibility with all Win10 (22H2+) & Win11 (<=23H2)
+* Monitor updates:
+    * Disable manifest generation: prevent mui load attempts on 22H2+
+    * WMI fixes (thanks doomedraven)
+
+### [18.02.2026]
+* UPX Unpacker: enable import reconstruction
+* Monitor updates:
+    * Fix issue with VerifyHeaders() checking EP RVA in file: FileOffsetFromRVA()
+    * Add pids to FILE_NEW, FILE_DEL & FILE_MOVE monitor messages to accompany analyzer fix
+    * New hooks: RtlRemoveVectoredExceptionHandler, UnhandledExceptionFilter, GetPhysicallyInstalledSystemMemory, K32EnumProcesses, WTSEnumerateProcessesW, WTSEnumerateProcessesExW, LdrGetDllHandleEx, WTGetSignatureInfo, RtlWow64SetThreadContext
+    * YaraHarness: add 'coverage' action to remove dll from system 'range'
+    * Trace: improve recognition and handling of distinct code regions during debugging/tracing, expand ProcessOEP() action to allow shellcode dumping, refine StrTest(W) functions to filter more control characters from debugger log
+    * Add ntdll unhook protection (ntdll-unhook=1) via prevent_module_unhooking() from NtReadFile hook
+    * Add general hook protection (hook-protect=1) to protect hooks other than ntdll (ntdll-protect) - off by default
+    * Hooking: replace (allocating) convert_address_to_dll_name_and_offset() with non-allocating get_module_name()
+
+### [11.02.2026]
+* Guacamole integration:
+    * New dependency `channels[daphne]>=4.0.0` added.
+
+### [04.02.2026]
+* Network Analysis:
+    * Integrated process mapping directly into `network` processing module.
+    * Added ability to show network details (DNS, HTTP, TCP/UDP) captured from behavioral analysis in the network results.
+    * This allows recovery of network activity that might be missing from PCAP (e.g., due to capture evasion or failed interception).
+    * Centralized network utility functions into `lib/cuckoo/common/network_utils.py` for better maintainability and performance.
+    * New configuration option `process_map` under `[network]` section in `processing.conf`.
+* Web UI:
+    * Added Process Name and PID columns across all network analysis views (TCP, UDP, ICMP, DNS, HTTP, IRC, SMTP).
+
+### [28.01.2026]
+* CAPE Agent:
+    * Ported to Golang for improved stealth, performance, and zero-dependency deployment.
+    * Implemented strict host-only security (localhost blocking) and optional Token Authentication.
+    * Added secure `/push` endpoint for host-driven file retrieval.
+    * Added `/update` endpoint for seamless remote agent updates.
+* Distributed Cluster:
+    * New Go Fast-Fetcher: High-concurrency retrieval module supporting direct NFS copy.
+    * Added JSON configuration support for the fetcher to secure database credentials.
+    * Added `ignore_patterns` support for optimized cluster reporting.
+* Web UI / UX Improvements:
+    * Fixed badge readability: Enforced high-contrast text (e.g., black on yellow/info) and fixed unreadable hover states.
+    * Categorized search help table into logical groups (General, File, Network, Behavior).
+    * Fixed search box highlight color to match the theme.
+* Search Optimization:
+    * General search terms are now handled as strings (exact match) by default instead of regex to significantly improve database performance.
+    * Regex search is automatically triggered when using special characters (e.g., `^ $ | ? * + ( ) [ ] { }`).
+    * Updated search UI help and placeholders.
 
 ### [16.01.2026] CAPE v2.5
 * Bootstrap 5 upgrade and some visual WEBGUI rewamp. Some improvements still might come soon!

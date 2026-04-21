@@ -1,0 +1,115 @@
+<div class="card shadow-sm mb-3 border-0" id="run-card-{{ run.id }}">
+    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center py-3">
+        <div>
+            <h5 class="mb-0 text-uppercase tracking-wider">
+                <i class="fas fa-flask me-2 text-info"></i>{{ run.test_definition.name }}
+            </h5>
+            <small class="text-info opacity-75">{{ run.test_definition.description }} | Package: {{ run.test_definition.package }}</small>
+        </div>
+
+        <div class="d-flex align-items-center">
+
+            <div class="d-flex flex-column align-items-center px-3 border-opacity-25">
+                <div class="tech-label text-uppercase mb-1">Task</div>
+                <div class="tech-value d-flex align-items-center justify-content-center" style="height: 32px;">
+                    {% if cape_task %}
+                    <a href="/analysis/{{cape_task.id}}" class="tech-link">
+                        #{{ cape_task.id }}<span class="task-status-tag text-muted ms-1 small">{{ cape_task.status|upper }}</span>
+                    </a>
+                    {% else %}
+                    <span class="text-muted opacity-50 small">NONE</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="d-flex flex-column align-items-center px-3 border-start border-secondary border-opacity-25">
+                <div class="tech-label text-uppercase mb-1">Options</div>
+                <div class="tech-value d-flex align-items-center justify-content-center" style="height: 32px;">
+                    <button class="btn btn-sm btn-link text-info p-0" type="button" data-bs-toggle="collapse" data-bs-target="#config-{{ run.id }}">
+                        <i class="fas fa-code"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="d-flex flex-column align-items-center px-3 border-start border-secondary border-opacity-25">
+                <div class="tech-label text-uppercase mb-1">Timing</div>
+                <div class="tech-value d-flex align-items-center justify-content-center" style="height: 32px;">
+                    <button class="btn btn-sm btn-link text-info p-0" type="button" data-bs-toggle="collapse" data-bs-target="#timing-{{ run.id }}">
+                        <i class="fas fa-clock"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="d-flex flex-column align-items-center px-3 border-start border-secondary border-opacity-25">
+                <div class="tech-label text-uppercase mb-1">Test #{{ run.id }}</div>
+                <div class="tech-value d-flex align-items-center justify-content-center" style="height: 32px;">
+                    {% if run.status == "unqueued" %}
+                    <span class="badge rounded-pill bg-secondary text-white-50">Not Queued</span>
+                    {% elif run.status == "queued" %}
+                    <span class="badge rounded-pill border border-info text-info"><i class="fas fa-hourglass-start me-1"></i>Queued</span>
+                    {% elif run.status == "running" %}
+                    <span class="badge rounded-pill bg-primary"><i class="fas fa-circle-notch fa-spin me-1"></i>{% if cape_task.status == "completed" %}Awaiting Report{% else %}Running{% endif %}</span>
+                    {% elif run.status == "complete" %}
+                    <span class="badge rounded-pill bg-success"><i class="fas fa-check-circle me-1"></i>Complete</span>
+                    {% elif run.status == "failed" %}
+                    <span class="badge rounded-pill bg-danger"><i class="fas fa-times-circle me-1"></i>Failed</span>
+                    {% else %}
+                    <span class="badge rounded-pill bg-warning text-dark">{{run.status}}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            {% if run.status == "unqueued" or run.status == "queued" %}
+            <div class="d-flex flex-column align-items-center border-start border-secondary ps-3">
+                <div class="tech-label text-uppercase mb-1" style="visibility: hidden;">Action</div>
+                <div class="tech-value d-flex align-items-center" style="height: 32px;">
+                    {% if run.status == "unqueued" %}
+                    <button class="btn btn-sm btn-outline-info px-3 shadow-sm" onclick="queue_run(this, '{{session.id}}', '{{run.id}}')">
+                        <i class="fas fa-play me-1"></i>Queue
+                    </button>
+                    {% else %}
+                    <button class="btn btn-sm btn-outline-danger px-3 shadow-sm" onclick="unqueue_run(this, '{{session.id}}', '{{run.id}}')">
+                        <i class="fas fa-stop me-1"></i>Dequeue
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+
+
+    </div>
+
+    <div id="config-{{  run.id }}" class="collapse">
+        <div class="py-3 bg-light">
+            {% include "audit/partials/task_config.html" with test=run.test_definition config_pretty=run.task_config_pretty colspan=5 %}
+        </div>
+    </div>
+
+    <div id="timing-{{ run.id }}" class="collapse">
+        {% include "audit/partials/timing_item.html" with cape_task=cape_task diagnostics=diagnostics colspan=5 %}
+    </div>
+
+    <div class="card-header bg-dark text-muted d-flex justify-content-between">
+        <div>
+            Requirement
+        </div>
+        <div class="d-flex align-items-center" style="margin-right: 135px;">
+            Evaluation
+        </div>
+    </div>
+
+    <div class="table-responsive">
+        <div class="list-group list-group-flush border-top border-secondary">
+            {% for obj in run.objectives %}
+            {% if not obj.parent_id %}
+            <div class="list-group-item bg-dark border-secondary py-1">
+                {% include "audit/partials/objective_item.html" with obj=obj %}
+            </div>
+            {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+</div>

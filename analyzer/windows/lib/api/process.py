@@ -13,11 +13,12 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, windll, ArgumentError
+from ctypes import byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, ArgumentError
 from pathlib import Path
 from shutil import copy
 
 if sys.platform.startswith("win"):
+    from ctypes import windll
     from lib.common.defines import (
         CREATE_NEW_CONSOLE,
         CREATE_SUSPENDED,

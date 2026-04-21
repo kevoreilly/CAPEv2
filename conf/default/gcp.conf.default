@@ -5,6 +5,9 @@ zone = <zone_name>
 # Specify the project identifier
 project = <project_id>
 
+# pubsub
+subscription_id =
+
 # Running in a GCP environment. If true, the Compute Engine credentials will be used
 running_in_gcp = true
 

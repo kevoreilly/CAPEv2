@@ -1,12 +1,12 @@
 {% if file.virustotal and not file.virustotal.error == True %}
-<div class="card bg-dark border-secondary mb-4">
+<div class="card bg-dark border-secondary mx-2 mb-4">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white">
             <i class="fas fa-shield-virus me-2 text-danger"></i> VirusTotal
             <small class="text-white-50 ms-2">({{file.virustotal.positives}}/{{file.virustotal.total}}){% if file.virustotal.detection %} - {{file.virustotal.detection}}{% endif %}</small>
         </h5>
         <button class="btn btn-sm btn-outline-light collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#virustotal_binary" aria-expanded="false">
-            <i class="fas fa-chevron-down"></i>
+            <i class="fas fa-chevron-down float-end text-white-50 ms-1"></i>
         </button>
     </div>
 

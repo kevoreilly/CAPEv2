@@ -56,7 +56,9 @@ class MuteProgress:
     def __call__(self, progress: Union[int, float], description: str = None):
         pass
 
+
 if HAVE_VOLATILITY:
+
     class ReturnJsonRenderer(JsonRenderer):
         def render(self, grid: interfaces.renderers.TreeGrid):
             final_output = ({}, [])
@@ -80,7 +82,7 @@ if HAVE_VOLATILITY:
                 return (acc_map, final_tree)
 
             error = grid.populate(visitor, final_output, fail_on_errors=True)
-            return json.loads(json.dumps(final_output[1])), error
+            return json.loads(json.dumps(final_output[1], default=str)), error
 
 
 class VolatilityAPI:

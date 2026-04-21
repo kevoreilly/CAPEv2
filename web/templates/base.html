@@ -1,7 +1,53 @@
-{%include "header.html" %}
+<!DOCTYPE html>
+<html class="datatable-dark" lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+<meta charset="utf-8">
+{% if title %}
+<title>{{ title|add:" · CAPE Sandbox" }}</title>
+{% else %}
+<title>CAPE Sandbox</title>
+{% endif %}
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="CAPE Sandbox">
+<meta name="author" content="CAPE Sandbox">
+<link rel="icon" type="image/png" href="{{ STATIC_URL }}img/cape.png" />
+<link href="{{ STATIC_URL }}css/lightbox.css" rel="stylesheet">
+<script src="{{ STATIC_URL }}js/jquery.js"></script>
+<!--dark theme https://cdnjs.com/libraries/bootswatch-->
+<link href="{{ STATIC_URL }}css/bootstrap.min.css" rel="stylesheet">
+<link href="{{ STATIC_URL }}css/bootstrap-social.min.css" rel="stylesheet">
+<link href="{{ STATIC_URL }}css/style.css" rel="stylesheet">
+<link href="{{ STATIC_URL }}css/atlas.css" rel="stylesheet">
+<link href="{{ STATIC_URL }}css/fontawesome-all.css" rel="stylesheet">
+{% block extra_head %}{% endblock %}
+</head>
+<body>
+{% block header %}
+{% include "header.html" %}
+{% endblock %}
+
 <div class="container-fluid mt-3 mb-5 pt-3">
 {% autoescape on %}
 {% block content %}{% endblock %}
 {% endautoescape %}
 </div>
-{%include "footer.html" %}
+
+{% block footer %}
+{% include "footer.html" %}
+{% endblock %}
+
+<script src="{{ STATIC_URL }}js/bootstrap.bundle.min.js"></script>
+<script src="{{ STATIC_URL }}js/bootstrap-fileupload.js"></script>
+<script src="{{ STATIC_URL }}js/lightbox.js"></script>
+<script src="{{ STATIC_URL }}js/bootstrap-transition.js"></script>
+<script src="{{ STATIC_URL }}js/moment.min.js"></script>
+<script>
+    // Initialize Bootstrap tooltips and popovers globally
+    $(function () {
+        $('[data-bs-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="popover"]').popover();
+    })
+</script>
+{% block extra_scripts %}{% endblock %}
+</body>
+</html>

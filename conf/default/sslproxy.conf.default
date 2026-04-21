@@ -1,0 +1,20 @@
+[cfg]
+# Path to sslproxy binary
+bin = /usr/local/bin/sslproxy
+
+# CA certificate and key for MITM signing.
+# The CA must be trusted by guest VMs (imported into the Windows certificate store).
+# Generate with:
+#   openssl req -new -x509 -days 3650 -keyout ca.key -out ca.crt -nodes \
+#     -subj "/CN=My MITM CA" -addext "basicConstraints=critical,CA:TRUE"
+ca_cert = data/sslproxy/ca.crt
+ca_key = data/sslproxy/ca.key
+
+# Interface where VMs connect (must match your hypervisor network interface)
+interface = virbr0
+
+# Firewall mark base for routing SSLproxy upstream connections through VPN.
+# Each analysis gets fwmark_base + (task_id % fwmark_range) to avoid conflicts
+# between concurrent analyses using different routes.
+fwmark_base = 100
+fwmark_range = 900

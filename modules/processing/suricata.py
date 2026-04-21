@@ -19,6 +19,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_read_file, path_write_file
 from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
 from lib.cuckoo.common.utils import add_family_detection, convert_to_printable_and_truncate
+from modules.processing.decryptpcap import resolve_processing_pcap_path
 
 processing_cfg = Config("processing")
 
@@ -40,6 +41,10 @@ log = logging.getLogger(__name__)
 class Suricata(Processing):
     """Suricata processing."""
 
+    def _resolve_pcap_path(self):
+        pcapsrc = self.options.get("pcapsrc", "auto") if self.options else "auto"
+        return resolve_processing_pcap_path(self.analysis_path, self.pcap_path, pcapsrc=pcapsrc)
+
     def cmd_wrapper(self, cmd):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         stdout, stderr = p.communicate()
@@ -58,6 +63,7 @@ class Suricata(Processing):
         """Run Suricata.
         @return: hash with alerts
         """
+        self.pcap_path = self._resolve_pcap_path()
         self.key = "suricata"
         # General
         SURICATA_CONF = self.options.get("conf")

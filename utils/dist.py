@@ -576,7 +576,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
 
     except Exception as e:
         log.exception(e)
-        log.critical("Error submitting task (task #%d, node %s): %s", task.id if task else -1, node.name, e)
+        log.critical("Error submitting task (task #%d, node %s): %s", task.id if task else -1, node.name if node else "Unknown", e)
 
     if session_managed:
         db.commit()
@@ -820,10 +820,10 @@ class Retriever(threading.Thread):
 
                         processed_task_ids = set(self.current_queue.get(node.id, []))
                         try:
-                            queue_task_ids = {t[0] for t in self.fetcher_queue.queue if t[1] == node.id}
+                            queue_task_ids = {t[0]["id"] for t in list(self.fetcher_queue.queue) if t[1] == node.id}
                         except TypeError:
                             print("queue_task_ids", self.fetcher_queue.queue)
-                            # sys.exit()
+                            queue_task_ids = set()
 
                         for task_id in tasks_to_fetch:
                             try:
@@ -922,7 +922,7 @@ class Retriever(threading.Thread):
                     )
                     t = db.scalar(stmt)
                     if t is None:
-                        print(type(self.t_is_none.get(node_id)))
+                        # print(type(self.t_is_none.get(node_id)))
                         self.t_is_none.setdefault(node_id, []).append(task["id"])
 
                         # sometime it not deletes tasks in workers of some fails or something
@@ -1074,8 +1074,7 @@ class Retriever(threading.Thread):
         4. Removes tasks from the `t_is_none` dictionary if present.
         5. Sends a request to delete tasks from the worker node.
         6. Commits the changes to the database.
-        7. Sleeps for 20 seconds before processing the next
-        f tasks.
+        7. Sleeps for 20 seconds before processing the next tasks.
 
         Note:
             The method runs indefinitely until manually stopped.

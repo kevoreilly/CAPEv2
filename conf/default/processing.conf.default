@@ -254,13 +254,6 @@ file_cache = no
 # Store pefile objects for later usage? useful if you doing something in signatures/reporting
 pefile_store = no
 
-[decryptpcap]
-enabled = no
-gogorobocap = data/gogorobocap/gogorobocap-linux-amd64
-# Select how decrypted captures are generated:
-# auto | pcap_with_keylog | sslproxy_synth_pcap
-pcapsrc = auto
-
 [network_etw]
 enabled = no
 

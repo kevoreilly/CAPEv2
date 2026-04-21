@@ -548,10 +548,11 @@ def winhttp_finalize_sessions(state):
                         sessions_by_domain_keys[dom].add(key)
 
         if sessions_by_domain:
+            sessions_list = [{"host": dom, "events": evts} for dom, evts in sessions_by_domain.items()]
             out.append({
                 "process_id": p.get("process_id"),
                 "process_name": p.get("process_name", ""),
-                "sessions": sessions_by_domain,
+                "sessions": sessions_list,
             })
 
     return out

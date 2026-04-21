@@ -747,7 +747,7 @@ def cleanup_files_collection_by_id(task_id: int):
         { bytesFreed: Long('107198922752'), ok: 1 }
 
     """
-    mongo_update_many({}, {"$pull": {"_task_ids": {"$lt": task_id}}})
+    mongo_update_many({"_task_ids": {"$lt": task_id}}, {"$pull": {"_task_ids": {"$lt": task_id}}})
 
 
 def execute_cleanup(args: dict, init_log=True):

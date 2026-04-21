@@ -195,32 +195,31 @@ def init_worker():
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
     db.engine.dispose(close=False)
 
-    # Fix for open file handles on rotated logs in workers
-    for h in log.handlers[:]:
-        if isinstance(h, logging.FileHandler):
-            h.close()
-        log.removeHandler(h)
+    # Avoid fork deadlock: use direct list ops instead of
+    # handler.close()/removeHandler()/addHandler() which acquire locks.
+    # Inherited FDs are intentionally leaked: closing them via os.close()
+    # frees the fd number, but the old Python stream still references it;
+    # when GC finalizes that stream it may close a new handler's fd.
+    # Workers are short-lived (max_tasks) so the leak is harmless.
+    log.handlers.clear()
 
-    # Restore Console Handler
     ch = ConsoleHandler()
     ch.setFormatter(FORMATTER)
-    log.addHandler(ch)
+    log.handlers.append(ch)
 
-    # Restore Syslog Handler if enabled
     if logconf.logger.syslog_process:
         try:
             slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
             slh.setFormatter(FORMATTER)
-            log.addHandler(slh)
+            log.handlers.append(slh)
         except Exception as e:
             log.warning("Failed to restore Syslog handler in worker: %s", e)
 
-    # Restore File Handler using WatchedFileHandler to support rotation
     try:
         path = os.path.join(CUCKOO_ROOT, "log", "process.log")
         fh = logging.handlers.WatchedFileHandler(path)
         fh.setFormatter(FORMATTER)
-        log.addHandler(fh)
+        log.handlers.append(fh)
     except PermissionError as e:
         log.warning("Failed to restore File handler in worker due to permissions: %s", e)
 

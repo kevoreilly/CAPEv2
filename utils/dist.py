@@ -51,6 +51,7 @@ from lib.cuckoo.core.data.task import (
 )
 from lib.cuckoo.core.database import (
     Database,
+    Guest,
     _Database,
     init_database,
 )
@@ -868,6 +869,46 @@ class Retriever(threading.Thread):
                     sample_still_used = main_db.sample_still_used(sample_sha256, task_id)
                 if not sample_still_used:
                     path_delete(copy_path)
+
+    def inject_guest_info(self, main_task_id: int, report_path: str):
+        """
+        Inject guest information from report.json into the main database.
+
+        Args:
+            main_task_id (int): The ID of the main task.
+            report_path (str): The path to the analysis folder.
+        """
+        report_json_path = os.path.join(report_path, "reports", "report.json")
+        if not path_exists(report_json_path):
+            return
+
+        try:
+            with open(report_json_path, "r") as f:
+                report_data = json.load(f)
+                machine = report_data.get("info", {}).get("machine", {})
+                if machine and isinstance(machine, dict):
+                    with main_db.session.begin():
+                        # Check if guest already exists
+                        stmt = select(Guest).where(Guest.task_id == main_task_id)
+                        if not main_db.session.scalar(stmt):
+                            guest = Guest(
+                                name=machine.get("name"),
+                                label=machine.get("label"),
+                                platform=machine.get("platform"),
+                                manager=machine.get("manager"),
+                                task_id=main_task_id,
+                            )
+                            # Set optional fields if they exist
+                            if "started_on" in machine:
+                                with suppress(Exception):
+                                    guest.started_on = datetime.strptime(machine["started_on"], "%Y-%m-%d %H:%M:%S")
+                            if "shutdown_on" in machine:
+                                with suppress(Exception):
+                                    guest.shutdown_on = datetime.strptime(machine["shutdown_on"], "%Y-%m-%d %H:%M:%S")
+
+                            main_db.session.add(guest)
+        except Exception as e:
+            log.error("Failed to inject guest info for task %d: %s", main_task_id, e)
 
     # This should be executed as external thread as it generates bottle neck
     def fetch_latest_reports_nfs(self):

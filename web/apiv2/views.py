@@ -1206,6 +1206,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             "type": "-",
             "files": [
                 "memory.dmp",
+                "dump.pcapng",
                 "dump_decrypted.pcap",
                 "dump_mixed.pcap",
                 "dump_mixed_sorted.pcap",

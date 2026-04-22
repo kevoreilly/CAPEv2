@@ -1201,8 +1201,17 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     }
 
     report_formats = {
-        # Use the 'all' option if you want all generated files except for memory.dmp
-        "all": {"type": "-", "files": ["memory.dmp"]},
+        # Use the 'all' option if you want all generated files except for memory.dmp and derived pcaps
+        "all": {
+            "type": "-",
+            "files": [
+                "memory.dmp",
+                "dump_decrypted.pcap",
+                "dump_mixed.pcap",
+                "dump_mixed_sorted.pcap",
+                "dump_sorted.pcap",
+            ],
+        },
         # Use the 'dropped' option if you want all dropped files found in the /files directory
         "dropped": {"type": "+", "files": ["files"]},
         # Use the 'dist' option if you want all generated files except for binary, dump_sorted.pcap, memory.dmp, and

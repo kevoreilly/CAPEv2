@@ -7,6 +7,12 @@
                     <th style="border-top: 0;" width="15%">File name</th>
                     <td style="border-top: 0;"><b>{{file.filename}}</b></td>
                 </tr>
+                {% if settings.NETWORK_PROC_MAP %}
+                <tr>
+                    <th>Process</th>
+                    <td>{% if file.process_name %}<span class="badge bg-warning text-dark" title="PID: {{file.process_id}}">{{file.process_name}} ({{file.process_id}})</span>{% else %}<span class="text-muted">-</span>{% endif %}</td>
+                </tr>
+                {% endif %}
                 <tr>
                     <th>Expected File Size</th>
                     <td>{{file.size}} bytes</td>

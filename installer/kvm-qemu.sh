@@ -135,12 +135,19 @@ BXPC_REPLACER='<WOOT>'
 # what to use as a replacement for seabios in config.h (e.g., 'AMI', 'Award', 'Phoenix')
 BOCHS_SEABIOS_BLOCK_REPLACER='<WOOT>'
 
+# If apt-daily-upgrade.timer should be masked or not.
+# 1 = mask it
+# 0 = don't mask it
+MASK_APT_DAILY_UPGRADE=1
 
 # if a config file is present, read it in
 if [ -f "./kvm-config.sh" ]; then
         . ./kvm-config.sh
 fi
 
+if [ "$MASK_APT_DAILY_UPGRADE" -ge 1 ]; then
+	systemctl mask apt-daily-upgrade.timer
+fi
 
 # ToDO add to see if cpu supports VTx
 # egrep '(vmx|svm)' --color=always /proc/cpuinfo

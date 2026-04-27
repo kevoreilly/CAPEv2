@@ -105,8 +105,8 @@ NFS_FETCH = dist_conf.distributed.get("nfs")
 RESTAPI_FETCH = dist_conf.distributed.get("restapi")
 
 # GCS Configuration
-GCS_ENABLED = dist_conf.gcs.enabled
-GCS_DELETE_AFTER_UPLOAD = dist_conf.gcs.get("delete_after_upload")
+GCS_ENABLED = reporting_conf.gcs.get("enabled", False) if hasattr(reporting_conf, "gcs") else False
+GCS_DELETE_AFTER_UPLOAD = reporting_conf.gcs.get("delete_after_upload", False) if hasattr(reporting_conf, "gcs") else False
 
 if GCS_ENABLED:
     from modules.reporting.gcs import GCSUploader

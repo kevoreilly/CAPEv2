@@ -922,9 +922,9 @@
                                     <label for="form_priority" class="text-white-50">Priority</label>
                                     <select class="form-select border-secondary" id="form_priority"
                                         name="priority">
-                                        <option value="1" style="color: #0dcaf0;">Low</option>
-                                        <option value="2" selected style="color: #ffc107;">Medium</option>
-                                        <option value="3" style="color: #dc3545;">High</option>
+                                        <option value="1" data-color="#0dcaf0" style="color: #0dcaf0;">Low</option>
+                                        <option value="2" selected data-color="#ffc107" style="color: #ffc107;">Medium</option>
+                                        <option value="3" data-color="#dc3545" style="color: #dc3545;">High</option>
                                     </select>
                                 </div>
                                 {% if config.tlp %}
@@ -932,10 +932,10 @@
                                     <label for="form_tlp" class="text-white-50">TLP</label>
                                     <select class="form-select border-secondary" id="form_tlp"
                                         name="tlp">
-                                        <option value="" selected style="color: #ffffff;">White</option>
-                                        <option value="Green" style="color: #198754;">Green</option>
-                                        <option value="Amber" style="color: #ffc107;">Amber</option>
-                                        <option value="Red" style="color: #dc3545;">Red</option>
+                                        <option value="" selected data-color="#ffffff" style="color: #ffffff;">White</option>
+                                        <option value="Green" data-color="#198754" style="color: #198754;">Green</option>
+                                        <option value="Amber" data-color="#ffc107" style="color: #ffc107;">Amber</option>
+                                        <option value="Red" data-color="#dc3545" style="color: #dc3545;">Red</option>
                                     </select>
                                 </div>
                                 {% endif %}
@@ -1182,8 +1182,9 @@
         function updateSelectColor(selectId) {
             const select = $(selectId);
             const selectedOption = select.find('option:selected');
-            if (selectedOption.length) {
-                select.css('color', selectedOption.css('color'));
+            const color = selectedOption.data('color');
+            if (color) {
+                select.css('color', color);
             }
         }
 

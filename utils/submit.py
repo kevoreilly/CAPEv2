@@ -341,7 +341,8 @@ def main():
                     url = "http://{0}/apiv2/tasks/create/file/".format(args.remote)
 
                 with open(file_path, "rb") as f:
-                    files = dict(file=f, filename=os.path.basename(file_path))
+                    filename = args.name or os.path.basename(file_path)
+                    files = dict(file=f, filename=filename)
 
                     data = dict(
                         package=args.package,

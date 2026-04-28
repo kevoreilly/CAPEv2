@@ -219,6 +219,7 @@ class TasksMixIn:
         # Use a nested transaction so that we can return an ID.
         with self.session.begin_nested():
             self.session.add(task)
+            self.session.flush()
 
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:

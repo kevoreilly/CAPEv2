@@ -215,14 +215,16 @@ class TasksMixIn:
         task.route = route
         task.cape = cape
         task.tags_tasks = tags_tasks
+
+        # Use a nested transaction so that we can return an ID.
+        with self.session.begin_nested():
+            self.session.add(task)
+
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
             for tag in tags.split(","):
                 tag_name = tag.strip()
                 if tag_name and tag_name not in [tag.name for tag in task.tags]:
-                    # "Task" object is being merged into a Session along the backref cascade path for relationship "Tag.tasks"; in SQLAlchemy 2.0, this reverse cascade will not take place.
-                    # Set cascade_backrefs to False in either the relationship() or backref() function for the 2.0 behavior; or to set globally for the whole Session, set the future=True flag
-                    # (Background on this error at: https://sqlalche.me/e/14/s9r1) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
                     task.tags.append(self._get_or_create(Tag, name=tag_name))
 
         if clock:
@@ -247,10 +249,6 @@ class TasksMixIn:
                 task=task,
             )
             self.session.add(association)
-
-        # Use a nested transaction so that we can return an ID.
-        with self.session.begin_nested():
-            self.session.add(task)
 
         return task.id
 

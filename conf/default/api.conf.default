@@ -244,6 +244,36 @@ rps = 1/s
 #rpm = 10/m
 mcp = no
 
+# Pull TLS keylog material (tlsdump.log / sslkeys.log / master_keys.log).
+# These are sensitive — they decrypt captured TLS flows — so gated separately
+# from other downloads even if operator has enabled [taskpcap].
+[tasktlskeys]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+mcp = no
+
+# Pull ETW JSON logs (dns_etw.json, network_etw.json, wmi_etw.json, amsi_etw/).
+# Companion to [taskevtx] — these cover the ETW-sourced signals used for
+# process→network attribution and script-content inspection.
+[tasketw]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+mcp = no
+
+# Bulk directory zip endpoints — logs/, network/, memory/, selfextracted/.
+# These can be large and expose a lot of artifacts at once; disable if you
+# don't want operators pulling entire analysis trees over the API.
+[taskbulkzip]
+enabled = yes
+auth_only = no
+rps = 1/s
+#rpm = 10/m
+mcp = no
+
 # Pull the dropped files from a specific task
 [taskdropped]
 enabled = yes

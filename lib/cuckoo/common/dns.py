@@ -9,7 +9,6 @@ import threading
 from typing import Callable
 
 try:
-try:
     import requests
 
     HAVE_REQUESTS = True

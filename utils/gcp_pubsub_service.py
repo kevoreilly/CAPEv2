@@ -112,6 +112,7 @@ class GCPPubSubService:
                     options=sandbox_options,
                     custom=custom,
                     category=category,
+                    filename=sample_name,
                 )
                 if task_ids:
                     log.info("Successfully submitted task(s): %s", task_ids)

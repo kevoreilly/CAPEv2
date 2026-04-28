@@ -47,6 +47,7 @@ def submit_file(
     unique=False,
     quiet=False,
     category = None,
+    filename = None,
 ):
     if not File(file_path).get_size():
         if not quiet:
@@ -64,7 +65,9 @@ def submit_file(
 
     try:
         with open(file_path, "rb") as f:
-            tmp_path = store_temp_file(f.read(), sanitize_filename(os.path.basename(file_path)))
+            if not filename:
+                filename = os.path.basename(file_path)
+            tmp_path = store_temp_file(f.read(), sanitize_filename(filename))
         with db.session.begin():
             # ToDo expose extra_details["errors"]
             task_ids, extra_details = db.demux_sample_and_add_to_db(
@@ -167,10 +170,9 @@ def main():
     parser.add_argument(
         "--shuffle", action="store_true", default=False, help="Shuffle samples before submitting them", required=False
     )
-    parser.add_argument(
-        "--unique", action="store_true", default=False, help="Only submit new samples, ignore duplicates", required=False
-    )
+    parser.add_argument("--unique", action="store_true", default=False, help="Only submit new samples, ignore duplicates", required=False)
     parser.add_argument("--quiet", action="store_true", default=False, help="Only print text on failure", required=False)
+    parser.add_argument("--name", type=str, action="store", default=None, help="Desired sample name", required=False)
     parser.add_argument("--procdump", action="store_true", default=False, help="Disable process dumps", required=False)
 
     try:
@@ -411,6 +413,7 @@ def main():
                     route=args.route,
                     unique=args.unique,
                     quiet=args.quiet,
+                    filename=args.name,
                 )
 
             tasks_count = len(task_ids)

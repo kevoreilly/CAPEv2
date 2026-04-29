@@ -133,6 +133,8 @@ def process(
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     try:
+        task_opts = get_options(task_dict.get("options", "") or "")
+        dbg_only = str(task_opts.get("dbg_only", "")).strip().lower() in {"1", "true", "yes"}
         if memory_debugging:
             gc.collect()
             log.info("(1) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
@@ -145,7 +147,10 @@ def process(
             gc.collect()
             log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
 
-        RunSignatures(task=task_dict, results=results).run()
+        if not dbg_only:
+            RunSignatures(task=task_dict, results=results).run()
+        else:
+            log.info("dbg_only enabled for task %s: skipping signatures", task_id)
         if memory_debugging:
             gc.collect()
             log.info("(4) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))

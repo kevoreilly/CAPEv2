@@ -358,7 +358,7 @@
                 <div class="card bg-dark border-secondary text-white">
                     <div class="card-header"><h6 class="mb-0 text-white-50">Strings</h6></div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                        <pre class="mb-0 text-light small">{% for string in file.strings %}{{string}}<br>{% endfor %}</pre>
+                        <pre class="mb-0 small">{% for string in file.strings %}{{string}}<br>{% endfor %}</pre>
                     </div>
                 </div>
             </div>
@@ -369,7 +369,7 @@
                 <div class="card bg-dark text-white">
                     <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
-                        <pre class="mb-0 text-light small">{% for string in file.dotnet_strings %}{{string}}<br>{% endfor %}</pre>
+                        <pre class="mb-0 small">{% for string in file.dotnet_strings %}{{string}}<br>{% endfor %}</pre>
                     </div>
                 </div>
             </div>
@@ -380,7 +380,7 @@
                 <div class="card bg-dark text-white">
                     <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
                     <div class="card-body">
-                        <pre class="mb-0 text-light small">{{file.data|escape}}</pre>
+                        <pre class="mb-0 small">{{file.data|escape}}</pre>
                     </div>
                 </div>
             </div>
@@ -391,7 +391,7 @@
                 <div class="card bg-dark text-white">
                     <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
                     <div class="card-body">
-                        <pre class="mb-0 text-light small">{{file.decoded_files|escape}}</pre>
+                        <pre class="mb-0 small">{{file.decoded_files|escape}}</pre>
                     </div>
                 </div>
             </div>

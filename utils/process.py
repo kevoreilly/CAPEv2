@@ -39,7 +39,7 @@ from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
-from lib.cuckoo.common.utils import get_options
+from lib.cuckoo.common.utils import get_options, option_dict_enabled
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.data.task import (
     TASK_COMPLETED,
@@ -122,10 +122,10 @@ def process(
 
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
+    task_options = get_options(task_dict.get("options"))
+    task_dict["_options_parsed"] = task_options
     # cluster mode
-    main_task_id = False
-    if "main_task_id" in task_dict.get("options", ""):
-        main_task_id = get_options(task_dict["options"]).get("main_task_id", 0)
+    main_task_id = task_options.get("main_task_id", 0) if "main_task_id" in task_options else False
 
     # ToDo new logger here
     per_analysis_handler = init_per_analysis_logging(tid=str(task_id), debug=debug)
@@ -133,8 +133,7 @@ def process(
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     try:
-        task_opts = get_options(task_dict.get("options", "") or "")
-        dbg_only = str(task_opts.get("dbg_only", "")).strip().lower() in {"1", "true", "yes"}
+        dbg_only = option_dict_enabled(task_options, "dbg_only")
         if memory_debugging:
             gc.collect()
             log.info("(1) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))

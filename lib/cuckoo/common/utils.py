@@ -827,6 +827,16 @@ def get_options(optstring: str):
     )
 
 
+def option_enabled(optstring: Union[str, None], option_name: str) -> bool:
+    """Return True when an option is set to a truthy value (1/true/yes)."""
+    return option_dict_enabled(get_options(optstring), option_name)
+
+
+def option_dict_enabled(options: dict, option_name: str) -> bool:
+    """Return True when an already-parsed option is set to a truthy value (1/true/yes)."""
+    return str(options.get(option_name, "")).strip().lower() in {"1", "true", "yes"}
+
+
 # get iface ip
 def get_ip_address(ifname):
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)

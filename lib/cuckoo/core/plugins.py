@@ -28,7 +28,7 @@ from lib.cuckoo.common.exceptions import (
 from lib.cuckoo.common.mapTTPs import mapTTP
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.scoring import calc_scoring
-from lib.cuckoo.common.utils import add_family_detection
+from lib.cuckoo.common.utils import add_family_detection, get_options, option_dict_enabled
 from lib.cuckoo.core.database import Database
 from utils.community_blocklist import blocklist
 
@@ -268,6 +268,10 @@ class RunProcessing:
         self.cfg = processing_cfg
         self.cuckoo_cfg = Config()
         self.results = results
+        task_opts = task.get("_options_parsed")
+        if not isinstance(task_opts, dict):
+            task_opts = get_options(task.get("options"))
+        self.dbg_only = option_dict_enabled(task_opts, "dbg_only")
 
     def process(self, module):
         """Run a processing module.
@@ -346,6 +350,14 @@ class RunProcessing:
         # If no modules are loaded, return an empty dictionary.
         if processing_list:
             processing_list.sort(key=lambda module: module.order)
+            if self.dbg_only:
+                allowed = {"AnalysisInfo", "BehaviorAnalysis", "Debug"}
+                processing_list = [module for module in processing_list if module.__name__ in allowed]
+                log.info(
+                    "dbg_only enabled for task %s: running minimal processing modules: %s",
+                    self.task.get("id"),
+                    ", ".join(module.__name__ for module in processing_list) or "none",
+                )
 
             # Run every loaded processing module.
             for module in processing_list:

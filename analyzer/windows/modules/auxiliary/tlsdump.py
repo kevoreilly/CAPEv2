@@ -3,7 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import logging
-from ctypes import byref, sizeof
+from ctypes import byref, c_void_p, sizeof
 
 from lib.api.process import Process
 from lib.common.abstracts import Auxiliary
@@ -11,6 +11,10 @@ from lib.common.defines import KERNEL32, PROCESSENTRY32, TH32CS_SNAPPROCESS
 from lib.common.exceptions import CuckooError
 
 log = logging.getLogger(__name__)
+INVALID_HANDLE_VALUE_PTR = c_void_p(-1).value
+
+# Ensure snapshot handle is not truncated on 64-bit.
+KERNEL32.CreateToolhelp32Snapshot.restype = c_void_p
 
 
 class TLSDumpMasterSecrets(Auxiliary):
@@ -29,6 +33,9 @@ class TLSDumpMasterSecrets(Auxiliary):
         proc_info = PROCESSENTRY32()
         proc_info.dwSize = sizeof(PROCESSENTRY32)
         snapshot = KERNEL32.CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0)
+        if snapshot in (None, INVALID_HANDLE_VALUE_PTR):
+            log.warning("Failed to create process snapshot")
+            return
         flag = KERNEL32.Process32First(snapshot, byref(proc_info))
         pid = 0
         while flag:
@@ -37,6 +44,7 @@ class TLSDumpMasterSecrets(Auxiliary):
                 log.info("lsass.exe found, pid %d", pid)
                 flag = 0
             flag = KERNEL32.Process32Next(snapshot, byref(proc_info))
+        KERNEL32.CloseHandle(snapshot)
         if not pid:
             log.warning("Unable to find lsass.exe process")
             return

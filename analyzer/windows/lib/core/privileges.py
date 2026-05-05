@@ -33,6 +33,9 @@ def grant_debug_privilege(pid=None):
         POINTER(TOKEN_PRIVILEGES),
         POINTER(wintypes.DWORD),
     )
+    KERNEL32.GetCurrentProcess.restype = wintypes.HANDLE
+    KERNEL32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    KERNEL32.OpenProcess.restype = wintypes.HANDLE
 
     if pid is None:
         h_process = KERNEL32.GetCurrentProcess()

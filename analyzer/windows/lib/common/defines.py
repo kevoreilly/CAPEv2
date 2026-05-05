@@ -2,37 +2,37 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import sys
 from ctypes import (
     POINTER,
+    WINFUNCTYPE,
     Structure,
     Union,
-    c_bool,
     c_char,
     c_double,
     c_int,
+    c_size_t,
+    c_ssize_t,
     c_ubyte,
     c_uint,
     c_ulonglong,
     c_ushort,
     c_void_p,
     c_wchar_p,
+    windll,
+    c_long,
 )
 
-if sys.platform == "win32":
-    from ctypes import WINFUNCTYPE, windll
 
-    NTDLL = windll.ntdll
-    KERNEL32 = windll.kernel32
-    ADVAPI32 = windll.advapi32
-    USER32 = windll.user32
-    SHELL32 = windll.shell32
-    PDH = windll.pdh
-    PSAPI = windll.psapi
-    EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
-    EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
+NTDLL = windll.ntdll
+KERNEL32 = windll.kernel32
+ADVAPI32 = windll.advapi32
+USER32 = windll.user32
+SHELL32 = windll.shell32
+PDH = windll.pdh
+PSAPI = windll.psapi
 
 BYTE = c_ubyte
+BOOL = c_int
 USHORT = c_ushort
 WORD = c_ushort
 DWORD = c_uint
@@ -44,14 +44,19 @@ LPBYTE = POINTER(c_ubyte)
 LPTSTR = POINTER(c_char)
 PWSTR = c_wchar_p
 HANDLE = c_void_p
+HWND = HANDLE
 PVOID = c_void_p
 LPVOID = c_void_p
-UINT_PTR = c_void_p
-ULONG_PTR = c_void_p
-SIZE_T = c_void_p
+LONG_PTR = c_ssize_t
+UINT_PTR = c_size_t
+ULONG_PTR = c_size_t
+SIZE_T = c_size_t
+LPARAM = LONG_PTR
 HMODULE = c_void_p
 PWCHAR = c_wchar_p
 DOUBLE = c_double
+EnumWindowsProc = WINFUNCTYPE(BOOL, HWND, LPARAM)
+EnumChildProc = WINFUNCTYPE(BOOL, HWND, LPARAM)
 
 DEBUG_PROCESS = 0x00000001
 CREATE_NEW_CONSOLE = 0x00000010
@@ -96,7 +101,7 @@ PIPE_UNLIMITED_INSTANCES = 0x000000FF
 PIPE_TYPE_BYTE = 0x00000000
 PIPE_READMODE_BYTE = 0x00000000
 FILE_FLAG_WRITE_THROUGH = 0x80000000
-INVALID_HANDLE_VALUE = 0xFFFFFFFF
+INVALID_HANDLE_VALUE = -1
 ERROR_BROKEN_PIPE = 0x0000006D
 ERROR_MORE_DATA = 0x000000EA
 ERROR_PIPE_CONNECTED = 0x00000217
@@ -119,8 +124,6 @@ GENERIC_READ = 0x80000000
 GENERIC_WRITE = 0x40000000
 GENERIC_EXECUTE = 0x20000000
 GENERIC_ALL = 0x10000000
-
-OPEN_EXISTING = 0x00000003
 
 TH32CS_SNAPPROCESS = 0x02
 
@@ -195,7 +198,7 @@ class PROCESSENTRY32(Structure):
         ("th32ModuleID", DWORD),
         ("cntThreads", DWORD),
         ("th32ParentProcessID", DWORD),
-        ("pcPriClassBase", DWORD),
+        ("pcPriClassBase", LONG),
         ("dwFlags", DWORD),
         ("sz_exeFile", c_char * 260),
     ]
@@ -264,7 +267,6 @@ class SYSTEM_INFO(Structure):
 
 
 class UNICODE_STRING(Structure):
-    _pack_ = 1
     _fields_ = [
         ("Length", USHORT),
         ("MaximumLength", USHORT),
@@ -273,7 +275,6 @@ class UNICODE_STRING(Structure):
 
 
 class SECURITY_DESCRIPTOR(Structure):
-    _pack_ = 1
     _fields_ = [
         ("Revision", BYTE),
         ("Sbz1", BYTE),
@@ -286,16 +287,14 @@ class SECURITY_DESCRIPTOR(Structure):
 
 
 class SECURITY_ATTRIBUTES(Structure):
-    _pack_ = 1
     _fields_ = [
         ("nLength", DWORD),
         ("lpSecurityDescriptor", PVOID),
-        ("bInheritHandle", BYTE),
+        ("bInheritHandle", BOOL),
     ]
 
 
 class SYSTEMTIME(Structure):
-    _pack_ = 1
     _fields_ = [
         ("wYear", WORD),
         ("wMonth", WORD),
@@ -326,4 +325,15 @@ class PDH_FMT_COUNTERVALUE(Structure):
     _fields_ = [
         ("CStatus", DWORD),
         ("doubleValue", DOUBLE),
+    ]
+
+
+class PROCESS_BASIC_INFORMATION(Structure):
+    _fields_ = [
+        ("ExitStatus", c_long),
+        ("PebBaseAddress", c_void_p),
+        ("AffinityMask", ULONG_PTR),
+        ("BasePriority", c_long),
+        ("UniqueProcessId", ULONG_PTR),
+        ("InheritedFromUniqueProcessId", ULONG_PTR),
     ]

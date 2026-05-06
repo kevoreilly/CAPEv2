@@ -2594,9 +2594,9 @@ tomli==2.2.1 ; python_version == "3.10" \
     --hash=sha256:e85e99945e688e32d5a35c1ff38ed0b3f41f43fad8df0bdf79f72b2ba7bc5272 \
     --hash=sha256:ece47d672db52ac607a3d9599a9d48dcb2f2f735c6c2d1f34130085bb12b112a \
     --hash=sha256:f4039b9cbc3048b2416cc57ab3bda989a6fcf9b36cf8937f01a6e731b64f80d7
-twisted==24.11.0 ; python_version >= "3.10" and python_version < "4.0" \
-    --hash=sha256:695d0556d5ec579dcc464d2856b634880ed1319f45b10d19043f2b57eb0115b5 \
-    --hash=sha256:fe403076c71f04d5d2d789a755b687c5637ec3bcd3b2b8252d76f2ba65f54261
+twisted==26.4.0rc2 ; python_version >= "3.10" and python_version < "4.0" \
+    --hash=sha256:41eeb62a7f2688c634f7a1af76e225c58da48f8af1640fcb285ce386a96889e2 \
+    --hash=sha256:d1db6c391a1b6e70028c3212298178621db149a6f75555f6503da557c763406d
 txaio==23.1.1 ; python_version >= "3.10" and python_version < "4.0" \
     --hash=sha256:aaea42f8aad50e0ecfb976130ada140797e9dcb85fad2cf72b0f37f8cefcb490 \
     --hash=sha256:f9a9216e976e5e3246dfd112ad7ad55ca915606b60b84a757ac769bd404ff704

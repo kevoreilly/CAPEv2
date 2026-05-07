@@ -26,7 +26,6 @@ from ctypes import (
     cast,
     create_string_buffer,
     create_unicode_buffer,
-    get_last_error,
     sizeof,
     string_at,
     windll,
@@ -568,8 +567,12 @@ class Process:
     def build_parent_attribute_list(self) -> Tuple[LPVOID, Array[c_char], HANDLE]:
         cb_attribute_list_size = SIZE_T(0)
         ok = KERNEL32.InitializeProcThreadAttributeList(None, 1, 0, byref(cb_attribute_list_size))
-        if ok or get_last_error() != ERROR_INSUFFICIENT_BUFFER or cb_attribute_list_size.value == 0:
-            log.error("InitializeProcThreadAttributeList(size probe)")
+        last_error = KERNEL32.GetLastError()
+        if ok or last_error != ERROR_INSUFFICIENT_BUFFER or cb_attribute_list_size.value == 0:
+            log.error(
+                "InitializeProcThreadAttributeList(size probe) unexpected result: ok=%s last_error=%d size=%d",
+                ok, last_error, cb_attribute_list_size.value
+            )
 
         attr_buf = create_string_buffer(cb_attribute_list_size.value)
         attr_list = cast(attr_buf, LPVOID)

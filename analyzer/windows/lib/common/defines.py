@@ -18,10 +18,10 @@ from ctypes import (
     c_ushort,
     c_void_p,
     c_wchar_p,
-    windll,
     c_long,
+    windll,
+    wintypes,
 )
-
 
 NTDLL = windll.ntdll
 KERNEL32 = windll.kernel32
@@ -156,6 +156,14 @@ BST_INDETERMINATE = 0x0002
 # Process cannot access the file because it is being used by another process.
 ERROR_SHARING_VIOLATION = 0x00000020
 
+PROCESS_CREATE_PROCESS = 0x0080
+TOKEN_ADJUST_PRIVILEGES = 0x0020
+TOKEN_QUERY = 0x0008
+PROC_THREAD_ATTRIBUTE_PARENT_PROCESS = 0x00020000
+ERROR_INSUFFICIENT_BUFFER = 122
+ERROR_NOT_ALL_ASSIGNED = 1300
+EXTENDED_STARTUPINFO_PRESENT = 0x00080000
+
 
 class STARTUPINFO(Structure):
     _fields_ = [
@@ -221,7 +229,7 @@ class LUID_AND_ATTRIBUTES(Structure):
 class TOKEN_PRIVILEGES(Structure):
     _fields_ = [
         ("PrivilegeCount", DWORD),
-        ("Privileges", LUID_AND_ATTRIBUTES),
+        ("Privileges", LUID_AND_ATTRIBUTES * 1),
     ]
 
 
@@ -336,4 +344,34 @@ class PROCESS_BASIC_INFORMATION(Structure):
         ("BasePriority", c_long),
         ("UniqueProcessId", ULONG_PTR),
         ("InheritedFromUniqueProcessId", ULONG_PTR),
+    ]
+
+
+class STARTUPINFOW(Structure):
+    _fields_ = [
+        ("cb", wintypes.DWORD),
+        ("lpReserved", wintypes.LPWSTR),
+        ("lpDesktop", wintypes.LPWSTR),
+        ("lpTitle", wintypes.LPWSTR),
+        ("dwX", wintypes.DWORD),
+        ("dwY", wintypes.DWORD),
+        ("dwXSize", wintypes.DWORD),
+        ("dwYSize", wintypes.DWORD),
+        ("dwXCountChars", wintypes.DWORD),
+        ("dwYCountChars", wintypes.DWORD),
+        ("dwFillAttribute", wintypes.DWORD),
+        ("dwFlags", wintypes.DWORD),
+        ("wShowWindow", wintypes.WORD),
+        ("cbReserved2", wintypes.WORD),
+        ("lpReserved2", POINTER(c_ubyte)),
+        ("hStdInput", wintypes.HANDLE),
+        ("hStdOutput", wintypes.HANDLE),
+        ("hStdError", wintypes.HANDLE),
+    ]
+
+
+class STARTUPINFOEXW(Structure):
+    _fields_ = [
+        ("StartupInfo", STARTUPINFOW),
+        ("lpAttributeList", LPVOID),
     ]

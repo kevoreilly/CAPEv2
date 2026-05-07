@@ -334,7 +334,7 @@ class Disguise(Auxiliary):
             log.error("Failed to collect notepad process info: %s", e.output)
 
     def start(self):
-        if self._option_enabled(self.options, "launch_background_processes", False):
+        if self._option_enabled(self.options, "launch_background_processes", True):
             self.launch_background_processes()
             # self.log_notepad_process_tree()
 

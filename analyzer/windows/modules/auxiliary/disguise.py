@@ -53,13 +53,6 @@ class Disguise(Auxiliary):
         self.config = config
 
     @staticmethod
-    def _option_enabled(options, key, default=False):
-        value = options.get(key, default)
-        if isinstance(value, bool):
-            return value
-        return str(value).strip().lower() in {"1", "true", "yes", "on"}
-
-    @staticmethod
     def run_as_system(command):
         if not command:
             return None
@@ -264,13 +257,10 @@ class Disguise(Auxiliary):
         self.run_as_system(["C:\\Windows\\System32\\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", gateway])
 
     def launch_background_processes(self):
-        # Specify the absolute path to the REAL Win32 notepad
-        # C:\Windows\System32\notepad.exe is usually the legacy binary,
-        # but Windows 11 often redirects 'notepad.exe' globally to the UWP version.
+        notepad_path = os.path.join(os.environ["SystemRoot"], "System32", "notepad.exe")
+        self._launch_background_process(notepad_path)
 
-        # Use the specific legacy path to avoid the UWP wrapper
-        legacy_notepad = os.path.join(os.environ['SystemRoot'], 'System32', 'notepad.exe')
-
+    def _launch_background_process(self, process_path):
         try:
             process = Process(options=self.options, config=self.config or Config(cfg="analysis.conf"))
             startup_info = STARTUPINFOEXW()
@@ -283,8 +273,8 @@ class Disguise(Auxiliary):
             creation_flags = CREATE_NEW_CONSOLE | EXTENDED_STARTUPINFO_PRESENT
 
             created = KERNEL32.CreateProcessW(
-                legacy_notepad,
-                f'"{legacy_notepad}"',
+                process_path,
+                f'"{process_path}"',
                 None,
                 None,
                 False,
@@ -306,9 +296,9 @@ class Disguise(Auxiliary):
                 KERNEL32.CloseHandle(process_info.hThread)
             if process_info.hProcess:
                 KERNEL32.CloseHandle(process_info.hProcess)
-            log.info("Launched legacy Notepad hidden (PID: %d)", pid)
+            log.info("Launched background process %s hidden (PID: %d)", os.path.basename(process_path), pid)
         except Exception as e:
-            log.error(f"Failed to launch legacy notepad: {e}")
+            log.error("Failed to launch background process %s: %s", process_path, e)
 
     def log_notepad_process_tree(self):
         cmd = [
@@ -334,9 +324,25 @@ class Disguise(Auxiliary):
             log.error("Failed to collect notepad process info: %s", e.output)
 
     def start(self):
-        if self._option_enabled(self.options, "launch_background_processes", True):
-            self.launch_background_processes()
-            # self.log_notepad_process_tree()
+        try:
+            total_processes = int(self.options.get("background_processes", 1))
+        except (TypeError, ValueError):
+            total_processes = 1
+        total_processes = max(0, min(total_processes, 10))
+
+        if total_processes > 0:
+            system32 = os.path.join(os.environ["SystemRoot"], "System32")
+            notepad_path = os.path.join(system32, "notepad.exe")
+            calc_path = os.path.join(system32, "calc.exe")
+            process_pool = [notepad_path, calc_path]
+
+            # Always launch notepad first.
+            self._launch_background_process(notepad_path)
+
+            for _ in range(total_processes - 1):
+                selected_process = process_pool[randint(0, len(process_pool) - 1)]
+                self._launch_background_process(selected_process)
+        # self.log_notepad_process_tree()
 
         if self.config.windows_static_route:
             log.info("Config for route is: %s", str(self.config.windows_static_route))

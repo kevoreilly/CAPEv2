@@ -62,7 +62,6 @@ from lib.common.defines import (
     GENERIC_WRITE,
     KERNEL32,
     LUID,
-    LUID_AND_ATTRIBUTES,
     MAX_PATH,
     NTDLL,
     OPEN_EXISTING,
@@ -71,20 +70,17 @@ from lib.common.defines import (
     PROCESS_BASIC_INFORMATION,
     PROCESS_CREATE_PROCESS,
     PROCESS_INFORMATION,
-    PROCESS_INFORMATION,
     PROCESS_QUERY_LIMITED_INFORMATION,
     PROCESSENTRY32,
     PSAPI,
     SIZE_T,
     STARTUPINFO,
     STARTUPINFOEXW,
-    STARTUPINFOW,
     STILL_ACTIVE,
     SYSTEM_INFO,
     TOKEN_PRIVILEGES,
     TH32CS_SNAPPROCESS,
     THREAD_ALL_ACCESS,
-    ULONG_PTR,
     UNICODE_STRING,
 )
 from lib.common.errors import get_error_string
@@ -584,7 +580,7 @@ class Process:
         hwnd = windll.user32.GetShellWindow()
         explorer_pid = DWORD()
         windll.user32.GetWindowThreadProcessId(hwnd, byref(explorer_pid))
-        log.info(f"Explorer PID: {explorer_pid.value}")
+        log.info("Explorer PID: %s", explorer_pid.value)
 
         raw_parent = KERNEL32.OpenProcess(PROCESS_CREATE_PROCESS, False, explorer_pid)
         if not raw_parent:

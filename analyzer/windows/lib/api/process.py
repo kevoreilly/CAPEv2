@@ -13,35 +13,28 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
-from ctypes import POINTER, byref, c_buffer, c_int, c_ulong, create_string_buffer, sizeof, windll, ArgumentError, Structure, c_ushort, c_void_p, string_at, create_unicode_buffer
-from ctypes.wintypes import BOOL, DWORD, HANDLE
+from ctypes import (
+    ArgumentError,
+    Array,
+    POINTER,
+    byref,
+    c_buffer,
+    c_char,
+    c_int,
+    c_ulong,
+    c_void_p,
+    cast,
+    create_string_buffer,
+    create_unicode_buffer,
+    get_last_error,
+    sizeof,
+    string_at,
+    windll,
+)
+from ctypes.wintypes import BOOL, DWORD, HANDLE, LPCWSTR, LPVOID, LPWSTR
 from pathlib import Path
 from shutil import copy
-
-from lib.common.defines import (
-    CREATE_NEW_CONSOLE,
-    CREATE_SUSPENDED,
-    EVENT_MODIFY_STATE,
-    GENERIC_READ,
-    GENERIC_WRITE,
-    KERNEL32,
-    MAX_PATH,
-    NTDLL,
-    OPEN_EXISTING,
-    PROCESS_ALL_ACCESS,
-    PROCESS_BASIC_INFORMATION,
-    PROCESS_INFORMATION,
-    PROCESS_QUERY_LIMITED_INFORMATION,
-    PROCESSENTRY32,
-    PSAPI,
-    STARTUPINFO,
-    STILL_ACTIVE,
-    SYSTEM_INFO,
-    TH32CS_SNAPPROCESS,
-    THREAD_ALL_ACCESS,
-    ULONG_PTR,
-)
-
+from typing import Tuple
 
 from lib.common.constants import (
     CAPEMON32_NAME,
@@ -52,22 +45,55 @@ from lib.common.constants import (
     PATHS,
     PIPE,
     SHUTDOWN_MUTEX,
+    SIDELOADER32_NAME,
+    SIDELOADER64_NAME,
     TERMINATE_EVENT,
     TTD32_NAME,
     TTD64_NAME,
-    SIDELOADER32_NAME,
-    SIDELOADER64_NAME,
 )
-
-
-from lib.core.log import LogServer
-
 from lib.common.constants import OPT_CURDIR, OPT_EXECUTIONDIR
+from lib.common.defines import (
+    ADVAPI32,
+    CREATE_NEW_CONSOLE,
+    CREATE_SUSPENDED,
+    ERROR_INSUFFICIENT_BUFFER,
+    EVENT_MODIFY_STATE,
+    EXTENDED_STARTUPINFO_PRESENT,
+    GENERIC_READ,
+    GENERIC_WRITE,
+    KERNEL32,
+    LUID,
+    LUID_AND_ATTRIBUTES,
+    MAX_PATH,
+    NTDLL,
+    OPEN_EXISTING,
+    PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
+    PROCESS_ALL_ACCESS,
+    PROCESS_BASIC_INFORMATION,
+    PROCESS_CREATE_PROCESS,
+    PROCESS_INFORMATION,
+    PROCESS_INFORMATION,
+    PROCESS_QUERY_LIMITED_INFORMATION,
+    PROCESSENTRY32,
+    PSAPI,
+    SIZE_T,
+    STARTUPINFO,
+    STARTUPINFOEXW,
+    STARTUPINFOW,
+    STILL_ACTIVE,
+    SYSTEM_INFO,
+    TOKEN_PRIVILEGES,
+    TH32CS_SNAPPROCESS,
+    THREAD_ALL_ACCESS,
+    ULONG_PTR,
+    UNICODE_STRING,
+)
 from lib.common.errors import get_error_string
 from lib.common.rand import random_string
 from lib.common.results import upload_to_host
 from lib.core.compound import create_custom_folders
 from lib.core.config import Config
+from lib.core.log import LogServer
 
 # CSIDL constants
 CSIDL_WINDOWS = 0x0024
@@ -78,24 +104,52 @@ CSIDL_PROGRAM_FILESX86 = 0x002A
 
 IOCTL_PID = 0x222008
 IOCTL_CUCKOO_PATH = 0x22200C
-PATH_KERNEL_DRIVER = "\\\\.\\DriverSSDT"
 
+PATH_KERNEL_DRIVER = "\\\\.\\DriverSSDT"
 LOGSERVER_POOL = {}
 
 log = logging.getLogger(__name__)
 
 # Define function return types
+KERNEL32.CloseHandle.argtypes = [HANDLE]
+KERNEL32.CloseHandle.restype = BOOL
+KERNEL32.CreateFileW.restype = HANDLE
+KERNEL32.CreateProcessW.argtypes = [
+    LPCWSTR,
+    LPWSTR,
+    LPVOID,
+    LPVOID,
+    BOOL,
+    DWORD,
+    LPVOID,
+    LPCWSTR,
+    LPVOID,
+    POINTER(PROCESS_INFORMATION),
+]
+KERNEL32.CreateProcessW.restype = BOOL
+KERNEL32.DeleteProcThreadAttributeList.argtypes = [LPVOID]
+KERNEL32.DeleteProcThreadAttributeList.restype = None
+KERNEL32.GetCurrentProcess.argtypes = []
 KERNEL32.GetCurrentProcess.restype = HANDLE
-KERNEL32.OpenProcess.restype = HANDLE
+KERNEL32.GetLastError.restype = DWORD
+KERNEL32.InitializeProcThreadAttributeList.argtypes = [LPVOID, DWORD, DWORD, POINTER(SIZE_T)]
+KERNEL32.InitializeProcThreadAttributeList.restype = BOOL
 KERNEL32.OpenProcess.argtypes = [DWORD, BOOL, DWORD]
+KERNEL32.OpenProcess.restype = HANDLE
 KERNEL32.OpenThread.restype = HANDLE
 KERNEL32.OpenThread.argtypes = [DWORD, BOOL, DWORD]
-KERNEL32.GetLastError.restype = DWORD
-KERNEL32.CreateFileW.restype = HANDLE
+KERNEL32.UpdateProcThreadAttribute.argtypes = [LPVOID, DWORD, SIZE_T, LPVOID, SIZE_T, LPVOID, LPVOID]
+KERNEL32.UpdateProcThreadAttribute.restype = BOOL
+
+ADVAPI32.AdjustTokenPrivileges.argtypes = [HANDLE, BOOL, POINTER(TOKEN_PRIVILEGES), DWORD, LPVOID, POINTER(DWORD)]
+ADVAPI32.AdjustTokenPrivileges.restype = BOOL
+ADVAPI32.OpenProcessToken.argtypes = [HANDLE, DWORD, POINTER(HANDLE)]
+ADVAPI32.OpenProcessToken.restype = BOOL
+ADVAPI32.LookupPrivilegeValueW.argtypes = [LPCWSTR, LPCWSTR, POINTER(LUID)]
+ADVAPI32.LookupPrivilegeValueW.restype = BOOL
 
 NTDLL.NtQueryInformationProcess.restype = c_int
 NTDLL.NtQueryInformationProcess.argtypes = [c_void_p, c_int, c_void_p, c_ulong, POINTER(c_ulong)]
-
 
 def is_os_64bit():
     return platform.machine().endswith("64")
@@ -134,14 +188,6 @@ def nt_path_to_dos_path_ansi(nt_path: str) -> str:
 
 def NT_SUCCESS(val):
     return val >= 0
-
-
-class UNICODE_STRING(Structure):
-    _fields_ = [
-        ("Length", c_ushort),
-        ("MaximumLength", c_ushort),
-        ("Buffer", c_void_p),
-    ]
 
 
 class Process:
@@ -386,10 +432,7 @@ class Process:
             sys_file = os.path.join(Path.cwd(), "dll", "zer0m0n.sys")
         exe_file = os.path.join(Path.cwd(), "dll", "logs_dispatcher.exe")
         if not os.path.isfile(sys_file) or not os.path.isfile(exe_file):
-            log.warning(
-                "No valid zer0m0n files to be used for process with pid %d, injection aborted",
-                self.pid,
-            )
+            log.warning("No valid zer0m0n files to be used for process with pid %d, injection aborted", self.pid)
             return False
 
         exe_name = service_name = driver_name = random_string(6)
@@ -489,6 +532,7 @@ class Process:
         hFile = KERNEL32.CreateFileW(PATH_KERNEL_DRIVER, GENERIC_READ | GENERIC_WRITE, 0, None, OPEN_EXISTING, 0, None)
         if os_is_64bit:
             KERNEL32.Wow64RevertWow64FsRedirection(wow64)
+
         if hFile and hFile != HANDLE(-1).value:
             p = Process(pid=os.getpid())
             ppid = p.get_parent_pid()
@@ -508,7 +552,9 @@ class Process:
                 elif proc_info.sz_exeFile == "VBoxTray.exe":
                     pid_vboxtray = proc_info.th32ProcessID
                     log.info("VBoxTray.exe found!")
+
                 flag = KERNEL32.Process32Next(snapshot, byref(proc_info))
+
             bytes_returned = c_ulong(0)
             msg = f"{self.pid}_{ppid}_{os.getpid()}_{pi.dwProcessId}_{pid_vboxservice}_{pid_vboxtray}\0"
             KERNEL32.DeviceIoControl(hFile, IOCTL_PID, msg, len(msg), None, 0, byref(bytes_returned), None)
@@ -518,6 +564,72 @@ class Process:
             log.warning("Failed to access kernel driver")
 
         return True
+
+    def build_parent_attribute_list(self) -> Tuple[LPVOID, Array[c_char], HANDLE]:
+        cb_attribute_list_size = SIZE_T(0)
+        ok = KERNEL32.InitializeProcThreadAttributeList(None, 1, 0, byref(cb_attribute_list_size))
+        if ok or get_last_error() != ERROR_INSUFFICIENT_BUFFER or cb_attribute_list_size.value == 0:
+            log.error("InitializeProcThreadAttributeList(size probe)")
+
+        attr_buf = create_string_buffer(cb_attribute_list_size.value)
+        attr_list = cast(attr_buf, LPVOID)
+
+        if not KERNEL32.InitializeProcThreadAttributeList(attr_list, 1, 0, byref(cb_attribute_list_size)):
+            log.error("InitializeProcThreadAttributeList(init)")
+
+        log.info("Successfully called InitializeProcThreadAttributeList")
+        hwnd = windll.user32.GetShellWindow()
+        explorer_pid = DWORD()
+        windll.user32.GetWindowThreadProcessId(hwnd, byref(explorer_pid))
+        log.info(f"Explorer PID: {explorer_pid.value}")
+
+        raw_parent = KERNEL32.OpenProcess(PROCESS_CREATE_PROCESS, False, explorer_pid)
+        if not raw_parent:
+            KERNEL32.DeleteProcThreadAttributeList(attr_list)
+            log.error("OpenProcess")
+
+        h_parent = HANDLE(raw_parent)
+        if not KERNEL32.UpdateProcThreadAttribute(
+            attr_list,
+            0,
+            PROC_THREAD_ATTRIBUTE_PARENT_PROCESS,
+            byref(h_parent),
+            sizeof(HANDLE),
+            None,
+            None,
+        ):
+            KERNEL32.CloseHandle(h_parent)
+            KERNEL32.DeleteProcThreadAttributeList(attr_list)
+            log.error("UpdateProcThreadAttribute")
+
+        log.info("build_parent_attribute_list returning")
+        return attr_list, attr_buf, h_parent
+
+    def log_process_tree(self, process_name):
+        if not process_name:
+            return
+
+        cmd = [
+            "powershell.exe",
+            "-NoProfile",
+            "-Command",
+            f"Get-CimInstance Win32_Process -Filter \"Name='{process_name}'\" | "
+            "ForEach-Object { "
+            "$parent = Get-CimInstance Win32_Process -Filter \"ProcessId=$($_.ParentProcessId)\"; "
+            "[PSCustomObject]@{ "
+            "ProcessId = $_.ProcessId; "
+            "Name = $_.Name; "
+            "ParentProcessId = $_.ParentProcessId; "
+            "ParentName = $parent.Name "
+            "} "
+            "} | Format-Table -AutoSize",
+        ]
+        try:
+            output = subprocess.check_output(cmd, stderr=subprocess.STDOUT, text=True)
+            if output.strip():
+                log.info("%s process info:\n%s", process_name, output.strip())
+        except subprocess.CalledProcessError as e:
+            log.error("Failed to collect %s process info: %s", process_name, e.output)
 
     def execute(self, path, args=None, suspended=False, kernel_analysis=False):
         """Execute sample process.
@@ -530,12 +642,14 @@ class Process:
             log.error('Unable to access file at path "%s", execution aborted', path)
             return False
 
-        startup_info = STARTUPINFO()
-        startup_info.cb = sizeof(startup_info)
+        startup_info = STARTUPINFOEXW()
+        startup_info.StartupInfo.cb = sizeof(STARTUPINFOEXW)
+        attr_list, attr_buf, h_parent = self.build_parent_attribute_list()
+        startup_info.lpAttributeList = attr_list
         # STARTF_USESHOWWINDOW
-        startup_info.dwFlags = 1
+        startup_info.StartupInfo.dwFlags = 1
         # SW_SHOWNORMAL
-        startup_info.wShowWindow = 1
+        startup_info.StartupInfo.wShowWindow = 1
         process_info = PROCESS_INFORMATION()
 
         arguments = f'"{path}" '
@@ -544,7 +658,7 @@ class Process:
 
         self.path = path
 
-        creation_flags = CREATE_NEW_CONSOLE
+        creation_flags = CREATE_NEW_CONSOLE | EXTENDED_STARTUPINFO_PRESENT
         if suspended:
             self.suspended = True
             creation_flags += CREATE_SUSPENDED
@@ -557,8 +671,11 @@ class Process:
         create_custom_folders(execution_directory)
 
         created = KERNEL32.CreateProcessW(
-            path, arguments, None, None, None, creation_flags, None, execution_directory, byref(startup_info), byref(process_info)
+            path, arguments, None, None, False, creation_flags, None, execution_directory, byref(startup_info), byref(process_info)
         )
+
+        KERNEL32.CloseHandle(h_parent)
+        KERNEL32.DeleteProcThreadAttributeList(attr_list)
 
         if created:
             self.pid = process_info.dwProcessId
@@ -566,8 +683,10 @@ class Process:
             self.thread_id = process_info.dwThreadId
             self.h_thread = process_info.hThread
             log.info('Successfully executed process from path "%s" with arguments "%s" with pid %d', path, args or "", self.pid)
+            # self.log_process_tree(os.path.basename(path))
             if kernel_analysis:
                 return self.kernel_analyze()
+
             return True
         else:
             log.error(

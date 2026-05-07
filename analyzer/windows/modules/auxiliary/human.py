@@ -11,7 +11,7 @@ import time
 import math
 import re
 import traceback
-from ctypes import POINTER, WINFUNCTYPE, byref, c_bool, c_int, c_size_t, create_unicode_buffer, memmove, sizeof, wintypes
+from ctypes import WINFUNCTYPE, byref, c_bool, c_size_t, create_unicode_buffer, memmove, sizeof, wintypes
 from datetime import datetime, timedelta
 from math import floor
 from threading import Thread
@@ -22,7 +22,6 @@ from lib.common.defines import (
     BM_GETCHECK,
     BM_SETCHECK,
     BST_CHECKED,
-    CF_TEXT,
     GMEM_MOVEABLE,
     KERNEL32,
     USER32,

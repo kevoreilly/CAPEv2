@@ -2024,7 +2024,7 @@ def report(request, task_id):
             if es_query["hits"]["total"]["value"] > 0:
                 query_res = es_query["hits"]["hits"][0]
                 es_report = query_res["_source"]
-                
+
                 # Merge ES data into existing report (preserving custom fields from MongoDB)
                 if report:
                     for key, value in es_report.items():
@@ -2045,7 +2045,7 @@ def report(request, task_id):
                 # Extract out data for Admin tab in the analysis page
                 esdata = {"index": query_res["_index"], "id": query_res["_id"]}
                 report["es"] = esdata
-        except Exception as e:
+        except Exception:
             pass
     if not report:
         if DISABLED_WEB:
@@ -2119,7 +2119,7 @@ def report(request, task_id):
             )
             if agg_results:
                 report.update(agg_results[0])
-        except Exception as e:
+        except Exception:
             for val in ("dropped", "procdump", "CAPE", "procmemory"):
                 report[val] = 0
 
@@ -2132,7 +2132,7 @@ def report(request, task_id):
                 report["procdump"] = len(source.get("procdump") or [])
                 report["CAPE"] = len(source.get("CAPE", {}).get("payloads") or [])
                 report["procmemory"] = len(source.get("procmemory") or [])
-        except Exception as e:
+        except Exception:
             pass
 
     try:
@@ -2145,7 +2145,7 @@ def report(request, task_id):
             report["memory"] = len(
                 es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["memory"])["hits"]["hits"]
             )
-    except Exception as e:
+    except Exception:
         pass
 
     reports_exist = {}
@@ -2235,7 +2235,7 @@ def report(request, task_id):
             domains = network_report["network"]["domains"][:1000]
             domainlookups = {i["domain"]: i["ip"] for i in domains}
             iplookups = {i["ip"]: i["domain"] for i in domains}
-        
+
         if "dns" in network_report["network"] and network_report["network"]["dns"]:
             dns = network_report["network"]["dns"][:1000]
             for i in dns:
@@ -2252,7 +2252,7 @@ def report(request, task_id):
                         "name": res_data["name"],
                         "task_id": res_data["task_id"]
                     }
-        except Exception as e:
+        except Exception:
             pass
 
     stats_total = {
@@ -3333,7 +3333,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     },
                     status=413,
                 )
-            except Exception as e:
+            except Exception:
                 return render(
                     request,
                     "error.html",

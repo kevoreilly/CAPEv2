@@ -159,7 +159,7 @@ def mongo_find(collection: str, query, projection=False, sort=None, limit=None, 
 def mongo_find_one(collection: str, query, projection=False, sort=None, max_time_ms=None, no_hooks=False):
     if sort is None:
         sort = [("_id", -1)]
-
+    
     kwargs = {"sort": sort}
     if max_time_ms:
         kwargs["max_time_ms"] = max_time_ms
@@ -168,11 +168,11 @@ def mongo_find_one(collection: str, query, projection=False, sort=None, max_time
         result = getattr(results_db, collection).find_one(query, projection, **kwargs)
     else:
         result = getattr(results_db, collection).find_one(query, **kwargs)
-
+    
     if result and not no_hooks:
         for hook in hooks[mongo_find_one][collection]:
             result = hook(result)
-
+    
     return result
 
 

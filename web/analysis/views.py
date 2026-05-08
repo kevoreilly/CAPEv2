@@ -58,10 +58,13 @@ except ImportError:
 
 from lib.cuckoo.common.webadmin_utils import disable_user
 
+# Support for custom on-demand services
 try:
+    if settings.CUCKOO_PATH not in sys.path:
+        sys.path.append(settings.CUCKOO_PATH)
     from custom.analysis_services import CUSTOM_SERVICES, handle_custom_service
 except ImportError:
-    CUSTOM_SERVICES = {}
+    CUSTOM_SERVICES = []
     handle_custom_service = None
 
 try:
@@ -1952,34 +1955,40 @@ def report(request, task_id):
         # Added 10s timeout to prevent worker hang
         # Re-enabling hooks because we fixed the infinite loop in denormalize_files
         # and we need the hook to populate 'target' hashes from the files collection.
+        projection = {
+            "info": 1,
+            "target": 1,
+            "signatures": 1,
+            "malscore": 1,
+            "malstatus": 1,
+            "detections": 1,
+            "trid": 1,
+            "virustotal": 1,
+            "virustotal_summary": 1,
+            "malware_conf": 1,
+            "CAPE.configs": 1,
+            "capa_summary": 1,
+            "curtain": 1,
+            "mitre_attck": 1,
+            "statistics": 1,
+            "shots": 1,
+            "debug": 1,
+            "behavior.summary": 1,
+            "network.domains": 1,
+            "network.dns": 1,
+            "network.hosts": 1,
+            "reversinglabs": 1,
+            "tcr_config_lookup": 1,
+            "_id": 0,
+        }
+        if CUSTOM_SERVICES:
+            for service in CUSTOM_SERVICES:
+                projection[service] = 1
+
         report = mongo_find_one(
             "analysis",
             {"info.id": int(task_id)},
-            {
-                "info": 1,
-                "target": 1,
-                "signatures": 1,
-                "malscore": 1,
-                "malstatus": 1,
-                "detections": 1,
-                "trid": 1,
-                "virustotal": 1,
-                "virustotal_summary": 1,
-                "malware_conf": 1,
-                "CAPE.configs": 1,
-                "capa_summary": 1,
-                "curtain": 1,
-                "mitre_attck": 1,
-                "statistics": 1,
-                "shots": 1,
-                "debug": 1,
-                "behavior.summary": 1,
-                "network.domains": 1,
-                "network.dns": 1,
-                "network.hosts": 1,
-                "reversinglabs": 1,
-                "_id": 0,
-            },
+            projection,
             sort=[("_id", -1)],
             max_time_ms=10000,
             no_hooks=False,
@@ -2014,7 +2023,16 @@ def report(request, task_id):
             es_query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))
             if es_query["hits"]["total"]["value"] > 0:
                 query_res = es_query["hits"]["hits"][0]
-                report = query_res["_source"]
+                es_report = query_res["_source"]
+                
+                # Merge ES data into existing report (preserving custom fields from MongoDB)
+                if report:
+                    for key, value in es_report.items():
+                        if key not in report or report[key] is None:
+                            report[key] = value
+                else:
+                    report = es_report
+
                 # Extract out data for Admin tab in the analysis page
                 net_res = es.search(
                     index=get_analysis_index(),
@@ -2028,7 +2046,7 @@ def report(request, task_id):
                 esdata = {"index": query_res["_index"], "id": query_res["_id"]}
                 report["es"] = esdata
         except Exception as e:
-            sys.stderr.write(f"ES Report Load Error: {e}\n")
+            pass
     if not report:
         if DISABLED_WEB:
             msg = "You need to enable Mongodb/ES to be able to use WEBGUI to see the analysis"
@@ -2102,7 +2120,6 @@ def report(request, task_id):
             if agg_results:
                 report.update(agg_results[0])
         except Exception as e:
-            sys.stderr.write(f"MongoDB Aggregation Error: {e}\n")
             for val in ("dropped", "procdump", "CAPE", "procmemory"):
                 report[val] = 0
 
@@ -2116,7 +2133,7 @@ def report(request, task_id):
                 report["CAPE"] = len(source.get("CAPE", {}).get("payloads") or [])
                 report["procmemory"] = len(source.get("procmemory") or [])
         except Exception as e:
-            sys.stderr.write(f"ES Count Error: {e}\n")
+            pass
 
     try:
         if enabledconf["mongodb"]:
@@ -2129,7 +2146,7 @@ def report(request, task_id):
                 es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["memory"])["hits"]["hits"]
             )
     except Exception as e:
-        sys.stderr.write(f"Memory check Error: {e}\n")
+        pass
 
     reports_exist = {}
     # check if we allow dl reports only to specific users
@@ -2236,7 +2253,7 @@ def report(request, task_id):
                         "task_id": res_data["task_id"]
                     }
         except Exception as e:
-            sys.stderr.write(f"Distributed API Error: {e}\n")
+            pass
 
     stats_total = {
         "total": 0,
@@ -3185,6 +3202,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     if category not in allowed_categories:
         return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
 
+    details = False
     if service in CUSTOM_SERVICES and handle_custom_service:
         details, category = handle_custom_service(service, task_id, sha256)
     else:
@@ -3274,15 +3292,18 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         return False
 
     if details is not False:
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
+        # Use no_hooks=True to avoid running heavy hooks just to get the _id for update
+        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1}, no_hooks=True)
+        if not buf:
+            return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
 
         servicedata = {}
         if category == "CAPE":
-            _set_service_by_sha256(buf[category].get("payloads", []) or [], sha256, service, details)
-            servicedata = buf[category]
+            _set_service_by_sha256(buf.get(category, {}).get("payloads", []) or [], sha256, service, details)
+            servicedata = buf.get(category)
         elif category in ("procdump", "procmemory", "dropped"):
-            _set_service_by_sha256(buf[category] or [], sha256, service, details)
-            servicedata = buf[category]
+            _set_service_by_sha256(buf.get(category) or [], sha256, service, details)
+            servicedata = buf.get(category)
         elif category == "target.file":
             servicedata = buf.get("target", {}).get("file", {})
             if servicedata:
@@ -3313,7 +3334,6 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     status=413,
                 )
             except Exception as e:
-                print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
                 return render(
                     request,
                     "error.html",

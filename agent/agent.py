@@ -45,7 +45,7 @@ if sys.version_info[:2] < (3, 6):
 #if sys.maxsize > 2**32 and sys.platform == "win32":
 #    sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.20"
+AGENT_VERSION = "0.21"
 AGENT_FEATURES = [
     "execpy",
     "execute",

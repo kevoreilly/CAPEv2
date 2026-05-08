@@ -225,10 +225,8 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None):
 
     new = task.to_dict()
     if new["category"] in ("file", "pcap", "static") and new["sample_id"] is not None:
-        if hasattr(task, "sample") and task.sample:
+        if task.sample:
             new["sample"] = task.sample.to_dict()
-        else:
-            new["sample"] = db.view_sample(new["sample_id"]).to_dict()
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
 

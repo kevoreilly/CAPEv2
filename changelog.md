@@ -1,3 +1,6 @@
+### [08.05.2026]
+* Monitor update: fix COM hooks
+
 ### [05.05.2026]
 * Monitor updates:
     * Instrumentation callback: refine dll filtering and add kernelbase.dll (syscall hooks)

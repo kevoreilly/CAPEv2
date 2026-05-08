@@ -37,10 +37,10 @@ if repconf.mongodb.enabled:
             )
             # Ping the server to ensure it's alive
             client.admin.command('ping')
-            log.info(f"Successfully connected to MongoDB at {host}:{port}")
+            log.info("Successfully connected to MongoDB at %s:%s", host, port)
             return client
         except (ConnectionFailure, ServerSelectionTimeoutError) as e:
-            log.error(f"Cannot connect to MongoDB: {e}")
+            log.error("Cannot connect to MongoDB: %s", e)
         except Exception as e:
             log.warning("Unable to connect to MongoDB database: %s, %s", mdb, e)
 

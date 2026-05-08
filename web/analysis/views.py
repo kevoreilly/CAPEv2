@@ -2218,7 +2218,7 @@ def report(request, task_id):
             domains = network_report["network"]["domains"][:1000]
             domainlookups = {i["domain"]: i["ip"] for i in domains}
             iplookups = {i["ip"]: i["domain"] for i in domains}
-        
+
         if "dns" in network_report["network"] and network_report["network"]["dns"]:
             dns = network_report["network"]["dns"][:1000]
             for i in dns:

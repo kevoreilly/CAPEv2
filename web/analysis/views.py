@@ -3269,22 +3269,23 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
 
         servicedata = {}
-        if category == "CAPE":
-            _set_service_by_sha256(buf[category].get("payloads", []) or [], sha256, service, details)
-            servicedata = buf[category]
-        elif category in ("procdump", "procmemory", "dropped"):
-            _set_service_by_sha256(buf[category] or [], sha256, service, details)
-            servicedata = buf[category]
-        elif category == "target.file":
-            servicedata = buf.get("target", {}).get("file", {})
-            if servicedata:
-                if service == "xlsdeobf":
-                    servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
-                elif extractedfile:
-                    _set_service_by_sha256(servicedata, sha256, service, details)
-                else:
-                    servicedata.setdefault(service, details)
-            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
+        try:
+            if category == "CAPE":
+                _set_service_by_sha256(buf[category].get("payloads", []) or [], sha256, service, details)
+                servicedata = buf[category]
+            elif category in ("procdump", "procmemory", "dropped"):
+                _set_service_by_sha256(buf[category] or [], sha256, service, details)
+                servicedata = buf[category]
+            elif category == "target.file":
+                servicedata = buf.get("target", {}).get("file", {})
+                if servicedata:
+                    if service == "xlsdeobf":
+                        servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+                    elif extractedfile:
+                        _set_service_by_sha256(servicedata, sha256, service, details)
+                    else:
+                        servicedata.setdefault(service, details)
+                mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
         except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
             return render(
                 request,

@@ -252,7 +252,6 @@ INSTALLED_APPS = [
     "analysis",
     "compare",
     "apiv2",
-    "decode",
     "users",
     "django_extensions",
     # 'django_otp',
@@ -265,7 +264,7 @@ INSTALLED_APPS = [
     # Keeping this as example but disabling as some of them has extra dependencies. Check official docs.
     # "allauth.socialaccount.providers.github",
     # "allauth.socialaccount.providers.gitlab",
-    "allauth.socialaccount.providers.google",
+    # "allauth.socialaccount.providers.google",
     # "allauth.socialaccount.providers.microsoft",
     "crispy_forms",
     "crispy_bootstrap4",
@@ -375,7 +374,7 @@ if web_cfg.registration.get("disposable_email_disable", False):
 
 if web_cfg.registration.get("captcha_enabled", False):
     ACCOUNT_SIGNUP_FORM_CLASS = "web.allauth_forms.CaptchedSignUpForm"
-SOCIALACCOUNT_FORMS = {"signup": "web.allauth_forms.MyCustomSocialSignupForm"}
+# SOCIALACCOUNT_FORMS = {"signup": "web.allauth_forms.MyCustomSocialSignupForm"}
 
 # Fix to avoid migration warning in django 1.7 about test runner (1_6.W001).
 # In future it could be removed: https://code.djangoproject.com/ticket/23469

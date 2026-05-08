@@ -130,7 +130,6 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 DIST_ENABLED = False
 if dist_conf.distributed.enabled:
     from lib.cuckoo.common.dist_db import create_session
-    from lib.cuckoo.common.dist_db import Task as DTask
 
     dist_session = create_session(
         dist_conf.distributed.db,

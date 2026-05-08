@@ -6,6 +6,7 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import zipfile
 from datetime import datetime, timedelta
 from io import BytesIO
@@ -1653,34 +1654,260 @@ def tasks_pcap(request, task_id):
         return Response(resp)
 
 
-@csrf_exempt
-@api_view(["GET"])
-def tasks_tlspcap(request, task_id):
-    if not apiconf.tasktlspcap.get("enabled"):
-        resp = {"error": True, "error_value": "TLS PCAP download API is disabled"}
-        return Response(resp)
+def _resolve_task_id(task_id, enabled_key, check_tlp=True):
+    """Shared preamble for artifact-download endpoints.
 
+    Returns ((task_id, None)) on success or ((None, Response(error))) on failure.
+    `enabled_key` names the apiconf section that gates the endpoint; callers
+    that want to share a gate (e.g. all pcap variants under [taskpcap]) reuse
+    the same key. TLP:RED checks are skipped only for endpoints that need
+    to serve regardless (none at present)."""
+    section = getattr(apiconf, enabled_key, None)
+    if section is not None and not section.get("enabled"):
+        return None, Response({"error": True, "error_value": "%s download API is disabled" % enabled_key})
     check = validate_task(task_id)
     if check["error"]:
-        return Response(check)
-
+        return None, Response(check)
+    if check_tlp and (check.get("tlp") or "").lower() == "red":
+        return None, Response({"error": True, "error_value": "Task has a TLP of RED"})
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+    return task_id, None
 
-    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
+
+def _serve_analysis_file(task_id, rel_path, download_name, content_type="application/octet-stream"):
+    """Stream `<analysis>/<rel_path>` back as an attachment. Returns a Response
+    object (either a StreamingHttpResponse for success, or a JSON error)."""
+    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, rel_path)
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
-    if path_exists(srcfile):
-        fname = "%s_tls.pcap" % task_id
-        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
-        resp["Content-Length"] = os.path.getsize(srcfile)
-        resp["Content-Disposition"] = "attachment; filename=" + fname
-        return resp
+        return Response({"error": True, "error_value": "Invalid path"})
+    if not path_exists(srcfile) or os.path.getsize(srcfile) == 0:
+        return Response({"error": True, "error_value": f"{os.path.basename(rel_path)} does not exist"})
+    resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8192), content_type=content_type)
+    resp["Content-Length"] = os.path.getsize(srcfile)
+    resp["Content-Disposition"] = f"attachment; filename={task_id}_{download_name}"
+    return resp
 
-    else:
-        resp = {"error": True, "error_value": "TLS PCAP does not exist"}
-        return Response(resp)
+
+def _zip_paths(task_id, pairs, download_name):
+    """Zip (archive_name, absolute_path) pairs into a disk-backed temporary archive and
+    return it as a StreamingHttpResponse. Missing / empty sources are skipped."""
+    buf = tempfile.NamedTemporaryFile(delete=True)
+    written = 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for arcname, p in pairs:
+            if path_exists(p) and os.path.getsize(p) > 0:
+                zf.write(p, arcname)
+                written += 1
+    if not written:
+        buf.close()
+        return Response({"error": True, "error_value": "No artifacts available for this task"})
+    buf.seek(0, os.SEEK_END)
+    size = buf.tell()
+    buf.seek(0)
+    resp = StreamingHttpResponse(FileWrapper(buf, 8192), content_type="application/zip")
+    resp["Content-Length"] = size
+    resp["Content-Disposition"] = f"attachment; filename={task_id}_{download_name}"
+    return resp
+
+
+def _serve_folder_zip(task_id, rel_folder, download_name, empty_msg=None):
+    """Encrypt-zip an entire directory under the analysis dir and stream it.
+    Uses `create_zip` (password = ZIP_PWD) for parity with tasks_dropped /
+    tasks_payloadfiles. Returns a Response with a JSON error if the folder
+    doesn't exist or is empty."""
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, rel_folder)
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return Response({"error": True, "error_value": "Invalid path"})
+    if not path_exists(srcdir) or not os.listdir(srcdir):
+        return Response({"error": True, "error_value": empty_msg or f"No {rel_folder} artifacts for task {task_id}"})
+    mem_zip = create_zip(folder=srcdir, encrypted=True, temp_file=True)
+    if mem_zip is False:
+        return Response({"error": True, "error_value": "Can't create zip archive"})
+    mem_zip.seek(0, os.SEEK_END)
+    size = mem_zip.tell()
+    mem_zip.seek(0)
+    resp = StreamingHttpResponse(FileWrapper(mem_zip, 8192), content_type="application/zip")
+    resp["Content-Length"] = size
+    resp["Content-Disposition"] = f"attachment; filename={task_id}_{download_name}"
+    return resp
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_tlspcap(request, task_id):
+    """Back-compat endpoint: originally served PolarProxy's tls.pcap. We've
+    since moved to SSLproxy + GoGoRoboCap which produces dump_decrypted.pcap;
+    prefer that, but fall back to the legacy path for old analyses."""
+    task_id, err = _resolve_task_id(task_id, "tasktlspcap", check_tlp=False)
+    if err:
+        return err
+
+    decrypted = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump_decrypted.pcap")
+    legacy = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
+    for srcfile, fname in ((decrypted, "dump_decrypted.pcap"), (legacy, "tls.pcap")):
+        if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
+            continue
+        if path_exists(srcfile) and os.path.getsize(srcfile) > 0:
+            resp = StreamingHttpResponse(
+                FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap"
+            )
+            resp["Content-Length"] = os.path.getsize(srcfile)
+            resp["Content-Disposition"] = f"attachment; filename={task_id}_{fname}"
+            return resp
+    return Response({"error": True, "error_value": "TLS PCAP does not exist"})
+
+
+# Variant tables used by the consolidated dispatcher endpoints. Each handler
+# validates <variant> against a whitelist before touching the filesystem so
+# the URL parameter can't be used to probe paths outside the analysis dir.
+
+_PCAP_VARIANTS = {
+    "decrypted": ("dump_decrypted.pcap", "dump_decrypted.pcap"),
+    "mixed": ("dump_mixed.pcap", "dump_mixed.pcap"),
+    "sslproxy": (os.path.join("sslproxy", "sslproxy.pcap"), "sslproxy.pcap"),
+}
+
+_KEY_SOURCES = {
+    "tls": (os.path.join("tlsdump", "tlsdump.log"), "tlsdump.log"),
+    "ssl": (os.path.join("aux", "sslkeylogfile", "sslkeys.log"), "sslkeys.log"),
+    "master": (os.path.join("sslproxy", "master_keys.log"), "master_keys.log"),
+}
+
+_ETW_JSON_SOURCES = {
+    "dns": (os.path.join("aux", "dns_etw.json"), "dns_etw.json"),
+    "network": (os.path.join("aux", "network_etw.json"), "network_etw.json"),
+    "wmi": (os.path.join("aux", "wmi_etw.json"), "wmi_etw.json"),
+}
+
+_BULKZIP_FOLDERS = {"logs", "network", "memory", "selfextracted"}
+
+
+def _pcapng_response(task_id):
+    """On-the-fly PCAPNG with TLS keylog records embedded. Output goes to
+    a per-request tempfile — concurrent callers must not race on a shared
+    path inside the analysis dir."""
+    try:
+        from lib.cuckoo.common.pcap_utils import PcapToNg
+    except ImportError:
+        return Response({"error": True, "error_value": "PCAPNG conversion helper unavailable"})
+    adir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id)
+    pcap_path = os.path.join(adir, "dump.pcap")
+    if not path_exists(pcap_path):
+        return Response({"error": True, "error_value": "dump.pcap does not exist"})
+    tls_log_path = os.path.join(adir, "tlsdump", "tlsdump.log")
+    ssl_key_log_path = os.path.join(adir, "aux", "sslkeylogfile", "sslkeys.log")
+    tmp = tempfile.NamedTemporaryFile(prefix=f"{task_id}_pcapng_", suffix=".pcapng", delete=False)
+    tmp.close()
+    try:
+        PcapToNg(pcap_path, tls_log_path, ssl_key_log_path).generate(tmp.name)
+        if not path_exists(tmp.name) or os.path.getsize(tmp.name) == 0:
+            return Response({"error": True, "error_value": "PCAPNG generation failed"})
+        size = os.path.getsize(tmp.name)
+        # Hand the open fd to the streaming response; unlinking the path now
+        # keeps the fd alive through streaming and lets the kernel reclaim
+        # the inode as soon as the response finishes.
+        fd = open(tmp.name, "rb")
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        resp = StreamingHttpResponse(FileWrapper(fd, 8192), content_type="application/x-pcapng")
+        resp["Content-Length"] = size
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_dump.pcapng"
+        return resp
+    except Exception:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        raise
+
+
+def _pcapzip_response(task_id):
+    """Zip every available pcap variant (original, decrypted, mixed, sslproxy
+    raw, sslproxy cleaned). Variants that are missing or empty are silently
+    dropped so consumers only receive what actually ran."""
+    adir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id)
+    pairs = [
+        ("dump.pcap", os.path.join(adir, "dump.pcap")),
+        ("dump_decrypted.pcap", os.path.join(adir, "dump_decrypted.pcap")),
+        ("dump_mixed.pcap", os.path.join(adir, "dump_mixed.pcap")),
+        ("sslproxy.pcap", os.path.join(adir, "sslproxy", "sslproxy.pcap")),
+        ("sslproxy_clean.pcap", os.path.join(adir, "sslproxy", "sslproxy_clean.pcap")),
+    ]
+    return _zip_paths(task_id, pairs, "pcaps.zip")
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_pcap_variant(request, task_id, variant):
+    """Alternate PCAP artifacts for <task_id>. variant ∈
+    {decrypted, mixed, sslproxy, zip, pcapng}. The bare tasks/get/pcap/<id>/
+    remains for back-compat with existing callers (serves dump.pcap)."""
+    task_id, err = _resolve_task_id(task_id, "taskpcap")
+    if err:
+        return err
+    v = (variant or "").lower()
+    if v in _PCAP_VARIANTS:
+        rel_path, fname = _PCAP_VARIANTS[v]
+        return _serve_analysis_file(task_id, rel_path, fname, content_type="application/vnd.tcpdump.pcap")
+    if v == "zip":
+        return _pcapzip_response(task_id)
+    if v == "pcapng":
+        return _pcapng_response(task_id)
+    return Response({"error": True, "error_value": f"Unknown pcap variant: {variant}"})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_keys(request, task_id, kind):
+    """TLS keylog material. kind ∈ {tls, ssl, master} — each refers to a
+    different hook source (tls: MockSSL → tlsdump.log; ssl: bcrypt/NCrypt →
+    aux/sslkeylogfile/sslkeys.log; master: SSLproxy → master_keys.log).
+    All three are NSS-format keylogs."""
+    task_id, err = _resolve_task_id(task_id, "tasktlskeys")
+    if err:
+        return err
+    k = (kind or "").lower()
+    if k not in _KEY_SOURCES:
+        return Response({"error": True, "error_value": f"Unknown keys kind: {kind}"})
+    rel_path, fname = _KEY_SOURCES[k]
+    return _serve_analysis_file(task_id, rel_path, fname, content_type="text/plain")
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_etw(request, task_id, kind):
+    """ETW telemetry downloads. kind ∈ {dns, network, wmi} each map to an
+    NDJSON stream; kind == amsi zips the per-buffer AMSI script captures."""
+    task_id, err = _resolve_task_id(task_id, "tasketw")
+    if err:
+        return err
+    k = (kind or "").lower()
+    if k in _ETW_JSON_SOURCES:
+        rel_path, fname = _ETW_JSON_SOURCES[k]
+        return _serve_analysis_file(task_id, rel_path, fname, content_type="application/x-ndjson")
+    if k == "amsi":
+        return _serve_folder_zip(task_id, os.path.join("aux", "amsi_etw"), "amsi_etw.zip")
+    return Response({"error": True, "error_value": f"Unknown etw kind: {kind}"})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_bulkzip(request, task_id, folder):
+    """Encrypt-zip an entire analysis subdirectory. folder is whitelisted
+    to {logs, network, memory, selfextracted}. Archive is AES-encrypted
+    with ZIP_PWD for parity with tasks_dropped / tasks_payloadfiles /
+    tasks_procdumpfiles."""
+    task_id, err = _resolve_task_id(task_id, "taskbulkzip")
+    if err:
+        return err
+    f = (folder or "").lower()
+    if f not in _BULKZIP_FOLDERS:
+        return Response({"error": True, "error_value": f"Unknown bulkzip folder: {folder}"})
+    return _serve_folder_zip(task_id, f, f"{f}.zip")
 
 
 @csrf_exempt

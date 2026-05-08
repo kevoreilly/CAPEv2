@@ -1,3 +1,8 @@
+### [05.05.2026]
+* Monitor updates:
+    * Instrumentation callback: refine dll filtering and add kernelbase.dll (syscall hooks)
+    * Unpacker: refine entropy-based detection of shellcode within mapped images, don't drop tracked regions in FreeHandler()
+
 ### [26.03.2026]
 * Monitor update: RtlDispatchException hook: check module_name pointer before dereference
 * KVMRemote machinery updated and  moved to main repo

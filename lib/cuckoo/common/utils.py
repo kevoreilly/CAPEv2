@@ -135,27 +135,35 @@ def is_text_file(file_info, destination_folder, buf, file_data=False):
             return file_data.decode("latin-1")
 
 
-def create_zip(files=False, folder=False, encrypted=False):
+def create_zip(files=False, folder=False, encrypted=False, temp_file=False):
     """Utility function to create zip archive with file(s)
     @param files: file or list of files
     @param folder: path to folder to compress
     @param encrypted: create password protected and AES encrypted file
+    @param temp_file: if True, returns a tempfile.NamedTemporaryFile instead of BytesIO
     """
 
     if folder:
         # To avoid when we have only folder argument
         if not files:
             files = []
-        files += [os.path.join(folder, file) for file in os.listdir(folder)]
+        for root, _, fnames in os.walk(folder):
+            for fname in fnames:
+                files.append(os.path.join(root, fname))
 
     if not isinstance(files, list):
         files = [files]
 
-    mem_zip = BytesIO()
+    if temp_file:
+        mem_zip = tempfile.NamedTemporaryFile(delete=True)
+    else:
+        mem_zip = BytesIO()
+
     if encrypted and HAVE_PYZIPPER:
         zipper = pyzipper.AESZipFile(mem_zip, "w", compression=pyzipper.ZIP_DEFLATED, encryption=pyzipper.WZ_AES)
     else:
-        zipper = zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False)
+        zipper = zipfile.ZipFile(mem_zip, "w" if temp_file else "a", zipfile.ZIP_DEFLATED, False)
+
     with zipper as zf:
         if encrypted:
             zf.setpassword(zippwd)
@@ -164,8 +172,14 @@ def create_zip(files=False, folder=False, encrypted=False):
                 log.error("File does't exist: %s", file)
                 continue
 
-            parent_folder = os.path.dirname(file).rsplit(os.sep, 1)[-1]
-            path = os.path.join(parent_folder, os.path.basename(file))
+            if folder and file.startswith(folder):
+                rel_path = os.path.relpath(file, folder)
+                folder_basename = os.path.basename(os.path.normpath(folder))
+                path = os.path.join(folder_basename, rel_path)
+            else:
+                parent_folder = os.path.dirname(file).rsplit(os.sep, 1)[-1]
+                path = os.path.join(parent_folder, os.path.basename(file))
+
             zf.write(file, path)
 
     mem_zip.seek(0)

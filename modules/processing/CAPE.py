@@ -256,14 +256,6 @@ class CAPE(Processing):
 
         file_info["options_hash"] = options_hash
 
-        # GravityRAT is infector so it will produce a lot of files. we don't need them
-        if category == "dropped" and any("GravityRAT" in i.get("name", "") for i in file_info.get("cape_yara", [])):
-            # delete file and continue
-            log.info("GravityRAT detected, removing file: %s", file_path)
-            with suppress(OSError):
-                os.remove(file_path)
-            return
-
         if category in ("static", "file"):
             file_info["name"] = Path(self.task["target"]).name
 

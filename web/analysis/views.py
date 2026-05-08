@@ -1954,6 +1954,7 @@ def report(request, task_id):
                 "target": 1,
                 "signatures": 1,
                 "malscore": 1,
+                "malstatus": 1,
                 "detections": 1,
                 "trid": 1,
                 "virustotal": 1,
@@ -1965,6 +1966,12 @@ def report(request, task_id):
                 "mitre_attck": 1,
                 "statistics": 1,
                 "shots": 1,
+                "debug": 1,
+                "behavior.summary": 1,
+                "network.domains": 1,
+                "network.dns": 1,
+                "network.hosts": 1,
+                "reversinglabs": 1,
                 "_id": 0,
             },
             sort=[("_id", -1)],
@@ -3176,6 +3183,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     # Self Extracted support folder
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
+
     if not path_exists(path):
         extractedfile = False
         if category == "static":
@@ -3190,24 +3198,30 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         if category == "static":
             category = "target.file"
         extractedfile = True
+
     if path and (not _path_safe(path) or not path_exists(path)):
         return render(request, "error.html", {"error": "File not found: {}".format(path)})
+
     details = False
     if service == "flare_capa" and HAVE_FLARE_CAPA:
         # ToDo check if PE
         details = flare_capa_details(path, category.lower(), on_demand=True)
         if not details:
             details = {"msg": "No results"}
+
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
         vba2graph_func(path, task_id, sha256, on_demand=True)
+
     elif service == "strings" and HAVE_STRINGS:
         details = extract_strings(path, on_demand=True)
         if not details:
             details = {"strings": "No strings extracted"}
+
     elif service == "virustotal" and HAVE_VIRUSTOTAL:
         details = vt_lookup("file", sha256, on_demand=True)
         if not details:
             details = {"msg": "No results"}
+
     elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
         details = xlmdeobfuscate(path, task_id, on_demand=True)
         if not details:
@@ -3235,6 +3249,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         details = Floss(path, package, on_demand=True).run()
         if not details:
             details = {"msg": "No results"}
+
     def _set_service_by_sha256(node, target_sha256, service_name, service_details):
         if isinstance(node, dict):
             if node.get("sha256") == target_sha256:
@@ -3291,6 +3306,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 status=500,
             )
     del details
+
     return redirect("report", task_id=task_id)
 
 

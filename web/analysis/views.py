@@ -2218,7 +2218,7 @@ def report(request, task_id):
             domains = network_report["network"]["domains"][:1000]
             domainlookups = {i["domain"]: i["ip"] for i in domains}
             iplookups = {i["ip"]: i["domain"] for i in domains}
-
+        
         if "dns" in network_report["network"] and network_report["network"]["dns"]:
             dns = network_report["network"]["dns"][:1000]
             for i in dns:
@@ -3148,6 +3148,7 @@ on_demand_config_mapper = {
     "xlsdeobf": processing_cfg,
     "strings": processing_cfg,
     "floss": integrations_cfg,
+    "virustotal": integrations_cfg,
 }
 
 
@@ -3170,19 +3171,14 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     # 4. reload page
     """
 
-    if (
-        service not in (
-            "bingraph",
-            "flare_capa",
-            "vba2graph",
-            "virustotal",
-            "xlsdeobf",
-            "strings",
-            "floss",
-        )
-        and service not in CUSTOM_SERVICES
-    ) and not getattr(on_demand_config_mapper.get(service, {}), service).get("on_demand"):
-        return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
+    if service in CUSTOM_SERVICES:
+        pass
+    elif service in on_demand_config_mapper:
+        config_section = getattr(on_demand_config_mapper[service], service, {})
+        if not config_section.get("on_demand"):
+            return render(request, "error.html", {"error": f"{service} on demand is disabled in configuration"})
+    else:
+        return render(request, "error.html", {"error": f"Unsupported service: {service}"})
 
     # Restrict category to known report sections writable by this endpoint.
     allowed_categories = {"static", "CAPE", "procdump", "procmemory", "dropped"}
@@ -3277,7 +3273,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     return True
         return False
 
-    if details:
+    if details is not False:
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
 
         servicedata = {}
@@ -3296,7 +3292,12 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     _set_service_by_sha256(servicedata, sha256, service, details)
                 else:
                     servicedata.setdefault(service, details)
-        if servicedata:
+        elif service in CUSTOM_SERVICES:
+            servicedata = details
+            category = service
+
+        # Always try to save if details were found (even if empty) to mark the task as done
+        if servicedata is not None:
             try:
                 mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
             except MONGO_DOCUMENT_TOO_LARGE_ERRORS:

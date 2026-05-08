@@ -2023,7 +2023,6 @@ def report(request, task_id):
                 report["es"] = esdata
         except Exception as e:
             sys.stderr.write(f"ES Report Load Error: {e}\n")
-
     if not report:
         if DISABLED_WEB:
             msg = "You need to enable Mongodb/ES to be able to use WEBGUI to see the analysis"
@@ -3182,6 +3181,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
 
     # Self Extracted support folder
+    # Self Extracted support folder
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
 
     if not path_exists(path):
@@ -3244,6 +3244,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 print("Can't generate bingraph for {}: {}".format(sha256, e))
         except Exception as e:
             print("Bingraph on demand error:", e)
+
     elif service == "floss" and HAVE_FLOSS:
         package = get_task_package(task_id)
         details = Floss(path, package, on_demand=True).run()
@@ -3269,46 +3270,47 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1})
 
         servicedata = {}
-        try:
-            if category == "CAPE":
-                _set_service_by_sha256(buf[category].get("payloads", []) or [], sha256, service, details)
-                servicedata = buf[category]
-            elif category in ("procdump", "procmemory", "dropped"):
-                _set_service_by_sha256(buf[category] or [], sha256, service, details)
-                servicedata = buf[category]
-            elif category == "target.file":
-                servicedata = buf.get("target", {}).get("file", {})
-                if servicedata:
-                    if service == "xlsdeobf":
-                        servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
-                    elif extractedfile:
-                        _set_service_by_sha256(servicedata, sha256, service, details)
-                    else:
-                        servicedata.setdefault(service, details)
+        if category == "CAPE":
+            _set_service_by_sha256(buf[category].get("payloads", []) or [], sha256, service, details)
+            servicedata = buf[category]
+        elif category in ("procdump", "procmemory", "dropped"):
+            _set_service_by_sha256(buf[category] or [], sha256, service, details)
+            servicedata = buf[category]
+        elif category == "target.file":
+            servicedata = buf.get("target", {}).get("file", {})
+            if servicedata:
+                if service == "xlsdeobf":
+                    servicedata.setdefault("office", {}).setdefault("XLMMacroDeobfuscator", details)
+                elif extractedfile:
+                    _set_service_by_sha256(servicedata, sha256, service, details)
+                else:
+                    servicedata.setdefault(service, details)
+        if servicedata:
+            try:
                 mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
-        except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
-            return render(
-                request,
-                "error.html",
-                {
-                    "error": (
-                        f"Generated {service} data is too large to store for this file. "
-                        "Please narrow extraction scope or use offline extraction."
-                    )
-                },
-                status=413,
-            )
-        except Exception as e:
-            print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
-            return render(
-                request,
-                "error.html",
-                {"error": f"Failed to store generated {service} data."},
-                status=500,
-            )
-    del details
-
+            except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
+                return render(
+                    request,
+                    "error.html",
+                    {
+                        "error": (
+                            f"Generated {service} data is too large to store for this file. "
+                            "Please narrow extraction scope or use offline extraction."
+                        )
+                    },
+                    status=413,
+                )
+            except Exception as e:
+                print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
+                return render(
+                    request,
+                    "error.html",
+                    {"error": f"Failed to store generated {service} data."},
+                    status=500,
+                )
+        del details
     return redirect("report", task_id=task_id)
+
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

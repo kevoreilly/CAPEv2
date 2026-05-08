@@ -59,6 +59,12 @@ except ImportError:
 from lib.cuckoo.common.webadmin_utils import disable_user
 
 try:
+    from custom.analysis_services import CUSTOM_SERVICES, handle_custom_service
+except ImportError:
+    CUSTOM_SERVICES = {}
+    handle_custom_service = None
+
+try:
     import re2 as re
 except ImportError:
     import re
@@ -2207,12 +2213,14 @@ def report(request, task_id):
     if network_report.get("network", {}):
         report["network"] = network_report["network"]
 
-        if "domains" in network_report["network"]:
+        if "domains" in network_report["network"] and network_report["network"]["domains"]:
             # Optimization: Cap lookups to prevent timeouts on massive reports
             domains = network_report["network"]["domains"][:1000]
             domainlookups = {i["domain"]: i["ip"] for i in domains}
             iplookups = {i["ip"]: i["domain"] for i in domains}
-            dns = network_report["network"].get("dns", [])[:1000]
+        
+        if "dns" in network_report["network"] and network_report["network"]["dns"]:
+            dns = network_report["network"]["dns"][:1000]
             for i in dns:
                 for a in i.get("answers", []):
                     iplookups[a["data"]] = i["request"]
@@ -3162,17 +3170,18 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     # 4. reload page
     """
 
-    if service not in (
-        "bingraph",
-        "flare_capa",
-        "vba2graph",
-        "virustotal",
-        "xlsdeobf",
-        "strings",
-        "floss",
-    ) and not getattr(
-        on_demand_config_mapper.get(service, {}), service
-    ).get("on_demand"):
+    if (
+        service not in (
+            "bingraph",
+            "flare_capa",
+            "vba2graph",
+            "virustotal",
+            "xlsdeobf",
+            "strings",
+            "floss",
+        )
+        and service not in CUSTOM_SERVICES
+    ) and not getattr(on_demand_config_mapper.get(service, {}), service).get("on_demand"):
         return render(request, "error.html", {"error": "Not supported/enabled service on demand"})
 
     # Restrict category to known report sections writable by this endpoint.
@@ -3180,76 +3189,78 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     if category not in allowed_categories:
         return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
 
-    # Self Extracted support folder
-    # Self Extracted support folder
-    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
-
-    if not path_exists(path):
-        extractedfile = False
-        if category == "static":
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
-            category = "target.file"
-        elif category == "dropped":
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
-        else:
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
+    if service in CUSTOM_SERVICES and handle_custom_service:
+        details, category = handle_custom_service(service, task_id, sha256)
     else:
-        # selfextracted storage is shared by multiple categories; keep non-static category intact
-        if category == "static":
-            category = "target.file"
-        extractedfile = True
+        # Self Extracted support folder
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
 
-    if path and (not _path_safe(path) or not path_exists(path)):
-        return render(request, "error.html", {"error": "File not found: {}".format(path)})
+        if not path_exists(path):
+            extractedfile = False
+            if category == "static":
+                path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
+                category = "target.file"
+            elif category == "dropped":
+                path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
+            else:
+                path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
+        else:
+            # selfextracted storage is shared by multiple categories; keep non-static category intact
+            if category == "static":
+                category = "target.file"
+            extractedfile = True
 
-    details = False
-    if service == "flare_capa" and HAVE_FLARE_CAPA:
-        # ToDo check if PE
-        details = flare_capa_details(path, category.lower(), on_demand=True)
-        if not details:
-            details = {"msg": "No results"}
+        if path and (not _path_safe(path) or not path_exists(path)):
+            return render(request, "error.html", {"error": "File not found: {}".format(path)})
 
-    elif service == "vba2graph" and HAVE_VBA2GRAPH:
-        vba2graph_func(path, task_id, sha256, on_demand=True)
+        details = False
+        if service == "flare_capa" and HAVE_FLARE_CAPA:
+            # ToDo check if PE
+            details = flare_capa_details(path, category.lower(), on_demand=True)
+            if not details:
+                details = {"msg": "No results"}
 
-    elif service == "strings" and HAVE_STRINGS:
-        details = extract_strings(path, on_demand=True)
-        if not details:
-            details = {"strings": "No strings extracted"}
+        elif service == "vba2graph" and HAVE_VBA2GRAPH:
+            vba2graph_func(path, task_id, sha256, on_demand=True)
 
-    elif service == "virustotal" and HAVE_VIRUSTOTAL:
-        details = vt_lookup("file", sha256, on_demand=True)
-        if not details:
-            details = {"msg": "No results"}
+        elif service == "strings" and HAVE_STRINGS:
+            details = extract_strings(path, on_demand=True)
+            if not details:
+                details = {"strings": "No strings extracted"}
 
-    elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
-        details = xlmdeobfuscate(path, task_id, on_demand=True)
-        if not details:
-            details = {"msg": "No results"}
-    elif (
-        service == "bingraph"
-        and HAVE_BINGRAPH
-        and reporting_cfg.bingraph.enabled
-        and reporting_cfg.bingraph.on_demand
-        and not path_exists(os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph", sha256 + "-ent.svg"))
-    ):
-        bingraph_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph")
-        if not path_exists(bingraph_path):
-            path_mkdir(bingraph_path)
-        try:
-            bingraph_args_dict.update({"prefix": sha256, "files": [path], "save_dir": bingraph_path})
+        elif service == "virustotal" and HAVE_VIRUSTOTAL:
+            details = vt_lookup("file", sha256, on_demand=True)
+            if not details:
+                details = {"msg": "No results"}
+
+        elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
+            details = xlmdeobfuscate(path, task_id, on_demand=True)
+            if not details:
+                details = {"msg": "No results"}
+        elif (
+            service == "bingraph"
+            and HAVE_BINGRAPH
+            and reporting_cfg.bingraph.enabled
+            and reporting_cfg.bingraph.on_demand
+            and not path_exists(os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph", sha256 + "-ent.svg"))
+        ):
+            bingraph_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "bingraph")
+            if not path_exists(bingraph_path):
+                path_mkdir(bingraph_path)
             try:
-                bingraph_gen(bingraph_args_dict)
+                bingraph_args_dict.update({"prefix": sha256, "files": [path], "save_dir": bingraph_path})
+                try:
+                    bingraph_gen(bingraph_args_dict)
+                except Exception as e:
+                    print("Can't generate bingraph for {}: {}".format(sha256, e))
             except Exception as e:
-                print("Can't generate bingraph for {}: {}".format(sha256, e))
-        except Exception as e:
-            print("Bingraph on demand error:", e)
+                print("Bingraph on demand error:", e)
 
-    elif service == "floss" and HAVE_FLOSS:
-        package = get_task_package(task_id)
-        details = Floss(path, package, on_demand=True).run()
-        if not details:
-            details = {"msg": "No results"}
+        elif service == "floss" and HAVE_FLOSS:
+            package = get_task_package(task_id)
+            details = Floss(path, package, on_demand=True).run()
+            if not details:
+                details = {"msg": "No results"}
 
     def _set_service_by_sha256(node, target_sha256, service_name, service_details):
         if isinstance(node, dict):
@@ -3310,7 +3321,6 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 )
         del details
     return redirect("report", task_id=task_id)
-
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

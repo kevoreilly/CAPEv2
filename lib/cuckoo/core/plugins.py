@@ -271,7 +271,7 @@ class RunProcessing:
         task_opts = task.get("_options_parsed")
         if not isinstance(task_opts, dict):
             task_opts = get_options(task.get("options"))
-        self.dbg_only = option_dict_enabled(task_opts, "dbg_only")
+        self.minproc = option_dict_enabled(task_opts, "minproc")
 
     def process(self, module):
         """Run a processing module.
@@ -350,11 +350,11 @@ class RunProcessing:
         # If no modules are loaded, return an empty dictionary.
         if processing_list:
             processing_list.sort(key=lambda module: module.order)
-            if self.dbg_only:
+            if self.minproc:
                 allowed = {"AnalysisInfo", "BehaviorAnalysis", "Debug"}
                 processing_list = [module for module in processing_list if module.__name__ in allowed]
                 log.info(
-                    "dbg_only enabled for task %s: running minimal processing modules: %s",
+                    "minproc enabled for task %s: running minimal processing modules: %s",
                     self.task.get("id"),
                     ", ".join(module.__name__ for module in processing_list) or "none",
                 )

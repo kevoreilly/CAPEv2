@@ -211,18 +211,13 @@ def _path_safe(path: str) -> bool:
     return True
 
 
-def get_tags_tasks(task_ids: list) -> str:
-    for analysis in db.list_tasks(task_ids=task_ids):
-        return analysis.tags_tasks
-
-
 def get_task_package(task_id: int) -> str:
     task = db.view_task(task_id)
     task_dict = task.to_dict()
     return task_dict.get("package", "")
 
 
-def get_analysis_info(db, id=-1, task=None):
+def get_analysis_info(db, id=-1, task=None, rtmp=None):
     if not task:
         task = db.view_task(id)
     if not task:
@@ -230,11 +225,14 @@ def get_analysis_info(db, id=-1, task=None):
 
     new = task.to_dict()
     if new["category"] in ("file", "pcap", "static") and new["sample_id"] is not None:
-        new["sample"] = db.view_sample(new["sample_id"]).to_dict()
+        if hasattr(task, "sample") and task.sample:
+            new["sample"] = task.sample.to_dict()
+        else:
+            new["sample"] = db.view_sample(new["sample_id"]).to_dict()
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
 
-    new.update({"user_task_tags": get_tags_tasks([new["id"]])})
+    new["user_task_tags"] = task.tags_tasks
 
     if new.get("machine"):
         machine = new["machine"]
@@ -242,9 +240,7 @@ def get_analysis_info(db, id=-1, task=None):
         machine = os.path.basename(machine)
         new.update({"machine": machine})
 
-    rtmp = False
-
-    if enabledconf["mongodb"]:
+    if not rtmp and enabledconf["mongodb"]:
         rtmp = mongo_find_one(
             "analysis",
             {"info.id": int(new["id"])},
@@ -355,10 +351,44 @@ def index(request, page=1):
     analyses_pcaps = []
     analyses_static = []
 
-    tasks_files = db.list_tasks(limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING, tags_tasks_not_like="audit")
-    tasks_static = db.list_tasks(limit=TASK_LIMIT, offset=off, category="static", not_status=TASK_PENDING)
-    tasks_urls = db.list_tasks(limit=TASK_LIMIT, offset=off, category="url", not_status=TASK_PENDING)
-    tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING)
+    tasks_files = db.list_tasks(
+        limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING, tags_tasks_not_like="audit", include_hashes=True
+    )
+    tasks_static = db.list_tasks(limit=TASK_LIMIT, offset=off, category="static", not_status=TASK_PENDING, include_hashes=True)
+    tasks_urls = db.list_tasks(limit=TASK_LIMIT, offset=off, category="url", not_status=TASK_PENDING, include_hashes=True)
+    tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING, include_hashes=True)
+
+    mongo_map = {}
+    if enabledconf["mongodb"]:
+        all_tasks = (tasks_files or []) + (tasks_static or []) + (tasks_urls or []) + (tasks_pcaps or [])
+        if all_tasks:
+            all_ids = [int(t.id) for t in all_tasks]
+            cursor = mongo_find(
+                "analysis",
+                {"info.id": {"$in": all_ids}},
+                {
+                    "info": 1,
+                    "target.file.virustotal.summary": 1,
+                    "url.virustotal.summary": 1,
+                    "malscore": 1,
+                    "detections": 1,
+                    "network.pcap_sha256": 1,
+                    "mlist_cnt": 1,
+                    "f_mlist_cnt": 1,
+                    "target.file.clamav": 1,
+                    "suri_tls_cnt": 1,
+                    "suri_alert_cnt": 1,
+                    "suri_http_cnt": 1,
+                    "suri_file_cnt": 1,
+                    "trid": 1,
+                    "_id": 0,
+                },
+                sort=[("_id", -1)],
+            )
+            for doc in cursor:
+                tid = doc.get("info", {}).get("id")
+                if tid and tid not in mongo_map:
+                    mongo_map[tid] = doc
 
     # Vars to define when to show Next/Previous buttons
     paging = {}
@@ -445,7 +475,7 @@ def index(request, page=1):
 
     if tasks_files:
         for task in tasks_files:
-            new = get_analysis_info(db, task=task)
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
             if new["id"] == first_file:
                 paging["show_file_next"] = "hide"
             if page <= 1:
@@ -463,7 +493,7 @@ def index(request, page=1):
 
     if tasks_static:
         for task in tasks_static:
-            new = get_analysis_info(db, task=task)
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
             if new["id"] == first_static:
                 paging["show_static_next"] = "hide"
             if page <= 1:
@@ -478,7 +508,7 @@ def index(request, page=1):
 
     if tasks_urls:
         for task in tasks_urls:
-            new = get_analysis_info(db, task=task)
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
             if new["id"] == first_url:
                 paging["show_url_next"] = "hide"
             if page <= 1:
@@ -493,7 +523,7 @@ def index(request, page=1):
 
     if tasks_pcaps:
         for task in tasks_pcaps:
-            new = get_analysis_info(db, task=task)
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
             if new["id"] == first_pcap:
                 paging["show_pcap_next"] = "hide"
             if page <= 1:
@@ -1398,6 +1428,8 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                 chunk = mongo_find_one("calls", {"_id": call})
             if es_as_db:
                 chunk = es.search(index=get_calls_index(), body={"query": {"match": {"_id": call}}})["hits"]["hits"][0]["_source"]
+            if not chunk:
+                continue
             for call in chunk.get("calls", []):
                 # filter by call or tid
                 if caller != "null" or tid != "0":
@@ -1738,7 +1770,6 @@ def suritls(request, task_id):
         suricata = gen_moloch_from_suri_tls(suricata)
 
     return render(request, "analysis/suritls.html", {"analysis": report["suricata"], "config": enabledconf})
-
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)

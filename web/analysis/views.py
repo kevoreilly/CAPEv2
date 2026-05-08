@@ -225,8 +225,10 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None):
 
     new = task.to_dict()
     if new["category"] in ("file", "pcap", "static") and new["sample_id"] is not None:
-        if task.sample:
+        if hasattr(task, "sample") and task.sample:
             new["sample"] = task.sample.to_dict()
+        else:
+            new["sample"] = db.view_sample(new["sample_id"]).to_dict()
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
 
@@ -482,7 +484,7 @@ def index(request, page=1):
             # Added =: Fix page navigation for pages after the first page
             else:
                 paging["show_file_prev"] = "show"
-            if db.view_errors(task.id):
+            if task.errors:
                 new["errors"] = True
 
             analyses_files.append(new)
@@ -497,7 +499,7 @@ def index(request, page=1):
             if page <= 1:
                 paging["show_static_prev"] = "hide"
 
-            if db.view_errors(task.id):
+            if task.errors:
                 new["errors"] = True
 
             analyses_static.append(new)
@@ -512,7 +514,7 @@ def index(request, page=1):
             if page <= 1:
                 paging["show_url_prev"] = "hide"
 
-            if db.view_errors(task.id):
+            if task.errors:
                 new["errors"] = True
 
             analyses_urls.append(new)
@@ -527,7 +529,7 @@ def index(request, page=1):
             if page <= 1:
                 paging["show_pcap_prev"] = "hide"
 
-            if db.view_errors(task.id):
+            if task.errors:
                 new["errors"] = True
 
             analyses_pcaps.append(new)
@@ -559,24 +561,33 @@ def index(request, page=1):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
     # db = Database()
-    tasks = db.list_tasks(status=TASK_PENDING)
+    tasks = db.list_tasks(status=TASK_PENDING, include_hashes=True)
 
     pending = []
     for task in tasks:
         # Some tasks do not have sample attributes
-        sample = db.view_sample(task.sample_id)
-        if sample:
+        if task.sample:
             pending.append(
                 {
                     "id": task.id,
                     "target": task.target,
                     "added_on": task.added_on,
                     "category": task.category,
-                    "md5": sample.md5,
-                    "sha256": sample.sha256,
+                    "md5": task.sample.md5,
+                    "sha256": task.sample.sha256,
                 }
             )
-
+        else:
+            pending.append(
+                {
+                    "id": task.id,
+                    "target": task.target,
+                    "added_on": task.added_on,
+                    "category": task.category,
+                    "md5": "",
+                    "sha256": "",
+                }
+            )
     data = {"tasks": pending, "count": len(pending), "title": "Pending Tasks"}
     return render(request, "analysis/pending.html", data)
 
@@ -1769,6 +1780,7 @@ def suritls(request, task_id):
 
     return render(request, "analysis/suritls.html", {"analysis": report["suricata"], "config": enabledconf})
 
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def surifiles(request, task_id):
@@ -1904,7 +1916,14 @@ def split_signature_calls(report):
             continue
         calls = []
         non_calls = []
-        for datum in sig.pop("data", []):
+        data_items = sig.pop("data", [])
+        # Optimization: Limit the number of data items processed per signature
+        # Many signatures have thousands of matches which can crash the web UI/uWSGI
+        if len(data_items) > 1000:
+            data_items = data_items[:1000]
+            sig["data_truncated"] = True
+
+        for datum in data_items:
             if datum.get("type") == "call":
                 calls.append(datum)
             else:
@@ -1918,39 +1937,86 @@ def split_signature_calls(report):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-@ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
-@ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def report(request, task_id):
-    network_report = False
+    network_report = {}
     report = {}
     if enabledconf["mongodb"]:
+        # Optimization: Fetch only essential metadata first.
+        # We can fetch more via AJAX or subsequent targeted queries if needed.
+        # Added 10s timeout to prevent worker hang
+        # Re-enabling hooks because we fixed the infinite loop in denormalize_files
+        # and we need the hook to populate 'target' hashes from the files collection.
         report = mongo_find_one(
             "analysis",
             {"info.id": int(task_id)},
-            {"dropped": 0, "CAPE.payloads": 0, "procdump": 0, "procmemory": 0, "behavior.processes": 0, "network": 0, "memory": 0},
+            {
+                "info": 1,
+                "target": 1,
+                "signatures": 1,
+                "malscore": 1,
+                "detections": 1,
+                "trid": 1,
+                "virustotal": 1,
+                "virustotal_summary": 1,
+                "malware_conf": 1,
+                "CAPE.configs": 1,
+                "capa_summary": 1,
+                "curtain": 1,
+                "mitre_attck": 1,
+                "statistics": 1,
+                "shots": 1,
+                "_id": 0,
+            },
             sort=[("_id", -1)],
+            max_time_ms=10000,
+            no_hooks=False,
         )
-        network_report = mongo_find_one(
+
+        # Lightweight existence check for tabs
+        # Bypass hooks here too
+        existence = mongo_find_one(
             "analysis",
             {"info.id": int(task_id)},
-            {"network.domains": 1, "network.dns": 1, "network.hosts": 1},
-            sort=[("_id", -1)],
+            {"sigma": 1, "sysmon": 1, "misp": 1, "classification": 1, "_id": 0},
+            no_hooks=True,
         )
+        if report and existence:
+            for field in ("sigma", "sysmon", "misp", "classification"):
+                if existence.get(field):
+                    report[field] = True
+
+        if report and "network" in report:
+            network_report = {
+                "network": {
+                    "domains": report["network"].get("domains"),
+                    "dns": report["network"].get("dns"),
+                    "hosts": report["network"].get("hosts"),
+                }
+            }
+
         report = split_signature_calls(report)
 
     if es_as_db:
-        query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
-        report = query["_source"]
-        # Extract out data for Admin tab in the analysis page
-        network_report = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["network.domains", "network.dns", "network.hosts"],
-        )["hits"]["hits"][0]["_source"]
+        try:
+            es_query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))
+            if es_query["hits"]["total"]["value"] > 0:
+                query_res = es_query["hits"]["hits"][0]
+                report = query_res["_source"]
+                # Extract out data for Admin tab in the analysis page
+                net_res = es.search(
+                    index=get_analysis_index(),
+                    query=get_query_by_info_id(task_id),
+                    _source=["network.domains", "network.dns", "network.hosts"],
+                )
+                if net_res["hits"]["total"]["value"] > 0:
+                    network_report = net_res["hits"]["hits"][0]["_source"]
 
-        # Extract out data for Admin tab in the analysis page
-        esdata = {"index": query["_index"], "id": query["_id"]}
-        report["es"] = esdata
+                # Extract out data for Admin tab in the analysis page
+                esdata = {"index": query_res["_index"], "id": query_res["_id"]}
+                report["es"] = esdata
+        except Exception as e:
+            sys.stderr.write(f"ES Report Load Error: {e}\n")
+
     if not report:
         if DISABLED_WEB:
             msg = "You need to enable Mongodb/ES to be able to use WEBGUI to see the analysis"
@@ -1959,6 +2025,21 @@ def report(request, task_id):
 
         return render(request, "error.html", {"error": msg})
 
+    # Enforce TLP RED restrictions on the Web UI
+    # if report.get("info", {}).get("tlp", "").lower() == "red" and not request.user.is_staff:
+    #    return render(request, "error.html", {"error": "Task has a TLP of RED and is restricted to staff."})
+
+    if report.get("info", {}).get("category", "") in ("file", "pcap", "static") and not report.get("target", {}).get(
+        "file", {}
+    ).get("sha256"):
+        return render(
+            request,
+            "error.html",
+            {
+                "error": "Report doesn't exist anymore! Or maybe just target data is missing, which means we don't have info about initial binary"
+            },
+        )
+
     if isinstance(report.get("CAPE"), dict) and report.get("CAPE", {}).get("configs", {}):
         report["malware_conf"] = report["CAPE"]["configs"]
     report["CAPE"] = 0
@@ -1966,51 +2047,77 @@ def report(request, task_id):
     report["procdump"] = 0
     report["memory"] = 0
 
-    for key, value in (("dropped", "dropped"), ("procdump", "procdump"), ("CAPE.payloads", "CAPE"), ("procmemory", "procmemory")):
-        if enabledconf["mongodb"]:
-            try:
-                report[value] = list(
-                    mongo_aggregate(
-                        "analysis",
-                        [
-                            {"$match": {"info.id": int(task_id)}},
-                            {
-                                "$project": {
-                                    "_id": 0,
-                                    f"{value}_size": {
-                                        "$add": [
-                                            {"$size": {"$ifNull": [f"${key}.{subkey}", []]}} for subkey in ("sha256", "file_ref")
-                                        ]
-                                    },
+    if enabledconf["mongodb"]:
+        try:
+            # Optimization: Consolidate 4 aggregation calls into one to reduce DB round-trips
+            agg_results = list(
+                mongo_aggregate(
+                    "analysis",
+                    [
+                        {"$match": {"info.id": int(task_id)}},
+                        {
+                            "$project": {
+                                "_id": 0,
+                                "dropped": {
+                                    "$add": [
+                                        {"$size": {"$ifNull": ["$dropped.sha256", []]}},
+                                        {"$size": {"$ifNull": ["$dropped.file_ref", []]}},
+                                    ]
                                 },
-                            },
-                        ],
-                    )
-                )[0][f"{value}_size"]
-            except Exception:
-                report[value] = 0
-
-        elif es_as_db:
-            try:
-                report[value] = len(
-                    es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=[f"{key}.sha256"])["hits"][
-                        "hits"
-                    ][0]["_source"].get(key)
+                                "procdump": {
+                                    "$add": [
+                                        {"$size": {"$ifNull": ["$procdump.sha256", []]}},
+                                        {"$size": {"$ifNull": ["$procdump.file_ref", []]}},
+                                    ]
+                                },
+                                "CAPE": {
+                                    "$add": [
+                                        {"$size": {"$ifNull": ["$CAPE.payloads.sha256", []]}},
+                                        {"$size": {"$ifNull": ["$CAPE.payloads.file_ref", []]}},
+                                    ]
+                                },
+                                "procmemory": {
+                                    "$add": [
+                                        {"$size": {"$ifNull": ["$procmemory.sha256", []]}},
+                                        {"$size": {"$ifNull": ["$procmemory.file_ref", []]}},
+                                    ]
+                                },
+                            }
+                        },
+                    ],
                 )
-            except Exception as e:
-                print(e)
+            )
+            if agg_results:
+                report.update(agg_results[0])
+        except Exception as e:
+            sys.stderr.write(f"MongoDB Aggregation Error: {e}\n")
+            for val in ("dropped", "procdump", "CAPE", "procmemory"):
+                report[val] = 0
+
+    elif es_as_db:
+        try:
+            es_res = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["dropped.sha256", "procdump.sha256", "CAPE.payloads.sha256", "procmemory.sha256"])
+            if es_res["hits"]["total"]["value"] > 0:
+                source = es_res["hits"]["hits"][0]["_source"]
+                report["dropped"] = len(source.get("dropped") or [])
+                report["procdump"] = len(source.get("procdump") or [])
+                report["CAPE"] = len(source.get("CAPE", {}).get("payloads") or [])
+                report["procmemory"] = len(source.get("procmemory") or [])
+        except Exception as e:
+            sys.stderr.write(f"ES Count Error: {e}\n")
 
     try:
         if enabledconf["mongodb"]:
-            tmp_data = list(mongo_find("analysis", {"info.id": int(task_id), "memory": {"$exists": True}}))
+            # Optimization: Use mongo_find_one with projection to avoid loading massive documents just to check for field existence
+            tmp_data = mongo_find_one("analysis", {"info.id": int(task_id), "memory": {"$exists": True}}, {"_id": 1})
             if tmp_data:
-                report["memory"] = tmp_data[0]["_id"] or 0
+                report["memory"] = tmp_data["_id"] or 0
         elif es_as_db:
             report["memory"] = len(
                 es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["memory"])["hits"]["hits"]
             )
     except Exception as e:
-        print(e)
+        sys.stderr.write(f"Memory check Error: {e}\n")
 
     reports_exist = {}
     # check if we allow dl reports only to specific users
@@ -2080,9 +2187,14 @@ def report(request, task_id):
     bingraph_dict_content = {}
     bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
     if path_exists(bingraph_path):
-        for file in os.listdir(bingraph_path):
+        # Optimization: Limit number of bingraphs to avoid memory/timeout issues
+        bingraph_files = os.listdir(bingraph_path)[:10]
+        for file in bingraph_files:
             tmp_file = os.path.join(bingraph_path, file)
-            bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-", 1)[0], Path(tmp_file).read_text())
+            if path_exists(tmp_file) and _path_safe(tmp_file):
+                # Cap SVG size at 512KB
+                if path_get_size(tmp_file) < 512 * 1024:
+                    bingraph_dict_content.setdefault(os.path.basename(tmp_file).split("-", 1)[0], Path(tmp_file).read_text())
 
     domainlookups = {}
     iplookups = {}
@@ -2090,22 +2202,27 @@ def report(request, task_id):
         report["network"] = network_report["network"]
 
         if "domains" in network_report["network"]:
-            domainlookups = dict((i["domain"], i["ip"]) for i in network_report["network"]["domains"])
-            iplookups = dict((i["ip"], i["domain"]) for i in network_report["network"]["domains"])
-            for i in network_report["network"]["dns"]:
-                for a in i["answers"]:
+            # Optimization: Cap lookups to prevent timeouts on massive reports
+            domains = network_report["network"]["domains"][:1000]
+            domainlookups = {i["domain"]: i["ip"] for i in domains}
+            iplookups = {i["ip"]: i["domain"] for i in domains}
+            dns = network_report["network"].get("dns", [])[:1000]
+            for i in dns:
+                for a in i.get("answers", []):
                     iplookups[a["data"]] = i["request"]
 
     if HAVE_REQUEST and enabledconf["distributed"]:
         try:
             res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
             if res and res.ok:
-                if "name" in res.json():
-                    report["distributed"] = {}
-                    report["distributed"]["name"] = res.json()["name"]
-                    report["distributed"]["task_id"] = res.json()["task_id"]
+                res_data = res.json()
+                if "name" in res_data:
+                    report["distributed"] = {
+                        "name": res_data["name"],
+                        "task_id": res_data["task_id"]
+                    }
         except Exception as e:
-            print(e)
+            sys.stderr.write(f"Distributed API Error: {e}\n")
 
     stats_total = {
         "total": 0,
@@ -2122,21 +2239,16 @@ def report(request, task_id):
         stats_total[stats_category] = "{:.2f}".format(total)
 
     stats_total["total"] = "{:.2f}".format(stats_total["total"])
-    if HAVE_REQUEST and enabledconf["distributed"]:
-        try:
-            res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
-            if res and res.ok:
-                res = res.json()
-                if "name" in res:
-                    report["distributed"] = {}
-                    report["distributed"]["name"] = res["name"]
-                    report["distributed"]["task_id"] = res["task_id"]
-        except Exception as e:
-            print(e)
 
     existent_tasks = {}
     if web_cfg.general.get("existent_tasks", False) and report.get("target", {}).get("file", {}).get("sha256"):
-        records = perform_search("sha256", report["target"]["file"]["sha256"])
+        # Limit results and only fetch detections to avoid loading full reports
+        records = perform_search(
+            "sha256",
+            report["target"]["file"]["sha256"],
+            search_limit=10,
+            projection={"info.id": 1, "detections": 1, "_id": 0},
+        )
         for record in records:
             if record["info"]["id"] == report["info"]["id"]:
                 continue
@@ -2144,8 +2256,16 @@ def report(request, task_id):
 
     # process log per task if enabled:
     process_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "process.log")
-    if web_cfg.general.expose_process_log and path_exists(process_log_path) and path_get_size(process_log_path):
-        report["process_log"] = path_read_file(process_log_path, mode="text")
+    if web_cfg.general.expose_process_log and path_exists(process_log_path):
+        log_size = path_get_size(process_log_path)
+        if log_size > 0:
+            # Limit to first 1MB to avoid memory/timeout issues
+            max_size = 1024 * 1024
+            if log_size > max_size:
+                with open(process_log_path, "r") as f:
+                    report["process_log"] = f.read(max_size) + "\n... [TRUNCATED - LOG TOO LARGE] ..."
+            else:
+                report["process_log"] = path_read_file(process_log_path, mode="text")
 
     return render(
         request,
@@ -2633,6 +2753,7 @@ def filereport(request, task_id, category):
         "misp": "misp.json",
         "litereport": "lite.json",
         "cents": "cents.rules",
+        "parti": "report.parti",
     }
 
     if category in formats:
@@ -3055,7 +3176,6 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     # Self Extracted support folder
     path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
-
     if not path_exists(path):
         extractedfile = False
         if category == "static":
@@ -3070,30 +3190,24 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         if category == "static":
             category = "target.file"
         extractedfile = True
-
     if path and (not _path_safe(path) or not path_exists(path)):
         return render(request, "error.html", {"error": "File not found: {}".format(path)})
-
     details = False
     if service == "flare_capa" and HAVE_FLARE_CAPA:
         # ToDo check if PE
         details = flare_capa_details(path, category.lower(), on_demand=True)
         if not details:
             details = {"msg": "No results"}
-
     elif service == "vba2graph" and HAVE_VBA2GRAPH:
         vba2graph_func(path, task_id, sha256, on_demand=True)
-
     elif service == "strings" and HAVE_STRINGS:
         details = extract_strings(path, on_demand=True)
         if not details:
             details = {"strings": "No strings extracted"}
-
     elif service == "virustotal" and HAVE_VIRUSTOTAL:
         details = vt_lookup("file", sha256, on_demand=True)
         if not details:
             details = {"msg": "No results"}
-
     elif service == "xlsdeobf" and HAVE_XLM_DEOBF:
         details = xlmdeobfuscate(path, task_id, on_demand=True)
         if not details:
@@ -3121,7 +3235,6 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         details = Floss(path, package, on_demand=True).run()
         if not details:
             details = {"msg": "No results"}
-
     def _set_service_by_sha256(node, target_sha256, service_name, service_details):
         if isinstance(node, dict):
             if node.get("sha256") == target_sha256:
@@ -3156,32 +3269,28 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     _set_service_by_sha256(servicedata, sha256, service, details)
                 else:
                     servicedata.setdefault(service, details)
-
-        if servicedata:
-            try:
-                mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
-            except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
-                return render(
-                    request,
-                    "error.html",
-                    {
-                        "error": (
-                            f"Generated {service} data is too large to store for this file. "
-                            "Please narrow extraction scope or use offline extraction."
-                        )
-                    },
-                    status=413,
-                )
-            except Exception as e:
-                print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
-                return render(
-                    request,
-                    "error.html",
-                    {"error": f"Failed to store generated {service} data."},
-                    status=500,
-                )
-        del details
-
+            mongo_update_one("analysis", {"_id": ObjectId(buf["_id"])}, {"$set": {category: servicedata}})
+        except MONGO_DOCUMENT_TOO_LARGE_ERRORS:
+            return render(
+                request,
+                "error.html",
+                {
+                    "error": (
+                        f"Generated {service} data is too large to store for this file. "
+                        "Please narrow extraction scope or use offline extraction."
+                    )
+                },
+                status=413,
+            )
+        except Exception as e:
+            print(f"on_demand update failed for task_id={task_id} service={service} category={category} sha256={sha256}: {e}")
+            return render(
+                request,
+                "error.html",
+                {"error": f"Failed to store generated {service} data."},
+                status=500,
+            )
+    del details
     return redirect("report", task_id=task_id)
 
 

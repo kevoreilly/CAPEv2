@@ -182,7 +182,7 @@ def remove_task_references_from_files(task_ids):
     """
     mongo_update_many(
         FILES_COLL,
-        {TASK_IDS_KEY: {"$elemMatch": {"$in": task_ids}}},
+        {TASK_IDS_KEY: {"$in": task_ids}},
         {"$pullAll": {TASK_IDS_KEY: task_ids}},
     )
 
@@ -210,7 +210,8 @@ def delete_unused_file_docs():
     referenced by any analysis tasks. This should typically be invoked
     via utils/cleaners.py in a cron job.
     """
-    return mongo_delete_many(FILES_COLL, {TASK_IDS_KEY: {"$size": 0}})
+    # Using exact empty array match is much faster than $size: 0
+    return mongo_delete_many(FILES_COLL, {TASK_IDS_KEY: []})
 
 
 NORMALIZED_FILE_FIELDS = ("target.file", "dropped", "CAPE.payloads", "procdump", "procmemory")

@@ -4,6 +4,7 @@
 # of the MIT license. See the LICENSE file for details.
 
 import inspect
+import importlib
 import logging
 import shutil
 import subprocess
@@ -36,7 +37,7 @@ def choose_package_class(file_type=None, file_name="", suggestion=None):
         sys.path.append(path.abspath(path.join(path.dirname(__file__), "..", "..")))
         # Since we don't know the package class yet, we'll just import everything
         # from this module and then try to figure out the required member class
-        module = __import__(full_name, globals(), locals(), ["*"])
+        module = importlib.import_module(full_name)
     except ImportError:
         raise Exception(f'Unable to import package "{name}": it does not exist')
     try:

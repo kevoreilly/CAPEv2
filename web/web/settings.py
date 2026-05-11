@@ -236,6 +236,8 @@ ASGI_APPLICATION = "web.asgi.application"
 
 INSTALLED_APPS = [
     "daphne",
+    "channels",
+    "guac",
     "django.contrib.auth",
     "django.contrib.contenttypes",
     "django.contrib.sessions",

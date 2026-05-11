@@ -24,3 +24,4 @@ This chapter explains how to use CAPE.
     monitor
     interactive_desktop
     patterns_replacement
+    mcp

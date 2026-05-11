@@ -118,7 +118,8 @@ class Scheduler:
 
                     try:
                         if analysis.machinery_manager and analysis.machine:
-                            analysis.machinery_manager.stop_machine(analysis.machine)
+                            with self.db.session.begin():
+                                analysis.machinery_manager.stop_machine(analysis.machine)
                     except Exception as e:
                         log.error("Failed to kill stuck VM for task #%s: %s", analysis.task.id, e)
 
@@ -143,40 +144,40 @@ class Scheduler:
         if self.cfg.cuckoo.get("task_timeout", False):
             if self.next_timeout_time < time.time():
                 self.next_timeout_time = time.time() + self.cfg.cuckoo.get("task_timeout_scan_interval", 30)
-                with self.db.session.begin():
-                    self.db.clean_timed_out_tasks(self.cfg.cuckoo.get("task_pending_timeout", 0))
+                try:
+                    with self.db.session.begin():
+                        self.db.clean_timed_out_tasks(self.cfg.cuckoo.get("task_pending_timeout", 0))
+                except Exception:
+                    log.exception("Failed to clean timed out tasks")
 
         analysis_manager: Optional[AnalysisManager] = None
-        with self.db.session.begin():
-            max_machines_reached = False
-            if self.machinery_manager and self.machinery_manager.running_machines_max_reached():
-                if not self.cfg.cuckoo.allow_static:
-                    return SchedulerCycleDelay.MAX_MACHINES_RUNNING
-                max_machines_reached = True
+        try:
+            with self.db.session.begin():
+                max_machines_reached = False
+                if self.machinery_manager and self.machinery_manager.running_machines_max_reached():
+                    if not self.cfg.cuckoo.allow_static:
+                        return SchedulerCycleDelay.MAX_MACHINES_RUNNING
+                    max_machines_reached = True
 
-            try:
                 task, machine = self.find_next_serviceable_task(max_machines_reached)
-            except Exception:
-                log.exception("Failed to find next serviceable task")
-                # Explicitly call rollback since we're not re-raising the exception and letting the
-                # begin() context manager handle rolling back the transaction.
-                self.db.session.rollback()
-                return SchedulerCycleDelay.FAILURE
 
-            if task is None:
-                # There are no pending tasks so try again in 1 second.
-                return SchedulerCycleDelay.NO_PENDING_TASKS
+                if task is None:
+                    # There are no pending tasks so try again in 1 second.
+                    return SchedulerCycleDelay.NO_PENDING_TASKS
 
-            log.info("Task #%s: Processing task", task.id)
-            self.total_analysis_count += 1
-            analysis_manager = AnalysisManager(
-                task,
-                machine=machine,
-                machinery_manager=self.machinery_manager,
-                error_queue=error_queue,
-                done_callback=self.analysis_finished,
-            )
-            analysis_manager.prepare_task_and_machine_to_start()
+                log.info("Task #%s: Processing task", task.id)
+                self.total_analysis_count += 1
+                analysis_manager = AnalysisManager(
+                    task,
+                    machine=machine,
+                    machinery_manager=self.machinery_manager,
+                    error_queue=error_queue,
+                    done_callback=self.analysis_finished,
+                )
+                analysis_manager.prepare_task_and_machine_to_start()
+        except Exception:
+            log.exception("Failed to find next serviceable task")
+            return SchedulerCycleDelay.FAILURE
         self.db.session.expunge_all()
 
         with self.analysis_threads_lock:
@@ -331,8 +332,16 @@ class Scheduler:
     def shutdown_machinery(self):
         """Shutdown machine manager (used to kill machines that still alive)."""
         if self.machinery_manager:
-            with self.db.session.begin():
-                self.machinery_manager.machinery.shutdown()
+            # Reset any leftover transaction state so begin() doesn't fail.
+            try:
+                self.db.session.rollback()
+            except Exception:
+                pass
+            try:
+                with self.db.session.begin():
+                    self.machinery_manager.machinery.shutdown()
+            except Exception:
+                log.exception("Failed to shut down machinery cleanly")
 
     def signal_handler(self, signum, frame):
         """Scheduler signal handler"""

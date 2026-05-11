@@ -16,8 +16,10 @@ class CRX(Package):
     """CRX extensions analysis package."""
 
     PATHS = [
+        ("LOCALAPPDATA", "Google", "Chrome", "Application", "chrome.exe"),
         ("ProgramFiles", "Google", "Chrome", "Application", "chrome.exe"),
         ("LOCALAPPDATA", "Chromium", "Application", "chrome.exe"),
+        ("ProgramFiles", "Chromium", "Application", "chrome.exe"),
     ]
     summary = "Load the crx sample in Google Chrome as extension."
     description = "Uses 'chrome.exe --load-extension=<extracted_path> \

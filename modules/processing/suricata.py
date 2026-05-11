@@ -19,6 +19,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_read_file, path_write_file
 from lib.cuckoo.common.suricata_detection import et_categories, get_suricata_family
 from lib.cuckoo.common.utils import add_family_detection, convert_to_printable_and_truncate
+from modules.processing.decryptpcap import resolve_processing_pcap_path
 
 processing_cfg = Config("processing")
 
@@ -40,6 +41,10 @@ log = logging.getLogger(__name__)
 class Suricata(Processing):
     """Suricata processing."""
 
+    def _resolve_pcap_path(self):
+        pcapsrc = self.options.get("pcapsrc", "auto") if self.options else "auto"
+        return resolve_processing_pcap_path(self.analysis_path, self.pcap_path, pcapsrc=pcapsrc)
+
     def cmd_wrapper(self, cmd):
         p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
         stdout, stderr = p.communicate()
@@ -58,6 +63,7 @@ class Suricata(Processing):
         """Run Suricata.
         @return: hash with alerts
         """
+        self.pcap_path = self._resolve_pcap_path()
         self.key = "suricata"
         # General
         SURICATA_CONF = self.options.get("conf")
@@ -126,6 +132,12 @@ class Suricata(Processing):
         if os.path.isdir(SURICATA_FILES_DIR_FULL_PATH):
             with suppress(Exception):
                 shutil.rmtree(SURICATA_FILES_DIR_FULL_PATH, ignore_errors=True)
+
+        # Prefer the mixed (original + decrypted TLS) pcap if available
+        mixed_pcap_path = os.path.join(self.analysis_path, "dump_mixed.pcap")
+        if path_exists(mixed_pcap_path) and os.path.getsize(mixed_pcap_path) > 24:
+            log.info("Using mixed pcap with decrypted TLS traffic for Suricata: %s", mixed_pcap_path)
+            self.pcap_path = mixed_pcap_path
 
         if not path_exists(SURICATA_CONF):
             log.warning("Unable to Run Suricata: Conf File %s does not exist", SURICATA_CONF)
@@ -253,7 +265,13 @@ class Suricata(Processing):
                     if enabled_passlist and event_key in filter_event_types:
                         if event_key in ("alert", "fileinfo"):
                             filter_key = "http"
-                        search_value = parsed[event_key].get(filter_event_types[filter_key], "")
+                        search_value = parsed.get(event_key, {}).get(filter_event_types[filter_key], "")
+                        # HTTP/2: hostname is in request_headers as :authority
+                        if not search_value and filter_key == "http" and parsed.get("http", {}).get("version") == "2":
+                            for h in parsed.get("http", {}).get("request_headers", []):
+                                if h.get("name") == ":authority":
+                                    search_value = h.get("value", "")
+                                    break
 
                         for reject in domain_passlist_re:
                             if re.search(reject, search_value):
@@ -297,22 +315,50 @@ class Suricata(Processing):
                             "dstip": parsed["dest_ip"],
                             "timestamp": parsed["timestamp"].replace("T", " "),
                         }
-                        keyword = ("uri", "length", "hostname", "status", "http_method", "contenttype", "ua", "referrer")
-                        keyword_suri = (
-                            "url",
-                            "length",
-                            "hostname",
-                            "status",
-                            "http_method",
-                            "http_content_type",
-                            "http_user_agent",
-                            "http_refer",
-                        )
-                        for key, key_s in zip(keyword, keyword_suri):
+                        http_data = parsed.get("http", {})
+                        if http_data.get("version") == "2" and "request_headers" not in http_data:
+                            # HTTP/2 control frame (SETTINGS, WINDOW_UPDATE, etc.) — skip
+                            continue
+                        if http_data.get("version") == "2" and "request_headers" in http_data:
+                            # HTTP/2: extract fields from pseudo-headers and header arrays
+                            req_headers = {h["name"]: h["value"] for h in http_data.get("request_headers", []) if "name" in h and "value" in h}
+                            # Skip HTTP/2 control frames (SETTINGS, WINDOW_UPDATE, etc.) that have no :method
+                            if ":method" not in req_headers:
+                                continue
+                            resp_headers = {h["name"]: h["value"] for h in http_data.get("response_headers", []) if "name" in h and "value" in h}
+                            hlog["hostname"] = req_headers.get(":authority", None)
+                            hlog["uri"] = req_headers.get(":path", None)
+                            hlog["http_method"] = req_headers.get(":method", None)
+                            hlog["ua"] = req_headers.get("user-agent", None)
+                            hlog["referrer"] = req_headers.get("referer", None)
+                            hlog["contenttype"] = resp_headers.get("content-type", None)
                             try:
-                                hlog[key] = parsed["http"].get(key_s, None)
-                            except Exception:
-                                hlog[key] = None
+                                hlog["status"] = int(resp_headers.get(":status", 0)) or None
+                            except (ValueError, TypeError):
+                                hlog["status"] = None
+                            try:
+                                hlog["length"] = int(resp_headers.get("content-length", 0)) or http_data.get("length", None)
+                            except (ValueError, TypeError):
+                                hlog["length"] = http_data.get("length", None)
+                            hlog["protocol"] = "HTTP/2"
+                        else:
+                            # HTTP/1.x: extract fields from top-level keys
+                            keyword = ("uri", "length", "hostname", "status", "http_method", "contenttype", "ua", "referrer")
+                            keyword_suri = (
+                                "url",
+                                "length",
+                                "hostname",
+                                "status",
+                                "http_method",
+                                "http_content_type",
+                                "http_user_agent",
+                                "http_refer",
+                            )
+                            for key, key_s in zip(keyword, keyword_suri):
+                                try:
+                                    hlog[key] = http_data.get(key_s, None)
+                                except Exception:
+                                    hlog[key] = None
                         suricata["http"].append(hlog)
 
                     elif parsed["event_type"] == "tls":

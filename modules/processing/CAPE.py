@@ -43,6 +43,12 @@ processing_conf = Config("processing")
 integrations_conf = Config("integrations")
 externalservices_conf = Config("externalservices")
 
+HAVE_VIRUSTOTAL = False
+if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
+    with suppress(ImportError):
+        from lib.cuckoo.common.integrations.virustotal import vt_lookup
+        HAVE_VIRUSTOTAL = True
+
 HAVE_FLARE_CAPA = False
 # required to not load not enabled dependencies
 if integrations_conf.flare_capa.enabled and not integrations_conf.flare_capa.on_demand:
@@ -208,6 +214,11 @@ class CAPE(Processing):
                     cached = True
                     if yara_match and options_match:
                         run_static = False
+                        if HAVE_VIRUSTOTAL:
+                            # We might want to refresh VT based on cache policy
+                            vt_details = vt_lookup("file", sha256, self.results, file_category=category)
+                            if vt_details:
+                                file_info["virustotal"] = vt_details
                     else:
                         # We need to re-run static/tools
                         run_static = True
@@ -267,6 +278,7 @@ class CAPE(Processing):
                 self.self_extracted,
                 self.results,
                 duplicated,
+                category=category,
             )
 
         type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
@@ -279,6 +291,10 @@ class CAPE(Processing):
                 "category": category,
                 "file": file_info,
             }
+
+            if not os.path.exists(self.task["target"]):
+                log.error("Target file doesn't exist anymore. That will prevent data to be shown on webgui")
+
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
@@ -428,6 +444,28 @@ class CAPE(Processing):
             self.process_file(
                 self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
             )
+            if "target" not in self.results:
+                target_restored = False
+                try:
+                    db_analysis = mongo_find_one("analysis", {"info.id": int(self.task["id"])}, {"target": 1, "_id": 0})
+                    if db_analysis and "target" in db_analysis:
+                        self.results["target"] = db_analysis["target"]
+                        target_restored = True
+                        log.info("Restored missing target info from MongoDB analysis collection")
+                except Exception as e:
+                    log.error("Failed to restore target info from MongoDB: %s", e)
+
+                if not target_restored:
+                    json_path = os.environ.get("CAPE_REPORT") or os.path.join(self.reports_path, "report.json")
+                    if path_exists(json_path):
+                        try:
+                            with open(json_path, "r", encoding="utf-8") as f:
+                                report_data = json.load(f)
+                                if "target" in report_data:
+                                    self.results["target"] = report_data["target"]
+                                    log.info("Restored missing target info from existing report.json")
+                        except Exception as e:
+                            log.error("Failed to restore target info from existing report: %s", e)
 
         for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
             category = folder.replace("_path", "").replace("_files", "")

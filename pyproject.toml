@@ -95,6 +95,7 @@ dependencies = [
 maco = ["maco"]
 gcp = ["google-cloud-storage", "google-cloud-pubsub"]
 yara = ["plyara"]
+mcp = ["fastmcp", "httpx"]
 
 [dependency-groups]
 dev = [

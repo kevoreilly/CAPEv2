@@ -495,6 +495,7 @@ def init_rooter():
         log.debug("An unexpected error occurred while checking UFW status: %s", e)
 
 
+
 def init_routing():
     """Initialize and check whether the routing information is correct."""
 

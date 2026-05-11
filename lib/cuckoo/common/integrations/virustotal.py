@@ -14,6 +14,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import add_family_detection
+from dev_utils.mongodb import mongo_find_one
 
 try:
     import re2 as re
@@ -35,6 +36,15 @@ do_url_lookup = processing_conf.virustotal.get("do_url_lookup", False)
 urlscrub = processing_conf.virustotal.urlscrub
 timeout = int(processing_conf.virustotal.timeout)
 remove_empty = processing_conf.virustotal.remove_empty
+
+cache_default = processing_conf.virustotal.get("cache_default", False)
+VT_CACHE_MAP = {
+    "static": processing_conf.virustotal.get("cache_static", cache_default),
+    "file": processing_conf.virustotal.get("cache_file", cache_default),
+    "dropped": processing_conf.virustotal.get("cache_dropped", cache_default),
+    "cape": processing_conf.virustotal.get("cache_cape", cache_default),
+    "procdump": processing_conf.virustotal.get("cache_procdump", cache_default),
+}
 
 headers = {"x-apikey": key}
 
@@ -185,7 +195,7 @@ def get_vt_consensus(namelist: list):
     return ""
 
 
-def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = False):
+def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = False, file_category: str = ""):
     if not processing_conf.virustotal.enabled or processing_conf.virustotal.get("on_demand", False) and not on_demand:
         return {}
     if category not in ("file", "url"):
@@ -199,6 +209,18 @@ def vt_lookup(category: str, target: str, results: dict = {}, on_demand: bool = 
             return {"error": True, "msg": "File doesn't exist"}
 
         sha256 = target if len(target) == 64 else File(target).get_sha256()
+
+        if file_category:
+            cache_setting = VT_CACHE_MAP.get(file_category.lower(), cache_default)
+
+            if cache_setting:
+                try:
+                    db_file = mongo_find_one("files", {"sha256": sha256})
+                    if db_file and "virustotal" in db_file:
+                        return db_file["virustotal"]
+                except Exception as e:
+                    log.error("Error checking VT cache: %s", e)
+
         url = VIRUSTOTAL_FILE_URL.format(id=sha256)
 
     elif category == "url":

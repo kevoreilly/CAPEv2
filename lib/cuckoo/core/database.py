@@ -24,6 +24,7 @@ from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import create_folder
 
 from .data.db_common import Base
+from .data.guac_session import GuacSession  # noqa: F401 - must be imported before create_all()
 from .data.tasking import TasksMixIn
 from .data.machines import MachinesMixIn
 from .data.samples import SamplesMixIn
@@ -220,6 +221,53 @@ class _Database(TasksMixIn,
         except SQLAlchemyError as e:
             raise CuckooDatabaseError(f"Unable to create or connect to database: {e}")
 
+
+    # ---- Guac session helpers ----
+
+    def create_guac_session(self, token, task_id, vm_label, guest_ip):
+        """Create a new guac session for a task."""
+        session = self.session()
+        try:
+            guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
+            session.add(guac)
+            session.commit()
+            return guac
+        except Exception:
+            session.rollback()
+            raise
+
+    def get_guac_session(self, token):
+        """Look up a guac session by token. Returns dict or None."""
+        from lib.cuckoo.core.data.guac_session import GuacSession
+        session = self.session()
+        try:
+            row = session.query(GuacSession).filter_by(token=str(token)).first()
+            if row:
+                return {"task_id": row.task_id, "vm_label": row.vm_label, "guest_ip": getattr(row, "guest_ip", None)}
+            return None
+        except Exception:
+            return None
+
+    def delete_guac_session(self, token):
+        """Delete a guac session token."""
+        from lib.cuckoo.core.data.guac_session import GuacSession
+        session = self.session()
+        try:
+            session.query(GuacSession).filter_by(token=str(token)).delete()
+            session.commit()
+        except Exception:
+            session.rollback()
+
+    def delete_guac_sessions_for_task(self, task_id):
+        """Delete all guac sessions for a task."""
+        from lib.cuckoo.core.data.guac_session import GuacSession
+        session = self.session()
+        try:
+            session.query(GuacSession).filter_by(task_id=task_id).delete()
+            session.commit()
+        except Exception:
+            session.rollback()
+
 _DATABASE: Optional[_Database] = None
 
 
@@ -244,3 +292,4 @@ def reset_database_FOR_TESTING_ONLY():
     """Used for testing."""
     global _DATABASE
     _DATABASE = None
+

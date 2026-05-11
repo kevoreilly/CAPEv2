@@ -1,0 +1,74 @@
+{% if evtx_page.error %}
+<div class="alert alert-warning mb-0">{{ evtx_page.error }}</div>
+{% else %}
+<div class="mb-2">
+    <small class="text-muted">
+        {{ evtx_page.channel }} - {{ evtx_page.total_events }} event{{ evtx_page.total_events|pluralize }} - page {{ evtx_page.page }} of {{ evtx_page.total_pages|default:1 }}
+        {% if evtx_page.search_query %}<br>Regex filter: <code>{{ evtx_page.search_query }}</code>{% endif %}
+    </small>
+</div>
+
+{% if evtx_page.events %}
+<div class="table-responsive">
+    <table class="table table-sm table-striped table-hover sysmon-table">
+        <thead class="table-dark">
+            <tr>
+                <th style="width:180px">Time</th>
+                <th style="width:80px">Event ID</th>
+                <th style="width:80px">Level</th>
+                <th>Provider</th>
+                <th>Details</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for event in evtx_page.events %}
+            <tr class="evtx-row" data-bs-toggle="collapse" data-bs-target="#evtx_detail_{{ forloop.counter0 }}_{{ evtx_page.page }}" style="cursor:pointer">
+                <td>{{ event.timestamp }}</td>
+                <td>{{ event.event_id }}</td>
+                <td>
+                    <span class="badge {% if event.level == "Critical" %}bg-danger{% elif event.level == "Error" or event.level == "Warning" %}bg-warning text-dark{% elif event.level == "Verbose" %}bg-secondary{% else %}bg-info text-dark{% endif %}">
+                        {{ event.level }}
+                    </span>
+                </td>
+                <td>{{ event.provider }}</td>
+                <td>{{ event.detail_summary }}</td>
+            </tr>
+            <tr class="collapse" id="evtx_detail_{{ forloop.counter0 }}_{{ evtx_page.page }}">
+                <td colspan="5">
+                    <div class="p-2 bg-dark text-light rounded" style="font-size:0.85em">
+                        <strong>Computer:</strong> {{ event.computer|default:"-" }}<br>
+                        {% if event.flat_detail %}
+                        <table class="table table-sm table-dark table-bordered mt-2 mb-0" style="font-size:0.9em">
+                            <tbody>
+                                {% for item in event.flat_detail %}
+                                <tr>
+                                    <td class="text-info" style="width:250px;word-break:break-all">{{ item.key }}</td>
+                                    <td style="word-break:break-all">{{ item.value }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% endif %}
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div class="alert alert-info mb-0">No events found for this page.</div>
+{% endif %}
+
+{% if evtx_page.total_pages > 1 %}
+<nav>
+    <ul class="pagination justify-content-center eventlogs-pagination evtx-pagination mb-0">
+        {% for page_num in ""|center:evtx_page.total_pages %}
+        <li class="page-item{% if forloop.counter == evtx_page.page %} active{% endif %}">
+            <a class="page-link" data-page="{{ forloop.counter }}" data-member="{{ evtx_page.member }}">{{ forloop.counter }}</a>
+        </li>
+        {% endfor %}
+    </ul>
+</nav>
+{% endif %}
+{% endif %}

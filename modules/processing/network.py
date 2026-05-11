@@ -33,7 +33,7 @@ import utils.profiling as profiling
 from data.safelist.domains import domain_passlist_re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.dns import resolve
+from lib.cuckoo.common.dns import resolve, resolve_doh, set_doh, set_doh_url
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.irc import ircMessage
 from lib.cuckoo.common.network_utils import _norm_domain
@@ -41,11 +41,10 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
+from modules.processing.decryptpcap import resolve_processing_pcap_path
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 log = logging.getLogger(__name__)
-
-
 
 
 try:
@@ -98,6 +97,13 @@ proc_cfg = Config("processing")
 routing_cfg = Config("routing")
 enabled_passlist = proc_cfg.network.dnswhitelist
 passlist_file = proc_cfg.network.dnswhitelist_file
+
+# Enable DNS-over-HTTPS if configured
+if getattr(cfg.processing, "dns_over_https", False):
+    set_doh(True)
+    doh_url = getattr(cfg.processing, "doh_url", "")
+    if doh_url:
+        set_doh_url(doh_url)
 
 enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
@@ -321,7 +327,8 @@ class Pcap:
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
 
-        if cfg.processing.reverse_dns:
+        use_doh = getattr(cfg.processing, "dns_over_https", False)
+        if cfg.processing.reverse_dns and not use_doh:
             d = dns.resolver.Resolver()
             d.timeout = 5.0
             d.lifetime = 5.0
@@ -331,8 +338,13 @@ class Pcap:
             inaddrarpa = ""
             hostname = ""
             if cfg.processing.reverse_dns:
-                with suppress(Exception):
-                    inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text()
+                if use_doh:
+                    with suppress(Exception):
+                        ptr_name = str(from_address(ip))
+                        inaddrarpa = resolve_doh(ptr_name, rdtype="PTR")
+                else:
+                    with suppress(Exception):
+                        inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text().rstrip(".")
             for request in self.dns_requests.values():
                 for answer in request["answers"]:
                     if answer["data"] == ip:
@@ -1116,21 +1128,55 @@ class NetworkAnalysis(Processing):
 
     def _load_network_map(self) -> Dict:
         with suppress(Exception):
-            return self.results.get("behavior", {}).get("network_map") or {}
+            behavior_net_map = self.results.get("behavior", {}).get("network_map") or {}
+            if not behavior_net_map:
+                return {}
+
+            # Create a separate dictionary to avoid modifying self.results in place
+            net_map = behavior_net_map.copy()
+
+            raw_http_host_map = net_map.get("http_host_map", {})
+            if isinstance(raw_http_host_map, list):
+                net_map["http_host_map"] = {item["host"]: item["pinfo"] for item in raw_http_host_map}
+
+            raw_dns_intents = net_map.get("dns_intents", {})
+            if isinstance(raw_dns_intents, list):
+                net_map["dns_intents"] = {item["domain"]: item["intents"] for item in raw_dns_intents}
+
+            # We need to deep copy winhttp_sessions if we are modifying its internal dicts
+            raw_winhttp = net_map.get("winhttp_sessions", [])
+            new_winhttp = []
+            for p in raw_winhttp:
+                new_p = dict(p)
+                raw_sessions = p.get("sessions", {})
+                if isinstance(raw_sessions, list):
+                    new_p["sessions"] = {item["host"]: item["events"] for item in raw_sessions}
+                new_winhttp.append(new_p)
+            net_map["winhttp_sessions"] = new_winhttp
+
+            return net_map
         return {}
 
-    def _reconstruct_endpoint_map(self, raw_map: Dict[str, List[Dict]]) -> Dict[tuple, List[Dict]]:
+    def _reconstruct_endpoint_map(self, raw_map) -> Dict[tuple, List[Dict]]:
         """
         Convert JSON-friendly "ip:port" keys back to (ip, int(port)) tuples.
         """
         endpoint_map = {}
-        for key, val in raw_map.items():
-            try:
-                ip, port_str = key.rsplit(":", 1)
-                port = int(port_str)
-                endpoint_map[(ip, port)] = val
-            except (ValueError, IndexError):
-                continue
+        if isinstance(raw_map, list):
+            for item in raw_map:
+                try:
+                    ip, port_str = item["ip_port"].rsplit(":", 1)
+                    endpoint_map[(ip, int(port_str))] = item["pinfo"]
+                except (ValueError, IndexError, KeyError):
+                    continue
+        elif isinstance(raw_map, dict):
+            for key, val in raw_map.items():
+                try:
+                    ip, port_str = key.rsplit(":", 1)
+                    port = int(port_str)
+                    endpoint_map[(ip, port)] = val
+                except (ValueError, IndexError):
+                    continue
         return endpoint_map
 
     def _pick_best(self, candidates: List[Dict]) -> Optional[Dict]:
@@ -1529,13 +1575,17 @@ class NetworkAnalysis(Processing):
                 target_list = "udp" if port == 53 else "tcp"
                 network.setdefault(target_list, []).append(entry)
 
+    def _resolve_pcap_path(self):
+        pcapsrc = self.options.get("pcapsrc", "auto") if self.options else "auto"
+        return resolve_processing_pcap_path(self.analysis_path, self.pcap_path, pcapsrc=pcapsrc)
+
     def run(self):
+        self.pcap_path = self._resolve_pcap_path()
         if not path_exists(self.pcap_path):
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
         global PCAP_TYPE
-        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         self.key = "network"
         self.ja3_file = self.options.get("ja3_file", os.path.join(CUCKOO_ROOT, "data", "ja3", "ja3fingerprint.json"))
         if not IS_DPKT:
@@ -1546,21 +1596,34 @@ class NetworkAnalysis(Processing):
             log.error('The PCAP file at path "%s" is empty', self.pcap_path)
             return {}
 
+        # Prefer the mixed (original + decrypted TLS) pcap if available
+        original_pcap_path = self.pcap_path
+        using_mixed_pcap = False
+        mixed_pcap_path = os.path.join(self.analysis_path, "dump_mixed.pcap")
+        if path_exists(mixed_pcap_path) and os.path.getsize(mixed_pcap_path) > 24:
+            log.info("Using mixed pcap with decrypted TLS traffic: %s", mixed_pcap_path)
+            self.pcap_path = mixed_pcap_path
+            using_mixed_pcap = True
+
+        PCAP_TYPE = check_pcap_file_type(self.pcap_path)
         ja3_fprints = self._import_ja3_fprints()
 
-        results = {"pcap_sha256": File(self.pcap_path).get_sha256()}
+        results = {"pcap_sha256": File(original_pcap_path).get_sha256()}
         self.options["sorted"] = False
         results.update(Pcap(self.pcap_path, ja3_fprints, self.options).run())
 
         if proc_cfg.network.sort_pcap:
-            sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
+            if using_mixed_pcap:
+                sorted_path = os.path.join(self.analysis_path, "dump_mixed_sorted.pcap")
+            else:
+                sorted_path = self.pcap_path.replace("dump.", "dump_sorted.")
             sort_pcap(self.pcap_path, sorted_path)
             if path_exists(sorted_path):
                 results["sorted_pcap_sha256"] = File(sorted_path).get_sha256()
                 self.options["sorted"] = True
                 results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
 
-        if HAVE_HTTPREPLAY:
+        if HAVE_HTTPREPLAY and not using_mixed_pcap:
             try:
                 tls_master = self.get_tlsmaster()
                 p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()

@@ -23,6 +23,21 @@ except ImportError:
 class GCSUploader:
     """Helper class to upload files to GCS."""
 
+    @staticmethod
+    def parse_custom_string(custom_str):
+        if not custom_str:
+            return {}
+
+        if custom_str.endswith("..."):
+            custom_str = custom_str[:-3]
+        parts = custom_str.split(",")
+        data = {}
+        for part in parts:
+            if ":" in part:
+                key, value = part.split(":", 1)
+                data[key] = value
+        return data
+
     def __init__(self, bucket_name=None, auth_by=None, credentials_path=None, exclude_dirs=None, exclude_files=None, mode=None):
         if not HAVE_GCS:
             raise ImportError("google-cloud-storage library is missing")
@@ -31,9 +46,9 @@ class GCSUploader:
         if not bucket_name:
             cfg = Config("reporting")
             if not cfg.gcs.enabled:
-                 # If we are initializing purely for manual usage but config is disabled, we might want to allow it if params are passed.
-                 # But if params are missing AND config is disabled/missing, we can't proceed.
-                 pass
+                # If we are initializing purely for manual usage but config is disabled, we might want to allow it if params are passed.
+                # But if params are missing AND config is disabled/missing, we can't proceed.
+                pass
 
             bucket_name = cfg.gcs.bucket_name
             auth_by = cfg.gcs.auth_by
@@ -44,7 +59,7 @@ class GCSUploader:
 
             exclude_dirs_str = cfg.gcs.get("exclude_dirs", "")
             exclude_files_str = cfg.gcs.get("exclude_files", "")
-            mode = cfg.gcs.get("mode", "file")
+            mode = cfg.gcs.get("mode", "zip")
 
             # Parse exclusion sets
             self.exclude_dirs = {item.strip() for item in exclude_dirs_str.split(",") if item.strip()}
@@ -56,7 +71,7 @@ class GCSUploader:
         self.mode = mode
 
         if not bucket_name:
-             raise ValueError("GCS bucket_name is not configured.")
+            raise ValueError("GCS bucket_name is not configured.")
 
         if auth_by == "vm":
             self.storage_client = storage.Client()
@@ -90,13 +105,13 @@ class GCSUploader:
                 relative_path = os.path.relpath(local_path, source_directory)
                 yield local_path, relative_path
 
-    def upload(self, source_directory, analysis_id, tlp=None):
+    def upload(self, source_directory, analysis_id, tlp=None, metadata=None):
         if self.mode == "zip":
-            self.upload_zip_archive(analysis_id, source_directory, tlp=tlp)
+            self.upload_zip_archive(analysis_id, source_directory, tlp=tlp, metadata=metadata)
         else:
-            self.upload_files_individually(analysis_id, source_directory, tlp=tlp)
+            self.upload_files_individually(analysis_id, source_directory, tlp=tlp, metadata=metadata)
 
-    def upload_zip_archive(self, analysis_id, source_directory, tlp=None):
+    def upload_zip_archive(self, analysis_id, source_directory, tlp=None, metadata=None):
         log.debug("Compressing and uploading files for analysis ID %s to GCS", analysis_id)
         blob_name = f"{analysis_id}_tlp_{tlp}.zip" if tlp else f"{analysis_id}.zip"
 
@@ -104,16 +119,18 @@ class GCSUploader:
             tmp_zip_file_name = tmp_zip_file.name
             with zipfile.ZipFile(tmp_zip_file, "w", zipfile.ZIP_DEFLATED) as archive:
                 for local_path, relative_path in self._iter_files_to_upload(source_directory):
-                    archive.write(local_path, relative_path)
+                    archive.write(local_path, os.path.join(str(analysis_id), relative_path))
         try:
             log.debug("Uploading '%s' to '%s'", tmp_zip_file_name, blob_name)
             blob = self.bucket.blob(blob_name)
+            if metadata:
+                blob.metadata = metadata
             blob.upload_from_filename(tmp_zip_file_name)
         finally:
             os.unlink(tmp_zip_file_name)
         log.info("Successfully uploaded archive for analysis %s to GCS.", analysis_id)
 
-    def upload_files_individually(self, analysis_id, source_directory, tlp=None):
+    def upload_files_individually(self, analysis_id, source_directory, tlp=None, metadata=None):
         log.debug("Uploading files for analysis ID %s to GCS", analysis_id)
         folder_name = f"{analysis_id}_tlp_{tlp}" if tlp else str(analysis_id)
 
@@ -121,6 +138,8 @@ class GCSUploader:
             blob_name = f"{folder_name}/{relative_path}"
             # log.debug("Uploading '%s' to '%s'", local_path, blob_name)
             blob = self.bucket.blob(blob_name)
+            if metadata:
+                blob.metadata = metadata
             blob.upload_from_filename(local_path)
 
         log.info("Successfully uploaded files for analysis %s to GCS.", analysis_id)
@@ -154,6 +173,7 @@ class GCS(Report):
 
         tlp = results.get("info", {}).get("tlp")
         analysis_id = results.get("info", {}).get("id")
+        custom = results.get("info", {}).get("custom")
 
         # We can now just use the Uploader.
         # But for backward compatibility with overrides in self.options (e.g. per-module config overrides in Cuckoo),
@@ -172,7 +192,7 @@ class GCS(Report):
         credentials_path_str = self.options.get("credentials_path")
         credentials_path = None
         if credentials_path_str:
-             credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
+            credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
         mode = self.options.get("mode", "file")
 
         try:
@@ -182,8 +202,9 @@ class GCS(Report):
                 raise CuckooReportError("Could not get analysis ID from results.")
 
             source_directory = self.analysis_path
+            metadata = GCSUploader.parse_custom_string(custom)
 
-            uploader.upload(source_directory, analysis_id, tlp)
+            uploader.upload(source_directory, analysis_id, tlp, metadata=metadata)
 
         except Exception as e:
             raise CuckooReportError(f"Failed to upload report to GCS: {e}") from e

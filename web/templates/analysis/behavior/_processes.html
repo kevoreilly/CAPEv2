@@ -33,8 +33,10 @@
             else {
                 $("#process_" + pid + " ul.pagination").html(paginationbar(parseInt($("#process_" + pid).data("length")), pagenum));
                 $("#process_" + pid + " ul.pagination a").click(function (e) {
+                    e.preventDefault();
                     var t = $(e.target);
-                    load_chunk(t.parents("#process_" + pid).data("pid"), parseInt(t.text()));
+                    $(`#process_${pid} #top_pagination`)[0].scrollIntoView();
+                    load_chunk(pid, parseInt(t.text()));
                 });
                 typeof callback === 'function' && callback();
             }

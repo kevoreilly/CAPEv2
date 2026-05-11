@@ -112,27 +112,27 @@ src_bios_table_date2="11\/03\/2018"
 #01\/01\/2011
 src_fw_smbios_date="11\/03\/2018"
 
-# what to use as a replacement for QEMU in the tablet info
+# what to use as a replacement for QEMU in the tablet info (e.g., 'Wacom', 'Synaptics')
 PEN_REPLACER='<WOOT>'
 
-# what to use as a replacement for QEMU in the scsi disk info
+# what to use as a replacement for QEMU in the scsi disk info (e.g., 'Samsung', 'Seagate', 'WD')
 SCSI_REPLACER='<WOOT>'
 
-# what to use as a replacement for QEMU in the atapi disk info
+# what to use as a replacement for QEMU in the atapi disk info (e.g., 'Samsung', 'Toshiba', 'Hitachi')
 ATAPI_REPLACER='<WOOT>'
 
-# what to use as a replacement for QEMU in the microdrive info
+# what to use as a replacement for QEMU in the microdrive info (e.g., 'Kingston', 'SanDisk', 'Transcend')
 MICRODRIVE_REPLACER='<WOOT>'
 
-# what to use as a replacement for QEMU in bochs in drive info
+# what to use as a replacement for QEMU in bochs in drive info (e.g., 'Samsung', 'Toshiba', 'Hitachi')
 BOCHS_BLOCK_REPLACER='<WOOT>'
 BOCHS_BLOCK_REPLACER2='<WOOT>'
 BOCHS_BLOCK_REPLACER3='<WOOT>'
 
-# what to use as a replacement for BXPC in bochs in ACPI info
+# what to use as a replacement for BXPC in bochs in ACPI info (e.g., 'DELL', 'HP', 'ASUS')
 BXPC_REPLACER='<WOOT>'
 
-# what to use as a replacement for seabios in config.h
+# what to use as a replacement for seabios in config.h (e.g., 'AMI', 'Award', 'Phoenix')
 BOCHS_SEABIOS_BLOCK_REPLACER='<WOOT>'
 
 

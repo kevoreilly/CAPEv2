@@ -12,7 +12,8 @@ class ChromiumExt(Package):
     """Chromium extension analysis package."""
 
     PATHS = [
-        ("LOCALAPPDATA", "Chromium", "chrome.exe"),
+        ("LOCALAPPDATA", "Chromium", "Application", "chrome.exe"),
+        ("ProgramFiles", "Chromium", "Application", "chrome.exe"),
     ]
     summary = "Opens the URL in Chromium with loaded extension."
     description = """Runs Chromium preloaded with a custom extensios."""

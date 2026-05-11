@@ -97,7 +97,7 @@ gcp = ["google-cloud-storage", "google-cloud-pubsub"]
 yara = ["plyara"]
 mcp = ["fastmcp", "httpx"]
 
-[tool.poetry.dev-dependencies]
+[tool.poetry.group.dev.dependencies]
 black = ">=24.3.0"
 isort = ">=5.10.1"
 mypy = "1.14.1"

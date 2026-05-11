@@ -4,7 +4,6 @@
 
 import argparse
 import base64
-import cgi
 import enum
 import http.server
 import ipaddress
@@ -23,9 +22,12 @@ import sys
 import tempfile
 import time
 import traceback
-from io import StringIO
+from email.parser import BytesParser
+from email.policy import default as email_policy
+from io import BytesIO, StringIO
 from threading import Lock
 from typing import Iterable
+from urllib.parse import parse_qs
 from zipfile import ZipFile
 
 try:
@@ -40,10 +42,10 @@ if sys.version_info[:2] < (3, 6):
 # The analysis process interacts with low-level Windows libraries that need a
 # x86 Python to be running.
 # (see https://github.com/kevoreilly/CAPEv2/issues/1680)
-if sys.maxsize > 2**32 and sys.platform == "win32":
-    sys.exit("You should install python3 x86! not x64")
+#if sys.maxsize > 2**32 and sys.platform == "win32":
+#    sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.20"
+AGENT_VERSION = "0.21"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -110,6 +112,37 @@ state = {
 class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     server_version = "CAPE Agent"
 
+    def _parse_form_and_files(self):
+        content_length = int(self.headers.get("Content-Length", "0") or 0)
+        content_type = self.headers.get("Content-Type", "")
+        media_type = content_type.split(";", 1)[0].strip().lower()
+        body = self.rfile.read(content_length) if content_length > 0 else b""
+
+        form = {}
+        files = {}
+
+        if media_type == "multipart/form-data":
+            message = BytesParser(policy=email_policy).parsebytes(
+                b"Content-Type: " + content_type.encode("utf-8") + b"\r\n\r\n" + body
+            )
+            for part in message.iter_parts():
+                name = part.get_param("name", header="content-disposition")
+                if not name:
+                    continue
+                filename = part.get_filename()
+                payload = part.get_payload(decode=True) or b""
+                if filename:
+                    files[name] = BytesIO(payload)
+                else:
+                    charset = part.get_content_charset("utf-8")
+                    form[name] = payload.decode(charset, errors="replace")
+        elif media_type == "application/x-www-form-urlencoded":
+            # Match cgi.FieldStorage default behavior: ignore blank form values.
+            parsed = parse_qs(body.decode("utf-8", errors="replace"), keep_blank_values=False)
+            form = {k: v[-1] if v else "" for k, v in parsed.items()}
+
+        return form, files
+
     def do_GET(self):
         request.client_ip, request.client_port = self.client_address
         request.form = {}
@@ -119,47 +152,17 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         self.httpd.handle(self)
 
     def do_POST(self):
-        environ = {
-            "REQUEST_METHOD": "POST",
-            "CONTENT_TYPE": self.headers.get("Content-Type"),
-        }
-
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
-
         request.client_ip, request.client_port = self.client_address
-        request.form = {}
-        request.files = {}
+        request.form, request.files = self._parse_form_and_files()
         request.method = "POST"
 
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
         self.httpd.handle(self)
 
     def do_DELETE(self):
-        environ = {
-            "REQUEST_METHOD": "DELETE",
-            "CONTENT_TYPE": self.headers.get("Content-Type"),
-        }
-
-        form = cgi.FieldStorage(fp=self.rfile, headers=self.headers, environ=environ)
-
         request.client_ip, request.client_port = self.client_address
-        request.form = {}
-        request.files = {}
+        request.form, request.files = self._parse_form_and_files()
         request.method = "DELETE"
 
-        if form.list:
-            for key in form.keys():
-                value = form[key]
-                if value.filename:
-                    request.files[key] = value.file
-                else:
-                    request.form[key] = value.value
         self.httpd.handle(self)
 
 

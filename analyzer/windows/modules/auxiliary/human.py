@@ -11,7 +11,7 @@ import time
 import math
 import re
 import traceback
-from ctypes import POINTER, WINFUNCTYPE, byref, c_bool, c_int, create_unicode_buffer, memmove, sizeof, wintypes
+from ctypes import WINFUNCTYPE, byref, c_bool, c_size_t, create_unicode_buffer, memmove, sizeof, wintypes
 from datetime import datetime, timedelta
 from math import floor
 from threading import Thread
@@ -22,7 +22,6 @@ from lib.common.defines import (
     BM_GETCHECK,
     BM_SETCHECK,
     BST_CHECKED,
-    CF_TEXT,
     GMEM_MOVEABLE,
     KERNEL32,
     USER32,
@@ -33,8 +32,8 @@ from lib.common.defines import (
 
 log = logging.getLogger(__name__)
 
-EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
-EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
+EnumWindowsProc = WINFUNCTYPE(c_bool, wintypes.HWND, wintypes.LPARAM)
+EnumChildProc = WINFUNCTYPE(c_bool, wintypes.HWND, wintypes.LPARAM)
 
 CURSOR_POSITION_REGEX = r"\((\d+):(\d+)\)"
 WAIT_REGEX = r"WAIT(\d+)"
@@ -58,6 +57,23 @@ INITIAL_HWNDS = []
 GIVEN_INSTRUCTIONS = []
 CLOSED_DOCUMENT_WINDOW = False
 DOCUMENT_WINDOW_CLICK_AROUND = False
+CF_UNICODETEXT = 0x000D
+
+# Define clipboard-related WinAPI signatures explicitly to avoid pointer truncation.
+KERNEL32.GlobalAlloc.argtypes = [wintypes.UINT, c_size_t]
+KERNEL32.GlobalAlloc.restype = wintypes.HGLOBAL
+KERNEL32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+KERNEL32.GlobalLock.restype = wintypes.LPVOID
+KERNEL32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+KERNEL32.GlobalUnlock.restype = wintypes.BOOL
+USER32.OpenClipboard.argtypes = [wintypes.HWND]
+USER32.OpenClipboard.restype = wintypes.BOOL
+USER32.EmptyClipboard.argtypes = []
+USER32.EmptyClipboard.restype = wintypes.BOOL
+USER32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+USER32.SetClipboardData.restype = wintypes.HANDLE
+USER32.CloseClipboard.argtypes = []
+USER32.CloseClipboard.restype = wintypes.BOOL
 
 CLICK_BUTTONS = (
     # english
@@ -520,15 +536,24 @@ def populate_clipboard():
 
     clipstr = "".join(clipval)
     cliprawstr = create_unicode_buffer(clipstr)
-    USER32.OpenClipboard(None)
-    USER32.EmptyClipboard()
+    if not USER32.OpenClipboard(None):
+        return
 
-    buf = KERNEL32.GlobalAlloc(GMEM_MOVEABLE, sizeof(cliprawstr))
-    lockbuf = KERNEL32.GlobalLock(buf)
-    memmove(lockbuf, cliprawstr, sizeof(cliprawstr))
-    KERNEL32.GlobalUnlock(buf)
-    USER32.SetClipboardData(CF_TEXT, buf)
-    USER32.CloseClipboard()
+    try:
+        USER32.EmptyClipboard()
+        buf = KERNEL32.GlobalAlloc(GMEM_MOVEABLE, sizeof(cliprawstr))
+        if not buf:
+            return
+
+        lockbuf = KERNEL32.GlobalLock(buf)
+        if not lockbuf:
+            return
+
+        memmove(lockbuf, cliprawstr, sizeof(cliprawstr))
+        KERNEL32.GlobalUnlock(buf)
+        USER32.SetClipboardData(CF_UNICODETEXT, buf)
+    finally:
+        USER32.CloseClipboard()
 
 
 class Human(Auxiliary, Thread):

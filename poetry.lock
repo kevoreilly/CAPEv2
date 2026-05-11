@@ -7085,4 +7085,3 @@ mcp = ["fastmcp", "httpx"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "9b1bb114df2c8192210aacf342004862f7ca91ae8b2e872456a5fa68dcbe4f4b"

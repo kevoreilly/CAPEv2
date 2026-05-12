@@ -132,6 +132,10 @@
     {% include "analysis/overview/_url.html" %}
 {% endif %}
 
+{% if file.pe.digital_signers or file.pe.guest_signers.aux_signers %}
+    {% include "analysis/overview/_authenticode.html" %}
+{% endif %}
+
 <!-- Additional Analysis Modules -->
 {% if analysis.capa_summary %}
     {% include "analysis/overview/_capa_summary.html" %}

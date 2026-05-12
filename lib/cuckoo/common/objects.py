@@ -436,8 +436,18 @@ class File:
         return new
 
     @classmethod
-    def init_yara(self, raise_exception: bool = False):
-        """Generates index for yara signatures."""
+    def init_yara(cls, raise_exception: bool = False, force: bool = False):
+        """Generates index for yara signatures.
+
+        Idempotent — safe to call multiple times. Compiling the full ruleset
+        is ~3s and the result is cached on the class for the lifetime of the
+        process, so subsequent calls short-circuit unless `force=True` is
+        passed (used after a yara-rule update). Without this guard, repeated
+        callers (e.g. some integration paths that didn't go through the
+        get_yara() wrapper) re-compiled all six categories on every call."""
+
+        if cls.yara_initialized and not force:
+            return
 
         categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
         log.debug("Initializing Yara...")

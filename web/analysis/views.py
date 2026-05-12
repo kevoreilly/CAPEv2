@@ -212,6 +212,20 @@ def _path_safe(path: str) -> bool:
     return True
 
 
+
+@lru_cache(maxsize=256)
+def _get_username_by_id(user_id):
+    if not user_id:
+        return ""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        u = User.objects.filter(pk=user_id).only("username").first()
+        return u.username if u else ""
+    except Exception:
+        return ""
+
+
 def get_tags_tasks(task_ids: list) -> str:
     for analysis in db.list_tasks(task_ids=task_ids):
         return analysis.tags_tasks
@@ -241,21 +255,7 @@ def get_analysis_info(db, id=-1, task=None):
     raw_user_tags = get_tags_tasks([new["id"]]) or ""
     new.update({"user_task_tags": [t.strip() for t in raw_user_tags.split(",") if t.strip()]})
 
-    # Submitter username for the "who submitted this task" column. user_id
-    # 0 = anonymous; for any real user, look up the Django username
-    # best-effort. Cheap enough per-task, not worth bulk-loading.
-    submitter_username = ""
-    user_id = new.get("user_id") or 0
-    if user_id:
-        try:
-            from django.contrib.auth import get_user_model
-            User = get_user_model()
-            u = User.objects.filter(pk=user_id).only("username").first()
-            if u:
-                submitter_username = u.username
-        except Exception:
-            pass
-    new["submitter_username"] = submitter_username
+    new["submitter_username"] = _get_username_by_id(new.get("user_id") or 0)
 
     if new.get("machine"):
         machine = new["machine"]
@@ -725,7 +725,7 @@ def _filetime_to_iso(ft):
     if micros < 0:
         return ""
     try:
-        return datetime.datetime.utcfromtimestamp(micros / 1_000_000).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+        return datetime.datetime.fromtimestamp(micros / 1_000_000, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
     except (OSError, ValueError, OverflowError):
         return ""
 

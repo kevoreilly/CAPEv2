@@ -72,7 +72,7 @@ class GCPPubSubService:
         try:
             payload = json.loads(message.data.decode("utf-8"))
             correlation_id = payload.get("uuid") or payload.get("transaction_id") or message.message_id
-            
+
             # Create a localized logger with correlation_id
             mlog = GCPServiceLogger(log, {"correlation_id": correlation_id})
 

@@ -252,3 +252,7 @@ enabled = no
 
 [audit_framework]
 enabled = no
+
+[display_authenticode]
+# Show Authenticode certificate chain card on the analysis overview tab
+enabled = no

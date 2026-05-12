@@ -234,7 +234,8 @@ def get_analysis_info(db, id=-1, task=None):
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
 
-    new.update({"user_task_tags": get_tags_tasks([new["id"]])})
+    raw_user_tags = get_tags_tasks([new["id"]]) or ""
+    new.update({"user_task_tags": [t.strip() for t in raw_user_tags.split(",") if t.strip()]})
 
     if new.get("machine"):
         machine = new["machine"]
@@ -263,6 +264,7 @@ def get_analysis_info(db, id=-1, task=None):
                 "suri_http_cnt": 1,
                 "suri_file_cnt": 1,
                 "trid": 1,
+                "target.file.cape_yara.name": 1,
                 "_id": 0,
             },
             sort=[("_id", -1)],
@@ -329,6 +331,9 @@ def get_analysis_info(db, id=-1, task=None):
 
         if rtmp.get("url", {}).get("virustotal", {}).get("summary", False):
             new["virustotal_summary"] = rtmp["url"]["virustotal"]["summary"]
+
+        if rtmp.get("target", {}).get("file", {}).get("cape_yara"):
+            new["cape_yara"] = [y["name"] for y in rtmp["target"]["file"]["cape_yara"] if y.get("name")]
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":

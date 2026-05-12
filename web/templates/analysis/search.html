@@ -154,7 +154,7 @@
                         {% if config.moloch %}
                         <th width="4%" class="border-top-0">Moloch</th>
                         {% endif %}
-                        {% if config.display_office_martians %}
+                        {% if config.display_office_martians or config.display_browser_martians %}
                         <th width="5%" class="border-top-0">Martians</th>
                         {% endif %}
                         {% if config.suricata %}
@@ -218,8 +218,8 @@
                             {% if config.moloch %}
                             <td>{% if analysis.moloch_url %}<a href={{analysis.moloch_url}} target="_blank" class="badge bg-primary">MOLOCH</a>{% else %}-{% endif %}</td>
                             {% endif %}
-                            {% if config.display_office_martians %}
-                            <td>{% if analysis.f_mlist_cnt %}<span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>{% else %}<span class="text-white-50">-</span>{% endif %}</td>
+                            {% if config.display_office_martians or config.display_browser_martians %}
+                            <td>{% if analysis.category == "url" and config.display_browser_martians %}{% if analysis.mlist_cnt %}<span class="badge bg-warning">{{analysis.mlist_cnt}}</span>{% else %}<span class="text-white-50">-</span>{% endif %}{% elif config.display_office_martians %}{% if analysis.f_mlist_cnt %}<span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>{% else %}<span class="text-white-50">-</span>{% endif %}{% else %}<span class="text-white-50">-</span>{% endif %}</td>
                             {% endif %}
                             {% if config.suricata %}
                             <td><span class="font-monospace">

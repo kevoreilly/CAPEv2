@@ -70,7 +70,7 @@
                             <td><span class="badge bg-secondary"><i class="fas fa-user me-1"></i>{{analysis.info.submitter_username}}</span></td>
                         {% endif %}
                         {% if analysis.info.tags_tasks %}
-                            <td>{% for t in analysis.info.tags_tasks %}<span class="badge bg-danger me-1">{{t}}</span>{% endfor %}</td>
+                            <td>{% for t in analysis.info.tags_tasks|split_csv %}<span class="badge bg-danger me-1">{{t}}</span>{% endfor %}</td>
                         {% endif %}
                         {% if analysis.info.options %}
                             <td><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#options_collapse">View</button></td>

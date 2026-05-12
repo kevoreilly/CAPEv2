@@ -252,3 +252,11 @@ enabled = no
 
 [audit_framework]
 enabled = no
+
+[display_cape_yara]
+# Show CAPE YARA hit count column on analysis list and search results
+enabled = no
+
+[display_submitter]
+# Show submitting user column on analysis list (requires WEB_AUTHENTICATION)
+enabled = no

@@ -8,13 +8,12 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from contextlib import suppress
 from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import quote, urljoin
 from wsgiref.util import FileWrapper
 
-import plyara
-import plyara.utils
 import pyzipper
 import requests
 import yara
@@ -87,6 +86,12 @@ try:
     import re2 as re
 except ImportError:
     import re
+
+HAVE_PLYARA = False
+with suppress(ImportError):
+    import plyara
+    import plyara.utils
+    HAVE_PLYARA = True
 
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
@@ -2908,6 +2913,9 @@ def yara_uploader(request):
     try:
         if not apiconf.yara_uploader.get("enabled"):
             return Response({"error": True, "error_value": "Yara Uploader API is Disabled"})
+
+        if not HAVE_PLYARA:
+            return Response({"error": True, "error_value": "Missing dependency. Contact your administrator."})
 
         category = request.data.get("category")
         if not category or category not in ALLOWED_YARA_CATEGORIES:

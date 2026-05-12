@@ -25,23 +25,26 @@ log = logging.getLogger(__name__)
 gcp_cfg = Config("gcp")
 
 
-def download_from_gcs(gcs_uri, destination_path):
+def download_from_gcs(gcs_uri, destination_path, logger=None):
     """
     Downloads a file from GCS.
     gcs_uri: gs://bucket_name/object_name
     """
+    if logger is None:
+        logger = log
+
     if not HAVE_GCP:
-        log.error("Google Cloud Storage dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-storage`")
+        logger.error("Google Cloud Storage dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-storage`")
         return False
 
     try:
         if not gcs_uri.startswith("gs://"):
-            log.error("Invalid GCS URI: %s", gcs_uri)
+            logger.error("Invalid GCS URI: %s", gcs_uri)
             return False
 
         path_parts = gcs_uri[5:].split("/", 1)
         if len(path_parts) != 2:
-            log.error("Invalid GCS URI: %s", gcs_uri)
+            logger.error("Invalid GCS URI: %s", gcs_uri)
             return False
 
         bucket_name, blob_name = path_parts
@@ -56,11 +59,11 @@ def download_from_gcs(gcs_uri, destination_path):
         bucket = storage_client.bucket(bucket_name)
         blob = bucket.blob(blob_name)
 
-        log.info("Downloading %s to %s", gcs_uri, destination_path)
+        logger.info("Downloading %s to %s", gcs_uri, destination_path)
         blob.download_to_filename(destination_path)
         return True
     except Exception as e:
-        log.error("Failed to download from GCS %s: %s", gcs_uri, e)
+        logger.error("Failed to download from GCS %s: %s", gcs_uri, e)
         return False
 
 def check_node_up(host: str) -> bool:

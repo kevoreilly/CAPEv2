@@ -32,6 +32,10 @@
                 <a class="dropdown-item text-light" href="/accounts/password/change/"><i class="fas fa-key me-2 text-white-50"></i> Change password</a>
                 <a class="dropdown-item text-light" href="/accounts/password/reset/"><i class="fas fa-unlock-alt me-2 text-white-50"></i> Reset password</a>
                 <a class="dropdown-item text-light" href="/accounts/email/"><i class="fas fa-envelope me-2 text-white-50"></i> Email configuration</a>
+                {% if user.is_authenticated and may_manage_apikeys %}
+                <div class="dropdown-divider border-secondary"></div>
+                <a class="dropdown-item text-light" href="{% url 'apikey:list' %}"><i class="fas fa-id-badge me-2 text-white-50"></i> API Keys</a>
+                {% endif %}
               </div>
             </li>
             {% endif %}

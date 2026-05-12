@@ -680,6 +680,7 @@ class NetworkETW(Processing):
         # unique source port per outbound UDP query, giving a clean join.
         suricata_for_udp53 = self.results.get("suricata", {}) or {}
         udp53_by_key = {}
+        udp53_by_src_port = {}
         for ev in etw_conns:
             if (ev.get("protocol") or "").upper() != "UDP":
                 continue
@@ -689,7 +690,9 @@ class NetworkETW(Processing):
             if not pid:
                 continue
             key = (str(ev.get("src_port")), ev.get("dst_ip", ""))
-            udp53_by_key.setdefault(key, (pid, ev.get("process_name", "")))
+            val = (pid, ev.get("process_name", ""))
+            udp53_by_key.setdefault(key, val)
+            udp53_by_src_port.setdefault(str(ev.get("src_port")), []).append(val)
         if udp53_by_key:
             for rec in suricata_for_udp53.get("dns", []) or []:
                 # Only fill in PIDs we don't already know.
@@ -705,7 +708,7 @@ class NetworkETW(Processing):
                 # because the OS allocates ephemeral ports incrementally).
                 hit = udp53_by_key.get((src_port, dst_ip))
                 if hit is None:
-                    cand = [v for k, v in udp53_by_key.items() if k[0] == src_port]
+                    cand = udp53_by_src_port.get(src_port, [])
                     if len(cand) == 1:
                         hit = cand[0]
                 if hit is None:

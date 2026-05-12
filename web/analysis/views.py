@@ -2718,7 +2718,7 @@ def report(request, task_id):
             continue
         if os.path.isdir(p):
             try:
-                if os.listdir(p):
+                if any(os.scandir(p)):
                     report["has_etw"] = True
                     break
             except OSError:

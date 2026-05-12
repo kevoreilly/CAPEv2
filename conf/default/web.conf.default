@@ -252,3 +252,7 @@ enabled = no
 
 [audit_framework]
 enabled = no
+
+[display_etw]
+# Show ETW Telemetry tab on analysis report (requires network_etw processing module)
+enabled = no

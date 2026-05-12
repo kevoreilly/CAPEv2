@@ -2,7 +2,6 @@ import json
 import logging
 import os
 import shutil
-import socket
 import time
 from threading import Thread
 
@@ -16,7 +15,6 @@ from lib.common.etw_utils import (
     ProviderInfo,
     GUID,
     et,
-    encode,
 )
 
 log = logging.getLogger(__name__)

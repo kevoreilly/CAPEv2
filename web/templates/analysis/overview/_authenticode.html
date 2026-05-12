@@ -38,12 +38,13 @@
         <div class="card-body p-0">
 
             {% comment %}--- Code Signing Chain (from aux_signers, enriched with digital_signers) ---{% endcomment %}
-            {% if gs.aux_signers %}
+            {% with cert_items=gs.aux_signers|cert_chain_signers %}
+            {% if cert_items %}
             <div class="px-3 pt-2 pb-1 border-bottom border-secondary">
                 <small class="text-uppercase text-secondary fw-bold" style="letter-spacing:.05em">Code Signing Chain</small>
             </div>
             <div class="accordion accordion-flush" id="certChainAccordion">
-            {% for signer in gs.aux_signers %}{% if "Certificate Chain" in signer.name %}
+            {% for signer in cert_items %}
             {% with issued_to=signer|get_item:"Issued to" issued_by=signer|get_item:"Issued by" sha1=signer|get_item:"SHA1 hash" %}
             <div class="accordion-item bg-dark border-0 border-bottom border-secondary">
                 <div class="accordion-header">
@@ -79,12 +80,6 @@
                             {% if dc.sha1_fingerprint %}<tr><th class="text-secondary ps-0">SHA1</th><td class="font-monospace text-break">{{ dc.sha1_fingerprint }}</td></tr>{% endif %}
                             {% if dc.md5_fingerprint %}<tr><th class="text-secondary ps-0">MD5</th><td class="font-monospace text-break">{{ dc.md5_fingerprint }}</td></tr>{% endif %}
                             {% if dc.sha256_fingerprint %}<tr><th class="text-secondary ps-0">SHA256</th><td class="font-monospace text-break">{{ dc.sha256_fingerprint }}</td></tr>{% endif %}
-                            {% else %}
-                            {% comment %}Fallback: only aux_signers data available{% endcomment %}
-                            <tr><th class="text-secondary ps-0" style="width:150px">Subject</th><td class="font-monospace">{{ issued_to }}</td></tr>
-                            <tr><th class="text-secondary ps-0">Issuer</th><td class="font-monospace">{{ issued_by }}{% if issued_to == issued_by %} <span class="badge bg-danger ms-1">Self-Signed</span>{% endif %}</td></tr>
-                            <tr><th class="text-secondary ps-0">Expires</th><td class="font-monospace">{{ signer|get_item:"Expires" }}</td></tr>
-                            <tr><th class="text-secondary ps-0">SHA1</th><td class="font-monospace text-break">{{ sha1 }}</td></tr>
                             {% endif %}{% endfor %}
                             {% if not ds %}
                             <tr><th class="text-secondary ps-0" style="width:150px">Subject</th><td class="font-monospace">{{ issued_to }}</td></tr>
@@ -97,16 +92,19 @@
                 </div>
             </div>
             {% endwith %}
-            {% endif %}{% endfor %}
+            {% endfor %}
             </div>
+            {% endif %}
+            {% endwith %}
 
             {% comment %}--- Timestamp Chain ---{% endcomment %}
-            {% for signer in gs.aux_signers %}{% if "Timestamp Chain" in signer.name %}{% if forloop.first %}
+            {% with ts_items=gs.aux_signers|ts_chain_signers %}
+            {% if ts_items %}
             <div class="px-3 pt-2 pb-1 border-bottom border-secondary border-top mt-1">
                 <small class="text-uppercase text-secondary fw-bold" style="letter-spacing:.05em">Timestamp Chain</small>
             </div>
             <div class="accordion accordion-flush" id="tsChainAccordion">
-            {% endif %}
+            {% for signer in ts_items %}
             <div class="accordion-item bg-dark border-0 border-bottom border-secondary">
                 <div class="accordion-header">
                     <button class="accordion-button collapsed bg-dark text-white shadow-none py-2 px-3"
@@ -128,10 +126,12 @@
                     </div>
                 </div>
             </div>
-            {% if forloop.last %}</div>{% endif %}
-            {% endif %}{% endfor %}
+            {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
 
-            {% elif ds %}
+            {% if not gs.aux_signers and ds %}
             {% comment %}Fallback: no aux_signers, show digital_signers directly{% endcomment %}
             <div class="accordion accordion-flush" id="dsAccordion">
             {% for dc in ds %}
@@ -156,7 +156,7 @@
                             <tr><td colspan="2"><hr class="border-secondary my-1"></td></tr>
                             {% if dc.issuer_commonName %}<tr><th class="text-secondary ps-0">Issuer CN</th><td class="font-monospace">{{ dc.issuer_commonName }}</td></tr>{% endif %}
                             {% if dc.issuer_organizationName %}<tr><th class="text-secondary ps-0">Issuer O</th><td class="font-monospace">{{ dc.issuer_organizationName }}</td></tr>{% endif %}
-                            {% if dc.subject_organizationalUnitName %}<tr><th class="text-secondary ps-0">Issuer OU</th><td class="font-monospace">{{ dc.issuer_organizationalUnitName }}</td></tr>{% endif %}
+                            {% if dc.issuer_organizationalUnitName %}<tr><th class="text-secondary ps-0">Issuer OU</th><td class="font-monospace">{{ dc.issuer_organizationalUnitName }}</td></tr>{% endif %}
                             <tr><td colspan="2"><hr class="border-secondary my-1"></td></tr>
                             {% if dc.not_before %}<tr><th class="text-secondary ps-0">Not Before</th><td class="font-monospace">{{ dc.not_before }}</td></tr>{% endif %}
                             {% if dc.not_after %}<tr><th class="text-secondary ps-0">Not After</th><td class="font-monospace">{{ dc.not_after }}</td></tr>{% endif %}

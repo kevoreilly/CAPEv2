@@ -94,6 +94,7 @@ class GCPPubSubService:
             if "category=static" in sandbox_options:
                 category = "static"
 
+            sandbox_options = sandbox_options or ""
             if sandbox_options:
                 sandbox_options += f",name={sample_name}"
             else:

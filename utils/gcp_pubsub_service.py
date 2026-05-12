@@ -78,6 +78,10 @@ class GCPPubSubService:
 
             sample_hash = payload.get("sample_hash")
             gcs_uri = payload.get("gcs_uri")
+            if not sample_hash or not gcs_uri:
+                mlog.error("Missing sample_hash or gcs_uri in payload")
+                message.nack()
+                return
             sandbox_options = payload.get("sandbox_options", "")
             parent_id = payload.get("parent_id", "")
             transaction_id = payload.get("transaction_id", "")

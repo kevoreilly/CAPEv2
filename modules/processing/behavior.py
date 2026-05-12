@@ -1247,7 +1247,7 @@ class NetworkMap:
         "0002df01-0000-0000-c000-000000000046": "iexplore.exe",
         "9ba05972-f6a8-11cf-a442-00a0c90a8f39": "explorer.exe",
         "c08afd90-f2a1-11d1-8455-00a0c91f3880": "explorer.exe",
-        "25336920-03f9-11cf-8fd0-00aa00686f13": "mshtml.dll",
+        "25336920-03f9-11cf-8fd0-00aa00686f13": "mshta.exe",  # HTMLDocument OOP → mshta
     }
 
     def event_apicall(self, call, process):
@@ -1259,15 +1259,9 @@ class NetworkMap:
                 clsid = (args_map.get("rclsid") or "").lower()
                 progid = (args_map.get("progid") or "").strip()
                 # Capture any out-of-process activation (CLSCTX includes LOCAL_SERVER=4)
-                try:
-                    ctx = int(args_map.get("clscontext", "0"), 16)
-                except (ValueError, TypeError):
-                    ctx = 0
+                ctx = _safe_int(args_map.get("clscontext", "0"))
                 if ctx & 0x4 or clsid in self._OOP_CLSIDS:
-                    key = (process.get("process_id"), clsid)
-                    if not any((a.get("activator_pid"), a.get("clsid")) == key
-                               for a in self.com_activations):
-                        self.com_activations.append({
+                    self.com_activations.append({
                             "clsid": clsid,
                             "progid": progid,
                             "activator_pid": process.get("process_id"),
@@ -1537,6 +1531,9 @@ class BehaviorAnalysis(Processing):
                                 instance.event_apicall(call, process)
                             except Exception:
                                 log.exception('Failure in partial behavior "%s"', instance.key)
+                    # Reset the iterator so reporting modules can read the calls again
+                    with suppress(AttributeError):
+                        process["calls"].reset()
 
             for instance in instances:
                 try:

@@ -8,15 +8,13 @@ import subprocess
 import sys
 import tempfile
 import zipfile
-from contextlib import suppress
 from datetime import datetime, timedelta
 from io import BytesIO
-from urllib.parse import quote, urljoin
+from urllib.parse import quote
 from wsgiref.util import FileWrapper
 
 import pyzipper
 import requests
-import yara
 from bson.objectid import ObjectId
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -24,8 +22,11 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.response import Response
+
+from apikey.authentication import ApiKeyAuthentication
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -87,12 +88,6 @@ try:
 except ImportError:
     import re
 
-HAVE_PLYARA = False
-with suppress(ImportError):
-    import plyara
-    import plyara.utils
-    HAVE_PLYARA = True
-
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
 # Config variables
@@ -136,9 +131,7 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 
 DIST_ENABLED = False
 if dist_conf.distributed.enabled:
-    from sqlalchemy import select
-
-    from lib.cuckoo.common.dist_db import Node, create_session
+    from lib.cuckoo.common.dist_db import create_session
     from lib.cuckoo.common.dist_db import Task as DTask
 
     dist_session = create_session(
@@ -149,7 +142,6 @@ if dist_conf.distributed.enabled:
 
 db: _Database = Database()
 
-ALLOWED_YARA_CATEGORIES = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
 
 # Conditional decorator for web authentication
 class conditional_login_required:
@@ -1128,6 +1120,12 @@ def tasks_delete(request, task_id, status=False):
 
 @csrf_exempt
 @api_view(["GET", "POST"])
+# UI-internal endpoint: the Guacamole VNC pane calls this from the
+# in-browser session to poll/stop a live analysis. Re-enable the session-
+# cookie auth path here so it works under SSO deployments where the global
+# DRF chain is API-key-only. ApiKeyAuthentication stays available for
+# scripts that prefer it.
+@authentication_classes([SessionAuthentication, ApiKeyAuthentication])
 def tasks_status(request, task_id):
     if not apiconf.taskstatus.get("enabled"):
         resp = {"error": True, "error_value": "Task status API is disabled"}
@@ -2905,196 +2903,4 @@ def dist_tasks_notification(request, task_id: int):
         # main_db.set_status(task.main_task_id, TASK_REPORTED)
         # log.debug("reporting main_task_id: {}".format(task.main_task_id))
         task.notificated = True
-
-
-@csrf_exempt
-@api_view(["POST"])
-def yara_uploader(request):
-    try:
-        if not apiconf.yara_uploader.get("enabled"):
-            return Response({"error": True, "error_value": "Yara Uploader API is Disabled"})
-
-        if not HAVE_PLYARA:
-            return Response({"error": True, "error_value": "Missing dependency. Contact your administrator."})
-
-        category = request.data.get("category")
-        if not category or category not in ALLOWED_YARA_CATEGORIES:
-            return Response(
-                {"status": "error", "message": f"Invalid or missing category. Allowed categories: {ALLOWED_YARA_CATEGORIES}"},
-                status=400,
-            )
-        """
-        if request.user.is_authenticated and request.user.username not in ALLOWED_UPLOADERS:
-            return Response(
-                {"status": "error", "message": f"User '{request.user.username}' is not authorized to upload YARA rules."}, status=403
-            )
-        """
-        if "file" not in request.FILES:
-            return Response({"status": "error", "message": "No file provided"}, status=400)
-
-        uploaded_file = request.FILES["file"]
-
-        # Read content for processing
-        try:
-            content = uploaded_file.read().decode("utf-8")
-        except UnicodeDecodeError:
-            return Response({"status": "error", "message": "File must be a text file (UTF-8)"}, status=400)
-
-        # Validate YARA
-        try:
-            yara.compile(source=content)
-        except yara.SyntaxError as e:
-            return Response({"status": "error", "message": f"YARA Syntax Error: {str(e)}"}, status=400)
-        except yara.Error as e:
-            return Response({"status": "error", "message": f"YARA Error: {str(e)}"}, status=400)
-
-        try:
-            parser = plyara.Plyara()
-            rules = parser.parse_string(content)
-
-            if not rules:
-                return Response({"status": "error", "message": "No YARA rules found in file"}, status=400)
-
-            main_rule = rules[0]
-
-            # Check for family
-            family = None
-            metadata = main_rule.get("metadata", [])
-
-            for meta in metadata:
-                if "family" in meta:
-                    family = meta["family"]
-                    break
-
-            if not family:
-                # Fallback: check cape_type
-                for meta in metadata:
-                    if "cape_type" in meta:
-                        cape_type_val = meta["cape_type"]
-                        if cape_type_val and isinstance(cape_type_val, str):
-                            family = cape_type_val.split(" ")[0]
-                        break
-
-            if not family:
-                return Response({"status": "error", "message": "Missing 'family' in metadata"}, status=400)
-
-            # Now iterate all rules to inject cape_type / author if needed
-            for rule in rules:
-                rule_metadata = rule.get("metadata", [])
-
-                has_cape_type = any("cape_type" in m for m in rule_metadata)
-                has_author = any("yara_created_by" in m for m in rule_metadata)  # Using yara_created_by as key
-
-                if not has_cape_type:
-                    rule_metadata.append({"cape_type": f"{family} Payload"})
-
-                if request.user.is_authenticated and not has_author:
-                    rule_metadata.append({"yara_created_by": request.user.username})
-
-                rule["metadata"] = rule_metadata
-
-            # Define destination path
-            original_filename = os.path.basename(uploaded_file.name)  # Basic safety
-            if category == "monitor":
-                dest_dir = os.path.join(CUCKOO_ROOT, "analyzer", "windows", "data", "yara")
-            else:
-                dest_dir = os.path.join(CUCKOO_ROOT, "data", "yara", category)
-
-            # Ensure directory exists
-            if not os.path.exists(dest_dir):
-                os.makedirs(dest_dir, exist_ok=True)
-
-            original_dest_path = os.path.join(dest_dir, original_filename)
-
-            if os.path.exists(original_dest_path):
-                filename = original_filename
-                dest_path = original_dest_path
-            else:
-                # Fallback to standard naming
-                filename = f"{family}.yar"
-                dest_path = os.path.join(dest_dir, filename)
-
-            # Check if file exists to append
-            if os.path.exists(dest_path):
-                with open(dest_path, "r", encoding="utf-8") as f:
-                    existing_content = f.read()
-
-                try:
-                    existing_rules = parser.parse_string(existing_content)
-                    existing_names = {r["rule_name"] for r in existing_rules}
-
-                    # Filter new rules
-                    unique_rules = []
-                    for rule in rules:
-                        if rule["rule_name"] not in existing_names:
-                            unique_rules.append(rule)
-
-                    if not unique_rules:
-                        # No new rules to add
-                        msg = "All rules already exist. Nothing to add."
-                        return Response({"status": "success", "message": msg})
-
-                    append_content = ""
-                    for rule in unique_rules:
-                        append_content += "\n\n" + plyara.utils.rebuild_yara_rule(rule)
-
-                    content = existing_content + append_content
-
-                except Exception as e:
-                    return Response({"status": "error", "message": f"Failed to parse existing file for append: {str(e)}"}, status=500)
-            else:
-                # Rebuild content for new file
-                new_content = ""
-                for rule in rules:
-                    new_content += plyara.utils.rebuild_yara_rule(rule) + "\n\n"
-
-                content = new_content
-
-        except Exception as e:
-            return Response({"status": "error", "message": f"Plyara parsing error: {str(e)}"}, status=400)
-
-        # Save file
-        with open(dest_path, "w", encoding="utf-8") as f:
-            f.write(content)
-
-        msg = "Rule saved! Thank you"
-
-        # Distributed propagation
-        try:
-            if DIST_ENABLED:
-                # Prepare for propagation
-                files = {"file": (filename, content)}
-                with dist_session() as db_session:
-                    nodes = db_session.execute(select(Node).where(Node.enabled.is_(True))).scalars().all()
-
-                    propagated_count = 0
-                    total_count = 0
-
-                    for node in nodes:
-                        total_count += 1
-                        prop_url = urljoin(node.url, "apiv2/yara_uploader/")
-                        headers = {"Authorization": f"Token {node.apikey}"}
-
-                        try:
-                            data = {"username": request.user.username, "category": category}
-                            r = requests.post(prop_url, files=files, data=data, headers=headers, verify=False, timeout=10)
-                            if r.status_code == 200:
-                                propagated_count += 1
-                        except Exception:
-                            pass
-
-                    msg += f" (Propagated to {propagated_count}/{total_count} workers)"
-
-        except Exception as e:
-            msg += f" (Propagation failed: {str(e)})"
-
-        return Response(
-            {
-                "status": "success",
-                "message": msg,
-            }
-        )
-
-    except Exception as e:
-        return Response({"status": "error", "message": str(e)}, status=500)
 

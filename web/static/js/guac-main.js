@@ -137,14 +137,20 @@ function GuacMe(element, session_id, recording_name) {
                 "The server's error message was:";
             var error_message = guac_error.message;
 
-            if (guac_error.message.toLowerCase().startsWith('aborted')) {
-                dialog_message = "Remote session terminated.";
-                error_message = "Close tab.";
+            var isNormalEnd = guac_error.message.toLowerCase().startsWith('aborted');
+            if (isNormalEnd) {
+                dialog_message = "The analysis session has ended.";
+                error_message = "";
+            }
+            var heading = dialog.find('#dialog-heading');
+            if (isNormalEnd) {
+                heading.html('<i class="fas fa-check-circle me-1" style="color:#198754"></i>Session Complete');
+            } else {
+                heading.html('<i class="fas fa-exclamation-triangle me-1" style="color:#dc3545"></i>Session Error');
             }
             dialog.find('.message').html(dialog_message);
             dialog.find('.error_msg').html(error_message);
-            dialog.dialog({dialogClass: 'no-close'});
-            dialog.dialog(dialog_container);
+            dialog.css('display', 'block');
         };
     };
 
@@ -169,15 +175,30 @@ function GuacMe(element, session_id, recording_name) {
     init();
 }
 
-function stopTask(taskId) {
-    var apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
+function getCsrfToken() {
+    var match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? match[1] : '';
+}
 
+function stopTask(taskId) {
+    var btn = document.getElementById('stopTask');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Stopping...'; }
+
+    var apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
     fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+        },
         body: JSON.stringify({ status: 'finish' }),
     })
     .then(response => response.json())
-    .then(data => console.log('Response:', data))
-    .catch(error => console.error('Error:', error));
+    .then(function(data) {
+        location.replace(location.origin + '/submit/status/' + taskId + '/');
+    })
+    .catch(function(error) {
+        console.error('Error:', error);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-stop-circle me-1"></i>End Session'; }
+    });
 }

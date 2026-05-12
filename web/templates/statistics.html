@@ -167,8 +167,10 @@
                                 <tr><th>Module</th><th class="text-end">Total (s)</th><th class="text-end">Runs</th><th class="text-end">Avg (s)</th></tr>
                             </thead>
                             <tbody>
-                                {% for name, time in statistics.processing.items|slice:":8" %}
-                                <tr><td>{{name}}</td><td class="text-end">{{time.total}}</td><td class="text-end">{{time.runs}}</td><td class="text-end">{{time.average}}</td></tr>
+                                {% for name, time in statistics.processing.items %}
+                                    {% if forloop.counter <= 8 %}
+                                    <tr><td>{{name}}</td><td class="text-end">{{time.total}}</td><td class="text-end">{{time.runs}}</td><td class="text-end">{{time.average}}</td></tr>
+                                    {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -181,8 +183,10 @@
                                 <tr><th>Module</th><th class="text-end">Total (s)</th><th class="text-end">Runs</th><th class="text-end">Avg (s)</th></tr>
                             </thead>
                             <tbody>
-                                {% for name, time in statistics.signatures.items|slice:":8" %}
-                                <tr><td>{{name}}</td><td class="text-end">{{time.total}}</td><td class="text-end">{{time.runs}}</td><td class="text-end">{{time.average}}</td></tr>
+                                {% for name, time in statistics.signatures.items %}
+                                    {% if forloop.counter <= 8 %}
+                                    <tr><td>{{name}}</td><td class="text-end">{{time.total}}</td><td class="text-end">{{time.runs}}</td><td class="text-end">{{time.average}}</td></tr>
+                                    {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -195,8 +199,10 @@
                                 <tr><th>Module</th><th class="text-end">Total (s)</th><th class="text-end">Runs</th><th class="text-end">Avg (s)</th></tr>
                             </thead>
                             <tbody>
-                                {% for name, time in statistics.reporting.items|slice:":8" %}
-                                <tr><td>{{name}}</td><td class="text-end">{{time.total}}</td><td class="text-end">{{time.runs}}</td><td class="text-end">{{time.average}}</td></tr>
+                                {% for name, time in statistics.reporting.items %}
+                                    {% if forloop.counter <= 8 %}
+                                    <tr><td>{{name}}</td><td class="text-end">{{time.total}}</td><td class="text-end">{{time.runs}}</td><td class="text-end">{{time.average}}</td></tr>
+                                    {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>
@@ -209,8 +215,10 @@
                                 <tr><th>Name</th><th class="text-end">Total (m)</th><th class="text-end">Runs</th><th class="text-end">Ext</th><th class="text-end">Avg (m)</th></tr>
                             </thead>
                             <tbody>
-                                {% for name, time in statistics.custom_statistics.items|slice:":8" %}
-                                <tr><td>{{name}}</td><td class="text-end">{{time.total}}</td><td class="text-end">{{time.runs}}</td><td class="text-end">{{time.successful}}</td><td class="text-end">{{time.average}}</td></tr>
+                                {% for name, time in statistics.custom_statistics.items %}
+                                    {% if forloop.counter <= 8 %}
+                                    <tr><td>{{name}}</td><td class="text-end">{{time.total}}</td><td class="text-end">{{time.runs}}</td><td class="text-end">{{time.successful}}</td><td class="text-end">{{time.average}}</td></tr>
+                                    {% endif %}
                                 {% endfor %}
                             </tbody>
                         </table>

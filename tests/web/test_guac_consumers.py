@@ -314,7 +314,7 @@ class TestGuacConsumers:
         assert timeout_manager.complete_analysis_calls == 1
         assert timeout_manager.is_active is False
         assert client.closed is True
-        assert f"idle for 120001ms (threshold: 120s)" in caplog.text
+        assert "idle for 120001ms (threshold: 120s)" in caplog.text
 
     async def test_consumer_disconnect_cancels_reader_without_double_close(self, guac_consumer_app_factory):
         guac_consumer_app, fake_db = guac_consumer_app_factory(read_guacd_impl=_cancel_then_close_read_guacd)

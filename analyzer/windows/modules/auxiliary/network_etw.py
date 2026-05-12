@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import shutil
+import socket
 import time
 from threading import Thread
 
@@ -15,6 +16,7 @@ from lib.common.etw_utils import (
     ProviderInfo,
     GUID,
     et,
+    encode,
 )
 
 log = logging.getLogger(__name__)
@@ -176,7 +178,7 @@ class Network_ETW(ETWAuxiliaryWrapper):
                 log.debug("Could not read analysis config for filters: %s", e)
 
             filter_ports.add(8000)
-            filter_ports.add(53)
+            # filter_ports.add(53)  # do NOT filter DNS — we need UDP/53 events with PIDs to attribute sample DNS queries that bypass dnsapi.dll (direct UDP DNS in malware)
 
             log.info("NetworkETW filters: ips=%s ports=%s", filter_ips, filter_ports)
 

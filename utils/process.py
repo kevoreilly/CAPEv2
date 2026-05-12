@@ -195,16 +195,15 @@ def init_worker():
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
     db.engine.dispose(close=False)
 
-    # Fix for open file handles on rotated logs in workers
-    for h in log.handlers[:]:
-        if isinstance(h, logging.FileHandler):
-            h.close()
-        log.removeHandler(h)
+    # Avoid fork deadlock: use direct list ops instead of
+    # handler.close()/removeHandler()/addHandler() which acquire locks.
+    # Inherited FDs are intentionally leaked after fork.
+    log.handlers[:] = []
 
-    # Restore Console Handler
+    # Restore Console Handler (no lock-acquiring addHandler)
     ch = ConsoleHandler()
     ch.setFormatter(FORMATTER)
-    log.addHandler(ch)
+    log.handlers.append(ch)
 
     # Eagerly compile the YARA ruleset once per worker so the first task
     # this worker picks up doesn't pay the ~3s compile cost. The result

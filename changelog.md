@@ -1,4 +1,5 @@
 ### [13.05.2026]
+* Update Formbook (Xloader) dynamic config extractor
 * Monitor updates:
     * Enhance 'string' debugger action to work without target by iterating through registers
     * Add pid to log output in DumpSectionViewsForPid()

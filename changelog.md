@@ -1,3 +1,9 @@
+### [13.05.2026]
+* Monitor updates:
+    * Enhance 'string' debugger action to work without target by iterating through registers
+    * Add pid to log output in DumpSectionViewsForPid()
+    * Fix bug with GetAccessibleSize() causing rare access violations
+
 ### [08.05.2026]
 * Monitor update: fix COM hooks
 

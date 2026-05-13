@@ -53,7 +53,7 @@
                             data-bs-target="#cert_ac_{{ forloop.counter }}" aria-expanded="false">
                         <span class="me-3 text-secondary small font-monospace" style="min-width:120px">{{ signer.name }}</span>
                         <span class="fw-bold me-2">{{ issued_to }}</span>
-                        {% if issued_to == issued_by %}<span class="badge bg-danger me-2">Self-Signed</span>{% endif %}
+                        {% if issued_to == issued_by and forloop.first and forloop.last %}<span class="badge bg-danger me-2">Self-Signed</span>{% endif %}
                         <span class="text-secondary small ms-auto me-3">exp {{ signer|get_item:"Expires" }}</span>
                     </button>
                 </div>
@@ -83,7 +83,7 @@
                             {% endif %}{% endfor %}
                             {% if not ds %}
                             <tr><th class="text-secondary ps-0" style="width:150px">Subject</th><td class="font-monospace">{{ issued_to }}</td></tr>
-                            <tr><th class="text-secondary ps-0">Issuer</th><td class="font-monospace">{{ issued_by }}{% if issued_to == issued_by %} <span class="badge bg-danger ms-1">Self-Signed</span>{% endif %}</td></tr>
+                            <tr><th class="text-secondary ps-0">Issuer</th><td class="font-monospace">{{ issued_by }}{% if issued_to == issued_by and forloop.first and forloop.last %} <span class="badge bg-danger ms-1">Self-Signed</span>{% endif %}</td></tr>
                             <tr><th class="text-secondary ps-0">Expires</th><td class="font-monospace">{{ signer|get_item:"Expires" }}</td></tr>
                             <tr><th class="text-secondary ps-0">SHA1</th><td class="font-monospace text-break">{{ sha1 }}</td></tr>
                             {% endif %}
@@ -141,7 +141,7 @@
                             type="button" data-bs-toggle="collapse"
                             data-bs-target="#dc_ac_{{ forloop.counter }}" aria-expanded="false">
                         <span class="fw-bold me-2">{{ dc.subject_commonName }}</span>
-                        {% if dc.subject_commonName == dc.issuer_commonName %}<span class="badge bg-danger me-2">Self-Signed</span>{% endif %}
+                        {% if dc.subject_commonName == dc.issuer_commonName and forloop.first and forloop.last %}<span class="badge bg-danger me-2">Self-Signed</span>{% endif %}
                         <span class="text-secondary small ms-auto me-3">exp {{ dc.not_after|slice:":10" }}</span>
                     </button>
                 </div>

@@ -118,6 +118,9 @@ pre-commit = ">=2.19.0"
 [tool.poetry]
 package-mode = false
 
+[tool.uv]
+package = false
+
 [tool.black]
 line-length = 132
 include = "\\.py(_disabled)?$"

@@ -25,6 +25,10 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from rest_framework.decorators import api_view
+try:
+    from apikey.authentication import ApiKeyAuthentication
+except ImportError:
+    ApiKeyAuthentication = None
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -1126,6 +1130,8 @@ def tasks_delete(request, task_id, status=False):
     return Response(resp)
 
 
+# Re-enable session-cookie auth so the in-browser "End Session" button works
+# under SSO deployments where the global DRF chain is API-key-only.
 @csrf_exempt
 @api_view(["GET", "POST"])
 def tasks_status(request, task_id):

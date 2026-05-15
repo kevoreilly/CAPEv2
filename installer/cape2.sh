@@ -1118,6 +1118,10 @@ function dependencies() {
         useradd --system -g ${USER} -d /home/${USER}/ -m ${USER} --shell /bin/bash
     fi
 
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} /usr/local/bin/uv venv "$CAPE_ROOT/.venv"
+    fi
+
     echo "${USER} ALL=NOPASSWD: ${TCPDUMP_PATH}" > /etc/sudoers.d/tcpdump
     chmod 440 /etc/sudoers.d/tcpdump
 

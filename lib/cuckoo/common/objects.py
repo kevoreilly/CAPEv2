@@ -520,7 +520,6 @@ class File:
                 elif HAVE_YARA:
                     try:
                         File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-                        File.yara_initialized = True
                         break
                     except yara.SyntaxError as e:
                         bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
@@ -573,6 +572,7 @@ class File:
                 else:
                     log.debug("\t |-- %s %s", category, entry)
         File.yara_rules_hash = hasher.hexdigest()
+        File.yara_initialized = True
 
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.

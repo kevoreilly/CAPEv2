@@ -1119,6 +1119,8 @@ function dependencies() {
     fi
 
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        mkdir -p "$CAPE_ROOT"
+        chown ${USER}:${USER} "$CAPE_ROOT"
         sudo -u ${USER} /usr/local/bin/uv venv "$CAPE_ROOT/.venv"
     fi
 

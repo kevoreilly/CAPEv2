@@ -760,6 +760,8 @@ file-store.enabled: yes
 EOF
 
     sed -i '$a include:\n  - cape.yaml\n' /etc/suricata/suricata.yaml
+    getent group pcap || groupadd --system pcap
+    getent group suricata || groupadd --system suricata
     usermod -aG pcap suricata
     usermod -aG suricata "${USER}"
     # sudo chmod -R g+w /var/log/suricata/
@@ -1753,8 +1755,8 @@ case "$COMMAND" in
     install_mongo
     install_CAPE
     install_yara
-    install_systemd
     install_suricata
+    install_systemd
     install_jemalloc
     if ! crontab -l | grep -q './smtp_sinkhole.sh'; then
         crontab -l | { cat; echo "@reboot cd $CAPE_ROOT/utils/ && ./smtp_sinkhole.sh 2>/dev/null"; } | crontab -
@@ -1776,8 +1778,8 @@ case "$COMMAND" in
     install_volatility3
     install_mongo
     install_yara
-    install_systemd
     install_suricata
+    install_systemd
     install_jemalloc
     install_logrotate
     install_mitmproxy

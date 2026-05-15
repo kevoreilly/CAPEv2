@@ -212,6 +212,12 @@ ignore_rdp_cert = false
 rdp_disable_wallpaper = yes
 rdp_disable_theming = yes
 rdp_enable_font_smoothing = no
+# Idle timeout settings for interactive sessions
+# idle_timeout_seconds: Maximum idle time before session is terminated
+# Defaults to 0 (disabled) when omitted or set to an invalid value
+idle_timeout_seconds = 0
+# activity_check_interval: How often to check for timeout in seconds when enabled
+activity_check_interval = 30
 rdp_enable_full_window_drag = no
 rdp_enable_desktop_composition = no
 rdp_enable_menu_animations = no

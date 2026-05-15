@@ -288,15 +288,13 @@ def get_analysis_info(db, id=-1, task=None):
                 # by sha256; the denormalize_files mongo hook restores
                 # them — but only if file_ref is in the projection. Pull
                 # it explicitly so the hook can follow the reference.
+                "target.file.yara.name": 1,
                 "target.file.file_ref": 1,
                 "suri_tls_cnt": 1,
                 "suri_alert_cnt": 1,
                 "suri_http_cnt": 1,
                 "suri_file_cnt": 1,
                 "trid": 1,
-                "target.file.cape_yara": 1,
-                "target.file.yara.name": 1,
-                "target.file.file_ref": 1,
                 "_id": 0,
             },
             sort=[("_id", -1)],

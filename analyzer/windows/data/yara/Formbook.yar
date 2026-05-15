@@ -71,5 +71,5 @@ rule FormconfB
         $config = {40 55 53 56 57 41 54 41 55 41 56 41 57 48 8D AC 24 [4] 48 81 EC [2] 00 00 45 33 ?? 33 C0 4C 8B E9 4C 89}
         $sleep = {B9 88 13 00 00 FF D7 44 8B 9B [4] 41 81 FB 00 01 00 00 75 ?? 48 39 B3 [4] 74 ?? 8B 83 [4] 05 00 20 00 00 39 B0}
     condition:
-        3 of them
+        $decoy and any of ($c2_*) and ($config or $sleep)
 }

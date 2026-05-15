@@ -35,7 +35,7 @@
                             {% if host.processes %}
                                 {% for p in host.processes %}
                                     <span class="badge bg-warning text-dark"
-                                          title="{% if p.source %}source: {{p.source}}{% endif %}{% if p.resolved_hostname %} | resolved via {{p.resolved_hostname}}{% endif %}{% if p.protocol %} | {{p.protocol}}{% endif %}{% if p.dst_port %}:{{p.dst_port}}{% endif %}">
+                                          {% spaceless %}title="{% if p.source %}source: {{ p.source }}{% endif %}{% if p.resolved_hostname %}{% if p.source %} | {% endif %}resolved via {{ p.resolved_hostname }}{% endif %}{% if p.protocol %}{% if p.source or p.resolved_hostname %} | {% endif %}{{ p.protocol }}{% if p.dst_port %}:{{ p.dst_port }}{% endif %}{% endif %}"{% endspaceless %}
                                         {% if p.process_name %}{{ p.process_name }}{% else %}(unknown){% endif %}{% if p.pid %} ({{ p.pid }}){% endif %}
                                     </span>
                                 {% endfor %}

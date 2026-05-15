@@ -253,6 +253,10 @@ enabled = no
 [audit_framework]
 enabled = no
 
+[display_etw]
+# Show ETW Telemetry tab on analysis report (requires network_etw processing module)
+enabled = no
+
 [display_cape_yara]
 # Show CAPE YARA hit count column on analysis list and search results
 enabled = no

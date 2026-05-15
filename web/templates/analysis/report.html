@@ -170,6 +170,16 @@ $(function() {
             </a>
         </li>
     {% endif %}
+    {% if analysis.has_etw and config.display_etw %}
+        <li class="nav-item">
+            <a class="nav-link" id="etw-tab" href="#etw"
+               data-bs-toggle="tabajax"
+               data-url="/analysis/load_files/{{analysis.info.id}}/etw/"
+               role="tab" aria-controls="etw" aria-selected="false">
+                <i class="fas fa-broadcast-tower me-2"></i>ETW Telemetry
+            </a>
+        </li>
+    {% endif %}
     {% if settings.COMMENTS %}
         <li class="nav-item">
             {% if analysis.info.comments|length %}
@@ -281,6 +291,12 @@ $(function() {
     {% if analysis.sigma or analysis.sysmon or analysis.has_evtx %}
         <div class="tab-pane fade" id="eventlogs">
             {% include "analysis/eventlogs/index.html" %}
+        </div>
+    {% endif %}
+    {% if analysis.has_etw and config.display_etw %}
+        <div class="tab-pane fade" id="etw">
+            {# Populated via load_files AJAX (category='etw'). Leaves a
+               minimal placeholder so the tabajax handler has a target. #}
         </div>
     {% endif %}
     {% if analysis.backscatter %}

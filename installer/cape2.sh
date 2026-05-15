@@ -1355,7 +1355,7 @@ function install_CAPE() {
         echo "[-] pyproject.toml not found in $CAPE_ROOT"
         return
     fi
-    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
+    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; export CRYPTOGRAPHY_DONT_BUILD_RUST=1; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
         # Integrated libvirt install

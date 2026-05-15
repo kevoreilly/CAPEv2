@@ -805,7 +805,7 @@ function install_yara_python() {
 
     # Install from PyPI
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR pip install yara-python \
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install yara-python \
             --no-binary :all: \
             --config-settings=\"--global-option=build\" \
             --config-settings=\"--global-option=--enable-cuckoo\" \
@@ -1380,7 +1380,7 @@ function install_CAPE() {
         echo "[-] pyproject.toml not found in $CAPE_ROOT"
         return
     fi
-    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR pip install -r pyproject.toml"
+    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR $PYTHON_MGR_CMD pip install -r pyproject.toml"
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
         # Integrated libvirt install
@@ -1537,7 +1537,7 @@ function install_volatility3() {
     sudo apt-get install -y unzip
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
         sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install git+https://github.com/volatilityfoundation/volatility3"
-        vol_path=$(sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR run python3 -c \"import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))\"")
+        vol_path=$(sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD python3 -c \"import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))\"")
     else
         sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD pip3 install git+https://github.com/volatilityfoundation/volatility3
         vol_path=$(sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")

@@ -515,7 +515,6 @@ class File:
                             # ToDo bad rule defense
 
                     File.yara_rules[category] = yara_x.Scanner(compiler.build())
-                    File.yara_initialized = True
 
                 elif HAVE_YARA:
                     try:

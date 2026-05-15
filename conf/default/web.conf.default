@@ -260,3 +260,7 @@ enabled = no
 [display_submitter]
 # Show submitting user column on analysis list (requires WEB_AUTHENTICATION)
 enabled = no
+
+[display_authenticode]
+# Show Authenticode certificate chain card on the analysis overview tab
+enabled = no

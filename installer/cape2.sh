@@ -66,7 +66,8 @@ CAPE_ROOT="${CAPE_ROOT:-/opt/CAPEv2}"
 USE_UV=${USE_UV:-false}
 PYTHON_MGR="/etc/poetry/bin/poetry"
 PYTHON_MGR_CMD="run"
-PYTHON_MGR_INSTALL="install"
+PYTHON_MGR_PIP="run pip"
+PYTHON_MGR_INSTALL_PYPROJECT="install"
 
 # if a config file is present, read it in
 if [ -f "./cape-config.sh" ]; then
@@ -666,11 +667,7 @@ function redsocks2() {
 function distributed() {
     echo "[+] Configure distributed configuration"
     sudo apt-get install -y uwsgi uwsgi-plugin-python3 nginx 2>/dev/null
-    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install flask flask-restful flask-sqlalchemy requests"
-    else
-        sudo -u ${USER} bash -c "$PYTHON_MGR $PYTHON_MGR_CMD pip install flask flask-restful flask-sqlalchemy requests"
-    fi
+    sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_PIP install flask flask-restful flask-sqlalchemy requests"
 
     sudo cp $CAPE_ROOT/uwsgi/capedist.ini /etc/uwsgi/apps-available/cape_dist.ini
     sudo ln -s /etc/uwsgi/apps-available/cape_dist.ini /etc/uwsgi/apps-enabled
@@ -788,7 +785,7 @@ function install_yara_x() {
     sudo -u ${USER} git clone https://github.com/VirusTotal/yara-x
     cd yara-x || return
     sudo -u ${USER} bash -c 'source "$HOME/.cargo/env" ; cargo install --path cli'
-    sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install yara-x
+    sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_PIP install yara-x
 }
 
 function install_yara_python() {
@@ -804,21 +801,12 @@ function install_yara_python() {
     # This replaces the legacy setup.py build approach
 
     # Install from PyPI
-    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR pip install yara-python \
-            --no-binary :all: \
-            --config-settings=\"--global-option=build\" \
-            --config-settings=\"--global-option=--enable-cuckoo\" \
-            --config-settings=\"--global-option=--enable-magic\" \
-            --config-settings=\"--global-option=--enable-profiling\""
-    else
-        sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install yara-python \
-            --no-binary :all: \
-            --config-settings="--global-option=build" \
-            --config-settings="--global-option=--enable-cuckoo" \
-            --config-settings="--global-option=--enable-magic" \
-            --config-settings="--global-option=--enable-profiling"
-    fi
+    sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_PIP install yara-python \
+        --no-binary :all: \
+        --config-settings="--global-option=build" \
+        --config-settings="--global-option=--enable-cuckoo" \
+        --config-settings="--global-option=--enable-magic" \
+        --config-settings="--global-option=--enable-profiling"
 
     # Install from local source (commented out)
     # sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install /tmp/yara-python \
@@ -909,16 +897,7 @@ function install_libvirt() {
     export_path="${temp_export_path%/*}/"
     export PKG_CONFIG_PATH=$export_path
 
-    # Run build and install within the project environment
-    # We use sudo -u cape ... to install into the user's environment managed by poetry/uv/pip
-    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        # sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install /tmp/libvirt-python-${LIB_VERSION}"
-        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install libvirt-python==${LIB_VERSION}"
-    elif [ "$PYTHON_MGR" = "/etc/poetry/bin/poetry" ]; then
-        sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install libvirt-python==${LIB_VERSION}"
-    else
-         sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; pip3 install libvirt-python==${LIB_VERSION}"
-    fi
+    sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_PIP install libvirt-python==${LIB_VERSION}"
 }
 
 function install_mongo(){
@@ -1061,11 +1040,7 @@ function install_capa() {
     cd capa || return
     git pull
     git submodule update --init rules
-    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install /tmp/capa"
-    else
-        sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install /tmp/capa
-    fi
+    sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_PIP install /tmp/capa
     cd $CAPE_ROOT
     if [ -d /tmp/capa ]; then
         sudo rm -rf /tmp/capa
@@ -1380,11 +1355,7 @@ function install_CAPE() {
         echo "[-] pyproject.toml not found in $CAPE_ROOT"
         return
     fi
-    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; $PYTHON_MGR sync --no-install-project"
-    else
-        sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR $PYTHON_MGR_CMD pip install -r pyproject.toml"
-    fi
+    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; $PYTHON_MGR $PYTHON_MGR_INSTALL_PYPROJECT"
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
         # Integrated libvirt install
@@ -1540,10 +1511,10 @@ function install_volatility3() {
     echo "[+] Installing volatility3"
     sudo apt-get install -y unzip
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install git+https://github.com/volatilityfoundation/volatility3"
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_PIP install git+https://github.com/volatilityfoundation/volatility3"
         vol_path=$(sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD python3 -c \"import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))\"")
     else
-        sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD pip3 install git+https://github.com/volatilityfoundation/volatility3
+        sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_PIP install git+https://github.com/volatilityfoundation/volatility3
         vol_path=$(sudo -u ${USER} $PYTHON_MGR $PYTHON_MGR_CMD python3 -c "import volatility3.plugins;print(volatility3.__file__.replace('__init__.py', 'symbols/'))")
     fi
 
@@ -1633,7 +1604,7 @@ function install_guacamole() {
     sudo usermod www-data -G ${USER}
 
     cd $CAPE_ROOT
-    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; ${poetry_path} $PYTHON_MGR_INSTALL"
+    sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; ${poetry_path} $PYTHON_MGR_INSTALL_PYPROJECT"
     cd ..
 
     systemctl daemon-reload
@@ -1767,7 +1738,8 @@ for i in "$@"; do
         USE_UV="true"
         PYTHON_MGR="/usr/local/bin/uv"
         PYTHON_MGR_CMD="run"
-        PYTHON_MGR_INSTALL=""
+        PYTHON_MGR_PIP="pip"
+        PYTHON_MGR_INSTALL_PYPROJECT="sync --no-install-project"
     fi
 done
 
@@ -1822,7 +1794,7 @@ case "$COMMAND" in
     fi
     # Update FLARE CAPA rules once per day
     if ! crontab -l | grep -q 'community.py -waf -cr'; then
-        crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD python3 community.py -waf -cr && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD pip install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
+        crontab -l | { cat; echo "5 0 */1 * * cd $CAPE_ROOT/utils/ && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_CMD python3 community.py -waf -cr && sudo -u ${USER} $PYTHON_MGR --directory $CAPE_ROOT/ $PYTHON_MGR_PIP install -U flare-capa && systemctl restart cape-processor 2>/dev/null"; } | crontab -
     fi
     install_librenms
     if [ "$clamav_enable" -ge 1 ]; then

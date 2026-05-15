@@ -64,15 +64,27 @@ TOR_SOCKET_TIMEOUT="60"
 CAPE_ROOT="${CAPE_ROOT:-/opt/CAPEv2}"
 
 USE_UV=${USE_UV:-false}
-PYTHON_MGR="/etc/poetry/bin/poetry"
-PYTHON_MGR_CMD="run"
-PYTHON_MGR_PIP="run pip"
-PYTHON_MGR_INSTALL_PYPROJECT="install"
+
+set_python_mgr() {
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        PYTHON_MGR="/usr/local/bin/uv"
+        PYTHON_MGR_CMD="run"
+        PYTHON_MGR_PIP="pip"
+        PYTHON_MGR_INSTALL_PYPROJECT="sync --no-install-project"
+    else
+        PYTHON_MGR="/etc/poetry/bin/poetry"
+        PYTHON_MGR_CMD="run"
+        PYTHON_MGR_PIP="run pip"
+        PYTHON_MGR_INSTALL_PYPROJECT="install"
+    fi
+}
 
 # if a config file is present, read it in
 if [ -f "./cape-config.sh" ]; then
     . ./cape-config.sh
 fi
+
+set_python_mgr
 
 UBUNTU_VERSION=$(lsb_release -rs)
 OS="$(uname -s)"
@@ -1739,10 +1751,7 @@ for i in "$@"; do
         DISABLE_LIBVIRT=1
     elif [ "$i" == "--use-uv" ] || [ "$i" == "USE_UV=true" ] || [ "$i" == "USE_UV=True" ]; then
         USE_UV="true"
-        PYTHON_MGR="/usr/local/bin/uv"
-        PYTHON_MGR_CMD="run"
-        PYTHON_MGR_PIP="pip"
-        PYTHON_MGR_INSTALL_PYPROJECT="sync --no-install-project"
+        set_python_mgr
     fi
 done
 

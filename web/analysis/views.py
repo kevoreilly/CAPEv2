@@ -25,7 +25,8 @@ from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, Stream
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
-from rest_framework.decorators import api_view
+from rest_framework.authentication import SessionAuthentication
+from rest_framework.decorators import api_view, authentication_classes
 
 MONGO_DOCUMENT_TOO_LARGE_ERRORS = ()
 try:
@@ -211,6 +212,20 @@ def _path_safe(path: str) -> bool:
     return True
 
 
+
+@lru_cache(maxsize=256)
+def _get_username_by_id(user_id):
+    if not user_id:
+        return ""
+    try:
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        u = User.objects.filter(pk=user_id).only("username").first()
+        return u.username if u else ""
+    except Exception:
+        return ""
+
+
 def get_tags_tasks(task_ids: list) -> str:
     for analysis in db.list_tasks(task_ids=task_ids):
         return analysis.tags_tasks
@@ -234,7 +249,12 @@ def get_analysis_info(db, id=-1, task=None):
         filename = os.path.basename(new["target"])
         new.update({"filename": filename})
 
-    new.update({"user_task_tags": get_tags_tasks([new["id"]])})
+    # Submitter-supplied free-form tags. Stored in postgres as one
+    # comma-separated string; split (and trim) here so the list view can
+    # render one badge per tag, matching the per-job report.
+    raw_user_tags = get_tags_tasks([new["id"]]) or ""
+    new.update({"user_task_tags": [t.strip() for t in raw_user_tags.split(",") if t.strip()]})
+    new["submitter_username"] = _get_username_by_id(new.get("user_id") or 0)
 
     if new.get("machine"):
         machine = new["machine"]
@@ -258,6 +278,18 @@ def get_analysis_info(db, id=-1, task=None):
                 "mlist_cnt": 1,
                 "f_mlist_cnt": 1,
                 "target.file.clamav": 1,
+                "target.file.cape_yara": 1,
+                # The "YARA" column aggregates cape-emitted yara matches and
+                # generic yara matches — tasks with only generic hits would
+                # otherwise show null because cape_yara alone would be empty.
+                "target.file.yara": 1,
+                # File-level static fields (clamav, cape_yara, etc.) are
+                # normalized out into a separate `files` collection keyed
+                # by sha256; the denormalize_files mongo hook restores
+                # them — but only if file_ref is in the projection. Pull
+                # it explicitly so the hook can follow the reference.
+                "target.file.yara.name": 1,
+                "target.file.file_ref": 1,
                 "suri_tls_cnt": 1,
                 "suri_alert_cnt": 1,
                 "suri_http_cnt": 1,
@@ -282,6 +314,9 @@ def get_analysis_info(db, id=-1, task=None):
                 "mlist_cnt",
                 "f_mlist_cnt",
                 "target.file.clamav",
+                "target.file.cape_yara",
+                "target.file.yara",
+                "target.file.file_ref",
                 "suri_tls_cnt",
                 "suri_alert_cnt",
                 "suri_http_cnt",
@@ -321,14 +356,48 @@ def get_analysis_info(db, id=-1, task=None):
             new["pcap_sha256"] = rtmp["network"]["pcap_sha256"]
 
         if rtmp.get("target", {}).get("file", False):
+            tfile = rtmp["target"]["file"]
             for keyword in ("clamav", "trid"):
-                if rtmp["info"].get(keyword, False):
-                    new[keyword] = rtmp["info"]["target"][keyword]
-            if rtmp["target"]["file"].get("virustotal", {}).get("summary", False):
-                new["virustotal_summary"] = rtmp["target"]["file"]["virustotal"]["summary"]
+                # Pre-existing bug: this used to read rtmp["info"][keyword]
+                # which never exists — clamav / trid live under
+                # target.file. So the column data never made it through.
+                if tfile.get(keyword):
+                    new[keyword] = tfile[keyword]
+            # cape_yara and yara are lists of {"name": ..., "meta": {...}}
+            # dicts. Merge them (preserving order, deduping by name) and
+            # collapse to a list of names for the YARA column display —
+            # tasks that only hit generic yara rules (no cape_yara) would
+            # otherwise show null even though they have real YARA matches.
+            seen_yara_names = set()
+            yara_names = []
+            for y in (tfile.get("cape_yara") or []) + (tfile.get("yara") or []):
+                if not isinstance(y, dict):
+                    continue
+                n = y.get("name")
+                if n and n not in seen_yara_names:
+                    seen_yara_names.add(n)
+                    yara_names.append(n)
+            if yara_names:
+                new["cape_yara"] = yara_names
+            if tfile.get("virustotal", {}).get("summary", False):
+                new["virustotal_summary"] = tfile["virustotal"]["summary"]
 
         if rtmp.get("url", {}).get("virustotal", {}).get("summary", False):
             new["virustotal_summary"] = rtmp["url"]["virustotal"]["summary"]
+
+        if rtmp.get("target", {}).get("file", False):
+            tfile = rtmp["target"]["file"]
+            seen_yara_names = set()
+            yara_names = []
+            for y in (tfile.get("cape_yara") or []) + (tfile.get("yara") or []):
+                if not isinstance(y, dict):
+                    continue
+                n = y.get("name")
+                if n and n not in seen_yara_names:
+                    seen_yara_names.add(n)
+                    yara_names.append(n)
+            if yara_names:
+                new["cape_yara"] = yara_names
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":
@@ -648,6 +717,637 @@ def _evtx_has_records(data):
     import struct
     next_record = struct.unpack_from("<Q", data, 24)[0]
     return next_record > 1
+
+
+def _filetime_to_iso(ft):
+    """Windows FILETIME (100-ns intervals since 1601-01-01) → ISO 8601 UTC.
+
+    Most ETW providers we ingest emit FILETIME as either an int or a
+    string-of-int. Anything that doesn't parse cleanly comes back as the
+    raw value so the UI at least surfaces it. Negative deltas (clock
+    skew, FILETIME=0 sentinels) yield empty string."""
+    if ft in (None, ""):
+        return ""
+    try:
+        ft = int(ft)
+    except (TypeError, ValueError):
+        return str(ft)
+    if ft <= 0:
+        return ""
+    epoch_diff = 116444736000000000  # FILETIME ticks between 1601 and 1970
+    micros = (ft - epoch_diff) // 10
+    if micros < 0:
+        return ""
+    try:
+        return datetime.datetime.fromtimestamp(micros / 1_000_000, tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+    except (OSError, ValueError, OverflowError):
+        return ""
+
+
+def _build_pid_name_map(task_id):
+    """PID → process-name lookup. Used by the ETW renderer to turn raw
+    PIDs (which is all most ETW providers expose) into ``file.exe
+    (4660)``-style display strings.
+
+    Sources, richest to thinnest:
+      1. ``behavior.processes`` — CAPE's API-monitor sees every process
+         it instrumented, so this covers the malware-side processes
+         most users care about.
+      2. ``network_etw.connections_by_pid`` — sysmon + kernel-ETW;
+         catches system processes (svchost, services) that the monitor
+         doesn't instrument but that ETW logs against.
+    Later sources fill in only PIDs the earlier ones didn't already
+    name. Returns an empty dict when mongo isn't reachable.
+    """
+    if not enabledconf.get("mongodb"):
+        return {}
+    try:
+        rec = mongo_find_one(
+            "analysis",
+            {"info.id": int(task_id)},
+            {
+                "behavior.processes.process_id": 1,
+                "behavior.processes.process_name": 1,
+                "behavior.processes.module_path": 1,
+                "network_etw.connections_by_pid": 1,
+                "_id": 0,
+            },
+        )
+    except Exception:
+        return {}
+    rec = rec or {}
+    out = {}
+    for p in (rec.get("behavior", {}) or {}).get("processes", []) or []:
+        pid = p.get("process_id")
+        name = p.get("process_name") or ""
+        if not name:
+            mod = p.get("module_path") or ""
+            name = mod.rsplit("\\", 1)[-1].rsplit("/", 1)[-1]
+        if pid is not None and name:
+            out[str(pid)] = name
+    by_pid = (rec.get("network_etw", {}) or {}).get("connections_by_pid", {}) or {}
+    for pid, info in by_pid.items():
+        if str(pid) in out:
+            continue
+        name = info.get("process_name") or ""
+        if not name:
+            image = info.get("image", "") or ""
+            name = image.rsplit("\\", 1)[-1].rsplit("/", 1)[-1]
+        if name:
+            out[str(pid)] = name
+    return out
+
+
+def _load_etw_telemetry(task_id):
+    """Read every ETW NDJSON / directory we collect in aux/ and project
+    each into a per-source row shape suitable for tabular rendering.
+
+    Returns a dict keyed by source name (`dns`, `network`, `wmi`,
+    `threatintel`, `amsi`) — only includes keys whose underlying data
+    file exists AND has at least one parseable record. The template
+    iterates the dict to decide which sub-tabs to render.
+    """
+    base = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "aux")
+    out = {
+        "dns": [],
+        "network": [],
+        "wmi": [],
+        "threatintel": [],
+        # Drivers / devices the sample's processes touched via IRPs.
+        # Deduped + noise-filtered so the BYOD signal isn't buried.
+        "threatintel_drivers": [],
+        # AllocVM events aggregated by (caller_pid, target_pid) — the
+        # raw stream is firehose-noisy on self-process events.
+        "threatintel_alloc_summary": [],
+        "amsi": [],
+    }
+    pid_map = _build_pid_name_map(task_id)
+
+    def _attach_proc(row, pid_field="pid"):
+        pid = row.get(pid_field)
+        if pid in (None, ""):
+            row["process_name"] = ""
+            return row
+        row["process_name"] = pid_map.get(str(pid), "")
+        return row
+
+    def _iter_ndjson(path):
+        if not path_exists(path) or os.path.getsize(path) == 0:
+            return
+        try:
+            with open(path, "r", errors="replace") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        yield json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+        except OSError:
+            return
+
+    # DNS-Client ETW — flat NDJSON, no per-record timestamp; use file order.
+    for rec in _iter_ndjson(os.path.join(base, "dns_etw.json")):
+        out["dns"].append(_attach_proc({
+            "type": rec.get("QueryType", ""),
+            "pid": rec.get("ProcessId", ""),
+            "tid": rec.get("ThreadId", ""),
+            "query": rec.get("QueryName", ""),
+            "server": rec.get("DNS Server", ""),
+        }))
+
+    # Microsoft-Windows-Kernel-Network ETW — flat NDJSON with FILETIME.
+    for rec in _iter_ndjson(os.path.join(base, "network_etw.json")):
+        sip, sport = rec.get("src_ip", ""), rec.get("src_port", "")
+        dip, dport = rec.get("dst_ip", ""), rec.get("dst_port", "")
+        out["network"].append(_attach_proc({
+            "time": _filetime_to_iso(rec.get("timestamp")),
+            "pid": rec.get("pid", ""),
+            "direction": rec.get("direction", ""),
+            "protocol": rec.get("protocol", ""),
+            "src": f"{sip}:{sport}" if sip else "",
+            "dst": f"{dip}:{dport}" if dip else "",
+            "event": rec.get("event_type", ""),
+        }))
+
+    # Microsoft-Windows-WMI-Activity ETW — events nested under `event.*`.
+    for rec in _iter_ndjson(os.path.join(base, "wmi_etw.json")):
+        ev = rec.get("event", {}) or {}
+        hdr = ev.get("EventHeader", {}) or {}
+        row = _attach_proc({
+            "time": _filetime_to_iso(hdr.get("TimeStamp")),
+            "pid": hdr.get("ProcessId", ""),
+            "operation": ev.get("Operation", "") or ev.get("Task Name", ""),
+            "namespace": ev.get("NamespaceName", ""),
+            "user": ev.get("User", ""),
+            "client_pid": ev.get("ClientProcessId", ""),
+            "description": (ev.get("Description", "") or "")[:200],
+        })
+        # Resolve client_pid → name as a separate field; the WMI client
+        # (i.e. who invoked WMI) is often more interesting than the
+        # WMI provider's own PID.
+        cp = row.get("client_pid")
+        row["client_process_name"] = pid_map.get(str(cp), "") if cp not in ("", None) else ""
+        out["wmi"].append(row)
+
+    # Microsoft-Windows-Threat-Intelligence ETW — `[event_id, {event...}]`.
+    # The provider is firehose-noisy: every process does VirtualAlloc
+    # against itself constantly, and those events flood the JSON. The
+    # signal is in the small subset that's either (a) cross-process
+    # (CallingProcessId != TargetProcessId — classic injection
+    # primitive) or (b) one of the few task names that don't fire on
+    # benign self-ops (APC injection, thread-context, etc.). We split
+    # the rendering into "suspicious" and "other" buckets so the
+    # default view shows actionable events first.
+    def _clean_iso(s):
+        if not isinstance(s, str):
+            return ""
+        return s.replace("‎", "").replace("‏", "").strip()
+
+    # Protection mask → symbolic name. Most-significant bit set ⇒
+    # executable region (the high-signal flags for shellcode).
+    _PROT_MAP = {
+        0x01: "NOACCESS",
+        0x02: "READONLY",
+        0x04: "READWRITE",
+        0x08: "WRITECOPY",
+        0x10: "EXECUTE",
+        0x20: "EXECUTE_READ",
+        0x40: "EXECUTE_READWRITE",
+        0x80: "EXECUTE_WRITECOPY",
+    }
+    def _prot_name(raw):
+        try:
+            v = int(str(raw), 0) if isinstance(raw, str) else int(raw)
+        except (TypeError, ValueError):
+            return ""
+        # Mask off top-level page modifiers (GUARD/NOCACHE/WRITECOMBINE).
+        base = v & 0xFF
+        return _PROT_MAP.get(base, hex(v) if v else "")
+
+    # Task names that are noise on self-process events. Anything outside
+    # this set is rare enough that it's worth surfacing even when the
+    # call is local.
+    _NOISY_SELF_TASKS = {"KERNEL_THREATINT_TASK_ALLOCVM", "KERNEL_THREATINT_TASK_DRIVER_DEVICE"}
+
+    # AllocationType bit-flags (MSDN VirtualAlloc).
+    _ALLOC_FLAGS = [
+        (0x00001000, "COMMIT"),
+        (0x00002000, "RESERVE"),
+        (0x00080000, "RESET"),
+        (0x01000000, "RESET_UNDO"),
+        (0x20000000, "LARGE_PAGES"),
+        (0x00400000, "PHYSICAL"),
+        (0x00100000, "TOP_DOWN"),
+        (0x00200000, "WRITE_WATCH"),
+    ]
+    def _alloc_flags(raw):
+        try:
+            v = int(str(raw), 0) if isinstance(raw, str) else int(raw)
+        except (TypeError, ValueError):
+            return ""
+        names = [name for bit, name in _ALLOC_FLAGS if v & bit]
+        return "|".join(names) if names else (hex(v) if v else "")
+
+    # Signature levels — short labels for the more interesting ones.
+    # Source: SE_SIGNING_LEVEL_* enum in ntoskrnl. 0 (Unchecked) and
+    # higher values up through 14 (Windows TCB / kernel-mode PPL).
+    _SIG_LEVELS = {
+        0: "Unchecked",
+        1: "Unsigned",
+        2: "Enterprise",
+        3: "Custom-1",
+        4: "Authenticode",
+        5: "Custom-2",
+        6: "Store",
+        7: "Antimalware",
+        8: "Microsoft",
+        12: "Windows",
+        14: "Windows-TCB",
+    }
+    def _sig_label(raw):
+        try:
+            v = int(raw)
+        except (TypeError, ValueError):
+            return ""
+        # The TI provider packs the signature level into the low nibble
+        # plus the section level into the high nibble — we only care
+        # about the low one for the friendly label.
+        return _SIG_LEVELS.get(v & 0x0F, str(v))
+
+    # PPL protection levels — same idea (PsProtectedTypeNone, Light, Full).
+    _PROT_TYPES = {
+        0: "None",
+        1: "Light",
+        2: "Full",
+    }
+    _PROT_SIGNERS = {
+        0: "None", 1: "Authenticode", 2: "CodeGen", 3: "Antimalware",
+        4: "Lsa", 5: "Windows", 6: "WinTcb", 7: "WinSystem",
+        8: "App",
+    }
+    def _ppl_label(raw):
+        try:
+            v = int(raw)
+        except (TypeError, ValueError):
+            return ""
+        if v == 0:
+            return "None"
+        # Low 3 bits = type, next 4 bits = signer.
+        ptype = v & 0x07
+        signer = (v >> 4) & 0x0F
+        return f"{_PROT_TYPES.get(ptype,'?')}-{_PROT_SIGNERS.get(signer,'?')}"
+
+    def _vad_summary(ev, prefix):
+        """Bundle the per-VAD fields the TI provider attaches alongside
+        a virtual address (e.g., for ApcRoutine, ApcArgument1, Pc).
+        Whether the address falls in a private RWX mapping vs a
+        file-backed DLL is the smoking-gun signal for shellcode
+        execution — flag that as `suspicious` when both conditions
+        hold."""
+        base = ev.get(f"{prefix}VadAllocationBase", "")
+        prot_raw = ev.get(f"{prefix}VadAllocationProtect", "")
+        region_type = ev.get(f"{prefix}VadRegionType", "")
+        mmf = ev.get(f"{prefix}VadMmfName", "") or ""
+        region_size = ev.get(f"{prefix}VadRegionSize", "")
+        prot_name = _prot_name(prot_raw)
+        non_file_backed = not mmf or mmf == "(null)"
+        executable = "EXECUTE" in (prot_name or "")
+        return {
+            "alloc_base": base,
+            "alloc_protect_raw": prot_raw,
+            "alloc_protect": prot_name,
+            "region_type": region_type,
+            "region_size": region_size,
+            "mmf_name": mmf,
+            "suspicious": non_file_backed and executable,
+        }
+
+    for rec in _iter_ndjson(os.path.join(base, "threatintel_etw.json")):
+        if not isinstance(rec, list) or len(rec) < 2:
+            continue
+        ev = rec[1] or {}
+        hdr = ev.get("EventHeader", {}) or {}
+        cp = ev.get("CallingProcessId", "")
+        tp = ev.get("TargetProcessId", "")
+        task_full = ev.get("Task Name", "")
+        # Friendlier display name: drop the KERNEL_THREATINT_TASK_ prefix.
+        task_short = task_full.removeprefix("KERNEL_THREATINT_TASK_") if task_full.startswith("KERNEL_THREATINT_TASK_") else task_full
+
+        cross = bool(cp and tp and str(cp) != str(tp))
+        suspicious = cross or task_full not in _NOISY_SELF_TASKS
+
+        prot_raw = ev.get("ProtectionMask", "")
+        evdesc = hdr.get("EventDescriptor", {}) or {}
+        row = {
+            "time": _filetime_to_iso(hdr.get("TimeStamp")),
+            "task": task_short,
+            "task_full": task_full,
+            "event_id": evdesc.get("Id", ""),
+            "calling_pid": cp,
+            "target_pid": tp,
+            "calling_create": _clean_iso(ev.get("CallingProcessCreateTime", "")),
+            "base_address": ev.get("BaseAddress", ""),
+            "region_size": ev.get("RegionSize", ""),
+            "protection": prot_raw,
+            "protection_name": _prot_name(prot_raw),
+            "cross_process": cross,
+            "suspicious": suspicious,
+            # Extra fields for the click-to-expand detail panel ─────────
+            "alloc_type_raw": ev.get("AllocationType", ""),
+            "alloc_type": _alloc_flags(ev.get("AllocationType", "")),
+            "calling_thread_id": ev.get("CallingThreadId", ""),
+            "calling_thread_create": _clean_iso(ev.get("CallingThreadCreateTime", "")),
+            "calling_sig_raw": ev.get("CallingProcessSignatureLevel", ""),
+            "calling_sig": _sig_label(ev.get("CallingProcessSignatureLevel", "")),
+            "target_sig_raw": ev.get("TargetProcessSignatureLevel", ""),
+            "target_sig": _sig_label(ev.get("TargetProcessSignatureLevel", "")),
+            "calling_ppl_raw": ev.get("CallingProcessProtection", ""),
+            "calling_ppl": _ppl_label(ev.get("CallingProcessProtection", "")),
+            "target_ppl_raw": ev.get("TargetProcessProtection", ""),
+            "target_ppl": _ppl_label(ev.get("TargetProcessProtection", "")),
+            "original_pid": ev.get("OriginalProcessId", ""),
+            "kernel_thread_id": hdr.get("ThreadId", ""),
+            "description": ev.get("Description", "") or "",
+        }
+        row["calling_process_name"] = pid_map.get(str(cp), "") if cp not in ("", None) else ""
+        row["target_process_name"] = pid_map.get(str(tp), "") if tp not in ("", None) else ""
+        # Trust delta: low-trust calling → higher-trust target = strong
+        # signal regardless of cross_process. Tracks raw integer levels.
+        try:
+            cs = int(row["calling_sig_raw"]) & 0x0F if row["calling_sig_raw"] != "" else None
+            ts = int(row["target_sig_raw"]) & 0x0F if row["target_sig_raw"] != "" else None
+            if cs is not None and ts is not None and cs < ts and ts >= 6:
+                row["trust_uplift"] = True
+                # Trust uplift is also suspicious even if same-PID.
+                row["suspicious"] = True
+        except (TypeError, ValueError):
+            pass
+
+        # Task-specific extras — different operations carry different
+        # fields. The detail panel renders whatever's set.
+        if "QUEUEUSERAPC" in task_full:
+            row["apc"] = {
+                "routine": ev.get("ApcRoutine", ""),
+                "routine_vad": _vad_summary(ev, "ApcRoutine"),
+                "arg1": ev.get("ApcArgument1", ""),
+                "arg1_vad": _vad_summary(ev, "ApcArgument1"),
+                "arg2": ev.get("ApcArgument2", ""),
+                "arg3": ev.get("ApcArgument3", ""),
+                "target_thread_id": ev.get("TargetThreadId", ""),
+                "target_thread_alertable": ev.get("TargetThreadAlertable", ""),
+                "target_thread_create": _clean_iso(ev.get("TargetThreadCreateTime", "")),
+            }
+            # Either VAD landing in private RWX = strong injection signal.
+            if row["apc"]["routine_vad"]["suspicious"] or row["apc"]["arg1_vad"]["suspicious"]:
+                row["rwx_landing"] = True
+        elif "SETTHREADCONTEXT" in task_full:
+            row["thread_ctx"] = {
+                "pc": ev.get("Pc", ""),
+                "pc_vad": _vad_summary(ev, "Pc"),
+                "sp": ev.get("Sp", ""),
+                "lr": ev.get("Lr", ""),
+                "fp": ev.get("Fp", ""),
+                "context_flags": ev.get("ContextFlags", ""),
+                "context_mask": ev.get("ContextMask", ""),
+                "regs": [(f"R{i}", ev.get(f"Reg{i}", "")) for i in range(8)
+                         if ev.get(f"Reg{i}", "") not in ("", None)],
+                "target_thread_id": ev.get("TargetThreadId", ""),
+                "target_thread_create": _clean_iso(ev.get("TargetThreadCreateTime", "")),
+            }
+            if row["thread_ctx"]["pc_vad"]["suspicious"]:
+                row["rwx_landing"] = True
+        elif "DRIVER_DEVICE" in task_full:
+            row["driver_device"] = {
+                "device_name": ev.get("DeviceName", ""),
+                "driver_name": ev.get("DriverName", ""),
+            }
+            # Sketchy device names that aren't the common networking
+            # / pipe stack — surface as suspicious.
+            dev = (row["driver_device"]["device_name"] or "").lower()
+            sketchy_devices = ("physicalmemory", "msr", "memorydiagnostics", "process",
+                               "ntfs", "rawcdrom", "directx")
+            if any(s in dev for s in sketchy_devices):
+                row["suspicious"] = True
+        out["threatintel"].append(row)
+
+    # Post-process the firehose into two compact, high-signal views.
+    #
+    # 1. Drivers / Devices Accessed — dedup the DRIVER_DEVICE stream by
+    #    (driver_name, device_name) and tag system-noise drivers
+    #    (filter manager, raw FS) as `system_noise=True` so the template
+    #    can collapse them. This is where BYOD jumps out: a non-system
+    #    driver name in this list is almost always interesting.
+    # 2. AllocVM summary — aggregate by (caller_pid, target_pid) so the
+    #    1500+ same-process allocations collapse to one row per pair,
+    #    with running counts of cross-process / RWX / large allocations.
+    _SYSTEM_DRIVER_NOISE = {
+        r"\driver\fltmgr",
+        r"\driver\mountmgr",
+        r"\driver\null",
+        r"\driver\nsi",
+        r"\filesystem\fltmgr",
+        r"\filesystem\raw",
+        r"\filesystem\ntfs",
+        r"\filesystem\fastfat",
+    }
+    drivers_seen = {}
+    alloc_pairs = {}
+    for row in out["threatintel"]:
+        tf = row.get("task_full", "")
+        if "DRIVER_DEVICE" in tf:
+            dd = row.get("driver_device") or {}
+            drv = (dd.get("driver_name") or "").strip()
+            dev = (dd.get("device_name") or "").strip()
+            key = (drv.lower(), dev.lower())
+            if key in drivers_seen:
+                e = drivers_seen[key]
+                e["hit_count"] += 1
+                if row.get("calling_pid") not in e["pids"]:
+                    e["pids"].append(row["calling_pid"])
+            else:
+                drivers_seen[key] = {
+                    "driver_name": drv,
+                    "device_name": dev,
+                    "hit_count": 1,
+                    "pids": [row.get("calling_pid")],
+                    "system_noise": drv.lower() in _SYSTEM_DRIVER_NOISE,
+                    "first_seen": row.get("time"),
+                    "calling_process_name": row.get("calling_process_name", ""),
+                }
+        elif "ALLOCVM" in tf:
+            cp = row.get("calling_pid") or "?"
+            tp = row.get("target_pid") or "?"
+            key = (str(cp), str(tp))
+            entry = alloc_pairs.setdefault(
+                key,
+                {
+                    "calling_pid": cp,
+                    "target_pid": tp,
+                    "calling_process_name": row.get("calling_process_name", ""),
+                    "target_process_name": row.get("target_process_name", ""),
+                    "count": 0,
+                    "cross_process": str(cp) != str(tp),
+                    "rwx": 0,
+                    "large": 0,
+                    "min_size": None,
+                    "max_size": 0,
+                    "first_seen": row.get("time"),
+                },
+            )
+            entry["count"] += 1
+            try:
+                rs = int(str(row.get("region_size") or 0), 0) if isinstance(row.get("region_size"), str) else int(row.get("region_size") or 0)
+            except (TypeError, ValueError):
+                rs = 0
+            if rs:
+                if entry["min_size"] is None or rs < entry["min_size"]:
+                    entry["min_size"] = rs
+                if rs > entry["max_size"]:
+                    entry["max_size"] = rs
+                if rs >= 256 * 1024:
+                    entry["large"] += 1
+            # Only count RWX (PAGE_EXECUTE_READWRITE = 0x40) for cross-
+            # process pairs. Same-process RWX counts get polluted on
+            # CAPE-instrumented hosts because capemon's own hooking
+            # creates RWX trampolines in every monitored process — so a
+            # per-pid RWX tally for self pairs ends up close to 100%
+            # and tells us nothing about the sample's behaviour. RWX
+            # in *another* process's address space is the genuinely
+            # interesting injection signal.
+            if entry["cross_process"]:
+                try:
+                    pm = int(str(row.get("protection") or 0), 0) if isinstance(row.get("protection"), str) else int(row.get("protection") or 0)
+                except (TypeError, ValueError):
+                    pm = 0
+                if pm == 0x40:
+                    entry["rwx"] += 1
+
+    # Sort drivers: non-noise first (alphabetical), then noise.
+    out["threatintel_drivers"] = sorted(
+        drivers_seen.values(),
+        key=lambda d: (d["system_noise"], d["driver_name"].lower()),
+    )
+    # Sort alloc summary: cross-process pairs first, then by count desc.
+    out["threatintel_alloc_summary"] = sorted(
+        alloc_pairs.values(),
+        key=lambda a: (not a["cross_process"], -a["count"]),
+    )
+
+    # Filter the per-event list down to genuine signal — drop self-process
+    # noise AllocVMs (which is ~99% of the volume) and noise DRIVER_DEVICE
+    # rows now that they're aggregated above. Anything cross-process,
+    # trust-uplifted, RWX-landing, or with a non-noise task name stays.
+    def _keep_event(r):
+        tf = r.get("task_full", "")
+        if "ALLOCVM" in tf:
+            return bool(
+                r.get("cross_process")
+                or r.get("rwx_landing")
+                or r.get("trust_uplift")
+                or r.get("suspicious") is True
+                and (r.get("cross_process") or r.get("rwx_landing"))
+            )
+        if "DRIVER_DEVICE" in tf:
+            # Aggregated above — only keep individual rows for sketchy
+            # devices (already marked `suspicious`) so the analyst can
+            # see the calling thread / time per access.
+            dd = r.get("driver_device") or {}
+            if (dd.get("driver_name") or "").lower() in _SYSTEM_DRIVER_NOISE:
+                return False
+            return r.get("suspicious", False)
+        return True
+    out["threatintel"] = [r for r in out["threatintel"] if _keep_event(r)]
+
+    # AMSI ETW — `aux/amsi_etw/amsi.jsonl` is the canonical event stream
+    # (one AMSI scan per JSON line). Every record carries `appname`,
+    # `contentname`, `contentsize`, `hash`, and a `dump_path` that
+    # points to a per-buffer file in the same directory containing the
+    # actual scanned content (PowerShell/VBScript/JScript body, .NET
+    # IL bytes, etc.). We read the JSONL for metadata and resolve each
+    # dump_path to load the real script body for the expandable view.
+    #
+    # Older deployments without the JSONL fall back to a dir scan, but
+    # in that case we have no metadata so we can only show hash + body.
+    AMSI_MAX_BYTES = 5 * 1024 * 1024
+    amsi_dir = os.path.join(base, "amsi_etw")
+    amsi_jsonl = os.path.join(amsi_dir, "amsi.jsonl")
+    analysis_root = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
+
+    def _read_blob(rel_or_abs):
+        # dump_path is recorded as `aux/amsi_etw/<sha>.txt` (relative to
+        # the analysis root). Anchor it there and refuse anything that
+        # tries to escape.
+        candidate = os.path.normpath(os.path.join(analysis_root, rel_or_abs))
+        if not candidate.startswith(analysis_root + os.sep):
+            return "", 0, False
+        try:
+            sz = os.path.getsize(candidate)
+            with open(candidate, "r", errors="replace") as fh:
+                body = fh.read(AMSI_MAX_BYTES)
+            return body, sz, sz > AMSI_MAX_BYTES
+        except OSError:
+            return "", 0, False
+
+    seen_blob_paths = set()
+    if os.path.isfile(amsi_jsonl):
+        for rec in _iter_ndjson(amsi_jsonl):
+            hdr = rec.get("EventHeader", {}) or {}
+            dump_path = rec.get("dump_path", "")
+            body, body_size, truncated = ("", 0, False)
+            if dump_path:
+                body, body_size, truncated = _read_blob(dump_path)
+                seen_blob_paths.add(os.path.basename(dump_path))
+            row = _attach_proc({
+                "time": _filetime_to_iso(hdr.get("TimeStamp")),
+                "pid": hdr.get("ProcessId", ""),
+                "app": rec.get("appname", ""),
+                "content_name": rec.get("contentname", "") or "(inline scriptblock)",
+                "content_size": rec.get("contentsize", "") or rec.get("originalsize", ""),
+                "hash": rec.get("hash", ""),
+                "scan_status": rec.get("scanStatus", ""),
+                "scan_result": rec.get("scanResult", ""),
+                "body": body,
+                "body_size": body_size,
+                "truncated": truncated,
+            })
+            out["amsi"].append(row)
+
+    # Orphan-blob pass — pick up any `<sha256>.txt` file in the dir that
+    # the JSONL didn't reference (older runs without amsi.jsonl, or
+    # blobs whose metadata was lost). Render with whatever we know
+    # (sha + body) so they're not invisible.
+    if os.path.isdir(amsi_dir):
+        for fname in sorted(os.listdir(amsi_dir)):
+            if fname == "amsi.jsonl" or fname in seen_blob_paths:
+                continue
+            full = os.path.join(amsi_dir, fname)
+            if not os.path.isfile(full):
+                continue
+            try:
+                sz = os.path.getsize(full)
+                with open(full, "r", errors="replace") as fh:
+                    body = fh.read(AMSI_MAX_BYTES)
+            except OSError:
+                continue
+            out["amsi"].append({
+                "time": "",
+                "pid": "",
+                "process_name": "",
+                "app": "(orphan blob)",
+                "content_name": "(no JSONL metadata)",
+                "content_size": str(sz),
+                "hash": fname.rsplit(".", 1)[0],
+                "scan_status": "",
+                "scan_result": "",
+                "body": body,
+                "body_size": sz,
+                "truncated": sz > AMSI_MAX_BYTES,
+            })
+
+    # Drop empty sources so the template doesn't render hollow tabs.
+    return {k: v for k, v in out.items() if v}
 
 
 def _list_evtx_members(zip_path):
@@ -983,6 +1683,7 @@ def load_files(request, task_id, category):
         "memory",
         "tracee",
         "eventlogs",
+        "etw",
     ):
         data = {}
         debugger_logs = {}
@@ -1149,6 +1850,8 @@ def load_files(request, task_id, category):
                 "sysmon": data.get("sysmon", []),
                 "evtx_channels": evtx_channels,
             }
+        elif category == "etw":
+            category_data = _load_etw_telemetry(task_id)
 
         ajax_response = {
             category: category_data,
@@ -2017,6 +2720,27 @@ def report(request, task_id):
     if path_exists(evtx_path):
         report["has_evtx"] = True
 
+    # Mark the report as having ETW telemetry to render the new tab.
+    # Cheap pre-check: any non-empty source under aux/. Detailed parsing
+    # is deferred to the AJAX `etw` category in load_files so we don't
+    # walk multi-MB files on report-page render.
+    aux_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "aux")
+    for source in ("dns_etw.json", "network_etw.json", "wmi_etw.json",
+                   "threatintel_etw.json", "amsi_etw"):
+        p = os.path.join(aux_dir, source)
+        if not path_exists(p):
+            continue
+        if os.path.isdir(p):
+            try:
+                if any(os.scandir(p)):
+                    report["has_etw"] = True
+                    break
+            except OSError:
+                continue
+        elif os.path.getsize(p) > 0:
+            report["has_etw"] = True
+            break
+
     if settings.MOLOCH_ENABLED and "suricata" in report:
         suricata = report["suricata"]
         if settings.MOLOCH_BASE[-1] != "/":
@@ -2197,6 +2921,11 @@ def load_evtx_channel_count(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @csrf_exempt
 @api_view(["GET"])
+# UI-internal endpoint — the analysis report's <img src="..."> tags hit
+# this from a browser session for screenshots / bingraphs / svgs. Re-enable
+# session-cookie auth here so the global API-key-only DRF chain (used
+# under SSO deployments) doesn't 401 the in-browser fetches.
+@authentication_classes([SessionAuthentication])
 def file_nl(request, category, task_id, dlfile):
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
     path = False
@@ -2303,6 +3032,9 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 @api_view(["GET"])
+# UI-internal: same rationale as file_nl — used for in-browser downloads
+# of dropped files, payloads, etc. via session cookie auth.
+@authentication_classes([SessionAuthentication])
 def file(request, category, task_id, dlfile):
     file_name = dlfile
     cd = "application/octet-stream"

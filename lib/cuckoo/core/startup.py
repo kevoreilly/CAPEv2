@@ -122,16 +122,25 @@ def check_webgui_mongo():
         # with large amounts of data.
         # Note: Silently ignores the creation if the index already exists.
         mongo_create_index("analysis", "info.id", name="info.id_1")
-        # Some indexes that can be useful for some users
-        mongo_create_index("files", "md5", name="file_md5")
         mongo_create_index("files", [("_task_ids", 1)])
 
-        # side indexes as ideas
-        """
-            mongo_create_index("analysis", "detections", name="detections_1")
-            mongo_create_index("analysis", "target.file.name", name="name_1")
-        """
+        if repconf.mongodb.get("index_yara", False):
+            mongo_create_index("files", "yara.name", name="yara_name")
+            mongo_create_index("files", "cape_yara.name", name="cape_yara_name")
 
+        if repconf.mongodb.get("index_clamav", False):
+            mongo_create_index("files", "clamav", name="clamav_index")
+
+        if repconf.mongodb.get("index_hashes", False):
+            mongo_create_index("files", "md5", name="file_md5")
+            mongo_create_index("files", "sha1", name="file_sha1")
+            mongo_create_index("files", "ssdeep", name="file_ssdeep")
+
+        if repconf.mongodb.get("index_detections", False):
+            mongo_create_index("analysis", "detections.family", name="detections_family")
+
+        if repconf.mongodb.get("index_filenames", False):
+            mongo_create_index("analysis", "target.file.name", name="name_1")
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check
         pass
@@ -204,7 +213,10 @@ def check_linux_dist():
     with suppress(AttributeError):
         platform_details = platform.dist()
         if platform_details[0] != "Ubuntu" and platform_details[1] not in ubuntu_versions:
-            log.info("[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS %s", ubuntu_versions)
+            log.info(
+                "[!] You are using NOT supported Linux distribution by devs! Any issue report is invalid! We only support Ubuntu LTS %s",
+                ubuntu_versions,
+            )
 
 
 def init_logging(level: int):
@@ -359,6 +371,8 @@ def check_snapshot_state():
                 machine_config = machinery_config.get(machine_name)
                 machine_name = machine_config.get("label")
                 domain = conn.lookupByName(machine_name)
+
+
                 # Check for valid architecture configuration.
                 arch = machine_config.get("arch")
                 if not arch:

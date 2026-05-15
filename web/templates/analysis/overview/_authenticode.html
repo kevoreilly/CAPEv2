@@ -1,0 +1,184 @@
+{% if config.display_authenticode %}
+{% load key_tags %}{% load analysis_tags %}
+{% if file.pe.digital_signers or file.pe.guest_signers.aux_signers %}
+{% with gs=file.pe.guest_signers ds=file.pe.digital_signers %}
+
+<section id="authenticode" class="mb-4">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white"><i class="fas fa-certificate me-2 text-info"></i> Authenticode Signature</h5>
+            <span class="d-flex align-items-center gap-2">
+                {% for sig in analysis.signatures %}{% if sig.name == "bad_certs" %}<span class="badge bg-danger"><i class="fas fa-skull-crossbones me-1"></i>Known Malicious Cert</span>{% endif %}{% endfor %}
+                {% if gs %}
+                    {% if gs.aux_valid %}
+                        <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Valid</span>
+                    {% elif gs.aux_error_desc == "No signature found." %}
+                        <span class="badge bg-secondary">Unsigned</span>
+                    {% elif "not trusted" in gs.aux_error_desc %}
+                        <span class="badge bg-warning text-dark"><i class="fas fa-exclamation-triangle me-1"></i>Untrusted Root</span>
+                    {% else %}
+                        <span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Invalid</span>
+                    {% endif %}
+                    {% if gs.aux_timestamp %}<span class="text-secondary small">signed {{ gs.aux_timestamp }}</span>{% endif %}
+                {% else %}
+                    <span class="badge bg-secondary">Not Verified</span>
+                {% endif %}
+            </span>
+        </div>
+
+        {% if gs.aux_error_desc and not gs.aux_valid %}
+        <div class="px-3 pt-2 pb-1 border-bottom border-secondary">
+            <span class="small {% if 'not trusted' in gs.aux_error_desc %}text-warning{% else %}text-danger{% endif %}">
+                <i class="fas fa-info-circle me-1"></i>{{ gs.aux_error_desc }}
+            </span>
+        </div>
+        {% endif %}
+
+        {% if gs.aux_signers or ds %}
+        <div class="card-body p-0">
+
+            {% comment %}--- Code Signing Chain (from aux_signers, enriched with digital_signers) ---{% endcomment %}
+            {% with cert_items=gs.aux_signers|cert_chain_signers %}
+            {% if cert_items %}
+            <div class="px-3 pt-2 pb-1 border-bottom border-secondary">
+                <small class="text-uppercase text-secondary fw-bold" style="letter-spacing:.05em">Code Signing Chain</small>
+            </div>
+            <div class="accordion accordion-flush" id="certChainAccordion">
+            {% for signer in cert_items %}
+            {% with issued_to=signer|get_item:"Issued to" issued_by=signer|get_item:"Issued by" sha1=signer|get_item:"SHA1 hash" %}
+            <div class="accordion-item bg-dark border-0 border-bottom border-secondary">
+                <div class="accordion-header">
+                    <button class="accordion-button collapsed bg-dark text-white shadow-none py-2 px-3"
+                            type="button" data-bs-toggle="collapse"
+                            data-bs-target="#cert_ac_{{ forloop.counter }}" aria-expanded="false">
+                        <span class="me-3 text-secondary small font-monospace" style="min-width:120px">{{ signer.name }}</span>
+                        <span class="fw-bold me-2">{{ issued_to }}</span>
+                        {% if issued_to == issued_by and forloop.first and forloop.last %}<span class="badge bg-danger me-2">Self-Signed</span>{% endif %}
+                        <span class="text-secondary small ms-auto me-3">exp {{ signer|get_item:"Expires" }}</span>
+                    </button>
+                </div>
+                <div id="cert_ac_{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#certChainAccordion">
+                    <div class="accordion-body pt-1 pb-2 px-3">
+                        <table class="table table-dark table-sm table-borderless mb-0 small">
+                            {% comment %}Look up enriched data from digital_signers by SHA1{% endcomment %}
+                            {% for dc in ds %}{% if dc.sha1_fingerprint == sha1 %}
+                            {% if dc.subject_commonName %}<tr><th class="text-secondary ps-0" style="width:150px">Subject CN</th><td class="font-monospace">{{ dc.subject_commonName }}</td></tr>{% endif %}
+                            {% if dc.subject_organizationName %}<tr><th class="text-secondary ps-0">Subject O</th><td class="font-monospace">{{ dc.subject_organizationName }}</td></tr>{% endif %}
+                            {% if dc.subject_organizationalUnitName %}<tr><th class="text-secondary ps-0">Subject OU</th><td class="font-monospace">{{ dc.subject_organizationalUnitName }}</td></tr>{% endif %}
+                            {% if dc.subject_countryName %}<tr><th class="text-secondary ps-0">Subject C</th><td class="font-monospace">{{ dc.subject_countryName }}</td></tr>{% endif %}
+                            {% if dc.subject_emailAddress %}<tr><th class="text-secondary ps-0">Subject E</th><td class="font-monospace">{{ dc.subject_emailAddress }}</td></tr>{% endif %}
+                            <tr><td colspan="2"><hr class="border-secondary my-1"></td></tr>
+                            {% if dc.issuer_commonName %}<tr><th class="text-secondary ps-0">Issuer CN</th><td class="font-monospace">{{ dc.issuer_commonName }}</td></tr>{% endif %}
+                            {% if dc.issuer_organizationName %}<tr><th class="text-secondary ps-0">Issuer O</th><td class="font-monospace">{{ dc.issuer_organizationName }}</td></tr>{% endif %}
+                            {% if dc.issuer_organizationalUnitName %}<tr><th class="text-secondary ps-0">Issuer OU</th><td class="font-monospace">{{ dc.issuer_organizationalUnitName }}</td></tr>{% endif %}
+                            {% if dc.issuer_countryName %}<tr><th class="text-secondary ps-0">Issuer C</th><td class="font-monospace">{{ dc.issuer_countryName }}</td></tr>{% endif %}
+                            <tr><td colspan="2"><hr class="border-secondary my-1"></td></tr>
+                            {% if dc.not_before %}<tr><th class="text-secondary ps-0">Not Before</th><td class="font-monospace">{{ dc.not_before }}</td></tr>{% endif %}
+                            {% if dc.not_after %}<tr><th class="text-secondary ps-0">Not After</th><td class="font-monospace">{{ dc.not_after }}</td></tr>{% endif %}
+                            {% if dc.serial_number %}<tr><th class="text-secondary ps-0">Serial</th><td class="font-monospace text-break">{{ dc.serial_number }}</td></tr>{% endif %}
+                            <tr><td colspan="2"><hr class="border-secondary my-1"></td></tr>
+                            {% if dc.sha1_fingerprint %}<tr><th class="text-secondary ps-0">SHA1</th><td class="font-monospace text-break">{{ dc.sha1_fingerprint }}</td></tr>{% endif %}
+                            {% if dc.md5_fingerprint %}<tr><th class="text-secondary ps-0">MD5</th><td class="font-monospace text-break">{{ dc.md5_fingerprint }}</td></tr>{% endif %}
+                            {% if dc.sha256_fingerprint %}<tr><th class="text-secondary ps-0">SHA256</th><td class="font-monospace text-break">{{ dc.sha256_fingerprint }}</td></tr>{% endif %}
+                            {% endif %}{% endfor %}
+                            {% if not ds %}
+                            <tr><th class="text-secondary ps-0" style="width:150px">Subject</th><td class="font-monospace">{{ issued_to }}</td></tr>
+                            <tr><th class="text-secondary ps-0">Issuer</th><td class="font-monospace">{{ issued_by }}{% if issued_to == issued_by and forloop.first and forloop.last %} <span class="badge bg-danger ms-1">Self-Signed</span>{% endif %}</td></tr>
+                            <tr><th class="text-secondary ps-0">Expires</th><td class="font-monospace">{{ signer|get_item:"Expires" }}</td></tr>
+                            <tr><th class="text-secondary ps-0">SHA1</th><td class="font-monospace text-break">{{ sha1 }}</td></tr>
+                            {% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+            {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            {% comment %}--- Timestamp Chain ---{% endcomment %}
+            {% with ts_items=gs.aux_signers|ts_chain_signers %}
+            {% if ts_items %}
+            <div class="px-3 pt-2 pb-1 border-bottom border-secondary border-top mt-1">
+                <small class="text-uppercase text-secondary fw-bold" style="letter-spacing:.05em">Timestamp Chain</small>
+            </div>
+            <div class="accordion accordion-flush" id="tsChainAccordion">
+            {% for signer in ts_items %}
+            <div class="accordion-item bg-dark border-0 border-bottom border-secondary">
+                <div class="accordion-header">
+                    <button class="accordion-button collapsed bg-dark text-white shadow-none py-2 px-3"
+                            type="button" data-bs-toggle="collapse"
+                            data-bs-target="#ts_ac_{{ forloop.counter }}" aria-expanded="false">
+                        <span class="me-3 text-secondary small font-monospace" style="min-width:140px">{{ signer.name }}</span>
+                        <span class="me-2">{{ signer|get_item:"Issued to" }}</span>
+                        <span class="text-secondary small ms-auto me-3">exp {{ signer|get_item:"Expires" }}</span>
+                    </button>
+                </div>
+                <div id="ts_ac_{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#tsChainAccordion">
+                    <div class="accordion-body pt-1 pb-2 px-3">
+                        <table class="table table-dark table-sm table-borderless mb-0 small">
+                            <tr><th class="text-secondary ps-0" style="width:120px">Subject</th><td class="font-monospace">{{ signer|get_item:"Issued to" }}</td></tr>
+                            <tr><th class="text-secondary ps-0">Issuer</th><td class="font-monospace">{{ signer|get_item:"Issued by" }}</td></tr>
+                            <tr><th class="text-secondary ps-0">Expires</th><td class="font-monospace">{{ signer|get_item:"Expires" }}</td></tr>
+                            <tr><th class="text-secondary ps-0">SHA1</th><td class="font-monospace text-break">{{ signer|get_item:"SHA1 hash" }}</td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+            {% endif %}
+            {% endwith %}
+
+            {% if not gs.aux_signers and ds %}
+            {% comment %}Fallback: no aux_signers, show digital_signers directly{% endcomment %}
+            <div class="accordion accordion-flush" id="dsAccordion">
+            {% for dc in ds %}
+            <div class="accordion-item bg-dark border-0 border-bottom border-secondary">
+                <div class="accordion-header">
+                    <button class="accordion-button collapsed bg-dark text-white shadow-none py-2 px-3"
+                            type="button" data-bs-toggle="collapse"
+                            data-bs-target="#dc_ac_{{ forloop.counter }}" aria-expanded="false">
+                        <span class="fw-bold me-2">{{ dc.subject_commonName }}</span>
+                        {% if dc.subject_commonName == dc.issuer_commonName and forloop.first and forloop.last %}<span class="badge bg-danger me-2">Self-Signed</span>{% endif %}
+                        <span class="text-secondary small ms-auto me-3">exp {{ dc.not_after|slice:":10" }}</span>
+                    </button>
+                </div>
+                <div id="dc_ac_{{ forloop.counter }}" class="accordion-collapse collapse" data-bs-parent="#dsAccordion">
+                    <div class="accordion-body pt-1 pb-2 px-3">
+                        <table class="table table-dark table-sm table-borderless mb-0 small">
+                            {% if dc.subject_commonName %}<tr><th class="text-secondary ps-0" style="width:150px">Subject CN</th><td class="font-monospace">{{ dc.subject_commonName }}</td></tr>{% endif %}
+                            {% if dc.subject_organizationName %}<tr><th class="text-secondary ps-0">Subject O</th><td class="font-monospace">{{ dc.subject_organizationName }}</td></tr>{% endif %}
+                            {% if dc.subject_organizationalUnitName %}<tr><th class="text-secondary ps-0">Subject OU</th><td class="font-monospace">{{ dc.subject_organizationalUnitName }}</td></tr>{% endif %}
+                            {% if dc.subject_countryName %}<tr><th class="text-secondary ps-0">Subject C</th><td class="font-monospace">{{ dc.subject_countryName }}</td></tr>{% endif %}
+                            {% if dc.subject_emailAddress %}<tr><th class="text-secondary ps-0">Subject E</th><td class="font-monospace">{{ dc.subject_emailAddress }}</td></tr>{% endif %}
+                            <tr><td colspan="2"><hr class="border-secondary my-1"></td></tr>
+                            {% if dc.issuer_commonName %}<tr><th class="text-secondary ps-0">Issuer CN</th><td class="font-monospace">{{ dc.issuer_commonName }}</td></tr>{% endif %}
+                            {% if dc.issuer_organizationName %}<tr><th class="text-secondary ps-0">Issuer O</th><td class="font-monospace">{{ dc.issuer_organizationName }}</td></tr>{% endif %}
+                            {% if dc.issuer_organizationalUnitName %}<tr><th class="text-secondary ps-0">Issuer OU</th><td class="font-monospace">{{ dc.issuer_organizationalUnitName }}</td></tr>{% endif %}
+                            <tr><td colspan="2"><hr class="border-secondary my-1"></td></tr>
+                            {% if dc.not_before %}<tr><th class="text-secondary ps-0">Not Before</th><td class="font-monospace">{{ dc.not_before }}</td></tr>{% endif %}
+                            {% if dc.not_after %}<tr><th class="text-secondary ps-0">Not After</th><td class="font-monospace">{{ dc.not_after }}</td></tr>{% endif %}
+                            {% if dc.serial_number %}<tr><th class="text-secondary ps-0">Serial</th><td class="font-monospace text-break">{{ dc.serial_number }}</td></tr>{% endif %}
+                            <tr><td colspan="2"><hr class="border-secondary my-1"></td></tr>
+                            {% if dc.sha1_fingerprint %}<tr><th class="text-secondary ps-0">SHA1</th><td class="font-monospace text-break">{{ dc.sha1_fingerprint }}</td></tr>{% endif %}
+                            {% if dc.md5_fingerprint %}<tr><th class="text-secondary ps-0">MD5</th><td class="font-monospace text-break">{{ dc.md5_fingerprint }}</td></tr>{% endif %}
+                            {% if dc.sha256_fingerprint %}<tr><th class="text-secondary ps-0">SHA256</th><td class="font-monospace text-break">{{ dc.sha256_fingerprint }}</td></tr>{% endif %}
+                        </table>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+            </div>
+            {% endif %}
+
+        </div>
+        {% endif %}
+
+    </div>
+</section>
+
+{% endwith %}
+{% endif %}
+{% endif %}

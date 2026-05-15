@@ -8,7 +8,7 @@ import logging
 import os
 import re
 import subprocess
-from ctypes import byref, sizeof
+from ctypes import byref, sizeof, c_void_p
 from random import randint
 from uuid import uuid4
 from winreg import (
@@ -257,8 +257,28 @@ class Disguise(Auxiliary):
         self.run_as_system(["C:\\Windows\\System32\\ROUTE.exe", "-p", "change", "0.0.0.0", "mask", "0.0.0.0", gateway])
 
     def launch_background_processes(self):
-        notepad_path = os.path.join(os.environ["SystemRoot"], "System32", "notepad.exe")
-        self._launch_background_process(notepad_path)
+        try:
+            total_processes = int(self.options.get("background_processes", 1))
+        except (TypeError, ValueError):
+            total_processes = 1
+        total_processes = max(0, min(total_processes, 10))
+
+        if total_processes > 0:
+            if sizeof(c_void_p) == 4:
+                system32 = os.path.join(os.environ["SystemRoot"], "Sysnative")
+            else:
+                system32 = os.path.join(os.environ["SystemRoot"], "System32")
+            notepad_path = os.path.join(system32, "notepad.exe")
+            calc_path = os.path.join(system32, "calc.exe")
+            process_pool = [notepad_path, calc_path]
+
+            # Always launch notepad first.
+            self._launch_background_process(notepad_path)
+
+            for _ in range(total_processes - 1):
+                selected_process = process_pool[randint(0, len(process_pool) - 1)]
+                self._launch_background_process(selected_process)
+        # self.log_notepad_process_tree()
 
     def _launch_background_process(self, process_path):
         try:
@@ -324,30 +344,11 @@ class Disguise(Auxiliary):
             log.error("Failed to collect notepad process info: %s", e.output)
 
     def start(self):
-        try:
-            total_processes = int(self.options.get("background_processes", 1))
-        except (TypeError, ValueError):
-            total_processes = 1
-        total_processes = max(0, min(total_processes, 10))
-
-        if total_processes > 0:
-            system32 = os.path.join(os.environ["SystemRoot"], "System32")
-            notepad_path = os.path.join(system32, "notepad.exe")
-            calc_path = os.path.join(system32, "calc.exe")
-            process_pool = [notepad_path, calc_path]
-
-            # Always launch notepad first.
-            self._launch_background_process(notepad_path)
-
-            for _ in range(total_processes - 1):
-                selected_process = process_pool[randint(0, len(process_pool) - 1)]
-                self._launch_background_process(selected_process)
-        # self.log_notepad_process_tree()
-
         if self.config.windows_static_route:
             log.info("Config for route is: %s", str(self.config.windows_static_route))
             self.add_persistent_route(self.config.windows_static_route_gateway)
 
+        self.launch_background_processes()
         self.change_productid()
         self.set_office_mrus()
         self.ramnit()

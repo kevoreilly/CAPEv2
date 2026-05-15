@@ -252,3 +252,20 @@ def malware_config(obj, *args, **kwargs):
 def playback_url(task_id):
     session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
     return f"{task_id}_{session_id}"
+
+
+@register.filter
+def split_csv(value):
+    if not value:
+        return []
+    if isinstance(value, list):
+        return [str(v).strip() for v in value if str(v).strip()]
+    return [t.strip() for t in str(value).split(",") if t.strip()]
+
+def cert_chain_signers(signers):
+    return [s for s in (signers or []) if "Certificate Chain" in s.get("name", "")]
+
+
+@register.filter
+def ts_chain_signers(signers):
+    return [s for s in (signers or []) if "Timestamp Chain" in s.get("name", "")]

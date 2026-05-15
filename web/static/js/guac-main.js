@@ -174,7 +174,7 @@ class GuacSession {
             if (error.code === 514) {
                 this._showError("Connection error", "Server timeout.");
             } else if (error.code === 515) {
-                this._showError("Session ended", "Backing VM has disconnected.");
+                this._showError("Session complete", "Backing VM has disconnected.");
             } else if (error.code === 522) {
                 this._showError("Session ended", "Session timed out due to inactivity.");
             } else {
@@ -217,21 +217,35 @@ function GuacMe(element, session_id, recording_name) {
     return new GuacSession(element, { session_id, recording_name });
 }
 
+function getCsrfToken() {
+    var match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? match[1] : '';
+}
+
 function stopTask(taskId, onSuccess, onError) {
+    var btn = document.getElementById('stopTask');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Stopping...'; }
+  
     const apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
 
+    var apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
     fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+        },
         body: JSON.stringify({ status: 'finish' }),
     })
     .then(response => response.json())
     .then(data => {
         console.log('Response:', data);
         if (onSuccess) onSuccess(data);
+        location.replace(location.origin + '/submit/status/' + taskId + '/');
     })
     .catch(error => {
         console.error('Error:', error);
         if (onError) onError(error);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-stop-circle me-1"></i>End Session'; }
     });
 }

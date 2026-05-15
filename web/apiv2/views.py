@@ -8,13 +8,12 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+from contextlib import suppress
 from datetime import datetime, timedelta
 from io import BytesIO
 from urllib.parse import quote, urljoin
 from wsgiref.util import FileWrapper
 
-import plyara
-import plyara.utils
 import pyzipper
 import requests
 import yara
@@ -26,6 +25,10 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from rest_framework.decorators import api_view
+try:
+    from apikey.authentication import ApiKeyAuthentication
+except ImportError:
+    ApiKeyAuthentication = None
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -87,6 +90,12 @@ try:
     import re2 as re
 except ImportError:
     import re
+
+HAVE_PLYARA = False
+with suppress(ImportError):
+    import plyara
+    import plyara.utils
+    HAVE_PLYARA = True
 
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
@@ -1121,6 +1130,8 @@ def tasks_delete(request, task_id, status=False):
     return Response(resp)
 
 
+# Re-enable session-cookie auth so the in-browser "End Session" button works
+# under SSO deployments where the global DRF chain is API-key-only.
 @csrf_exempt
 @api_view(["GET", "POST"])
 def tasks_status(request, task_id):
@@ -2908,6 +2919,9 @@ def yara_uploader(request):
     try:
         if not apiconf.yara_uploader.get("enabled"):
             return Response({"error": True, "error_value": "Yara Uploader API is Disabled"})
+
+        if not HAVE_PLYARA:
+            return Response({"error": True, "error_value": "Missing dependency. Contact your administrator."})
 
         category = request.data.get("category")
         if not category or category not in ALLOWED_YARA_CATEGORIES:

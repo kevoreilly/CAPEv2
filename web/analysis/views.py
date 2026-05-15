@@ -254,7 +254,6 @@ def get_analysis_info(db, id=-1, task=None):
     # render one badge per tag, matching the per-job report.
     raw_user_tags = get_tags_tasks([new["id"]]) or ""
     new.update({"user_task_tags": [t.strip() for t in raw_user_tags.split(",") if t.strip()]})
-
     new["submitter_username"] = _get_username_by_id(new.get("user_id") or 0)
 
     if new.get("machine"):
@@ -295,6 +294,9 @@ def get_analysis_info(db, id=-1, task=None):
                 "suri_http_cnt": 1,
                 "suri_file_cnt": 1,
                 "trid": 1,
+                "target.file.cape_yara": 1,
+                "target.file.yara.name": 1,
+                "target.file.file_ref": 1,
                 "_id": 0,
             },
             sort=[("_id", -1)],
@@ -384,6 +386,20 @@ def get_analysis_info(db, id=-1, task=None):
 
         if rtmp.get("url", {}).get("virustotal", {}).get("summary", False):
             new["virustotal_summary"] = rtmp["url"]["virustotal"]["summary"]
+
+        if rtmp.get("target", {}).get("file", False):
+            tfile = rtmp["target"]["file"]
+            seen_yara_names = set()
+            yara_names = []
+            for y in (tfile.get("cape_yara") or []) + (tfile.get("yara") or []):
+                if not isinstance(y, dict):
+                    continue
+                n = y.get("name")
+                if n and n not in seen_yara_names:
+                    seen_yara_names.add(n)
+                    yara_names.append(n)
+            if yara_names:
+                new["cape_yara"] = yara_names
 
         if settings.MOLOCH_ENABLED:
             if settings.MOLOCH_BASE[-1] != "/":

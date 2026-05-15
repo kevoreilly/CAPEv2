@@ -257,6 +257,14 @@ enabled = no
 # Show ETW Telemetry tab on analysis report (requires network_etw processing module)
 enabled = no
 
+[display_cape_yara]
+# Show CAPE YARA hit count column on analysis list and search results
+enabled = no
+
+[display_submitter]
+# Show submitting user column on analysis list (requires WEB_AUTHENTICATION)
+enabled = no
+
 [display_authenticode]
 # Show Authenticode certificate chain card on the analysis overview tab
 enabled = no

@@ -1239,9 +1239,37 @@ class NetworkMap:
         self.http_requests = []  # url -> [pinfo]
         self.dns_intents = defaultdict(list)  # domain -> [intent]
         self._winhttp_state = {"processes": {}}
+        self.com_activations = []  # out-of-process CoCreateInstance calls
+
+    # CLSIDs for known out-of-process COM servers
+    _OOP_CLSIDS = {
+        "3050f4d8-98b5-11cf-bb82-00aa00bdce0b": "mshta.exe",
+        "0002df01-0000-0000-c000-000000000046": "iexplore.exe",
+        "9ba05972-f6a8-11cf-a442-00a0c90a8f39": "explorer.exe",
+        "c08afd90-f2a1-11d1-8455-00a0c91f3880": "explorer.exe",
+        "25336920-03f9-11cf-8fd0-00aa00686f13": "mshta.exe",  # HTMLDocument OOP → mshta
+    }
 
     def event_apicall(self, call, process):
-        if call.get("category") != "network":
+        cat = call.get("category") or ""
+        if cat == "com":
+            api = (call.get("api") or "").lower()
+            if api == "cocreateinstance":
+                args_map = _get_call_args_dict(call)
+                clsid = (args_map.get("rclsid") or "").lower()
+                progid = (args_map.get("progid") or "").strip()
+                # Capture any out-of-process activation (CLSCTX includes LOCAL_SERVER=4)
+                ctx = _safe_int(args_map.get("clscontext", "0"))
+                if ctx & 0x4 or clsid in self._OOP_CLSIDS:
+                    self.com_activations.append({
+                            "clsid": clsid,
+                            "progid": progid,
+                            "activator_pid": process.get("process_id"),
+                            "activator_name": process.get("process_name", ""),
+                            "target_binary": self._OOP_CLSIDS.get(clsid, ""),
+                        })
+            return
+        if cat != "network":
             return
 
         api = (call.get("api") or "").lower()
@@ -1350,17 +1378,17 @@ class NetworkMap:
         # BSON/JSON keys must be strings.
         # Let's convert tuple keys to string representation "ip:port"
 
-        endpoint_map_list = [{"ip_port": f"{ip}:{port}", "pinfo": entries} for (ip, port), entries in self.endpoint_map.items()]
-
-        http_host_map_list = [{"host": k, "pinfo": v} for k, v in self.http_host_map.items()]
-        dns_intents_list = [{"domain": k, "intents": v} for k, v in self.dns_intents.items()]
+        endpoint_map_str = {}
+        for (ip, port), entries in self.endpoint_map.items():
+            endpoint_map_str[f"{ip}:{port}"] = entries
 
         return {
-            "endpoint_map": endpoint_map_list,
-            "http_host_map": http_host_map_list,
-            "dns_intents": dns_intents_list,
+            "endpoint_map": endpoint_map_str,
+            "http_host_map": self.http_host_map,
+            "dns_intents": self.dns_intents,
             "http_requests": self.http_requests,
             "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
+            "com_activations": self.com_activations,
         }
 
 
@@ -1436,6 +1464,39 @@ class EncryptedBuffers:
         return self.bufs
 
 
+
+def _enrich_tree_com_parents(tree_nodes, com_activations):
+    """Walk the processtree and annotate nodes whose binary matches a COM activation record."""
+    # Build lookup: target_binary_lower -> list of activations
+    binary_map = {}
+    for act in com_activations:
+        binary = (act.get("target_binary") or "").lower()
+        if not binary:
+            # Fall back to ProgID heuristic
+            progid = (act.get("progid") or "").lower()
+            _progid_to_binary = {
+                "htafile": "mshta.exe",
+                "internetexplorer.application": "iexplore.exe",
+                "shell.application": "explorer.exe",
+            }
+            binary = _progid_to_binary.get(progid, "")
+        if binary:
+            binary_map.setdefault(binary, []).append(act)
+
+    def _walk(nodes):
+        for node in nodes:
+            path = node.get("module_path") or ""
+            name = path.replace("\\", "/").rsplit("/", 1)[-1].lower()
+            if name in binary_map:
+                act = binary_map[name][0]
+                node["com_logical_parent_pid"] = act["activator_pid"]
+                node["com_logical_parent_name"] = act["activator_name"]
+                node["com_progid"] = act.get("progid", "")
+                node["com_clsid"] = act.get("clsid", "")
+            _walk(node.get("children") or [])
+
+    _walk(tree_nodes)
+
 class BehaviorAnalysis(Processing):
     """Behavior Analyzer."""
 
@@ -1478,6 +1539,11 @@ class BehaviorAnalysis(Processing):
                     behavior[instance.key] = instance.run()
                 except Exception as e:
                     log.exception('Failed to run partial behavior class "%s" due to "%s"', instance.key, e)
+
+            # Enrich processtree nodes with COM logical parent relationships
+            com_acts = (behavior.get("network_map") or {}).get("com_activations") or []
+            if com_acts and behavior.get("processtree"):
+                _enrich_tree_com_parents(behavior["processtree"], com_acts)
         else:
             log.warning('Analysis results folder does not exist at path "%s"', self.logs_path)
             # load behavior from json if exist or env CAPE_REPORT variable

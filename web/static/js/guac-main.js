@@ -17,6 +17,10 @@ const PASTE_DELAY_MS = 50;
 
 const NON_FATAL_STATUS_CODES = new Set([0, 256]);
 
+const ICON_ERROR = 'fas fa-exclamation-circle text-danger';
+const ICON_WARNING = 'fas fa-exclamation-triangle text-warning';
+const ICON_SUCCESS = 'fas fa-check-circle text-success';
+
 class GuacSession {
     constructor(element, config) {
         this.config = config;
@@ -153,12 +157,25 @@ class GuacSession {
         });
     }
 
-    _showError(title, detail) {
+    _showDialog(title, detail, icon) {
         const dialog = $('#launch_error');
-        dialog.find('.message').html(title);
-        dialog.find('.error_msg').html(detail);
+        const iconHtml = icon ? `<i class="${icon} me-1"></i>` : '';
+        dialog.find('#dialog-heading').html(`${iconHtml}${title}`);
+        dialog.find('#dialog-message').html(detail);
         dialog.dialog({ dialogClass: 'no-close' });
         dialog.dialog(this.dialogContainer);
+    }
+
+    _showError(title, detail) {
+        this._showDialog(title, detail, ICON_ERROR);
+    }
+
+    _showWarning(title, detail) {
+        this._showDialog(title, detail, ICON_WARNING);
+    }
+
+    _showSuccess(title, detail) {
+        this._showDialog(title, detail, ICON_SUCCESS);
     }
 
     _setupErrorHandler() {
@@ -174,9 +191,9 @@ class GuacSession {
             if (error.code === 514) {
                 this._showError("Connection error", "Server timeout.");
             } else if (error.code === 515) {
-                this._showError("Session complete", "Backing VM has disconnected.");
+                this._showSuccess("Session complete", "Backing VM has disconnected.");
             } else if (error.code === 522) {
-                this._showError("Session ended", "Session timed out due to inactivity.");
+                this._showWarning("Session ended", "Session timed out due to inactivity.");
             } else {
                 const _msg = `An unexpected error occurred: ${error.message}`;
                 this._showError("Connection error", _msg);
@@ -228,7 +245,6 @@ function stopTask(taskId, onSuccess, onError) {
   
     const apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
 
-    var apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
     fetch(apiUrl, {
         method: 'POST',
         headers: {

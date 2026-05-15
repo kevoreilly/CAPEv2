@@ -805,7 +805,7 @@ function install_yara_python() {
 
     # Install from PyPI
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR $PYTHON_MGR_CMD pip install yara-python \
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && $PYTHON_MGR pip install yara-python \
             --no-binary :all: \
             --config-settings=\"--global-option=build\" \
             --config-settings=\"--global-option=--enable-cuckoo\" \
@@ -1380,7 +1380,11 @@ function install_CAPE() {
         echo "[-] pyproject.toml not found in $CAPE_ROOT"
         return
     fi
-    sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR $PYTHON_MGR_CMD pip install -r pyproject.toml"
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} bash -c "cd $CAPE_ROOT && export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; $PYTHON_MGR sync --no-install-project"
+    else
+        sudo -u ${USER} bash -c "export PYTHON_KEYRING_BACKEND=keyring.backends.null.Keyring; CRYPTOGRAPHY_DONT_BUILD_RUST=1 $PYTHON_MGR $PYTHON_MGR_CMD pip install -r pyproject.toml"
+    fi
 
     if [ "$DISABLE_LIBVIRT" -eq 0 ]; then
         # Integrated libvirt install

@@ -1467,7 +1467,6 @@ class EncryptedBuffers:
 
 def _enrich_tree_com_parents(tree_nodes, com_activations):
     """Walk the processtree and annotate nodes whose binary matches a COM activation record."""
-    import os as _os
     # Build lookup: target_binary_lower -> list of activations
     binary_map = {}
     for act in com_activations:

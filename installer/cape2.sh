@@ -1717,9 +1717,8 @@ case $COMMAND in
         exit 0;;
 esac
 
-if [ $# -eq 3 ]; then
-    sandbox_version=$2
-    IFACE_IP=$3
+if [ $# -ge 2 ]; then
+    IFACE_IP=$2
 elif [ $# -eq 0 ]; then
     echo "[-] check --help"
     exit 1

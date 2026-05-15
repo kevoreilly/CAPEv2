@@ -24,8 +24,7 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-from rest_framework.authentication import SessionAuthentication
-from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.decorators import api_view
 try:
     from apikey.authentication import ApiKeyAuthentication
 except ImportError:

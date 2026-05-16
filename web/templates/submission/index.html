@@ -4,7 +4,7 @@
     activeTab: '{{ resubmit|yesno:'resubmit,file' }}',
     isPcapOrStatic: false,
     showAdvanced: false,
-    interactive: false
+    interactive: {{ config.interactive_desktop|yesno:'false,false' }}
 }">
     <div class="col-lg-10">
         <div class="card bg-dark shadow-sm border-secondary mb-4">
@@ -19,72 +19,81 @@
                     <ul class="nav nav-pills nav-fill mb-4 bg-dark p-1 rounded border border-secondary" id="submissionTabs" role="tablist">
                         {% if resubmit %}
                         <li class="nav-item">
-                            <a class="nav-link" :class="activeTab === 'resubmit' ? 'active' : ''" @click="activeTab = 'resubmit'; isPcapOrStatic = false" href="#resubmit" data-bs-toggle="pill">
+                            <button type="button" class="nav-link" :class="activeTab === 'resubmit' ? 'active' : ''" @click="activeTab = 'resubmit'; isPcapOrStatic = false">
                                 <i class="fas fa-sync-alt me-2"></i>Resubmission
-                            </a>
+                            </button>
                         </li>
                         {% else %}
                         <li class="nav-item">
-                            <a class="nav-link" :class="activeTab === 'file' ? 'active' : ''" @click="activeTab = 'file'; isPcapOrStatic = false" href="#file" data-bs-toggle="pill">
+                            <button type="button" class="nav-link" :class="activeTab === 'file' ? 'active' : ''" @click="activeTab = 'file'; isPcapOrStatic = false">
                                 <i class="fas fa-file me-2"></i>File(s)
-                            </a>
+                            </button>
                         </li>
                         {% if config.downloading_service %}
                         <li class="nav-item">
-                            <a class="nav-link" :class="activeTab === 'download' ? 'active' : ''" @click="activeTab = 'download'; isPcapOrStatic = false" href="#downloading_service" data-bs-toggle="pill">
+                            <button type="button" class="nav-link" :class="activeTab === 'download' ? 'active' : ''" @click="activeTab = 'download'; isPcapOrStatic = false">
                                 <i class="fas fa-cloud-download-alt me-2"></i>Download
-                            </a>
+                            </button>
                         </li>
                         {% endif %}
                         {% if config.url_analysis %}
                         <li class="nav-item">
-                            <a class="nav-link" :class="activeTab === 'url' ? 'active' : ''" @click="activeTab = 'url'; isPcapOrStatic = false" href="#url" data-bs-toggle="pill">
+                            <button type="button" class="nav-link" :class="activeTab === 'url' ? 'active' : ''" @click="activeTab = 'url'; isPcapOrStatic = false">
                                 <i class="fas fa-globe me-2"></i>URL
-                            </a>
+                            </button>
+                        </li>
+                        {% endif %}
+                        {% if config.dlnexec %}
+                        <li class="nav-item">
+                            <button type="button" class="nav-link" :class="activeTab === 'dlnexec' ? 'active' : ''" @click="activeTab = 'dlnexec'; isPcapOrStatic = false">
+                                <i class="fas fa-bolt me-2"></i>DL & Exec
+                            </button>
                         </li>
                         {% endif %}
                         <li class="nav-item">
-                            <a class="nav-link" :class="activeTab === 'pcap' ? 'active' : ''" @click="activeTab = 'pcap'; isPcapOrStatic = true" href="#pcap" data-bs-toggle="pill">
+                            <button type="button" class="nav-link" :class="activeTab === 'pcap' ? 'active' : ''" @click="activeTab = 'pcap'; isPcapOrStatic = true">
                                 <i class="fas fa-network-wired me-2"></i>PCAP
-                            </a>
+                            </button>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" :class="activeTab === 'static' ? 'active' : ''" @click="activeTab = 'static'; isPcapOrStatic = true" href="#static" data-bs-toggle="pill">
+                            <button type="button" class="nav-link" :class="activeTab === 'static' ? 'active' : ''" @click="activeTab = 'static'; isPcapOrStatic = true">
                                 <i class="fas fa-code me-2"></i>Static
-                            </a>
+                            </button>
                         </li>
                         {% endif %}
                     </ul>
 
-                    <div class="row">
-                        <!-- Left Column: Primary Inputs -->
+                    <div class="row g-4">
+                        <!-- Left Column -->
                         <div class="col-md-6">
-                            <div class="tab-content mb-4" id="submissionTabContent">
+                            <div class="mb-4" style="min-height: 80px;">
                                 {% if resubmit %}
-                                <div class="tab-pane fade show active" id="resubmit" role="tabpanel">
-                                    <div class="mb-3">
-                                        <label class="form-label text-white-50 small">Target Hash</label>
-                                        <input type="text" class="form-control border-secondary bg-dark text-white font-monospace" name="hash" value="{{resubmit}}" readonly />
-                                    </div>
+                                <div x-show="activeTab === 'resubmit'">
+                                    <label class="form-label text-white-50 small">Target Hash</label>
+                                    <input type="text" class="form-control border-secondary bg-dark text-white font-monospace" name="hash" value="{{resubmit}}" readonly />
                                 </div>
                                 {% else %}
-                                <div class="tab-pane fade show active" id="file" role="tabpanel">
+                                <div x-show="activeTab === 'file'">
                                     <label class="form-label text-white-50 small">Select Files</label>
                                     <input type="file" class="form-control border-secondary bg-dark text-white" name="sample" multiple />
                                 </div>
-                                <div class="tab-pane fade" id="downloading_service" role="tabpanel">
+                                <div x-show="activeTab === 'download'" x-cloak>
                                     <label class="form-label text-white-50 small">Hashes (comma separated)</label>
                                     <input type="text" class="form-control border-secondary bg-dark text-white" name="hashes" placeholder="e.g. md5, sha256" />
                                 </div>
-                                <div class="tab-pane fade" id="url" role="tabpanel">
+                                <div x-show="activeTab === 'url'" x-cloak>
                                     <label class="form-label text-white-50 small">URL to Analyze</label>
                                     <input type="text" class="form-control border-secondary bg-dark text-white" name="url" placeholder="https://example.com" />
                                 </div>
-                                <div class="tab-pane fade" id="pcap" role="tabpanel">
+                                <div x-show="activeTab === 'dlnexec'" x-cloak>
+                                    <label class="form-label text-white-50 small">URL to Download & Execute</label>
+                                    <input type="text" class="form-control border-secondary bg-dark text-white" name="dlnexec" placeholder="https://example.com/payload.exe" />
+                                </div>
+                                <div x-show="activeTab === 'pcap'" x-cloak>
                                     <label class="form-label text-white-50 small">Upload PCAP</label>
                                     <input type="file" class="form-control border-secondary bg-dark text-white" name="pcap" multiple />
                                 </div>
-                                <div class="tab-pane fade" id="static" role="tabpanel">
+                                <div x-show="activeTab === 'static'" x-cloak>
                                     <label class="form-label text-white-50 small">Upload for Static Analysis</label>
                                     <input type="file" class="form-control border-secondary bg-dark text-white" name="static" multiple />
                                 </div>
@@ -93,6 +102,21 @@
 
                             <div class="card border-secondary bg-dark bg-opacity-50 mb-4">
                                 <div class="card-body">
+                                    {% if resubmit %}
+                                    <div class="mb-3">
+                                        <label class="form-label text-white-50 small">Task Category</label>
+                                        <select class="form-select border-secondary bg-dark text-white" name="job_category">
+                                            <option value="hash" selected>Resubmit</option>
+                                            <option value="sample">Files</option>
+                                            <option value="static">Static analysis</option>
+                                            <option value="pcap">Pcap</option>
+                                            <option value="dlnexec">Download and Execute</option>
+                                            <option value="vtdl">Virustotal Download</option>
+                                            <option value="bazaar">MalwareBazaar Download</option>
+                                        </select>
+                                    </div>
+                                    {% endif %}
+
                                     <div class="mb-3">
                                         <label class="form-label text-white-50 small">Analysis Package</label>
                                         <select class="form-select border-secondary bg-dark text-white" id="form_package" name="package">
@@ -108,18 +132,18 @@
                                         <div class="col-md-6">
                                             <label class="form-label text-white-50 small">Priority</label>
                                             <select class="form-select border-secondary bg-dark" id="form_priority" name="priority">
-                                                <option value="1" style="color: #0dcaf0;">Low</option>
-                                                <option value="2" style="color: #ffc107;" selected>Medium</option>
-                                                <option value="3" style="color: #dc3545;">High</option>
+                                                <option value="1" data-color="#0dcaf0" style="color: #0dcaf0;">Low</option>
+                                                <option value="2" data-color="#ffc107" style="color: #ffc107;" selected>Medium</option>
+                                                <option value="3" data-color="#dc3545" style="color: #dc3545;">High</option>
                                             </select>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label text-white-50 small">TLP</label>
                                             <select class="form-select border-secondary bg-dark" id="form_tlp" name="tlp">
-                                                <option value="" style="color: #ffffff;">White</option>
-                                                <option value="Green" style="color: #198754;">Green</option>
-                                                <option value="Amber" style="color: #ffc107;">Amber</option>
-                                                <option value="Red" style="color: #dc3545;">Red</option>
+                                                <option value="" data-color="#ffffff" style="color: #ffffff;" selected>White</option>
+                                                <option value="Green" data-color="#198754" style="color: #198754;">Green</option>
+                                                <option value="Amber" data-color="#ffc107" style="color: #ffc107;">Amber</option>
+                                                <option value="Red" data-color="#dc3545" style="color: #dc3545;">Red</option>
                                             </select>
                                         </div>
                                     </div>
@@ -127,11 +151,11 @@
                             </div>
                         </div>
 
-                        <!-- Right Column: Secondary Inputs -->
+                        <!-- Right Column -->
                         <div class="col-md-6">
                             <div class="card border-secondary bg-dark bg-opacity-50 h-100">
-                                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                                    <span class="text-white-50 small">Targeting & Routing</span>
+                                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center py-2">
+                                    <span class="text-white-50 small text-uppercase fw-bold">Targeting & Routing</span>
                                     {% if existent_tasks %}
                                     <button type="button" class="btn btn-xs btn-outline-warning" data-bs-toggle="modal" data-bs-target="#existentTasksModal">
                                         <i class="fas fa-exclamation-triangle me-1"></i> {{ existent_tasks|length }} Existing
@@ -147,6 +171,13 @@
                                             {% endfor %}
                                         </select>
                                     </div>
+
+                                    {% if config.tags and tags %}
+                                    <div class="mb-3" x-show="!isPcapOrStatic">
+                                        <label class="form-label text-white-50 small">Machine Tags</label>
+                                        <input type="text" class="form-control border-secondary bg-dark text-white" name="tags" placeholder="tag1, tag2" title="Available: {% for tag in tags %}{{tag}}{% if not forloop.last %}, {% endif %}{% endfor %}" />
+                                    </div>
+                                    {% endif %}
 
                                     <div class="mb-3" x-show="!isPcapOrStatic">
                                         <label class="form-label text-white-50 small">Network Routing</label>
@@ -168,7 +199,7 @@
                                     </div>
 
                                     <div class="mb-3">
-                                        <label class="form-label text-white-50 small">Custom Tags</label>
+                                        <label class="form-label text-white-50 small">Task Tags</label>
                                         <input type="text" class="form-control border-secondary bg-dark text-white" name="tags_tasks" placeholder="tag1, tag2" />
                                     </div>
                                 </div>
@@ -176,72 +207,306 @@
                         </div>
                     </div>
 
-                    <!-- Advanced Options Trigger -->
-                    <div class="mt-4 mb-3 border-top border-secondary pt-3">
-                        <button type="button" class="btn btn-sm btn-outline-secondary" @click="showAdvanced = !showAdvanced">
-                            <i class="fas me-2" :class="showAdvanced ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
-                            Advanced Analysis Options
-                        </button>
-                    </div>
-
-                    <!-- Advanced Options Section -->
-                    <div x-show="showAdvanced" x-transition class="card border-secondary bg-dark bg-opacity-25 mb-4">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3">Monitoring</h6>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="free" id="free">
-                                        <label class="form-check-label text-white" for="free">Disable Monitoring (Free mode)</label>
+                    <div class="row g-4 mt-1">
+                        <div class="col-md-6" x-show="showAdvanced">
+                            <div class="card border-secondary bg-dark bg-opacity-50">
+                                <div class="card-body">
+                                    <div class="mb-3">
+                                        <label class="form-label text-white-50 small">Clock</label>
+                                        <input type="text" class="form-control border-secondary bg-dark text-white" name="clock" placeholder="MM-DD-YYYY HH:mm:00" />
                                     </div>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="syscall" id="syscall" checked>
-                                        <label class="form-check-label text-white" for="syscall">Enable Syscall Hooks <small class="text-white-50">(Win10+)</small></label>
-                                    </div>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="nohuman" id="nohuman">
-                                        <label class="form-check-label text-white" for="nohuman">Disable Human Interaction</label>
-                                    </div>
-                                    
-                                    <h6 class="text-white-50 border-bottom border-secondary pb-2 mt-4 mb-3">Interactivity</h6>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="interactive" id="interactive" x-model="interactive">
-                                        <label class="form-check-label text-white" for="interactive">Interactive Desktop (VNC)</label>
-                                    </div>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="manual" id="manual" :disabled="!interactive">
-                                        <label class="form-check-label text-white" for="manual">Manual Detonation Only</label>
-                                    </div>
-                                </div>
-                                <div class="col-md-6">
-                                    <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3">Dumping & Extraction</h6>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="process_memory" id="process_memory">
-                                        <label class="form-check-label text-white" for="process_memory">Full Process Memory Dumps</label>
-                                    </div>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="amsidump" id="amsidump">
-                                        <label class="form-check-label text-white" for="amsidump">Enable AMSI Dumps</label>
-                                    </div>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="unpacker" id="unpacker">
-                                        <label class="form-check-label text-white" for="unpacker">Active Unpacking</label>
-                                    </div>
-                                    <div class="form-check form-switch mb-2">
-                                        <input class="form-check-input" type="checkbox" name="static" id="static_config">
-                                        <label class="form-check-label text-white" for="static_config">Try Config Extraction First</label>
+                                    <div class="mb-3">
+                                        <label class="form-label text-white-50 small">Custom Field</label>
+                                        <input type="text" class="form-control border-secondary bg-dark text-white" name="custom" />
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="mt-4">
-                                <label class="form-label text-white-50 small">Advanced Options String</label>
-                                <input type="text" class="form-control form-control-sm border-secondary bg-dark text-white font-monospace" name="options" placeholder="key1=val1,key2=val2">
+                        </div>
+                        <div class="col-md-6" x-show="showAdvanced">
+                            <div class="card border-secondary bg-dark bg-opacity-50">
+                                <div class="card-body">
+                                    {% if config.pre_script %}
+                                    <div class="mb-3">
+                                        <label class="form-label text-white-50 small">Pre-Execution Script</label>
+                                        <input type="file" class="form-control border-secondary bg-dark text-white" name="pre_script" />
+                                    </div>
+                                    {% endif %}
+                                    {% if config.during_script %}
+                                    <div class="mb-3">
+                                        <label class="form-label text-white-50 small">During-Execution Script</label>
+                                        <input type="file" class="form-control border-secondary bg-dark text-white" name="during_script" />
+                                    </div>
+                                    {% endif %}
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="text-center mt-5">
+                    <!-- Advanced Options Section -->
+                    <div class="card border-secondary bg-dark bg-opacity-25 mb-4 shadow-sm">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 border-end border-secondary">
+                                    <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 small text-uppercase fw-bold">Monitoring & Interaction</h6>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="free" id="free">
+                                                <label class="form-check-label text-white small" for="free">No monitoring</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="syscall" id="syscall" checked>
+                                                <label class="form-check-label text-white small" for="syscall">Syscall hooks</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="nohuman" id="nohuman">
+                                                <label class="form-check-label text-white small" for="nohuman">Disable interaction</label>
+                                            </div>
+                                            {% if config.interactive_desktop %}
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="interactive" id="interactive" x-model="interactive">
+                                                <label class="form-check-label text-white small" for="interactive">Interactive Desktop</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="manual" id="manual" :disabled="!interactive">
+                                                <label class="form-check-label text-white small" for="manual">Manual Detonation</label>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="norefer" id="norefer">
+                                                <label class="form-check-label text-white small" for="norefer">No Fake Referrer</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="oldloader" id="oldloader">
+                                                <label class="form-check-label text-white small" for="oldloader">Thread-based monitor</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="screenshots_qr" id="screenshots_qr">
+                                                <label class="form-check-label text-white small" for="screenshots_qr">QR URL extraction</label>
+                                            </div>
+                                            {% if config.kernel %}
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="kernel_analysis" id="kernel_analysis">
+                                                <label class="form-check-label text-white small" for="kernel_analysis">Kernel Analysis</label>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6 class="text-white-50 border-bottom border-secondary pb-2 mb-3 small text-uppercase fw-bold">Dumping & Extraction</h6>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="process_dump" id="process_dump">
+                                                <label class="form-check-label text-white small" for="process_dump">Disable process dumps</label>
+                                            </div>
+                                            {% if config.procmemory %}
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="process_memory" id="process_memory">
+                                                <label class="form-check-label text-white small" for="process_memory">Full process memory</label>
+                                            </div>
+                                            {% endif %}
+                                            {% if config.amsidump %}
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="amsidump" id="amsidump">
+                                                <label class="form-check-label text-white small" for="amsidump">AMSI dumps</label>
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="col-6">
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="import_reconstruction" id="import_reconstruction">
+                                                <label class="form-check-label text-white small" for="import_reconstruction">Import reconstruction</label>
+                                            </div>
+                                            {% if config.memory %}
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="memory" id="memory">
+                                                <label class="form-check-label text-white small" for="memory">Full Memory Dump</label>
+                                            </div>
+                                            {% endif %}
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="enforce_timeout" id="enforce_timeout">
+                                                <label class="form-check-label text-white small" for="enforce_timeout">Enforce Timeout</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="unpacker" id="unpacker">
+                                                <label class="form-check-label text-white small" for="unpacker">Active Unpacking</label>
+                                            </div>
+                                            <div class="form-check form-switch mb-2">
+                                                <input class="form-check-input" type="checkbox" name="static" id="static_config">
+                                                <label class="form-check-label text-white small" for="static_config">Extract config first</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-3 border-top border-secondary">
+                                <label class="form-label text-white-50 small">Advanced Options String</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-sm border-secondary bg-dark text-white font-monospace" name="options" placeholder="key1=val1,key2=val2">
+                                    <button class="btn btn-sm btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#optionwindowshelp">
+                                        <i class="fas fa-question-circle"></i>
+                                    </button>
+                                </div>
+
+                                <div id="optionwindowshelp" class="collapse mt-2">
+                                    <div class="card card-body bg-dark p-3 border-secondary shadow-sm">
+                                        <div class="mb-3">
+                                            <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="optionsSearch" placeholder="Search options..." onkeyup="filterOptions('optionsSearch', 'optionsHelpTabContent')">
+                                        </div>
+                                        <ul class="nav nav-tabs border-secondary mb-3 small" id="optionsHelpTabs" role="tablist">
+                                            <li class="nav-item"><button class="nav-link active py-1 px-2" data-bs-toggle="tab" data-bs-target="#cat-submission" type="button">Submission</button></li>
+                                            <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#cat-monitor" type="button">Monitor</button></li>
+                                            <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#cat-hooks" type="button">Hooks & Logs</button></li>
+                                            <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#cat-dump" type="button">Dumping</button></li>
+                                            <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#cat-debug" type="button">Debug</button></li>
+                                        </ul>
+                                        <div class="tab-content overflow-auto custom-scrollbar" id="optionsHelpTabContent" style="max-height: 350px;">
+                                            <div class="tab-pane fade show active" id="cat-submission">
+                                                <table class="table table-sm table-dark table-striped mb-0 small">
+                                                    <tbody>
+                                                        <tr><td class="text-end border-0"><code>filename</code></td><td class="border-0">Rename the sample file</td></tr>
+                                                        <tr><td class="text-end"><code>file</code></td><td>Target file in archive to execute</td></tr>
+                                                        <tr><td class="text-end"><code>password</code></td><td>Extraction/Office password</td></tr>
+                                                        <tr><td class="text-end"><code>arguments</code></td><td>CLI arguments passed to sample</td></tr>
+                                                        <tr><td class="text-end"><code>timeout</code></td><td>Analysis timeout (seconds)</td></tr>
+                                                        <tr><td class="text-end"><code>enforce_timeout</code></td><td>Force full timeout duration</td></tr>
+                                                        <tr><td class="text-end"><code>clock</code></td><td>Set VM system time (YYYYMMDDhhmm)</td></tr>
+                                                        <tr><td class="text-end"><code>package</code></td><td>Specific analysis package to use</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="tab-pane fade" id="cat-monitor">
+                                                <table class="table table-sm table-dark table-striped mb-0 small">
+                                                    <tbody>
+                                                        <tr><td class="text-end border-0"><code>free</code></td><td class="border-0">Disable behavioral monitoring</td></tr>
+                                                        <tr><td class="text-end"><code>simul_human</code></td><td>Simulate mouse/keyboard activity</td></tr>
+                                                        <tr><td class="text-end"><code>human_click_interval</code></td><td>Speed of simulated clicks</td></tr>
+                                                        <tr><td class="text-end"><code>human_mouse_speed</code></td><td>Speed of simulated mouse moves</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="tab-pane fade" id="cat-hooks">
+                                                <table class="table table-sm table-dark table-striped mb-0 small">
+                                                    <tbody>
+                                                        <tr><td class="text-end border-0"><code>enable_syslog</code></td><td class="border-0">Enable syslog capturing</td></tr>
+                                                        <tr><td class="text-end"><code>syslog_port</code></td><td>Port for syslog (default 514)</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="tab-pane fade" id="cat-dump">
+                                                <table class="table table-sm table-dark table-striped mb-0 small">
+                                                    <tbody>
+                                                        <tr><td class="text-end border-0"><code>procdump</code></td><td class="border-0">Enable process memory dumping on exit/timeout</td></tr>
+                                                        <tr><td class="text-end"><code>procmemdump</code></td><td>Enable full process memory dumping</td></tr>
+                                                        <tr><td class="text-end"><code>dump-on-api</code></td><td>Dump calling module when specific APIs are called (colon-separated)</td></tr>
+                                                        <tr><td class="text-end"><code>dump-config-region</code></td><td>Dump memory regions suspected to contain C2 config</td></tr>
+                                                        <tr><td class="text-end"><code>dump-crypto</code></td><td>Dump buffers from Crypto APIs</td></tr>
+                                                        <tr><td class="text-end"><code>dump-keys</code></td><td>Dump keys from CryptImportKey</td></tr>
+                                                        <tr><td class="text-end"><code>amsidump</code></td><td>Enable AMSI buffer dumping (Win10+)</td></tr>
+                                                        <tr><td class="text-end"><code>tlsdump</code></td><td>Enable dumping of TLS secrets</td></tr>
+                                                        <tr><td class="text-end"><code>dropped-limit</code></td><td>Override default dropped file limit (100)</td></tr>
+                                                        <tr><td class="text-end"><code>compression</code></td><td>Enable CAPE's extraction of compressed payloads</td></tr>
+                                                        <tr><td class="text-end"><code>extraction</code></td><td>Enable CAPE's extraction of payloads from process</td></tr>
+                                                        <tr><td class="text-end"><code>injection</code></td><td>Enable CAPE's capture of injected payloads</td></tr>
+                                                        <tr><td class="text-end"><code>combo</code></td><td>Combine compression, injection, and extraction</td></tr>
+                                                        <tr><td class="text-end"><code>unpacker</code></td><td>1 = Passive unpacking, 2 = Active unpacking</td></tr>
+                                                        <tr><td class="text-end"><code>import-reconstruction</code></td><td>Attempt import reconstruction on dumps</td></tr>
+                                                        <tr><td class="text-end"><code>store_memdump</code></td><td>Force STORE memdump (direct submission)</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="tab-pane fade" id="cat-debug">
+                                                <table class="table table-sm table-dark table-striped mb-0 small">
+                                                    <tbody>
+                                                        <tr><td class="text-end border-0"><code>debugger</code></td><td class="border-0">Enable internal debugger engine</td></tr>
+                                                        <tr><td class="text-end"><code>debug</code></td><td>1 = Report critical exceptions, 2 = All exceptions</td></tr>
+                                                        <tr><td class="text-end"><code>minproc</code></td><td>Minimal processing (skip signatures)</td></tr>
+                                                        <tr><td class="text-end"><code>bp0...bp3</code></td><td>Hardware breakpoints (Address or Module:Export)</td></tr>
+                                                        <tr><td class="text-end"><code>bp</code></td><td>Software breakpoints (colon-separated)</td></tr>
+                                                        <tr><td class="text-end"><code>break-on-return</code></td><td>Break on return from specific APIs</td></tr>
+                                                        <tr><td class="text-end"><code>base-on-api</code></td><td>Set base address for breakpoints based on API</td></tr>
+                                                        <tr><td class="text-end"><code>file-offsets</code></td><td>Interpret breakpoints as file offsets</td></tr>
+                                                        <tr><td class="text-end"><code>trace-all</code></td><td>Enable full execution tracing</td></tr>
+                                                        <tr><td class="text-end"><code>depth</code></td><td>Trace depth limit (default 0)</td></tr>
+                                                        <tr><td class="text-end"><code>count</code></td><td>Trace instruction count limit (default 128)</td></tr>
+                                                        <tr><td class="text-end"><code>loop_detection</code></td><td>Enable loop detection (compress call logs)</td></tr>
+                                                        <tr><td class="text-end"><code>ttd</code></td><td>Time Travel Debugging (ttd=1)</td></tr>
+                                                        <tr><td class="text-end"><code>polarproxy</code></td><td>Run PolarProxy (TLS PCAP)</td></tr>
+                                                        <tr><td class="text-end"><code>mitmdump</code></td><td>Run mitmdump (TLS HAR)</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if config.linux_on_gui %}
+                    <div class="mb-4">
+                        <div class="card border-secondary bg-dark bg-opacity-25 shadow-sm">
+                            <div class="card-body">
+                                <label class="form-label text-white-50 small text-uppercase fw-bold">Linux Options String</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-sm border-secondary bg-dark text-white font-monospace" name="lin_options" placeholder="option1=val1,option2=val2">
+                                    <button class="btn btn-sm btn-info" type="button" data-bs-toggle="collapse" data-bs-target="#optionlinuxhelp">
+                                        <i class="fas fa-question-circle"></i>
+                                    </button>
+                                </div>
+                                <div id="optionlinuxhelp" class="collapse mt-2">
+                                    <div class="card card-body bg-dark p-3 border-secondary">
+                                        <ul class="nav nav-tabs border-secondary mb-3 small" id="linuxHelpTabs" role="tablist">
+                                            <li class="nav-item"><button class="nav-link active py-1 px-2" data-bs-toggle="tab" data-bs-target="#lin-cat-sub" type="button">Submission</button></li>
+                                            <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#lin-cat-mon" type="button">Monitor</button></li>
+                                            <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#lin-cat-debug" type="button">Debug</button></li>
+                                        </ul>
+                                        <div class="tab-content overflow-auto custom-scrollbar" id="linuxHelpTabContent" style="max-height: 250px;">
+                                            <div class="tab-pane fade show active" id="lin-cat-sub">
+                                                <table class="table table-sm table-dark table-striped mb-0 small">
+                                                    <tbody>
+                                                        <tr><td class="text-end border-0"><code>arguments</code></td><td class="border-0">CLI arguments to pass</td></tr>
+                                                        <tr><td class="text-end"><code>timeout</code></td><td>Analysis timeout (seconds)</td></tr>
+                                                        <tr><td class="text-end"><code>filename</code></td><td>Rename the sample file</td></tr>
+                                                        <tr><td class="text-end"><code>file</code></td><td>Execute specific file from archive</td></tr>
+                                                        <tr><td class="text-end"><code>password</code></td><td>Archive extraction password</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="tab-pane fade" id="lin-cat-mon">
+                                                <table class="table table-sm table-dark table-striped mb-0 small">
+                                                    <tbody>
+                                                        <tr><td class="text-end border-0"><code>memory</code></td><td class="border-0">Dump full VM memory</td></tr>
+                                                        <tr><td class="text-end"><code>procmemdump</code></td><td>Dump process memory</td></tr>
+                                                        <tr><td class="text-end"><code>simul_human</code></td><td>Simulate mouse/clicks</td></tr>
+                                                        <tr><td class="text-end"><code>enable_syslog</code></td><td>Enable syslog capture</td></tr>
+                                                        <tr><td class="text-end"><code>syslog_port</code></td><td>Port for syslog (514)</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                            <div class="tab-pane fade" id="lin-cat-debug">
+                                                <table class="table table-sm table-dark table-striped mb-0 small">
+                                                    <tbody>
+                                                        <tr><td class="text-end border-0"><code>debug</code></td><td class="border-0">Enable debug logging</td></tr>
+                                                        <tr><td class="text-end"><code>minproc</code></td><td>Minimal processing</td></tr>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <!-- Global Form Footer -->
+                    <div class="text-center py-4 border-top border-secondary mt-2">
                         <button type="submit" class="btn btn-primary btn-lg px-5 shadow-lg">
                             <i class="fas fa-microscope me-2"></i>Analyze Sample
                         </button>
@@ -261,14 +526,14 @@
                 <h5 class="modal-title text-white">Already Analyzed</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body p-4">
                 {% for sha256, details in existent_tasks.items %}
-                <div class="mb-4">
-                    <div class="text-info small mb-2 font-monospace">{{sha256}}</div>
+                <div class="mb-4 last-mb-0">
+                    <div class="text-info small mb-2 font-monospace border-bottom border-secondary pb-1">{{sha256}}</div>
                     <div class="list-group">
                         {% for block in details %}
-                        <a href="{% url "report" block.info.id %}" class="list-group-item list-group-item-action bg-dark text-white border-secondary d-flex justify-content-between align-items-center">
-                            <span>Task #{{block.info.id}}</span>
+                        <a href="{% url "report" block.info.id %}" class="list-group-item list-group-item-action bg-dark text-white border-secondary d-flex justify-content-between align-items-center py-2">
+                            <span><i class="fas fa-file-alt me-2 text-white-50"></i>Task #{{block.info.id}}</span>
                             {% if block.family %}<span class="badge bg-danger">{{block.malfamily}}</span>{% endif %}
                         </a>
                         {% endfor %}
@@ -282,28 +547,47 @@
 {% endif %}
 
 <script type='text/javascript'>
-    $(document).ready(function () {
-        // Package description lookup
-        $('#form_package').change(function () {
-            let title = $('option:selected', this).attr('title');
-            $("#package_description").text(title || "");
-        });
-
-        // Initialize tooltips
-        $('[data-bs-toggle="tooltip"]').tooltip();
-
-        // Selective color updates for selects
-        function updateSelectColor(id) {
-            const val = $(id).val();
-            const color = $(id + ' option:selected').css('color');
-            $(id).css('color', color);
-        }
-
-        $('#form_priority, #form_tlp').change(function() {
-            updateSelectColor('#' + $(this).attr('id'));
-        });
-        updateSelectColor('#form_priority');
-        updateSelectColor('#form_tlp');
+function filterOptions(inputId, contentId) {
+    var input = document.getElementById(inputId);
+    var filter = input.value.toLowerCase();
+    var rows = document.querySelectorAll('#' + contentId + ' tr');
+    rows.forEach(function(row) {
+        var text = row.textContent.toLowerCase();
+        row.style.display = text.indexOf(filter) > -1 ? "" : "none";
     });
+}
+
+$(document).ready(function () {
+    // Package description lookup
+    $('#form_package').change(function () {
+        let title = $('option:selected', this).attr('title');
+        $('#package_description').text(title || "");
+    });
+
+    // Color sync for Priority and TLP
+    function updateSelectColor(id) {
+        const color = $(id + ' option:selected').data('color');
+        if (color) $(id).css('color', color);
+    }
+
+    $('#form_priority, #form_tlp').on('change', function() {
+        updateSelectColor('#' + $(this).attr('id'));
+    });
+
+    // Initialize tooltips and colors
+    $('[data-bs-toggle=\"tooltip\"]').tooltip();
+    updateSelectColor('#form_priority');
+    updateSelectColor('#form_tlp');
+});
 </script>
+
+<style>
+.last-mb-0:last-child { margin-bottom: 0 !important; }
+[x-cloak] { display: none !important; }
+.min-vh-10 { min-height: 10vh; }
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #222; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+</style>
 {% endblock %}

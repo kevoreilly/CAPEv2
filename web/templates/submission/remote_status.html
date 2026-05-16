@@ -1,15 +1,14 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="row justify-content-center" 
-     {% if not running %}
-     hx-get="{% url 'remote_session' task_id %}" 
-     hx-trigger="every 3s" 
-     hx-select="#remote-status-card" 
-     hx-swap="outerHTML"
-     {% endif %}>
-    
-    <div class="col-lg-6" id="remote-status-card">
+<div class="row justify-content-center">
+    <div class="col-lg-6" id="remote-status-card"
+         {% if not running %}
+         hx-get="{% url 'remote_session' task_id %}" 
+         hx-trigger="every 3s" 
+         hx-select="#remote-status-card" 
+         hx-swap="outerHTML"
+         {% endif %}>
         {% if running %}
             <script>
                 window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_self");

@@ -2,49 +2,57 @@
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-sitemap me-2 text-info"></i>HTTP Requests</h5>
     </div>
-{% if network.http_ex or network.https_ex %}
 <div class="card-body">
-<table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
-    <tr>
-        <th>URI</th>
-        <th>Details</th>
-        {% if settings.NETWORK_PROC_MAP %} <th style="width: 160px">Process Name (PID)</th> {% endif %}
-    </tr>
+<table id="http-requests-table" class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
+    <thead>
+        <tr>
+            <th>URI</th>
+            <th>Details</th>
+            {% if settings.NETWORK_PROC_MAP %} <th style="width: 160px">Process Name (PID)</th> {% endif %}
+        </tr>
+    </thead>
+    <tbody>
     {% for http in network.http_ex|add:network.https_ex %}
     <tr>
         <td style="word-wrap: break-word;">{{http.protocol }}://{{http.host}}{{http.uri}}</td>
         <td style="word-wrap: break-word;">
-            <table class="table table-dark table-striped table-bordered">
+            <table class="table table-dark table-striped table-bordered mb-0">
             {% if http.request %}
                 <tr><td>
                     {% if http.req.sha256 %}
-                        <a href="{% url "file" "networkzip" id http.req.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span> Request content</a>
+                        <a href="{% url "file" "networkzip" id http.req.sha256 %}" class="btn btn-secondary btn-sm mb-1"><span class="fas fa-download"></span> Request content</a>
                     {% else %}
-                        Request:
+                        <strong>Request:</strong>
                     {% endif %}
+                    <ul class="mb-0 list-unstyled small">
                     {% for value in http.request|network_rn %}
                         <li>{{value}}</li>
                     {% endfor %}
+                    </ul>
                 </td></tr>
             {% endif %}
             <tr><td>
             {% if http.response %}
                 {% if http.resp.sha256 %}
-                    <a href="{% url "file" "networkzip" id http.resp.sha256 %}" class="btn btn-secondary btn-sm"><span class="fas fa-download"></span> Response content</a>
+                    <a href="{% url "file" "networkzip" id http.resp.sha256 %}" class="btn btn-secondary btn-sm mb-1"><span class="fas fa-download"></span> Response content</a>
                 {% else %}
-                    Response:
+                    <strong>Response:</strong>
                 {% endif %}
+                <ul class="mb-0 list-unstyled small">
                 {% for value in http.response|network_rn %}
                     <li>{{value}}</li>
                 {% endfor %}
-                </br>Response preview:
+                </ul>
+                <div class="mt-1"><strong>Preview:</strong></div>
+                <ul class="mb-0 list-unstyled small text-info">
                 {% if http.resp.preview %}
                     {% for line in http.resp.preview %}
                         <li>{{line}}</li>
                     {% endfor %}
                 {% endif %}
+                </ul>
             {% else %}
-                No response
+                <span class="text-muted">No response</span>
             {% endif %}
             </td></tr>
             </table>
@@ -52,7 +60,7 @@
         {% if settings.NETWORK_PROC_MAP %}
             <td style="width: 160px; white-space: nowrap;">
                 {% if http.process_name %}
-                    {{ http.process_name }}{% if http.process_id %} ({{ http.process_id }}){% endif %}
+                    <span class="badge bg-warning text-dark">{{ http.process_name }}{% if http.process_id %} ({{ http.process_id }}){% endif %}</span>
                 {% else %}
                     -
                 {% endif %}
@@ -60,24 +68,46 @@
         {% endif %}
     </tr>
     {% endfor %}
+    </tbody>
 </table>
 </div>
+
+<script>
+$(document).ready(function() {
+    $('#http-requests-table').DataTable({
+        "pageLength": 10,
+        "lengthMenu": [[10, 25, 50, -1], [10, 25, 50, "All"]],
+        "order": [], // Preserve original order
+        "language": {
+            "search": "Filter requests:",
+            "lengthMenu": "Show _MENU_ entries"
+        },
+        "drawCallback": function() {
+            // Re-initialize tooltips if any are used in the table
+            $('[data-bs-toggle="tooltip"]').tooltip();
+        }
+    });
+});
+</script>
 {% elif network.http %}
     <div class="card-body">
-    <table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
-        <tr>
-            <th>URI</th>
-            <th>Data</th>
-            {% if settings.NETWORK_PROC_MAP %}<th style="width: 160px;">Process Name (PID)</th>{% endif %}
-        </tr>
+    <table id="http-simple-table" class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
+        <thead>
+            <tr>
+                <th>URI</th>
+                <th>Data</th>
+                {% if settings.NETWORK_PROC_MAP %}<th style="width: 160px;">Process Name (PID)</th>{% endif %}
+            </tr>
+        </thead>
+        <tbody>
         {% for request in network.http %}
             <tr>
                 <td style="word-wrap: break-word;">{{request.uri}} {% if request.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
-                <td style="word-wrap: break-word;"><pre>{{request.data}}</pre></td>
+                <td style="word-wrap: break-word;"><pre class="mb-0 small text-white-50">{{request.data}}</pre></td>
                 {% if settings.NETWORK_PROC_MAP %}
                     <td style="width: 160px; white-space: nowrap;">
                         {% if request.process_name %}
-                            {{ request.process_name }}{% if request.process_id %} ({{ request.process_id }}){% endif %}
+                            <span class="badge bg-warning text-dark">{{ request.process_name }}{% if request.process_id %} ({{ request.process_id }}){% endif %}</span>
                         {% else %}
                             -
                         {% endif %}
@@ -85,8 +115,17 @@
                 {% endif %}
             </tr>
         {% endfor %}
+        </tbody>
     </table>
     </div>
+    <script>
+    $(document).ready(function() {
+        $('#http-simple-table').DataTable({
+            "pageLength": 25,
+            "order": []
+        });
+    });
+    </script>
 {% else %}
     <div class="card-body">
     <div class="alert alert-info">No HTTP(s) requests performed.</div>

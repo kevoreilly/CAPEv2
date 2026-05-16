@@ -17,8 +17,15 @@
 <link href="{{ STATIC_URL }}css/bootstrap.min.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/bootstrap-social.min.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/style.css" rel="stylesheet">
-<link href="{{ STATIC_URL }}css/atlas.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/fontawesome-all.css" rel="stylesheet">
+<!-- Modernization PoC: HTMX, DataTables, D3.js, ApexCharts -->
+<script src="{{ STATIC_URL }}js/htmx.min.js"></script>
+<link rel="stylesheet" href="{{ STATIC_URL }}css/dataTables.bootstrap5.min.css">
+<script src="{{ STATIC_URL }}js/jquery.dataTables.min.js"></script>
+<script src="{{ STATIC_URL }}js/dataTables.bootstrap5.min.js"></script>
+<script src="{{ STATIC_URL }}js/d3.v7.min.js"></script>
+<script src="{{ STATIC_URL }}js/apexcharts.min.js"></script>
+<script defer src="{{ STATIC_URL }}js/alpine.min.js"></script>
 {% block extra_head %}{% endblock %}
 </head>
 <body>

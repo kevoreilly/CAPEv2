@@ -8,9 +8,17 @@
         {% else %}
             <div class="btn-group btn-group-sm">
                 {% if not config.zipped_download %}
-                    <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download file"><i class="fas fa-download"></i></a>
+                    {% if tab_name == "static" %}
+                        <a href="{% url "file" "dropped" id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download file"><i class="fas fa-download"></i></a>
+                    {% else %}
+                        <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download file"><i class="fas fa-download"></i></a>
+                    {% endif %}
                 {% endif %}
-                <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download password-protected archive"><i class="fas fa-file-archive"></i></a>
+                {% if tab_name == "static" %}
+                    <a href="{% url "file" "droppedzip" id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download password-protected archive"><i class="fas fa-file-archive"></i></a>
+                {% else %}
+                    <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download password-protected archive"><i class="fas fa-file-archive"></i></a>
+                {% endif %}
                 <a href="/submit/resubmit/{{id}}/{{file.sha256}}/" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Resubmit"><i class="fas fa-sync"></i></a>
                 {% if config.vtupload and analysis.info.tlp != "Red" %}
                     <a href="{% url "vtupload" tab_name id file.name file.sha256 %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Upload to VirusTotal"><i class="fas fa-cloud-upload-alt"></i> VT</a>
@@ -308,7 +316,11 @@
             {% endif %}
 
             {% if file.decoded_files %}
-                <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}">{{file.decoded_files_tool}}</a>
+                <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}">{{file.decoded_files_tool|default:"Decoded"}}</a>
+            {% endif %}
+
+            {% if file.extracted_files %}
+                <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#extracted_files_{{file.sha256}}">{{file.extracted_files_tool|default:"Extracted"}}</a>
             {% endif %}
 
             {% if file.selfextract %}
@@ -397,6 +409,19 @@
             </div>
         {% endif %}
 
+        {% if file.extracted_files %}
+            <div class="collapse mb-3" id="extracted_files_{{file.sha256}}">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header border-secondary"><h6 class="mb-0 text-white">Extracted Files</h6></div>
+                    <div class="card-body">
+                        {% for sub_file in file.extracted_files %}
+                            {% include "analysis/generic/_file_info.html" with file=sub_file %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
         {% if file.selfextract %}
             {% for name, details in file.selfextract.items %}
                 <div class="collapse mb-3" id="selfextract_{{name}}">
@@ -407,7 +432,7 @@
                                 <div class="alert alert-info">Password: <strong>{{details.password}}</strong></div>
                             {% endif %}
                             {% for sub_file in details.extracted_files %}
-                                {% include "analysis/generic/_subfile_info.html" %}
+                                {% include "analysis/generic/_file_info.html" with file=sub_file %}
                             {% endfor %}
                         </div>
                     </div>
@@ -415,7 +440,6 @@
             {% endfor %}
         {% endif %}
 
-        <!-- Collapsible Includes -->
         {% if config.yara_detail and file.yara %} <div class="collapse mb-3" id="yara_{{file.sha256}}"> {% include "analysis/generic/_yara.html" %}</div>{% endif %}
         {% if config.yara_detail and file.cape_yara %} <div class="collapse mb-3" id="capeyara_{{file.sha256}}"> {% include "analysis/generic/_capeyara.html" %}</div>{% endif %}
         {% if file.pe %} <div class="collapse mb-3" id="pe_{{file.sha256}}"> {% include "analysis/generic/_pe.html" %}</div>{% endif %}

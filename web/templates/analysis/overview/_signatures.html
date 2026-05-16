@@ -3,114 +3,146 @@
 {% if analysis.signatures %}
 <section id="signatures" class="mb-4">
     <div class="card bg-dark border-secondary">
-        <div class="card-header border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
             <h5 class="mb-0 text-white"><i class="fas fa-file-signature me-2 text-warning"></i> Signatures</h5>
+            <div class="input-group input-group-sm w-25">
+                <span class="input-group-text bg-dark border-secondary text-white-50"><i class="fas fa-search"></i></span>
+                <input type="text" id="signature-filter" class="form-control bg-dark border-secondary text-white" placeholder="Filter signatures...">
+            </div>
         </div>
         <div class="card-body">
             {% if analysis.signatures %}
-                                <div class="list-group">
-                                {% for signature in analysis.signatures %}
-                                    <div>
-                    <a href="#signature_collapse_{{signature.name}}" class="list-group-item list-group-item-action py-1 text-dark
-                        {% if signature.severity >= 3 %}list-group-item-danger{% elif signature.severity == 2 %}list-group-item-warning{% elif signature.severity == 1 %}list-group-item-success{% else %}list-group-item-info{% endif %}"
-                        data-bs-toggle="collapse" aria-expanded="false" aria-controls="signature_collapse_{{signature.name}}">
-                                        <div class="d-flex w-50 justify-content-between">
-                                            <div class="mb-1 text-dark">
-                                                {% if signature.severity <= 1 %}
-                                                    <i class="fas fa-info-circle me-2 text-dark"></i>
-                                                {% elif signature.severity == 2 %}
-                                                    <i class="fas fa-exclamation-triangle me-2 text-dark"></i>
-                                                {% elif signature.severity >= 3 %}
-                                                    <i class="fas fa-biohazard me-2 text-dark"></i>
-                                                {% endif %}
-                                                {{signature.description}}
-                                            </div>
-                                            <small class="text-dark"><i class="fas fa-chevron-down float-end text-white-50 ms-1"></i></small>
-                                        </div>
-                                    </a>
-                                    <div class="collapse" id="signature_collapse_{{signature.name}}">
-                                        <div class="card card-body bg-dark text-white mt-1">
-                                            {% if signature.data %}
-                                                <div class="mb-3">
-                                                {% for sign in signature.data %}
-                                                    {% for key, value in sign.items %}
-                                                        <div class="mb-1"><strong class="text-light">{{key}}:</strong> {{value}}</div>
+                <div class="list-group" id="signature-list">
+                {% for signature in analysis.signatures %}
+                    <div class="signature-item" data-description="{{ signature.description|lower }}" data-name="{{ signature.name|lower }}">
+                        <a href="#signature_collapse_{{signature.name}}" class="list-group-item list-group-item-action py-2 mb-1 border-0 rounded
+                            {% if signature.severity >= 3 %}bg-danger text-white{% elif signature.severity == 2 %}bg-warning text-dark{% elif signature.severity == 1 %}bg-success text-white{% else %}bg-info text-white{% endif %}"
+                            data-bs-toggle="collapse" aria-expanded="false" aria-controls="signature_collapse_{{signature.name}}">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    {% if signature.severity <= 1 %}
+                                        <i class="fas fa-info-circle me-2"></i>
+                                    {% elif signature.severity == 2 %}
+                                        <i class="fas fa-exclamation-triangle me-2"></i>
+                                    {% elif signature.severity >= 3 %}
+                                        <i class="fas fa-biohazard me-2"></i>
+                                    {% endif %}
+                                    <strong>{{signature.description}}</strong>
+                                </div>
+                                <div class="d-flex align-items-center">
+                                    {% if signature.marks %}
+                                        <span class="badge bg-dark bg-opacity-50 me-3">{{ signature.marks|length }} marks</span>
+                                    {% endif %}
+                                    <i class="fas fa-chevron-down transition-icon"></i>
+                                </div>
+                            </div>
+                        </a>
+                        <div class="collapse" id="signature_collapse_{{signature.name}}">
+                            <div class="card card-body bg-dark text-white mt-1 border-secondary shadow-sm">
+                                {% if signature.data %}
+                                    <div class="mb-3">
+                                    {% for sign in signature.data %}
+                                        {% for key, value in sign.items %}
+                                            <div class="mb-1"><strong class="text-info">{{key}}:</strong> <span class="text-light">{{value}}</span></div>
+                                        {% endfor %}
+                                    {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="table-responsive">
+                                        <table class="table table-dark table-sm table-striped mb-0 border-secondary" style="table-layout: fixed;">
+                                            <tbody>
+                                                {% for match in signature.new_data %}
+                                                    {% if match.process.process_name %}
+                                                        <tr class="table-primary text-dark fw-bold">
+                                                            <td colspan="9" class="ps-3"><i class="fas fa-microchip me-2"></i>Process: {{match.process.process_name}} ({{match.process.process_id}})</td>
+                                                        </tr>
+                                                    {% endif %}
+                                                    {% for sign in match.signs %}
+                                                        <tr>
+                                                            {% if sign.type == 'api' %}
+                                                                {% include "analysis/behavior/_api_call.html" with call=sign.value %}
+                                                                <td class="text-end">
+                                                                    <a href='#' class='call-link btn btn-sm btn-outline-info' data-pid='{{match.process.process_id}}' data-cid='{{sign.value.id}}'>
+                                                                        <i class="fas fa-external-link-alt"></i>
+                                                                    </a>
+                                                                </td>
+                                                            {% else %}
+                                                                <td colspan="2" class="text-info text-uppercase x-small fw-bold ps-3">{{sign.type}}</td>
+                                                                <td colspan="7">
+                                                                    {% if sign.value|is_dict %}
+                                                                        {% for key, value in  sign.value.items %}
+                                                                            <span class='text-warning fw-bold'>{{key}}:</span>
+                                                                            <span class="text-light">{{value}}</span><br />
+                                                                        {% endfor %}
+                                                                    {% else %}
+                                                                        <span class="text-light">{{sign.value}}</span>
+                                                                    {% endif %}
+                                                                </td>
+                                                            {% endif %}
+                                                        </tr>
                                                     {% endfor %}
                                                 {% endfor %}
-                                                </div>
-                                            {% else %}
-                                                <div class="table-responsive">
-                                                    <table class="table table-dark table-sm table-striped mb-0" style="table-layout: fixed;">
-                                                        <tbody>
-                                                            {% for match in signature.new_data %}
-                                                                {% if match.process.process_name %}
-                                                                    <tr class="bg-info text-dark fw-bold"><td colspan="9">Process: {{match.process.process_name}} ({{match.process.process_id}})</td></tr>
-                                                                {% endif %}
-                                                                {% for sign in match.signs %}
-                                                                    <tr>
-                                                                        {% if sign.type == 'api' %}
-                                                                            {% include "analysis/behavior/_api_call.html" with call=sign.value %}
-                                                                            <td class="text-end">
-                                                                                <a href='#' class='call-link btn btn-sm btn-outline-light' data-pid='{{match.process.process_id}}' data-cid='{{sign.value.id}}'>
-                                                                                    <i class="fas fa-arrow-circle-right"></i>
-                                                                                </a>
-                                                                            </td>
-                                                                        {% else %}
-                                                                            <td colspan="2" class="text-white-50 text-uppercase small fw-bold">{{sign.type}}</td>
-                                                                            <td colspan="7">
-                                                                                {% if sign.value|is_dict %}
-                                                                                    {% for key, value in  sign.value.items %}
-                                                                                        <span class='text-info fw-bold'>{{key}}:</span>
-                                                                                        <span>{{value}}</span><br />
-                                                                                    {% endfor %}
-                                                                                {% else %}
-                                                                                    {{sign.value}}
-                                                                                {% endif %}
-                                                                            </td>
-                                                                        {% endif %}
-                                                                    </tr>
-                                                                {% endfor %}
-                                                            {% endfor %}
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            {% endif %}
-                                            {% if signature.calls %}
-                                                <div id="signature-calls_{{signature.name}}" class="mt-3"></div>
-                                                {% with data_id="signature-calls-data_"|add:signature.name %}
-                                                    {{ signature.calls | json_script:data_id }}
-                                                    <script type="text/javascript">
-                                                        $(document).ready(function(){
-                                                            $("#signature_collapse_{{signature.name}}").one("show.bs.collapse", function() {
-                                                                $.ajax(
-                                                                    "{% url "signature-calls" task_id=analysis.info.id %}",
-                                                                    {
-                                                                        contentType: "application/json",
-                                                                        data: document.getElementById("{{data_id}}").textContent,
-                                                                        dataType: "html",
-                                                                        method: "POST",
-                                                                        success: function(responseText) {
-                                                                            $("#signature-calls_{{signature.name}}").html(responseText);
-                                                                        }
-                                                                    }
-                                                                );
-                                                            });
-                                                        });
-                                                    </script>
-                                                {% endwith %}
-                                            {% endif %}
-                                        </div>
+                                            </tbody>
+                                        </table>
                                     </div>
+                                {% endif %}
+                                
+                                {% if signature.calls %}
+                                    <div id="signature-calls-container-{{signature.name}}" class="mt-3">
+                                        <button class="btn btn-sm btn-outline-secondary w-100"
+                                                hx-post="{% url "signature-calls" task_id=analysis.info.id %}"
+                                                hx-vals='js:{"calls": {{ signature.calls|json_encode }}}'
+                                                hx-target="#signature-calls-{{signature.name}}"
+                                                hx-swap="innerHTML"
+                                                onclick="$(this).fadeOut()">
+                                            <i class="fas fa-list me-1"></i> Load matching API calls ({{ signature.calls|length }})
+                                        </button>
+                                        <div id="signature-calls-{{signature.name}}"></div>
                                     </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
                 {% endfor %}
                 </div>
             {% else %}
                 <div class="p-3 text-center text-white-50">
-                    <i class="fas fa-check-circle fa-2x mb-2"></i>
+                    <i class="fas fa-check-circle fa-2x mb-2 text-success"></i>
                     <p class="mb-0">No suspicious signatures detected.</p>
                 </div>
             {% endif %}
         </div>
     </div>
 </section>
+
+<script>
+$(function() {
+    // Search filter for signatures
+    $('#signature-filter').on('keyup', function() {
+        var query = $(this).val().toLowerCase();
+        $('.signature-item').each(function() {
+            var desc = $(this).data('description');
+            var name = $(this).data('name');
+            if (desc.indexOf(query) > -1 || name.indexOf(query) > -1) {
+                $(this).show();
+            } else {
+                $(this).hide();
+            }
+        });
+    });
+
+    // Animate icons on collapse
+    $('.signature-item .collapse').on('show.bs.collapse', function() {
+        $(this).prev().find('.transition-icon').addClass('fa-rotate-180');
+    }).on('hide.bs.collapse', function() {
+        $(this).prev().find('.transition-icon').removeClass('fa-rotate-180');
+    });
+});
+</script>
+
+<style>
+.transition-icon { transition: transform 0.2s ease-in-out; }
+.fa-rotate-180 { transform: rotate(180deg); }
+.x-small { font-size: 0.75rem; }
+</style>
 {% endif %}

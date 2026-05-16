@@ -20,44 +20,62 @@ $(function () {
 
 <div class="card bg-dark border-secondary mb-4">
     <div class="card-header border-secondary">
-        <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-primary"></i> Execution Graph</h5>
+        <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-primary"></i> Execution Comparison</h5>
     </div>
     <div class="card-body">
-        <p class="text-white-50">This graph visualizes the behavioral events by category. Larger blocks indicate higher activity in that category.</p>
-        
-        <div class="mb-4 text-center">
-            <span class="badge text-white bg-dark text-white border border-secondary registry">registry</span>
-            <span class="badge text-white bg-dark text-white border border-secondary filesystem">filesystem</span>
-            <span class="badge text-white bg-dark text-white border border-secondary system">system</span>
-            <span class="badge text-white bg-dark text-white border border-secondary network">network</span>
-            <span class="badge text-white bg-dark text-white border border-secondary process">process</span>
-            <span class="badge text-white bg-dark text-white border border-secondary services">services</span>
-            <span class="badge text-white bg-dark text-white border border-secondary synchronization">synchronization</span>
-            <span class="badge text-white bg-dark text-white border border-secondary windows">windows</span>
-        </div>
-
+        <p class="text-white-50 small">Behavioral event distribution by category across both analyses.</p>
         <div class="row">
-            <div class="col-md-6 border-right border-secondary d-flex justify-content-center">
-                <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-dark">
-                    {% for cat, count in left_counts.items %}
-                        <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="right" title="{{count}}% {{cat}}"></div>
-                    {% endfor %}
-                </div>
+            <div class="col-md-6">
+                <div id="compare-chart-left"></div>
             </div>
-            <div class="col-md-6 d-flex justify-content-center">
-                <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-dark">
-                    {% for cat, count in right_counts.items %}
-                        <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="left" title="{{count}}% {{cat}}"></div>
-                    {% endfor %}
-                </div>
+            <div class="col-md-6">
+                <div id="compare-chart-right"></div>
             </div>
         </div>
     </div>
 </div>
 
+<script>
+$(document).ready(function() {
+    var categories = ['registry', 'filesystem', 'system', 'network', 'process', 'services', 'synchronization', 'windows'];
+    var colors = ['#3498db', '#00bc8c', '#f39c12', '#ee1b2f', '#9b59b6', '#34495e', '#198754', '#0dcaf0'];
+
+    function getOptions(title, data, color) {
+        return {
+            series: [{ name: 'Events', data: data }],
+            chart: { type: 'bar', height: 300, background: 'transparent', foreColor: '#ccc', toolbar: { show: false } },
+            plotOptions: { bar: { horizontal: true, distributed: true } },
+            colors: colors,
+            title: { text: title, align: 'center', style: { color: '#fff' } },
+            xaxis: { categories: categories },
+            legend: { show: false },
+            tooltip: { theme: 'dark' }
+        };
+    }
+
+    var leftData = [
+        {% for cat in ['registry', 'filesystem', 'system', 'network', 'process', 'services', 'synchronization', 'windows'] %}
+            {{ left_counts|get_item:cat|default:0 }}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+    ];
+    var rightData = [
+        {% for cat in ['registry', 'filesystem', 'system', 'network', 'process', 'services', 'synchronization', 'windows'] %}
+            {{ right_counts|get_item:cat|default:0 }}{% if not forloop.last %}, {% endif %}
+        {% endfor %}
+    ];
+
+    new ApexCharts(document.querySelector("#compare-chart-left"), getOptions('Analysis 1', leftData)).render();
+    new ApexCharts(document.querySelector("#compare-chart-right"), getOptions('Analysis 2', rightData)).render();
+});
+</script>
+
 <div class="card bg-dark border-secondary mb-4">
-    <div class="card-header border-secondary">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white"><i class="fas fa-equals me-2 text-success"></i> Summary Similarities</h5>
+        <div class="input-group input-group-sm w-25">
+            <span class="input-group-text bg-dark border-secondary text-white-50"><i class="fas fa-search"></i></span>
+            <input type="text" id="summary-compare-filter" class="form-control bg-dark border-secondary text-white" placeholder="Filter similarities...">
+        </div>
     </div>
     <div class="card-body">
         <div class="row">
@@ -176,4 +194,20 @@ $(function () {
         </div>
     </div>
 </div>
+
+<script>
+$(document).ready(function() {
+    $('#summary-compare-filter').on('keyup', function() {
+        var query = $(this).val().toLowerCase();
+        $('.tab-pane.active ul li').each(function() {
+            var text = $(this).text().toLowerCase();
+            $(this).toggle(text.indexOf(query) > -1);
+        });
+    });
+
+    $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function() {
+        $('#summary-compare-filter').val('').trigger('keyup');
+    });
+});
+</script>
 {% endblock %}

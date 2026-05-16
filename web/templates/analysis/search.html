@@ -135,8 +135,8 @@
                 <h5 class="mb-0 text-white"><i class="fas fa-list me-2"></i> Search Results</h5>
                 <span class="badge bg-dark border border-secondary">{{analyses|length}} results</span>
             </div>
-            <div class="table-responsive">
-                <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
+            <div class="table-responsive p-3">
+                <table id="search-results-table" class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
                     <thead>
                     <tr>
                         <th width="4%" class="border-top-0">ID</th>
@@ -145,6 +145,7 @@
                         <th width="18%" class="border-top-0">Filename</th>
                         <th width="14%" class="border-top-0">Target</th>
                         <th width="9%" class="border-top-0">Detections</th>
+                        <!-- Same columns but inside id-tagged table -->
                         {% if config.display_task_tags %}
                         <th width="7%" class="border-top-0">Task tags</th>
                         {% endif %}
@@ -158,19 +159,13 @@
                         <th width="5%" class="border-top-0">Martians</th>
                         {% endif %}
                         {% if config.suricata %}
-                        <th width="10%" class="border-top-0">SuriAlert{% if config.expanded_dashboard %}/HTTP/TLS/Files{% endif %}</th>
+                        <th width="10%" class="border-top-0">SuriAlert</th>
                         {% endif %}
                         {% if config.virustotal %}
                         <th width="4%" class="border-top-0">VT</th>
                         {% endif %}
                         {% if config.malscore %}
                         <th width="6%" class="border-top-0">MalScore</th>
-                        {% endif %}
-                        {% if config.display_clamav %}
-                        <th width="5%" class="border-top-0">ClamAV</th>
-                        {% endif %}
-                        {% if config.display_cape_yara %}
-                        <th width="6%" class="border-top-0">YARA</th>
                         {% endif %}
                         <th width="6%" class="border-top-0 text-end">Status</th>
                     </tr>
@@ -181,7 +176,7 @@
                             <td><span class="fw-bold">{{analysis.id}}</span></td>
                             <td>
                                 {% if analysis.status == "reported" %}{{analysis.completed_on}}
-                                {% else %}<span class="text-white-50 small">{{analysis.added_on}} (added)</span>
+                                {% else %}<span class="text-white-50 small">{{analysis.added_on}}</span>
                                 {% endif %}
                             </td>
                             <td><span class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span></td>
@@ -222,18 +217,11 @@
                             <td>{% if analysis.category == "url" and config.display_browser_martians %}{% if analysis.mlist_cnt %}<span class="badge bg-warning">{{analysis.mlist_cnt}}</span>{% else %}<span class="text-white-50">-</span>{% endif %}{% elif config.display_office_martians %}{% if analysis.f_mlist_cnt %}<span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>{% else %}<span class="text-white-50">-</span>{% endif %}{% else %}<span class="text-white-50">-</span>{% endif %}</td>
                             {% endif %}
                             {% if config.suricata %}
-                            <td><span class="font-monospace">
-                                {% if analysis.suri_alert_cnt %}<a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger fw-bold">{{analysis.suri_alert_cnt}}</a><!--
-                                {% else %}<span class="text-white-50">-</span><!--{% endif %}
-                                {% if config.expanded_dashboard %}
-                                    {% if analysis.suri_http_cnt %}-->/<a href="{% url "surihttp" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_http_cnt}}</a><!--
-                                    {% else %}-->/<span class="text-white-50">-</span><!--{% endif %}
-                                    {% if analysis.suri_tls_cnt %}-->/<a href="{% url "suritls" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_tls_cnt}}</a><!--
-                                    {% else %}-->/<span class="text-white-50">-</span><!--{% endif %}
-                                    {% if analysis.suri_file_cnt %}-->/<a href="{% url "surifiles" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_file_cnt}}</a><!--
-                                    {% else %}-->/<span class="text-white-50">-</span><!--{% endif %}
-                                {% endif %}
-                                --></span>
+                            <td>
+                                <span class="font-monospace">
+                                    {% if analysis.suri_alert_cnt %}<a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger fw-bold">{{analysis.suri_alert_cnt}}</a>
+                                    {% else %}<span class="text-white-50">-</span>{% endif %}
+                                </span>
                             </td>
                             {% endif %}
                             {% if config.virustotal %}
@@ -246,26 +234,12 @@
                                 {% else %}-{% endif %}
                             </td>
                             {% endif %}
-                            {% if config.display_clamav %}
-                            <td><span class="font-monospace">
-                                {% if analysis.clamav %}<span class="text-danger fw-bold" title="{{analysis.clamav|join:', '}}">{{analysis.clamav|length}}</span>
-                                {% else %}<span class="text-white-50">-</span>{% endif %}
-                            </span></td>
-                            {% endif %}
-                            {% if config.display_cape_yara %}
-                            <td><span class="font-monospace">
-                                {% if analysis.cape_yara %}<span class="text-danger fw-bold" title="{{analysis.cape_yara|join:', '}}">{{analysis.cape_yara|length}}</span>
-                                {% else %}<span class="text-white-50">-</span>{% endif %}
-                            </span></td>
-                            {% endif %}
                             <td class="text-end">
                                 {% if analysis.status == "pending" %}<span class="badge bg-dark">pending</span>
                                 {% elif analysis.status == "running" %}<span class="badge bg-warning">running</span>
                                 {% elif analysis.status == "distributed" %}<span class="badge bg-warning">distributed</span>
                                 {% elif analysis.status == "completed" %}<span class="badge bg-info">processing</span>
-                                {% elif analysis.status == "reported" %}
-                                    {% if analysis.errors %}<span class="badge bg-danger">error</span>
-                                    {% else %}<span class="badge bg-success">reported</span>{% endif %}
+                                {% elif analysis.status == "reported" %}<span class="badge bg-success">reported</span>
                                 {% else %}<span class="badge bg-danger">{{analysis.status}}</span>{% endif %}
                             </td>
                         </tr>
@@ -273,6 +247,15 @@
                     </tbody>
                 </table>
             </div>
+            <script>
+            $(document).ready(function() {
+                $('#search-results-table').DataTable({
+                    "pageLength": 50,
+                    "order": [[0, "desc"]],
+                    "columnDefs": [ { "orderable": false, "targets": [4, 6, 7, 8, 9, 10, 11] } ]
+                });
+            });
+            </script>
         </div>
         {% else %}
         <div class="alert alert-warning text-center shadow-sm" role="alert">

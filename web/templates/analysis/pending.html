@@ -9,9 +9,8 @@
         <span class="badge bg-dark">0 pending</span>
         {% endif %}
     </div>
-    {% if tasks %}
-    <div class="table-responsive">
-        <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
+    <div class="table-responsive p-3">
+        <table id="pending-tasks-table" class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
             <thead class="thead-dark">
             <tr>
                 <th width="5%" class="border-top-0">ID</th>
@@ -25,24 +24,26 @@
             <tbody>
             {% for task in tasks %}
                 <tr>
-                    <td><span class="font-weight-bold">{{task.id}}</span></td>
+                    <td><span class="font-weight-bold text-info">{{task.id}}</span></td>
                     <td><span class="text-white-50 small">{{task.added_on|date:"Y-m-d H:i:s"}}</span></td>
                     <td class="text-center">
-                        <span class="badge bg-info">{{task.category|upper}}</span>
+                        <span class="badge bg-secondary border border-secondary">{{task.category|upper}}</span>
                     </td>
                     <td class="text-truncate" title="{{task.target|filename}}">
                         <span class="text-light">{{task.target|filename}}</span>
                     </td>
                     <td class="small">
                         <div class="text-truncate mb-1" title="MD5: {{task.md5}}">
-                            <span class="text-white-50 me-1">MD5:</span> <span class="text-monospace">{{task.md5}}</span>
+                            <span class="text-white-50 me-1 small">MD5:</span> <span class="text-monospace text-muted">{{task.md5}}</span>
                         </div>
                         <div class="text-truncate" title="SHA256: {{task.sha256}}">
-                            <span class="text-white-50 me-1">SHA256:</span> <span class="text-monospace">{{task.sha256}}</span>
+                            <span class="text-white-50 me-1 small">SHA256:</span> <span class="text-monospace text-muted">{{task.sha256}}</span>
                         </div>
                     </td>
                     <td class="text-center">
-                        <a href="/apiv2/tasks/delete/{{task.id}}/pending" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Delete Task">
+                        <a href="/apiv2/tasks/delete/{{task.id}}/pending" class="btn btn-sm btn-outline-danger" 
+                           data-bs-toggle="tooltip" title="Delete Task"
+                           onclick="return confirm('Are you sure you want to delete this pending task?');">
                             <i class="fas fa-trash-alt"></i>
                         </a>
                     </td>
@@ -51,6 +52,15 @@
             </tbody>
         </table>
     </div>
+    <script>
+    $(document).ready(function() {
+        $('#pending-tasks-table').DataTable({
+            "pageLength": 100,
+            "order": [[0, "desc"]],
+            "columnDefs": [ { "orderable": false, "targets": [4, 5] } ]
+        });
+    });
+    </script>
     {% else %}
     <div class="card-body text-center text-white-50 py-5">
         <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>

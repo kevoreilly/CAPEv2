@@ -87,133 +87,77 @@
 
 
             <div class="card shadow-sm border-0">
-                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 text-white"><i class="fas fa-history me-2 text-white-50"></i> Recent Audit Sessions</h5>
-                    <span class="badge bg-dark">{{total_sessions}} session{{total_sessions|pluralize}}</span>
+            <div class="card bg-dark shadow-sm border-secondary mb-5">
+                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0 text-white"><i class="fas fa-history me-2 text-primary"></i> Recent Audit Sessions</h5>
+                    <span class="badge bg-dark border border-secondary">{{total_sessions}} session{{total_sessions|pluralize}}</span>
                 </div>
 
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
+                <div class="table-responsive p-3">
+                    <table id="audit-sessions-table" class="table table-dark table-hover align-middle mb-0">
                         <thead class="table-dark">
                             <tr>
                                 <th>Session ID</th>
                                 <th>Created</th>
-                                <th>Tests</th>
+                                <th width="300px">Tests Status</th>
                                 <th>Objectives</th>
-                                <th class="text-end">Cleanup</th>
+                                <th class="text-end">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                             {% for session in sessions %}
                             <tr>
                                 <td>
-                                    <a href="{% url 'test_session' session.id %}" class="text-white font-weight-bold"><i class="fas fa-link me-1"></i> #{{ session.id }}</a>
+                                    <a href="{% url "test_session" session.id %}" class="text-info font-weight-bold"><i class="fas fa-hashtag small me-1"></i>{{ session.id }}</a>
                                 </td>
-
-
-                                <td>
+                                <td class="text-white-50 small">
                                     <span class="d-flex flex-column">
                                         <span>{{ session.added_on|date:"Y-m-d" }}</span>
                                         <small class="text-muted">{{ session.added_on|date:"H:i" }}</small>
                                     </span>
                                 </td>
                                 <td>
-                                    <div class="d-flex border border-dark rounded-1 overflow-hidden shadow-sm align-items-stretch"
-                                         style="width: 320px; background-color: #1e1e1e; border-color: #333 !important; height: 38px;">
+                                    <div class="d-flex border border-secondary rounded-1 overflow-hidden shadow-sm"
+                                         style="height: 32px; background-color: #111;">
 
-                                        <div class="flex-fill text-center py-1 border-end border-dark">
-                                            <div class="text-uppercase fw-bold mb-0 {% if session.stats.tests.unqueued > 0 %}text-light{% else %}text-muted opacity-25{% endif %}"
-                                                 style="font-size: 0.55rem; letter-spacing: 0.05rem;">Unqueued</div>
-                                            <div class="small fw-bold {% if session.stats.tests.unqueued > 0 %}text-light{% else %}text-muted opacity-50{% endif %}">
+                                        <div class="flex-fill text-center py-1 border-end border-secondary" title="Unqueued">
+                                            <div class="small fw-bold {% if session.stats.tests.unqueued > 0 %}text-light{% else %}text-muted opacity-25{% endif %}">
                                                 {{ session.stats.tests.unqueued }}
                                             </div>
                                         </div>
 
-                                        <div class="flex-fill text-center py-1 border-end border-dark">
-                                            <div class="text-uppercase fw-bold mb-0 {% if session.stats.tests.queued > 0 %}text-white-50{% else %}text-muted opacity-25{% endif %}"
-                                                 style="font-size: 0.55rem; letter-spacing: 0.05rem;">Queued</div>
-                                            <div class="small fw-bold {% if session.stats.tests.queued > 0 %}text-white-50{% else %}text-muted opacity-50{% endif %}">
+                                        <div class="flex-fill text-center py-1 border-end border-secondary" title="Queued">
+                                            <div class="small fw-bold {% if session.stats.tests.queued > 0 %}text-warning{% else %}text-muted opacity-25{% endif %}">
                                                 {{ session.stats.tests.queued }}
                                             </div>
                                         </div>
 
-                                        <div class="flex-fill text-center py-1 border-end border-dark {% if session.stats.tests.running > 0 %}bg-info bg-opacity-10{% endif %}">
-                                            <div class="{% if session.stats.tests.running > 0 %}text-info{% else %}text-muted opacity-25{% endif %} text-uppercase fw-bold mb-0"
-                                                 style="font-size: 0.55rem; letter-spacing: 0.05rem;">Running</div>
-                                            <div class="small fw-bold {% if session.stats.tests.running > 0 %}text-info{% else %}text-muted opacity-50{% endif %}">
+                                        <div class="flex-fill text-center py-1 border-end border-secondary {% if session.stats.tests.running > 0 %}bg-info bg-opacity-10{% endif %}" title="Running">
+                                            <div class="small fw-bold {% if session.stats.tests.running > 0 %}text-info{% else %}text-muted opacity-25{% endif %}">
                                                 {{ session.stats.tests.running }}
                                             </div>
                                         </div>
 
-                                        <div class="flex-fill text-center py-1 border-end border-dark {% if session.stats.tests.complete > 0 %}bg-success bg-opacity-10{% endif %}">
-                                            <div class="{% if session.stats.tests.complete > 0 %}text-success{% else %}text-muted opacity-25{% endif %} text-uppercase fw-bold mb-0"
-                                                 style="font-size: 0.55rem; letter-spacing: 0.05rem;">Done</div>
-                                            <div class="small fw-bold {% if session.stats.tests.complete > 0 %}text-success{% else %}text-muted opacity-50{% endif %}">
+                                        <div class="flex-fill text-center py-1 {% if session.stats.tests.complete > 0 %}bg-success bg-opacity-10{% endif %}" title="Done">
+                                            <div class="small fw-bold {% if session.stats.tests.complete > 0 %}text-success{% else %}text-muted opacity-25{% endif %}">
                                                 {{ session.stats.tests.complete }}
                                             </div>
                                         </div>
-
-                                        <div class="flex-fill text-center py-1 {% if session.stats.tests.failed > 0 %}bg-danger bg-opacity-10{% endif %}">
-                                            <div class="{% if session.stats.tests.failed > 0 %}text-danger{% else %}text-muted opacity-25{% endif %} text-uppercase fw-bold mb-0"
-                                                 style="font-size: 0.55rem; letter-spacing: 0.05rem;">Error</div>
-                                            <div class="small fw-bold {% if session.stats.tests.failed > 0 %}text-danger{% else %}text-muted opacity-50{% endif %}">
-                                                {{ session.stats.tests.failed }}
-                                            </div>
-                                        </div>
                                     </div>
                                 </td>
-
                                 <td>
-                                    <div class="d-flex border border-dark rounded-1 overflow-hidden shadow-sm align-items-stretch"
-                                         style="width: 400px; background-color: #1e1e1e; border-color: #333 !important; height: 38px;">
-
-                                        <div class="flex-fill text-center py-1 border-end border-dark">
-                                            <div class="{% if session.stats.objectives.untested > 0 %}text-light{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Untested</div>
-                                            <div class="small fw-bold {% if session.stats.objectives.untested > 0 %}text-light{% else %}text-muted opacity-50{% endif %}">
-                                                {{ session.stats.objectives.untested }}
-                                            </div>
-                                        </div>
-
-                                        <div class="flex-fill text-center py-1 border-end border-dark {% if session.stats.objectives.skipped > 0 %}bg-light bg-opacity-10{% endif %}">
-                                            <div class="{% if session.stats.objectives.skipped > 0 %}text-light{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Skipped</div>
-                                            <div class="small fw-bold {% if session.stats.objectives.skipped > 0 %}text-light{% else %}text-muted opacity-50{% endif %}">
-                                                {{ session.stats.objectives.skipped }}
-                                            </div>
-                                        </div>
-
-                                        <div class="flex-fill text-center py-1 border-end border-dark {% if session.stats.objectives.error > 0 %}bg-danger bg-opacity-10{% endif %}">
-                                            <div class="{% if session.stats.objectives.error > 0 %}text-danger{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Error</div>
-                                            <div class="small fw-bold {% if session.stats.objectives.error > 0 %}text-danger{% else %}text-muted opacity-50{% endif %}">
-                                                {{ session.stats.objectives.error }}
-                                            </div>
-                                        </div>
-
-                                        <div class="flex-fill text-center py-1 border-end border-dark {% if session.stats.objectives.info > 0 %}bg-info bg-opacity-10{% endif %}">
-                                            <div class="{% if session.stats.objectives.info > 0 %}text-info{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Info</div>
-                                            <div class="small fw-bold {% if session.stats.objectives.info > 0 %}text-info{% else %}text-muted opacity-50{% endif %}">
-                                                {{ session.stats.objectives.info }}
-                                            </div>
-                                        </div>
-
-                                        <div class="flex-fill text-center py-1 border-end border-dark {% if session.stats.objectives.success > 0 %}bg-success bg-opacity-10{% endif %}">
-                                            <div class="{% if session.stats.objectives.success > 0 %}text-success{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Success</div>
-                                            <div class="small fw-bold {% if session.stats.objectives.success > 0 %}text-success{% else %}text-muted opacity-50{% endif %}">
-                                                {{ session.stats.objectives.success }}
-                                            </div>
-                                        </div>
-
-                                        <div class="flex-fill text-center py-1 {% if session.stats.objectives.failure > 0 %}bg-warning bg-opacity-10{% endif %}">
-                                            <div class="{% if session.stats.objectives.failure > 0 %}text-warning{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Failure</div>
-                                            <div class="small fw-bold {% if session.stats.objectives.failure > 0 %}text-warning{% else %}text-muted opacity-50{% endif %}">
-                                                {{ session.stats.objectives.failure }}
-                                            </div>
-                                        </div>
+                                    <div class="d-flex gap-2">
+                                        <span class="badge {% if session.stats.objectives.success > 0 %}bg-success{% else %}bg-dark border border-secondary text-muted{% endif %}">
+                                            <i class="fas fa-check me-1"></i>{{ session.stats.objectives.success }}
+                                        </span>
+                                        <span class="badge {% if session.stats.objectives.failure > 0 %}bg-danger{% else %}bg-dark border border-secondary text-muted{% endif %}">
+                                            <i class="fas fa-times me-1"></i>{{ session.stats.objectives.failure }}
+                                        </span>
                                     </div>
                                 </td>
-
                                 <td class="text-end">
-                                    <form action="{% url 'delete_test_session' session.id %}" method="POST"
-                                          onsubmit="return confirm('Are you sure you want to delete Session #{{ session.id }} and all its run data?');">
+                                    <form action="{% url "delete_test_session" session.id %}" method="POST" class="d-inline"
+                                          onsubmit="return confirm("Are you sure you want to delete Session #{{ session.id }} and all its run data?");">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-outline-danger border-0">
                                             <i class="fas fa-trash-alt"></i>
@@ -223,7 +167,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="6" class="text-center py-4 text-muted">
+                                <td colspan="5" class="text-center py-4 text-muted">
                                     No sessions found.
                                 </td>
                             </tr>
@@ -232,12 +176,15 @@
                     </table>
                 </div>
             </div>
-        </div>
-    </div>
-    <form action="{% url 'create_test_session' %}" method="POST">
-        {% csrf_token %}
-    </form>
-
+            <script>
+            $(document).ready(function() {
+                $("#audit-sessions-table").DataTable({
+                    "pageLength": 25,
+                    "order": [[0, "desc"]],
+                    "language": { "search": "Filter sessions:" }
+                });
+            });
+            </script>
     <div class="tab-pane fade" id="available-tests" role="tabpanel" aria-labelledby="available-tests-tab">
         <div class="col-lg-9" style="margin: 0 auto; padding: 0 3rem;">
             <div class="card shadow-sm border-0">
@@ -271,8 +218,8 @@
                     </form>
                 </div>
 
-                <div class="table-responsive">
-                    <table class="table table-hover" id="availableTestsTable">
+                <div class="table-responsive p-3">
+                    <table class="table table-dark table-hover mb-0" id="availableTestsTable">
                         <thead>
                             <tr>
                                 <th style="width: 40px;"><input type="checkbox" id="selectAll"></th>
@@ -290,23 +237,23 @@
                                     <input type="checkbox" name="selected_tests" value="{{ test.id }}" class="test-checkbox">
                                 </td>
                                 <td><strong>{{ test.name }}</strong></td>
-                                <td><span class="badge badge-secondary">{{ test.package }}</span></td>
+                                <td><span class="badge bg-secondary">{{ test.package }}</span></td>
                                 <td>
                                     {% if "windows" in test.targets|lower %}
                                     <i class="fab fa-windows text-info me-2" title="Windows"></i>
                                     {% endif %}
 
                                     {% if "linux" in test.targets|lower %}
-                                    <i class="fab fa-linux text-dark" title="Linux"></i>
+                                    <i class="fab fa-linux text-light" title="Linux"></i>
                                     {% endif %}
 
                                 </td>
                                 <td>
-                                    <div class="text-muted small">{{ test.description }}</div>
+                                    <div class="text-white-50 small">{{ test.description }}</div>
                                     {% if test.payload_notes %}
                                     <div class="mt-1" title="Payload Notes">
                                         <i class="fas fa-file text-info me-1"></i>
-                                        <small>{{ test.payload_notes }}</small>
+                                        <small class="text-muted">{{ test.payload_notes }}</small>
                                     </div>
                                     {% endif %}
                                 </td>
@@ -320,9 +267,9 @@
                                 </td>
                             </tr>
                             <tr>
-                                <td colspan="{{ colspan|default:6 }}" class="p-0 border-0">
+                                <td colspan="6" class="p-0 border-0">
                                     <div id="config-{{  test.id }}" class="collapse">
-                                        <div class="py-3 bg-light">
+                                        <div class="p-3 bg-dark border border-secondary rounded m-2">
                                             {% include "audit/partials/task_config.html" with test=test config_pretty=test.task_config_pretty colspan=5 %}
                                         </div>
                                     </div>
@@ -330,7 +277,7 @@
                             </tr>
                             {% empty %}
                             <tr>
-                                <td colspan="{{ colspan|default:6 }}" class="text-center py-5 text-muted">
+                                <td colspan="6" class="text-center py-5 text-muted">
                                     <i class="fas fa-folder-open fa-3x mb-3 d-block"></i>
                                     No tests available. Place tests in the audits location and reload.
                                 </td>
@@ -343,6 +290,15 @@
         </div>
 
     </div>
+    <script>
+    $(document).ready(function() {
+        $('#availableTestsTable').DataTable({
+            "pageLength": 50,
+            "columnDefs": [ { "orderable": false, "targets": [0, 5] } ],
+            "language": { "search": "Search tests:" }
+        });
+    });
+    </script>
 
         {% if paging.show_test_next == "show" or paging.show_test_prev == "show" %}
         {% endif %}

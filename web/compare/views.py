@@ -3,11 +3,12 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import sys
-
+import json
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.views.decorators.http import require_safe
+from django.http import JsonResponse, HttpResponseBadRequest
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -157,3 +158,110 @@ def both(request, left_id, right_id):
             "summary": summary_compare,
         },
     )
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def diff(request, left_id, right_id):
+    if enabledconf["mongodb"]:
+        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1, "behavior.processes": 1})
+        right = mongo_find_one("analysis", {"info.id": int(right_id)}, {"target": 1, "info": 1, "behavior.processes": 1})
+    elif es_as_db:
+        left = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id), _source=["target", "info", "behavior.processes"])["hits"]["hits"][-1]["_source"]
+        right = es.search(index=get_analysis_index(), query=get_query_by_info_id(right_id), _source=["target", "info", "behavior.processes"])["hits"]["hits"][-1]["_source"]
+
+    if not left or not right:
+        return render(request, "error.html", {"error": "Analysis not found"})
+
+    return render(request, "compare/diff.html", {
+        "left": left,
+        "right": right,
+        "left_id": left_id,
+        "right_id": right_id
+    })
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def diff_data(request, left_id, right_id):
+    left_pid = request.GET.get("left_pid")
+    right_pid = request.GET.get("right_pid")
+
+    if not left_pid or not right_pid:
+        return JsonResponse({"error": True, "error_value": "Missing PIDs"}, status=400)
+
+    def fetch_calls(analysis_id, pid):
+        if enabledconf["mongodb"]:
+            record = mongo_find_one("analysis", {"info.id": int(analysis_id), "behavior.processes.process_id": int(pid)}, {"behavior.processes.calls": 1})
+        elif es_as_db:
+            record = es.search(index=get_analysis_index(), body={"query": {"bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": analysis_id}}]}}}, _source=["behavior.processes"])["hits"]["hits"][0]["_source"]
+        
+        process = next((p for p in record["behavior"]["processes"] if p["process_id"] == int(pid)), None)
+        if not process: return []
+
+        all_calls = []
+        for coid in process["calls"]:
+            if enabledconf["mongodb"]:
+                chunk = mongo_find_one("calls", {"_id": coid})
+            elif es_as_db:
+                chunk = es.search(index=get_calls_index(), body={"query": {"match": {"_id": coid}}})["hits"]["hits"][0]["_source"]
+            all_calls.extend(chunk["calls"])
+        return all_calls
+
+    left_calls = fetch_calls(left_id, left_pid)
+    right_calls = fetch_calls(right_id, right_pid)
+
+    # Basic Sequence Alignment Heuristic
+    # To keep it fast for PoC, we'll use a simple approach:
+    # 1. Match identical API names
+    # 2. If mismatch, lookahead to find next match
+    results = []
+    i, j = 0, 0
+    limit = 2000 # Limit for safety in PoC
+    
+    while i < len(left_calls[:limit]) or j < len(right_calls[:limit]):
+        l = left_calls[i] if i < len(left_calls) else None
+        r = right_calls[j] if j < len(right_calls) else None
+
+        if l and r and l["api"] == r["api"]:
+            # Same API, check for argument differences
+            type = "equal"
+            if l.get("arguments") != r.get("arguments"):
+                type = "changed"
+            results.append({"type": type, "left": l, "right": r})
+            i += 1
+            j += 1
+        elif l and not r:
+            results.append({"type": "removed", "left": l, "right": None})
+            i += 1
+        elif r and not l:
+            results.append({"type": "added", "left": None, "right": r})
+            j += 1
+        else:
+            # DIVERGENCE: Try to resync (Lookahead 5 calls)
+            found = False
+            for look in range(1, 6):
+                if i + look < len(left_calls) and r and left_calls[i+look]["api"] == r["api"]:
+                    # Left has extra calls
+                    for k in range(look):
+                        results.append({"type": "removed", "left": left_calls[i+k], "right": None})
+                    i += look
+                    found = True
+                    break
+                if j + look < len(right_calls) and l and right_calls[j+look]["api"] == l["api"]:
+                    # Right has extra calls
+                    for k in range(look):
+                        results.append({"type": "added", "left": None, "right": right_calls[j+k]})
+                    j += look
+                    found = True
+                    break
+            
+            if not found:
+                # Still no match, assume one removal and one addition
+                results.append({"type": "changed", "left": l, "right": r})
+                i += 1
+                j += 1
+
+    return JsonResponse({"results": results})
+
+

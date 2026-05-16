@@ -19,8 +19,11 @@ $(function () {
 </div>
 
 <div class="card bg-dark border-secondary mb-4">
-    <div class="card-header border-secondary">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-primary"></i> Execution Comparison</h5>
+        <a href="{% url 'compare_diff' left.info.id right.info.id %}" class="btn btn-sm btn-outline-info">
+            <i class="fas fa-columns me-1"></i> Open Behavioral Diff
+        </a>
     </div>
     <div class="card-body">
         <p class="text-white-50 small">Behavioral event distribution by category across both analyses.</p>

@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block content %}
+
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card bg-dark border-secondary shadow-sm">
+            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-white"><i class="fas fa-columns me-2 text-primary"></i>Behavioral Diff</h5>
+                <div>
+                    <a href="{% url 'compare_both' left_id right_id %}" class="btn btn-sm btn-outline-light me-2">Back to Similarity</a>
+                    <button class="btn btn-sm btn-primary" onclick="runDiff()">Run Comparison</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-5">
+                        <label class="text-white-50 small mb-1">Analysis #{{left_id}} (Left)</label>
+                        <select id="left-process" class="form-select bg-dark border-secondary text-white">
+                            {% for process in left.behavior.processes %}
+                                <option value="{{process.process_id}}">{{process.process_name}} ({{process.process_id}})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 text-center pt-3">
+                        <i class="fas fa-exchange-alt fa-2x text-muted"></i>
+                    </div>
+                    <div class="col-md-5">
+                        <label class="text-white-50 small mb-1">Analysis #{{right_id}} (Right)</label>
+                        <select id="right-process" class="form-select bg-dark border-secondary text-white">
+                            {% for process in right.behavior.processes %}
+                                <option value="{{process.process_id}}">{{process.process_name}} ({{process.process_id}})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="diff-results" class="d-none">
+    <div class="row">
+        <div class="col-12">
+            <div class="card bg-dark border-secondary">
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 70vh; overflow-y: auto;">
+                        <table class="table table-dark table-bordered mb-0" id="diff-table">
+                            <thead class="sticky-top bg-dark">
+                                <tr>
+                                    <th width="50%">Analysis #{{left_id}}</th>
+                                    <th width="50%">Analysis #{{right_id}}</th>
+                                </tr>
+                            </thead>
+                            <tbody id="diff-body">
+                                <!-- Results injected here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="diff-loading" class="d-none text-center py-5">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+    <h5 class="text-white-50 mt-3 font-monospace">Aligning behavioral sequences...</h5>
+</div>
+
+<script>
+async function runDiff() {
+    const leftPid = $('#left-process').val();
+    const rightPid = $('#right-process').val();
+    
+    $('#diff-results').addClass('d-none');
+    $('#diff-loading').removeClass('d-none');
+
+    try {
+        const response = await fetch('{% url "compare_diff_data" left_id right_id %}?left_pid=' + leftPid + '&right_pid=' + rightPid);
+        const data = await response.json();
+        
+        if (data.error) {
+            alert(data.error_value);
+            return;
+        }
+
+        renderDiff(data.results);
+    } catch (e) {
+        console.error(e);
+        alert('Error performing behavioral diff.');
+    } finally {
+        $('#diff-loading').addClass('d-none');
+    }
+}
+
+function renderDiff(results) {
+    const body = $('#diff-body');
+    body.empty();
+    $('#diff-results').removeClass('d-none');
+
+    results.forEach(row => {
+        let rowClass = '';
+        if (row.type === 'added') rowClass = 'table-success bg-opacity-10';
+        if (row.type === 'removed') rowClass = 'table-danger bg-opacity-10';
+        if (row.type === 'changed') rowClass = 'table-warning bg-opacity-10';
+
+        const tr = $('<tr>').addClass(rowClass);
+        
+        const leftCell = $('<td>').html(formatCall(row.left));
+        const rightCell = $('<td>').html(formatCall(row.right));
+
+        tr.append(leftCell).append(rightCell);
+        body.append(tr);
+    });
+}
+
+function formatCall(call) {
+    if (!call) return '<span class="text-muted italic small">(None)</span>';
+    
+    let html = `<div><strong class="text-info">${call.api}</strong> <span class="text-white-50 small">(${call.time})</span></div>`;
+    if (call.arguments) {
+        html += '<div class="ms-2 small">';
+        for (const [key, value] of Object.entries(call.arguments)) {
+            html += `<div><span class="text-muted">${key}:</span> <span class="font-monospace">${value}</span></div>`;
+        }
+        html += '</div>';
+    }
+    return html;
+}
+</script>
+
+<style>
+.sticky-top { top: -1px; z-index: 1020; }
+.italic { font-style: italic; }
+#diff-table td { vertical-align: top; border-color: #333; }
+</style>
+
+{% endblock %}

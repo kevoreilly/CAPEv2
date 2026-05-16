@@ -43,11 +43,11 @@
                         {% for file in dropped %}
                         <tr>
                             <td class="text-truncate" style="max-width: 300px;" title="{{ file.name }}">
-                                <strong>{{ file.name }}</strong>
+                                <strong data-pivot="name">{{ file.name }}</strong>
                             </td>
                             <td class="small">{{ file.type|truncatechars:50 }}</td>
                             <td>{{ file.size }} <small class="text-white-50">bytes</small></td>
-                            <td class="font-monospace small">{{ file.md5 }}</td>
+                            <td class="font-monospace small" data-pivot="md5">{{ file.md5 }}</td>
                             <td class="text-end">
                                 <div class="btn-group btn-group-sm">
                                     <a href="{% url 'file' 'dropped' id file.sha256 %}" class="btn btn-outline-light" title="Download"><i class="fas fa-download"></i></a>

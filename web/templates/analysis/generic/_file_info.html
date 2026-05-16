@@ -137,15 +137,15 @@
             <!-- Hashes -->
             <tr>
                 <th class="text-end text-info" style="width: 15%;">MD5</th>
-                <td class="text-monospace">{{file.md5}}</td>
+                <td class="text-monospace" data-pivot="md5">{{file.md5}}</td>
             </tr>
             <tr>
                 <th class="text-end text-info" style="width: 15%;">SHA1</th>
-                <td class="text-monospace">{{file.sha1}}</td>
+                <td class="text-monospace" data-pivot="sha1">{{file.sha1}}</td>
             </tr>
             <tr>
                 <th class="text-end text-info" style="width: 15%;">SHA256</th>
-                <td class="text-monospace">
+                <td class="text-monospace" data-pivot="sha256">
                     {{file.sha256}}
                     <span class="ms-2">
                         <a href="https://www.virustotal.com/gui/file/{{file.sha256}}/" class="badge bg-danger" target="_blank">VT</a>

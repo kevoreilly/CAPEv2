@@ -1,3 +1,19 @@
+### [16.05.2026]
+* Major WebGUI Modernization:
+    * Switched to modern frontend patterns using HTMX for declarative AJAX and partial page updates
+    * Integrated Alpine.js for reactive UI state management (submission form, overlays)
+    * Standardized all logs, task lists, and file views on DataTables.js (searchable, paginated, sortable)
+    * Replaced static nested process tree with an interactive, zoomable, and collapsible D3.js visualization
+    * Replaced static resource usage images with interactive, zoomable ApexCharts
+    * Implemented "Omni-Box" Spotlight Search (Cmd/Ctrl+K) for global data access
+    * Added Contextual Pivot Menus for IPs, Domains, Hashes, and PIDs with integrated threat intel lookups
+    * New Sequential Behavioral Diffing tool for side-by-side execution path comparison
+    * New Advanced Hex/ASCII Viewer with dual-highlighting for network streams and memory
+    * Modernized submission flow with stage-based tracking and reactive advanced options
+    * Added global keyboard shortcuts system (discoverable via '?')
+    * Internalized all 3rd-party frontend assets for full air-gap compatibility
+    * Refactored and unified file information components across the entire interface
+
 ### [13.05.2026]
 * Update Formbook (Xloader) dynamic config extractor
 * Monitor updates:

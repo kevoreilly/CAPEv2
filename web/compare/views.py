@@ -3,12 +3,11 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import sys
-import json
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import render
 from django.views.decorators.http import require_safe
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse
 
 sys.path.append(settings.CUCKOO_PATH)
 
@@ -28,7 +27,7 @@ if enabledconf["mongodb"]:
 
 es_as_db = False
 if enabledconf["elasticsearchdb"]:
-    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id
+    from dev_utils.elasticsearchdb import elastic_handler, get_analysis_index, get_query_by_info_id, get_calls_index
 
     es_as_db = True
     essearch = confdata["elasticsearchdb"]["searchonly"]
@@ -195,9 +194,10 @@ def diff_data(request, left_id, right_id):
             record = mongo_find_one("analysis", {"info.id": int(analysis_id), "behavior.processes.process_id": int(pid)}, {"behavior.processes.calls": 1})
         elif es_as_db:
             record = es.search(index=get_analysis_index(), body={"query": {"bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": analysis_id}}]}}}, _source=["behavior.processes"])["hits"]["hits"][0]["_source"]
-        
+
         process = next((p for p in record["behavior"]["processes"] if p["process_id"] == int(pid)), None)
-        if not process: return []
+        if not process:
+            return []
 
         all_calls = []
         for coid in process["calls"]:
@@ -218,7 +218,7 @@ def diff_data(request, left_id, right_id):
     results = []
     i, j = 0, 0
     limit = 2000 # Limit for safety in PoC
-    
+
     while i < len(left_calls[:limit]) or j < len(right_calls[:limit]):
         l = left_calls[i] if i < len(left_calls) else None
         r = right_calls[j] if j < len(right_calls) else None
@@ -255,7 +255,7 @@ def diff_data(request, left_id, right_id):
                     j += look
                     found = True
                     break
-            
+
             if not found:
                 # Still no match, assume one removal and one addition
                 results.append({"type": "changed", "left": l, "right": r})

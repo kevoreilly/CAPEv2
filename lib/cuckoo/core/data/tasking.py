@@ -201,6 +201,9 @@ class TasksMixIn:
         else:
             return None
 
+        if tlp:
+            tlp = tlp.lower()
+
         task.category = obj.__class__.__name__.lower()
         task.timeout = timeout
         task.package = package

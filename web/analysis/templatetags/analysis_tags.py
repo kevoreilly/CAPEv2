@@ -1,4 +1,5 @@
 import os
+import json
 from io import StringIO
 
 try:
@@ -269,3 +270,8 @@ def cert_chain_signers(signers):
 @register.filter
 def ts_chain_signers(signers):
     return [s for s in (signers or []) if "Timestamp Chain" in s.get("name", "")]
+
+
+@register.filter(name="json_encode")
+def json_encode(value):
+    return mark_safe(json.dumps(value))

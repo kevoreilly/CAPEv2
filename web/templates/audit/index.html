@@ -1,92 +1,61 @@
 {% extends "base.html" %}
 
-
-
 {% block content %}
 
 {% if messages %}
-<div style="display: flex;">
-    <ul class="messages">
-        {% for message in messages %}
-        <li class="alert alert-{{ message.tags }}">
-            {{ message }}
-        </li>
-        {% endfor %}
-    </ul>
+<div class="container-fluid mb-4">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    </div>
+    {% endfor %}
 </div>
 {% endif %}
 
-<style>
-    /* Force the body to be a flexbox container on this page only */
-    body {
-        display: flex !important;
-        flex-direction: column !important;
-        min-height: 100vh !important;
-        margin: 0;
-    }
-
-    /* Target the main container that holds your content */
-    /* If your base.html uses a <main> tag or a specific div ID, use that selector */
-    main, .container, #content-wrapper {
-        flex: 1 0 auto;
-    }
-
-    /* Pin the footer to the bottom */
-    footer {
-        flex-shrink: 0;
-        margin-top: auto;
-    }
-</style>
-
-<div class="row mb-4 justify-content-center ">
-    <div class="col-lg-4">
+<div class="row mb-4 justify-content-center">
+    <div class="col-lg-6">
         <div class="card bg-dark shadow-sm border-secondary">
             <ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1" id="testHarnessTabs" role="tablist">
                 <li class="nav-item">
-                    <a class="nav-link active" id="audit-sessions-tab" data-bs-toggle="pill" href="#audit-sessions" role="tab"
-                       aria-controls="audit-sessions" aria-selected="true">
-                        <i class="fas fa-clipboard-list me-2"></i> Audit Sessions
-                    </a>
+                    <button class="nav-link active" id="audit-sessions-tab" data-bs-toggle="pill" data-bs-target="#audit-sessions" type="button" role="tab" aria-controls="audit-sessions" aria-selected="true">
+                        <i class="fas fa-history me-2 text-primary"></i> Audit Sessions
+                    </button>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" id="available-tests-tab" data-bs-toggle="pill" href="#available-tests" role="tab"
-                       aria-controls="available-tests" aria-selected="false">
-                        <i class="fas fa-square-plus me-2"></i> New Audit Session
-                    </a>
+                    <button class="nav-link" id="available-tests-tab" data-bs-toggle="pill" data-bs-target="#available-tests" type="button" role="tab" aria-controls="available-tests" aria-selected="false">
+                        <i class="fas fa-plus-circle me-2 text-success"></i> New Audit Session
+                    </button>
                 </li>
             </ul>
         </div>
     </div>
 </div>
 
-<div class="tab-content">
+<div class="tab-content" id="auditTabContent">
+    <!-- Tab 1: Audit Sessions -->
     <div class="tab-pane fade show active" id="audit-sessions" role="tabpanel" aria-labelledby="audit-sessions-tab">
-
-        <div  class="col-lg-10" style="margin: 0 auto; padding: 0 3rem;">
+        <div class="col-lg-11 mx-auto">
             {% if paging.show_session_next == "show" or paging.show_session_prev == "show" %}
-            <nav aria-label="Page navigation" class="mb-3">
+            <nav aria-label="Page navigation" class="mb-4">
                 <ul class="pagination justify-content-center">
                     {% if paging.show_session_prev == "show" %}
-                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "audit_index" %}page /{{paging.prev_page}}/">&larr; Newer</a></li>
+                    <li class="nav-item"><a class="page-link bg-dark border-secondary text-white" href="{% url 'audit_index' %}page/{{paging.prev_page}}/">&larr; Newer</a></li>
                     {% endif %}
                     {% if paging.sessions_page_range %}
-                    {% for page in paging.sessions_page_range %}
-                    {% if page == paging.current_page %}
-                    <li class="nav-item active"><a class="nav-link bg-danger border-danger text-white">{{page}}</a></li>
-                    {% else %}
-                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "audit_index" %}page /{{page}}/">{{page}}</a></li>
-                    {% endif %}
-                    {% endfor %}
+                        {% for page in paging.sessions_page_range %}
+                        <li class="nav-item {% if page == paging.current_page %}active{% endif %}">
+                            <a class="page-link {% if page == paging.current_page %}bg-primary border-primary{% else %}bg-dark border-secondary{% endif %} text-white" href="{% url 'audit_index' %}page/{{page}}/">{{page}}</a>
+                        </li>
+                        {% endfor %}
                     {% endif %}
                     {% if paging.show_session_next == "show" %}
-                    <li class="nav-item"><a class="nav-link bg-dark border-secondary text-white" href="{% url "audit_index" %}page /{{paging.next_page}}/">Older &rarr;</a></li>
+                    <li class="nav-item"><a class="page-link bg-dark border-secondary text-white" href="{% url 'audit_index' %}page/{{paging.next_page}}/">Older &rarr;</a></li>
                     {% endif %}
                 </ul>
             </nav>
             {% endif %}
 
-
-            <div class="card shadow-sm border-0">
             <div class="card bg-dark shadow-sm border-secondary mb-5">
                 <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center py-3">
                     <h5 class="mb-0 text-white"><i class="fas fa-history me-2 text-primary"></i> Recent Audit Sessions</h5>
@@ -108,7 +77,7 @@
                             {% for session in sessions %}
                             <tr>
                                 <td>
-                                    <a href="{% url "test_session" session.id %}" class="text-info font-weight-bold"><i class="fas fa-hashtag small me-1"></i>{{ session.id }}</a>
+                                    <a href="{% url 'test_session' session.id %}" class="text-info font-weight-bold"><i class="fas fa-hashtag small me-1"></i>{{ session.id }}</a>
                                 </td>
                                 <td class="text-white-50 small">
                                     <span class="d-flex flex-column">
@@ -117,31 +86,18 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <div class="d-flex border border-secondary rounded-1 overflow-hidden shadow-sm"
-                                         style="height: 32px; background-color: #111;">
-
+                                    <div class="d-flex border border-secondary rounded-1 overflow-hidden shadow-sm" style="height: 32px; background-color: #111;">
                                         <div class="flex-fill text-center py-1 border-end border-secondary" title="Unqueued">
-                                            <div class="small fw-bold {% if session.stats.tests.unqueued > 0 %}text-light{% else %}text-muted opacity-25{% endif %}">
-                                                {{ session.stats.tests.unqueued }}
-                                            </div>
+                                            <div class="small fw-bold {% if session.stats.tests.unqueued > 0 %}text-light{% else %}text-muted opacity-25{% endif %}">{{ session.stats.tests.unqueued }}</div>
                                         </div>
-
                                         <div class="flex-fill text-center py-1 border-end border-secondary" title="Queued">
-                                            <div class="small fw-bold {% if session.stats.tests.queued > 0 %}text-warning{% else %}text-muted opacity-25{% endif %}">
-                                                {{ session.stats.tests.queued }}
-                                            </div>
+                                            <div class="small fw-bold {% if session.stats.tests.queued > 0 %}text-warning{% else %}text-muted opacity-25{% endif %}">{{ session.stats.tests.queued }}</div>
                                         </div>
-
                                         <div class="flex-fill text-center py-1 border-end border-secondary {% if session.stats.tests.running > 0 %}bg-info bg-opacity-10{% endif %}" title="Running">
-                                            <div class="small fw-bold {% if session.stats.tests.running > 0 %}text-info{% else %}text-muted opacity-25{% endif %}">
-                                                {{ session.stats.tests.running }}
-                                            </div>
+                                            <div class="small fw-bold {% if session.stats.tests.running > 0 %}text-info{% else %}text-muted opacity-25{% endif %}">{{ session.stats.tests.running }}</div>
                                         </div>
-
                                         <div class="flex-fill text-center py-1 {% if session.stats.tests.complete > 0 %}bg-success bg-opacity-10{% endif %}" title="Done">
-                                            <div class="small fw-bold {% if session.stats.tests.complete > 0 %}text-success{% else %}text-muted opacity-25{% endif %}">
-                                                {{ session.stats.tests.complete }}
-                                            </div>
+                                            <div class="small fw-bold {% if session.stats.tests.complete > 0 %}text-success{% else %}text-muted opacity-25{% endif %}">{{ session.stats.tests.complete }}</div>
                                         </div>
                                     </div>
                                 </td>
@@ -156,130 +112,11 @@
                                     </div>
                                 </td>
                                 <td class="text-end">
-                                    <form action="{% url "delete_test_session" session.id %}" method="POST" class="d-inline"
-                                          onsubmit="return confirm("Are you sure you want to delete Session #{{ session.id }} and all its run data?");">
+                                    <form action="{% url 'delete_test_session' session.id %}" method="POST" class="d-inline"
+                                          onsubmit="return confirm('Are you sure you want to delete Session #{{ session.id }} and all its run data?');">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0">
-                                            <i class="fas fa-trash-alt"></i>
-                                        </button>
+                                        <button type="submit" class="btn btn-sm btn-outline-danger border-0"><i class="fas fa-trash-alt"></i></button>
                                     </form>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">
-                                    No sessions found.
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <script>
-            $(document).ready(function() {
-                $("#audit-sessions-table").DataTable({
-                    "pageLength": 25,
-                    "order": [[0, "desc"]],
-                    "language": { "search": "Filter sessions:" }
-                });
-            });
-            </script>
-    <div class="tab-pane fade" id="available-tests" role="tabpanel" aria-labelledby="available-tests-tab">
-        <div class="col-lg-9" style="margin: 0 auto; padding: 0 3rem;">
-            <div class="card shadow-sm border-0">
-                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0 text-white"><i class="fas fa-vial me-2 text-white-50"></i>New Audit Session: Available Tests</h5>
-                    <span class="badge bg-dark">{{available_tests|length}} test{{ available_tests|pluralize }} </span>
-                </div>
-
-                <div class="d-flex justify-content-between align-items-center mt-2 mb-2 mx-sm-2 ">
-                    
-                    <div class="d-flex gap-2">
-                        {% if available_tests %}
-                        <button type="button" id="btnCreateSessionSelected"
-                                onclick="createSession('selected')"
-                                class="btn btn-outline-light px-3 shadow-sm" disabled>
-                            <i class="fas fa-circle-check me-2"></i>New Session (Selected Tests) (<span id="selectedCount">0</span>)
-                        </button>
-
-                        <button type="button" id="btnCreateSessionAll" onclick="createSession('all')"
-                                class="btn btn-outline-success px-3 shadow-sm me-2">
-                            <i class="fas fa-circle-plus me-2"></i>New Session (All Tests)
-                        </button>
-                        {% endif %}
-                    </div>
-
-                    <form action="{% url 'reload_available_tests' %}" method="POST" class="m-0">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-info px-3 shadow-sm">
-                            <i class="fas fa-sync me-2"></i>Reload Tests
-                        </button>
-                    </form>
-                </div>
-
-                <div class="table-responsive p-3">
-                    <table class="table table-dark table-hover mb-0" id="availableTestsTable">
-                        <thead>
-                            <tr>
-                                <th style="width: 40px;"><input type="checkbox" id="selectAll"></th>
-                                <th>Name</th>
-                                <th>Package</th>
-                                <th>Targets</th>
-                                <th>Description</th>
-                                <th class="text-center">Config</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for test in available_tests %}
-                            <tr>
-                                <td>
-                                    <input type="checkbox" name="selected_tests" value="{{ test.id }}" class="test-checkbox">
-                                </td>
-                                <td><strong>{{ test.name }}</strong></td>
-                                <td><span class="badge bg-secondary">{{ test.package }}</span></td>
-                                <td>
-                                    {% if "windows" in test.targets|lower %}
-                                    <i class="fab fa-windows text-info me-2" title="Windows"></i>
-                                    {% endif %}
-
-                                    {% if "linux" in test.targets|lower %}
-                                    <i class="fab fa-linux text-light" title="Linux"></i>
-                                    {% endif %}
-
-                                </td>
-                                <td>
-                                    <div class="text-white-50 small">{{ test.description }}</div>
-                                    {% if test.payload_notes %}
-                                    <div class="mt-1" title="Payload Notes">
-                                        <i class="fas fa-file text-info me-1"></i>
-                                        <small class="text-muted">{{ test.payload_notes }}</small>
-                                    </div>
-                                    {% endif %}
-                                </td>
-                                <td class="text-center">
-                                    <button class="btn btn-sm btn-link text-info"
-                                            type="button"
-                                            data-bs-toggle="collapse"
-                                            data-bs-target="#config-{{ test.id }}">
-                                        <i class="fas fa-code"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td colspan="6" class="p-0 border-0">
-                                    <div id="config-{{  test.id }}" class="collapse">
-                                        <div class="p-3 bg-dark border border-secondary rounded m-2">
-                                            {% include "audit/partials/task_config.html" with test=test config_pretty=test.task_config_pretty colspan=5 %}
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
-                                    <i class="fas fa-folder-open fa-3x mb-3 d-block"></i>
-                                    No tests available. Place tests in the audits location and reload.
                                 </td>
                             </tr>
                             {% endfor %}
@@ -288,115 +125,180 @@
                 </div>
             </div>
         </div>
-
     </div>
-    <script>
-    $(document).ready(function() {
-        $('#availableTestsTable').DataTable({
-            "pageLength": 50,
-            "columnDefs": [ { "orderable": false, "targets": [0, 5] } ],
-            "language": { "search": "Search tests:" }
-        });
-    });
-    </script>
 
-        {% if paging.show_test_next == "show" or paging.show_test_prev == "show" %}
-        {% endif %}
+    <!-- Tab 2: Available Tests -->
+    <div class="tab-pane fade" id="available-tests" role="tabpanel" aria-labelledby="available-tests-tab">
+        <div class="col-lg-11 mx-auto">
+            <div class="card bg-dark shadow-sm border-secondary mb-5">
+                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0 text-white"><i class="fas fa-vial me-2 text-success"></i> New Audit Session: Available Tests</h5>
+                    <span class="badge bg-dark border border-secondary">{{available_tests|length}} test{{ available_tests|pluralize }}</span>
+                </div>
+                
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <div class="d-flex gap-2">
+                            {% if available_tests %}
+                            <button type="button" id="btnCreateSessionSelected" onclick="createSession('selected')" class="btn btn-outline-light px-3 shadow-sm" disabled>
+                                <i class="fas fa-check-circle me-2"></i>New Session (Selected: <span id="selectedCount">0</span>)
+                            </button>
+                            <button type="button" id="btnCreateSessionAll" onclick="createSession('all')" class="btn btn-outline-success px-3 shadow-sm">
+                                <i class="fas fa-plus-circle me-2"></i>New Session (All)
+                            </button>
+                            {% endif %}
+                        </div>
+
+                        <form action="{% url 'reload_available_tests' %}" method="POST" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-outline-info px-3 shadow-sm">
+                                <i class="fas fa-sync me-2"></i>Reload Tests
+                            </button>
+                        </form>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-dark table-hover align-middle mb-0" id="availableTestsTable">
+                            <thead>
+                                <tr>
+                                    <th style="width: 40px;"><input type="checkbox" id="selectAll"></th>
+                                    <th>Name</th>
+                                    <th>Package</th>
+                                    <th>Targets</th>
+                                    <th>Description</th>
+                                    <th class="text-center">Config</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for test in available_tests %}
+                                <tr>
+                                    <td><input type="checkbox" name="selected_tests" value="{{ test.id }}" class="test-checkbox"></td>
+                                    <td><strong>{{ test.name }}</strong></td>
+                                    <td><span class="badge bg-secondary">{{ test.package }}</span></td>
+                                    <td>
+                                        {% if "windows" in test.targets|lower %}<i class="fab fa-windows text-info me-2" title="Windows"></i>{% endif %}
+                                        {% if "linux" in test.targets|lower %}<i class="fab fa-linux text-light" title="Linux"></i>{% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="text-white-50 small">{{ test.description }}</div>
+                                        {% if test.payload_notes %}
+                                        <div class="mt-1"><i class="fas fa-file-alt text-info me-1 small"></i><small class="text-muted">{{ test.payload_notes }}</small></div>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <button class="btn btn-sm btn-link text-info p-0" type="button" data-bs-toggle="collapse" data-bs-target="#config-{{ test.id }}">
+                                            <i class="fas fa-code"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                <tr class="border-0">
+                                    <td colspan="6" class="p-0 border-0">
+                                        <div id="config-{{ test.id }}" class="collapse">
+                                            <div class="p-3 bg-dark border border-secondary rounded m-3 shadow-sm">
+                                                {% include "audit/partials/task_config.html" with test=test config_pretty=test.task_config_pretty colspan=5 %}
+                                            </div>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
+</div>
 
 <script>
+$(document).ready(function() {
+    // Initialize DataTables
+    $('#audit-sessions-table').DataTable({
+        "pageLength": 25,
+        "order": [[0, "desc"]],
+        "language": { "search": "Filter sessions:" }
+    });
 
-        document.addEventListener("DOMContentLoaded", function () {
-            // If the URL ends in #available-tests, find that tab and show it
-            var hash = window.location.hash;
-            if (hash) {
-                var triggerEl = document.querySelector('a[href="' + hash + '"]');
-                if (triggerEl) {
-                    var tab = new bootstrap.Tab(triggerEl);
-                    tab.show();
-                }
-            }
-        });
+    $('#availableTestsTable').DataTable({
+        "pageLength": 50,
+        "columnDefs": [ { "orderable": false, "targets": [0, 5] } ],
+        "language": { "search": "Search tests:" }
+    });
 
-        document.addEventListener("DOMContentLoaded", function () {
-            const masterCheckbox = document.getElementById('selectAll');
-            const checkboxes = document.querySelectorAll('.test-checkbox');
-            const btnSelected = document.getElementById('btnCreateSessionSelected');
-            const countDisplay = document.getElementById('selectedCount');
+    // Checkbox Logic
+    const masterCheckbox = document.getElementById('selectAll');
+    const checkboxes = document.querySelectorAll('.test-checkbox');
+    const btnSelected = document.getElementById('btnCreateSessionSelected');
+    const countDisplay = document.getElementById('selectedCount');
 
-            // Helper to update the button and counter
-            function updateSelectedUI() {
-                const checkedCount = document.querySelectorAll('.test-checkbox:checked').length;
-                countDisplay.textContent = checkedCount;
-
-                if (checkedCount === 0)
-                {
-                    btnSelected.disabled = true;
-                    btnSelected.classList.remove('btn-success');
-                    btnSelected.classList.add('btn-outline-light');
-                }
-                else
-                {
-                    btnSelected.disabled = false;
-                    btnSelected.classList.remove('btn-outline-light');
-                    btnSelected.classList.add('btn-success');
-                }
-
-                // Sync the master checkbox state
-                masterCheckbox.checked = (checkedCount === checkboxes.length && checkboxes.length > 0);
-                masterCheckbox.indeterminate = (checkedCount > 0 && checkedCount < checkboxes.length);
-            }
-
-            // Master checkbox listener
-            masterCheckbox.addEventListener('change', function () {
-                checkboxes.forEach(cb => {
-                    cb.checked = masterCheckbox.checked;
-                });
-                updateSelectedUI();
-            });
-
-            // Individual checkbox listener
-            checkboxes.forEach(cb => {
-                cb.addEventListener('change', updateSelectedUI);
-            });
-        });
-
-        function createSession(mode) {
-            let selectedIds = [];
-
-            if (mode === 'all') {
-                selectedIds = Array.from(document.querySelectorAll('.test-checkbox')).map(cb => cb.value);
-            } else {
-                selectedIds = Array.from(document.querySelectorAll('.test-checkbox:checked')).map(cb => cb.value);
-            }
-
-            if (selectedIds.length === 0) return;
-
-            // Create the form and submit
-            const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = "{% url 'create_test_session' %}";
-
-            const csrf = document.createElement('input');
-            csrf.type = 'hidden';
-            csrf.name = 'csrfmiddlewaretoken';
-            csrf.value = '{{ csrf_token }}';
-            form.appendChild(csrf);
-
-            selectedIds.forEach(id => {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'test_ids';
-                input.value = id;
-                form.appendChild(input);
-            });
-
-            document.body.appendChild(form);
-            form.submit();
+    function updateSelectedUI() {
+        const checkedCount = document.querySelectorAll('.test-checkbox:checked').length;
+        countDisplay.textContent = checkedCount;
+        btnSelected.disabled = (checkedCount === 0);
+        btnSelected.classList.toggle('btn-success', checkedCount > 0);
+        btnSelected.classList.toggle('btn-outline-light', checkedCount === 0);
+        
+        masterCheckbox.checked = (checkedCount === checkboxes.length && checkboxes.length > 0);
+        masterCheckbox.indeterminate = (checkedCount > 0 && checkedCount < checkboxes.length);
     }
 
+    if (masterCheckbox) {
+        masterCheckbox.addEventListener('change', function () {
+            checkboxes.forEach(cb => cb.checked = masterCheckbox.checked);
+            updateSelectedUI();
+        });
 
+        checkboxes.forEach(cb => cb.addEventListener('change', updateSelectedUI));
+    }
 
+    // Tab Persistence
+    var hash = window.location.hash;
+    if (hash) {
+        var triggerEl = document.querySelector('button[data-bs-target="' + hash + '"]');
+        if (triggerEl) {
+            bootstrap.Tab.getOrCreateInstance(triggerEl).show();
+        }
+    }
+});
+
+function createSession(mode) {
+    let selectedIds = [];
+    if (mode === 'all') {
+        selectedIds = Array.from(document.querySelectorAll('.test-checkbox')).map(cb => cb.value);
+    } else {
+        selectedIds = Array.from(document.querySelectorAll('.test-checkbox:checked')).map(cb => cb.value);
+    }
+
+    if (selectedIds.length === 0) return;
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = "{% url 'create_test_session' %}";
+
+    const csrf = document.createElement('input');
+    csrf.type = 'hidden';
+    csrf.name = 'csrfmiddlewaretoken';
+    csrf.value = '{{ csrf_token }}';
+    form.appendChild(csrf);
+
+    selectedIds.forEach(id => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'test_ids';
+        input.value = id;
+        form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+}
 </script>
 
+<style>
+.custom-scrollbar::-webkit-scrollbar { width: 6px; }
+.custom-scrollbar::-webkit-scrollbar-track { background: #222; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
+.custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #555; }
+.page-link { border-radius: 4px !important; margin: 0 2px; }
+</style>
 {% endblock %}

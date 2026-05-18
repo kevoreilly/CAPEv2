@@ -133,7 +133,10 @@ window.CapeOmniBox = (function() {
 
                     fetch('/apiv2/tasks/extendedsearch/', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
                         body: JSON.stringify({ option, argument, lean: true, search_limit: 10 })
                     })
                     .then(r => r.json())
@@ -179,6 +182,21 @@ window.CapeOmniBox = (function() {
                 }
             }));
         });
+    }
+
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
     }
 
     return { init };

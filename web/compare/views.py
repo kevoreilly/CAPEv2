@@ -198,9 +198,11 @@ def diff_data(request, left_id, right_id):
             es_results = es.search(index=get_analysis_index(), body={"query": {"bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": analysis_id}}]}}}, _source=["behavior.processes"])["hits"]["hits"]
             record = es_results[0]["_source"] if es_results else None
 
-        if not record or "behavior" not in record or "processes" not in record: return []
+        if not record or "behavior" not in record or "processes" not in record:
+            return []
         process = next((p for p in record["behavior"]["processes"] if p["process_id"] == int(pid)), None)
-        if not process: return []
+        if not process:
+            return []
 
         all_calls = []
         for coid in process["calls"]:

@@ -121,26 +121,29 @@ def check_webgui_mongo():
         # Create an index based on the info.id dict key. Increases overall scalability
         # with large amounts of data.
         # Note: Silently ignores the creation if the index already exists.
-        mongo_create_index("analysis", "info.id", name="info.id_1")
-        mongo_create_index("files", [("_task_ids", 1)])
+        try:
+            mongo_create_index("analysis", [("info.id", -1)], name="info_id_desc")
+            mongo_create_index("files", [("_task_ids", 1)])
 
-        if repconf.mongodb.get("index_yara", False):
-            mongo_create_index("files", "yara.name", name="yara_name")
-            mongo_create_index("files", "cape_yara.name", name="cape_yara_name")
+            if repconf.mongodb.get("index_yara", False):
+                mongo_create_index("files", "yara.name", name="yara_name")
+                mongo_create_index("files", "cape_yara.name", name="cape_yara_name")
 
-        if repconf.mongodb.get("index_clamav", False):
-            mongo_create_index("files", "clamav", name="clamav_index")
+            if repconf.mongodb.get("index_clamav", False):
+                mongo_create_index("files", "clamav", name="clamav_index")
 
-        if repconf.mongodb.get("index_hashes", False):
-            mongo_create_index("files", "md5", name="file_md5")
-            mongo_create_index("files", "sha1", name="file_sha1")
-            mongo_create_index("files", "ssdeep", name="file_ssdeep")
+            if repconf.mongodb.get("index_hashes", False):
+                mongo_create_index("files", "md5", name="file_md5")
+                mongo_create_index("files", "sha1", name="file_sha1")
+                mongo_create_index("files", "ssdeep", name="file_ssdeep")
 
-        if repconf.mongodb.get("index_detections", False):
-            mongo_create_index("analysis", "detections.family", name="detections_family")
+            if repconf.mongodb.get("index_detections", False):
+                mongo_create_index("analysis", [("detections.family", 1), ("_id", -1)], name="detections_family_1")
 
-        if repconf.mongodb.get("index_filenames", False):
-            mongo_create_index("analysis", "target.file.name", name="name_1")
+            if repconf.mongodb.get("index_filenames", False):
+                mongo_create_index("analysis", [("target.file.name", 1), ("_id", -1)], name="target_file_name_1")
+        except Exception as e:
+            log.warning("Failed to create MongoDB indexes: %s", e)
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check
         pass

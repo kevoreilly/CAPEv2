@@ -262,6 +262,7 @@ def split_csv(value):
         return [str(v).strip() for v in value if str(v).strip()]
     return [t.strip() for t in str(value).split(",") if t.strip()]
 
+@register.filter
 def cert_chain_signers(signers):
     return [s for s in (signers or []) if "Certificate Chain" in s.get("name", "")]
 

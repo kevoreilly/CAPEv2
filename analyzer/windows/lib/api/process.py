@@ -576,11 +576,9 @@ class Process:
         if not KERNEL32.InitializeProcThreadAttributeList(attr_list, 1, 0, byref(cb_attribute_list_size)):
             log.error("InitializeProcThreadAttributeList(init)")
 
-        log.info("Successfully called InitializeProcThreadAttributeList")
         hwnd = windll.user32.GetShellWindow()
         explorer_pid = DWORD()
         windll.user32.GetWindowThreadProcessId(hwnd, byref(explorer_pid))
-        log.info("Explorer PID: %s", explorer_pid.value)
 
         raw_parent = KERNEL32.OpenProcess(PROCESS_CREATE_PROCESS, False, explorer_pid)
         if not raw_parent:
@@ -601,7 +599,6 @@ class Process:
             KERNEL32.DeleteProcThreadAttributeList(attr_list)
             log.error("UpdateProcThreadAttribute")
 
-        log.info("build_parent_attribute_list returning")
         return attr_list, attr_buf, h_parent
 
     def log_process_tree(self, process_name):

@@ -57,6 +57,7 @@ def index(request):
         states_count={},
         estimate_hour=None,
         estimate_day=None,
+        top_detections=[],
     )
 
     states = (
@@ -78,7 +79,7 @@ def index(request):
     tasks = db.count_tasks(status=TASK_COMPLETED)
     tasks += db.count_tasks(status=TASK_REPORTED)
 
-    data = {"title": "Dashboard", "report": {}}
+    data = {"title": "Dashboard", "report": report}
 
     if tasks:
         # Get the time when the first task started and last one ended.
@@ -94,6 +95,4 @@ def index(request):
         report["estimate_hour"] = format_number_with_space(int(hourly))
         report["estimate_day"] = format_number_with_space(int(24 * hourly))
         report["top_detections"] = top_detections()
-
-        data["report"] = report
     return render(request, "dashboard/index.html", data)

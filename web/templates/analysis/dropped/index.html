@@ -1,110 +1,22 @@
 {% load key_tags %}
 
 <div class="dynamic-layout-target layout-centered">
-    <div class="btn-group" role="group" aria-label="View Toggle">
-            <button type="button" class="btn btn-outline-info active" id="view-gallery-btn" onclick="switchView('gallery')">
-                <i class="fas fa-th-large me-1"></i> Gallery
-            </button>
-            <button type="button" class="btn btn-outline-info" id="view-table-btn" onclick="switchView('table')">
-                <i class="fas fa-list me-1"></i> Table
-            </button>
-        </div>
     {% if dropped|length > 0 and settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
-        {% if settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
-            <div class="text-center mb-4">
-                <a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-outline-info" data-bs-toggle="tooltip" title="Download password-protected file archive with all files">
-                    <i class="fas fa-file-archive me-1"></i> <i class="fas fa-download me-1"></i> Download All Files
-                </a>
-            </div>
+        <div class="text-center mb-4">
+            <a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-outline-info" data-bs-toggle="tooltip" title="Download password-protected file archive with all files">
+                <i class="fas fa-file-archive me-1"></i> <i class="fas fa-download me-1"></i> Download All Files
+            </a>
+        </div>
     {% endif %}
-</div>
 
-{% if dropped|length > 0 %}
-    <!-- Gallery View -->
-    <div id="dropped-gallery-view">
+    {% if dropped|length > 0 %}
         {% for file in dropped %}
             {% include "analysis/generic/_file_info.html" %}
         {% endfor %}
-    </div>
-
-    <!-- Table View (Hidden by default) -->
-    <div id="dropped-table-view" class="d-none">
-        <div class="card bg-dark border-secondary shadow-sm">
-            <div class="card-body">
-                <table id="dropped-files-table" class="table table-dark table-striped table-hover border-secondary">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Type</th>
-                            <th>Size</th>
-                            <th>MD5</th>
-                            <th class="text-end">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for file in dropped %}
-                        <tr>
-                            <td class="text-truncate" style="max-width: 300px;" title="{{ file.name }}">
-                                <strong data-pivot="name">{{ file.name }}</strong>
-                            </td>
-                            <td class="small">{{ file.type|truncatechars:50 }}</td>
-                            <td>{{ file.size }} <small class="text-white-50">bytes</small></td>
-                            <td class="font-monospace small" data-pivot="md5">{{ file.md5 }}</td>
-                            <td class="text-end">
-                                <div class="btn-group btn-group-sm">
-                                    <a href="{% url 'file' 'dropped' id file.sha256 %}" class="btn btn-outline-light" title="Download"><i class="fas fa-download"></i></a>
-                                    <a href="/submit/resubmit/{{id}}/{{file.sha256}}/" class="btn btn-outline-light" title="Resubmit"><i class="fas fa-sync"></i></a>
-                                    <button class="btn btn-outline-info" onclick="scrollToFile('{{file.sha256}}')" title="View Details"><i class="fas fa-eye"></i></button>
-                                </div>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+    {% else %}
+        <div class="alert alert-info text-center shadow-sm">
+            <i class="fas fa-file-download fa-2x mb-3"></i>
+            <p class="mb-0">No dropped files found.</p>
         </div>
-    </div>
-
-    <script>
-    function switchView(view) {
-        if (view === 'gallery') {
-            $('#dropped-gallery-view').removeClass('d-none');
-            $('#dropped-table-view').addClass('d-none');
-            $('#view-gallery-btn').addClass('active');
-            $('#view-table-btn').removeClass('active');
-        } else {
-            $('#dropped-gallery-view').addClass('d-none');
-            $('#dropped-table-view').removeClass('d-none');
-            $('#view-table-btn').addClass('active');
-            $('#view-gallery-btn').removeClass('active');
-
-            // Initialize DataTable if not already done
-            if (!$.fn.DataTable.isDataTable('#dropped-files-table')) {
-                $('#dropped-files-table').DataTable({
-                    "pageLength": 25,
-                    "order": [[2, "desc"]], // Sort by size by default
-                    "language": {
-                        "search": "Search files:"
-                    }
-                });
-            }
-        }
-    }
-
-    function scrollToFile(sha256) {
-        switchView('gallery');
-        // Simple search logic if files are too many, or just scroll
-        // For now, just scroll to the card if it exists
-        const element = document.getElementById('flare_capa_' + sha256); // Using an ID we know exists near the file info
-        if (element) {
-            element.closest('.card').scrollIntoView({ behavior: 'smooth' });
-        }
-    }
-    </script>
-{% else %}
-    <div class="alert alert-info text-center shadow-sm">
-        <i class="fas fa-file-download fa-2x mb-3"></i>
-        <p class="mb-0">No dropped files found.</p>
-    </div>
-{% endif %}
+    {% endif %}
 </div>

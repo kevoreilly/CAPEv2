@@ -126,7 +126,10 @@ $(document).ready(function() {
         },
         colors: ['#3498db', '#f39c12', '#00bc8c', '#ee1b2f', '#9b59b6'],
         legend: {
-            position: 'bottom'
+            position: 'bottom',
+            formatter: function(seriesName, opts) {
+                return seriesName + ": " + opts.w.globals.series[opts.seriesIndex]
+            }
         },
         dataLabels: { enabled: false },
         tooltip: { theme: 'dark' },

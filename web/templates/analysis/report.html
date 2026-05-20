@@ -340,6 +340,7 @@ $(function() {
     const toggleBtn = $('#btn-toggle-layout');
     if (!toggleBtn.length) return;
 
+    // --- Layout (Centric vs Full Screen) Logic ---
     function applyLayout(layout) {
         const targets = $('.dynamic-layout-target');
         if (layout === 'fluid') {
@@ -364,6 +365,13 @@ $(function() {
     $(document).ajaxComplete(function() {
         const savedLayout = localStorage.getItem('report-layout') || 'centered';
         // Update state variable in case it was changed in another tab.
+        currentLayout = savedLayout;
+        applyLayout(savedLayout);
+    });
+
+    // Re-apply layout on tab switches to make sure it works across all tabs reliably
+    $('a[data-bs-toggle="tab"], a[data-bs-toggle="tabajax"]').on('shown.bs.tab', function (e) {
+        const savedLayout = localStorage.getItem('report-layout') || 'centered';
         currentLayout = savedLayout;
         applyLayout(savedLayout);
     });

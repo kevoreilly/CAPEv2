@@ -230,7 +230,7 @@ $(function() {
     {% endif %}
 </ul>
 <div class="d-flex justify-content-end mb-2">
-    <button id="btn-toggle-layout" class="btn btn-sm btn-outline-secondary" title="Toggle between Centered and Full Screen layout">
+    <button id="btn-toggle-layout" class="btn btn-sm btn-outline-info" title="Toggle between Centered and Full Screen layout">
         <i class="fas fa-expand me-1"></i> Full Screen
     </button>
 </div>
@@ -332,11 +332,9 @@ $(function() {
             const targets = $('.dynamic-layout-target');
             if (layout === 'fluid') {
                 targets.removeClass('layout-centered');
-                toggleBtn.find('i').removeClass('fa-expand').addClass('fa-compress');
                 toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
             } else {
                 targets.addClass('layout-centered');
-                toggleBtn.find('i').removeClass('fa-compress').addClass('fa-expand');
                 toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
             }
         }

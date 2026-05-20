@@ -890,13 +890,13 @@ class Process:
             bin_name = LOADER64_NAME
             dll = CAPEMON64_NAME
             bit_str = "64-bit"
-            side_dll = SIDELOADER64_NAME
+            # side_dll = SIDELOADER64_NAME
         else:
             ttd_name = TTD32_NAME
             bin_name = LOADER32_NAME
             dll = CAPEMON32_NAME
             bit_str = "32-bit"
-            side_dll = SIDELOADER32_NAME
+            # side_dll = SIDELOADER32_NAME
 
         bin_name = os.path.join(Path.cwd(), bin_name)
         dll = os.path.join(Path.cwd(), dll)

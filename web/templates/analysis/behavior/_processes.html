@@ -52,9 +52,9 @@
         if ($('#' + id).hasClass('active')) {
             typeof callback === 'function' && callback();
         } else {
-            $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
+            $('a[data-bs-toggle]').on('shown.bs.tab', function (e) {
                 if ($(e.target).attr('href') == '#' + id) {
-                    $('a[data-bs-toggle="pill"]').off('shown.bs.tab');
+                    $('a[data-bs-toggle]').off('shown.bs.tab');
                     typeof callback === 'function' && callback();
                 }
             });

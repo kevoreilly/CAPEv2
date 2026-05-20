@@ -326,40 +326,35 @@ $(function() {
 <script>
 $(function() {
     const toggleBtn = $('#btn-toggle-layout');
+    if (!toggleBtn.length) return;
 
-    if (toggleBtn.length) {
-        function applyLayout(layout) {
-            const targets = $('.dynamic-layout-target');
-            if (layout === 'fluid') {
-                targets.removeClass('layout-centered');
-                toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
-            } else {
-                targets.addClass('layout-centered');
-                toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
-            }
+    function applyLayout(layout) {
+        const targets = $('.dynamic-layout-target');
+        if (layout === 'fluid') {
+            targets.removeClass('layout-centered');
+            toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
+        } else { // centered
+            targets.addClass('layout-centered');
+            toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
         }
-
-        // Load saved preference, default to 'centered' if not set
-        const savedLayout = localStorage.getItem('report-layout') || 'centered';
-        applyLayout(savedLayout);
-
-        toggleBtn.on('click', function() {
-            const targets = $('.dynamic-layout-target');
-            if (targets.first().hasClass('layout-centered')) {
-                applyLayout('fluid');
-                localStorage.setItem('report-layout', 'fluid');
-            } else {
-                applyLayout('centered');
-                localStorage.setItem('report-layout', 'centered');
-            }
-        });
-
-        // Re-apply layout on AJAX completes (for dynamically loaded tabs)
-        $(document).ajaxComplete(function() {
-            const currentLayout = localStorage.getItem('report-layout') || 'centered';
-            applyLayout(currentLayout);
-        });
     }
+
+    let currentLayout = localStorage.getItem('report-layout') || 'centered';
+    applyLayout(currentLayout);
+
+    toggleBtn.on('click', function() {
+        currentLayout = (currentLayout === 'centered') ? 'fluid' : 'centered';
+        localStorage.setItem('report-layout', currentLayout);
+        applyLayout(currentLayout);
+    });
+
+    // Re-apply layout on AJAX completes (for dynamically loaded tabs)
+    $(document).ajaxComplete(function() {
+        const savedLayout = localStorage.getItem('report-layout') || 'centered';
+        // Update state variable in case it was changed in another tab.
+        currentLayout = savedLayout;
+        applyLayout(savedLayout);
+    });
 });
 </script>
 {% endblock %}

@@ -229,6 +229,11 @@ $(function() {
         </li>
     {% endif %}
 </ul>
+<div class="d-flex justify-content-end mb-2">
+    <button id="btn-toggle-layout" class="btn btn-sm btn-outline-secondary" title="Toggle between Centered and Full Screen layout">
+        <i class="fas fa-expand me-1"></i> Full Screen
+    </button>
+</div>
 <div class="tab-content">
     <div class="tab-pane fade show active" id="overview">
         {% include "analysis/overview/index.html" %}
@@ -315,4 +320,48 @@ $(function() {
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(function() {
+    const toggleBtn = $('#btn-toggle-layout');
+
+    if (toggleBtn.length) {
+        function applyLayout(layout) {
+            const targets = $('.dynamic-layout-target');
+            if (layout === 'fluid') {
+                targets.removeClass('layout-centered');
+                toggleBtn.find('i').removeClass('fa-expand').addClass('fa-compress');
+                toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
+            } else {
+                targets.addClass('layout-centered');
+                toggleBtn.find('i').removeClass('fa-compress').addClass('fa-expand');
+                toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
+            }
+        }
+
+        // Load saved preference, default to 'centered' if not set
+        const savedLayout = localStorage.getItem('report-layout') || 'centered';
+        applyLayout(savedLayout);
+
+        toggleBtn.on('click', function() {
+            const targets = $('.dynamic-layout-target');
+            if (targets.first().hasClass('layout-centered')) {
+                applyLayout('fluid');
+                localStorage.setItem('report-layout', 'fluid');
+            } else {
+                applyLayout('centered');
+                localStorage.setItem('report-layout', 'centered');
+            }
+        });
+
+        // Re-apply layout on AJAX completes (for dynamically loaded tabs)
+        $(document).ajaxComplete(function() {
+            const currentLayout = localStorage.getItem('report-layout') || 'centered';
+            applyLayout(currentLayout);
+        });
+    }
+});
+</script>
 {% endblock %}

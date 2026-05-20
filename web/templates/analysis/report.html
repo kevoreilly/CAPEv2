@@ -337,8 +337,10 @@ $(function() {
 {% block extra_scripts %}
 <script>
 $(function() {
+
     const toggleBtn = $('#btn-toggle-layout');
     if (!toggleBtn.length) return;
+
 
     // --- Layout (Centric vs Full Screen) Logic ---
     function applyLayout(layout) {

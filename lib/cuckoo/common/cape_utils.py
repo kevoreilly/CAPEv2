@@ -199,7 +199,7 @@ def static_config_parsers(cape_name: str, file_path: str, file_data: bytes) -> d
     # MalDuck
     # Attempt to import a parser for the hit
     if HAVE_CAPE_EXTRACTORS and cape_name in cape_malware_parsers:
-        log.debug("Running CAPE on %s", file_path)
+        log.debug("Running CAPE parser for %s on %s", cape_name, file_path)
         try:
             # changed from cape_config to cape_configraw because of avoiding overridden. duplicated value name.
             if hasattr(cape_malware_parsers[cape_name], "extract_config"):
@@ -225,7 +225,7 @@ def static_config_parsers(cape_name: str, file_path: str, file_data: bytes) -> d
 
     # DC3-MWCP
     if HAS_MWCP and not parser_loaded and cape_name and cape_name in mwcp_decoders:
-        log.debug("Running MWCP on %s", file_path)
+        log.debug("Running MWCP parser for %s on %s", cape_name, file_path)
         try:
             report = mwcp.run(mwcp_decoders[cape_name], data=file_data)
             reportmeta = report.as_dict_legacy()
@@ -260,7 +260,7 @@ def static_config_parsers(cape_name: str, file_path: str, file_data: bytes) -> d
             )
 
     elif HAS_MALWARECONFIGS and not parser_loaded and cape_name in rat_decoders:
-        log.debug("Running Malwareconfigs on %s", file_path)
+        log.debug("Running Malwareconfig parser for %s on %s", cape_name, file_path)
         try:
             module = False
             file_info = fileparser.FileParser(rawdata=file_data)

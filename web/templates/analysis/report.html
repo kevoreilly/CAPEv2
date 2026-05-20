@@ -241,6 +241,11 @@ $(function() {
         </li>
     {% endif %}
 </ul>
+<div class="d-flex justify-content-end mb-2">
+    <button id="btn-toggle-layout" class="btn btn-sm btn-outline-info" title="Toggle between Centered and Full Screen layout">
+        <i class="fas fa-expand me-1"></i> Full Screen
+    </button>
+</div>
 <div class="tab-content">
     <div class="tab-pane fade show active" id="overview">
         {% include "analysis/overview/index.html" %}
@@ -327,4 +332,41 @@ $(function() {
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(function() {
+    const toggleBtn = $('#btn-toggle-layout');
+    if (!toggleBtn.length) return;
+
+    function applyLayout(layout) {
+        const targets = $('.dynamic-layout-target');
+        if (layout === 'fluid') {
+            targets.removeClass('layout-centered');
+            toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
+        } else { // centered
+            targets.addClass('layout-centered');
+            toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
+        }
+    }
+
+    let currentLayout = localStorage.getItem('report-layout') || 'centered';
+    applyLayout(currentLayout);
+
+    toggleBtn.on('click', function() {
+        currentLayout = (currentLayout === 'centered') ? 'fluid' : 'centered';
+        localStorage.setItem('report-layout', currentLayout);
+        applyLayout(currentLayout);
+    });
+
+    // Re-apply layout on AJAX completes (for dynamically loaded tabs)
+    $(document).ajaxComplete(function() {
+        const savedLayout = localStorage.getItem('report-layout') || 'centered';
+        // Update state variable in case it was changed in another tab.
+        currentLayout = savedLayout;
+        applyLayout(savedLayout);
+    });
+});
+</script>
 {% endblock %}

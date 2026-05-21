@@ -91,6 +91,11 @@ window.CapeOmniBox = (function() {
     `;
 
     function init() {
+        if (!document.body) {
+            document.addEventListener('DOMContentLoaded', init);
+            return;
+        }
+
         const container = document.createElement('div');
         container.innerHTML = menuTemplate;
         document.body.appendChild(container);

@@ -3,10 +3,12 @@
 
 <div class="row justify-content-center" id="status-container">
     <div class="col-lg-8" id="status-card"
+         {% if not completed and status != "failed_analysis" and status != "failed_processing" %}
          hx-get="{% url 'submission_status' task_id %}" 
          hx-trigger="every 5s" 
          hx-select="#status-card" 
-         hx-swap="outerHTML">
+         hx-swap="outerHTML"
+         {% endif %}>
         <div class="card bg-dark shadow-lg border-secondary mb-4">
             <div class="card-header border-secondary bg-transparent py-3 d-flex justify-content-between align-items-center">
                 <h4 class="mb-0 text-white">
@@ -14,6 +16,8 @@
                 </h4>
                 {% if completed %}
                     <span class="badge bg-success px-3 py-2">COMPLETED</span>
+                {% elif status == "distributed" %}
+                    <span class="badge bg-info px-3 py-2">DISTRIBUTED</span>
                 {% else %}
                     <span class="badge bg-warning text-dark px-3 py-2">IN PROGRESS</span>
                 {% endif %}
@@ -33,6 +37,11 @@
                             <i class="fas fa-file-alt me-2"></i>View Full Report
                         </a>
                     </div>
+                    <script>
+                        setTimeout(function() {
+                            window.location.href = "{% url 'report' task_id %}";
+                        }, 2000);
+                    </script>
                 {% elif status == "failed_analysis" or status == "failed_processing" %}
                     <div class="py-5">
                         <i class="fas fa-exclamation-triangle fa-5x text-danger mb-4"></i>
@@ -82,10 +91,10 @@
                 <div class="x-small text-uppercase">Submitted</div>
             </div>
             <div class="col-3">
-                <div class="rounded-circle {% if status == 'pending' %}bg-info animate-pulse{% elif status == 'running' or completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
-                    {% if status == 'pending' %}<i class="fas fa-clock text-white small"></i>{% elif status == 'running' or completed %}<i class="fas fa-check text-white small"></i>{% endif %}
+                <div class="rounded-circle {% if status == 'pending' or status == 'distributed' %}bg-info animate-pulse{% elif status == 'running' or completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">
+                    {% if status == 'pending' or status == 'distributed' %}<i class="fas fa-clock text-white small"></i>{% elif status == 'running' or completed %}<i class="fas fa-check text-white small"></i>{% endif %}
                 </div>
-                <div class="x-small text-uppercase">Pending</div>
+                <div class="x-small text-uppercase">{% if status == 'distributed' %}Distributed{% else %}Pending{% endif %}</div>
             </div>
             <div class="col-3">
                 <div class="rounded-circle {% if status == 'running' %}bg-info animate-pulse{% elif completed %}bg-success{% else %}bg-secondary{% endif %} mx-auto mb-2 d-flex align-items-center justify-content-center" style="width: 30px; height: 30px;">

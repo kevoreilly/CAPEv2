@@ -14,7 +14,7 @@ window.CapePivot = (function() {
              @contextmenu.prevent
              class="dropdown-menu show shadow-lg border-secondary bg-dark text-white p-2"
              style="position: fixed; z-index: 9999; min-width: 200px;"
-             :style="\`left: ${x}px; top: ${y}px;\`"
+             :style="\`left: \${x}px; top: \${y}px;\`"
              x-transition>
             
             <div class="px-3 py-1 mb-2 border-bottom border-secondary">
@@ -24,7 +24,7 @@ window.CapePivot = (function() {
 
             <!-- Internal Pivots -->
             <h6 class="dropdown-header text-info px-2 small mt-1">Internal Pivot</h6>
-            <a class="dropdown-item py-1 rounded small" :href="\`/analysis/search/${type}:\${value}/\`"><i class="fas fa-search me-2"></i>Find all tasks</a>
+            <a class="dropdown-item py-1 rounded small" :href="\`/analysis/search/\${type}:\${value}/\`"><i class="fas fa-search me-2"></i>Find all tasks</a>
             <template x-if="type === 'ip' || type === 'domain'">
                 <button class="dropdown-item py-1 rounded small" @click="filterReport"><i class="fas fa-filter me-2"></i>Filter this report</button>
             </template>
@@ -48,9 +48,14 @@ window.CapePivot = (function() {
             <h6 class="dropdown-header text-secondary px-2 small mt-2">Actions</h6>
             <button class="dropdown-item py-1 rounded small" @click="copyToClipboard"><i class="fas fa-copy me-2"></i>Copy value</button>
         </div>
-    `;
+    \`;
 
     function init() {
+        if (!document.body) {
+            document.addEventListener('DOMContentLoaded', init);
+            return;
+        }
+
         // Inject menu container into body
         const container = document.createElement('div');
         container.innerHTML = menuTemplate;

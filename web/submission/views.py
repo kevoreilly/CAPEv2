@@ -772,7 +772,10 @@ def status(request, task_id):
 
     completed = False
     if task.status == "reported":
-        return redirect("report", task_id=task_id)
+        if request.headers.get("HX-Request"):
+            completed = True
+        else:
+            return redirect("report", task_id=task_id)
 
     status = task.status
     if status == "completed":

@@ -3884,6 +3884,60 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 )
         del details
 
+    if request.headers.get("HX-Request"):
+        report = mongo_find_one("analysis", {"info.id": int(task_id)})
+        if not report:
+            return HttpResponse("Analysis not found", status=404)
+
+        def _get_file_by_sha256(node, target_sha256):
+            if isinstance(node, dict):
+                if node.get("sha256") == target_sha256:
+                    return node
+                for value in node.values():
+                    if isinstance(value, (dict, list)):
+                        res = _get_file_by_sha256(value, target_sha256)
+                        if res:
+                            return res
+            elif isinstance(node, list):
+                for item in node:
+                    res = _get_file_by_sha256(item, target_sha256)
+                    if res:
+                        return res
+            return None
+
+        file_obj = _get_file_by_sha256(report, sha256)
+        if not file_obj:
+            return HttpResponse("File not found in analysis", status=404)
+
+        vba2graph_dict_content = {}
+        vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", sha256 + ".svg")
+        if path_exists(vba2graph_svg_path) and _path_safe(vba2graph_svg_path):
+            vba2graph_dict_content[sha256] = Path(vba2graph_svg_path).read_text()
+
+        bingraph_dict_content = {}
+        bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
+        if path_exists(bingraph_path):
+            for f in os.listdir(bingraph_path):
+                if f.startswith(sha256):
+                    tmp_file = os.path.join(bingraph_path, f)
+                    bingraph_dict_content[sha256] = Path(tmp_file).read_text()
+
+        graphs = {
+            "vba2graph": {"enabled": HAVE_VBA2GRAPH and processing_cfg.vba2graph.enabled, "content": vba2graph_dict_content},
+            "bingraph": {"enabled": HAVE_BINGRAPH and reporting_cfg.bingraph.enabled, "content": bingraph_dict_content},
+        }
+
+        context = {
+            "file": file_obj,
+            "tab_name": category.replace("target.file", "static"),
+            "id": task_id,
+            "config": enabledconf,
+            "on_demand": on_demand_conf,
+            "graphs": graphs,
+            "analysis": report,
+        }
+        return render(request, "analysis/generic/_file_info.html", context)
+
     return redirect("report", task_id=task_id)
 
 

@@ -1,22 +1,25 @@
 {% load key_tags %}
 
-<div class="card bg-dark border-secondary mb-3">
+<div id="file-info-{{file.sha256}}" class="card bg-dark border-secondary mb-3">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-info"></i> File Information</h5>
-        {% if file.dropdir %}
-            <a href="{% url "file" tab_name id file.dropdir %}" class="btn btn-sm btn-outline-light"><i class="fas fa-download"></i> Download</a>
-        {% else %}
-            <div class="btn-group btn-group-sm">
-                {% if not config.zipped_download %}
-                    <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download file"><i class="fas fa-download"></i></a>
-                {% endif %}
-                <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download password-protected archive"><i class="fas fa-file-archive"></i></a>
-                <a href="/submit/resubmit/{{id}}/{{file.sha256}}/" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Resubmit"><i class="fas fa-sync"></i></a>
-                {% if config.vtupload and analysis.info.tlp != "Red" %}
-                    <a href="{% url "vtupload" tab_name id file.name file.sha256 %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Upload to VirusTotal"><i class="fas fa-cloud-upload-alt"></i> VT</a>
-                {% endif %}
-            </div>
-        {% endif %}
+        <div class="d-flex align-items-center">
+            <i id="indicator-{{file.sha256}}" class="fas fa-spinner fa-spin htmx-indicator me-2 text-warning" style="display: none;"></i>
+            {% if file.dropdir %}
+                <a href="{% url "file" tab_name id file.dropdir %}" class="btn btn-sm btn-outline-light"><i class="fas fa-download"></i> Download</a>
+            {% else %}
+                <div class="btn-group btn-group-sm">
+                    {% if not config.zipped_download %}
+                        <a href="{% url "file" tab_name id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download file"><i class="fas fa-download"></i></a>
+                    {% endif %}
+                    <a href="{% url "file" tab_name|add:"zip" id file.sha256 %}" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Download password-protected archive"><i class="fas fa-file-archive"></i></a>
+                    <a href="/submit/resubmit/{{id}}/{{file.sha256}}/" class="btn btn-outline-light" data-bs-toggle="tooltip" title="Resubmit"><i class="fas fa-sync"></i></a>
+                    {% if config.vtupload and analysis.info.tlp != "Red" %}
+                        <a href="{% url "vtupload" tab_name id file.name file.sha256 %}" class="btn btn-outline-danger" data-bs-toggle="tooltip" title="Upload to VirusTotal"><i class="fas fa-cloud-upload-alt"></i> VT</a>
+                    {% endif %}
+                </div>
+            {% endif %}
+        </div>
     </div>
 
     <div class="table-responsive">
@@ -273,7 +276,12 @@
 
             {% if config.flare_capa %}
                 {% if not file.flare_capa and on_demand.flare_capa %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}">Extract: CAPA</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
+                       href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}"
+                       hx-get="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}"
+                       hx-target="#file-info-{{file.sha256}}"
+                       hx-swap="outerHTML"
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: CAPA</a>
                 {% elif file.flare_capa %}
                     <a class="btn btn-sm btn-outline-warning me-2 mb-2" data-bs-toggle="collapse" href="#flare_capa_{{file.sha256}}">View CAPA</a>
                 {% endif %}
@@ -281,7 +289,12 @@
 
             {% if config.strings %}
                 {% if "strings" not in file %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "strings" id tab_name file.sha256 %}">Extract: Strings</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
+                       href="{% url "on_demand" "strings" id tab_name file.sha256 %}"
+                       hx-get="{% url "on_demand" "strings" id tab_name file.sha256 %}"
+                       hx-target="#file-info-{{file.sha256}}"
+                       hx-swap="outerHTML"
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: Strings</a>
                 {% elif file.strings %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#strings_{{file.sha256}}">Strings</a>
                 {% endif %}
@@ -289,7 +302,12 @@
 
             {% if config.floss %}
                 {% if not file.floss %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "floss" id tab_name file.sha256 %}">Extract: Floss</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
+                       href="{% url "on_demand" "floss" id tab_name file.sha256 %}"
+                       hx-get="{% url "on_demand" "floss" id tab_name file.sha256 %}"
+                       hx-target="#file-info-{{file.sha256}}"
+                       hx-swap="outerHTML"
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: Floss</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#floss_{{file.sha256}}">Floss</a>
                 {% endif %}
@@ -297,9 +315,47 @@
 
             {% if config.bingraph %}
                 {% if not graphs.bingraph.content|getkey:file.sha256 and on_demand.bingraph %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}">Extract: BinGraph</a>
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
+                       href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}"
+                       hx-get="{% url "on_demand" "bingraph" id tab_name file.sha256 %}"
+                       hx-target="#file-info-{{file.sha256}}"
+                       hx-swap="outerHTML"
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: BinGraph</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" href="{% url "file_nl" "bingraph" id file.sha256 %}">BinGraph</a>
+                {% endif %}
+            {% endif %}
+
+            {% if config.vba2graph %}
+                {% if not graphs.vba2graph.content|getkey:file.sha256 and on_demand.vba2graph %}
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
+                       href="{% url "on_demand" "vba2graph" id tab_name file.sha256 %}"
+                       hx-get="{% url "on_demand" "vba2graph" id tab_name file.sha256 %}"
+                       hx-target="#file-info-{{file.sha256}}"
+                       hx-swap="outerHTML"
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: VBA2Graph</a>
+                {% endif %}
+            {% endif %}
+
+            {% if config.xlsdeobf %}
+                {% if not file.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
+                       href="{% url "on_demand" "xlsdeobf" id tab_name file.sha256 %}"
+                       hx-get="{% url "on_demand" "xlsdeobf" id tab_name file.sha256 %}"
+                       hx-target="#file-info-{{file.sha256}}"
+                       hx-swap="outerHTML"
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: XLMDeobf</a>
+                {% endif %}
+            {% endif %}
+
+            {% if config.virustotal %}
+                {% if not file.virustotal and on_demand.virustotal %}
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
+                       href="{% url "on_demand" "virustotal" id tab_name file.sha256 %}"
+                       hx-get="{% url "on_demand" "virustotal" id tab_name file.sha256 %}"
+                       hx-target="#file-info-{{file.sha256}}"
+                       hx-swap="outerHTML"
+                       hx-indicator="#indicator-{{file.sha256}}">Extract: VT</a>
                 {% endif %}
             {% endif %}
 

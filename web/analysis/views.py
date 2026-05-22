@@ -3744,6 +3744,7 @@ on_demand_config_mapper = {
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def on_demand(request, service: str, task_id: str, category: str, sha256):
+    orig_category = category
     """
     This aux function allows to generate some details on demand, this is specially useful for long running libraries and we don't need them in many cases due to scripted submissions
     @param service: Service for which we want to generate details
@@ -3796,6 +3797,8 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         extractedfile = True
 
     if path and (not _path_safe(path) or not path_exists(path)):
+        if request.headers.get("HX-Request") or request.META.get("HTTP_HX_REQUEST"):
+            return HttpResponse(f"<div class=\"alert alert-danger m-3\"><strong>Error:</strong> File not found at {path}</div>", status=404)
         return render(request, "error.html", {"error": "File not found: {}".format(path)})
 
     details = False
@@ -3905,8 +3908,10 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     status=500,
                 )
         del details
+    if service == "bingraph":
+        del servicedata
 
-    if request.headers.get("HX-Request"):
+    if request.headers.get("HX-Request") or request.META.get("HTTP_HX_REQUEST") or service == "bingraph" and request.headers.get("HX-Request") == "true":
         report = mongo_find_one("analysis", {"info.id": int(task_id)})
         if not report:
             return HttpResponse("Analysis not found", status=404)
@@ -3951,7 +3956,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
         context = {
             "file": file_obj,
-            "tab_name": category.replace("target.file", "static"),
+            "tab_name": orig_category,
             "id": task_id,
             "config": enabledconf,
             "on_demand": on_demand_conf,

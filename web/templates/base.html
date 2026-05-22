@@ -33,7 +33,7 @@
 <script defer src="{{ STATIC_URL }}js/cape-shortcuts.js"></script>
 {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 {% block header %}
 {% include "header.html" %}
 {% endblock %}

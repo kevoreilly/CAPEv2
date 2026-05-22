@@ -9,6 +9,7 @@ To maintain stability and support air-gapped environments, the following librari
 | Library | Version | File(s) | Description |
 | :--- | :--- | :--- | :--- |
 | **HTMX** | 2.0.1 | `js/htmx.min.js` | Declarative AJAX and partial page updates. |
+| **Response-Targets** | 2.0.0 | `js/response-targets.js` | HTMX extension for targeting specific elements on error responses. |
 | **DataTables** | 2.1.2 | `js/jquery.dataTables.min.js`, `js/dataTables.bootstrap5.min.js`, `css/dataTables.bootstrap5.min.css` | Advanced searchable and sortable data grids. |
 | **D3.js** | 7.9.0 | `js/d3.v7.min.js` | Interactive data visualizations (e.g., Process Tree). |
 | **ApexCharts** | 3.51.0 | `js/apexcharts.min.js` | Interactive charting for resource monitoring. |

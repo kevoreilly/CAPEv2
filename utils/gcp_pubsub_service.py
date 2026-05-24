@@ -87,7 +87,7 @@ class GCPPubSubService:
         self.db = Database()
 
         self.cuckoo_cfg = Config()
-        self.tmp_path = os.path.join(self.cuckoo_cfg.cuckoo.get("tmppath", "/tmp"), "cape-pubsub")
+        self.tmp_path = os.path.join(self.cuckoo_cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
         if not path_exists(self.tmp_path):
             try:
                 os.makedirs(self.tmp_path)

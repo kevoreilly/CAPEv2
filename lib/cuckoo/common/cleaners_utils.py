@@ -450,7 +450,7 @@ def tmp_clean_before(timerange: str):
     older_than = convert_into_time(timerange)
     tmp_folder_path = config.cuckoo.get("tmppath")
     # 3rd party?
-    for folder in ("cuckoo-tmp", "cape-external", "cuckoo-sflock", "cape-pubsub"):
+    for folder in ("cuckoo-tmp", "cape-external", "cuckoo-sflock"):
         for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
             for name in files + directories:
                 path = os.path.join(root, name)

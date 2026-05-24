@@ -31,6 +31,7 @@ GCS_ENABLED = reporting_conf.gcs.get("enabled", False) if hasattr(reporting_conf
 GCS_DELETE_AFTER_UPLOAD = reporting_conf.gcs.get("delete_after_upload", False) if hasattr(reporting_conf, "gcs") else False
 
 gcs_uploader = None
+GCSUploader = None
 if GCS_ENABLED:
     from modules.reporting.gcs import GCSUploader
     try:
@@ -200,10 +201,8 @@ def gcs_replay(task_range):
         return
 
     from lib.cuckoo.core.database import Database
-    import hashlib
     import shutil
     from lib.cuckoo.common.constants import CUCKOO_ROOT
-    from modules.reporting.gcs import GCSUploader
 
     main_db = Database()
 
@@ -243,18 +242,30 @@ def gcs_replay(task_range):
 
                 metadata["task_id"] = task_id
 
-                log.info("[GCS REPLAY] Task %d ==> GCS", task_id)
-                gcs_uploader.upload(report_path, task_id, tlp=tlp, metadata=metadata)
-
-                if GCS_DELETE_AFTER_UPLOAD:
-                    try:
-                        shutil.rmtree(report_path)
-                        log.info("Deleted local report for task %d after GCS upload", task_id)
-                    except Exception as e:
-                        log.error("Failed to delete local report %s: %s", report_path, e)
+                gcs_upload_report(report_path, task_id, tlp, metadata=metadata)
 
         except Exception as e:
             log.error("Failed to replay GCS upload for task %d: %s", task_id, e)
+
+
+def gcs_upload_report(report_path, analysis_id, tlp=None, metadata=None):
+    if not GCS_ENABLED:
+        return
+
+    import shutil
+    try:
+        log.info("[GCS] Task %d ==> GCS", analysis_id)
+        gcs_uploader.upload(report_path, analysis_id, tlp=tlp, metadata=metadata)
+
+        if GCS_DELETE_AFTER_UPLOAD:
+            try:
+                shutil.rmtree(report_path)
+                log.info("Deleted local report for task %d after GCS upload", analysis_id)
+            except Exception as e:
+                log.error("Failed to delete local report %s: %s", report_path, e)
+
+    except Exception as e:
+        log.error("Failed to upload report to GCS for task %d: %s", analysis_id, e)
 
 
 def gcs_sync(time_range):

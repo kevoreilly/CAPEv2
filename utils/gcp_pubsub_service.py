@@ -8,7 +8,6 @@ import logging
 import os
 import sys
 import tempfile
-import threading
 import warnings
 
 # Mute Google Cloud's Python version support warning for Python 3.10

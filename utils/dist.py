@@ -62,7 +62,7 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 
 HAVE_GCP = False
 if dist_conf.GCP.enabled:
-    from lib.cuckoo.common.gcp import GCP, HAVE_GCP, GCS_ENABLED, gcs_replay, gcs_sync
+    from lib.cuckoo.common.gcp import GCP, HAVE_GCP, GCS_ENABLED, gcs_replay, gcs_sync, gcs_upload_report, gcs_uploader, GCSUploader
 
     cloud = GCP()
 
@@ -1015,25 +1015,10 @@ class Retriever(threading.Thread):
                             log.exception("Failed to save iocs for parent sample: %s", str(e))
 
                     if GCS_ENABLED:
-                        try:
-                            # We assume report_path is the analysis folder root.
-                            # TLP is not readily available in 't' object without loading report.json or task options.
-                            # We can try to get TLP from task options if available, or just pass None.
-                            tlp = t.tlp
-                            metadata = GCSUploader.parse_custom_string(t.custom)
-                            metadata.update(hashes)
-                            metadata["task_id"] = t.main_task_id
-                            gcs_uploader.upload(report_path, t.main_task_id, tlp=tlp, metadata=metadata)
-
-                            if GCS_DELETE_AFTER_UPLOAD:
-                                try:
-                                    shutil.rmtree(report_path)
-                                    log.info("Deleted local report for task %d after GCS upload", t.main_task_id)
-                                except Exception as e:
-                                    log.error("Failed to delete local report %s: %s", report_path, e)
-
-                        except Exception as e:
-                            log.error("Failed to upload report to GCS for task %d: %s", t.main_task_id, e)
+                        metadata = gcs_uploader.parse_custom_string(t.custom)
+                        metadata.update(hashes)
+                        metadata["task_id"] = t.main_task_id
+                        gcs_upload_report(report_path, t.main_task_id, tlp=t.tlp, metadata=metadata)
 
                     t.retrieved = True
                     t.finished = True

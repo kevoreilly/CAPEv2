@@ -62,7 +62,7 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 
 HAVE_GCP = False
 if dist_conf.GCP.enabled:
-    from lib.cuckoo.common.gcp import GCP, HAVE_GCP, GCS_ENABLED, gcs_replay, gcs_sync, gcs_upload_report, gcs_uploader, GCSUploader
+    from lib.cuckoo.common.gcp import GCP, HAVE_GCP, GCS_ENABLED, gcs_replay, gcs_sync, gcs_upload_report, gcs_uploader
 
     cloud = GCP()
 

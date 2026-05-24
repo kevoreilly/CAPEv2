@@ -2,6 +2,7 @@
 import os
 import logging
 import time
+import shutil
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_exists
@@ -201,7 +202,6 @@ def gcs_replay(task_range):
         return
 
     from lib.cuckoo.core.database import Database
-    import shutil
     from lib.cuckoo.common.constants import CUCKOO_ROOT
 
     main_db = Database()
@@ -252,7 +252,6 @@ def gcs_upload_report(report_path, analysis_id, tlp=None, metadata=None):
     if not GCS_ENABLED:
         return
 
-    import shutil
     try:
         log.info("[GCS] Task %d ==> GCS", analysis_id)
         gcs_uploader.upload(report_path, analysis_id, tlp=tlp, metadata=metadata)

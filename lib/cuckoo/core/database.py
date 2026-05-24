@@ -257,7 +257,6 @@ class _Database(TasksMixIn,
             session.commit()
         except Exception:
             session.rollback()
-            pass
 
     def delete_guac_sessions_for_task(self, task_id):
         """Delete all guac sessions for a task."""
@@ -268,7 +267,6 @@ class _Database(TasksMixIn,
             session.commit()
         except Exception:
             session.rollback()
-            pass
 
 _DATABASE: Optional[_Database] = None
 

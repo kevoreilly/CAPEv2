@@ -55,6 +55,7 @@ from lib.cuckoo.core.database import (
     init_database,
 )
 from lib.cuckoo.core.data.task import Task as MD_Task
+from dev_utils.mongodb import mongo_update_one
 
 dist_conf = Config("distributed")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")

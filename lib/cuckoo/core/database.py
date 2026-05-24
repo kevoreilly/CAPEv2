@@ -230,10 +230,10 @@ class _Database(TasksMixIn,
         try:
             guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
             session.add(guac)
-            # session.commit()
+            session.commit()
             return guac
         except Exception:
-            # session.rollback()
+            session.rollback()
             raise
 
     def get_guac_session(self, token):
@@ -254,9 +254,9 @@ class _Database(TasksMixIn,
         session = self.session()
         try:
             session.query(GuacSession).filter_by(token=str(token)).delete()
-            # session.commit()
+            session.commit()
         except Exception:
-            # session.rollback()
+            session.rollback()
             pass
 
     def delete_guac_sessions_for_task(self, task_id):
@@ -265,9 +265,9 @@ class _Database(TasksMixIn,
         session = self.session()
         try:
             session.query(GuacSession).filter_by(task_id=task_id).delete()
-            # session.commit()
+            session.commit()
         except Exception:
-            # session.rollback()
+            session.rollback()
             pass
 
 _DATABASE: Optional[_Database] = None

@@ -345,6 +345,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     else:
         for entry in retlist:
             if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+                log.warning("Skipping invalid entry in retlist: %s", entry)
                 continue
             filename, platform = entry[0], entry[1]
             magic_type = entry[2] if len(entry) > 2 else ""

@@ -95,7 +95,7 @@ def submit_file(
         if tmp_path and path_exists(tmp_path):
             if os.path.isfile(tmp_path):
                 parent_dir = os.path.dirname(tmp_path)
-                if os.path.basename(parent_dir).startswith(b"upload_"):
+                if os.path.basename(parent_dir).startswith("upload_"):
                     import shutil
                     shutil.rmtree(parent_dir)
                 else:

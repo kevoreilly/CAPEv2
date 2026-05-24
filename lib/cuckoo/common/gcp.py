@@ -4,6 +4,7 @@ import logging
 import time
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     from google.api_core.exceptions import Forbidden
@@ -41,7 +42,6 @@ if GCS_ENABLED:
 
 
 def download_from_gcs(gcs_uri, destination_path, logger=None, client=None):
-# ... (rest of the file content until gcs_replay should be added at the end)
     """
     Downloads a file from GCS.
     gcs_uri: gs://bucket_name/object_name

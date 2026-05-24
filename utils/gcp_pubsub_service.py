@@ -87,6 +87,15 @@ class GCPPubSubService:
         init_database()
         self.db = Database()
 
+        self.cuckoo_cfg = Config()
+        self.tmp_path = os.path.join(self.cuckoo_cfg.cuckoo.get("tmppath", "/tmp"), "cape-pubsub")
+        if not path_exists(self.tmp_path):
+            try:
+                os.makedirs(self.tmp_path)
+            except Exception as e:
+                log.error("Failed to create temporary directory %s: %s", self.tmp_path, e)
+                sys.exit(1)
+
     def process_message(self, message):
         correlation_id = message.message_id
         try:
@@ -142,7 +151,7 @@ class GCPPubSubService:
 
             if not path_exists(local_path):
                 mlog.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
-                fd, temp_path = tempfile.mkstemp(prefix=sample_name)
+                fd, temp_path = tempfile.mkstemp(prefix=sample_name, dir=self.tmp_path)
                 os.close(fd)
                 if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
                     local_path = temp_path

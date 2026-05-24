@@ -1130,11 +1130,11 @@ class TasksMixIn:
         try:
             result = self.session.execute(delete_stmt)
             log.info("Deleted %d tasks matching the criteria.", result.rowcount)
-            self.session.commit()
+            # self.session.commit()
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting tasks: %s", str(e))
-            self.session.rollback()
+            # self.session.rollback()
             return False
 
     # ToDo replace with delete_tasks

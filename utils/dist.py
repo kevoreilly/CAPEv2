@@ -55,14 +55,13 @@ from lib.cuckoo.core.database import (
     init_database,
 )
 from lib.cuckoo.core.data.task import Task as MD_Task
-from dev_utils.mongodb import mongo_update_one
 
 dist_conf = Config("distributed")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")
 
 HAVE_GCP = False
 if dist_conf.GCP.enabled:
-    from lib.cuckoo.common.gcp import GCP, HAVE_GCP
+    from lib.cuckoo.common.gcp import GCP, HAVE_GCP, GCS_ENABLED, gcs_replay, gcs_sync
 
     cloud = GCP()
 
@@ -103,19 +102,6 @@ if dist_conf.distributed.dead_count:
 
 NFS_FETCH = dist_conf.distributed.get("nfs")
 RESTAPI_FETCH = dist_conf.distributed.get("restapi")
-
-# GCS Configuration
-GCS_ENABLED = reporting_conf.gcs.get("enabled", False) if hasattr(reporting_conf, "gcs") else False
-GCS_DELETE_AFTER_UPLOAD = reporting_conf.gcs.get("delete_after_upload", False) if hasattr(reporting_conf, "gcs") else False
-
-if GCS_ENABLED:
-    from modules.reporting.gcs import GCSUploader
-    try:
-        # Initialize without args to load from reporting.conf
-        gcs_uploader = GCSUploader()
-    except Exception as e:
-        print("Failed to initialize GCS Uploader: %s", e)
-        GCS_ENABLED = False
 
 INTERVAL = 10
 
@@ -1946,6 +1932,16 @@ if __name__ == "__main__":
         action="store_true",
         help="Disable retrieval threads (use when running Go Fast-Fetcher)",
     )
+    p.add_argument(
+        "--gcs-replay",
+        action="store",
+        help="Replay GCS upload for a range of tasks (e.g., 1-100 or 1,2,3)",
+    )
+    p.add_argument(
+        "--gcs-sync",
+        action="store",
+        help="Sync GCS with DB for a given time range (e.g., 12h, 1d, 2d)",
+    )
 
     args = p.parse_args()
     log = init_logging(args.debug)
@@ -1961,6 +1957,14 @@ if __name__ == "__main__":
             main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)
             # set reported time
             main_db.set_status(args.force_reported, TASK_REPORTED)
+        sys.exit()
+
+    if args.gcs_replay:
+        gcs_replay(args.gcs_replay)
+        sys.exit()
+
+    if args.gcs_sync:
+        gcs_sync(args.gcs_sync)
         sys.exit()
 
     delete_enabled = args.enable_clean

@@ -75,16 +75,13 @@ except ImportError:
     print("Missed library. Run: poetry install")
     HAVE_YARA = False
 
-HAVE_YARA_X = False
-yara_x = False
-"""
 try:
     import yara_x
 
     HAVE_YARA_X = True
 except ImportError:
-    # print("Missed library. Run: poetry install pip3 install yara-x")
-"""
+    HAVE_YARA_X = False
+    yara_x = None
 
 log = logging.getLogger(__name__)
 
@@ -587,9 +584,15 @@ class File:
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
-        if not HAVE_YARA_X and HAVE_YARA and float(yara.__version__[:-2]) < 4.3:
-            log.error("You using outdated YARA version. run: poetry run extra/yara_installer.sh")
-            return []
+        if not HAVE_YARA_X and HAVE_YARA:
+            try:
+                # Version check: must be >= 4.3
+                v = yara.__version__.split(".")
+                if int(v[0]) < 4 or (int(v[0]) == 4 and int(v[1]) < 3):
+                    log.error("You using outdated YARA version: %s. run: poetry run extra/yara_installer.sh", yara.__version__)
+                    return []
+            except (ValueError, IndexError):
+                log.warning("Could not parse YARA version: %s", yara.__version__)
 
         if not File.yara_initialized:
             File.init_yara()

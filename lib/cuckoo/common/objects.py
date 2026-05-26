@@ -643,7 +643,6 @@ class File:
                             "meta": match.meta,
                             "strings": strings,
                             "addresses": addresses,
-                            "namespace": match.namespace,
                         }
                     )
         except Exception as e:

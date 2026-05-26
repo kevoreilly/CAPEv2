@@ -33,7 +33,7 @@ import utils.profiling as profiling
 from data.safelist.domains import domain_passlist_re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.dns import resolve
+from lib.cuckoo.common.dns import resolve, resolve_doh, set_doh, set_doh_url
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.irc import ircMessage
 from lib.cuckoo.common.network_utils import _norm_domain
@@ -97,6 +97,13 @@ proc_cfg = Config("processing")
 routing_cfg = Config("routing")
 enabled_passlist = proc_cfg.network.dnswhitelist
 passlist_file = proc_cfg.network.dnswhitelist_file
+
+# Enable DNS-over-HTTPS if configured
+if getattr(cfg.processing, "dns_over_https", False):
+    set_doh(True)
+    doh_url = getattr(cfg.processing, "doh_url", "")
+    if doh_url:
+        set_doh_url(doh_url)
 
 enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
@@ -320,7 +327,8 @@ class Pcap:
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
 
-        if cfg.processing.reverse_dns:
+        use_doh = getattr(cfg.processing, "dns_over_https", False)
+        if cfg.processing.reverse_dns and not use_doh:
             d = dns.resolver.Resolver()
             d.timeout = 5.0
             d.lifetime = 5.0
@@ -330,8 +338,13 @@ class Pcap:
             inaddrarpa = ""
             hostname = ""
             if cfg.processing.reverse_dns:
-                with suppress(Exception):
-                    inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text()
+                if use_doh:
+                    with suppress(Exception):
+                        ptr_name = str(from_address(ip))
+                        inaddrarpa = resolve_doh(ptr_name, rdtype="PTR")
+                else:
+                    with suppress(Exception):
+                        inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text().rstrip(".")
             for request in self.dns_requests.values():
                 for answer in request["answers"]:
                     if answer["data"] == ip:

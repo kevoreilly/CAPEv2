@@ -1,4 +1,5 @@
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
+<div class="dynamic-layout-target layout-centered">
 {% if procdump|length > 0 %}
     {% if settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
         <center><a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive with all files"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> Download All Files</a></center>
@@ -10,3 +11,4 @@
 {% else %}
     <div class="alert alert-secondary"><b>Sorry!</b> No process dumps.</div>
 {% endif %}
+</div>

@@ -51,19 +51,33 @@ from lib.common.defines import (
     USER32,
 )
 
-# Fix for 64-bit Python
 KERNEL32.OpenProcess.restype = c_void_p
+KERNEL32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
 KERNEL32.CreateMutexA.restype = c_void_p
 KERNEL32.OpenEventA.restype = c_void_p
 ADVAPI32.OpenSCManagerA.restype = c_void_p
+ADVAPI32.OpenSCManagerA.argtypes = [wintypes.LPCSTR, wintypes.LPCSTR, wintypes.DWORD]
 ADVAPI32.OpenServiceW.restype = c_void_p
+ADVAPI32.OpenServiceW.argtypes = [c_void_p, wintypes.LPCWSTR, wintypes.DWORD]
+ADVAPI32.QueryServiceStatusEx.argtypes = [c_void_p, c_int, c_void_p, wintypes.DWORD, c_void_p]
+ADVAPI32.QueryServiceStatusEx.restype = wintypes.BOOL
+ADVAPI32.CloseServiceHandle.argtypes = [c_void_p]
+ADVAPI32.CloseServiceHandle.restype = wintypes.BOOL
 USER32.GetShellWindow.restype = c_void_p
+USER32.GetWindowThreadProcessId.argtypes = [c_void_p, c_void_p]
+USER32.GetWindowThreadProcessId.restype = wintypes.DWORD
 KERNEL32.OpenThread.restype = c_void_p
 KERNEL32.CreateToolhelp32Snapshot.restype = c_void_p
 KERNEL32.CreateFileW.restype = c_void_p
 KERNEL32.CreateEventW.restype = c_void_p
 KERNEL32.OpenEventW.restype = c_void_p
 KERNEL32.GetCurrentProcess.restype = c_void_p
+KERNEL32.CloseHandle.argtypes = [c_void_p]
+KERNEL32.CloseHandle.restype = wintypes.BOOL
+PSAPI.EnumProcesses.argtypes = [c_void_p, wintypes.DWORD, c_void_p]
+PSAPI.EnumProcesses.restype = wintypes.BOOL
+PSAPI.GetProcessImageFileNameA.argtypes = [c_void_p, c_void_p, wintypes.DWORD]
+PSAPI.GetProcessImageFileNameA.restype = wintypes.DWORD
 
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
@@ -505,19 +519,19 @@ class Analyzer:
                 log.info("Analyzer: Package %s does not specify a %s option", self.package_name, key)
 
         # randomize monitor DLL and loader executable names
-        for source_name, dest_name, default_name in [
-            (MONITOR_DLL, CAPEMON32_NAME, "capemon.dll"),
-            (MONITOR_DLL_64, CAPEMON64_NAME, "capemon_x64.dll"),
-            (LOADER32, LOADER32_NAME, "loader.exe"),
-            (LOADER64, LOADER64_NAME, "loader_x64.exe"),
+        for source_name, dest_name, default_name, source_dir in [
+            (MONITOR_DLL, CAPEMON32_NAME, "capemon.dll", "dll"),
+            (MONITOR_DLL_64, CAPEMON64_NAME, "capemon_x64.dll", "dll"),
+            (LOADER32, LOADER32_NAME, "loader.exe", "bin"),
+            (LOADER64, LOADER64_NAME, "loader_x64.exe", "bin"),
         ]:
             if source_name is not None:
                 if os.path.basename(source_name) != source_name:
                     log.warning("Path traversal attempt detected in source_name: '%s'", source_name)
                     return
-                source_path = os.path.join("dll" if "loader" not in default_name else "bin", source_name)
+                source_path = os.path.join(source_dir, source_name)
             else:
-                source_path = os.path.join("dll" if "loader" not in default_name else "bin", default_name)
+                source_path = os.path.join(source_dir, default_name)
             copy(source_path, dest_name)
 
         si = subprocess.STARTUPINFO()
@@ -980,7 +994,7 @@ class Files:
             log.exception(e)
 
     def delete_file(self, filepath, pid=None):
-        """A file is about to removed and thus should be dumped right away."""
+        """A file is about to be removed and thus should be dumped right away."""
         self.add_pid(filepath, pid)
         self.dump_file(filepath)
 
@@ -1028,7 +1042,7 @@ class ProcessList:
             self.add_pid(pids)
 
     def has_pid(self, pid, notrack=True):
-        """Return whether or not this process identifier being tracked."""
+        """Return whether this process identifier being tracked."""
         pid = int(pid)
         if pid in self.pids:
             return True
@@ -1387,8 +1401,7 @@ class CommandPipeHandler:
             # Add the new process ID to the list of monitored processes.
             self.analyzer.process_list.add_pid(process_id)
 
-            # We're done operating on the processes list,
-            # release the lock
+            # We're done operating on the processes list, release the lock
             self.analyzer.process_lock.release()
 
             proc.inject(interest=filepath, nosleepskip=True)
@@ -1399,7 +1412,6 @@ class CommandPipeHandler:
         """Request for injection into a process."""
         # Parse the process identifier.
         # PROCESS:1:1824,2856
-        process_id = thread_id = None
         # We parse the process ID.
         pid_s, tid_s = data.split(b",", 1)
         process_id = int(pid_s)
@@ -1543,6 +1555,7 @@ class CommandPipeHandler:
         if b"::" not in data:
             log.warning("Received FILE_MOVE command from monitor with an incorrect argument")
             return
+
         pid, paths = data.split(b",", 1)
         old_filepath, new_filepath = paths.split(b"::", 1)
         self.analyzer.files.move_file(old_filepath.decode(), new_filepath.decode(), pid.decode())

@@ -931,6 +931,7 @@ def download_file(**kwargs):
     if not static and "dist_extract" in kwargs["options"]:
         static = True
 
+    warnings = []
     for machine in kwargs.get("task_machines", []):
         if machine == "first":
             machine = None
@@ -962,7 +963,7 @@ def download_file(**kwargs):
             save_script_to_storage(task_ids_new, kwargs)
         except Exception as e:
             log.error("Error saving scripts to storage: %s", e)
-            return "error", {"error": "Error: Storing scripts to tempstorage"}
+            warnings.append({"script": f"{e}"})
 
         if isinstance(kwargs.get("task_ids", False), list):
             kwargs["task_ids"].extend(task_ids_new)
@@ -973,7 +974,8 @@ def download_file(**kwargs):
     if not onesuccess:
         return "error", {"error": f"Provided hash not found on {kwargs['service']}"}
 
-    return "ok", {"task_ids": kwargs["task_ids"], "errors": extra_details.get("errors", [])}
+    errors = extra_details.get("errors", []) + warnings
+    return "ok", {"task_ids": kwargs["task_ids"], "errors": errors}
 
 
 def save_script_to_storage(task_ids: list, kwargs):

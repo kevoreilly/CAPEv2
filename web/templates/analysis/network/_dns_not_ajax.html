@@ -51,10 +51,14 @@
                     </td>
                     {% if settings.NETWORK_PROC_MAP %}
                         <td>
-                            {% if p.process_name %}
-                                {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
+                            {% if p.processes %}
+                                {% for proc in p.processes %}
+                                    <span class="badge bg-warning text-dark">{% if proc.process_name %}{{ proc.process_name }}{% else %}(unknown){% endif %}{% if proc.pid %} ({{ proc.pid }}){% endif %}</span>
+                                {% endfor %}
+                            {% elif p.process_name or p.process_id %}
+                                <span class="badge bg-warning text-dark">{% if p.process_name %}{{ p.process_name }}{% else %}(unknown){% endif %}{% if p.process_id %} ({{ p.process_id }}){% endif %}</span>
                             {% else %}
-                                -
+                                <span class="text-muted">-</span>
                             {% endif %}
                         </td>
                     {% endif %}

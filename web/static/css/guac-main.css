@@ -22,38 +22,23 @@ html, body {
     width: 100%;
 }
 
-.dialog,
-.error {
-    max-width: 640px;
-    background: #fff;
-    padding: 5px;
-    border-radius: 8px;
-    box-shadow: 0 0 10px #000;
-    text-align: left;
-}
-
+/* Error dialog overlay on the canvas */
 .dialog {
     position: absolute;
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 1002;
-}
-
-.inner {
-    background: rgb(245, 245, 245);
-    border-radius: 8px;
-    border: 1px solid rgba(0, 0, 0, 0.9);
-    box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.7);
-    overflow: hidden;
-    padding: 10px;
-    position: relative;
-}
-
-.dialog {
+    max-width: 480px;
+    width: 100%;
     display: none;
 }
 
-.no-close .ui-dialog-titlebar-close {
-    display: none 
+.inner {
+    background: #1e1e2e;
+    border: 1px solid #dc3545;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 0 30px rgba(220, 53, 69, 0.3);
+    color: #fff;
 }

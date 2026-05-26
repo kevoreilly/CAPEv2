@@ -23,6 +23,20 @@
                 {% if detections2pid|get_detection_by_pid:process.pid %}
                     <span class="badge bg-danger ms-2">{{ detections2pid|get_detection_by_pid:process.pid }}</span>
                 {% endif %}
+                {% if process.com_logical_parent_pid %}
+                <div class="text-warning-emphasis small mt-1 ms-1" style="border-left:2px dashed #ffc107;padding-left:6px;">
+                    <i class="fas fa-arrow-up me-1 text-warning"></i>
+                    <span class="text-warning">COM-activated by</span>
+                    <a href="javascript:show_tab('process_{{ process.com_logical_parent_pid }}');" class="text-warning fw-bold">
+                        {{ process.com_logical_parent_name }} ({{ process.com_logical_parent_pid }})
+                    </a>
+                    {% if process.com_progid %}
+                    <span class="text-muted">via <code class="text-warning-emphasis">{{ process.com_progid }}</code></span>
+                    {% elif process.com_clsid %}
+                    <span class="text-muted">via CLSID <code class="text-warning-emphasis">{{ process.com_clsid }}</code></span>
+                    {% endif %}
+                </div>
+                {% endif %}
             </li>
             {% endif %}
         {% endfor %}

@@ -7,7 +7,7 @@ import errno
 import logging
 import socket
 import threading
-from ctypes import addressof, byref, c_uint, create_string_buffer, sizeof
+from ctypes import addressof, byref, c_uint, c_void_p, create_string_buffer, sizeof
 
 from lib.common.defines import (
     ADVAPI32,
@@ -34,6 +34,10 @@ log = logging.getLogger(__name__)
 
 BUFSIZE = 0x10000
 open_handles = set()
+INVALID_HANDLE_VALUE_PTR = c_void_p(-1).value
+
+# Ensure WinAPI returns/accepts proper handle-sized values on 64-bit.
+KERNEL32.CreateNamedPipeW.restype = c_void_p
 
 
 class PipeForwarder(threading.Thread):
@@ -205,7 +209,7 @@ class PipeServer(threading.Thread):
                     byref(sa),  # None,
                 )
 
-            if pipe_handle == INVALID_HANDLE_VALUE:
+            if pipe_handle in (None, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE_PTR):
                 log.warning("Error opening logging pipe server")
                 continue
 

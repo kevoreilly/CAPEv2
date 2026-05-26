@@ -44,42 +44,40 @@
 <script src="{{ STATIC_URL }}js/hexdump.js"></script>
 
 <style type="text/css">
-    .alert-tlp_green {
-        background-color: #008000;
-        padding: 3px;
-        padding-left: 10px;
-        margin-bottom: 3px;
-        text-align: center;
-        font-size: 12;
-    }
-
-    .alert-tlp_amber {
-        background-color: #FFBF00;
-        padding: 3px;
-        padding-left: 10px;
-        margin-bottom: 3px;
-        text-align: center;
-        font-size: 12;
-    }
-
-    .alert-tlp_red {
-        background-color: #FF2626;
-        padding: 3px;
-        padding-left: 10px;
-        margin-bottom: 3px;
-        text-align: center;
-        font-size: 12;
-    }
+.alert-tlp_green {
+  background-color: black;
+  color: rgb(51, 255, 0);
+}
+.alert-tlp_amber {
+  background-color: black;
+  color: rgb(255, 192, 0);
+}
+.alert-tlp_red {
+  background-color: black;
+  color: rgb(255, 43, 43);
+}
 </style>
 {% if analysis.info.tlp %}
-    {% if analysis.info.tlp == "Red" %}
-    <div class="alert alert-tlp_red">
-    {% elif analysis.info.tlp == "Amber" %}
-    <div class="alert alert-tlp_amber">
-    {% elif analysis.info.tlp == "Green" %}
-    <div class="alert alert-tlp_green">
-    {% endif %}
-    </div>
+  <div
+    class="mt-1 mb-1 p-1 fw-bold text-center alert-tlp_{{ analysis.info.tlp|lower }}"
+    aria-controls="alert-tlp-description"
+    aria-expanded="false"
+    data-bs-target="#alert-tlp-description"
+    data-bs-toggle="collapse"
+    role="button"
+  >
+    TLP:{{ analysis.info.tlp|upper }}
+  </div>
+
+  <div class="mt-1 mb-1 p-2 collapse text-center" id="alert-tlp-description">
+  {% if analysis.info.tlp|lower == "red" %}
+    Analysis report (including the sample) MUST NOT be mentioned, shared or exported outside of the system by the users.
+  {% elif analysis.info.tlp|lower == "amber" %}
+    Analysis report (including the sample) MAY be shared on a need-to-know basis within organization.
+  {% elif analysis.info.tlp|lower == "green" %}
+    Analysis report (including the sample) MAY be shared within community but SHOULD NOT be shared via publicly accessible channels.
+  {% endif %}
+  </div>
 {% endif %}
 <ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1 mb-3" id="reportTabs" role="tablist">
     <li class="nav-item">
@@ -166,6 +164,16 @@
             </a>
         </li>
     {% endif %}
+    {% if analysis.has_etw and config.display_etw %}
+        <li class="nav-item">
+            <a class="nav-link" id="etw-tab" href="#etw"
+               data-bs-toggle="tabajax"
+               data-url="/analysis/load_files/{{analysis.info.id}}/etw/"
+               role="tab" aria-controls="etw" aria-selected="false">
+                <i class="fas fa-broadcast-tower me-2"></i>ETW Telemetry
+            </a>
+        </li>
+    {% endif %}
     {% if settings.COMMENTS %}
         <li class="nav-item">
             {% if analysis.info.comments|length %}
@@ -215,6 +223,11 @@
         </li>
     {% endif %}
 </ul>
+<div class="d-flex justify-content-end mb-2">
+    <button id="btn-toggle-layout" class="btn btn-sm btn-outline-info" title="Toggle between Centered and Full Screen layout">
+        <i class="fas fa-expand me-1"></i> Full Screen
+    </button>
+</div>
 <div class="tab-content">
     <div class="tab-pane fade show active" id="overview">
         {% include "analysis/overview/index.html" %}
@@ -279,6 +292,12 @@
             {% include "analysis/eventlogs/index.html" %}
         </div>
     {% endif %}
+    {% if analysis.has_etw and config.display_etw %}
+        <div class="tab-pane fade" id="etw">
+            {# Populated via load_files AJAX (category='etw'). Leaves a
+               minimal placeholder so the tabajax handler has a target. #}
+        </div>
+    {% endif %}
     {% if analysis.backscatter %}
     <div class="tab-pane fade" id="backscatter">
         {% include "analysis/backscatter.html" %}
@@ -295,4 +314,41 @@
     </div>
     {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(function() {
+    const toggleBtn = $('#btn-toggle-layout');
+    if (!toggleBtn.length) return;
+
+    function applyLayout(layout) {
+        const targets = $('.dynamic-layout-target');
+        if (layout === 'fluid') {
+            targets.removeClass('layout-centered');
+            toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
+        } else { // centered
+            targets.addClass('layout-centered');
+            toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
+        }
+    }
+
+    let currentLayout = localStorage.getItem('report-layout') || 'centered';
+    applyLayout(currentLayout);
+
+    toggleBtn.on('click', function() {
+        currentLayout = (currentLayout === 'centered') ? 'fluid' : 'centered';
+        localStorage.setItem('report-layout', currentLayout);
+        applyLayout(currentLayout);
+    });
+
+    // Re-apply layout on AJAX completes (for dynamically loaded tabs)
+    $(document).ajaxComplete(function() {
+        const savedLayout = localStorage.getItem('report-layout') || 'centered';
+        // Update state variable in case it was changed in another tab.
+        currentLayout = savedLayout;
+        applyLayout(savedLayout);
+    });
+});
+</script>
 {% endblock %}

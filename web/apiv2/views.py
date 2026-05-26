@@ -37,7 +37,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
 from lib.cuckoo.common.exceptions import CuckooDemuxError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
-from lib.cuckoo.common.iocs import report_to_iocs, load_iocs
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (
     convert_to_printable,
@@ -271,6 +270,7 @@ def tasks_create_static(request):
             if callback:
                 resp["url"] = ["{0}/submit/status/{1}/".format(apiconf.api.get("url"), task_ids[0])]
         else:
+            resp["data"] = {}
             resp["data"]["message"] = "Task IDs {0} have been submitted".format(", ".join(str(x) for x in task_ids))
             if callback:
                 resp["url"] = []
@@ -333,6 +333,7 @@ def tasks_create_file(request):
             "only_extraction": False,
             "user_id": request.user.id or 0,
         }
+
         task_machines = []
         vm_list = [vm.label for vm in db.list_machines()]
 
@@ -1185,10 +1186,11 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1282,7 +1284,9 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             if make_zip:
                 if os.path.exists(report_path + ".zip"):
                     report_path += ".zip"
-                    resp = StreamingHttpResponse(FileWrapper(open(report_path, "rb"), 8096), content_type="application/zip")
+                    resp = StreamingHttpResponse(
+                        FileWrapper(open(report_path, "rb"), 8096), content_type="application/zip"
+                    )
                     resp["Content-Length"] = os.path.getsize(report_path)
                     resp["Content-Disposition"] = "attachment; filename=" + fname
                 else:
@@ -1366,24 +1370,11 @@ def tasks_iocs(request, task_id, detail=None):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
 
-    data = load_iocs(task_id, detail)
-    if data is not None:
-        # security check
-        mti = data.get("info", {}).get("options", {}).get("main_task_id")
-
-        if mti and task_id != mti:
-            resp = {
-                "error": True,
-                "error_value": f"Data doesn't match task id: {task_id} - main task id: {mti}, report to TCR for investigation.",
-            }
-            return Response(resp)
-        resp = {"error": False, "data": data}
-        return Response(resp)
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1410,15 +1401,196 @@ def tasks_iocs(request, task_id, detail=None):
         resp = {"error": True, "error_value": "Unable to retrieve report to parse for IOCs"}
         return Response(resp)
 
-    # security check
-    mti = buf.get("info", {}).get("options", {}).get("main_task_id")
+    data = {}
+    if "tr_extractor" in buf:
+        data["tr_extractor"] = buf["tr_extractor"]
+    if "certs" in buf:
+        data["certs"] = buf["certs"]
+    data["detections"] = buf.get("detections")
+    data["malscore"] = buf["malscore"]
+    data["info"] = buf["info"]
+    del data["info"]["custom"]
+    # The machines key won't exist in cases where an x64 binary is submitted
+    # when there are no x64 machines.
+    if data.get("info", {}).get("machine", {}) and isinstance(data["info"]["machine"], dict):
+        del data["info"]["machine"]["manager"]
+        del data["info"]["machine"]["label"]
+        del data["info"]["machine"]["id"]
+    data["signatures"] = []
+    """
+    # Grab sigs
+    for sig in buf["signatures"]:
+        del sig["alert"]
+        data["signatures"].append(sig)
+    """
+    # Grab target file info
+    if "target" in list(buf.keys()):
+        data["target"] = buf["target"]
+        if data["target"]["category"] == "file":
+            del data["target"]["file"]["path"]
+            del data["target"]["file"]["guest_paths"]
 
-    print("Task id", mti, task_id)
-    if mti and task_id != mti:
-        resp = {"error": True, "error_value": "Data if not matching task id, report to TCR for investigation."}
+    data["network"] = {}
+    if "network" in list(buf.keys()) and buf["network"]:
+        data["network"]["traffic"] = {}
+        for netitem in ("tcp", "udp", "irc", "http", "dns", "smtp", "hosts", "domains"):
+            if netitem in buf["network"]:
+                data["network"]["traffic"][netitem + "_count"] = len(buf["network"][netitem])
+            else:
+                data["network"]["traffic"][netitem + "_count"] = 0
+        data["network"]["traffic"]["http"] = buf["network"]["http"]
+        data["network"]["hosts"] = buf["network"]["hosts"]
+        data["network"]["domains"] = buf["network"]["domains"]
+    data["network"]["ids"] = {}
+    if "suricata" in list(buf.keys()) and isinstance(buf["suricata"], dict):
+        data["network"]["ids"]["totalalerts"] = len(buf["suricata"]["alerts"])
+        data["network"]["ids"]["alerts"] = buf["suricata"]["alerts"]
+        data["network"]["ids"]["http"] = buf["suricata"]["http"]
+        data["network"]["ids"]["totalfiles"] = len(buf["suricata"]["files"])
+        data["network"]["ids"]["files"] = []
+        for surifile in buf["suricata"]["files"]:
+            if "file_info" in list(surifile.keys()):
+                tmpfile = surifile
+                tmpfile["sha1"] = surifile["file_info"]["sha1"]
+                tmpfile["md5"] = surifile["file_info"]["md5"]
+                tmpfile["sha256"] = surifile["file_info"]["sha256"]
+                tmpfile["sha512"] = surifile["file_info"]["sha512"]
+                del tmpfile["file_info"]
+                data["network"]["ids"]["files"].append(tmpfile)
+
+    data["static"] = {}
+    if "static" in list(buf.keys()):
+        pe = {}
+        pdf = {}
+        office = {}
+        if buf["static"].get("peid_signatures"):
+            pe["peid_signatures"] = buf["static"]["peid_signatures"]
+        if buf["static"].get("pe_timestamp"):
+            pe["pe_timestamp"] = buf["static"]["pe_timestamp"]
+        if buf["static"].get("pe_imphash"):
+            pe["pe_imphash"] = buf["static"]["pe_imphash"]
+        if buf["static"].get("pe_icon_hash"):
+            pe["pe_icon_hash"] = buf["static"]["pe_icon_hash"]
+        if buf["static"].get("pe_icon_fuzzy"):
+            pe["pe_icon_fuzzy"] = buf["static"]["pe_icon_fuzzy"]
+        if buf["static"].get("Objects"):
+            pdf["objects"] = len(buf["static"]["Objects"])
+        if buf["static"].get("Info"):
+            if "PDF Header" in list(buf["static"]["Info"].keys()):
+                pdf["header"] = buf["static"]["Info"]["PDF Header"]
+        if "Streams" in buf["static"]:
+            if "/Page" in list(buf["static"]["Streams"].keys()):
+                pdf["pages"] = buf["static"]["Streams"]["/Page"]
+        if buf["static"].get("Macro"):
+            if "Analysis" in buf["static"]["Macro"]:
+                office["signatures"] = {}
+                for item in buf["static"]["Macro"]["Analysis"]:
+                    office["signatures"][item] = []
+                    for indicator, desc in buf["static"]["Macro"]["Analysis"][item]:
+                        office["signatures"][item].append((indicator, desc))
+            if "Code" in buf["static"]["Macro"]:
+                office["macros"] = len(buf["static"]["Macro"]["Code"])
+        data["static"]["pe"] = pe
+        data["static"]["pdf"] = pdf
+        data["static"]["office"] = office
+
+    data["files"] = {}
+    data["files"]["modified"] = []
+    data["files"]["deleted"] = []
+    data["registry"] = {}
+    data["registry"]["modified"] = []
+    data["registry"]["deleted"] = []
+    data["mutexes"] = []
+    data["executed_commands"] = []
+    data["dropped"] = []
+
+    if "behavior" in buf and "summary" in buf["behavior"]:
+        if "write_files" in buf["behavior"]["summary"]:
+            data["files"]["modified"] = buf["behavior"]["summary"]["write_files"]
+        if "delete_files" in buf["behavior"]["summary"]:
+            data["files"]["deleted"] = buf["behavior"]["summary"]["delete_files"]
+        if "write_keys" in buf["behavior"]["summary"]:
+            data["registry"]["modified"] = buf["behavior"]["summary"]["write_keys"]
+        if "delete_keys" in buf["behavior"]["summary"]:
+            data["registry"]["deleted"] = buf["behavior"]["summary"]["delete_keys"]
+        if "mutexes" in buf["behavior"]["summary"]:
+            data["mutexes"] = buf["behavior"]["summary"]["mutexes"]
+        if "executed_commands" in buf["behavior"]["summary"]:
+            data["executed_commands"] = buf["behavior"]["summary"]["executed_commands"]
+
+    data["process_tree"] = {}
+    if "behavior" in buf and "processtree" in buf["behavior"] and len(buf["behavior"]["processtree"]) > 0:
+        data["process_tree"] = {
+            "pid": buf["behavior"]["processtree"][0]["pid"],
+            "name": buf["behavior"]["processtree"][0]["name"],
+            "spawned_processes": [
+                createProcessTreeNode(child_process) for child_process in buf["behavior"]["processtree"][0]["children"]
+            ],
+        }
+    if "dropped" in buf:
+        for entry in buf["dropped"]:
+            tmpdict = {}
+            if entry.get("clamav", False):
+                tmpdict["clamav"] = entry["clamav"]
+            if entry.get("sha256"):
+                tmpdict["sha256"] = entry["sha256"]
+            if entry.get("md5"):
+                tmpdict["md5"] = entry["md5"]
+            if entry.get("yara"):
+                tmpdict["yara"] = entry["yara"]
+            if entry.get("trid"):
+                tmpdict["trid"] = entry["trid"]
+            if entry.get("type"):
+                tmpdict["type"] = entry["type"]
+            if entry.get("guest_paths"):
+                tmpdict["guest_paths"] = entry["guest_paths"]
+            data["dropped"].append(tmpdict)
+
+    if not detail:
+        resp = {"error": False, "data": data}
         return Response(resp)
 
-    data = report_to_iocs(buf, detail)
+    if "static" in buf:
+        if buf["static"].get("pe_versioninfo"):
+            data["static"]["pe"]["pe_versioninfo"] = buf["static"]["pe_versioninfo"]
+
+    if "behavior" in buf and "summary" in buf["behavior"]:
+        if "read_files" in buf["behavior"]["summary"]:
+            data["files"]["read"] = buf["behavior"]["summary"]["read_files"]
+        if "read_keys" in buf["behavior"]["summary"]:
+            data["registry"]["read"] = buf["behavior"]["summary"]["read_keys"]
+        if "resolved_apis" in buf["behavior"]["summary"]:
+            data["resolved_apis"] = buf["behavior"]["summary"]["resolved_apis"]
+
+    if buf["network"] and "http" in buf["network"]:
+        data["network"]["http"] = {}
+        for req in buf["network"]["http"]:
+            if "host" in req:
+                data["network"]["http"]["host"] = req["host"]
+            else:
+                data["network"]["http"]["host"] = ""
+            if "data" in req and "\r\n" in req["data"]:
+                data["network"]["http"]["data"] = req["data"].split("\r\n", 1)[0]
+            else:
+                data["network"]["http"]["data"] = ""
+            if "method" in req:
+                data["network"]["http"]["method"] = req["method"]
+            else:
+                data["network"]["http"]["method"] = ""
+                if "user-agent" in req:
+                    data["network"]["http"]["ua"] = req["user-agent"]
+                else:
+                    data["network"]["http"]["ua"] = ""
+
+    if "strings" in list(buf.keys()):
+        data["strings"] = buf["strings"]
+    else:
+        data["strings"] = ["No Strings"]
+
+    if "trid" in list(buf.keys()):
+        data["trid"] = buf["trid"]
+    else:
+        data["trid"] = ["None matched"]
     resp = {"error": False, "data": data}
     return Response(resp)
 
@@ -1432,10 +1604,11 @@ def tasks_screenshot(request, task_id, screenshot="all"):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1484,10 +1657,11 @@ def tasks_pcap(request, task_id):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1773,10 +1947,11 @@ def tasks_evtx(request, task_id):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1805,7 +1980,7 @@ def tasks_mitmdump(request, task_id):
         return Response(resp)
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
@@ -1832,10 +2007,11 @@ def tasks_dropped(request, task_id):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -1980,10 +2156,11 @@ def tasks_surifile(request, task_id):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2044,10 +2221,11 @@ def tasks_procmemory(request, task_id, pid="all"):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2121,10 +2299,11 @@ def tasks_fullmemory(request, task_id):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2167,7 +2346,7 @@ def file(request, stype, value):
     elif stype == "task":
         check = validate_task(value)
         if check["error"]:
-            return Response({"error": True, "error_value": "Task has a TLP of RED"})
+            return Response(check)
 
         sid = db.view_task(value).to_dict()["sample_id"]
         file_hash = db.view_sample(sid).to_dict()["sha256"]
@@ -2368,10 +2547,11 @@ def tasks_payloadfiles(request, task_id):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2404,10 +2584,11 @@ def tasks_procdumpfiles(request, task_id):
 
     check = validate_task(task_id)
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2440,10 +2621,11 @@ def tasks_config(request, task_id, cape_name=False):
     check = validate_task(task_id)
 
     if check["error"]:
-        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+        return Response(check)
 
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
 
     rtid = check.get("rtid", 0)
     if rtid:
@@ -2931,4 +3113,3 @@ def yara_uploader(request):
 
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=500)
-

@@ -1,0 +1,199 @@
+<div id="session-stats-container" class="card border-0 shadow-sm bg-dark">
+    <div class="card-body py-3">
+        <div class="row align-items-center">
+
+            <div class="col-md-2">
+                <h4 class="mb-0 fw-bold">Audit Session #{{ session.id }}</h4>
+                <small class="text-muted">
+                    <i class="far fa-calendar-alt me-1"></i>{{ session.added_on|date:"Y-m-d H:i" }}
+                </small>
+            </div>
+
+            <div class="col-md-3">
+                <div class="mb-0 fw-bold">Session Tests</div>
+
+                <div class="d-flex rounded bg-secondary overflow-hidden shadow-sm">
+                    <div class="flex-fill text-center py-1 border-end border-dark">
+                        <div class="text-uppercase fw-bold mb-0 {% if stats.tests.unqueued > 0 %}text-light{% else %}text-muted opacity-25{% endif %}"
+                             style="font-size: 0.55rem; letter-spacing: 0.05rem;">Unqueued</div>
+                        <div class="small fw-bold {% if stats.tests.unqueued > 0 %}text-light{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.tests.unqueued }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 border-end border-dark">
+                        <div class="text-uppercase fw-bold mb-0 {% if stats.tests.queued > 0 %}text-white-50{% else %}text-muted opacity-25{% endif %}"
+                             style="font-size: 0.55rem; letter-spacing: 0.05rem;">Queued</div>
+                        <div class="small fw-bold {% if stats.tests.queued > 0 %}text-white-50{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.tests.queued }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 border-end border-dark {% if stats.tests.running > 0 %}bg-info bg-opacity-10{% endif %}">
+                        <div class="{% if stats.tests.running > 0 %}text-info{% else %}text-muted opacity-25{% endif %} text-uppercase fw-bold mb-0"
+                             style="font-size: 0.55rem; letter-spacing: 0.05rem;">Running</div>
+                        <div class="small fw-bold {% if stats.tests.running > 0 %}text-info{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.tests.running }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 border-end border-dark {% if stats.tests.complete > 0 %}bg-success bg-opacity-10{% endif %}">
+                        <div class="{% if stats.tests.complete > 0 %}text-success{% else %}text-muted opacity-25{% endif %} text-uppercase fw-bold mb-0"
+                             style="font-size: 0.55rem; letter-spacing: 0.05rem;">Done</div>
+                        <div class="small fw-bold {% if stats.tests.complete > 0 %}text-success{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.tests.complete }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 {% if stats.tests.failed > 0 %}bg-danger bg-opacity-10{% endif %}">
+                        <div class="{% if stats.tests.failed > 0 %}text-danger{% else %}text-muted opacity-25{% endif %} text-uppercase fw-bold mb-0"
+                             style="font-size: 0.55rem; letter-spacing: 0.05rem;">Error</div>
+                        <div class="small fw-bold {% if stats.tests.failed > 0 %}text-danger{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.tests.failed }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="mb-0 fw-bold">Objective Outcomes</div>
+                <div class="d-flex rounded bg-secondary overflow-hidden shadow-sm">
+
+                    <div class="flex-fill text-center py-1 border-end border-dark">
+                        <div class="{% if stats.objectives.untested > 0 %}text-light{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Untested</div>
+                        <div class="small fw-bold {% if stats.objectives.untested > 0 %}text-light{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.objectives.untested }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 border-end border-dark {% if stats.objectives.skipped > 0 %}bg-light bg-opacity-10{% endif %}">
+                        <div class="{% if stats.objectives.skipped > 0 %}text-light{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Skipped</div>
+                        <div class="small fw-bold {% if stats.objectives.skipped > 0 %}text-light{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.objectives.skipped }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 border-end border-dark {% if stats.objectives.error > 0 %}bg-danger bg-opacity-10{% endif %}">
+                        <div class="{% if stats.objectives.error > 0 %}text-danger{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Error</div>
+                        <div class="small fw-bold {% if stats.objectives.error > 0 %}text-danger{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.objectives.error }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 border-end border-dark {% if stats.objectives.info > 0 %}bg-info bg-opacity-10{% endif %}">
+                        <div class="{% if stats.objectives.info > 0 %}text-info{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Info</div>
+                        <div class="small fw-bold {% if stats.objectives.info > 0 %}text-info{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.objectives.info }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 border-end border-dark {% if stats.objectives.success > 0 %}bg-success bg-opacity-10{% endif %}">
+                        <div class="{% if stats.objectives.success > 0 %}text-success{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Success</div>
+                        <div class="small fw-bold {% if stats.objectives.success > 0 %}text-success{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.objectives.success }}
+                        </div>
+                    </div>
+
+                    <div class="flex-fill text-center py-1 {% if stats.objectives.failure > 0 %}bg-warning bg-opacity-10{% endif %}">
+                        <div class="{% if stats.objectives.failure > 0 %}text-warning{% else %}text-muted opacity-50{% endif %} text-uppercase fw-bold mb-0" style="font-size: 0.55rem; letter-spacing: 0.05rem;">Failure</div>
+                        <div class="small fw-bold {% if stats.objectives.failure > 0 %}text-warning{% else %}text-muted opacity-50{% endif %}">
+                            {{ stats.objectives.failure }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="col-md-3 text-end">
+
+                <div class="d-flex justify-content-end gap-2 ">
+
+                    <button style="display:none" id="btn-refresh"
+                            class="btn btn-outline-secondary text-secondary px-3 rounded me-4">
+                        <i class="fas fa-refresh me-1"></i> Refresh
+                    </button>
+
+                    <button id="btn-queue-all"
+                            class="btn btn-outline-info text-info px-3 rounded {% if stats.tests.unqueued == 0 %}d-none{% endif %}"
+                            onclick="queue_all(this, '{{ session.id }}')">
+                        <i class="fas fa-play me-1"></i> Queue All
+                    </button>
+                    <button id="btn-clear-queue"
+                            class="btn btn-outline-danger px-3 rounded {% if stats.tests.queued == 0 %}d-none{% endif %}"
+                            onclick="unqueue_all(this, '{{ session.id }}')">
+                        <i class="fas fa-stop me-1"></i> Clear
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function queue_all(btn, session_id) {
+        const url = "{% url 'queue_all_tests' 0 %}".replace('0', session_id);
+
+        btn.disabled = true;
+        originalContent = btn.innerHTML
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Unqueueing...';
+
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${response.status} - ${errorText}`);
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not queue tests: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+        await window.triggerSessionStatusUpdate()
+
+    }
+
+    async function unqueue_all(btn, session_id) {
+        const url = "{% url 'unqueue_all_tests' 0 %}".replace('0', session_id);
+
+        btn.disabled = true;
+        originalContent = btn.innerHTML
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-1"></i>Queuing...';
+
+
+        try {
+            // 2. Execute the background request
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'X-Requested-With': 'XMLHttpRequest' // Helps Django identify AJAX
+                }
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`Network response was not ok: ${response.status} - ${errorText}`);
+            }
+            // don't worry about success, refresh loop will handle state changes
+
+        } catch (error) {
+            console.error('Error:', error);
+            alert('Could not unqueue tests: ' + error.message);
+
+            // Reset button on error
+            btn.disabled = false;
+            btn.innerHTML = originalContent;
+        }
+        await window.triggerSessionStatusUpdate()
+    }
+</script>

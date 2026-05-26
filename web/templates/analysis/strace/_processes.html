@@ -96,8 +96,10 @@
             else {
                 $("#process_" + pid + " div.pagination ul").html(paginationbar(0, 0));
                 $("#process_" + pid + " div.pagination a").click(function (e) {
+                    e.preventDefault();
                     var t = $(e.target);
-                    load_chunk(t.parents("#process_" + pid).data("pid"), parseInt(t.text()));
+                    $(`#process_${pid} #top_pagination`)[0].scrollIntoView();
+                    load_chunk(pid, parseInt(t.text()));
                 });
             }
         });

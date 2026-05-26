@@ -429,7 +429,7 @@
                                                 </div>
                                                 <!-- Debug Options -->
                                                 <div class="tab-pane fade" id="lin-cat-debug" role="tabpanel">
-                                                     <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                                                         <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
                                                             <thead>
                                                                 <tr>
@@ -438,9 +438,13 @@
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                 <tr>
+                                                                <tr>
                                                                     <td class="text-end"><code>debug</code></td>
                                                                     <td>Enable debugging features</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>minproc</code></td>
+                                                                    <td>Run minimal processing modules and skip signatures</td>
                                                                 </tr>
                                                             </tbody>
                                                         </table>
@@ -563,6 +567,10 @@
                                                                 <tr>
                                                                     <td class="text-end"><code>url</code></td>
                                                                     <td>URL for started browser</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>background_processes</code></td>
+                                                                    <td>Number of hidden background processes to launch (default 1, 0 disables, max 10)</td>
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="text-end"><code>servicedesc</code></td>
@@ -861,6 +869,10 @@
                                                                     <td>1 = Report critical exceptions, 2 = All exceptions</td>
                                                                 </tr>
                                                                 <tr>
+                                                                    <td class="text-end"><code>minproc</code></td>
+                                                                    <td>Run minimal processing modules and skip signatures</td>
+                                                                </tr>
+                                                                <tr>
                                                                     <td class="text-end"><code>bp0...bp3</code></td>
                                                                     <td>Hardware breakpoints (Address or Module:Export)</td>
                                                                 </tr>
@@ -922,9 +934,9 @@
                                     <label for="form_priority" class="text-white-50">Priority</label>
                                     <select class="form-select border-secondary" id="form_priority"
                                         name="priority">
-                                        <option value="1">Low</option>
-                                        <option value="2" selected>Medium</option>
-                                        <option value="3">High</option>
+                                        <option value="1" data-color="#0dcaf0" style="color: #0dcaf0;">Low</option>
+                                        <option value="2" selected data-color="#ffc107" style="color: #ffc107;">Medium</option>
+                                        <option value="3" data-color="#dc3545" style="color: #dc3545;">High</option>
                                     </select>
                                 </div>
                                 {% if config.tlp %}
@@ -932,10 +944,10 @@
                                     <label for="form_tlp" class="text-white-50">TLP</label>
                                     <select class="form-select border-secondary" id="form_tlp"
                                         name="tlp">
-                                        <option value="" selected>White</option>
-                                        <option value="Green">Green</option>
-                                        <option value="Amber">Amber</option>
-                                        <option value="Red">Red</option>
+                                        <option value="" selected data-color="#ffffff" style="color: #ffffff;">White</option>
+                                        <option value="Green" data-color="#198754" style="color: #198754;">Green</option>
+                                        <option value="Amber" data-color="#ffc107" style="color: #ffc107;">Amber</option>
+                                        <option value="Red" data-color="#dc3545" style="color: #dc3545;">Red</option>
                                     </select>
                                 </div>
                                 {% endif %}
@@ -1177,6 +1189,24 @@
             };
             interactive.addEventListener("change", syncManualCheckbox);
         }
+
+        // Color sync for Priority and TLP
+        function updateSelectColor(selectId) {
+            const select = $(selectId);
+            const selectedOption = select.find('option:selected');
+            const color = selectedOption.data('color');
+            if (color) {
+                select.css('color', color);
+            }
+        }
+
+        $('#form_priority, #form_tlp').on('change', function() {
+            updateSelectColor('#' + $(this).attr('id'));
+        });
+
+        // Initialize colors
+        updateSelectColor('#form_priority');
+        updateSelectColor('#form_tlp');
     });
 </script>
 {% endblock %}

@@ -14,7 +14,7 @@
             </thead>
             <tbody>
                 <tr>
-                    {% for category, ttps in results.mitre_attck.items %}
+                    {% for category, ttps in results.mitre_attck.items() %}
                     <td>
                         <ul style="padding-left: 1rem">
                             {% for ttp in ttps %}

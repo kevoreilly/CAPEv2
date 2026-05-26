@@ -1,0 +1,145 @@
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-10" style="max-width:800px;">
+            <div class="shadow-sm border rounded overflow-hidden">
+                <div class="bg-secondary px-3 py-2 border-bottom d-flex justify-content-between align-items-center">
+                    <span class="small text-white font-monospace">
+                        <i class="fas fa-file-code me-2"></i>task_config.json
+                    </span>
+                    <div>
+                        <span id="edit-msg-{{ test.id }}" class="ms-2 px-2 text-warning d-none" style="font-size: 0.75rem;">
+                            Cannot edit while auto-refreshing
+                        </span>
+                        <button class="btn btn-sm btn-outline-light py-0 me-2" onclick="toggleConfigEdit('{{ test.id }}')" id="edit-btn-{{ test.id }}">
+                            <i class="fas fa-edit me-1"></i>Edit
+                        </button>
+                        <button class="btn btn-sm btn-link text-white p-0" onclick="copyToClipboard('{{ config_pretty|escapejs }}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="view-mode-{{ test.id }}" class="p-3" style="background-color: #1e1e1e; max-height: 400px; overflow-y: auto;">
+                    <pre class="m-0"><code class="confjsoncode" style="color: #dcdcdc; font-family: 'Consolas', 'Monaco', monospace; font-size: 0.9rem; line-height: 1.5;">{{ config_pretty }}</code></pre>
+                </div>
+
+                <div id="edit-mode-{{ test.id }}" class="p-3 d-none" style="background-color: #1e1e1e;">
+                    <form onsubmit="saveTaskConfig(event, '{{ test.id }}')" method="POST">
+                        {% csrf_token %}
+                        <textarea name="task_config" class="form-control font-monospace mb-2 confjsoncode"
+                                  style="background: #252526; color: #dcdcdc; border: 1px solid #333; height: 300px; font-size: 0.9rem;">{{ config_pretty }}</textarea>
+                        <div class="d-flex justify-content-end">
+                            <button type="button" class="btn btn-sm btn-outline-danger me-2" onclick="toggleConfigEdit('{{ test.id }}')">Cancel</button>
+                            <button type="submit" class="btn btn-sm btn-primary">Save Changes</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="bg-dark px-3 py-2 border-top">
+                    <p class="mb-0 small text-muted">
+                        <i class="fas fa-info-circle me-1 text-warning"></i>
+                        <strong>Note:</strong> This is the currently stored configuration.
+                        Edits will not be reflected in previous tasks.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    function toggleConfigEdit(testId) {
+        if (window.DASHBOARD_STATE && window.DASHBOARD_STATE.isAutoRefreshing) {
+            const msg = document.getElementById(`edit-msg-${testId}`);
+
+            if (msg) {
+                // Show the message
+                msg.classList.remove('d-none');
+
+                // Shake effect (optional but nice)
+                msg.style.animation = "shake 0.3s";
+
+                // Hide it automatically after 2 seconds
+                setTimeout(() => {
+                    msg.classList.add('d-none');
+                    msg.style.animation = "";
+                }, 2000);
+            }
+            return;
+        }
+        const viewDiv = document.getElementById(`view-mode-${testId}`);
+        const editDiv = document.getElementById(`edit-mode-${testId}`);
+        const editBtn = document.getElementById(`edit-btn-${testId}`);
+
+        if (viewDiv.classList.contains('d-none')) {
+            viewDiv.classList.remove('d-none');
+            editDiv.classList.add('d-none');
+            editBtn.innerHTML = '<i class="fas fa-edit me-1"></i>Edit';
+        } else {
+            viewDiv.classList.add('d-none');
+            editDiv.classList.remove('d-none');
+            editBtn.innerHTML = '<i class="fas fa-eye me-1"></i>View';
+        }
+    }
+
+    function copyToClipboard(text) {
+        // Try the modern way first (requires HTTPS)
+        if (navigator.clipboard && window.isSecureContext) {
+            navigator.clipboard.writeText(text)
+        } else {
+            // Fallback for HTTP: Create a hidden textarea, select it, and copy
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+
+            // Ensure the textarea is out of the viewport
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            textArea.style.top = "-999999px";
+            document.body.appendChild(textArea);
+
+            textArea.focus();
+            textArea.select();
+
+            try {
+                document.execCommand('copy');
+            } catch (err) {
+                console.error('Fallback HTTP cliipboard copy failed', err);
+            }
+
+            document.body.removeChild(textArea);
+        }
+    }
+
+    function saveTaskConfig(event, testId) {
+        event.preventDefault(); // This stops the browser from redirecting!
+
+        const form = event.target;
+        const formData = new FormData(form);
+        const url = `{% url 'update_task_config' 0 %}`.replace('0', testId);
+
+        fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest', // Good practice for Django views
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success === true) {
+                    alert('Config saved successfully!');
+                    toggleConfigEdit(testId); // Close the edit mode automatically
+                    const viewDiv = document.getElementById(`view-mode-${testId}`);
+                    const editDiv = document.getElementById(`edit-mode-${testId}`);
+                    const elements = document.querySelectorAll('.confjsoncode');
+                    elements.forEach(el => {
+                        el.textContent = data.config_pretty
+                    });                    
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown error occurred'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Failed to save. Check the console.');
+            });
+    }
+</script>

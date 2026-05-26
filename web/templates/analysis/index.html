@@ -80,6 +80,9 @@
                             {% if config.display_task_tags %}
                             <th width="7%" class="border-top-0">Task tags</th>
                             {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                            <th width="7%" class="border-top-0">Submitter</th>
+                            {% endif %}
 
                             {% if config.moloch %}
                             <th width="4%" class="border-top-0">Moloch</th>
@@ -103,6 +106,9 @@
                             {% if config.display_clamav %}
                             <th width="5%" class="border-top-0">ClamAV</th>
                             {% endif %}
+                            {% if config.display_cape_yara %}
+                            <th width="8%" class="border-top-0">YARA</th>
+                            {% endif %}
                             <th width="7%" class="border-top-0 text-end">Status</th>
                         </tr>
                     </thead>
@@ -114,6 +120,8 @@
                                 <a href="{% url "report" analysis.id %}" class="text-white font-weight-bold">{{analysis.id}}</a>
                                 {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}" class="text-warning font-weight-bold">{{analysis.id}}</a>
+                                {% elif analysis.status == "failed_processing" %}
+                                <a href="{% url "failed_processing" analysis.id %}" class="text-danger font-weight-bold">{{analysis.id}}</a>
                                 {% else %}
                                 <span class="text-white-50">{{analysis.id}}</span>
                                 {% endif %}
@@ -133,6 +141,8 @@
                                 <a href="{% url "report" analysis.id %}" class="text-light">{{analysis.filename}}</a>
                                 {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}" class="text-warning">{{analysis.filename}}</a>
+                                {% elif analysis.status == "failed_processing" %}
+                                <a href="{% url "failed_processing" analysis.id %}" class="text-danger">{{analysis.filename}}</a>
                                 {% else %}
                                 {{analysis.filename}}
                                 {% endif %}
@@ -144,6 +154,8 @@
                                     <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.md5}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.md5}}</span>
                                     {% endif %}
@@ -155,6 +167,8 @@
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}"
                                         class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.sha256}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.sha256}}</span>
                                     {% endif %}
@@ -175,8 +189,15 @@
                             </td>
                             {% if config.display_task_tags %}
                             <td>
-                                {% if analysis.user_task_tags %}
-                                <span class="badge bg-info">{{analysis.user_task_tags}}</span>
+                                {% for t in analysis.user_task_tags %}<a href="/analysis/search/tags_tasks:{{t}}" class="badge bg-danger me-1 text-decoration-none">{{t}}</a>{% endfor %}
+                            </td>
+                            {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                            <td>
+                                {% if analysis.submitter_username %}
+                                <span class="badge bg-secondary"><i class="fas fa-user me-1"></i>{{analysis.submitter_username}}</span>
+                                {% else %}
+                                <span class="text-white-50">-</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -254,11 +275,24 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <td>
-                                {% if analysis.clamav %}
-                                {{analysis.clamav}}
-                                {% else %}
-                                -
-                                {% endif %}
+                                <span class="font-monospace">
+                                    {% if analysis.clamav %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.clamav|join:', '}}">{{analysis.clamav|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <td>
+                                <span class="font-monospace">
+                                    {% if analysis.cape_yara %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.cape_yara|join:', '}}">{{analysis.cape_yara|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
                             </td>
                             {% endif %}
                             <td class="text-end">
@@ -276,6 +310,8 @@
                                 {% else %}
                                 <span class="badge bg-success">reported</span>
                                 {% endif%}
+                                {% elif analysis.status == "failed_processing" %}
+                                <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% endif %}
@@ -357,6 +393,9 @@
                             {% if config.display_task_tags %}
                             <th width="7%" class="border-top-0">Task tags</th>
                             {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                            <th width="7%" class="border-top-0">Submitter</th>
+                            {% endif %}
                             {% if config.moloch %}
                             <th width="4%" class="border-top-0">Moloch</th>
                             {% endif %}
@@ -371,6 +410,9 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <th width="5%" class="border-top-0">ClamAV</th>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <th width="8%" class="border-top-0">YARA</th>
                             {% endif %}
                             <th width="6%" class="border-top-0 text-end">Status</th>
                         </tr>
@@ -401,6 +443,8 @@
                                     <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.md5}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.md5}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.md5}}</span>
                                     {% endif %}
@@ -411,6 +455,8 @@
                                     <a href="{% url "report" analysis.id %}" class="text-light text-monospace">{{analysis.sample.sha256}}</a>
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}" class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.sha256}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.sha256}}</span>
                                     {% endif %}
@@ -432,8 +478,15 @@
 
                             {% if config.display_task_tags %}
                             <td>
-                                {% if analysis.user_task_tags %}
-                                <span class="badge bg-info">{{analysis.user_task_tags}}</span>
+                                {% for t in analysis.user_task_tags %}<a href="/analysis/search/tags_tasks:{{t}}" class="badge bg-danger me-1 text-decoration-none">{{t}}</a>{% endfor %}
+                            </td>
+                            {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                            <td>
+                                {% if analysis.submitter_username %}
+                                <span class="badge bg-secondary"><i class="fas fa-user me-1"></i>{{analysis.submitter_username}}</span>
+                                {% else %}
+                                <span class="text-white-50">-</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -480,11 +533,24 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <td>
-                                {% if analysis.clamav %}
-                                {{analysis.clamav}}
-                                {% else %}
-                                -
-                                {% endif %}
+                                <span class="font-monospace">
+                                    {% if analysis.clamav %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.clamav|join:', '}}">{{analysis.clamav|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <td>
+                                <span class="font-monospace">
+                                    {% if analysis.cape_yara %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.cape_yara|join:', '}}">{{analysis.cape_yara|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
                             </td>
                             {% endif %}
                             <td class="text-end">
@@ -502,6 +568,8 @@
                                 {% else %}
                                 <span class="badge bg-success">reported</span>
                                 {% endif%}
+                                {% elif analysis.status == "failed_processing" %}
+                                <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% endif %}
@@ -596,6 +664,9 @@
                             {% if config.display_clamav %}
                             <th width="10%" class="border-top-0">ClamAV</th>
                             {% endif %}
+                            {% if config.display_cape_yara %}
+                            <th width="8%" class="border-top-0">YARA</th>
+                            {% endif %}
                             <th width="5%" class="border-top-0 text-end">Status</th>
                             {% else %}
                             <th width="5%" class="border-top-0">ID</th>
@@ -641,6 +712,8 @@
                                 {% elif analysis.status in "running,completed,distributed" %}
                                 <a href="{% url "submission_status" analysis.id %}"
                                     class="text-warning">{{analysis.target}}</a>
+                                {% elif analysis.status == "failed_processing" %}
+                                <a href="{% url "failed_processing" analysis.id %}" class="text-danger">{{analysis.target}}</a>
                                 {% else %}
                                 {{analysis.target}}
                                 {% endif %}
@@ -718,11 +791,24 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <td>
-                                {% if analysis.clamav %}
-                                {{analysis.clamav}}
-                                {% else %}
-                                -
-                                {% endif %}
+                                <span class="font-monospace">
+                                    {% if analysis.clamav %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.clamav|join:', '}}">{{analysis.clamav|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <td>
+                                <span class="font-monospace">
+                                    {% if analysis.cape_yara %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.cape_yara|join:', '}}">{{analysis.cape_yara|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
                             </td>
                             {% endif %}
                             <td class="text-end">
@@ -734,6 +820,8 @@
                                 <span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
                                 <span class="badge bg-success">reported</span>
+                                {% elif analysis.status == "failed_processing" %}
+                                <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% endif %}
@@ -866,6 +954,8 @@
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}"
                                         class="text-warning text-monospace">{{analysis.sample.md5}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.md5}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.md5}}</span>
                                     {% endif %}
@@ -877,6 +967,8 @@
                                     {% elif analysis.status in "running,completed,distributed" %}
                                     <a href="{% url "submission_status" analysis.id %}"
                                         class="text-warning text-monospace">{{analysis.sample.sha256}}</a>
+                                    {% elif analysis.status == "failed_processing" %}
+                                    <a href="{% url "failed_processing" analysis.id %}" class="text-danger text-monospace">{{analysis.sample.sha256}}</a>
                                     {% else %}
                                     <span class="text-monospace">{{analysis.sample.sha256}}</span>
                                     {% endif %}
@@ -959,6 +1051,8 @@
                                 {% else %}
                                 <span class="badge bg-success">reported</span>
                                 {% endif%}
+                                {% elif analysis.status == "failed_processing" %}
+                                <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% else %}
                                 <span class="badge bg-danger">{{analysis.status}}</span>
                                 {% endif %}

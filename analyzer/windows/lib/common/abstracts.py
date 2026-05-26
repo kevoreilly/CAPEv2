@@ -106,18 +106,25 @@ class Package:
             basedir = path[0]
             sys32 = len(path) > 1 and path[1].lower() == "system32"
             if basedir == "SystemRoot":
-                if not sys32 or "PE32+" not in self.config.file_type:
-                    yield os.path.join(os.getenv("SystemRoot"), *path[1:])
-                yield os.path.join(os.getenv("SystemRoot"), "sysnative", *path[2:])
+                system_root = os.getenv("SystemRoot")
+                if system_root:
+                    file_type = getattr(self.config, "file_type", "") or ""
+                    if not sys32 or "PE32+" not in file_type:
+                        yield os.path.join(system_root, *path[1:])
+                    if sys32:
+                        yield os.path.join(system_root, "sysnative", *path[2:])
+                        # Fallback for 64-bit Python where sysnative is not available
+                        if "PE32+" in file_type:
+                            yield os.path.join(system_root, *path[1:])
             elif basedir == "ProgramFiles":
                 if os.getenv("ProgramFiles(x86)"):
                     yield os.path.join(os.getenv("ProgramFiles(x86)"), *path[1:])
-                yield os.path.join(os.getenv("ProgramFiles").replace(" (x86)", ""), *path[1:])
+                if os.getenv("ProgramFiles"):
+                    yield os.path.join(os.getenv("ProgramFiles").replace(" (x86)", ""), *path[1:])
             elif basedir == "HomeDrive":
-                # os.path.join() does not work well when giving just C:
-                # instead of C:\\, so we manually add the backslash.
-                homedrive = "{}\\".format(os.getenv("HomeDrive"))
-                yield os.path.join(homedrive, *path[1:])
+                homedrive = os.getenv("HomeDrive")
+                if homedrive:
+                    yield os.path.join(f"{homedrive}\\", *path[1:])
             elif os.getenv(basedir):
                 yield os.path.join(os.getenv(basedir), *path[1:])
             else:

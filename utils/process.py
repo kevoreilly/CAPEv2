@@ -39,15 +39,14 @@ from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
-from lib.cuckoo.common.utils import get_options
-from lib.cuckoo.core.database import (
+from lib.cuckoo.common.utils import get_options, option_dict_enabled
+from lib.cuckoo.core.database import Database, init_database
+from lib.cuckoo.core.data.task import (
     TASK_COMPLETED,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
     TASK_REPORTED,
-    Database,
-    Task,
-    init_database,
+    Task
 )
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
@@ -123,10 +122,10 @@ def process(
 
     task_dict = task.to_dict() or {}
     task_id = task_dict.get("id") or 0
+    task_options = get_options(task_dict.get("options"))
+    task_dict["_options_parsed"] = task_options
     # cluster mode
-    main_task_id = False
-    if "main_task_id" in task_dict.get("options", ""):
-        main_task_id = get_options(task_dict["options"]).get("main_task_id", 0)
+    main_task_id = task_options.get("main_task_id", 0) if "main_task_id" in task_options else False
 
     # ToDo new logger here
     per_analysis_handler = init_per_analysis_logging(tid=str(task_id), debug=debug)
@@ -134,6 +133,7 @@ def process(
     setproctitle(f"{original_proctitle} [Task {task_id}]")
     results = {"statistics": {"processing": [], "signatures": [], "reporting": []}}
     try:
+        minproc = option_dict_enabled(task_options, "minproc")
         if memory_debugging:
             gc.collect()
             log.info("(1) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
@@ -146,7 +146,10 @@ def process(
             gc.collect()
             log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
 
-        RunSignatures(task=task_dict, results=results).run()
+        if not minproc:
+            RunSignatures(task=task_dict, results=results).run()
+        else:
+            log.info("minproc enabled for task %s: skipping signatures", task_id)
         if memory_debugging:
             gc.collect()
             log.info("(4) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
@@ -196,32 +199,31 @@ def init_worker():
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
     db.engine.dispose(close=False)
 
-    # Fix for open file handles on rotated logs in workers
-    for h in log.handlers[:]:
-        if isinstance(h, logging.FileHandler):
-            h.close()
-        log.removeHandler(h)
+    # Avoid fork deadlock: use direct list ops instead of
+    # handler.close()/removeHandler()/addHandler() which acquire locks.
+    # Inherited FDs are intentionally leaked: closing them via os.close()
+    # frees the fd number, but the old Python stream still references it;
+    # when GC finalizes that stream it may close a new handler's fd.
+    # Workers are short-lived (max_tasks) so the leak is harmless.
+    log.handlers.clear()
 
-    # Restore Console Handler
     ch = ConsoleHandler()
     ch.setFormatter(FORMATTER)
-    log.addHandler(ch)
+    log.handlers.append(ch)
 
-    # Restore Syslog Handler if enabled
     if logconf.logger.syslog_process:
         try:
             slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
             slh.setFormatter(FORMATTER)
-            log.addHandler(slh)
+            log.handlers.append(slh)
         except Exception as e:
             log.warning("Failed to restore Syslog handler in worker: %s", e)
 
-    # Restore File Handler using WatchedFileHandler to support rotation
     try:
         path = os.path.join(CUCKOO_ROOT, "log", "process.log")
         fh = logging.handlers.WatchedFileHandler(path)
         fh.setFormatter(FORMATTER)
-        log.addHandler(fh)
+        log.handlers.append(fh)
     except PermissionError as e:
         log.warning("Failed to restore File handler in worker due to permissions: %s", e)
 

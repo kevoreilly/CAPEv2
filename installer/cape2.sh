@@ -891,8 +891,15 @@ function install_libvirt() {
     cd "libvirt-python-${LIB_VERSION}"
     sudo chown -R ${USER}:${USER} "/tmp/libvirt-python-${LIB_VERSION}"
     '
+    sudo apt-get install -y locate && sudo updatedb # used by install_libvirt
     temp_libvirt_so_path=$(locate libvirt-qemu.so | head -n1 | awk '{print $1;}')
     temp_export_path=$(locate libvirt.pc | head -n1 | awk '{print $1;}')
+
+    if [ -z "$temp_libvirt_so_path" ] || [ -z "$temp_export_path" ]; then
+        echo "[-] libvirt headers not found, skipping libvirt-python installation. Please install it using: sudo bash ./kvm-qemu.sh libvirt."
+        return
+    fi
+
     libvirt_so_path="${temp_libvirt_so_path%/*}/"
     if [[ $libvirt_so_path == "/usr/lib/x86_64-linux-gnu/" ]]; then
         temp_libvirt_so_path=$(locate libvirt-qemu.so | tail -1 | awk '{print $1;}')
@@ -903,12 +910,14 @@ function install_libvirt() {
     export PKG_CONFIG_PATH=$export_path
 
     # Run build and install within the project environment
-    # We use sudo -u cape ... to install into the user's environment managed by poetry/uv
+    # We use sudo -u cape ... to install into the user's environment managed by poetry/uv/pip
     if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
         # sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install /tmp/libvirt-python-${LIB_VERSION}"
         sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; cd $CAPE_ROOT && $PYTHON_MGR pip install libvirt-python==${LIB_VERSION}"
-    else
+    elif [ "$PYTHON_MGR" = "/etc/poetry/bin/poetry" ]; then
         sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; $PYTHON_MGR --directory $CAPE_ROOT $PYTHON_MGR_CMD pip install libvirt-python==${LIB_VERSION}"
+    else
+         sudo -u ${USER} bash -c "export PKG_CONFIG_PATH=$export_path; pip3 install libvirt-python==${LIB_VERSION}"
     fi
 }
 
@@ -1420,6 +1429,10 @@ if [ ! -f /etc/sudoers.d/cape ]; then
 Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
 Cmnd_Alias UFW_STATUS = /usr/sbin/ufw status
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES, UFW_STATUS
+# Allow cape user to fix Nginx permissions for static files
+${USER} ALL=(ALL) NOPASSWD: /usr/bin/chmod o+x ${CAPE_ROOT}
+${USER} ALL=(ALL) NOPASSWD: /usr/bin/chmod o+x ${CAPE_ROOT}/web
+${USER} ALL=(ALL) NOPASSWD: /usr/bin/chmod -R o+rX ${CAPE_ROOT}/web/static_collected/
 EOF
 fi
 if [ ! -f /etc/sudoers.d/ip_netns ]; then
@@ -1888,6 +1901,8 @@ case "$COMMAND" in
     install_IntroVirt;;
 'passivedns')
     install_passivedns;;
+'libvirt')
+    install_libvirt;;
 *)
     usage;;
 esac

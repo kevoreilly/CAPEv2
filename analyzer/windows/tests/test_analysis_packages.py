@@ -149,7 +149,7 @@ class TestAnalysisPackages(unittest.TestCase):
 
     def test_jar(self):
         pkg_class = self.class_from_analysis_package("modules.packages.jar")
-        expected_summary = "Executes a java class using java.exe."
+        expected_summary = "Executes a .jar file using javaw.exe (or java.exe)."
         obj = pkg_class()
         self.assertEqual(expected_summary, obj.summary)
         self.assertEqual("class", obj.option_names[0])

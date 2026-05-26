@@ -4,10 +4,12 @@
 
 import gc
 import logging
-
+from contextlib import suppress
+from lib.cuckoo.common.iocs import dump_iocs
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooReportError
 from modules.reporting.report_doc import ensure_valid_utf8, get_json_document, insert_calls
+from lib.cuckoo.common.config import Config
 
 try:
     from pymongo.errors import InvalidDocument, OperationFailure
@@ -22,6 +24,7 @@ MONGOSIZELIMIT = 0x1000000
 MEGABYTE = 0x100000
 
 log = logging.getLogger(__name__)
+reporting_conf = Config("reporting")
 
 
 class MongoDB(Report):
@@ -76,14 +79,18 @@ class MongoDB(Report):
         if "_id" in keys:
             keys.remove("_id")
 
+        # We insert the info section first to get an _id
         obj_id = mongo_insert_one("analysis", {"info": report["info"]}).inserted_id
         keys.remove("info")
 
         for key in keys:
             try:
-                mongo_update_one("analysis", {"_id": obj_id}, {"$set": {key: report[key]}}, bypass_document_validation=True)
+                # We include info here so that mongo hooks (like normalize_files) can get the task_id
+                mongo_update_one("analysis", {"_id": obj_id}, {"$set": {key: report[key], "info": report["info"]}}, bypass_document_validation=True)
             except InvalidDocument:
                 log.warning("Investigate your key: %s", key)
+            except Exception as e:
+                log.error("Failed to update key %s in loop_saver: %s", key, e)
 
     def run(self, results):
         """Writes report.
@@ -108,28 +115,49 @@ class MongoDB(Report):
         # the original dictionary and possibly compromise the following
         # reporting modules.
         report = get_json_document(results, self.analysis_path)
+        if not report or "info" not in report:
+            log.error("Failed to get JSON document or 'info' key is missing for Task")
+            return
 
-        mongo_delete_data(int(report["info"]["id"]))
-        log.debug("Deleted previous MongoDB data for Task %s", report["info"]["id"])
+        local_task_id = int(report["info"].get("id", 0))
+        if not local_task_id:
+            log.error("Task ID is missing in report['info']")
+            return
 
         # trick for distributed api
-        if results.get("info", {}).get("options", {}).get("main_task_id", ""):
-            report["info"]["id"] = int(results["info"]["options"]["main_task_id"])
+        main_task_id = results.get("info", {}).get("options", {}).get("main_task_id")
+        if main_task_id:
+            with suppress(ValueError, TypeError):
+                report["info"]["id"] = int(main_task_id)
 
         if "network" not in report:
             report["network"] = {}
 
+        if "behavior" not in report or not isinstance(report["behavior"], dict):
+            report["behavior"] = {"processes": [], "processtree": [], "summary": {}}
+
+        # Delete old data just before inserting new one to avoid "missing report" window
+        # or data loss if insertion fails during preparation (e.g. OOM)
+        ids_to_delete = {local_task_id, int(report["info"]["id"])}
+        log.debug("Deleting previous MongoDB data for Task IDs: %s", ids_to_delete)
+        mongo_delete_data(list(ids_to_delete))
+
         new_processes = insert_calls(report, mongodb=True)
         # Store the results in the report.
-        report["behavior"] = dict(report["behavior"])
         report["behavior"]["processes"] = new_processes
+
+        # Store iocs as file
+        if reporting_conf.mongodb.dump_iocs:
+            dump_iocs(report, local_task_id)
 
         ensure_valid_utf8(report)
         gc.collect()
 
         # Store the report and retrieve its object id.
         try:
+            log.debug("Inserting new MongoDB report for Task %s", report["info"]["id"])
             mongo_insert_one("analysis", report)
+
         except OperationFailure as e:
             # Check for error codes indicating the BSON object was too large
             # (10334 BSONObjectTooLarge) or the maximum nested object depth was
@@ -145,8 +173,6 @@ class MongoDB(Report):
                     log.error("Deleting behavior process tree parent from results: %s", str(e))
                     del report["behavior"]["processtree"][0]
                     mongo_insert_one("analysis", report)
-            else:
-                raise CuckooReportError("Failed inserting report in Mongo") from e
         except InvalidDocument as e:
             if str(e).startswith("cannot encode object") or "must not contain" in str(e):
                 self.loop_saver(report)
@@ -193,3 +219,8 @@ class MongoDB(Report):
                     except Exception as e:
                         log.error("Failed to delete child key: %s", e)
                         error_saved = False
+
+                if error_saved:
+                    log.error("Failed to insert report into MongoDB even after attempting to fix large documents for Task %s", report["info"]["id"])
+        except Exception as e:
+            log.exception("Failed to store report in MongoDB for Task %s: %s", report["info"]["id"], e)

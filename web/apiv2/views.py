@@ -6,14 +6,17 @@ import os
 import socket
 import subprocess
 import sys
+import tempfile
 import zipfile
+from contextlib import suppress
 from datetime import datetime, timedelta
 from io import BytesIO
-from urllib.parse import quote
+from urllib.parse import quote, urljoin
 from wsgiref.util import FileWrapper
 
 import pyzipper
 import requests
+import yara
 from bson.objectid import ObjectId
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -22,6 +25,10 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from rest_framework.decorators import api_view
+try:
+    from apikey.authentication import ApiKeyAuthentication
+except ImportError:
+    ApiKeyAuthentication = None
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -53,15 +60,17 @@ from lib.cuckoo.common.web_utils import (
     statistics,
     validate_task,
 )
-from lib.cuckoo.core.database import (
+
+from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.data.task import (
     TASK_RECOVERED,
     TASK_RUNNING,
-    Database,
     Task,
-    _Database,
 )
 from lib.cuckoo.core.rooter import _load_socks5_operational, vpns
 
+# from mcp.filters import lean_search_filters
+lean_search_filters = {}
 try:
     import psutil
 
@@ -81,6 +90,12 @@ try:
     import re2 as re
 except ImportError:
     import re
+
+HAVE_PLYARA = False
+with suppress(ImportError):
+    import plyara
+    import plyara.utils
+    HAVE_PLYARA = True
 
 # FORMAT = '%(asctime)-15s %(clientip)s %(user)-8s %(message)s'
 
@@ -125,7 +140,9 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 
 DIST_ENABLED = False
 if dist_conf.distributed.enabled:
-    from lib.cuckoo.common.dist_db import create_session
+    from sqlalchemy import select
+
+    from lib.cuckoo.common.dist_db import Node, create_session
     from lib.cuckoo.common.dist_db import Task as DTask
 
     dist_session = create_session(
@@ -136,6 +153,7 @@ if dist_conf.distributed.enabled:
 
 db: _Database = Database()
 
+ALLOWED_YARA_CATEGORIES = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
 
 # Conditional decorator for web authentication
 class conditional_login_required:
@@ -757,7 +775,8 @@ def ext_tasks_search(request):
             value = tmp_value
             del tmp_value
         try:
-            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False)
+            projection = lean_search_filters if request.data.get("lean") else None
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False, projection=projection)
         except ValueError:
             if not term:
                 resp = {"error": True, "error_value": "No option provided."}
@@ -1111,6 +1130,8 @@ def tasks_delete(request, task_id, status=False):
     return Response(resp)
 
 
+# Re-enable session-cookie auth so the in-browser "End Session" button works
+# under SSO deployments where the global DRF chain is API-key-only.
 @csrf_exempt
 @api_view(["GET", "POST"])
 def tasks_status(request, task_id):
@@ -1650,34 +1671,260 @@ def tasks_pcap(request, task_id):
         return Response(resp)
 
 
-@csrf_exempt
-@api_view(["GET"])
-def tasks_tlspcap(request, task_id):
-    if not apiconf.tasktlspcap.get("enabled"):
-        resp = {"error": True, "error_value": "TLS PCAP download API is disabled"}
-        return Response(resp)
+def _resolve_task_id(task_id, enabled_key, check_tlp=True):
+    """Shared preamble for artifact-download endpoints.
 
+    Returns ((task_id, None)) on success or ((None, Response(error))) on failure.
+    `enabled_key` names the apiconf section that gates the endpoint; callers
+    that want to share a gate (e.g. all pcap variants under [taskpcap]) reuse
+    the same key. TLP:RED checks are skipped only for endpoints that need
+    to serve regardless (none at present)."""
+    section = getattr(apiconf, enabled_key, None)
+    if section is not None and not section.get("enabled"):
+        return None, Response({"error": True, "error_value": "%s download API is disabled" % enabled_key})
     check = validate_task(task_id)
     if check["error"]:
-        return Response(check)
-
+        return None, Response(check)
+    if check_tlp and (check.get("tlp") or "").lower() == "red":
+        return None, Response({"error": True, "error_value": "Task has a TLP of RED"})
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+    return task_id, None
 
-    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
+
+def _serve_analysis_file(task_id, rel_path, download_name, content_type="application/octet-stream"):
+    """Stream `<analysis>/<rel_path>` back as an attachment. Returns a Response
+    object (either a StreamingHttpResponse for success, or a JSON error)."""
+    srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, rel_path)
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
-    if path_exists(srcfile):
-        fname = "%s_tls.pcap" % task_id
-        resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap")
-        resp["Content-Length"] = os.path.getsize(srcfile)
-        resp["Content-Disposition"] = "attachment; filename=" + fname
-        return resp
+        return Response({"error": True, "error_value": "Invalid path"})
+    if not path_exists(srcfile) or os.path.getsize(srcfile) == 0:
+        return Response({"error": True, "error_value": f"{os.path.basename(rel_path)} does not exist"})
+    resp = StreamingHttpResponse(FileWrapper(open(srcfile, "rb"), 8192), content_type=content_type)
+    resp["Content-Length"] = os.path.getsize(srcfile)
+    resp["Content-Disposition"] = f"attachment; filename={task_id}_{download_name}"
+    return resp
 
-    else:
-        resp = {"error": True, "error_value": "TLS PCAP does not exist"}
-        return Response(resp)
+
+def _zip_paths(task_id, pairs, download_name):
+    """Zip (archive_name, absolute_path) pairs into a disk-backed temporary archive and
+    return it as a StreamingHttpResponse. Missing / empty sources are skipped."""
+    buf = tempfile.NamedTemporaryFile(delete=True)
+    written = 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        for arcname, p in pairs:
+            if path_exists(p) and os.path.getsize(p) > 0:
+                zf.write(p, arcname)
+                written += 1
+    if not written:
+        buf.close()
+        return Response({"error": True, "error_value": "No artifacts available for this task"})
+    buf.seek(0, os.SEEK_END)
+    size = buf.tell()
+    buf.seek(0)
+    resp = StreamingHttpResponse(FileWrapper(buf, 8192), content_type="application/zip")
+    resp["Content-Length"] = size
+    resp["Content-Disposition"] = f"attachment; filename={task_id}_{download_name}"
+    return resp
+
+
+def _serve_folder_zip(task_id, rel_folder, download_name, empty_msg=None):
+    """Encrypt-zip an entire directory under the analysis dir and stream it.
+    Uses `create_zip` (password = ZIP_PWD) for parity with tasks_dropped /
+    tasks_payloadfiles. Returns a Response with a JSON error if the folder
+    doesn't exist or is empty."""
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, rel_folder)
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return Response({"error": True, "error_value": "Invalid path"})
+    if not path_exists(srcdir) or not os.listdir(srcdir):
+        return Response({"error": True, "error_value": empty_msg or f"No {rel_folder} artifacts for task {task_id}"})
+    mem_zip = create_zip(folder=srcdir, encrypted=True, temp_file=True)
+    if mem_zip is False:
+        return Response({"error": True, "error_value": "Can't create zip archive"})
+    mem_zip.seek(0, os.SEEK_END)
+    size = mem_zip.tell()
+    mem_zip.seek(0)
+    resp = StreamingHttpResponse(FileWrapper(mem_zip, 8192), content_type="application/zip")
+    resp["Content-Length"] = size
+    resp["Content-Disposition"] = f"attachment; filename={task_id}_{download_name}"
+    return resp
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_tlspcap(request, task_id):
+    """Back-compat endpoint: originally served PolarProxy's tls.pcap. We've
+    since moved to SSLproxy + GoGoRoboCap which produces dump_decrypted.pcap;
+    prefer that, but fall back to the legacy path for old analyses."""
+    task_id, err = _resolve_task_id(task_id, "tasktlspcap", check_tlp=False)
+    if err:
+        return err
+
+    decrypted = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump_decrypted.pcap")
+    legacy = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
+    for srcfile, fname in ((decrypted, "dump_decrypted.pcap"), (legacy, "tls.pcap")):
+        if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
+            continue
+        if path_exists(srcfile) and os.path.getsize(srcfile) > 0:
+            resp = StreamingHttpResponse(
+                FileWrapper(open(srcfile, "rb"), 8096), content_type="application/vnd.tcpdump.pcap"
+            )
+            resp["Content-Length"] = os.path.getsize(srcfile)
+            resp["Content-Disposition"] = f"attachment; filename={task_id}_{fname}"
+            return resp
+    return Response({"error": True, "error_value": "TLS PCAP does not exist"})
+
+
+# Variant tables used by the consolidated dispatcher endpoints. Each handler
+# validates <variant> against a whitelist before touching the filesystem so
+# the URL parameter can't be used to probe paths outside the analysis dir.
+
+_PCAP_VARIANTS = {
+    "decrypted": ("dump_decrypted.pcap", "dump_decrypted.pcap"),
+    "mixed": ("dump_mixed.pcap", "dump_mixed.pcap"),
+    "sslproxy": (os.path.join("sslproxy", "sslproxy.pcap"), "sslproxy.pcap"),
+}
+
+_KEY_SOURCES = {
+    "tls": (os.path.join("tlsdump", "tlsdump.log"), "tlsdump.log"),
+    "ssl": (os.path.join("aux", "sslkeylogfile", "sslkeys.log"), "sslkeys.log"),
+    "master": (os.path.join("sslproxy", "master_keys.log"), "master_keys.log"),
+}
+
+_ETW_JSON_SOURCES = {
+    "dns": (os.path.join("aux", "dns_etw.json"), "dns_etw.json"),
+    "network": (os.path.join("aux", "network_etw.json"), "network_etw.json"),
+    "wmi": (os.path.join("aux", "wmi_etw.json"), "wmi_etw.json"),
+}
+
+_BULKZIP_FOLDERS = {"logs", "network", "memory", "selfextracted"}
+
+
+def _pcapng_response(task_id):
+    """On-the-fly PCAPNG with TLS keylog records embedded. Output goes to
+    a per-request tempfile — concurrent callers must not race on a shared
+    path inside the analysis dir."""
+    try:
+        from lib.cuckoo.common.pcap_utils import PcapToNg
+    except ImportError:
+        return Response({"error": True, "error_value": "PCAPNG conversion helper unavailable"})
+    adir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id)
+    pcap_path = os.path.join(adir, "dump.pcap")
+    if not path_exists(pcap_path):
+        return Response({"error": True, "error_value": "dump.pcap does not exist"})
+    tls_log_path = os.path.join(adir, "tlsdump", "tlsdump.log")
+    ssl_key_log_path = os.path.join(adir, "aux", "sslkeylogfile", "sslkeys.log")
+    tmp = tempfile.NamedTemporaryFile(prefix=f"{task_id}_pcapng_", suffix=".pcapng", delete=False)
+    tmp.close()
+    try:
+        PcapToNg(pcap_path, tls_log_path, ssl_key_log_path).generate(tmp.name)
+        if not path_exists(tmp.name) or os.path.getsize(tmp.name) == 0:
+            return Response({"error": True, "error_value": "PCAPNG generation failed"})
+        size = os.path.getsize(tmp.name)
+        # Hand the open fd to the streaming response; unlinking the path now
+        # keeps the fd alive through streaming and lets the kernel reclaim
+        # the inode as soon as the response finishes.
+        fd = open(tmp.name, "rb")
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        resp = StreamingHttpResponse(FileWrapper(fd, 8192), content_type="application/x-pcapng")
+        resp["Content-Length"] = size
+        resp["Content-Disposition"] = f"attachment; filename={task_id}_dump.pcapng"
+        return resp
+    except Exception:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        raise
+
+
+def _pcapzip_response(task_id):
+    """Zip every available pcap variant (original, decrypted, mixed, sslproxy
+    raw, sslproxy cleaned). Variants that are missing or empty are silently
+    dropped so consumers only receive what actually ran."""
+    adir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id)
+    pairs = [
+        ("dump.pcap", os.path.join(adir, "dump.pcap")),
+        ("dump_decrypted.pcap", os.path.join(adir, "dump_decrypted.pcap")),
+        ("dump_mixed.pcap", os.path.join(adir, "dump_mixed.pcap")),
+        ("sslproxy.pcap", os.path.join(adir, "sslproxy", "sslproxy.pcap")),
+        ("sslproxy_clean.pcap", os.path.join(adir, "sslproxy", "sslproxy_clean.pcap")),
+    ]
+    return _zip_paths(task_id, pairs, "pcaps.zip")
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_pcap_variant(request, task_id, variant):
+    """Alternate PCAP artifacts for <task_id>. variant ∈
+    {decrypted, mixed, sslproxy, zip, pcapng}. The bare tasks/get/pcap/<id>/
+    remains for back-compat with existing callers (serves dump.pcap)."""
+    task_id, err = _resolve_task_id(task_id, "taskpcap")
+    if err:
+        return err
+    v = (variant or "").lower()
+    if v in _PCAP_VARIANTS:
+        rel_path, fname = _PCAP_VARIANTS[v]
+        return _serve_analysis_file(task_id, rel_path, fname, content_type="application/vnd.tcpdump.pcap")
+    if v == "zip":
+        return _pcapzip_response(task_id)
+    if v == "pcapng":
+        return _pcapng_response(task_id)
+    return Response({"error": True, "error_value": f"Unknown pcap variant: {variant}"})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_keys(request, task_id, kind):
+    """TLS keylog material. kind ∈ {tls, ssl, master} — each refers to a
+    different hook source (tls: MockSSL → tlsdump.log; ssl: bcrypt/NCrypt →
+    aux/sslkeylogfile/sslkeys.log; master: SSLproxy → master_keys.log).
+    All three are NSS-format keylogs."""
+    task_id, err = _resolve_task_id(task_id, "tasktlskeys")
+    if err:
+        return err
+    k = (kind or "").lower()
+    if k not in _KEY_SOURCES:
+        return Response({"error": True, "error_value": f"Unknown keys kind: {kind}"})
+    rel_path, fname = _KEY_SOURCES[k]
+    return _serve_analysis_file(task_id, rel_path, fname, content_type="text/plain")
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_etw(request, task_id, kind):
+    """ETW telemetry downloads. kind ∈ {dns, network, wmi} each map to an
+    NDJSON stream; kind == amsi zips the per-buffer AMSI script captures."""
+    task_id, err = _resolve_task_id(task_id, "tasketw")
+    if err:
+        return err
+    k = (kind or "").lower()
+    if k in _ETW_JSON_SOURCES:
+        rel_path, fname = _ETW_JSON_SOURCES[k]
+        return _serve_analysis_file(task_id, rel_path, fname, content_type="application/x-ndjson")
+    if k == "amsi":
+        return _serve_folder_zip(task_id, os.path.join("aux", "amsi_etw"), "amsi_etw.zip")
+    return Response({"error": True, "error_value": f"Unknown etw kind: {kind}"})
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_bulkzip(request, task_id, folder):
+    """Encrypt-zip an entire analysis subdirectory. folder is whitelisted
+    to {logs, network, memory, selfextracted}. Archive is AES-encrypted
+    with ZIP_PWD for parity with tasks_dropped / tasks_payloadfiles /
+    tasks_procdumpfiles."""
+    task_id, err = _resolve_task_id(task_id, "taskbulkzip")
+    if err:
+        return err
+    f = (folder or "").lower()
+    if f not in _BULKZIP_FOLDERS:
+        return Response({"error": True, "error_value": f"Unknown bulkzip folder: {folder}"})
+    return _serve_folder_zip(task_id, f, f"{f}.zip")
 
 
 @csrf_exempt
@@ -1789,6 +2036,104 @@ def tasks_dropped(request, task_id):
         resp["Content-Length"] = len(mem_zip.getvalue())
         resp["Content-Disposition"] = f"attachment; filename={task_id}_dropped.zip"
         return resp
+
+
+@csrf_exempt
+@api_view(["GET"])
+def tasks_selfextracted(request, task_id, tool="all"):
+    if not apiconf.taskselfextracted.get("enabled"):
+        resp = {"error": True, "error_value": "Self Extracted File download API is disabled"}
+        return Response(resp)
+
+    check = validate_task(task_id)
+    if check["error"]:
+        return Response(check)
+
+    if check.get("tlp", "") in ("red", "Red"):
+        return Response({"error": True, "error_value": "Task has a TLP of RED"})
+
+    rtid = check.get("rtid", 0)
+    if rtid:
+        task_id = rtid
+
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "selfextracted")
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
+
+    if not path_exists(srcdir) or not len(os.listdir(srcdir)):
+        resp = {"error": True, "error_value": "No self extracted files for task %s" % task_id}
+        return Response(resp)
+
+    selfextract_data = {}
+
+    if repconf.mongodb.enabled:
+        tmp = mongo_find_one("analysis", {"info.id": int(task_id)}, {"selfextract": 1})
+        if tmp and "selfextract" in tmp:
+            selfextract_data = tmp["selfextract"]
+    elif es_as_db:
+        tmp = es.search(
+            index=get_analysis_index(), query=get_query_by_info_id(str(task_id)), _source=["selfextract"]
+        )["hits"]["hits"]
+        if tmp:
+            selfextract_data = tmp[-1]["_source"].get("selfextract", {})
+
+    if not selfextract_data:
+        jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
+        if path_exists(jfile):
+            try:
+                with open(jfile, "r") as f:
+                    rep = json.load(f)
+                    selfextract_data = rep.get("selfextract", {})
+            except Exception as e:
+                log.error(e)
+
+    if tool != "all" and tool not in selfextract_data:
+        resp = {"error": True, "error_value": f"Tool {tool} not found in analysis data"}
+        return Response(resp)
+
+    mem_zip = BytesIO()
+    with zipfile.ZipFile(mem_zip, "w", zipfile.ZIP_DEFLATED) as zf:
+        if tool == "all":
+            if selfextract_data:
+                processed_sha256s = set()
+                for tname, tdata in selfextract_data.items():
+                    for fmeta in tdata.get("extracted_files", []):
+                        sha256 = fmeta.get("sha256")
+                        if not sha256 or not re.match(r"^[a-fA-F0-9]{64}$", sha256):
+                            continue
+
+                        fpath = os.path.join(srcdir, sha256)
+                        if not os.path.exists(fpath):
+                            continue
+
+                        arcname = os.path.join(tname, sha256)
+                        zf.write(fpath, arcname)
+                        processed_sha256s.add(sha256)
+
+                for f in os.listdir(srcdir):
+                    if f not in processed_sha256s:
+                        zf.write(os.path.join(srcdir, f), f)
+            else:
+                for f in os.listdir(srcdir):
+                    zf.write(os.path.join(srcdir, f), f)
+        else:
+            tdata = selfextract_data[tool]
+            for fmeta in tdata.get("extracted_files", []):
+                sha256 = fmeta.get("sha256")
+                if not sha256 or not re.match(r"^[a-fA-F0-9]{64}$", sha256):
+                    continue
+
+                fpath = os.path.join(srcdir, sha256)
+                if not os.path.exists(fpath):
+                    continue
+
+                zf.write(fpath, sha256)
+
+    mem_zip.seek(0)
+    resp = StreamingHttpResponse(mem_zip, content_type="application/zip")
+    resp["Content-Length"] = len(mem_zip.getvalue())
+    resp["Content-Disposition"] = f"attachment; filename={task_id}_selfextracted_{tool}.zip"
+    return resp
 
 
 @csrf_exempt
@@ -2501,6 +2846,10 @@ def tasks_file_stream(request, task_id):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
         filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
+        task_dir = os.path.join(ANALYSIS_BASE_PATH, "analyses", f"{task_id}")
+        if not os.path.normpath(filepath).startswith(task_dir + os.sep):
+            resp = {"error": True, "error_value": "Path traversal detected"}
+            return Response(resp)
         if not os.path.isfile(filepath):
             resp = {"error": True, "error_value": "file does not exist"}
             return Response(resp)
@@ -2562,4 +2911,196 @@ def dist_tasks_notification(request, task_id: int):
         # main_db.set_status(task.main_task_id, TASK_REPORTED)
         # log.debug("reporting main_task_id: {}".format(task.main_task_id))
         task.notificated = True
+
+
+@csrf_exempt
+@api_view(["POST"])
+def yara_uploader(request):
+    try:
+        if not apiconf.yara_uploader.get("enabled"):
+            return Response({"error": True, "error_value": "Yara Uploader API is Disabled"})
+
+        if not HAVE_PLYARA:
+            return Response({"error": True, "error_value": "Missing dependency. Contact your administrator."})
+
+        category = request.data.get("category")
+        if not category or category not in ALLOWED_YARA_CATEGORIES:
+            return Response(
+                {"status": "error", "message": f"Invalid or missing category. Allowed categories: {ALLOWED_YARA_CATEGORIES}"},
+                status=400,
+            )
+        """
+        if request.user.is_authenticated and request.user.username not in ALLOWED_UPLOADERS:
+            return Response(
+                {"status": "error", "message": f"User '{request.user.username}' is not authorized to upload YARA rules."}, status=403
+            )
+        """
+        if "file" not in request.FILES:
+            return Response({"status": "error", "message": "No file provided"}, status=400)
+
+        uploaded_file = request.FILES["file"]
+
+        # Read content for processing
+        try:
+            content = uploaded_file.read().decode("utf-8")
+        except UnicodeDecodeError:
+            return Response({"status": "error", "message": "File must be a text file (UTF-8)"}, status=400)
+
+        # Validate YARA
+        try:
+            yara.compile(source=content)
+        except yara.SyntaxError as e:
+            return Response({"status": "error", "message": f"YARA Syntax Error: {str(e)}"}, status=400)
+        except yara.Error as e:
+            return Response({"status": "error", "message": f"YARA Error: {str(e)}"}, status=400)
+
+        try:
+            parser = plyara.Plyara()
+            rules = parser.parse_string(content)
+
+            if not rules:
+                return Response({"status": "error", "message": "No YARA rules found in file"}, status=400)
+
+            main_rule = rules[0]
+
+            # Check for family
+            family = None
+            metadata = main_rule.get("metadata", [])
+
+            for meta in metadata:
+                if "family" in meta:
+                    family = meta["family"]
+                    break
+
+            if not family:
+                # Fallback: check cape_type
+                for meta in metadata:
+                    if "cape_type" in meta:
+                        cape_type_val = meta["cape_type"]
+                        if cape_type_val and isinstance(cape_type_val, str):
+                            family = cape_type_val.split(" ")[0]
+                        break
+
+            if not family:
+                return Response({"status": "error", "message": "Missing 'family' in metadata"}, status=400)
+
+            # Now iterate all rules to inject cape_type / author if needed
+            for rule in rules:
+                rule_metadata = rule.get("metadata", [])
+
+                has_cape_type = any("cape_type" in m for m in rule_metadata)
+                has_author = any("yara_created_by" in m for m in rule_metadata)  # Using yara_created_by as key
+
+                if not has_cape_type:
+                    rule_metadata.append({"cape_type": f"{family} Payload"})
+
+                if request.user.is_authenticated and not has_author:
+                    rule_metadata.append({"yara_created_by": request.user.username})
+
+                rule["metadata"] = rule_metadata
+
+            # Define destination path
+            original_filename = os.path.basename(uploaded_file.name)  # Basic safety
+            if category == "monitor":
+                dest_dir = os.path.join(CUCKOO_ROOT, "analyzer", "windows", "data", "yara")
+            else:
+                dest_dir = os.path.join(CUCKOO_ROOT, "data", "yara", category)
+
+            # Ensure directory exists
+            if not os.path.exists(dest_dir):
+                os.makedirs(dest_dir, exist_ok=True)
+
+            original_dest_path = os.path.join(dest_dir, original_filename)
+
+            if os.path.exists(original_dest_path):
+                filename = original_filename
+                dest_path = original_dest_path
+            else:
+                # Fallback to standard naming
+                filename = f"{family}.yar"
+                dest_path = os.path.join(dest_dir, filename)
+
+            # Check if file exists to append
+            if os.path.exists(dest_path):
+                with open(dest_path, "r", encoding="utf-8") as f:
+                    existing_content = f.read()
+
+                try:
+                    existing_rules = parser.parse_string(existing_content)
+                    existing_names = {r["rule_name"] for r in existing_rules}
+
+                    # Filter new rules
+                    unique_rules = []
+                    for rule in rules:
+                        if rule["rule_name"] not in existing_names:
+                            unique_rules.append(rule)
+
+                    if not unique_rules:
+                        # No new rules to add
+                        msg = "All rules already exist. Nothing to add."
+                        return Response({"status": "success", "message": msg})
+
+                    append_content = ""
+                    for rule in unique_rules:
+                        append_content += "\n\n" + plyara.utils.rebuild_yara_rule(rule)
+
+                    content = existing_content + append_content
+
+                except Exception as e:
+                    return Response({"status": "error", "message": f"Failed to parse existing file for append: {str(e)}"}, status=500)
+            else:
+                # Rebuild content for new file
+                new_content = ""
+                for rule in rules:
+                    new_content += plyara.utils.rebuild_yara_rule(rule) + "\n\n"
+
+                content = new_content
+
+        except Exception as e:
+            return Response({"status": "error", "message": f"Plyara parsing error: {str(e)}"}, status=400)
+
+        # Save file
+        with open(dest_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        msg = "Rule saved! Thank you"
+
+        # Distributed propagation
+        try:
+            if DIST_ENABLED:
+                # Prepare for propagation
+                files = {"file": (filename, content)}
+                with dist_session() as db_session:
+                    nodes = db_session.execute(select(Node).where(Node.enabled.is_(True))).scalars().all()
+
+                    propagated_count = 0
+                    total_count = 0
+
+                    for node in nodes:
+                        total_count += 1
+                        prop_url = urljoin(node.url, "apiv2/yara_uploader/")
+                        headers = {"Authorization": f"Token {node.apikey}"}
+
+                        try:
+                            data = {"username": request.user.username, "category": category}
+                            r = requests.post(prop_url, files=files, data=data, headers=headers, verify=False, timeout=10)
+                            if r.status_code == 200:
+                                propagated_count += 1
+                        except Exception:
+                            pass
+
+                    msg += f" (Propagated to {propagated_count}/{total_count} workers)"
+
+        except Exception as e:
+            msg += f" (Propagation failed: {str(e)})"
+
+        return Response(
+            {
+                "status": "success",
+                "message": msg,
+            }
+        )
+
+    except Exception as e:
+        return Response({"status": "error", "message": str(e)}, status=500)
 

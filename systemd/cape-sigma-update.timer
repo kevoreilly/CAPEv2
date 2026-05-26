@@ -1,0 +1,9 @@
+[Unit]
+Description=Daily CAPE Sigma rules update
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

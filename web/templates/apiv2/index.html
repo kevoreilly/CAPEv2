@@ -549,6 +549,32 @@ curl {{ config.api.url }}/apiv2/tasks/get/screenshot/[task id]/[screenshot numbe
             </td>
           </tr>
 
+          <!-- Task Self Extracted Files -->
+          <tr>
+            <td class="font-weight-bold">Task Self Extracted Files</td>
+            <td class="text-center">
+                {% if config.taskselfextracted.enabled %}
+                <span class="badge bg-success">Yes</span>
+                {% else %}
+                <span class="badge bg-danger">No</span>
+                {% endif %}
+            </td>
+            <td>
+              <ul class="list-unstyled mb-0 small text-white-50">
+                <li>RPS: <span class="text-light">{{ config.taskselfextracted.rps }}</span></li>
+                <li>RPM: <span class="text-light">{{ config.taskselfextracted.rpm }}</span></li>
+              </ul>
+            </td>
+            <td>Download the self extracted files associated with a Task by ID. Return object will be application/zip (.zip).</td>
+            <td class="text-center"><button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse" data-bs-target="#taskselfextracted">View <i class="fas fa-chevron-down ms-1"></i></button></td>
+          </tr>
+          <tr class="collapse bg-dark" id="taskselfextracted">
+            <td colspan="5" class="p-3">
+              <pre class="mb-0 text-white bg-dark p-3 rounded border border-secondary">curl {{ config.api.url }}/apiv2/tasks/get/selfextracted/[task id]/
+curl {{ config.api.url }}/apiv2/tasks/get/selfextracted/[task id]/[tool]/</pre>
+            </td>
+          </tr>
+
           <!-- Task SuriFiles -->
           <tr>
             <td class="font-weight-bold">Task SuriFiles</td>

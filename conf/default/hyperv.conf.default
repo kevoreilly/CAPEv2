@@ -1,0 +1,15 @@
+[hyperv]
+interface = eth1
+machines = win10-1
+
+host = 192.168.50.20
+username = admin
+ssh_key = /home/cape/ssh_key
+
+[win10-1]
+label = win10-1
+platform = windows
+ip = 192.168.1.11
+tags = x64,win10
+snapshot = Ready
+arch = x64

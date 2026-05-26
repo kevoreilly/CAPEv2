@@ -7,9 +7,11 @@
 import contextlib
 import logging
 import random
+import time
+import math
 import re
 import traceback
-from ctypes import POINTER, WINFUNCTYPE, byref, c_bool, c_int, create_unicode_buffer, memmove, sizeof, wintypes
+from ctypes import WINFUNCTYPE, byref, c_bool, c_size_t, create_unicode_buffer, memmove, sizeof, wintypes
 from datetime import datetime, timedelta
 from math import floor
 from threading import Thread
@@ -20,7 +22,6 @@ from lib.common.defines import (
     BM_GETCHECK,
     BM_SETCHECK,
     BST_CHECKED,
-    CF_TEXT,
     GMEM_MOVEABLE,
     KERNEL32,
     USER32,
@@ -31,8 +32,8 @@ from lib.common.defines import (
 
 log = logging.getLogger(__name__)
 
-EnumWindowsProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
-EnumChildProc = WINFUNCTYPE(c_bool, POINTER(c_int), POINTER(c_int))
+EnumWindowsProc = WINFUNCTYPE(c_bool, wintypes.HWND, wintypes.LPARAM)
+EnumChildProc = WINFUNCTYPE(c_bool, wintypes.HWND, wintypes.LPARAM)
 
 CURSOR_POSITION_REGEX = r"\((\d+):(\d+)\)"
 WAIT_REGEX = r"WAIT(\d+)"
@@ -56,6 +57,23 @@ INITIAL_HWNDS = []
 GIVEN_INSTRUCTIONS = []
 CLOSED_DOCUMENT_WINDOW = False
 DOCUMENT_WINDOW_CLICK_AROUND = False
+CF_UNICODETEXT = 0x000D
+
+# Define clipboard-related WinAPI signatures explicitly to avoid pointer truncation.
+KERNEL32.GlobalAlloc.argtypes = [wintypes.UINT, c_size_t]
+KERNEL32.GlobalAlloc.restype = wintypes.HGLOBAL
+KERNEL32.GlobalLock.argtypes = [wintypes.HGLOBAL]
+KERNEL32.GlobalLock.restype = wintypes.LPVOID
+KERNEL32.GlobalUnlock.argtypes = [wintypes.HGLOBAL]
+KERNEL32.GlobalUnlock.restype = wintypes.BOOL
+USER32.OpenClipboard.argtypes = [wintypes.HWND]
+USER32.OpenClipboard.restype = wintypes.BOOL
+USER32.EmptyClipboard.argtypes = []
+USER32.EmptyClipboard.restype = wintypes.BOOL
+USER32.SetClipboardData.argtypes = [wintypes.UINT, wintypes.HANDLE]
+USER32.SetClipboardData.restype = wintypes.HANDLE
+USER32.CloseClipboard.argtypes = []
+USER32.CloseClipboard.restype = wintypes.BOOL
 
 CLICK_BUTTONS = (
     # english
@@ -280,6 +298,53 @@ def interact_with_window(hwnd, lparam):
     return True
 
 
+def move_mouse_realistically(dest_x, dest_y):
+    current_pos = get_cursor_position()
+    start_x, start_y = current_pos['x'], current_pos['y']
+
+    # Calculate distance to determine total duration
+    distance = math.sqrt((dest_x - start_x)**2 + (dest_y - start_y)**2)
+    if distance < 1:
+        return
+
+    # 1. Create random control points for a natural curve
+    # These points 'pull' the path away from a perfect straight line
+    # Offsetting these creates a unique arc every time
+    offset = distance * 0.15
+    ctrl_x1 = start_x + (dest_x - start_x) * 0.3 + random.uniform(-offset, offset)
+    ctrl_y1 = start_y + (dest_y - start_y) * 0.3 + random.uniform(-offset, offset)
+    ctrl_x2 = start_x + (dest_x - start_x) * 0.7 + random.uniform(-offset, offset)
+    ctrl_y2 = start_y + (dest_y - start_y) * 0.7 + random.uniform(-offset, offset)
+
+    steps = random.randint(30, 50) if distance < 500 else random.randint(60, 90)
+
+    for i in range(steps + 1):
+        t = i / steps
+
+        # Cubic Bezier Formula for smooth pathing
+        curr_x = int((1-t)**3 * start_x + 3*(1-t)**2 * t * ctrl_x1 +
+                     3*(1-t) * t**2 * ctrl_x2 + t**3 * dest_x)
+        curr_y = int((1-t)**3 * start_y + 3*(1-t)**2 * t * ctrl_y1 +
+                     3*(1-t) * t**2 * ctrl_y2 + t**3 * dest_y)
+
+        USER32.SetCursorPos(curr_x, curr_y)
+
+        # 3. Speed Randomization (The "Human" Factor)
+        # Base sleep + Sinusoidal deceleration + Gaussian noise (jitter)
+        base_sleep = 0.001
+        deceleration = (math.sin(t * math.pi) * 0.005) # Slower at start/end
+        jitter = random.uniform(0, 0.003)              # Tiny random pauses
+
+        # Occasional "Micro-hesitation" (1% chance to pause for a frame)
+        if random.random() < 0.01:
+            time.sleep(random.uniform(0.01, 0.03))
+
+        time.sleep(base_sleep + deceleration + jitter)
+
+    # Final snap to ensure precision
+    USER32.SetCursorPos(dest_x, dest_y)
+
+
 # Callback procedure invoked for every enumerated window.
 def handle_window_interaction(hwnd, lparam):
     # we also want to inspect the "parent" windows, not just the children
@@ -295,7 +360,7 @@ def get_window_list(hwnd, lparam):
     return True
 
 
-def move_mouse():
+def move_mouse_random():
     # To avoid mousing over desktop icons, use 1/4 of the total resolution as the starting pixel
     x = random.randint(RESOLUTION_WITHOUT_TASKBAR["x"] // 4, RESOLUTION_WITHOUT_TASKBAR["x"])
     y = random.randint(0, RESOLUTION_WITHOUT_TASKBAR["y"])
@@ -306,7 +371,7 @@ def move_mouse():
     # the mouse events. This actually moves the cursor around which might
     # cause some unintended activity on the desktop. We might want to make
     # this featur optional.
-    USER32.SetCursorPos(x, y)
+    move_mouse_realistically(x, y)
 
 
 def click_mouse():
@@ -320,7 +385,7 @@ def click_mouse():
 def click_around(hwnd, workable_range_x, workable_range_y):
     USER32.SetForegroundWindow(hwnd)
     # first click the middle
-    USER32.SetCursorPos(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
+    move_mouse_realistically(RESOLUTION["x"] // 2, RESOLUTION["y"] // 2)
     click_mouse()
     KERNEL32.Sleep(50)
     click_mouse()
@@ -332,7 +397,7 @@ def click_around(hwnd, workable_range_x, workable_range_y):
             # make sure the window still exists
             if USER32.IsWindowVisible(hwnd):
                 USER32.SetForegroundWindow(hwnd)
-                USER32.SetCursorPos(x, RESOLUTION["y"] // 2)
+                move_mouse_realistically(x, RESOLUTION["y"] // 2)
                 click_mouse()
                 KERNEL32.Sleep(50)
                 click_mouse()
@@ -340,7 +405,7 @@ def click_around(hwnd, workable_range_x, workable_range_y):
                 if not USER32.IsWindowVisible(hwnd):
                     break
                 USER32.SetForegroundWindow(hwnd)
-                USER32.SetCursorPos(x, random.randint(workable_range_y[0], workable_range_y[1]))
+                move_mouse_realistically(x, random.randint(workable_range_y[0], workable_range_y[1]))
                 click_mouse()
                 KERNEL32.Sleep(50)
                 click_mouse()
@@ -348,7 +413,7 @@ def click_around(hwnd, workable_range_x, workable_range_y):
                 if not USER32.IsWindowVisible(hwnd):
                     break
                 USER32.SetForegroundWindow(hwnd)
-                USER32.SetCursorPos(x, random.randint(workable_range_y[0], workable_range_y[1]))
+                move_mouse_realistically(x, random.randint(workable_range_y[0], workable_range_y[1]))
                 click_mouse()
                 KERNEL32.Sleep(50)
                 click_mouse()
@@ -368,7 +433,7 @@ def click_around(hwnd, workable_range_x, workable_range_y):
                 else:
                     point = re.match(CURSOR_POSITION_REGEX, instruction)
                     if point and len(point.regs) == 3:
-                        USER32.SetCursorPos(int(point.group(1)), int(point.group(2)))
+                        move_mouse_realistically(int(point.group(1)), int(point.group(2)))
                 KERNEL32.Sleep(50)
             else:
                 log.info("Breaking out of document window click loop as our window went away")
@@ -459,7 +524,7 @@ def realistic_human_cursor_movement():
             counter += RESOLUTION_WITHOUT_TASKBAR["x"] // 64
             x = floor(max(0, min(start_x + counter + +fuzzy_x, RESOLUTION_WITHOUT_TASKBAR["x"])))
             y = floor(start_y)
-        USER32.SetCursorPos(x, y)
+        move_mouse_realistically(x, y)
         KERNEL32.Sleep(50)
 
 
@@ -471,15 +536,24 @@ def populate_clipboard():
 
     clipstr = "".join(clipval)
     cliprawstr = create_unicode_buffer(clipstr)
-    USER32.OpenClipboard(None)
-    USER32.EmptyClipboard()
+    if not USER32.OpenClipboard(None):
+        return
 
-    buf = KERNEL32.GlobalAlloc(GMEM_MOVEABLE, sizeof(cliprawstr))
-    lockbuf = KERNEL32.GlobalLock(buf)
-    memmove(lockbuf, cliprawstr, sizeof(cliprawstr))
-    KERNEL32.GlobalUnlock(buf)
-    USER32.SetClipboardData(CF_TEXT, buf)
-    USER32.CloseClipboard()
+    try:
+        USER32.EmptyClipboard()
+        buf = KERNEL32.GlobalAlloc(GMEM_MOVEABLE, sizeof(cliprawstr))
+        if not buf:
+            return
+
+        lockbuf = KERNEL32.GlobalLock(buf)
+        if not lockbuf:
+            return
+
+        memmove(lockbuf, cliprawstr, sizeof(cliprawstr))
+        KERNEL32.GlobalUnlock(buf)
+        USER32.SetClipboardData(CF_UNICODETEXT, buf)
+    finally:
+        USER32.CloseClipboard()
 
 
 class Human(Auxiliary, Thread):
@@ -554,7 +628,7 @@ class Human(Auxiliary, Thread):
                             return
                         match = re.match(CURSOR_POSITION_REGEX, instruction, flags=re.IGNORECASE)
                         if match and len(match.regs) == 3:
-                            USER32.SetCursorPos(int(match.group(1)), int(match.group(2)))
+                            move_mouse_realistically(int(match.group(1)), int(match.group(2)))
                             KERNEL32.Sleep(interval)
                             continue
                         match = re.match(WAIT_REGEX, instruction, flags=re.IGNORECASE)
@@ -576,24 +650,24 @@ class Human(Auxiliary, Thread):
                 rng = random.randint(0, 7)
                 if rng > 1:  # 0-1
                     if rng < 4:  # 2-3 25% of the time move the cursor on the middle of the screen for x and move around
-                        USER32.SetCursorPos(RESOLUTION["x"] // 2, 0)
+                        move_mouse_realistically(RESOLUTION["x"] // 2, 0)
                         # Avoid clicking on console windows and suspending execution
                         if not cursor_over_console_window():
                             click_mouse()
-                        move_mouse()
+                        move_mouse_random()
                     elif (
                         rng >= 6
                     ):  # 6-7 25% of the time do realistic human movements for things like https://thehackernews.com/2023/11/lummac2-malware-deploys-new.html
                         realistic_human_cursor_movement()
                     else:  # 4-5 25% of the time move the cursor somewhere random and click/move around
-                        USER32.SetCursorPos(
+                        move_mouse_realistically(
                             int(RESOLUTION_WITHOUT_TASKBAR["x"] / random.uniform(1, 16)),
                             int(RESOLUTION_WITHOUT_TASKBAR["y"] / random.uniform(1, 16)),
                         )
                         # Avoid clicking on console windows and suspending execution
                         if not cursor_over_console_window():
                             click_mouse()
-                        move_mouse()
+                        move_mouse_random()
 
                 if (seconds % (15 + randoff)) == 0:
                     # curwind = USER32.GetForegroundWindow()

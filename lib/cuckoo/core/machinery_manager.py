@@ -7,7 +7,9 @@ from typing import Optional, Union
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
-from lib.cuckoo.core.database import Database, Machine, Task, _Database
+from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.data.machines import Machine
+from lib.cuckoo.core.data.task import Task
 from lib.cuckoo.core.plugins import list_plugins
 from lib.cuckoo.core.rooter import rooter, vpns
 

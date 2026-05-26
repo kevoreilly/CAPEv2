@@ -17,7 +17,7 @@ import sys
 import timeit
 import traceback
 from contextlib import suppress
-from ctypes import byref, c_buffer, c_int, create_string_buffer, sizeof, wintypes
+from ctypes import byref, c_buffer, c_int, c_void_p, create_string_buffer, sizeof, wintypes
 from pathlib import Path
 from shutil import copy
 from threading import Lock, Thread
@@ -50,6 +50,35 @@ from lib.common.defines import (
     SHELL32,
     USER32,
 )
+
+KERNEL32.OpenProcess.restype = c_void_p
+KERNEL32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+KERNEL32.CreateMutexA.restype = c_void_p
+KERNEL32.OpenEventA.restype = c_void_p
+ADVAPI32.OpenSCManagerA.restype = c_void_p
+ADVAPI32.OpenSCManagerA.argtypes = [wintypes.LPCSTR, wintypes.LPCSTR, wintypes.DWORD]
+ADVAPI32.OpenServiceW.restype = c_void_p
+ADVAPI32.OpenServiceW.argtypes = [c_void_p, wintypes.LPCWSTR, wintypes.DWORD]
+ADVAPI32.QueryServiceStatusEx.argtypes = [c_void_p, c_int, c_void_p, wintypes.DWORD, c_void_p]
+ADVAPI32.QueryServiceStatusEx.restype = wintypes.BOOL
+ADVAPI32.CloseServiceHandle.argtypes = [c_void_p]
+ADVAPI32.CloseServiceHandle.restype = wintypes.BOOL
+USER32.GetShellWindow.restype = c_void_p
+USER32.GetWindowThreadProcessId.argtypes = [c_void_p, c_void_p]
+USER32.GetWindowThreadProcessId.restype = wintypes.DWORD
+KERNEL32.OpenThread.restype = c_void_p
+KERNEL32.CreateToolhelp32Snapshot.restype = c_void_p
+KERNEL32.CreateFileW.restype = c_void_p
+KERNEL32.CreateEventW.restype = c_void_p
+KERNEL32.OpenEventW.restype = c_void_p
+KERNEL32.GetCurrentProcess.restype = c_void_p
+KERNEL32.CloseHandle.argtypes = [c_void_p]
+KERNEL32.CloseHandle.restype = wintypes.BOOL
+PSAPI.EnumProcesses.argtypes = [c_void_p, wintypes.DWORD, c_void_p]
+PSAPI.EnumProcesses.restype = wintypes.BOOL
+PSAPI.GetProcessImageFileNameA.argtypes = [c_void_p, c_void_p, wintypes.DWORD]
+PSAPI.GetProcessImageFileNameA.restype = wintypes.DWORD
+
 from lib.common.exceptions import CuckooError, CuckooPackageError
 from lib.common.hashing import hash_file
 from lib.common.results import upload_to_host
@@ -119,7 +148,7 @@ def pids_from_image_names(suffixlist):
         log.debug("psapi.EnumProcesses failed")
         return retpids
 
-    suffixlist = tuple([x.lower() for x in suffixlist])
+    suffixlist = tuple(x.lower() for x in suffixlist)
     num_processes = int(num_bytes.value / sizeof(wintypes.DWORD))
     pids = lpid_process_ptr[:num_processes]
 
@@ -351,6 +380,49 @@ class Analyzer:
 
         log.info("Analysis completed")
 
+    def handle_reboot(self):
+        """Handle system reboot request."""
+        # We need to persist the analyzer so it runs again after reboot.
+        # We will use the RunOnce registry key.
+
+        # 1. Determine paths
+        python_path = sys.executable
+        analyzer_path = os.path.abspath(sys.argv[0])
+        working_dir = os.getcwd()
+
+        # 2. Formulate command
+        # We use cmd.exe to ensure the working directory is correct.
+        # cmd /c "cd /d <cwd> && <python> <analyzer>"
+        command = 'cmd /c "cd /d "{}" && "{}" "{}"'.format(working_dir, python_path, analyzer_path)
+
+        # 3. Write to Registry
+        from lib.common.registry import set_regkey_full
+        from lib.common.rand import random_string
+
+        # Randomize the key name to avoid detection
+        key_name = random_string(8)
+
+        # Determine root key based on privileges
+        if SHELL32.IsUserAnAdmin():
+            key_path = "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\{}".format(key_name)
+        else:
+            key_path = "HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce\\{}".format(key_name)
+
+        log.info("Setting reboot persistence: %s -> %s", key_path, command)
+        try:
+            set_regkey_full(key_path, "REG_SZ", command)
+        except Exception as e:
+            log.error("Failed to set persistence key: %s", e)
+            return
+
+        # 4. Initiate Reboot
+        log.info("Initiating system reboot")
+        # Using shutdown command is robust
+        subprocess.run(["shutdown", "/r", "/t", "0", "/f"], check=False)
+
+        # Stop the analysis loop so we don't interfere while shutting down
+        self.do_run = False
+
     def get_completion_key(self):
         return getattr(self.config, "completion_key", "")
 
@@ -431,51 +503,36 @@ class Analyzer:
             self.target = self.package.move_curdir(self.target)
         log.debug("New location of moved file: %s", self.target)
 
-        # Set the DLL to that specified by package
-        if self.package.options.get("dll") is not None:
-            MONITOR_DLL = self.package.options["dll"]
-            log.info("Analyzer: DLL set to %s from package %s", MONITOR_DLL, self.package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a DLL option", self.package_name)
-
-        # Set the DLL_64 to that specified by package
-        if self.package.options.get("dll_64") is not None:
-            MONITOR_DLL_64 = self.package.options["dll_64"]
-            log.info("Analyzer: DLL_64 set to %s from package %s", MONITOR_DLL_64, self.package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a DLL_64 option", self.package_name)
-
-        # Set the loader to that specified by package
-        if self.package.options.get("loader") is not None:
-            LOADER32 = self.package.options["loader"]
-            log.info("Analyzer: Loader set to %s from package %s", LOADER32, self.package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a loader option", self.package_name)
-
-        # Set the loader_64 to that specified by package
-        if self.package.options.get("loader_64") is not None:
-            LOADER64 = self.package.options["loader_64"]
-            log.info("Analyzer: Loader_64 set to %s from package %s", LOADER64, self.package_name)
-        else:
-            log.info("Analyzer: Package %s does not specify a loader_64 option", self.package_name)
+        # Set the DLL/loader to that specified by package
+        for key in ("dll", "dll_64", "loader", "loader_64"):
+            if (value := self.package.options.get(key)) is not None:
+                log.info("Analyzer: %s set to %s from package %s", key, value, self.package_name)
+                if key == "dll":
+                    MONITOR_DLL = value
+                elif key == "dll_64":
+                    MONITOR_DLL_64 = value
+                elif key == "loader":
+                    LOADER32 = value
+                elif key == "loader_64":
+                    LOADER64 = value
+            else:
+                log.info("Analyzer: Package %s does not specify a %s option", self.package_name, key)
 
         # randomize monitor DLL and loader executable names
-        if MONITOR_DLL is not None:
-            copy(os.path.join("dll", MONITOR_DLL), CAPEMON32_NAME)
-        else:
-            copy("dll\\capemon.dll", CAPEMON32_NAME)
-        if MONITOR_DLL_64 is not None:
-            copy(os.path.join("dll", MONITOR_DLL_64), CAPEMON64_NAME)
-        else:
-            copy("dll\\capemon_x64.dll", CAPEMON64_NAME)
-        if LOADER32 is not None:
-            copy(os.path.join("bin", LOADER32), LOADER32_NAME)
-        else:
-            copy("bin\\loader.exe", LOADER32_NAME)
-        if LOADER64 is not None:
-            copy(os.path.join("bin", LOADER64), LOADER64_NAME)
-        else:
-            copy("bin\\loader_x64.exe", LOADER64_NAME)
+        for source_name, dest_name, default_name, source_dir in [
+            (MONITOR_DLL, CAPEMON32_NAME, "capemon.dll", "dll"),
+            (MONITOR_DLL_64, CAPEMON64_NAME, "capemon_x64.dll", "dll"),
+            (LOADER32, LOADER32_NAME, "loader.exe", "bin"),
+            (LOADER64, LOADER64_NAME, "loader_x64.exe", "bin"),
+        ]:
+            if source_name is not None:
+                if os.path.basename(source_name) != source_name:
+                    log.warning("Path traversal attempt detected in source_name: '%s'", source_name)
+                    return
+                source_path = os.path.join(source_dir, source_name)
+            else:
+                source_path = os.path.join(source_dir, default_name)
+            copy(source_path, dest_name)
 
         si = subprocess.STARTUPINFO()
         # STARTF_USESHOWWINDOW
@@ -527,8 +584,19 @@ class Analyzer:
         # Walk through the available auxiliary modules.
         aux_modules = []
 
-        for module in sorted(Auxiliary.__subclasses__(), key=lambda x: x.start_priority, reverse=True):
+        def get_all_subclasses(cls):
+            all_subclasses = []
+            for subclass in cls.__subclasses__():
+                all_subclasses.append(subclass)
+                all_subclasses.extend(get_all_subclasses(subclass))
+            return all_subclasses
+
+        for module in sorted(get_all_subclasses(Auxiliary), key=lambda x: x.start_priority, reverse=True):
             try:
+                # this is not a real module, ignore it
+                if module.__name__ == "ETWAuxiliaryWrapper":
+                    continue
+
                 aux = module(self.options, self.config)
                 log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_modules.append(aux)
@@ -845,6 +913,8 @@ class Files:
         "vmtoolsd.exe",
         "vmsrvc.exe",
         "python.exe",
+        "pythonw.exe",
+        "python3.exe",
         "perl.exe",
     ]
 
@@ -924,7 +994,7 @@ class Files:
             log.exception(e)
 
     def delete_file(self, filepath, pid=None):
-        """A file is about to removed and thus should be dumped right away."""
+        """A file is about to be removed and thus should be dumped right away."""
         self.add_pid(filepath, pid)
         self.dump_file(filepath)
 
@@ -972,7 +1042,7 @@ class ProcessList:
             self.add_pid(pids)
 
     def has_pid(self, pid, notrack=True):
-        """Return whether or not this process identifier being tracked."""
+        """Return whether this process identifier being tracked."""
         pid = int(pid)
         if pid in self.pids:
             return True
@@ -1239,7 +1309,7 @@ class CommandPipeHandler:
                     servproc.inject(interest=filepath, nosleepskip=True)
                     self.analyzer.LASTINJECT_TIME = timeit.default_timer()
                     servproc.close()
-                    KERNEL32.Sleep(1000)
+                    KERNEL32.Sleep(2000)
                     self.analyzer.MONITORED_SERVICES = True
                 else:
                     log.error("Unable to monitor service %s", servname)
@@ -1248,6 +1318,11 @@ class CommandPipeHandler:
         # RESUME:2560,3728'
         self.analyzer.LASTINJECT_TIME = timeit.default_timer()
         self._handle_process(data)
+
+    def _handle_reboot(self, data):
+        """Handle reboot request from the monitor."""
+        log.info("Received reboot request from monitored process")
+        self.analyzer.handle_reboot()
 
     def _handle_shutdown(self, data):
         """Handle attempted shutdowns/restarts.
@@ -1326,8 +1401,7 @@ class CommandPipeHandler:
             # Add the new process ID to the list of monitored processes.
             self.analyzer.process_list.add_pid(process_id)
 
-            # We're done operating on the processes list,
-            # release the lock
+            # We're done operating on the processes list, release the lock
             self.analyzer.process_lock.release()
 
             proc.inject(interest=filepath, nosleepskip=True)
@@ -1338,7 +1412,6 @@ class CommandPipeHandler:
         """Request for injection into a process."""
         # Parse the process identifier.
         # PROCESS:1:1824,2856
-        process_id = thread_id = None
         # We parse the process ID.
         pid_s, tid_s = data.split(b",", 1)
         process_id = int(pid_s)
@@ -1397,10 +1470,11 @@ class CommandPipeHandler:
 
         return self._inject_process(int(pid), int(tid), int(mode))
 
-    def _handle_file_new(self, file_path):
+    def _handle_file_new(self, data):
         """Notification of a new dropped file."""
-        if os.path.exists(file_path):
-            self.analyzer.files.add_file(file_path.decode(), self.pid)
+        pid, file_path = data.split(b",", 1)
+        if os.path.exists(file_path.decode()):
+            self.analyzer.files.add_file(file_path.decode(), pid.decode())
 
     def _handle_file_cape(self, data):
         """Notification of a new dropped file."""
@@ -1421,9 +1495,9 @@ class CommandPipeHandler:
     def _handle_file_del(self, data):
         """Notification of a file being removed (if it exists) - we have to
         dump it before it's being removed."""
-        file_path = data.decode()
-        if os.path.exists(file_path):
-            self.analyzer.files.delete_file(file_path, self.pid)
+        pid, file_path = data.split(b",", 1)
+        if os.path.exists(file_path.decode()):
+            self.analyzer.files.delete_file(file_path.decode(), pid.decode())
 
     def _handle_file_dump(self, file_path):
         # We extract the file path.
@@ -1482,18 +1556,15 @@ class CommandPipeHandler:
             log.warning("Received FILE_MOVE command from monitor with an incorrect argument")
             return
 
-        old_filepath, new_filepath = data.split(b"::", 1)
-        new_filepath = new_filepath.decode()
-        self.analyzer.files.move_file(old_filepath.decode(), new_filepath, self.pid)
+        pid, paths = data.split(b",", 1)
+        old_filepath, new_filepath = paths.split(b"::", 1)
+        self.analyzer.files.move_file(old_filepath.decode(), new_filepath.decode(), pid.decode())
 
     def dispatch(self, data):
         response = "NOPE"
         if not data or b":" not in data:
             log.critical("Unknown command received from the monitor: %s", data.strip())
         else:
-            # Backwards compatibility (old syntax is, e.g., "FILE_NEW:" vs the
-            # new syntax, e.g., "1234:FILE_NEW:").
-            # if data[0].isupper():
             command, arguments = data.strip().split(b":", 1)
             # Uncomment to debug monitor commands
             # if command not in (b"DEBUG", b"INFO"):

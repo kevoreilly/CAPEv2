@@ -68,8 +68,15 @@ class AnalysisInfo(Processing):
                 raise CuckooProcessingError(f"Error opening {self.log_path}: {e}") from e
             else:
                 with suppress(Exception):
-                    idx = analysis_log.index('INFO: Automatically selected analysis package "')
-                    package = analysis_log[idx + 47 :].split('"', 1)[0]
+                    # Try both Windows and Linux analyzer log formats
+                    for marker in (
+                        'INFO: analysis package selected: "',
+                        'INFO: Automatically selected analysis package "',
+                    ):
+                        idx = analysis_log.find(marker)
+                        if idx != -1:
+                            package = analysis_log[idx + len(marker) :].split('"', 1)[0]
+                            break
         return package
 
     def run(self):

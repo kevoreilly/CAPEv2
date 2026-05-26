@@ -96,6 +96,13 @@ db = cuckoo
 # password =
 # authsource = cuckoo
 
+# Extended search indexes (may increase disk/RAM usage)
+index_yara = no
+index_clamav = no
+index_hashes = no
+index_detections = no
+index_filenames = no
+
 # Set this value if you are using mongodb with TLS enabled
 # tlscafile =
 
@@ -240,3 +247,6 @@ auth_by = vm
 # only if auth_by = json. The absolute path to your Google Cloud service account JSON key file.
 # This file is required for authentication.
 credentials_path = data/gcp-credentials.json
+
+# Delete local report after successful upload to GCS
+delete_after_upload = no

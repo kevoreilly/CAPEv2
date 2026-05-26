@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container-fluid">
+    {% if user.is_staff %}
+    <div class="card bg-dark border-secondary mb-3">
+        <div class="card-header border-secondary text-white">Admin</div>
+        <div class="card-body">
+            <dl class="row mb-0">
+                <dt class="col-sm-3 text-white">Task ID</dt>
+                <dd class="col-sm-9 d-flex align-items-center text-white">
+                    {{task.id}}
+                    <a href="{% url "remove" task.id %}" class="btn btn-danger btn-sm ms-3" data-bs-toggle="tooltip" title="Delete task"><i class="fas fa-trash-alt me-1"></i> Delete</a>
+                    {% if settings.REPROCESS_FAILED_PROCESSING %}
+                    <a href="{% url 'reprocess_tasks' task.id %}" class="btn btn-primary btn-sm ms-2" data-bs-toggle="tooltip" title="Reprocess Task">
+                        <i class="fas fa-redo me-1"></i> Reprocess
+                    </a>
+                    {% endif %}
+                </dd>
+            </dl>
+            {% if task.user_id %}
+            <dl class="row mb-0">
+                <dt class="col-sm-3 text-white">Task created by user</dt>
+                <dd class="col-sm-9 d-flex align-items-center">
+                    <a href="{% url "admin:auth_user_change" task.user_id  %}" class="text-info me-3">{{task.user_id}}</a>
+                    <a href="{% url "ban_user" task.user_id  %}" class="btn btn-danger btn-sm me-2" data-bs-toggle="tooltip" title="Ban user"><i class="fas fa-user-lock me-1"></i> Ban User</a>
+                    <a href="{% url "ban_all_user_tasks" task.user_id  %}" class="btn btn-danger btn-sm" data-bs-toggle="tooltip" title="Ban all tasks of this user"><i class="fas fa-tasks me-1"></i><i class="fas fa-user-lock me-1"></i> Ban All User Tasks</a>
+                </dd>
+            </dl>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white">
+                <i class="fas fa-exclamation-triangle text-danger me-2"></i>
+                Task {{ task.id }} Failed Processing
+            </h5>
+        </div>
+        <div class="card-body">
+            <h6 class="text-white-50">Target: {{ task.target }}</h6>
+            <hr class="border-secondary">
+            <h5 class="text-white mb-3">Process Log</h5>
+            <div class="card bg-secondary">
+                <div class="card-body p-0">
+                    <pre class="p-3 text-white mb-0" style="max-height: 600px; overflow-y: auto; white-space: pre-wrap;">{{ process_log }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

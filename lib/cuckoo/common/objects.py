@@ -463,10 +463,10 @@ class File:
         all_rule_files = []
         for category in categories:
             for path in (yara_root, custom_yara_root):
-                category_root = os.path.join(path, category)
-                if not path_exists(category_root):
+                root_path = os.path.join(path, category)
+                if not path_exists(root_path):
                     continue
-                for root, _, filenames in os.walk(category_root, followlinks=True):
+                for root, _, filenames in os.walk(root_path, followlinks=True):
                     if root.endswith("deprecated"):
                         continue
                     for filename in filenames:
@@ -476,29 +476,29 @@ class File:
         hasher = hashlib.sha256()
         for filepath in sorted(all_rule_files):
             hasher.update(Path(filepath).read_bytes())
-        File.yara_rules_hash = hasher.hexdigest()
+        cls.yara_rules_hash = hasher.hexdigest()
 
         # Loop through all categories.
         for category in categories:
             rules, indexed = {}, []
             # Check if there is a directory for the given category.
             for path in (yara_root, custom_yara_root):
-                category_root = os.path.join(path, category)
-                if not path_exists(category_root):
-                    log.warning("Missing Yara directory: %s?", category_root)
+                root_path = os.path.join(path, category)
+                if not path_exists(root_path):
+                    log.warning("Missing Yara directory: %s?", root_path)
                     continue
 
-                for category_root, _, filenames in os.walk(category_root, followlinks=True):
-                    if category_root.endswith("deprecated"):
+                for root, _, filenames in os.walk(root_path, followlinks=True):
+                    if root.endswith("deprecated"):
                         continue
                     for filename in sorted(filenames):
                         if not filename.endswith((".yar", ".yara")):
                             continue
-                        filepath = os.path.join(category_root, filename)
+                        filepath = os.path.join(root, filename)
                         rules[f"rule_{category}_{len(rules)}"] = filepath
                         indexed.append(filename)
 
-                # Need to define each external variable that will be used in the
+            # Need to define each external variable that will be used in the
             # future. Otherwise Yara will complain.
             externals = {"filename": ""}
 
@@ -580,8 +580,8 @@ class File:
                     log.debug("\t `-- %s %s", category, entry)
                 else:
                     log.debug("\t |-- %s %s", category, entry)
-        File.yara_rules_hash = hasher.hexdigest()
-        File.yara_initialized = True
+        cls.yara_rules_hash = hasher.hexdigest()
+        cls.yara_initialized = True
 
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.
@@ -597,6 +597,9 @@ class File:
         if not os.path.getsize(self.file_path):
             log.debug("YARA scan ignored, file is empty: %s", self.file_path)
             return []
+
+        if externals is None:
+            externals = {"filename": os.path.basename(self.file_path)}
 
         results = []
         try:
@@ -640,6 +643,7 @@ class File:
                             "meta": match.meta,
                             "strings": strings,
                             "addresses": addresses,
+                            "namespace": match.namespace,
                         }
                     )
         except Exception as e:

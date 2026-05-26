@@ -33,6 +33,9 @@ def grant_debug_privilege(pid=None):
         POINTER(TOKEN_PRIVILEGES),
         POINTER(wintypes.DWORD),
     )
+    KERNEL32.GetCurrentProcess.restype = wintypes.HANDLE
+    KERNEL32.OpenProcess.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.DWORD)
+    KERNEL32.OpenProcess.restype = wintypes.HANDLE
 
     if pid is None:
         h_process = KERNEL32.GetCurrentProcess()
@@ -55,7 +58,7 @@ def grant_debug_privilege(pid=None):
     luid_attributes.Attributes = SE_PRIVILEGE_ENABLED
     token_privs = TOKEN_PRIVILEGES()
     token_privs.PrivilegeCount = 1
-    token_privs.Privileges = luid_attributes
+    token_privs.Privileges[0] = luid_attributes
 
     if not ADVAPI32.AdjustTokenPrivileges(h_current_token, False, token_privs, 0, None, None):
         return False

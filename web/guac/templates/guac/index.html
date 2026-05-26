@@ -1,42 +1,50 @@
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html class="datatable-dark" lang="en">
 <head>
-    <link rel="icon" href="{% static 'img/cape.png' %}">
-    <link href="{% static 'css/guac-main.css' %}" rel="stylesheet" type="text/css"/>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guacamole Console · CAPE Sandbox</title>
+    <link rel="icon" type="image/png" href="{% static 'img/cape.png' %}">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'css/all.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/guac-main.css' %}" rel="stylesheet">
     <script src="{% static 'js/crypto-js.min.js' %}"></script>
     <script src="{% static 'js/guac-main.js' %}"></script>
-    <script src="{% static 'js/guacamole-1.4.0-all.min.js' %}"></script>
+    <script src="{% static 'js/guacamole-1.6.0-all.min.js' %}"></script>
     <script src="{% static 'js/jquery.js' %}"></script>
     <script src="{% static 'js/jquery-ui.min.js' %}"></script>
-    <meta charset="utf-8"/>
-    <title>Guacamole Console</title>
 </head>
-<body>
+<body class="bg-dark text-white" style="margin:0;padding:0;overflow:hidden;">
     <div class="guaconsole">
-        <div>
-            <button id="stopTask">End Session</button>
+        <div id="guac-toolbar" class="d-flex align-items-center px-3 py-1 border-bottom border-secondary bg-dark" style="height:42px;flex-shrink:0;">
+            <a href="/" class="navbar-brand py-0 me-3">
+                <img src="{% static 'graphic/cape.png' %}" height="28" alt="CAPE Sandbox">
+            </a>
+            <span class="text-secondary me-2 small">|</span>
+            <span class="text-secondary small me-1">Task</span>
+            <a href="/submit/status/{{ task_id }}/" class="text-info small me-auto text-decoration-none">#{{ task_id }}</a>
+            <button id="stopTask" class="btn btn-sm btn-outline-danger">
+                <i class="fas fa-stop-circle me-1"></i>End Session
+            </button>
         </div>
         <div id="container">
             <div id="terminal"></div>
-        </div>
-        <div class="dialog" id="launch_error">
-            <div class="inner">
-                <p class="message"></p>
-                <p class="error_msg"></p>
-                <button type="button" id="taskStatus">View Task</button>
+            <div id="launch_error" style="display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1002;max-width:440px;width:100%;">
+                <div style="background:#212529;border:1px solid #495057;border-radius:8px;padding:20px;box-shadow:0 0 30px rgba(0,0,0,0.8);color:#fff;">
+                    <h6 id="dialog-heading" class="mb-2" style="color:#fff;">Session Ended</h6>
+                    <p id="dialog-message" class="mb-2 small" style="color:#6c757d;"></p>
+                    <a id="taskStatus" href="/submit/status/{{ task_id }}/" class="btn btn-sm btn-outline-light"><i class="fas fa-tasks me-1"></i>View Task</a>
+                </div>
             </div>
         </div>
-        <script>
-            document.getElementById("stopTask").addEventListener("click", function () {
-                stopTask("{{task_id}}");
-            });
-            var task_url = location.origin + '/submit/status/{{task_id}}/'
-            document.getElementById("taskStatus").addEventListener("click", function() {
-                location.replace(task_url);
-            }, false);
-	        GuacMe("html", "{{session_id}}", "{{recording_name}}");
-        </script>
     </div>
+    <script>
+        document.getElementById("stopTask").addEventListener("click", function() {
+            stopTask("{{ task_id }}");
+        });
+        GuacMe("html", "{{ session_id }}", "{{ recording_name }}");
+    </script>
 </body>
 </html>

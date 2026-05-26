@@ -96,6 +96,13 @@ db = cuckoo
 # password =
 # authsource = cuckoo
 
+# Extended search indexes (may increase disk/RAM usage)
+index_yara = no
+index_clamav = no
+index_hashes = no
+index_detections = no
+index_filenames = no
+
 # Set this value if you are using mongodb with TLS enabled
 # tlscafile =
 

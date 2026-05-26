@@ -1,5 +1,6 @@
 {% load key_tags %}
 
+<div class="dynamic-layout-target layout-centered">
 {% if dropped|length > 0 %}
     {% if settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
         <div class="text-center mb-4">
@@ -18,3 +19,4 @@
         <p class="mb-0">No dropped files found.</p>
     </div>
 {% endif %}
+</div>

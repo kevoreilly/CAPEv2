@@ -1130,12 +1130,6 @@ function dependencies() {
         useradd --system -g ${USER} -d /home/${USER}/ -m ${USER} --shell /bin/bash
     fi
 
-    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
-        mkdir -p "$CAPE_ROOT"
-        chown ${USER}:${USER} "$CAPE_ROOT"
-        sudo -u ${USER} /usr/local/bin/uv venv "$CAPE_ROOT/.venv"
-    fi
-
     echo "${USER} ALL=NOPASSWD: ${TCPDUMP_PATH}" > /etc/sudoers.d/tcpdump
     chmod 440 /etc/sudoers.d/tcpdump
 
@@ -1362,6 +1356,9 @@ function install_CAPE() {
         git clone https://github.com/kevoreilly/CAPEv2/ "$CAPE_ROOT"
     fi
     chown ${USER}:${USER} -R "$CAPE_ROOT"/
+    if [ "$USE_UV" = "true" ] || [ "$USE_UV" = "True" ]; then
+        sudo -u ${USER} /usr/local/bin/uv venv "$CAPE_ROOT/.venv"
+    fi
     #chown -R root:${USER} /usr/var/malheur/
     #chmod -R =rwX,g=rwX,o=X /usr/var/malheur/
     # Adapting owner permissions to the ${USER} path folder
@@ -1731,7 +1728,7 @@ case $COMMAND in
         exit 0;;
 esac
 
-if [ $# -ge 2 ]; then
+if [ $# -ge 2 ] && [[ ! "$2" =~ ^-- ]]; then
     IFACE_IP=$2
 elif [ $# -eq 0 ]; then
     echo "[-] check --help"
@@ -1754,8 +1751,6 @@ for i in "$@"; do
         set_python_mgr
     fi
 done
-
-sandbox_version=$(echo "$sandbox_version"|tr "{A-Z}" "{a-z}")
 
 #check if start with root
 if [ "$EUID" -ne 0 ] && [[ -z "${BUILD_ENV}" ]]; then

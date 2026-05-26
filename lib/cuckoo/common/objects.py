@@ -502,9 +502,6 @@ class File:
             # future. Otherwise Yara will complain.
             externals = {"filename": ""}
 
-            if not rules:
-                continue
-
             for _ in range(len(rules) + 1):
                 if HAVE_YARA_X:
                     compiler = yara_x.Compiler(relaxed_re_syntax=True)
@@ -531,7 +528,7 @@ class File:
                     else:
                         # This runs if the inner for loop finishes WITHOUT break (no errors)
                         compiled_rules = compiler.build()
-                        File.yara_rules[category] = yara_x.Scanner(compiled_rules)
+                        cls.yara_rules[category] = yara_x.Scanner(compiled_rules)
                         if category == "memory":
                             index_memory = os.path.join(yara_root, "index_memory.yarc")
                             with open(index_memory, "wb") as f:
@@ -544,7 +541,7 @@ class File:
                 elif HAVE_YARA:
                     try:
                         compiled_rules = yara.compile(filepaths=rules, externals=externals)
-                        File.yara_rules[category] = compiled_rules
+                        cls.yara_rules[category] = compiled_rules
                         if category == "memory":
                             index_memory = os.path.join(yara_root, "index_memory.yarc")
                             try:
@@ -577,6 +574,7 @@ class File:
                 log.error("Failed to compile any Yara rules for category: %s", category)
 
             indexed = sorted(indexed)
+
             for entry in indexed:
                 if (category, entry) == indexed[-1]:
                     log.debug("\t `-- %s %s", category, entry)
@@ -602,27 +600,29 @@ class File:
 
         results = []
         try:
-            rules = File.yara_rules.get(category)
+            rules = self.yara_rules.get(category)
             if not rules:
                 return []
 
             if HAVE_YARA_X:
-                for yara_results in rules.scan_file(self.file_path):
-                    for match in yara_results.matching_rules:
-                        strings = []
-                        addresses = {}
-                        for yara_string in match.patterns:
-                            for x in yara_string.matches:
-                                # strings.extend({self._yara_encode_string(x.matched_data)})
-                                addresses.update({yara_string.identifier.strip("$"): x.offset})
-                        results.append(
-                            {
-                                "name": match.identifier,
-                                "meta": dict(match.metadata),
-                                "strings": [],
-                                "addresses": addresses,
-                            }
-                        )
+                yara_results = rules.scan_file(self.file_path)
+                for match in yara_results.matching_rules:
+                    strings = []
+                    addresses = {}
+                    for yara_string in match.patterns:
+                        for x in yara_string.matches:
+                            y_string = self._yara_encode_string(x.data)
+                            if y_string not in strings:
+                                strings.append(y_string)
+                            addresses.update({yara_string.identifier.strip("$"): x.offset})
+                    results.append(
+                        {
+                            "name": match.identifier,
+                            "meta": dict(match.metadata),
+                            "strings": strings,
+                            "addresses": addresses,
+                        }
+                    )
             elif HAVE_YARA:
                 for match in rules.match(self.file_path_ansii, externals=externals):
                     strings = []

@@ -502,6 +502,9 @@ class File:
             # future. Otherwise Yara will complain.
             externals = {"filename": ""}
 
+            if not rules:
+                continue
+
             for _ in range(len(rules) + 1):
                 if HAVE_YARA_X:
                     compiler = yara_x.Compiler(relaxed_re_syntax=True)
@@ -512,17 +515,45 @@ class File:
                                 compiler.add_source(f.read())
                         except yara_x.CompileError as err:
                             if raise_exception:
-                                log.error("Yara problem: %s - Error:", name, str(err))
+                                log.error("Yara problem: %s - Error: %s", name, str(err))
                                 raise yara_x.CompileError
-                            print(err, name)
-                            # ToDo bad rule defense
-
-                    File.yara_rules[category] = yara_x.Scanner(compiler.build())
-                    break
+                            
+                            bad_rule_path = rules[name]
+                            bad_rule_name = os.path.basename(bad_rule_path)
+                            log.error("Can't compile YARA rule: %s. Error: %s", bad_rule_path, str(err))
+                            
+                            del rules[name]
+                            if bad_rule_name in indexed:
+                                indexed.remove(bad_rule_name)
+                            
+                            # Break the inner for loop to retry with pruned rules
+                            break
+                    else:
+                        # This runs if the inner for loop finishes WITHOUT break (no errors)
+                        compiled_rules = compiler.build()
+                        File.yara_rules[category] = yara_x.Scanner(compiled_rules)
+                        if category == "memory":
+                            index_memory = os.path.join(yara_root, "index_memory.yarc")
+                            with open(index_memory, "wb") as f:
+                                compiled_rules.serialize_into(f)
+                        break
+                    # If we reached here, it means we hit a 'break' in the inner loop (an error occurred)
+                    # The outer 'for _ in range' will retry.
+                    continue
 
                 elif HAVE_YARA:
                     try:
-                        File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
+                        compiled_rules = yara.compile(filepaths=rules, externals=externals)
+                        File.yara_rules[category] = compiled_rules
+                        if category == "memory":
+                            index_memory = os.path.join(yara_root, "index_memory.yarc")
+                            try:
+                                compiled_rules.save(index_memory)
+                            except yara.Error as e:
+                                if "could not open file" in str(e):
+                                    log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
+                                else:
+                                    log.error(e)
                         break
                     except yara.SyntaxError as e:
                         bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
@@ -544,32 +575,6 @@ class File:
                         break
             else:
                 log.error("Failed to compile any Yara rules for category: %s", category)
-
-            if category == "memory":
-                index_memory = os.path.join(yara_root, "index_memory.yarc")
-                if HAVE_YARA_X:
-                    for name, path in rules.items():
-                        try:
-                            with open(path, "r") as f:
-                                compiler.new_namespace(name)
-                                compiler.add_source(f.read())
-                        except yara_x.CompileError as err:
-                            if raise_exception:
-                                log.error("Yara problem: %s - Error:", name, str(err))
-                                raise yara_x.CompileError
-                            print(err, name)
-                    builded = compiler.build()
-                    with open(index_memory, "wb") as f:
-                        builded.serialize_into(f)
-                elif HAVE_YARA:
-                    try:
-                        mem_rules = yara.compile(filepaths=rules, externals=externals)
-                        mem_rules.save(index_memory)
-                    except yara.Error as e:
-                        if "could not open file" in str(e):
-                            log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
-                        else:
-                            log.error(e)
 
             indexed = sorted(indexed)
             for entry in indexed:

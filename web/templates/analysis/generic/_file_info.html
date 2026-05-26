@@ -311,10 +311,6 @@
                 <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}">{{file.decoded_files_tool}}</a>
             {% endif %}
 
-            {% if file.extracted_files %}
-                <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#extracted_files_{{file.sha256}}">{{file.extracted_files_tool|default:"Extracted Files"}}</a>
-            {% endif %}
-
             {% if file.selfextract %}
                 {% for name, details in file.selfextract.items %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#selfextract_{{name}}">Extract: {{name}}</a>
@@ -401,23 +397,6 @@
             </div>
         {% endif %}
 
-        {% if file.extracted_files %}
-            <div class="collapse mb-3" id="extracted_files_{{file.sha256}}">
-                <div class="card bg-dark border-secondary">
-                    <div class="card-header border-secondary"><h6 class="mb-0 text-white">Extracted Files</h6></div>
-                    <div class="card-body">
-                        {% for sub_file in file.extracted_files %}
-                            {% if tab_name == "static" %}
-                                {% include "analysis/generic/_file_info.html" with file=sub_file tab_name="dropped" %}
-                            {% else %}
-                                {% include "analysis/generic/_file_info.html" with file=sub_file %}
-                            {% endif %}
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-        {% endif %}
-
         {% if file.selfextract %}
             {% for name, details in file.selfextract.items %}
                 <div class="collapse mb-3" id="selfextract_{{name}}">
@@ -428,11 +407,7 @@
                                 <div class="alert alert-info">Password: <strong>{{details.password}}</strong></div>
                             {% endif %}
                             {% for sub_file in details.extracted_files %}
-                                {% if tab_name == "static" %}
-                                    {% include "analysis/generic/_file_info.html" with file=sub_file tab_name="dropped" %}
-                                {% else %}
-                                    {% include "analysis/generic/_file_info.html" with file=sub_file %}
-                                {% endif %}
+                                {% include "analysis/generic/_subfile_info.html" %}
                             {% endfor %}
                         </div>
                     </div>
@@ -461,4 +436,3 @@
         {% endif %}
     </div>
 </div>
-

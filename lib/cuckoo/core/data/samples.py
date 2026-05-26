@@ -130,18 +130,19 @@ class SamplesMixIn:
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
+            file_sha256 = fileobj.get_sha256()
             sample = None
             # check if hash is known already
             try:
                 # get or create
-                sample = self.session.scalar(select(Sample).where(Sample.md5 == file_md5))
+                sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
                 if sample is None:
                     with self.session.begin_nested():
                         sample = Sample(
                             md5=file_md5,
                             crc32=fileobj.get_crc32(),
                             sha1=fileobj.get_sha1(),
-                            sha256=fileobj.get_sha256(),
+                            sha256=file_sha256,
                             sha512=fileobj.get_sha512(),
                             file_size=fileobj.get_size(),
                             file_type=file_type,
@@ -150,7 +151,10 @@ class SamplesMixIn:
                         )
                         self.session.add(sample)
             except IntegrityError as e:
-                log.exception(e)
+                # Another concurrent process might have inserted it
+                sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
+                if sample is None:
+                    log.exception(e)
         return sample
 
 

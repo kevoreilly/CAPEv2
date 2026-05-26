@@ -152,9 +152,10 @@ class TasksMixIn:
             fileobj = File(obj.file_path)
             file_type = fileobj.get_type()
             file_md5 = fileobj.get_md5()
+            file_sha256 = fileobj.get_sha256()
             # check if hash is known already
             # ToDo consider migrate to _get_or_create?
-            sample = self.session.scalar(select(Sample).where(Sample.md5 == file_md5))
+            sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
             if not sample:
                 try:
                     with self.session.begin_nested():
@@ -162,7 +163,7 @@ class TasksMixIn:
                             md5=file_md5,
                             crc32=fileobj.get_crc32(),
                             sha1=fileobj.get_sha1(),
-                            sha256=fileobj.get_sha256(),
+                            sha256=file_sha256,
                             sha512=fileobj.get_sha512(),
                             file_size=fileobj.get_size(),
                             file_type=file_type,
@@ -171,7 +172,10 @@ class TasksMixIn:
                         )
                         self.session.add(sample)
                 except Exception as e:
-                    log.exception(e)
+                    # The sample might have been inserted by another concurrent process
+                    sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
+                    if not sample:
+                        log.exception(e)
 
             if DYNAMIC_ARCH_DETERMINATION:
                 # Assign architecture to task to fetch correct VM type

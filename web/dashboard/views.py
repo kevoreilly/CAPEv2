@@ -13,19 +13,8 @@ from lib.cuckoo.core.data.tasking import TasksMixIn
 
 sys.path.append(settings.CUCKOO_PATH)
 
-from lib.cuckoo.common.web_utils import top_detections
 from lib.cuckoo.core.database import Database
-from lib.cuckoo.core.data.task import (
-    TASK_COMPLETED,
-    TASK_DISTRIBUTED,
-    TASK_FAILED_ANALYSIS,
-    TASK_FAILED_PROCESSING,
-    TASK_FAILED_REPORTING,
-    TASK_PENDING,
-    TASK_RECOVERED,
-    TASK_REPORTED,
-    TASK_RUNNING
-)
+from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_REPORTED
 
 
 # Conditional decorator for web authentication
@@ -51,32 +40,17 @@ def format_number_with_space(number):
 def index(request):
     db: TasksMixIn = Database()
 
+    states_count = db.get_tasks_status_count()
     report = dict(
         total_samples=format_number_with_space(db.count_samples()),
         total_tasks=format_number_with_space(db.count_tasks()),
-        states_count={},
+        states_count=states_count,
         estimate_hour=None,
         estimate_day=None,
     )
 
-    states = (
-        TASK_PENDING,
-        TASK_RUNNING,
-        TASK_DISTRIBUTED,
-        TASK_COMPLETED,
-        TASK_RECOVERED,
-        TASK_REPORTED,
-        TASK_FAILED_ANALYSIS,
-        TASK_FAILED_PROCESSING,
-        TASK_FAILED_REPORTING,
-    )
-
-    for state in states:
-        report["states_count"][state] = db.count_tasks(state)
-
     # For the following stats we're only interested in completed tasks.
-    tasks = db.count_tasks(status=TASK_COMPLETED)
-    tasks += db.count_tasks(status=TASK_REPORTED)
+    tasks = states_count.get(TASK_COMPLETED, 0) + states_count.get(TASK_REPORTED, 0)
 
     data = {"title": "Dashboard", "report": {}}
 
@@ -93,7 +67,7 @@ def index(request):
 
         report["estimate_hour"] = format_number_with_space(int(hourly))
         report["estimate_day"] = format_number_with_space(int(24 * hourly))
-        report["top_detections"] = top_detections()
+        # report["top_detections"] = top_detections()
 
         data["report"] = report
     return render(request, "dashboard/index.html", data)

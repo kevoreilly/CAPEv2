@@ -7,12 +7,9 @@ import json
 import logging
 import os
 import sys
-import tempfile
+import shutil
 import threading
 import warnings
-
-# Mute Google Cloud's Python version support warning for Python 3.10
-warnings.filterwarnings("ignore", category=FutureWarning, module="google.api_core")
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
@@ -20,6 +17,7 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.gcp import download_from_gcs
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.startup import check_user_permissions
 from utils.submit import submit_file
@@ -29,12 +27,13 @@ check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 log = logging.getLogger("gcp_pubsub_service")
 
-class GCPServiceLogger(logging.LoggerAdapter):
-    def process(self, msg, kwargs):
-        correlation_id = self.extra.get("correlation_id")
-        if correlation_id:
-            msg = f"[{correlation_id}] {msg}"
-        return msg, kwargs
+warnings.filterwarnings(
+    "ignore",
+    message="You are using a non-supported Python version",
+    category=FutureWarning,
+    module="google\\.api_core",
+)
+
 
 class GCPPubSubService:
     def __init__(self):
@@ -68,13 +67,9 @@ class GCPPubSubService:
         self.db = Database()
 
     def process_message(self, message):
-        correlation_id = message.message_id
+        local_path = None
         try:
             payload = json.loads(message.data.decode("utf-8"))
-            correlation_id = payload.get("uuid") or payload.get("transaction_id") or message.message_id
-
-            # Create a localized logger with correlation_id
-            mlog = GCPServiceLogger(log, {"correlation_id": correlation_id})
 
             sample_hash = payload.get("sample_hash")
             gcs_uri = payload.get("gcs_uri")
@@ -118,17 +113,20 @@ class GCPPubSubService:
             # Check if sample exists locally
             sample_hash = os.path.basename(sample_hash)
             local_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_hash)
-            is_temp = False
 
             if not path_exists(local_path):
-                mlog.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
-                fd, temp_path = tempfile.mkstemp(prefix=sample_name)
-                os.close(fd)
-                if download_from_gcs(gcs_uri, temp_path, logger=mlog):
+                log.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
+                # Create a temporary path using store_temp_file with empty content
+                temp_path = store_temp_file(b"", sample_name)
+                if isinstance(temp_path, bytes):
+                    temp_path = temp_path.decode()
+
+                if download_from_gcs(gcs_uri, temp_path):
                     local_path = temp_path
-                    is_temp = True
                 else:
-                    mlog.error("Failed to download sample from GCS: %s", gcs_uri)
+                    log.error("Failed to download sample from GCS")
+                    if os.path.exists(os.path.dirname(temp_path)):
+                        shutil.rmtree(os.path.dirname(temp_path))
                     message.nack()
                     return
 
@@ -151,12 +149,6 @@ class GCPPubSubService:
             except Exception as e:
                 mlog.error("Failed to add task to database: %s", e)
                 message.nack()
-            finally:
-                if is_temp and path_exists(local_path):
-                    try:
-                        os.unlink(local_path)
-                    except Exception as e:
-                        mlog.warning("Failed to delete temp file %s: %s", local_path, e)
 
         except Exception as e:
             log.error("[%s] Error processing message: %s", correlation_id, e)

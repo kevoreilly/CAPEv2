@@ -15,7 +15,7 @@ from contextlib import suppress
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from PIL import Image
 
@@ -265,13 +265,13 @@ class PortableExecutable:
             return None
         return {"offset": f"0x{off:08x}", "size": f"0x{len(pe.__data__) - off:08x}"}
 
-    def get_reported_checksum(self, pe: pefile.PE) -> str:
+    def get_reported_checksum(self, pe: pefile.PE) -> Optional[str]:
         """Get checksum from optional header
         @return: checksum or None.
         """
         return f"0x{pe.OPTIONAL_HEADER.CheckSum:08x}" if pe else None
 
-    def get_actual_checksum(self, pe: pefile.PE) -> str:
+    def get_actual_checksum(self, pe: pefile.PE) -> Optional[str]:
         """Get calculated checksum of PE
         @return: checksum string, or None if unavailable / not computed.
 
@@ -284,8 +284,7 @@ class PortableExecutable:
         The recomputed value is only consumed by the
         `static_pe_anomaly` signature, which only compares it against
         the embedded `reported_checksum` when that field is non-zero
-        (`if reported and reported != actual` — see
-        modules/signatures/all/static_pe_anomaly.py). When the PE has
+        (`if reported and reported != actual`). When the PE has
         no embedded checksum (compilers commonly omit it; almost every
         dropper/packer leaves it 0), the recompute result would never
         be consulted — pure throwaway work.

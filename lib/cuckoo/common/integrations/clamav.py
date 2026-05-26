@@ -7,6 +7,8 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
 
+from cachetools import TTLCache
+
 from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
@@ -26,9 +28,13 @@ if CLAMAV_ENABLED:
 # `get_clamav` would otherwise compute. Populated by `prefetch_clamav`
 # and consumed transparently by `get_clamav`. Cleared at task boundary
 # via `clear_clamav_cache` to avoid leaking results across analyses on
-# a long-lived worker process.
+# long-lived worker process.
+# We use a TTLCache as a safety measure against unbounded growth in
+# long-lived workers, though `clear_clamav_cache` remains the primary
+# mechanism for lifecycle management.
 _CACHE_LOCK = threading.Lock()
-_CLAMAV_CACHE = {}
+_CLAMAV_CACHE = TTLCache(maxsize=1024, ttl=3600)
+
 
 
 def _scan_one(file_path):

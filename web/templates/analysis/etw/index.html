@@ -1,0 +1,82 @@
+{% comment %}ETW Telemetry root template — rendered into the #etw tab pane via
+AJAX (load_files dispatcher → category="etw"). Sub-pills are per
+ETW source; only sources with at least one parseable record are
+present in `etw` so this template does not have to gate them.{% endcomment %}
+<style>
+.etw-table td { font-size: 0.85rem; vertical-align: middle; }
+.etw-table thead th { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.03em; color: rgba(255,255,255,0.6); }
+.etw-table tr.event-create { color: #ff8888; }
+.etw-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.amsi-preview pre { max-height: 200px; overflow: auto; background: #000; color: #ddd; padding: .5rem; border: 1px solid #444; }
+</style>
+
+<ul class="nav nav-pills nav-fill bg-dark rounded shadow-sm p-1 mb-3" id="etwTabs" role="tablist">
+    {% if etw.dns %}
+    <li class="nav-item">
+        <a class="nav-link active" id="etw-dns-tab" href="#etw_dns" data-bs-toggle="tab" role="tab" aria-selected="true">
+            <i class="fas fa-globe me-2"></i>DNS-ETW <span class="badge bg-danger ms-1">{{ etw.dns|length }}</span>
+        </a>
+    </li>
+    {% endif %}
+    {% if etw.network %}
+    <li class="nav-item">
+        <a class="nav-link {% if not etw.dns %}active{% endif %}" id="etw-network-tab" href="#etw_network" data-bs-toggle="tab" role="tab">
+            <i class="fas fa-network-wired me-2"></i>Kernel-Network ETW <span class="badge bg-danger ms-1">{{ etw.network|length }}</span>
+        </a>
+    </li>
+    {% endif %}
+    {% if etw.wmi %}
+    <li class="nav-item">
+        <a class="nav-link {% if not etw.dns and not etw.network %}active{% endif %}" id="etw-wmi-tab" href="#etw_wmi" data-bs-toggle="tab" role="tab">
+            <i class="fas fa-cogs me-2"></i>WMI-ETW <span class="badge bg-danger ms-1">{{ etw.wmi|length }}</span>
+        </a>
+    </li>
+    {% endif %}
+    {% if etw.threatintel or etw.threatintel_drivers or etw.threatintel_alloc_summary %}
+    <li class="nav-item">
+        <a class="nav-link {% if not etw.dns and not etw.network and not etw.wmi %}active{% endif %}" id="etw-threatintel-tab" href="#etw_threatintel" data-bs-toggle="tab" role="tab">
+            <i class="fas fa-shield-virus me-2"></i>ThreatIntel ETW
+            {% with sus_count=etw.threatintel|length drv_count=etw.threatintel_drivers|length alloc_count=etw.threatintel_alloc_summary|length %}
+            <span class="badge bg-danger ms-1" title="{{ sus_count }} suspicious events, {{ drv_count }} unique drivers, {{ alloc_count }} alloc pairs">
+                {{ sus_count }}
+            </span>
+            {% endwith %}
+        </a>
+    </li>
+    {% endif %}
+    {% if etw.amsi %}
+    <li class="nav-item">
+        <a class="nav-link {% if not etw.dns and not etw.network and not etw.wmi and not etw.threatintel %}active{% endif %}" id="etw-amsi-tab" href="#etw_amsi" data-bs-toggle="tab" role="tab">
+            <i class="fas fa-file-code me-2"></i>AMSI ETW <span class="badge bg-danger ms-1">{{ etw.amsi|length }}</span>
+        </a>
+    </li>
+    {% endif %}
+</ul>
+
+<div class="tab-content">
+    {% if etw.dns %}
+    <div class="tab-pane fade show active" id="etw_dns">
+        {% include "analysis/etw/_dns.html" %}
+    </div>
+    {% endif %}
+    {% if etw.network %}
+    <div class="tab-pane fade {% if not etw.dns %}show active{% endif %}" id="etw_network">
+        {% include "analysis/etw/_network.html" %}
+    </div>
+    {% endif %}
+    {% if etw.wmi %}
+    <div class="tab-pane fade {% if not etw.dns and not etw.network %}show active{% endif %}" id="etw_wmi">
+        {% include "analysis/etw/_wmi.html" %}
+    </div>
+    {% endif %}
+    {% if etw.threatintel or etw.threatintel_drivers or etw.threatintel_alloc_summary %}
+    <div class="tab-pane fade {% if not etw.dns and not etw.network and not etw.wmi %}show active{% endif %}" id="etw_threatintel">
+        {% include "analysis/etw/_threatintel.html" %}
+    </div>
+    {% endif %}
+    {% if etw.amsi %}
+    <div class="tab-pane fade {% if not etw.dns and not etw.network and not etw.wmi and not etw.threatintel and not etw.threatintel_drivers and not etw.threatintel_alloc_summary %}show active{% endif %}" id="etw_amsi">
+        {% include "analysis/etw/_amsi.html" %}
+    </div>
+    {% endif %}
+</div>

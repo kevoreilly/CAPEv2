@@ -80,6 +80,9 @@
                             {% if config.display_task_tags %}
                             <th width="7%" class="border-top-0">Task tags</th>
                             {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                            <th width="7%" class="border-top-0">Submitter</th>
+                            {% endif %}
 
                             {% if config.moloch %}
                             <th width="4%" class="border-top-0">Moloch</th>
@@ -102,6 +105,9 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <th width="5%" class="border-top-0">ClamAV</th>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <th width="8%" class="border-top-0">YARA</th>
                             {% endif %}
                             <th width="7%" class="border-top-0 text-end">Status</th>
                         </tr>
@@ -183,8 +189,15 @@
                             </td>
                             {% if config.display_task_tags %}
                             <td>
-                                {% if analysis.user_task_tags %}
-                                <span class="badge bg-info">{{analysis.user_task_tags}}</span>
+                                {% for t in analysis.user_task_tags %}<a href="/analysis/search/tags_tasks:{{t}}" class="badge bg-danger me-1 text-decoration-none">{{t}}</a>{% endfor %}
+                            </td>
+                            {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                            <td>
+                                {% if analysis.submitter_username %}
+                                <span class="badge bg-secondary"><i class="fas fa-user me-1"></i>{{analysis.submitter_username}}</span>
+                                {% else %}
+                                <span class="text-white-50">-</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -262,11 +275,24 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <td>
-                                {% if analysis.clamav %}
-                                {{analysis.clamav}}
-                                {% else %}
-                                -
-                                {% endif %}
+                                <span class="font-monospace">
+                                    {% if analysis.clamav %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.clamav|join:', '}}">{{analysis.clamav|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <td>
+                                <span class="font-monospace">
+                                    {% if analysis.cape_yara %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.cape_yara|join:', '}}">{{analysis.cape_yara|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
                             </td>
                             {% endif %}
                             <td class="text-end">
@@ -367,6 +393,9 @@
                             {% if config.display_task_tags %}
                             <th width="7%" class="border-top-0">Task tags</th>
                             {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                            <th width="7%" class="border-top-0">Submitter</th>
+                            {% endif %}
                             {% if config.moloch %}
                             <th width="4%" class="border-top-0">Moloch</th>
                             {% endif %}
@@ -381,6 +410,9 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <th width="5%" class="border-top-0">ClamAV</th>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <th width="8%" class="border-top-0">YARA</th>
                             {% endif %}
                             <th width="6%" class="border-top-0 text-end">Status</th>
                         </tr>
@@ -446,8 +478,15 @@
 
                             {% if config.display_task_tags %}
                             <td>
-                                {% if analysis.user_task_tags %}
-                                <span class="badge bg-info">{{analysis.user_task_tags}}</span>
+                                {% for t in analysis.user_task_tags %}<a href="/analysis/search/tags_tasks:{{t}}" class="badge bg-danger me-1 text-decoration-none">{{t}}</a>{% endfor %}
+                            </td>
+                            {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                            <td>
+                                {% if analysis.submitter_username %}
+                                <span class="badge bg-secondary"><i class="fas fa-user me-1"></i>{{analysis.submitter_username}}</span>
+                                {% else %}
+                                <span class="text-white-50">-</span>
                                 {% endif %}
                             </td>
                             {% endif %}
@@ -494,11 +533,24 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <td>
-                                {% if analysis.clamav %}
-                                {{analysis.clamav}}
-                                {% else %}
-                                -
-                                {% endif %}
+                                <span class="font-monospace">
+                                    {% if analysis.clamav %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.clamav|join:', '}}">{{analysis.clamav|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <td>
+                                <span class="font-monospace">
+                                    {% if analysis.cape_yara %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.cape_yara|join:', '}}">{{analysis.cape_yara|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
                             </td>
                             {% endif %}
                             <td class="text-end">
@@ -611,6 +663,9 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <th width="10%" class="border-top-0">ClamAV</th>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <th width="8%" class="border-top-0">YARA</th>
                             {% endif %}
                             <th width="5%" class="border-top-0 text-end">Status</th>
                             {% else %}
@@ -736,11 +791,24 @@
                             {% endif %}
                             {% if config.display_clamav %}
                             <td>
-                                {% if analysis.clamav %}
-                                {{analysis.clamav}}
-                                {% else %}
-                                -
-                                {% endif %}
+                                <span class="font-monospace">
+                                    {% if analysis.clamav %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.clamav|join:', '}}">{{analysis.clamav|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
+                            </td>
+                            {% endif %}
+                            {% if config.display_cape_yara %}
+                            <td>
+                                <span class="font-monospace">
+                                    {% if analysis.cape_yara %}
+                                    <span class="text-danger font-weight-bold" title="{{analysis.cape_yara|join:', '}}">{{analysis.cape_yara|length}}</span>
+                                    {% else %}
+                                    <span class="text-white-50">-</span>
+                                    {% endif %}
+                                </span>
                             </td>
                             {% endif %}
                             <td class="text-end">

@@ -576,11 +576,9 @@ class Process:
         if not KERNEL32.InitializeProcThreadAttributeList(attr_list, 1, 0, byref(cb_attribute_list_size)):
             log.error("InitializeProcThreadAttributeList(init)")
 
-        log.info("Successfully called InitializeProcThreadAttributeList")
         hwnd = windll.user32.GetShellWindow()
         explorer_pid = DWORD()
         windll.user32.GetWindowThreadProcessId(hwnd, byref(explorer_pid))
-        log.info("Explorer PID: %s", explorer_pid.value)
 
         raw_parent = KERNEL32.OpenProcess(PROCESS_CREATE_PROCESS, False, explorer_pid)
         if not raw_parent:
@@ -601,7 +599,6 @@ class Process:
             KERNEL32.DeleteProcThreadAttributeList(attr_list)
             log.error("UpdateProcThreadAttribute")
 
-        log.info("build_parent_attribute_list returning")
         return attr_list, attr_buf, h_parent
 
     def log_process_tree(self, process_name):
@@ -893,13 +890,13 @@ class Process:
             bin_name = LOADER64_NAME
             dll = CAPEMON64_NAME
             bit_str = "64-bit"
-            side_dll = SIDELOADER64_NAME
+            # side_dll = SIDELOADER64_NAME
         else:
             ttd_name = TTD32_NAME
             bin_name = LOADER32_NAME
             dll = CAPEMON32_NAME
             bit_str = "32-bit"
-            side_dll = SIDELOADER32_NAME
+            # side_dll = SIDELOADER32_NAME
 
         bin_name = os.path.join(Path.cwd(), bin_name)
         dll = os.path.join(Path.cwd(), dll)
@@ -926,22 +923,6 @@ class Process:
 
         if self.detect_dll_sideloading(path) and self.has_msimg32(path):
             self.deploy_version_proxy(path)
-            return True
-
-        if self.detect_dll_sideloading(path):
-            try:
-                copy(dll, os.path.join(path, "capemon.dll"))
-                copy(side_dll, os.path.join(path, "version.dll"))
-                copy(os.path.join(Path.cwd(), "dll", f"{self.pid}.ini"), os.path.join(path, "config.ini"))
-            except OSError as e:
-                log.error("Failed to copy DLL: %s", e)
-                return False
-            log.info(
-                "%s DLL to sideload is %s, sideloader %s",
-                bit_str,
-                os.path.join(path, "capemon.dll"),
-                os.path.join(path, "version.dll"),
-            )
             return True
 
         log.info("%s DLL to inject is %s, loader %s", bit_str, dll, bin_name)

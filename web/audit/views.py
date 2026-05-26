@@ -482,7 +482,6 @@ def update_task_config(request, availabletest_id):
 
                 # 2. Save the minified version to the DB (or keep pretty if preferred)
                 test.task_config = parsed_data
-                db_session.commit()
                 messages.success(request, f"Configuration for Test {test.name} (#{test.id}) updated successfully.")
                 return JsonResponse({"success": True, "config_pretty": _format_json_config(parsed_data)})
 

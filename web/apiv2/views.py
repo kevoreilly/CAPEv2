@@ -25,6 +25,10 @@ from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from rest_framework.decorators import api_view
+try:
+    from apikey.authentication import ApiKeyAuthentication
+except ImportError:
+    ApiKeyAuthentication = None
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -1126,6 +1130,8 @@ def tasks_delete(request, task_id, status=False):
     return Response(resp)
 
 
+# Re-enable session-cookie auth so the in-browser "End Session" button works
+# under SSO deployments where the global DRF chain is API-key-only.
 @csrf_exempt
 @api_view(["GET", "POST"])
 def tasks_status(request, task_id):
@@ -1213,8 +1219,18 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     }
 
     report_formats = {
-        # Use the 'all' option if you want all generated files except for memory.dmp
-        "all": {"type": "-", "files": ["memory.dmp"]},
+        # Use the 'all' option if you want all generated files except for memory.dmp and derived pcaps
+        "all": {
+            "type": "-",
+            "files": [
+                "memory.dmp",
+                "dump.pcapng",
+                "dump_decrypted.pcap",
+                "dump_mixed.pcap",
+                "dump_mixed_sorted.pcap",
+                "dump_sorted.pcap",
+            ],
+        },
         # Use the 'dropped' option if you want all dropped files found in the /files directory
         "dropped": {"type": "+", "files": ["files"]},
         # Use the 'dist' option if you want all generated files except for binary, dump_sorted.pcap, memory.dmp, and

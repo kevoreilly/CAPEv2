@@ -597,7 +597,10 @@ class File:
 
         results = []
         try:
-            rules = File.yara_rules[category]
+            rules = File.yara_rules.get(category)
+            if not rules:
+                return []
+
             if HAVE_YARA_X:
                 for yara_results in rules.scan_file(self.file_path):
                     for match in yara_results.matching_rules:
@@ -635,12 +638,16 @@ class File:
                         }
                     )
         except Exception as e:
-            errcode = str(e).rsplit(maxsplit=1)[-1]
-            if errcode in yara_error:
-                log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
-
+            if HAVE_YARA and isinstance(e, yara.Error):
+                errcode = str(e).rsplit(maxsplit=1)[-1]
+                if errcode in yara_error:
+                    log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
+                else:
+                    log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
+            elif HAVE_YARA_X and isinstance(e, yara_x.Error):
+                log.exception("Unable to match Yara signatures (yara-x) for %s: %s", self.file_path, e)
             else:
-                log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
+                log.exception("Unable to match Yara signatures for %s: %s", self.file_path, e)
 
         return results
 

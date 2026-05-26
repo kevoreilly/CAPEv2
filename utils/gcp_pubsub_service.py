@@ -19,7 +19,6 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.gcp import download_from_gcs
 from lib.cuckoo.common.path_utils import path_exists
-from lib.cuckoo.common.utils import store_temp_file
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.startup import check_user_permissions
 from utils.submit import submit_file
@@ -147,6 +146,7 @@ class GCPPubSubService:
             # Check if sample exists locally
             sample_hash = os.path.basename(sample_hash)
             local_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_hash)
+            is_temp = False
 
             if not path_exists(local_path):
                 mlog.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
@@ -154,6 +154,7 @@ class GCPPubSubService:
                 os.close(fd)
                 if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
                     local_path = temp_path
+                    is_temp = True
                 else:
                     mlog.error("Failed to download sample from GCS: %s", gcs_uri)
                     message.nack()

@@ -155,6 +155,7 @@ MEDIA_URL = ""
 # in apps' "static/" subdirectories and in STATICFILES_DIRS.
 # Example: "/home/media/media.lawrence.com/static/"
 # When NGINX is as reverse proxy you need to put next line in local_settings.py
+# python manage.py collectstatic
 STATIC_ROOT = ""
 
 
@@ -338,7 +339,7 @@ if web_cfg.registration.get("email_confirmation", False):
 
 SITE_ID = 1
 
-# https://docs.allauth.org/en/dev/socialaccount/configuration.html
+# https://django-allauth.readthedocs.io/en/latest/configuration.html
 if web_cfg.registration.get("email_confirmation", False):
     ACCOUNT_EMAIL_VERIFICATION = "mandatory"
     SOCIALACCOUNT_EMAIL_VERIFICATION = ACCOUNT_EMAIL_VERIFICATION
@@ -373,6 +374,7 @@ if web_cfg.registration.get("disposable_email_disable", False):
 
 if web_cfg.registration.get("captcha_enabled", False):
     ACCOUNT_SIGNUP_FORM_CLASS = "web.allauth_forms.CaptchedSignUpForm"
+# SOCIALACCOUNT_FORMS = {"signup": "web.allauth_forms.MyCustomSocialSignupForm"}
 
 # Fix to avoid migration warning in django 1.7 about test runner (1_6.W001).
 # In future it could be removed: https://code.djangoproject.com/ticket/23469

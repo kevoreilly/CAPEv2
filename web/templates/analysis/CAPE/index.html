@@ -1,6 +1,7 @@
 {% load key_tags %}
-<div class="dynamic-layout-target layout-centered">
 
+<div class="dynamic-layout-target layout-centered">
+{% if CAPE.payloads %}
     {% if settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
         {% if CAPE.payloads %}
         <div class="text-center mb-4">
@@ -11,15 +12,13 @@
         {% endif %}
     {% endif %}
 
-    {% if CAPE.payloads %}
-        {% for file in CAPE.payloads|dictsortreversed:"size" %}
-            {% include "analysis/generic/_file_info.html" %}
-        {% endfor %}
-    {% else %}
-        <div class="alert alert-info text-center shadow-sm">
-            <i class="fas fa-box-open fa-2x mb-3"></i>
-            <p class="mb-0">No CAPE payloads found.</p>
-        </div>
-    {% endif %}
-
+    {% for file in CAPE.payloads|dictsortreversed:"size" %}
+        {% include "analysis/generic/_file_info.html" %}
+    {% endfor %}
+{% else %}
+    <div class="alert alert-info text-center shadow-sm">
+        <i class="fas fa-box-open fa-2x mb-3"></i>
+        <p class="mb-0">No CAPE payloads found.</p>
+    </div>
+{% endif %}
 </div>

@@ -343,7 +343,13 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             error_list.append({os.path.basename(filename).decode(): error_msg})
         new_retlist.append((filename, platform))
     else:
-        for filename, platform, magic_type, file_size in retlist:
+        for entry in retlist:
+            if not isinstance(entry, (list, tuple)) or len(entry) < 2:
+                log.warning("Skipping invalid entry in retlist: %s", entry)
+                continue
+            filename, platform = entry[0], entry[1]
+            magic_type = entry[2] if len(entry) > 2 else ""
+            file_size = entry[3] if len(entry) > 3 else 0
             # verify not Windows binaries here:
             if platform == "linux" and not linux_enabled and "Python" not in magic_type:
                 error_list.append({os.path.basename(filename).decode(): "Linux processing is disabled"})

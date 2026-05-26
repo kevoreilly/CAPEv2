@@ -431,7 +431,8 @@ def index(request, task_id=None, resubmit_hash=None):
         if task_category in ("url", "dlnexec"):
             if not samples:
                 return render(request, "error.html", {"error": "You specified an invalid URL!"})
-            for url in samples.split(web_conf.general.url_splitter):
+            urls = [u.strip() for u in samples.split(web_conf.general.url_splitter) if u.strip()] if web_conf.general.url_splitter else [samples]
+            for url in urls:
                 url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
                 if task_category == "dlnexec":
                     path, content, sha256 = process_new_dlnexec_task(url, route, options, custom)

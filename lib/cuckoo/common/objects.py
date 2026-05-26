@@ -517,15 +517,15 @@ class File:
                             if raise_exception:
                                 log.error("Yara problem: %s - Error: %s", name, str(err))
                                 raise yara_x.CompileError
-                            
+
                             bad_rule_path = rules[name]
                             bad_rule_name = os.path.basename(bad_rule_path)
                             log.error("Can't compile YARA rule: %s. Error: %s", bad_rule_path, str(err))
-                            
+
                             del rules[name]
                             if bad_rule_name in indexed:
                                 indexed.remove(bad_rule_name)
-                            
+
                             # Break the inner for loop to retry with pruned rules
                             break
                     else:

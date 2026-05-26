@@ -446,6 +446,9 @@ class File:
         callers (e.g. some integration paths that didn't go through the
         get_yara() wrapper) re-compiled all six categories on every call."""
 
+        if not HAVE_YARA and not HAVE_YARA_X:
+            return
+
         if cls.yara_initialized and not force:
             return
 
@@ -499,7 +502,7 @@ class File:
             # future. Otherwise Yara will complain.
             externals = {"filename": ""}
 
-            while True:
+            for _ in range(len(rules) + 1):
                 if HAVE_YARA_X:
                     compiler = yara_x.Compiler(relaxed_re_syntax=True)
                     for name, path in rules.items():
@@ -515,6 +518,7 @@ class File:
                             # ToDo bad rule defense
 
                     File.yara_rules[category] = yara_x.Scanner(compiler.build())
+                    break
 
                 elif HAVE_YARA:
                     try:
@@ -538,6 +542,9 @@ class File:
                     except yara.Error as e:
                         log.error("There was a syntax error in one or more Yara rules: %s", e)
                         break
+            else:
+                log.error("Failed to compile any Yara rules for category: %s", category)
+
             if category == "memory":
                 index_memory = os.path.join(yara_root, "index_memory.yarc")
                 if HAVE_YARA_X:

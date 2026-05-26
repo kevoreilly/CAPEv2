@@ -133,197 +133,140 @@
         <div class="card bg-dark shadow-sm border-secondary mb-4">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-list me-2"></i> Search Results</h5>
-                <span class="badge bg-dark">{{analyses|length}} items</span>
+                <span class="badge bg-dark border border-secondary">{{analyses|length}} results</span>
             </div>
             <div class="table-responsive">
                 <table class="table table-dark table-hover table-striped mb-0" style="table-layout: fixed;">
-                    <thead class="thead-dark">
+                    <thead>
                     <tr>
-                        <th width="5%" class="border-top-0">ID</th>
+                        <th width="4%" class="border-top-0">ID</th>
                         <th width="11%" class="border-top-0">Timestamp</th>
-                        <th width="7%" class="border-top-0">Package</th>
-                        <th width="25%" class="border-top-0">Filename</th>
-                        <th width="18%" class="border-top-0">Target</th>
+                        <th width="6%" class="border-top-0">Package</th>
+                        <th width="18%" class="border-top-0">Filename</th>
+                        <th width="14%" class="border-top-0">Target</th>
                         <th width="9%" class="border-top-0">Detections</th>
-                        {% if config.moloch %}
-                        <th width="5%" class="border-top-0">Moloch</th>
+                        {% if config.display_task_tags %}
+                        <th width="7%" class="border-top-0">Task tags</th>
                         {% endif %}
-                        {% if config.display_office_martians or config.display_browser_martians%}
+                        {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
+                        <th width="7%" class="border-top-0">Submitter</th>
+                        {% endif %}
+                        {% if config.moloch %}
+                        <th width="4%" class="border-top-0">Moloch</th>
+                        {% endif %}
+                        {% if config.display_office_martians or config.display_browser_martians %}
                         <th width="5%" class="border-top-0">Martians</th>
                         {% endif %}
                         {% if config.suricata %}
-                        <th width="7%" class="border-top-0">SuriAlert </th>
+                        <th width="10%" class="border-top-0">SuriAlert{% if config.expanded_dashboard %}/HTTP/TLS/Files{% endif %}</th>
                         {% endif %}
                         {% if config.virustotal %}
-                        <th width="5%" class="border-top-0">VT</th>
+                        <th width="4%" class="border-top-0">VT</th>
                         {% endif %}
                         {% if config.malscore %}
-                        <th width="5%" class="border-top-0">MalScore</th>
+                        <th width="6%" class="border-top-0">MalScore</th>
                         {% endif %}
-                        {% if config.expanded_dashboard %}
-                        <th width="5%" class="border-top-0">PCAP</th>
                         {% if config.display_clamav %}
-                            <th width="6%" class="border-top-0">ClamAV</th>
+                        <th width="5%" class="border-top-0">ClamAV</th>
                         {% endif %}
+                        {% if config.display_cape_yara %}
+                        <th width="6%" class="border-top-0">YARA</th>
                         {% endif %}
-                        <th width="7%" class="border-top-0 text-end">Status</th>
+                        <th width="6%" class="border-top-0 text-end">Status</th>
                     </tr>
                     </thead>
                     <tbody>
                     {% for analysis in analyses %}
                         <tr>
+                            <td><span class="fw-bold">{{analysis.id}}</span></td>
                             <td>
-                                <span class="font-weight-bold">{{analysis.id}}</span>
+                                {% if analysis.status == "reported" %}{{analysis.completed_on}}
+                                {% else %}<span class="text-white-50 small">{{analysis.added_on}} (added)</span>
+                                {% endif %}
                             </td>
-                            <td>
-                            {% if analysis.status == "reported" %}
-                                {{analysis.completed_on}}
-                            {% else %}
-                                <span class="text-white-50 small">{{analysis.added_on}} (added)</span>
-                            {% endif %}
-                            </td>
-                            <td>
-                                <span class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span>
-                            </td>
+                            <td><span class="badge text-white bg-dark border border-secondary">{{analysis.package}}</span></td>
                             <td class="text-truncate" title="{{analysis.filename}}">
-                            {% if analysis.filename %}
-                                {{analysis.filename}}
-                            {% else %}
-                                <span class="text-white-50">-</span>
-                            {% endif %}
+                                {% if analysis.filename %}{{analysis.filename}}{% else %}<span class="text-white-50">-</span>{% endif %}
                             </td>
                             <td class="text-truncate font-monospace small" title="{% if analysis.category == 'url' %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}">
                                 {% if analysis.status == "reported" %}
                                     <a href="{% url "report" analysis.id %}" class="text-light">
-                                    {% if analysis.category == "url" %}
-                                        {{analysis.target}}
-                                    {% else %}
-                                        {{analysis.sample.md5}}
-                                    {% endif %}
+                                    {% if analysis.category == "url" %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}
                                     </a>
                                 {% else %}
-                                    {% if analysis.category == "url" %}
-                                        {{analysis.target}}
-                                    {% else %}
-                                        {{analysis.sample.md5}}
-                                    {% endif %}
+                                    {% if analysis.category == "url" %}{{analysis.target}}{% else %}{{analysis.sample.md5}}{% endif %}
                                 {% endif %}
                             </td>
                             <td>
-                                {% if analysis.detections %}
-                                    {% if analysis.detections|is_string %}
-                                        <a href="/analysis/search/detections:{{analysis.detections}}" class="badge bg-danger">{{analysis.detections}}</a>
-                                    {% elif analysis.detections|length == 1 %}
-                                        <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge bg-danger">{{analysis.detections.0.family}}</a>
-                                    {% elif analysis.detections|length > 1 %}
-                                        <span class="badge bg-danger" data-bs-toggle="tooltip" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple ({{analysis.detections|length}})</span>
-                                    {% endif %}
+                                {% if analysis.detections|is_string %}
+                                    <a href="/analysis/search/detections:{{analysis.detections}}" class="badge bg-danger">{{analysis.detections}}</a>
+                                {% elif analysis.detections|length == 1 %}
+                                    <a href="/analysis/search/detections:{{analysis.detections.0.family}}" class="badge bg-danger">{{analysis.detections.0.family}}</a>
+                                {% elif analysis.detections|length > 1 %}
+                                    <span class="badge bg-danger" data-bs-toggle="tooltip" title="{% for block in analysis.detections %}{% if block.family %}{{block.family}}&#013;{% endif %}{% endfor %}">Multiple ({{analysis.detections|length}})</span>
                                 {% endif %}
                             </td>
-                            {% if config.moloch %}
+                            {% if config.display_task_tags %}
+                            <td>{% for t in analysis.user_task_tags %}<a href="/analysis/search/tags_tasks:{{t}}" class="badge bg-danger me-1 text-decoration-none">{{t}}</a>{% endfor %}</td>
+                            {% endif %}
+                            {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
                             <td>
-                                {% if analysis.moloch_url %}
-                                    <a href={{analysis.moloch_url}} target="_blank" class="badge bg-primary">MOLOCH</a>
-                                {% else %}
-                                      <span class="text-white-50 small">-</span>
-                                {% endif %}
+                                {% if analysis.submitter_username %}<span class="badge bg-secondary"><i class="fas fa-user me-1"></i>{{analysis.submitter_username}}</span>
+                                {% else %}<span class="text-white-50">-</span>{% endif %}
                             </td>
                             {% endif %}
-                            {% if analysis.category == "url" %}
-                                {% if config.display_browser_martians %}
-                                     <td>
-                                         <span class="small">
-                                         {% if analysis.mlist_cnt %}
-                                             <span class="badge bg-warning">{{analysis.mlist_cnt}}</span>
-                                         {% else %}
-                                             <span class="text-white-50">-</span>
-                                         {% endif %}
-                                        </span>
-                                    </td>
-                                {% endif %}
-                            {% else %}
-                                {% if config.display_office_martians %}
-                                    <td>
-                                        <span class="small">
-                                        {% if analysis.f_mlist_cnt %}
-                                            <span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>
-                                        {% else %}
-                                            <span class="text-white-50">-</span>
-                                        {% endif %}
-                                        </span>
-                                    </td>
-                                {% endif %}
+                            {% if config.moloch %}
+                            <td>{% if analysis.moloch_url %}<a href={{analysis.moloch_url}} target="_blank" class="badge bg-primary">MOLOCH</a>{% else %}-{% endif %}</td>
+                            {% endif %}
+                            {% if config.display_office_martians or config.display_browser_martians %}
+                            <td>{% if analysis.category == "url" and config.display_browser_martians %}{% if analysis.mlist_cnt %}<span class="badge bg-warning">{{analysis.mlist_cnt}}</span>{% else %}<span class="text-white-50">-</span>{% endif %}{% elif config.display_office_martians %}{% if analysis.f_mlist_cnt %}<span class="badge bg-warning">{{analysis.f_mlist_cnt}}</span>{% else %}<span class="text-white-50">-</span>{% endif %}{% else %}<span class="text-white-50">-</span>{% endif %}</td>
                             {% endif %}
                             {% if config.suricata %}
-                            <td>
-                                <span class="small">
-                                {% if analysis.suri_alert_cnt %}
-                                <a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger font-weight-bold">{{analysis.suri_alert_cnt}}</a><!--
-                                {% else %}
-                                <span class="text-white-50">-</span><!--
+                            <td><span class="font-monospace">
+                                {% if analysis.suri_alert_cnt %}<a href="{% url "surialert" analysis.id %}" target="_blank" class="text-danger fw-bold">{{analysis.suri_alert_cnt}}</a><!--
+                                {% else %}<span class="text-white-50">-</span><!--{% endif %}
+                                {% if config.expanded_dashboard %}
+                                    {% if analysis.suri_http_cnt %}-->/<a href="{% url "surihttp" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_http_cnt}}</a><!--
+                                    {% else %}-->/<span class="text-white-50">-</span><!--{% endif %}
+                                    {% if analysis.suri_tls_cnt %}-->/<a href="{% url "suritls" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_tls_cnt}}</a><!--
+                                    {% else %}-->/<span class="text-white-50">-</span><!--{% endif %}
+                                    {% if analysis.suri_file_cnt %}-->/<a href="{% url "surifiles" analysis.id %}" target="_blank" class="text-info">{{analysis.suri_file_cnt}}</a><!--
+                                    {% else %}-->/<span class="text-white-50">-</span><!--{% endif %}
                                 {% endif %}
                                 --></span>
                             </td>
                             {% endif %}
                             {% if config.virustotal %}
-                            <td>
-                                {% if analysis.virustotal_summary %}
-                                    <a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-dark">{{analysis.virustotal_summary}}</a>
-                                {% else %}
-                                      <span class="text-white-50 small">-</span>
-                                {% endif %}
-                            </td>
+                            <td>{% if analysis.virustotal_summary %}<a href="{% url "antivirus" analysis.id %}" target="_blank" class="badge bg-dark">{{analysis.virustotal_summary}}</a>{% else %}-{% endif %}</td>
                             {% endif %}
                             {% if config.malscore %}
                             <td>
                                 {% if analysis.malscore != None %}
-                                    <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}"
-                                    {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}>
-                                        {{analysis.malscore|floatformat:1}}
-                                    </span>
-                                {% else %}
-                                    <span class="text-white-50 small">-</span>
-                                {% endif %}
+                                <span class="badge {% if analysis.malscore <= 2.0 %}bg-success{% elif analysis.malscore <= 6.0 %}bg-warning{% else %}bg-danger{% endif %}" {% if analysis.detections %}title="{{analysis.detections}}"{% endif %}>{{analysis.malscore|floatformat:1}}</span>
+                                {% else %}-{% endif %}
                             </td>
                             {% endif %}
-                            {% if config.expanded_dashboard %}
-                            <td>
-                                <span class="small">
-                                {% if analysis.pcap_sha256 %}
-                                <a href="{% url "file" "pcap" analysis.id analysis.pcap_sha256 %}" target="_blank" class="text-info"><i class="fas fa-download"></i></a>
-                                {% else %}
-                                <span class="text-white-50">-</span>
-                                {% endif %}
-                                </span>
-                            </td>
                             {% if config.display_clamav %}
-                                <td>
-                                <span class="small">
-                                {% if analysis.clamav %}
-                                    {{analysis.clamav}}
-                                {% else %}
-                                    <span class="text-white-50">-</span>
-                                {% endif %}
-                                </span>
-                                </td>
+                            <td><span class="font-monospace">
+                                {% if analysis.clamav %}<span class="text-danger fw-bold" title="{{analysis.clamav|join:', '}}">{{analysis.clamav|length}}</span>
+                                {% else %}<span class="text-white-50">-</span>{% endif %}
+                            </span></td>
                             {% endif %}
+                            {% if config.display_cape_yara %}
+                            <td><span class="font-monospace">
+                                {% if analysis.cape_yara %}<span class="text-danger fw-bold" title="{{analysis.cape_yara|join:', '}}">{{analysis.cape_yara|length}}</span>
+                                {% else %}<span class="text-white-50">-</span>{% endif %}
+                            </span></td>
                             {% endif %}
                             <td class="text-end">
-                                {% if analysis.status == "pending" %}
-                                    <span class="badge bg-dark">pending</span>
-                                {% elif analysis.status == "running" %}
-                                    <span class="badge bg-warning">running</span>
-                                {% elif analysis.status == "completed" %}
-                                    <span class="badge bg-info">processing</span>
+                                {% if analysis.status == "pending" %}<span class="badge bg-dark">pending</span>
+                                {% elif analysis.status == "running" %}<span class="badge bg-warning">running</span>
+                                {% elif analysis.status == "distributed" %}<span class="badge bg-warning">distributed</span>
+                                {% elif analysis.status == "completed" %}<span class="badge bg-info">processing</span>
                                 {% elif analysis.status == "reported" %}
-                                    {% if analysis.errors %}
-                                        <span class="badge bg-danger">error</span>
-                                    {% else %}
-                                        <span class="badge bg-success">reported</span>
-                                    {% endif%}
-                                {% else %}
-                                    <span class="badge bg-danger">{{analysis.status}}</span>
-                                {% endif %}
+                                    {% if analysis.errors %}<span class="badge bg-danger">error</span>
+                                    {% else %}<span class="badge bg-success">reported</span>{% endif %}
+                                {% else %}<span class="badge bg-danger">{{analysis.status}}</span>{% endif %}
                             </td>
                         </tr>
                     {% endfor %}
@@ -331,7 +274,7 @@
                 </table>
             </div>
         </div>
-    {% else %}
+        {% else %}
         <div class="alert alert-warning text-center shadow-sm" role="alert">
             <i class="fas fa-search-minus fa-lg me-2"></i> <b>No results found.</b> Try refining your search query.
         </div>

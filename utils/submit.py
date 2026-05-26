@@ -9,6 +9,7 @@ import logging
 import os
 import random
 import sys
+import shutil
 
 try:
     import requests
@@ -63,6 +64,7 @@ def submit_file(
                 print((bold(yellow("Duplicate")) + msg))
             return []
 
+    tmp_path = ""
     try:
         with open(file_path, "rb") as f:
             if not filename:
@@ -90,6 +92,22 @@ def submit_file(
     except CuckooDemuxError as e:
         print((bold(red("Error")) + ": {0}".format(e)))
         return []
+    finally:
+        if tmp_path and path_exists(tmp_path):
+            if os.path.isfile(tmp_path):
+                parent_dir = os.path.dirname(tmp_path)
+                parent_name = os.path.basename(parent_dir)
+                is_upload_dir = False
+                if isinstance(parent_name, bytes):
+                    is_upload_dir = parent_name.startswith(b"upload_")
+                else:
+                    is_upload_dir = parent_name.startswith("upload_")
+                if is_upload_dir:
+                    shutil.rmtree(parent_dir)
+                else:
+                    os.unlink(tmp_path)
+            else:
+                os.unlink(tmp_path)
 
 
 def main():

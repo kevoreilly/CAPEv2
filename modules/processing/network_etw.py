@@ -41,6 +41,85 @@ try:
 except ImportError:
     HAVE_EVTX = False
 
+try:
+    from evtx import PyEvtxParser  # evtx-rs (Rust-backed) — ~150x faster
+    HAVE_EVTX_RS = True
+except ImportError:
+    HAVE_EVTX_RS = False
+    PyEvtxParser = None
+
+
+def _iter_sysmon_records(evtx_path, wanted_eids):
+    """Yield {eid, time, data: {name: value}} for matching records.
+
+    Uses evtx-rs when available (sub-second vs ~50s for python-evtx on a
+    typical 7000-record sysmon snapshot). Falls back transparently to the
+    python-evtx + ElementTree pipeline when evtx-rs isn't importable so
+    deployments without the Rust binding continue to work."""
+    wanted = set(wanted_eids)
+    if HAVE_EVTX_RS:
+        try:
+            parser = PyEvtxParser(evtx_path)
+            for rec in parser.records_json():
+                try:
+                    d = json.loads(rec["data"])
+                except Exception:
+                    continue
+                ev = d.get("Event") or {}
+                sysd = ev.get("System") or {}
+                eid_v = sysd.get("EventID")
+                if isinstance(eid_v, dict):
+                    eid_v = eid_v.get("#text") if eid_v.get("#text") is not None else eid_v.get("@_value")
+                eid = str(eid_v) if eid_v is not None else ""
+                if eid not in wanted:
+                    continue
+                tc = sysd.get("TimeCreated") or {}
+                if isinstance(tc, dict):
+                    raw_t = (tc.get("#attributes") or {}).get("SystemTime") or ""
+                else:
+                    raw_t = str(tc)
+                time_str = raw_t.replace("T", " ").rstrip("Z") if raw_t else None
+                data = ev.get("EventData") or {}
+                if not isinstance(data, dict):
+                    data = {}
+                # Stringify all values — downstream consumers expect strings.
+                data = {k: ("" if v is None else str(v)) for k, v in data.items()}
+                yield {"eid": eid, "time": time_str, "data": data}
+            return
+        except Exception as e:
+            log.warning("evtx-rs parse failed for %s: %s — falling back to python-evtx", evtx_path, e)
+
+    if not HAVE_EVTX:
+        return
+    try:
+        with EvtxParser.Evtx(evtx_path) as ef:
+            for rec in ef.records():
+                try:
+                    root = ET.fromstring(rec.xml())
+                except ET.ParseError:
+                    continue
+                sys_elem = root.find(EVT_NS + "System")
+                if sys_elem is None:
+                    continue
+                eid_elem = sys_elem.find(EVT_NS + "EventID")
+                if eid_elem is None or eid_elem.text not in wanted:
+                    continue
+                tc_elem = sys_elem.find(EVT_NS + "TimeCreated")
+                time_str = None
+                if tc_elem is not None:
+                    raw_t = tc_elem.get("SystemTime", "") or ""
+                    time_str = raw_t.replace("T", " ").rstrip("Z") if raw_t else None
+                ed = root.find(EVT_NS + "EventData")
+                fields = {}
+                if ed is not None:
+                    for d in ed.findall(EVT_NS + "Data"):
+                        name = d.get("Name")
+                        if name:
+                            fields[name] = (d.text or "").strip()
+                yield {"eid": eid_elem.text, "time": time_str, "data": fields}
+    except Exception:
+        log.debug("Failed to parse %s", evtx_path, exc_info=True)
+
 
 def _clean_ip(s):
     if not s:
@@ -76,15 +155,15 @@ class AttributionIndex:
     def __init__(self):
         self._pid_to_name = {}       # pid_str -> basename
         self._by_ip = {}             # ip -> [{pid, process_name, dst_port, protocol, source}]
-        self._dns_host_to_pid = {}   # host -> (pid_str, name, source)
+        self._dns_host_to_pid = {}   # host -> [(pid_str, name, source), ...]
         self._host_to_ips = {}       # host -> set(ip)
         self._ip_via_dns = {}        # ip -> [(pid_str, host)]
         self._http_by_uri = {}       # (host, uri) -> (pid_str, name)
         self._http_by_host = {}      # host -> (pid_str, name)
         # Counters surfaced via .stats() for logging
         self.stats_counters = {"dns_etw": 0, "sysmon_eid22": 0,
-                               "sigma_eid22": 0, "direct": 0,
-                               "resolutions": 0}
+                               "sigma_eid22": 0, "udp53_fallback": 0,
+                               "behavior": 0, "direct": 0, "resolutions": 0}
 
     # ------------------------------------------------------------------ seed
     def add_pid_name(self, pid, image_or_name):
@@ -158,7 +237,9 @@ class AttributionIndex:
         # useful attribution.
         if name and "svchost" in name.lower():
             return
-        self._dns_host_to_pid.setdefault(h, (pid, name, source))
+        entries = self._dns_host_to_pid.setdefault(h, [])
+        if not any(e[0] == pid for e in entries):
+            entries.append((pid, name, source))
         if source in self.stats_counters:
             self.stats_counters[source] += 1
 
@@ -177,9 +258,10 @@ class AttributionIndex:
     # --------------------------------------------------------------- finalize
     def finalize(self):
         """Cross-reference DNS queries × resolutions into ip_via_dns."""
-        for host, (pid, name, source) in self._dns_host_to_pid.items():
+        for host, entries in self._dns_host_to_pid.items():
             for ip in self._host_to_ips.get(host, ()):
-                self._ip_via_dns.setdefault(ip, []).append((pid, host))
+                for pid, _name, _src in entries:
+                    self._ip_via_dns.setdefault(ip, []).append((pid, host))
 
     # --------------------------------------------------------------- queries
     def for_ip(self, ip, dst_port=None, src_port=None):
@@ -237,16 +319,31 @@ class AttributionIndex:
                 or self.for_ip(srcip, dst_port=srcport, src_port=dstport))
 
     def for_host(self, hostname):
-        """(pid, name) that queried this hostname, or None. Used for files
-        and network.dns records."""
+        """(pid, name) for the first process that queried this hostname, or None."""
         h = _clean_host(hostname)
         if not h:
             return None
-        rec = self._dns_host_to_pid.get(h)
-        if not rec:
+        entries = self._dns_host_to_pid.get(h)
+        if not entries:
             return None
-        pid, name, _src = rec
+        pid, name, _src = entries[0]
         return (pid, name)
+
+    def for_host_all(self, hostname):
+        """All processes that queried hostname. Returns [{pid, process_name, source}]."""
+        h = _clean_host(hostname)
+        if not h:
+            return []
+        entries = self._dns_host_to_pid.get(h) or []
+        seen = set()
+        result = []
+        for pid, name, source in entries:
+            key = (pid, name)
+            if key in seen:
+                continue
+            seen.add(key)
+            result.append({"pid": pid, "process_name": name, "source": source})
+        return result
 
     def for_http(self, host, uri):
         """(pid, name) from an already-enriched HTTP transaction. Prefer an
@@ -368,52 +465,45 @@ class NetworkETW(Processing):
                     if path is None:
                         continue
                     try:
-                        with EvtxParser.Evtx(path) as ef:
-                            for rec in ef.records():
-                                try:
-                                    root = ET.fromstring(rec.xml())
-                                except ET.ParseError as parse_err:
-                                    log.debug("Skipping malformed evtx record in %s: %s",
-                                              fname, parse_err)
-                                    continue
-                                sys_elem = root.find(EVT_NS + "System")
-                                if sys_elem is None:
-                                    continue
-                                eid_elem = sys_elem.find(EVT_NS + "EventID")
-                                if eid_elem is None or eid_elem.text not in ("1", "3", "22"):
-                                    continue
-                                eid = eid_elem.text
-                                fields = self._read_evt_data(root)
+                        # Prefer the Rust-backed evtx-rs parser when available —
+                        # ~150x faster than python-evtx's per-record xml() +
+                        # ElementTree pipeline (sub-second vs ~50s for a typical
+                        # 7000-record sysmon snapshot). Falls back to the slow
+                        # path when evtx-rs isn't installed so deployments
+                        # without it continue to work.
+                        for rec in _iter_sysmon_records(path, ("1", "3", "22")):
+                            eid = rec["eid"]
+                            fields = rec["data"]
 
-                                if eid == "1":
-                                    pid = fields.get("ProcessId", "")
-                                    image = fields.get("Image", "")
-                                    if pid and image:
-                                        pid_to_image[str(pid)] = os.path.basename(image)
+                            if eid == "1":
+                                pid = fields.get("ProcessId", "")
+                                image = fields.get("Image", "")
+                                if pid and image:
+                                    pid_to_image[str(pid)] = os.path.basename(image)
 
-                                elif eid == "22":
-                                    pid = fields.get("ProcessId", "")
-                                    qname = _clean_host(fields.get("QueryName", ""))
-                                    image = fields.get("Image", "")
-                                    if pid and qname:
-                                        dns_queries.append((str(pid), qname, image))
-                                    if pid and image:
-                                        pid_to_image.setdefault(str(pid), os.path.basename(image))
+                            elif eid == "22":
+                                pid = fields.get("ProcessId", "")
+                                qname = _clean_host(fields.get("QueryName", ""))
+                                image = fields.get("Image", "")
+                                if pid and qname:
+                                    dns_queries.append((str(pid), qname, image))
+                                if pid and image:
+                                    pid_to_image.setdefault(str(pid), os.path.basename(image))
 
-                                else:  # "3"
-                                    connections.append({
-                                        "pid": fields.get("ProcessId", ""),
-                                        "process_name": os.path.basename(fields.get("Image", "")),
-                                        "process_path": fields.get("Image", ""),
-                                        "protocol": fields.get("Protocol", "").upper(),
-                                        "direction": "outbound" if fields.get("Initiated") == "true" else "inbound",
-                                        "src_ip": fields.get("SourceIp", ""),
-                                        "src_port": fields.get("SourcePort", ""),
-                                        "dst_ip": fields.get("DestinationIp", ""),
-                                        "dst_port": fields.get("DestinationPort", ""),
-                                        "dst_hostname": fields.get("DestinationHostname", ""),
-                                        "source": "sysmon",
-                                    })
+                            else:  # "3"
+                                connections.append({
+                                    "pid": fields.get("ProcessId", ""),
+                                    "process_name": os.path.basename(fields.get("Image", "")),
+                                    "process_path": fields.get("Image", ""),
+                                    "protocol": fields.get("Protocol", "").upper(),
+                                    "direction": "outbound" if str(fields.get("Initiated")).lower() == "true" else "inbound",
+                                    "src_ip": fields.get("SourceIp", ""),
+                                    "src_port": fields.get("SourcePort", ""),
+                                    "dst_ip": fields.get("DestinationIp", ""),
+                                    "dst_port": fields.get("DestinationPort", ""),
+                                    "dst_hostname": fields.get("DestinationHostname", ""),
+                                    "source": "sysmon",
+                                })
                     except Exception:
                         log.debug("Failed to parse sysmon EVTX %s", fname, exc_info=True)
         except Exception:
@@ -543,10 +633,16 @@ class NetworkETW(Processing):
                     )
 
         # DNS queries (pid -> hostname) --------------------------------------
-        for pid, host in self._parse_dns_etw():
-            idx.add_dns_query(pid, host, source="dns_etw")
+        # Order matters: add_dns_query uses setdefault, so the FIRST source
+        # to register a hostname wins. Sysmon EID 22 has the originating
+        # process (with Image), DNS-Client ETW only has the system resolver
+        # PID (svchost/dnscache) for the delegated lookup. Add sysmon first
+        # so the meaningful attribution survives when both sources see the
+        # same hostname.
         for pid, host, image in sysmon_dns_queries:
             idx.add_dns_query(pid, host, image, source="sysmon_eid22")
+        for pid, host in self._parse_dns_etw():
+            idx.add_dns_query(pid, host, source="dns_etw")
         for det in sigma.get("detections", []) or []:
             for ev in det.get("matched_events", []) or []:
                 if ev.get("EventID") != 22:
@@ -556,6 +652,69 @@ class NetworkETW(Processing):
                     continue
                 idx.add_dns_query(pid, ev.get("QueryName", ""),
                                   ev.get("Image", ""), source="sigma_eid22")
+
+        # Behavioral getaddrinfo / DnsQuery calls --------------------------------
+        # behavior.network_map.dns_intents is pre-built by NetworkMap (behavior.py)
+        # from hooked getaddrinfo/DnsQuery calls. Carries the originating PID
+        # directly, bypassing DNS-ETW's svchost delegation noise.
+        _dns_intents = (
+            (self.results.get("behavior") or {})
+            .get("network_map", {})
+            .get("dns_intents", {})
+        ) or {}
+        for _host, _intents in _dns_intents.items():
+            for _intent in _intents or []:
+                _proc_info = _intent.get("process") or {}
+                _pid = str(_proc_info.get("process_id") or "")
+                _name = _proc_info.get("process_name", "")
+                if _pid:
+                    idx.add_dns_query(_pid, _host, _name, source="behavior")
+
+        # UDP/53 fallback attribution -----------------------------------------
+        # Some malware bypasses dnsapi.dll and sends DNS over a raw UDP
+        # socket — sysmon EID 22 and DNS-Client ETW both miss those. The
+        # kernel-network ETW provider does see the UDP send (with PID +
+        # src_port + dst_ip) but doesn't carry the DNS question payload.
+        # Suricata DNS events include src_port from the wire pcap, so we
+        # can correlate the two by (src_port, dst_ip) — the OS allocates a
+        # unique source port per outbound UDP query, giving a clean join.
+        suricata_for_udp53 = self.results.get("suricata", {}) or {}
+        udp53_by_key = {}
+        udp53_by_src_port = {}
+        for ev in etw_conns:
+            if (ev.get("protocol") or "").upper() != "UDP":
+                continue
+            if str(ev.get("dst_port")) != "53":
+                continue
+            pid = ev.get("pid")
+            if not pid:
+                continue
+            key = (str(ev.get("src_port")), ev.get("dst_ip", ""))
+            val = (pid, ev.get("process_name", ""))
+            udp53_by_key.setdefault(key, val)
+            udp53_by_src_port.setdefault(str(ev.get("src_port")), []).append(val)
+        if udp53_by_key:
+            for rec in suricata_for_udp53.get("dns", []) or []:
+                # Only fill in PIDs we don't already know.
+                q = (rec.get("rrname") or rec.get("query") or "").lower()
+                if not q or q in idx._dns_host_to_pid:
+                    continue
+                src_port = str(rec.get("src_port", ""))
+                dst_ip = str(rec.get("dest_ip") or rec.get("server_ip") or "")
+                if not src_port:
+                    continue
+                # Try exact 5-tuple match first, then src_port-only fallback
+                # (src ports are nearly unique within an analysis window
+                # because the OS allocates ephemeral ports incrementally).
+                hit = udp53_by_key.get((src_port, dst_ip))
+                if hit is None:
+                    cand = udp53_by_src_port.get(src_port, [])
+                    if len(cand) == 1:
+                        hit = cand[0]
+                if hit is None:
+                    continue
+                pid, name = hit
+                idx.add_dns_query(pid, q, name, source="udp53_fallback")
 
         # Resolutions (hostname -> IPs) --------------------------------------
         suricata = self.results.get("suricata", {}) or {}
@@ -633,14 +792,17 @@ class NetworkETW(Processing):
 
         log.info(
             "network_etw: sources — %d sysmon conns, %d kernel-ETW conns, "
-            "%d pid->image, %d sysmon DNS, %d DNS-ETW pairs, %d resolutions",
+            "%d pid->image, %d sysmon DNS, %d DNS-ETW pairs, "
+            "%d UDP/53-fallback DNS, %d behavior DNS, %d resolutions",
             len(sysmon_conns), len(etw_conns), len(sysmon_pid_to_image),
             len(sysmon_dns_queries), idx.stats_counters.get("dns_etw", 0),
+            idx.stats_counters.get("udp53_fallback", 0),
+            idx.stats_counters.get("behavior", 0),
             idx.stats_counters.get("resolutions", 0),
         )
 
         # Enrichment loops — all go through the single index ----------------
-        enriched = {k: 0 for k in ("alerts", "tls", "http", "files",
+        enriched = {k: 0 for k in ("alerts", "tls", "http", "http_ex", "files",
                                     "tcp", "udp", "hosts", "dns", "sigma")}
 
         def apply(rec, hit):
@@ -650,11 +812,31 @@ class NetworkETW(Processing):
             rec["process_id"] = hit.get("pid", "")
             return True
 
-        # suricata.alerts — bidirectional (ingress-direction rules dst=VM)
+        def apply_host_lookup(rec, hostname):
+            """Use DNS-resolution data (idx.for_host) to attribute a record
+            when raw flow lookup misses — typical for alerts that fire on
+            a UDP:53 packet, where the kernel-network ETW connection table
+            never sees the request because DNS goes through the system
+            resolver, not the originating process. for_host returns the
+            PID that asked for the hostname (per DNS-Client ETW)."""
+            hit = idx.for_host(hostname or "")
+            if not hit:
+                return False
+            pid, name = hit
+            rec["process_name"] = name or ""
+            rec["process_id"] = pid or ""
+            return True
+
+        # suricata.alerts — bidirectional (ingress-direction rules dst=VM).
+        # If raw flow lookup misses and the alert carries a dns_query
+        # (propagated from eve.json), fall back to attributing via the
+        # process that asked for that hostname.
         for rec in suricata.get("alerts", []) or []:
             hit = idx.for_flow(rec.get("dstip", ""), rec.get("dstport"),
                                rec.get("srcip", ""), rec.get("srcport"))
             if apply(rec, hit):
+                enriched["alerts"] += 1
+            elif rec.get("dns_query") and apply_host_lookup(rec, rec["dns_query"]):
                 enriched["alerts"] += 1
 
         # suricata.tls + http — dst-based (with src fallback too, for safety)
@@ -688,13 +870,24 @@ class NetworkETW(Processing):
                 if apply(rec, hit):
                     enriched[proto] += 1
 
+        # network.http_ex / network.https_ex — httpreplay-extracted HTTP
+        # transactions carry full src/sport/dst/dport so flow lookup is
+        # exact. Without this, the HTTP details panel shows "-" even
+        # though suricata.http for the same flow is attributed.
+        for kind in ("http_ex", "https_ex"):
+            for rec in network.get(kind, []) or []:
+                hit = idx.for_flow(rec.get("dst", ""), rec.get("dport"),
+                                   rec.get("src", ""), rec.get("sport"))
+                if apply(rec, hit):
+                    enriched["http_ex"] += 1
+
         # network.dns — via DNS-query hostname (never by UDP 53 flow owner)
         for rec in network.get("dns", []) or []:
-            hit = idx.for_host(rec.get("request", ""))
-            if hit:
-                pid, name = hit
-                rec["process_name"] = name
-                rec["process_id"] = pid
+            hits = idx.for_host_all(rec.get("request", ""))
+            if hits:
+                rec["processes"] = hits
+                rec["process_name"] = hits[0]["process_name"]
+                rec["process_id"] = hits[0]["pid"]
                 enriched["dns"] += 1
 
         # network.hosts — may have multiple owners; list all
@@ -731,11 +924,11 @@ class NetworkETW(Processing):
                 enriched["sigma"] += 1
 
         log.info(
-            "network_etw: enriched — %d alerts, %d tls, %d http, %d files, "
-            "%d tcp, %d udp, %d dns, %d hosts, %d sigma",
-            enriched["alerts"], enriched["tls"], enriched["http"], enriched["files"],
-            enriched["tcp"], enriched["udp"], enriched["dns"], enriched["hosts"],
-            enriched["sigma"],
+            "network_etw: enriched — %d alerts, %d tls, %d http, %d http_ex, "
+            "%d files, %d tcp, %d udp, %d dns, %d hosts, %d sigma",
+            enriched["alerts"], enriched["tls"], enriched["http"],
+            enriched["http_ex"], enriched["files"], enriched["tcp"],
+            enriched["udp"], enriched["dns"], enriched["hosts"], enriched["sigma"],
         )
 
         return results

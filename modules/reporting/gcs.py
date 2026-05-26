@@ -144,6 +144,12 @@ class GCSUploader:
 
         log.info("Successfully uploaded files for analysis %s to GCS.", analysis_id)
 
+    def check_exists(self, analysis_id):
+        """Check if any blobs exist for the given analysis ID."""
+        prefix = str(analysis_id)
+        blobs = list(self.storage_client.list_blobs(self.bucket, prefix=prefix, max_results=1))
+        return len(blobs) > 0
+
 
 class GCS(Report):
     """

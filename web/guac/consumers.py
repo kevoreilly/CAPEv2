@@ -1,7 +1,8 @@
 import asyncio
 import logging
-import uuid
+import re
 import urllib.parse
+import uuid
 from xml.etree import ElementTree as ET
 
 from asgiref.sync import sync_to_async
@@ -9,7 +10,10 @@ from channels.generic.websocket import AsyncWebsocketConsumer
 from guacamole.client import GuacamoleClient
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.guac_utils import is_user_activity
 from lib.cuckoo.core.database import Database
+
+from .timeout_manager import SessionTimeoutManager
 
 try:
     import libvirt
@@ -24,6 +28,7 @@ machinery = Config().cuckoo.machinery
 machinery_dsn = getattr(Config(machinery), machinery).get("dsn", "qemu:///system")
 
 TASK_POLL_INTERVAL = 10
+ACTIVE_GUAC_TASK_STATUSES = ("pending", "running")
 
 
 def _get_vnc_port(vm_label):
@@ -68,6 +73,39 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         self.monitor_task = None
         self.guac_token = None
         self.guac_task_id = None
+        self.is_closing = False
+        self.timeout_manager = None
+        self.timeout_task = None
+        self._disconnect_seen = False
+        self._close_sent = False
+        self._close_lock = asyncio.Lock()
+
+    async def _delete_guac_session(self) -> None:
+        """Delete the current guac session from the DB and clear the token."""
+        if not self.guac_token:
+            return
+        try:
+            db = Database()
+            await sync_to_async(db.delete_guac_session)(self.guac_token)
+            self.guac_token = None
+        except Exception as e:
+            logger.error("Failed to delete guac session %s: %s", self.guac_token, e)
+
+    async def _close_websocket(self):
+        """Close the websocket at most once across all concurrent code paths."""
+        async with self._close_lock:
+            if self._close_sent or self._disconnect_seen:
+                return
+
+            self._close_sent = True
+
+        try:
+            await self.close()
+        except RuntimeError as error:
+            if "Unexpected ASGI message 'websocket.close'" in str(error):
+                logger.debug("Suppressing duplicate websocket.close for session")
+                return
+            raise
 
     async def connect(self):
         """Validate session token, look up VNC server-side, connect to guacd."""
@@ -101,13 +139,13 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             self.guac_task_id = session_data["task_id"]
             vm_label = session_data["vm_label"]
 
-            # 3. Verify task is still running
+            # 3. Verify task can still host an interactive session
             task = await sync_to_async(db.view_task)(self.guac_task_id)
-            if not task or task.status != "running":
+            if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
                 logger.warning(
-                    "WebSocket rejected: task %s is not running", self.guac_task_id
+                    "WebSocket rejected: task %s is not active for guac", self.guac_task_id
                 )
-                await sync_to_async(db.delete_guac_session)(token)
+                await self._delete_guac_session()
                 await self.close()
                 return
 
@@ -133,7 +171,6 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             query_string = self.scope.get("query_string", b"").decode()
             params = urllib.parse.parse_qs(query_string)
             # Sanitize recording name — only allow alphanumeric, dash, underscore
-            import re
             raw_recording = params.get("recording_name", ["task-recording"])[0]
             guacd_recording_name = re.sub(r"[^a-zA-Z0-9_-]", "", raw_recording)
 
@@ -188,18 +225,37 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     self.guac_task_id,
                     vm_label,
                 )
+
+                # 7. Initialize timeout handling
+                try:
+                    vm_ip = session_data.get("guest_ip") or guest_host
+                    self.timeout_manager = SessionTimeoutManager(
+                        vm_ip=vm_ip,
+                        user="unknown_user",
+                        session_id=self.guac_token,
+                        task_id=str(self.guac_task_id),
+                    )
+                except Exception as e:
+                    logger.error("Failed to initialize timeout manager: %s", e)
+                    self.timeout_manager = None
+
+                # 8. Start background tasks
                 self.task = asyncio.create_task(self.read_guacd())
                 self.monitor_task = asyncio.create_task(self.monitor_task_status())
+                if self.timeout_manager and self.timeout_manager.idle_timeout_seconds > 0:
+                    self.timeout_task = asyncio.create_task(self.monitor_timeout())
             else:
                 logger.warning("Guacamole handshake failed.")
-                await self.close()
+                self.is_closing = True
+                await self._close_websocket()
 
         except Exception as e:
             logger.error("Error during Guacamole connect: %s", str(e))
-            await self.close()
+            self.is_closing = True
+            await self._close_websocket()
 
     async def monitor_task_status(self):
-        """Periodically check if the CAPE task is still running. Disconnect if not."""
+        """Periodically check if the CAPE task can still host the session."""
         try:
             while True:
                 await asyncio.sleep(TASK_POLL_INTERVAL)
@@ -207,14 +263,13 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     break
                 db = Database()
                 task = await sync_to_async(db.view_task)(self.guac_task_id)
-                if not task or task.status != "running":
+                if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
                     logger.info(
                         "Task %s no longer running, disconnecting guac session",
                         self.guac_task_id,
                     )
-                    if self.guac_token:
-                        await sync_to_async(db.delete_guac_session)(self.guac_token)
-                    await self.close()
+                    await self._delete_guac_session()
+                    await self._close_websocket()
                     break
         except asyncio.CancelledError:
             pass
@@ -223,19 +278,16 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
     async def disconnect(self, code):
         """Clean up on WebSocket disconnect."""
-        if self.monitor_task:
-            self.monitor_task.cancel()
-            try:
-                await self.monitor_task
-            except asyncio.CancelledError:
-                pass
+        self.is_closing = True
+        self._disconnect_seen = True
 
-        if self.task:
-            self.task.cancel()
-            try:
-                await self.task
-            except asyncio.CancelledError:
-                pass
+        if self.timeout_manager:
+            self.timeout_manager.set_inactive()
+
+        tasks = [t for t in (self.monitor_task, self.task, self.timeout_task) if t]
+        for t in tasks:
+            t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
 
         if self.client:
             try:
@@ -243,16 +295,14 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             except Exception as e:
                 logger.error("Error closing guacamole client: %s", str(e))
 
-        if self.guac_token:
-            try:
-                db = Database()
-                await sync_to_async(db.delete_guac_session)(self.guac_token)
-            except Exception:
-                pass
+        await self._delete_guac_session()
 
     async def receive(self, text_data=None, bytes_data=None):
         """Forward data from browser to guacd."""
         if text_data and self.client:
+            if self.timeout_manager and is_user_activity(text_data):
+                self.timeout_manager.update_activity()
+
             try:
                 await sync_to_async(self.client.send)(text_data)
             except Exception as e:
@@ -274,4 +324,60 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         except Exception as e:
             logger.error("Exception in Guacamole message loop: %s", e)
         finally:
-            await self.close()
+            await self._close_websocket()
+
+    async def monitor_timeout(self):
+        """Monitor session for idle timeout and handle cleanup when timeout occurs."""
+        try:
+            while self.timeout_manager and self.timeout_manager.is_active and not self.is_closing:
+                await asyncio.sleep(self.timeout_manager.activity_check_interval)
+
+                if not self.timeout_manager or not self.timeout_manager.is_active:
+                    break
+
+                if self.timeout_manager.is_timed_out():
+                    idle_time = self.timeout_manager.get_idle_time_ms()
+                    logger.info(
+                        "Session timeout detected for %s, idle for %sms (threshold: %ss)",
+                        self.timeout_manager.session_id,
+                        idle_time,
+                        self.timeout_manager.idle_timeout_seconds,
+                    )
+                    await self.handle_timeout()
+                    break
+                else:
+                    idle_time = self.timeout_manager.get_idle_time_ms()
+                    logger.debug("Session %s idle for %sms", self.timeout_manager.session_id, idle_time)
+
+        except asyncio.CancelledError:
+            logger.debug("Timeout monitor cancelled for session %s", getattr(self.timeout_manager, "session_id", "unknown"))
+        except Exception as e:
+            logger.error("Error in timeout monitor: %s", str(e))
+
+    async def handle_timeout(self):
+        """Handle session timeout by signalling analysis completion and closing the connection."""
+        if not self.timeout_manager:
+            return
+
+        try:
+            logger.info(
+                "Handling timeout for session %s, VM: %s",
+                self.timeout_manager.session_id,
+                self.timeout_manager.vm_ip,
+            )
+            success = await self.timeout_manager.complete_analysis()
+            if success:
+                logger.info("Successfully signalled analysis complete for %s", self.timeout_manager.vm_ip)
+            else:
+                logger.warning("Failed to signal analysis complete for %s", self.timeout_manager.vm_ip)
+
+            try:
+                await self.send(text_data="5.error,35.Session timed out due to inactivity,3.522;")
+            except Exception as e:
+                logger.warning("Could not send timeout message to client: %s", e)
+
+        except Exception as e:
+            logger.error("Error handling session timeout: %s", e)
+        finally:
+            if not self.is_closing:
+                await self._close_websocket()

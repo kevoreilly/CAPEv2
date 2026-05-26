@@ -1429,6 +1429,10 @@ if [ ! -f /etc/sudoers.d/cape ]; then
 Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
 Cmnd_Alias UFW_STATUS = /usr/sbin/ufw status
 ${USER} ALL=(ALL) NOPASSWD:CAPE_SERVICES, UFW_STATUS
+# Allow cape user to fix Nginx permissions for static files
+${USER} ALL=(ALL) NOPASSWD: /usr/bin/chmod o+x ${CAPE_ROOT}
+${USER} ALL=(ALL) NOPASSWD: /usr/bin/chmod o+x ${CAPE_ROOT}/web
+${USER} ALL=(ALL) NOPASSWD: /usr/bin/chmod -R o+rX ${CAPE_ROOT}/web/static_collected/
 EOF
 fi
 if [ ! -f /etc/sudoers.d/ip_netns ]; then

@@ -7,9 +7,11 @@ import json
 import logging
 import os
 import sys
-import shutil
-import threading
+import tempfile
 import warnings
+
+# Mute Google Cloud's Python version support warning for Python 3.10
+warnings.filterwarnings("ignore", category=FutureWarning, module="google.api_core")
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
@@ -27,13 +29,12 @@ check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
 log = logging.getLogger("gcp_pubsub_service")
 
-warnings.filterwarnings(
-    "ignore",
-    message="You are using a non-supported Python version",
-    category=FutureWarning,
-    module="google\\.api_core",
-)
-
+class GCPServiceLogger(logging.LoggerAdapter):
+    def process(self, msg, kwargs):
+        correlation_id = self.extra.get("correlation_id")
+        if correlation_id:
+            msg = f"[{correlation_id}] {msg}"
+        return msg, kwargs
 
 class GCPPubSubService:
     def __init__(self):
@@ -44,6 +45,12 @@ class GCPPubSubService:
         if not self.project_id or "<project_id>" in self.project_id:
             log.error("GCP project ID not set. Please update gcp.conf or set GCP_PROJECT_ID env var")
             sys.exit(1)
+
+        # Ensure project ID is available for all GCP client libraries
+        if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
+            os.environ["GOOGLE_CLOUD_PROJECT"] = self.project_id
+        if not os.environ.get("GCLOUD_PROJECT"):
+            os.environ["GCLOUD_PROJECT"] = self.project_id
         if not self.subscription_id or "<subscription_id>" in self.subscription_id:
             log.error("GCP subscription ID not set. Please update gcp.conf or set GCP_SUBSCRIPTION_ID env var")
             sys.exit(1)
@@ -63,13 +70,40 @@ class GCPPubSubService:
 
         self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
 
+        # Initialize storage client for reuse to avoid SSLEOFError and repeated auth
+        try:
+            from google.cloud import storage
+            if service_account_path and os.path.exists(service_account_path):
+                self.storage_client = storage.Client.from_service_account_json(service_account_path)
+            else:
+                self.storage_client = storage.Client(project=self.project_id)
+        except ImportError:
+            log.error("google-cloud-storage not installed. Run `pip install google-cloud-storage`")
+            sys.exit(1)
+        except Exception as e:
+            log.error("Failed to initialize GCP storage client: %s", e)
+            sys.exit(1)
+
         init_database()
         self.db = Database()
 
+        self.cuckoo_cfg = Config()
+        self.tmp_path = os.path.join(self.cuckoo_cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
+        if not path_exists(self.tmp_path):
+            try:
+                os.makedirs(self.tmp_path)
+            except Exception as e:
+                log.error("Failed to create temporary directory %s: %s", self.tmp_path, e)
+                sys.exit(1)
+
     def process_message(self, message):
-        local_path = None
+        correlation_id = message.message_id
         try:
             payload = json.loads(message.data.decode("utf-8"))
+            correlation_id = payload.get("uuid") or payload.get("transaction_id") or message.message_id
+
+            # Create a localized logger with correlation_id
+            mlog = GCPServiceLogger(log, {"correlation_id": correlation_id})
 
             sample_hash = payload.get("sample_hash")
             gcs_uri = payload.get("gcs_uri")
@@ -115,18 +149,13 @@ class GCPPubSubService:
             local_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_hash)
 
             if not path_exists(local_path):
-                log.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
-                # Create a temporary path using store_temp_file with empty content
-                temp_path = store_temp_file(b"", sample_name)
-                if isinstance(temp_path, bytes):
-                    temp_path = temp_path.decode()
-
-                if download_from_gcs(gcs_uri, temp_path):
+                mlog.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
+                fd, temp_path = tempfile.mkstemp(prefix=sample_name, dir=self.tmp_path)
+                os.close(fd)
+                if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
                     local_path = temp_path
                 else:
-                    log.error("Failed to download sample from GCS")
-                    if os.path.exists(os.path.dirname(temp_path)):
-                        shutil.rmtree(os.path.dirname(temp_path))
+                    mlog.error("Failed to download sample from GCS: %s", gcs_uri)
                     message.nack()
                     return
 
@@ -149,24 +178,42 @@ class GCPPubSubService:
             except Exception as e:
                 mlog.error("Failed to add task to database: %s", e)
                 message.nack()
+            finally:
+                if is_temp and path_exists(local_path):
+                    try:
+                        os.unlink(local_path)
+                    except Exception as e:
+                        mlog.warning("Failed to delete temp file %s: %s", local_path, e)
+                self.db.session.remove()
 
         except Exception as e:
             log.error("[%s] Error processing message: %s", correlation_id, e)
             message.nack()
+            self.db.session.remove()
 
     def start(self):
         log.info("Starting GCP Pub/Sub subscriber on %s", self.subscription_path)
-        streaming_pull_future = self.subscriber.subscribe(self.subscription_path, callback=self.process_message)
 
-        # Use a threading event to handle graceful shutdown
-        self.shutdown_event = threading.Event()
+        while True:
+            streaming_pull_future = self.subscriber.subscribe(self.subscription_path, callback=self.process_message)
 
-        try:
-            # result() keeps the main thread alive while the subscriber runs in background
-            streaming_pull_future.result()
-        except Exception as e:
-            log.error("Subscriber exited with error: %s", e)
-            streaming_pull_future.cancel()
+            try:
+                # result() keeps the main thread alive while the subscriber runs in background
+                streaming_pull_future.result()
+            except Exception as e:
+                log.error("Subscriber exited with error: %s. Restarting in 10 seconds...", e)
+                try:
+                    streaming_pull_future.cancel()
+                except Exception:
+                    pass
+                import time
+                time.sleep(10)
+            except KeyboardInterrupt:
+                try:
+                    streaming_pull_future.cancel()
+                except Exception:
+                    pass
+                break
 
 def main():
     service = GCPPubSubService()
@@ -178,3 +225,6 @@ if __name__ == "__main__":
     except KeyboardInterrupt:
         log.info("Shutting down...")
         sys.exit(0)
+    except Exception as e:
+        log.error("Fatal error in main: %s", e)
+        sys.exit(1)

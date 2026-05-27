@@ -121,6 +121,15 @@ Invariant enforced by `assert threading.active_count() == 1` immediately before 
 - Terminate with **`os._exit(code)`** — never `return`/`sys.exit`, so the multiprocessing
   atexit `join` (the exact thing that deadlocked pebble) never runs.
 
+**Lifecycle decision — fork-per-task, no dispatch channel.** Each child handles exactly
+one task. The supervisor only forks, reaps, and times-out; there is **no supervisor→child
+dispatch channel**, which deliberately eliminates the inter-process channel whose deadlock
+motivated this redesign. Recycling a child across N>1 tasks would *require* such a channel;
+the measured lazy-reload cost (§4.4) is ~0.35 s/task (~1.6%), so amortizing it is not worth
+that complexity/failure surface. `--tasks-per-child N` is therefore a **documented future
+knob, not built now** (YAGNI until a measured need appears). Fork-per-task also gives maximal
+leak containment (C-lib leaks reclaimed every task), which was the primary concern.
+
 **(d) Extractors — per-task process sub-pool (replaces `_EXTRACTOR_POOL`):**
 - Created **inside** the task child, used for the file extractors, then **explicitly
   `close()`+`join()`d** before the child exits.
@@ -175,9 +184,30 @@ task (recycle-every-task), strictly stronger than `maxtasksperchild=7`, without 
 `_exit_function` deadlock.
 
 **Known per-task recompute cost:** pyattck `techniques` recomputes on each access (observed
-burning CPU in `_get_relationship_objects`) — same in both models, but paid per-task under A
-vs amortized over 7. Mitigation if material: pre-compute/cache it in the warm base so children
-inherit the result. Treated as an A/B-measured optimization, not a correctness item.
+burning CPU in `_get_relationship_objects`) — same in both models. Mitigation if material:
+pre-compute/cache it in the warm base so children inherit the result. Treated as an
+A/B-measured optimization, not a correctness item.
+
+**Two load categories (the audit's real taxonomy):**
+- *Category 1 — loaded at init/import:* YARA incl. yara-forge (`custom/yara/binaries/yara-rules-extended.yar`,
+  17 MB, compiled by `init_yara()`), MITRE/pyattck (45 MB, `abstracts.py` import), capa (5.6 MB).
+  The warm base loads these **once** before forking → COW-shared to all children. Strictly
+  better than today, where `init_worker` compiles YARA **per worker** (1× vs 20×).
+- *Category 2 — lazy, loaded on first use:* `_LOLD_CACHE` (loldrivers, **29 MB JSON**),
+  `_TOOLS_CACHE` (security_tools), etc. Reloaded per task under fork-per-task.
+
+**Measured Category-2 cost (2026-05-27, isolated fresh process):**
+| Loader | time | RSS |
+|---|---|---|
+| `_load_loldrivers()` (29 MB JSON → 619 entries) | **0.35 s** | +41 MB |
+| `_load_tools()` (security_tools) | ~0 s | +0 MB |
+| maliciousmacrobot (ML model) | **disabled** | — |
+| sigma rules (~28 MB) | n/a — loaded inside a shelled-out subprocess, process-group-swept, own timeout |
+
+So per-task lazy reload ≈ **0.35 s (~1.6% of a p50 22 s task)**; 41 MB × 20 children ≈ 0.8 GB
+of 125 GB. Conclusion: **no pre-warm registry needed** — the cost it would save is negligible
+and an exhaustive registry is the fragile thing we want to avoid (this audit already missed
+loldrivers once). Fork-per-task absorbs it.
 
 ## 5. A/B testing & metrics
 - Run identical workload under each engine (flag flip + restart). Compare:

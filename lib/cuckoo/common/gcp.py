@@ -6,6 +6,7 @@ import shutil
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 try:
     from google.api_core.exceptions import Forbidden
@@ -214,7 +215,6 @@ def gcs_replay(task_range):
         return
 
     from lib.cuckoo.core.database import Database
-    from lib.cuckoo.common.constants import CUCKOO_ROOT
 
     main_db = Database()
 
@@ -392,9 +392,13 @@ def gcs_refetch_banned(time_range, samples_bucket=None):
             sha256 = sample.sha256
 
         gcs_uri = f"gs://{samples_bucket}/{sha256}"
-        fd, tmp_path = tempfile.mkstemp()
+
+        # Use CAPE's temp path if available
+        tmp_dir = Config().cuckoo.get("tmppath", "/tmp")
+        fd, tmp_path = tempfile.mkstemp(dir=tmp_dir)
         os.close(fd)
 
+        task_ids = []
         try:
             if download_from_gcs(gcs_uri, tmp_path):
                 log.info("Successfully downloaded %s, resubmitting...", sha256)
@@ -413,5 +417,9 @@ def gcs_refetch_banned(time_range, samples_bucket=None):
             else:
                 log.error("Failed to download %s from %s", sha256, gcs_uri)
         finally:
-            if os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            # Only delete if submission failed. If it succeeded, CAPE needs the file.
+            if not task_ids and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                except Exception as e:
+                    log.warning("Failed to delete temp file %s: %s", tmp_path, e)

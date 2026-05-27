@@ -295,7 +295,7 @@ def tasks_create_file(request):
         if request.FILES.getlist("file") == []:
             resp = {"error": True, "error_value": "No file was submitted"}
             return Response(resp)
-        resp["error"] = False
+        resp["error"] = []
         # Parse potential POST options (see submission/views.py)
         pcap = request.data.get("pcap", "")
 
@@ -433,7 +433,7 @@ def tasks_create_url(request):
 
     resp = {}
     if request.method == "POST":
-        resp["error"] = False
+        resp["error"] = []
 
         url = request.data.get("url")
         (
@@ -534,7 +534,7 @@ def tasks_create_dlnexec(request):
             resp = {"error": True, "error_value": "DL&Exec Create API is Disabled"}
             return Response(resp)
 
-        resp["error"] = False
+        resp["error"] = []
         url = request.data.get("dlnexec")
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
@@ -643,7 +643,7 @@ def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
 
     resp = {}
     if md5 or sha1 or sha256 or sample_id:
-        resp["error"] = False
+        resp["error"] = []
         """
         for key, value in (("md5", md5), ("sha1", sha1), ("sha256", sha256), ("id", sample_id)):
             if value:
@@ -694,7 +694,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
         return Response(resp)
 
     if md5 or sha1 or sha256:
-        resp["error"] = False
+        resp["error"] = []
         if md5:
             if not apiconf.tasksearch.get("md5"):
                 resp = {"error": True, "error_value": "Task Search by MD5 is Disabled"}
@@ -721,11 +721,13 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
                 sids = [sample.to_dict()["id"]]
             resp["data"] = []
             for sid in sids:
-                tasks = db.list_tasks(sample_id=sid)
+                tasks = db.list_tasks(sample_id=sid, include_hashes=True)
                 for task in tasks:
                     buf = task.to_dict()
                     # Remove path information, just grab the file name
                     buf["target"] = buf["target"].rsplit("/", 1)[-1]
+                    if task.sample:
+                        buf["sample"] = task.sample.to_dict()
                     resp["data"].append(buf)
         else:
             resp = {"data": [], "error": False}
@@ -857,6 +859,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
         status=status,
         options_like=option,
         order_by=Task.completed_on.desc(),
+        include_hashes=True,
     )
 
     if not tasks:
@@ -878,10 +881,8 @@ def tasks_list(request, offset=None, limit=None, window=None):
                 task["errors"].append(error.message)
 
             task["sample"] = {}
-            if row.sample_id:
-                sample = db.view_sample(row.sample_id)
-                if sample:
-                    task["sample"] = sample.to_dict()
+            if row.sample:
+                task["sample"] = row.sample.to_dict()
 
             if task.get("target"):
                 task["target"] = convert_to_printable(task["target"])
@@ -925,7 +926,7 @@ def tasks_view(request, task_id):
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)
-            resp["error"] = False
+            resp["error"] = []
             if task:
                 entry = task.to_dict()
                 if entry["category"] != "url":
@@ -1049,7 +1050,7 @@ def tasks_reschedule(request, task_id):
     resp = {}
     new_task_id = db.reschedule(task_id)
     if new_task_id:
-        resp["error"] = False
+        resp["error"] = []
         resp["data"] = {}
         resp["data"]["new_task_id"] = new_task_id
         resp["data"]["message"] = "Task ID {0} has been rescheduled".format(task_id)
@@ -2405,7 +2406,7 @@ def machines_list(request):
 
     resp = {}
     resp["data"] = []
-    resp["error"] = False
+    resp["error"] = []
     machines = db.list_machines()
     for row in machines:
         resp["data"].append(row.to_dict())
@@ -2421,7 +2422,7 @@ def exit_nodes_list(request):
 
     resp = {}
     resp["data"] = []
-    resp["error"] = False
+    resp["error"] = []
     resp["data"] += ["socks:" + sock5 for sock5 in _load_socks5_operational() or []]
     resp["data"] += ["vpn:" + vpn for vpn in vpns.keys() or []]
     if routing_conf.tor.enabled:
@@ -2443,7 +2444,7 @@ def machines_view(request, name=None):
     machine = db.view_machine(name=name)
     if machine:
         resp["data"] = machine.to_dict()
-        resp["error"] = False
+        resp["error"] = []
     else:
         resp["error"] = True
         resp["error_value"] = "Machine not found"
@@ -2465,7 +2466,7 @@ def cuckoo_status(request):
         resp["error"] = True
         resp["error_value"] = "Cuckoo Status API is disabled"
     else:
-        resp["error"] = False
+        resp["error"] = []
         tasks_dict_with_counts = db.get_tasks_status_count()
         total_sum = 0
         if isinstance(tasks_dict_with_counts, dict):
@@ -2530,7 +2531,7 @@ def task_x_hours(request):
 @api_view(["GET"])
 def tasks_latest(request, hours):
     resp = {}
-    resp["error"] = False
+    resp["error"] = []
     timestamp = datetime.now() - timedelta(hours=int(hours))
     ids = db.list_tasks(completed_after=timestamp)
     resp["ids"] = [id.to_dict() for id in ids]
@@ -2739,7 +2740,7 @@ def tasks_download_services(request):
     hashes = request.POST.get("hashes").strip()
     if not hashes:
         return Response({"error": True, "error_value": "hashes value is empty"})
-    resp["error"] = False
+    resp["error"] = []
     # Parse potential POST options (see submission/views.py)
     options = request.POST.get("options", "")
     custom = request.POST.get("custom", "")
@@ -2856,8 +2857,7 @@ def tasks_file_stream(request, task_id):
             resp = {"error": True, "error_value": "Filepath mustn't start with /"}
             return Response(resp)
         filepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", filepath)
-        task_dir = os.path.join(ANALYSIS_BASE_PATH, "analyses", f"{task_id}")
-        if not os.path.normpath(filepath).startswith(task_dir + os.sep):
+        if not os.path.normpath(filepath).startswith(ANALYSIS_BASE_PATH):
             resp = {"error": True, "error_value": "Path traversal detected"}
             return Response(resp)
         if not os.path.isfile(filepath):
@@ -3113,4 +3113,3 @@ def yara_uploader(request):
 
     except Exception as e:
         return Response({"status": "error", "message": str(e)}, status=500)
-

@@ -168,9 +168,35 @@ def is_valid_package(package: str) -> bool:
     return any(ptype in package for ptype in VALID_PACKAGES)
 
 
+# list of junk extensions to skip
+JUNK_EXTENSIONS = {
+    b".yar",
+    b".yara",
+    b".md",
+    b".txt",
+    b".yml",
+    b".yaml",
+    b".gitignore",
+    b".gitattributes",
+    b".gitmodules",
+}
+
+JUNK_NAMES = {b"license", b"copying", b"makefile", b"authors", b"readme"}
+
+
 # ToDo fix return type
 def _sf_children(child: sfFile):  # -> bytes:
     path_to_extract = ""
+    filename_lower = child.filename.lower()
+
+    # Skip junk files
+    if any(filename_lower.endswith(ext) for ext in JUNK_EXTENSIONS):
+        return (b"", child.platform, child.magic, child.filesize)
+    if any(name in filename_lower for name in JUNK_NAMES):
+        return (b"", child.platform, child.magic, child.filesize)
+    if b".github/" in filename_lower or b".git/" in filename_lower:
+        return (b"", child.platform, child.magic, child.filesize)
+
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
     if (
@@ -191,7 +217,7 @@ def _sf_children(child: sfFile):  # -> bytes:
                 _ = path_write_file(path_to_extract, child.contents)
         except Exception as e:
             log.exception(e)
-    return (path_to_extract.encode(), child.platform, child.magic, child.filesize)
+    return (path_to_extract.encode(), child.platform, child.magic or "", child.filesize)
 
 
 # ToDo fix typing need to add str as error msg
@@ -211,7 +237,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
 
         if unpacked.package in whitelist_extensions:
             file = File(filename)
-            magic_type = file.get_type()
+            magic_type = file.get_type() or ""
             platform = file.get_platform()
             file_size = file.get_size()
             return [[filename, platform, magic_type, file_size]], ""
@@ -246,6 +272,15 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
+    # Skip junk files
+    filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
+    filename_lower_bytes = filename_bytes.lower()
+    if any(filename_lower_bytes.endswith(ext) for ext in JUNK_EXTENSIONS) or any(
+        name in filename_lower_bytes for name in JUNK_NAMES
+    ):
+        filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
+        return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
+
     # sflock requires filename to be bytes object for Py3
     # TODO: Remove after checking all uses of demux_sample use bytes ~TheMythologist
     if isinstance(filename, str) and use_sflock:
@@ -281,7 +316,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         filename = tmp_path
 
     # don't try to extract from office docs
-    magic = File(filename).get_type()
+    magic = File(filename).get_type() or ""
     # if file is an Office doc and password is supplied, try to decrypt the doc
     if "Microsoft" in magic:
         pass

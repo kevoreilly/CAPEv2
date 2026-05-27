@@ -13,6 +13,7 @@ from pathlib import Path
 from Cryptodome.Cipher import ARC4
 
 from lib.cuckoo.common.utils import store_temp_file
+from lib.cuckoo.common.path_utils import path_exists
 
 try:
     import olefile
@@ -695,14 +696,22 @@ func_map = {
 
 def unquarantine(f):
     f = f.decode() if isinstance(f, bytes) else f
+    if not path_exists(f):
+        return f
+
     base = os.path.basename(f)
     realbase, ext = os.path.splitext(base)
 
     if not HAVE_OLEFILE:
         log.info("Missed olefile dependency: pip3 install olefile")
-    if ext.lower() == ".bup" or (HAVE_OLEFILE and olefile.isOleFile(f)):
-        with contextlib.suppress(Exception):
-            return mcafee_unquarantine(f)
+
+    try:
+        if ext.lower() == ".bup" or (HAVE_OLEFILE and olefile.isOleFile(f)):
+            with contextlib.suppress(Exception):
+                return mcafee_unquarantine(f)
+    except (FileNotFoundError, PermissionError, IsADirectoryError):
+        pass
+
     if ext.lower() in func_map:
         try:
             return func_map[ext.lower()](f)

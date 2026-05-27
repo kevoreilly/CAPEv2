@@ -1,7 +1,6 @@
 import hashlib
 import logging
 import os
-import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -14,8 +13,6 @@ from lib.common.results import upload_to_host
 
 log = logging.getLogger(__name__)
 
-# FILE_NAME_REGEX = re.compile("[\s]{2}((?:[a-zA-Z0-9\.\-,_\\\\]+( [a-zA-Z0-9\.\-,_\\\\]+)?)+)\\r")
-FILE_NAME_REGEX = re.compile(r"\s{2}((?:[a-zA-Z0-9.\-,_\\]+(?: [a-zA-Z0-9.\-,_\\]+)?)*)\r")
 FILE_EXT_OF_INTEREST = [
     ".bat",
     ".cmd",
@@ -106,38 +103,46 @@ def get_file_names(seven_zip_path, archive_path):
     """
     log.debug([seven_zip_path, "l", archive_path])
     p = subprocess.run(
-        [seven_zip_path, "l", archive_path], stdin=subprocess.DEVNULL, stderr=subprocess.PIPE, stdout=subprocess.PIPE
+        [seven_zip_path, "l", "-sccUTF-8", archive_path],
+        stdin=subprocess.DEVNULL,
+        stderr=subprocess.PIPE,
+        stdout=subprocess.PIPE,
     )
-    stdoutput = p.stdout.decode()
-    stdoutput_lines = stdoutput.split("\n")
-
+    stdoutput = p.stdout.decode("utf-8", errors="replace")
+    stdoutput_lines = stdoutput.splitlines()
     in_table = False
     items_under_header = False
     file_names = []
+    name_col_index = 53
     for line in stdoutput_lines:
         if in_table:
-            # This is a line in the table (header or footer separators)
             if "-----" in line:
                 if items_under_header:
                     items_under_header = False
                 else:
                     items_under_header = True
+                    last_space = line.rfind(" ")
+                    if last_space != -1:
+                        name_col_index = last_space + 1
                 continue
-
-            # These are the lines that we care about, since they contain the file names
             if items_under_header:
-                # Find the end of the line (\r), note the carriage return since 7zip will run on Windows
-                file_name = re.search(FILE_NAME_REGEX, line)
-                if file_name:
-                    # The first capture group is the whole file name + returns
-                    # The second capture group is just the file name
-                    file_name = file_name.group(1)
-                    file_names.append(file_name)
+                if len(line) > name_col_index:
+                    file_name = line[name_col_index:].strip()
+                    if file_name:
+                        file_names.append(file_name)
         else:
-            # Table Headers
-            if all(item.lower() in line.lower() for item in ("Date", "Time", "Attr", "Size", "Compressed", "Name")):
+            if all(
+                item.lower() in line.lower()
+                for item in (
+                    "Date",
+                    "Time",
+                    "Attr",
+                    "Size",
+                    "Compressed",
+                    "Name",
+                )
+            ):
                 in_table = True
-
     return file_names
 
 

@@ -145,6 +145,40 @@ Invariant enforced by `assert threading.active_count() == 1` immediately before 
 - Orphans / exit deadlock: `os._exit()` in the child (no atexit join) + `killpg` of the
   process group → complete cleanup, nothing to hang on.
 
+### 4.4 Memory model & shared state (audited 2026-05-27)
+
+The heavy load-once structures were audited for post-load mutation. All are **read-only
+after load** or per-worker caches never shared across workers:
+
+| Structure | Loaded at | Post-load writes | Verdict |
+|---|---|---|---|
+| `File.yara_rules` (compiled YARA) | `init_yara()` (idempotent) | none — read at scan (`objects.py:593`) | read-only |
+| `_MAXMINDDB_CLIENT` (geoip) | module-level, mtime-guarded | reload only if DB file changes | read-only (mmap) |
+| capa `RuleSet` | import-time `get_rules()` | none — read at match | read-only |
+| `mitre`/pyattck (`BASE_OBJECTS`, `RELATIONSHIP_MAP`) | `Attck()` at `abstracts.py:71` import | none — `techniques` recomputes views; caches nothing | read-only |
+| `DECRYPTORS` (vbadeobf) | import-time decorator registry | none — read via `.get` | read-only |
+| `_CLAMAV_CACHE` | during processing | per-worker, self-`clear()`s (`clamav.py:113`) | per-worker, not shared |
+
+**Nothing requires a live mutable instance shared across concurrent workers.** Decisive
+proof: today's pebble model already shares these *only* via COW-fork (parent loads → workers
+inherit, diverging on write). If anything needed cross-worker mutation it would already be
+broken in production.
+
+Consequence for Approach A: the "load once, share" model is **preserved identically** — the
+single-threaded warm base loads them where `init_modules`/import does today; per-task children
+inherit by COW. Per-task `fork()` copies page tables, not the GBs of data. Short-lived
+children also retain COW sharing better than 7-task workers, which gradually un-share heavy
+pages via CPython refcount writes + cyclic GC.
+
+The leak concern is *better* served by A: a fresh process per task reclaims C-lib leaks every
+task (recycle-every-task), strictly stronger than `maxtasksperchild=7`, without the
+`_exit_function` deadlock.
+
+**Known per-task recompute cost:** pyattck `techniques` recomputes on each access (observed
+burning CPU in `_get_relationship_objects`) — same in both models, but paid per-task under A
+vs amortized over 7. Mitigation if material: pre-compute/cache it in the warm base so children
+inherit the result. Treated as an A/B-measured optimization, not a correctness item.
+
 ## 5. A/B testing & metrics
 - Run identical workload under each engine (flag flip + restart). Compare:
   - throughput (tasks/min), per-task wall-clock (p50/p90/p99),

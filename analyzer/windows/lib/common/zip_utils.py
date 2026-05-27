@@ -109,22 +109,25 @@ def get_file_names(seven_zip_path, archive_path):
         stdout=subprocess.PIPE,
     )
     stdoutput = p.stdout.decode("utf-8", errors="replace")
-    stdoutput_lines = stdoutput.split("\n")
+    stdoutput_lines = stdoutput.splitlines()
     in_table = False
     items_under_header = False
     file_names = []
+    name_col_index = 53
     for line in stdoutput_lines:
-        line = line.rstrip("\r")
         if in_table:
             if "-----" in line:
                 if items_under_header:
                     items_under_header = False
                 else:
                     items_under_header = True
+                    last_space = line.rfind(" ")
+                    if last_space != -1:
+                        name_col_index = last_space + 1
                 continue
             if items_under_header:
-                if len(line) > 53:
-                    file_name = line[53:].strip()
+                if len(line) > name_col_index:
+                    file_name = line[name_col_index:].strip()
                     if file_name:
                         file_names.append(file_name)
         else:

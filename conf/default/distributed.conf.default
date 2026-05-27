@@ -32,16 +32,8 @@ fstab_socket = /tmp/cape-fstab
 
 # Google Cloud Platform
 [GCP]
+# Note: Further GCP configuration (project_id, zones, autodiscovery, etc.)
+# MUST be done in conf/gcp.conf. This section only controls the enabled state.
 enabled = no
-# Comma separated list of zones
-zones = ""
-project_id = ""
-# rest usage instead of GCP python client
-# https://cloud.google.com/docs/authentication/rest
-# gcloud auth print-access-token
-token = ""
-# Seconds between try to discoverd new instances
-autodiscovery = 600
-# Instances should start with following name pattern
-instance_name = cape-server
+
 

@@ -3,14 +3,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-# IMPORTANT: Gevent monkey patching MUST be the first thing that happens
-# to prevent SSL/socket issues with Google Cloud libraries.
-try:
-    from gevent import monkey
-    monkey.patch_all()
-except ImportError:
-    pass
-
 import json
 import logging
 import os

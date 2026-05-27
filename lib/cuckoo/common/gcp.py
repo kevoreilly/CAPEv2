@@ -12,10 +12,11 @@ try:
     from google.api_core.exceptions import Forbidden
     from google.cloud import compute_v1
     from google.cloud import storage
+    from google.oauth2 import service_account
 
     HAVE_GCP = True
 except ImportError:
-    # pip install --upgrade google-cloud-compute
+    # pip install --upgrade google-cloud-compute google-cloud-storage
     HAVE_GCP = False
 
 try:
@@ -24,10 +25,131 @@ try:
 except ImportError:
     HAVE_REQUESTS = False
 
+import zipfile
+import tempfile
+
 log = logging.getLogger(__name__)
 
 # Initialize standard config
 gcp_cfg = Config("gcp")
+
+
+class GCSUploader:
+    """Helper class to upload files to GCS."""
+
+    @staticmethod
+    def parse_custom_string(custom_str):
+        if not custom_str:
+            return {}
+
+        if custom_str.endswith("..."):
+            custom_str = custom_str[:-3]
+        parts = custom_str.split(",")
+        data = {}
+        for part in parts:
+            if ":" in part:
+                key, value = part.split(":", 1)
+                data[key] = value
+        return data
+
+    def __init__(self, bucket_name=None, auth_by=None, credentials_path=None, exclude_dirs=None, exclude_files=None, mode=None):
+        if not HAVE_GCP:
+            raise ImportError("google-cloud-storage library is missing")
+
+        if not bucket_name:
+            bucket_name = gcp_cfg.reporting.get("results_bucket") if hasattr(gcp_cfg, "reporting") else None
+            auth_by = gcp_cfg.gcp.get("auth_by", "vm")
+            credentials_path = gcp_cfg.gcp.get("service_account_path")
+            mode = gcp_cfg.reporting.get("mode", "zip") if hasattr(gcp_cfg, "reporting") else "zip"
+            exclude_dirs_str = gcp_cfg.reporting.get("exclude_dirs", "") if hasattr(gcp_cfg, "reporting") else ""
+            exclude_files_str = gcp_cfg.reporting.get("exclude_files", "") if hasattr(gcp_cfg, "reporting") else ""
+
+            # Parse exclusion sets
+            self.exclude_dirs = {item.strip() for item in (exclude_dirs_str or "").split(",") if item.strip()}
+            self.exclude_files = {item.strip() for item in (exclude_files_str or "").split(",") if item.strip()}
+        else:
+            self.exclude_dirs = exclude_dirs if exclude_dirs else set()
+            self.exclude_files = exclude_files if exclude_files else set()
+
+        self.mode = mode or "zip"
+
+        if not bucket_name:
+            raise ValueError("GCS bucket_name is not configured.")
+
+        if auth_by == "vm":
+            self.storage_client = storage.Client()
+        else:
+            if credentials_path:
+                if not os.path.isabs(credentials_path):
+                    credentials_path = os.path.join(CUCKOO_ROOT, credentials_path)
+            if not credentials_path or not os.path.exists(credentials_path):
+                raise ValueError(f"Invalid credentials path: {credentials_path}")
+            credentials = service_account.Credentials.from_service_account_file(credentials_path)
+            self.storage_client = storage.Client(credentials=credentials)
+
+        self.bucket = self.storage_client.bucket(bucket_name)
+
+    def _iter_files_to_upload(self, source_directory):
+        """Generator that yields files to be uploaded, skipping excluded ones."""
+        for root, dirs, files in os.walk(source_directory):
+            # Exclude specified directories
+            dirs[:] = [d for d in dirs if d not in self.exclude_dirs]
+            for filename in files:
+                # Exclude specified files
+                if filename in self.exclude_files:
+                    continue
+
+                local_path = os.path.join(root, filename)
+                if not os.path.exists(local_path):
+                    continue
+                relative_path = os.path.relpath(local_path, source_directory)
+                yield local_path, relative_path
+
+    def upload(self, source_directory, analysis_id, tlp=None, metadata=None):
+        if self.mode == "zip":
+            self.upload_zip_archive(analysis_id, source_directory, tlp=tlp, metadata=metadata)
+        else:
+            self.upload_files_individually(analysis_id, source_directory, tlp=tlp, metadata=metadata)
+
+    def upload_zip_archive(self, analysis_id, source_directory, tlp=None, metadata=None):
+        log.debug("Compressing and uploading files for analysis ID %s to GCS", analysis_id)
+        blob_name = f"{analysis_id}_tlp_{tlp}.zip" if tlp else f"{analysis_id}.zip"
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
+            tmp_zip_file_name = tmp_zip_file.name
+            with zipfile.ZipFile(tmp_zip_file, "w", zipfile.ZIP_DEFLATED) as archive:
+                for local_path, relative_path in self._iter_files_to_upload(source_directory):
+                    archive.write(local_path, os.path.join(str(analysis_id), relative_path))
+        try:
+            log.debug("Uploading '%s' to '%s'", tmp_zip_file_name, blob_name)
+            blob = self.bucket.blob(blob_name)
+            if metadata:
+                blob.metadata = metadata
+            blob.upload_from_filename(tmp_zip_file_name)
+        finally:
+            os.unlink(tmp_zip_file_name)
+        log.info("Successfully uploaded archive for analysis %s to GCS.", analysis_id)
+
+    def upload_files_individually(self, analysis_id, source_directory, tlp=None, metadata=None):
+        log.debug("Uploading files for analysis ID %s to GCS", analysis_id)
+        folder_name = f"{analysis_id}_tlp_{tlp}" if tlp else str(analysis_id)
+
+        for local_path, relative_path in self._iter_files_to_upload(source_directory):
+            blob_name = f"{folder_name}/{relative_path}"
+            # log.debug("Uploading '%s' to '%s'", local_path, blob_name)
+            blob = self.bucket.blob(blob_name)
+            if metadata:
+                blob.metadata = metadata
+            blob.upload_from_filename(local_path)
+
+        log.info("Successfully uploaded files for analysis %s to GCS.", analysis_id)
+
+    def check_exists(self, analysis_id):
+        """Check if any blobs exist for the given analysis ID."""
+        prefix = str(analysis_id)
+        blobs = list(self.storage_client.list_blobs(self.bucket, prefix=prefix, max_results=1))
+        return len(blobs) > 0
+
 
 # GCS Configuration
 GCS_ENABLED = gcp_cfg.reporting.get("enabled", False) if hasattr(gcp_cfg, "reporting") else False
@@ -35,9 +157,7 @@ GCS_DELETE_AFTER_UPLOAD = gcp_cfg.reporting.get("delete_after_upload", False) if
 
 
 gcs_uploader = None
-GCSUploader = None
 if GCS_ENABLED:
-    from modules.reporting.gcs import GCSUploader
     try:
         gcs_uploader = GCSUploader()
     except Exception as e:

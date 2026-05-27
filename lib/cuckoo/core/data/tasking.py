@@ -633,7 +633,7 @@ class TasksMixIn:
                 # ToDo keep as info for now
                 if path_exists(file_path):
                     log.info("Deleting archive: %s. conf.cuckoo.delete_archive is enabled. %s", file_path, str(extracted_files))
-                    path_delete(file_path)
+                    path_delete(file_path.decode())
 
         task_ids = []
         # create tasks for each file in the archive

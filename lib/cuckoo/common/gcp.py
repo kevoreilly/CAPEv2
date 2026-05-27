@@ -8,7 +8,32 @@ from typing import Any, Dict, List, Optional, Tuple, Union, Set
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-...
+try:
+    from google.api_core.exceptions import Forbidden
+    from google.cloud import compute_v1
+    from google.cloud import storage
+    from google.oauth2 import service_account
+
+    HAVE_GCP = True
+except ImportError:
+    # pip install --upgrade google-cloud-compute google-cloud-storage
+    HAVE_GCP = False
+
+try:
+    HAVE_REQUESTS = True
+    import requests
+except ImportError:
+    HAVE_REQUESTS = False
+
+import zipfile
+import tempfile
+
+log = logging.getLogger(__name__)
+
+# Initialize standard config
+gcp_cfg = Config("gcp")
+
+
 class GCSUploader:
     """Helper class to upload files to GCS."""
 

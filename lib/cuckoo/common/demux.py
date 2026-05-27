@@ -234,7 +234,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) ->
 
         # Before unpacking, ensure the file actually exists and is not empty to avoid IncorrectUsageException
         if not path_exists(filename) or os.path.getsize(filename) == 0:
-            return [[filename, platform, magic_type, file_size]], "file not found or empty"
+            return [(filename, platform, magic_type, file_size)], "file not found or empty"
 
         password = options2passwd(options) or "infected"
         try:
@@ -247,7 +247,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) ->
             magic_type = file.get_type() or ""
             platform = file.get_platform()
             file_size = file.get_size()
-            return [[filename, platform, magic_type, file_size]], ""
+            return [(filename, platform, magic_type, file_size)], ""
         if unpacked.package in blacklist_extensions:
             return [], "blacklisted package"
         for sf_child in unpacked.children:

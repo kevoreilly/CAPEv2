@@ -61,8 +61,17 @@ dist_conf = Config("distributed")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")
 
 HAVE_GCP = False
-if dist_conf.GCP.enabled:
-    from lib.cuckoo.common.gcp import GCP, HAVE_GCP, GCS_ENABLED, gcs_replay, gcs_sync, gcs_upload_report, gcs_uploader
+if dist_conf.gcs.enabled:
+    from lib.cuckoo.common.gcp import (
+        GCP,
+        GCS_ENABLED,
+        HAVE_GCP,
+        gcs_refetch_banned,
+        gcs_replay,
+        gcs_sync,
+        gcs_upload_report,
+        gcs_uploader,
+    )
 
     cloud = GCP()
 
@@ -1928,6 +1937,16 @@ if __name__ == "__main__":
         action="store",
         help="Sync GCS with DB for a given time range (e.g., 12h, 1d, 2d)",
     )
+    p.add_argument(
+        "--gcs-refetch-banned",
+        action="store",
+        help="Refetch banned tasks from GCS for a given time range (e.g., 12h, 1d, 2d)",
+    )
+    p.add_argument(
+        "--samples-bucket",
+        action="store",
+        help="Specify GCS bucket for samples (used with --gcs-refetch-banned)",
+    )
 
     args = p.parse_args()
     log = init_logging(args.debug)
@@ -1951,6 +1970,10 @@ if __name__ == "__main__":
 
     if args.gcs_sync:
         gcs_sync(args.gcs_sync)
+        sys.exit()
+
+    if args.gcs_refetch_banned:
+        gcs_refetch_banned(args.gcs_refetch_banned, samples_bucket=args.samples_bucket)
         sys.exit()
 
     delete_enabled = args.enable_clean

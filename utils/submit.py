@@ -26,6 +26,7 @@ from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import sanitize_filename, store_temp_file, to_unicode
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.startup import check_user_permissions
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
 
@@ -47,13 +48,13 @@ def submit_file(
     clock=None,
     unique=False,
     quiet=False,
-    category = None,
-    filename = None,
+    category=None,
+    filename=None,
 ):
     if not File(file_path).get_size():
         if not quiet:
             print((bold(yellow("Empty") + ": sample {0} (skipping file)".format(file_path))))
-        return []
+        return [], {"errors": ["Empty file"]}
 
     if unique:
         with db.session.begin():
@@ -62,14 +63,21 @@ def submit_file(
             msg = ": Sample {0} (skipping file)".format(file_path)
             if not quiet:
                 print((bold(yellow("Duplicate")) + msg))
-            return []
+            return [], {"errors": ["Duplicate"]}
+
+    # Ensure logging is available
+    import logging
+    l = logging.getLogger(__name__)
 
     tmp_path = ""
     try:
+        # Create a temp file with the correct name for demuxing (if needed)
+        # Some demuxers rely on the filename/extension
         with open(file_path, "rb") as f:
             if not filename:
                 filename = os.path.basename(file_path)
             tmp_path = store_temp_file(f.read(), sanitize_filename(filename))
+
         with db.session.begin():
             # ToDo expose extra_details["errors"]
             task_ids, extra_details = db.demux_sample_and_add_to_db(
@@ -88,26 +96,18 @@ def submit_file(
                 route=route,
                 category=category,
             )
-        return task_ids
+        return task_ids, extra_details
     except CuckooDemuxError as e:
-        print((bold(red("Error")) + ": {0}".format(e)))
-        return []
+        l.error("Demux error: %s", e)
+        return [], {"errors": [str(e)]}
+    except Exception as e:
+        import traceback
+        l.error("Unexpected error in submit_file: %s\n%s", e, traceback.format_exc())
+        return [], {"errors": [str(e)]}
     finally:
-        if tmp_path and path_exists(tmp_path):
-            if os.path.isfile(tmp_path):
-                parent_dir = os.path.dirname(tmp_path)
-                parent_name = os.path.basename(parent_dir)
-                is_upload_dir = False
-                if isinstance(parent_name, bytes):
-                    is_upload_dir = parent_name.startswith(b"upload_")
-                else:
-                    is_upload_dir = parent_name.startswith("upload_")
-                if is_upload_dir:
-                    shutil.rmtree(parent_dir)
-                else:
-                    os.unlink(tmp_path)
-            else:
-                os.unlink(tmp_path)
+        # We do NOT delete tmp_path here.
+        # CAPE's AnalysisManager will copy it to storage/binaries when analysis starts.
+        pass
 
 
 def main():
@@ -415,7 +415,7 @@ def main():
                 task_ids = json["data"].get("task_ids")
 
             else:
-                task_ids = submit_file(
+                task_ids, extra_details = submit_file(
                     db=db,
                     file_path=file_path,
                     package=args.package,

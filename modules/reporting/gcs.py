@@ -42,24 +42,28 @@ class GCSUploader:
         if not HAVE_GCS:
             raise ImportError("google-cloud-storage library is missing")
 
-        # Load from reporting.conf if parameters are missing
+        # Load from unified gcp_unified_cfg if available, else standard fallback
+        try:
+            from lib.cuckoo.common.gcp import gcp_unified_cfg
+        except ImportError:
+            gcp_unified_cfg = None
+
         if not bucket_name:
-            cfg = Config("reporting")
-            if not cfg.gcs.enabled:
-                # If we are initializing purely for manual usage but config is disabled, we might want to allow it if params are passed.
-                # But if params are missing AND config is disabled/missing, we can't proceed.
-                pass
-
-            bucket_name = cfg.gcs.bucket_name
-            auth_by = cfg.gcs.auth_by
-            credentials_path_str = cfg.gcs.credentials_path
-
-            if credentials_path_str:
-                credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
-
-            exclude_dirs_str = cfg.gcs.get("exclude_dirs", "")
-            exclude_files_str = cfg.gcs.get("exclude_files", "")
-            mode = cfg.gcs.get("mode", "zip")
+            if gcp_unified_cfg:
+                bucket_name = gcp_unified_cfg.get("reporting", "results_bucket")
+                auth_by = gcp_unified_cfg.get("gcp", "auth_by", "vm")
+                credentials_path = gcp_unified_cfg.get("gcp", "service_account_path")
+                mode = gcp_unified_cfg.get("reporting", "mode", "zip")
+                exclude_dirs_str = gcp_unified_cfg.get("reporting", "exclude_dirs", "")
+                exclude_files_str = gcp_unified_cfg.get("reporting", "exclude_files", "")
+            else:
+                cfg = Config("reporting")
+                bucket_name = cfg.gcs.bucket_name
+                auth_by = cfg.gcs.auth_by
+                credentials_path = cfg.gcs.credentials_path
+                mode = cfg.gcs.get("mode", "zip")
+                exclude_dirs_str = cfg.gcs.get("exclude_dirs", "")
+                exclude_files_str = cfg.gcs.get("exclude_files", "")
 
             # Parse exclusion sets
             self.exclude_dirs = {item.strip() for item in exclude_dirs_str.split(",") if item.strip()}
@@ -76,6 +80,9 @@ class GCSUploader:
         if auth_by == "vm":
             self.storage_client = storage.Client()
         else:
+            if credentials_path:
+                if not os.path.isabs(credentials_path):
+                    credentials_path = os.path.join(CUCKOO_ROOT, credentials_path)
             if not credentials_path or not os.path.exists(credentials_path):
                 raise ValueError(f"Invalid credentials path: {credentials_path}")
             credentials = service_account.Credentials.from_service_account_file(credentials_path)
@@ -186,20 +193,39 @@ class GCS(Report):
         # we should pass options explicitly if they differ from default config.
         # However, typically reporting.conf is the source.
 
-        # Parse exclusion lists from self.options to respect local module config
-        exclude_dirs_str = self.options.get("exclude_dirs", "")
-        exclude_files_str = self.options.get("exclude_files", "")
-        exclude_dirs = {item.strip() for item in exclude_dirs_str.split(",") if item.strip()}
-        exclude_files = {item.strip() for item in exclude_files_str.split(",") if item.strip()}
+        # Try to get unified config if available
+        try:
+            from lib.cuckoo.common.gcp import gcp_unified_cfg
+        except ImportError:
+            gcp_unified_cfg = None
 
-        # We manually construct to respect self.options
-        bucket_name = self.options.get("bucket_name")
-        auth_by = self.options.get("auth_by")
-        credentials_path_str = self.options.get("credentials_path")
+        # Parse exclusion lists from self.options (reporting.conf)
+        # If missing, fall back to gcp_unified_cfg or defaults
+        exclude_dirs_str = self.options.get("exclude_dirs")
+        exclude_files_str = self.options.get("exclude_files")
+        
+        if exclude_dirs_str is None and gcp_unified_cfg:
+            exclude_dirs_str = gcp_unified_cfg.get("reporting", "exclude_dirs", "")
+        
+        if exclude_files_str is None and gcp_unified_cfg:
+            exclude_files_str = gcp_unified_cfg.get("reporting", "exclude_files", "")
+
+        exclude_dirs = {item.strip() for item in (exclude_dirs_str or "").split(",") if item.strip()}
+        exclude_files = {item.strip() for item in (exclude_files_str or "").split(",") if item.strip()}
+
+        # Manual construction prioritized by self.options, then unified config
+        bucket_name = self.options.get("bucket_name") or (gcp_unified_cfg.get("reporting", "results_bucket") if gcp_unified_cfg else None)
+        auth_by = self.options.get("auth_by") or (gcp_unified_cfg.get("gcp", "auth_by", "vm") if gcp_unified_cfg else "vm")
+        credentials_path_str = self.options.get("credentials_path") or (gcp_unified_cfg.get("gcp", "service_account_path") if gcp_unified_cfg else None)
+        
         credentials_path = None
         if credentials_path_str:
-            credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
-        mode = self.options.get("mode", "file")
+            if not os.path.isabs(credentials_path_str):
+                credentials_path = os.path.join(CUCKOO_ROOT, credentials_path_str)
+            else:
+                credentials_path = credentials_path_str
+
+        mode = self.options.get("mode") or (gcp_unified_cfg.get("reporting", "mode", "zip") if gcp_unified_cfg else "zip")
 
         try:
             uploader = GCSUploader(bucket_name, auth_by, credentials_path, exclude_dirs, exclude_files, mode)

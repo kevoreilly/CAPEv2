@@ -24,19 +24,38 @@ except ImportError:
     HAVE_REQUESTS = False
 
 log = logging.getLogger(__name__)
-gcp_cfg = Config("gcp")
-reporting_conf = Config("reporting")
+
+class GCPConfig:
+    def __init__(self):
+        self.gcp = Config("gcp")
+
+    def get(self, section, key, default=None):
+        if hasattr(self.gcp, section):
+            val = getattr(self.gcp, section).get(key)
+            if val is not None and val != "" and f"<{key}>" not in str(val):
+                return val
+        return default
+
+    @property
+    def project_id(self):
+        return self.get("gcp", "project")
+
+    @property
+    def zone(self):
+        return self.get("gcp", "zone")
+
+# Initialize unified config
+gcp_unified_cfg = GCPConfig()
 
 # GCS Configuration
-GCS_ENABLED = reporting_conf.gcs.get("enabled", False) if hasattr(reporting_conf, "gcs") else False
-GCS_DELETE_AFTER_UPLOAD = reporting_conf.gcs.get("delete_after_upload", False) if hasattr(reporting_conf, "gcs") else False
+GCS_ENABLED = gcp_unified_cfg.get("reporting", "enabled", False)
+GCS_DELETE_AFTER_UPLOAD = gcp_unified_cfg.get("reporting", "delete_after_upload", False)
 
 gcs_uploader = None
 GCSUploader = None
 if GCS_ENABLED:
     from modules.reporting.gcs import GCSUploader
     try:
-        # Initialize without args to load from reporting.conf
         gcs_uploader = GCSUploader()
     except Exception as e:
         log.error("Failed to initialize GCS Uploader: %s", e)
@@ -70,15 +89,17 @@ def download_from_gcs(gcs_uri, destination_path, logger=None, client=None):
         storage_client = client
         own_client = False
         if not storage_client:
-            project_id = gcp_cfg.gcp.get("project")
-            if project_id and "<project_id>" in project_id:
-                project_id = None
+            project_id = gcp_unified_cfg.project_id
+            auth_by = gcp_unified_cfg.get("gcp", "auth_by", "vm")
+            service_account_path = gcp_unified_cfg.get("gcp", "service_account_path")
 
-            service_account_path = gcp_cfg.gcp.get("service_account_path")
+            if auth_by == "json" and service_account_path:
+                if not os.path.isabs(service_account_path):
+                    service_account_path = os.path.join(CUCKOO_ROOT, service_account_path)
+                if os.path.exists(service_account_path):
+                    storage_client = storage.Client.from_service_account_json(service_account_path)
 
-            if service_account_path and os.path.exists(service_account_path):
-                storage_client = storage.Client.from_service_account_json(service_account_path)
-            else:
+            if not storage_client:
                 storage_client = storage.Client(project=project_id)
             own_client = True
 
@@ -109,31 +130,35 @@ def check_node_up(host: str) -> bool:
 
 class GCP(object):
     def __init__(self) -> None:
-        self.dist_cfg = Config("distributed")
-        self.project_id = self.dist_cfg.GCP.project_id
-        if self.project_id and "<project_id>" not in self.project_id:
+        self.project_id = gcp_unified_cfg.project_id
+        if self.project_id:
             if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
                 os.environ["GOOGLE_CLOUD_PROJECT"] = self.project_id
             if not os.environ.get("GCLOUD_PROJECT"):
                 os.environ["GCLOUD_PROJECT"] = self.project_id
 
-        self.zones = [zone.strip() for zone in self.dist_cfg.GCP.zones.split(",")]
+        zones_str = gcp_unified_cfg.get("distributed", "zones")
+        if not zones_str:
+            zones_str = gcp_unified_cfg.zone or ""
+        self.zones = [zone.strip() for zone in zones_str.split(",") if zone.strip()]
         self.GCP_BASE_URL = "https://compute.googleapis.com/compute/v1/"
 
+        self.token = gcp_unified_cfg.get("gcp", "token")
         self.headers = {
             "X-Goog-User-Project": self.project_id,
-            "Authorization": f"Bearer {self.dist_cfg.GCP.token}",
+            "Authorization": f"Bearer {self.token}",
         }
 
     def list_instances(self) -> dict:
         """Auto discovery of new servers"""
         servers = {}
-        if self.dist_cfg.GCP.token:
+        instance_name_pattern = gcp_unified_cfg.get("distributed", "instance_name_pattern", "cape-server")
+        if self.token:
             for zone in self.zones:
                 try:
                     r = requests.get(f"{self.GCP_BASE_URL}projects/{self.project_id}/zones/{zone}/instances", headers=self.headers)
                     for instance in r.json().get("items", []):
-                        if not instance["name"].startswith(self.dist_cfg.GCP.instance_name):
+                        if not instance["name"].startswith(instance_name_pattern):
                             continue
                         ips = [
                             # Need to replace to internal IP not natIP
@@ -154,7 +179,7 @@ class GCP(object):
             for zone in self.zones:
                 instance_list = instance_client.list(project=self.project_id, zone=zone)
                 for instance in instance_list.items:
-                    if not instance.name.startswith(self.dist_cfg.GCP.instance_name):
+                    if not instance.name.startswith(instance_name_pattern):
                         continue
                     # Public IP
                     # ips = [access.nat_i_p for net_iface in instance.network_interfaces for access in net_iface.access_configs]
@@ -168,10 +193,11 @@ class GCP(object):
         return servers
 
     def autodiscovery(self):
+        autodiscovery_interval = int(gcp_unified_cfg.get("distributed", "autodiscovery_interval", 600))
         while True:
             servers = self.list_instances()
             if not servers:
-                time.sleep(600)
+                time.sleep(autodiscovery_interval)
 
             for name, ips in servers.items():
                 for ip in ips:
@@ -193,7 +219,7 @@ class GCP(object):
                     except Exception as e:
                         log.exception(e)
 
-            time.sleep(int(self.dist_cfg.GCP.autodiscovery))
+            time.sleep(autodiscovery_interval)
 
 
 def gcs_replay(task_range):
@@ -316,3 +342,79 @@ def gcs_sync(time_range):
     log.info("Found %d missing tasks in GCS: %s", len(missing_ids), sorted(missing_ids))
     # Trigger replay for missing IDs
     gcs_replay(",".join(map(str, sorted(missing_ids))))
+
+
+def gcs_refetch_banned(time_range, samples_bucket=None):
+    if not HAVE_GCP:
+        log.error("Google Cloud Storage dependencies not installed.")
+        return
+
+    from lib.cuckoo.common.cleaners_utils import convert_into_time
+    from lib.cuckoo.core.database import Database
+    from lib.cuckoo.core.data.task import TASK_BANNED, Task
+    from utils.submit import submit_file
+    from sqlalchemy import select
+    import tempfile
+
+    db = Database()
+    try:
+        past_time = convert_into_time(time_range)
+    except ValueError as e:
+        log.error("Invalid time range: %s", e)
+        return
+
+    if not samples_bucket:
+        samples_bucket = gcp_unified_cfg.get("samples_pubsub", "samples_bucket")
+        if not samples_bucket:
+            # Fallback to the one we saw in logs if not configured
+            samples_bucket = "sandbox-samples-unique"
+            log.warning("samples_bucket not configured in gcp.conf, using default: %s", samples_bucket)
+
+    log.info("Refetching banned tasks added after %s from bucket %s", past_time, samples_bucket)
+
+    with db.session.begin():
+        stmt = select(Task).where(Task.status == TASK_BANNED).where(Task.added_on >= past_time)
+        tasks = db.session.scalars(stmt).all()
+
+    if not tasks:
+        log.info("No banned tasks found in the given time range.")
+        return
+
+    log.info("Found %d banned tasks to refetch.", len(tasks))
+
+    for task in tasks:
+        if not task.sample_id:
+            log.warning("Task %d has no sample associated, skipping", task.id)
+            continue
+
+        with db.session.begin():
+            sample = db.view_sample(task.sample_id)
+            if not sample:
+                log.warning("Sample for task %d not found in DB", task.id)
+                continue
+            sha256 = sample.sha256
+
+        gcs_uri = f"gs://{samples_bucket}/{sha256}"
+        fd, tmp_path = tempfile.mkstemp()
+        os.close(fd)
+
+        try:
+            if download_from_gcs(gcs_uri, tmp_path):
+                log.info("Successfully downloaded %s, resubmitting...", sha256)
+                task_ids = submit_file(
+                    db=db,
+                    file_path=tmp_path,
+                    options=task.options,
+                    custom=task.custom,
+                    category=task.category,
+                    filename=os.path.basename(task.target),
+                )
+                if task_ids:
+                    log.info("Task %d refetched as new task(s): %s", task.id, task_ids)
+                else:
+                    log.error("Failed to resubmit %s", sha256)
+            else:
+                log.error("Failed to download %s from %s", sha256, gcs_uri)
+        finally:
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)

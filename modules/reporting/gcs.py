@@ -203,10 +203,10 @@ class GCS(Report):
         # If missing, fall back to gcp_cfg or defaults
         exclude_dirs_str = self.options.get("exclude_dirs")
         exclude_files_str = self.options.get("exclude_files")
-        
+
         if exclude_dirs_str is None and gcp_cfg and hasattr(gcp_cfg, "reporting"):
             exclude_dirs_str = gcp_cfg.reporting.get("exclude_dirs", "")
-        
+
         if exclude_files_str is None and gcp_cfg and hasattr(gcp_cfg, "reporting"):
             exclude_files_str = gcp_cfg.reporting.get("exclude_files", "")
 
@@ -217,7 +217,7 @@ class GCS(Report):
         bucket_name = self.options.get("bucket_name") or (gcp_cfg.reporting.get("results_bucket") if gcp_cfg and hasattr(gcp_cfg, "reporting") else None)
         auth_by = self.options.get("auth_by") or (gcp_cfg.gcp.get("auth_by", "vm") if gcp_cfg else "vm")
         credentials_path_str = self.options.get("credentials_path") or (gcp_cfg.gcp.get("service_account_path") if gcp_cfg else None)
-        
+
         credentials_path = None
         if credentials_path_str:
             if not os.path.isabs(credentials_path_str):

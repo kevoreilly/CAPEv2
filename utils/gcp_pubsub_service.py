@@ -154,7 +154,6 @@ class GCPPubSubService:
         import time
         start_time = time.time()
         try:
-            from lib.cuckoo.common.gcp import download_from_gcs
             payload = json.loads(message.data.decode("utf-8"))
             correlation_id = payload.get("uuid") or payload.get("transaction_id") or msg_id
 
@@ -212,7 +211,6 @@ class GCPPubSubService:
             # Check if sample exists locally
             sample_hash = os.path.basename(sample_hash)
             local_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_hash)
-            is_temp = False
 
             if not path_exists(local_path):
                 mlog.info("Sample %s not found locally, fetching from GCS: %s", sample_hash, gcs_uri)
@@ -237,7 +235,6 @@ class GCPPubSubService:
                 if success:
                     mlog.info("Download finished in %.2f seconds", time.time() - dl_start)
                     local_path = temp_path
-                    is_temp = True
                 else:
                     mlog.error("Failed to download sample from GCS: %s", gcs_uri)
                     message.nack()

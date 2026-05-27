@@ -9,7 +9,6 @@ import logging
 import os
 import random
 import sys
-import shutil
 
 try:
     import requests
@@ -26,7 +25,6 @@ from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import sanitize_filename, store_temp_file, to_unicode
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.startup import check_user_permissions
-from lib.cuckoo.common.constants import CUCKOO_ROOT
 
 check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
 

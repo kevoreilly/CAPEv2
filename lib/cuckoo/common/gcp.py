@@ -3,7 +3,7 @@ import os
 import logging
 import time
 import shutil
-from typing import Any, Dict, List, Optional, Tuple, Union, Set
+from typing import Any, Dict, List, Optional, Set
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_exists

@@ -1,6 +1,6 @@
 import os
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError

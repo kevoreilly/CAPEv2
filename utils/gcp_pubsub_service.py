@@ -9,7 +9,7 @@ import os
 import sys
 import tempfile
 import warnings
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Tuple
 
 # Mute Google Cloud's Python version support warning for Python 3.10
 warnings.filterwarnings("ignore", category=FutureWarning, module="google.api_core")

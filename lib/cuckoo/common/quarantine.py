@@ -9,7 +9,7 @@ import os
 import struct
 from binascii import crc32
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Optional, Tuple, Union
 
 from Cryptodome.Cipher import ARC4
 

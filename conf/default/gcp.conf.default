@@ -1,9 +1,9 @@
 [gcp]
 # Global Environment Settings
 # Specify the project identifier
-project = <project_id>
+project = 
 # Specify the Google Cloud Zone (for example, europe-north2-a). This is case-sensitive
-zone = <zone_name>
+zone = 
 # Authentication method: vm (instance credentials), json (key file), or token (manual token)
 auth_by = vm
 # Path to the service account key file (required if auth_by = json)
@@ -20,7 +20,7 @@ subscription_id =
 samples_bucket = sandbox-samples-unique
 # Concurrent message limit
 max_messages = 5
-# Lease extension in seconds
+# Lease duration in seconds
 lease_duration = 1800
 
 [distributed]
@@ -37,7 +37,7 @@ zones =
 # Analysis Results Upload to GCS
 enabled = no
 # The name of your GCS bucket where reports will be uploaded
-results_bucket = <bucket_name>
+results_bucket = 
 # Upload mode: zip (single archive per task) or file (individual files)
 mode = zip
 # Delete local report after successful upload to GCS

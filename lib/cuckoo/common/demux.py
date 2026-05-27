@@ -273,11 +273,12 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
     # Skip junk files
-    filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
-    filename_lower = filename_str.lower()
-    if any(filename_lower.endswith(ext.decode(errors="ignore")) for ext in JUNK_EXTENSIONS) or any(
-        name.decode(errors="ignore") in filename_lower for name in JUNK_NAMES
+    filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
+    filename_lower_bytes = filename_bytes.lower()
+    if any(filename_lower_bytes.endswith(ext) for ext in JUNK_EXTENSIONS) or any(
+        name in filename_lower_bytes for name in JUNK_NAMES
     ):
+        filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
         return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
 
     # sflock requires filename to be bytes object for Py3

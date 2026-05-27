@@ -46,14 +46,14 @@ class GCPServiceLogger(logging.LoggerAdapter):
 class GCPPubSubService:
     def __init__(self):
         import threading
-        from lib.cuckoo.common.gcp import gcp_unified_cfg
+        from lib.cuckoo.common.gcp import gcp_cfg
         self.processing_ids = set()
         self.ids_lock = threading.Lock()
-        self.project_id = gcp_unified_cfg.project_id
-        self.subscription_id = os.getenv("GCP_SUBSCRIPTION_ID") or gcp_unified_cfg.get("samples_pubsub", "subscription_id")
-        self.samples_bucket = gcp_unified_cfg.get("samples_pubsub", "samples_bucket", "sandbox-samples-unique")
+        self.project_id = gcp_cfg.gcp.get("project")
+        self.subscription_id = os.getenv("GCP_SUBSCRIPTION_ID") or (gcp_cfg.samples_pubsub.get("subscription_id") if hasattr(gcp_cfg, "samples_pubsub") else None)
+        self.samples_bucket = (gcp_cfg.samples_pubsub.get("samples_bucket", "sandbox-samples-unique") if hasattr(gcp_cfg, "samples_pubsub") else "sandbox-samples-unique")
 
-        if not self.project_id or "<project_id>" in self.project_id:
+        if not self.project_id:
             # Fallback to env var if project is missing from config
             self.project_id = os.getenv("GOOGLE_CLOUD_PROJECT") or os.getenv("GCLOUD_PROJECT")
 
@@ -76,8 +76,8 @@ class GCPPubSubService:
             from google.cloud import storage
             self.pubsub_v1 = pubsub_v1
 
-            auth_by = gcp_unified_cfg.get("gcp", "auth_by", "vm")
-            service_account_path = gcp_unified_cfg.get("gcp", "service_account_path")
+            auth_by = gcp_cfg.gcp.get("auth_by", "vm")
+            service_account_path = gcp_cfg.gcp.get("service_account_path")
 
             if auth_by == "json" and service_account_path:
                 if not os.path.isabs(service_account_path):
@@ -117,12 +117,12 @@ class GCPPubSubService:
 
     def _init_clients(self):
         """(Re)initialize Google Cloud clients."""
-        from lib.cuckoo.common.gcp import gcp_unified_cfg
+        from lib.cuckoo.common.gcp import gcp_cfg
         from google.cloud import pubsub_v1
         from google.cloud import storage
 
-        auth_by = gcp_unified_cfg.get("gcp", "auth_by", "vm")
-        service_account_path = gcp_unified_cfg.get("gcp", "service_account_path")
+        auth_by = gcp_cfg.gcp.get("auth_by", "vm")
+        service_account_path = gcp_cfg.gcp.get("service_account_path")
 
         if auth_by == "json" and service_account_path:
             if not os.path.isabs(service_account_path):
@@ -296,9 +296,12 @@ class GCPPubSubService:
     def start(self):
         log.info("Starting GCP Pub/Sub subscriber on %s", self.subscription_path)
 
-        from lib.cuckoo.common.gcp import gcp_unified_cfg
-        max_messages = int(gcp_unified_cfg.get("samples_pubsub", "max_messages", 5))
-        lease_duration = int(gcp_unified_cfg.get("samples_pubsub", "lease_duration", 1800))
+        from lib.cuckoo.common.gcp import gcp_cfg
+        max_messages = 5
+        lease_duration = 1800
+        if hasattr(gcp_cfg, "samples_pubsub"):
+            max_messages = int(gcp_cfg.samples_pubsub.get("max_messages", 5))
+            lease_duration = int(gcp_cfg.samples_pubsub.get("lease_duration", 1800))
 
         # Increase lease duration for big files and limit concurrency
         # Support both old and new parameter names for max compatibility

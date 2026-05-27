@@ -25,31 +25,13 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-class GCPConfig:
-    def __init__(self):
-        self.gcp = Config("gcp")
-
-    def get(self, section, key, default=None):
-        if hasattr(self.gcp, section):
-            val = getattr(self.gcp, section).get(key)
-            if val is not None and val != "" and f"<{key}>" not in str(val):
-                return val
-        return default
-
-    @property
-    def project_id(self):
-        return self.get("gcp", "project")
-
-    @property
-    def zone(self):
-        return self.get("gcp", "zone")
-
-# Initialize unified config
-gcp_unified_cfg = GCPConfig()
+# Initialize standard config
+gcp_cfg = Config("gcp")
 
 # GCS Configuration
-GCS_ENABLED = gcp_unified_cfg.get("reporting", "enabled", False)
-GCS_DELETE_AFTER_UPLOAD = gcp_unified_cfg.get("reporting", "delete_after_upload", False)
+GCS_ENABLED = gcp_cfg.reporting.get("enabled", False) if hasattr(gcp_cfg, "reporting") else False
+GCS_DELETE_AFTER_UPLOAD = gcp_cfg.reporting.get("delete_after_upload", False) if hasattr(gcp_cfg, "reporting") else False
+
 
 gcs_uploader = None
 GCSUploader = None
@@ -89,9 +71,9 @@ def download_from_gcs(gcs_uri, destination_path, logger=None, client=None):
         storage_client = client
         own_client = False
         if not storage_client:
-            project_id = gcp_unified_cfg.project_id
-            auth_by = gcp_unified_cfg.get("gcp", "auth_by", "vm")
-            service_account_path = gcp_unified_cfg.get("gcp", "service_account_path")
+            project_id = gcp_cfg.gcp.get("project")
+            auth_by = gcp_cfg.gcp.get("auth_by", "vm")
+            service_account_path = gcp_cfg.gcp.get("service_account_path")
 
             if auth_by == "json" and service_account_path:
                 if not os.path.isabs(service_account_path):
@@ -130,20 +112,20 @@ def check_node_up(host: str) -> bool:
 
 class GCP(object):
     def __init__(self) -> None:
-        self.project_id = gcp_unified_cfg.project_id
+        self.project_id = gcp_cfg.gcp.get("project")
         if self.project_id:
             if not os.environ.get("GOOGLE_CLOUD_PROJECT"):
                 os.environ["GOOGLE_CLOUD_PROJECT"] = self.project_id
             if not os.environ.get("GCLOUD_PROJECT"):
                 os.environ["GCLOUD_PROJECT"] = self.project_id
 
-        zones_str = gcp_unified_cfg.get("distributed", "zones")
+        zones_str = gcp_cfg.distributed.get("zones") if hasattr(gcp_cfg, "distributed") else ""
         if not zones_str:
-            zones_str = gcp_unified_cfg.zone or ""
+            zones_str = gcp_cfg.gcp.get("zone") or ""
         self.zones = [zone.strip() for zone in zones_str.split(",") if zone.strip()]
         self.GCP_BASE_URL = "https://compute.googleapis.com/compute/v1/"
 
-        self.token = gcp_unified_cfg.get("gcp", "token")
+        self.token = gcp_cfg.gcp.get("token")
         self.headers = {
             "X-Goog-User-Project": self.project_id,
             "Authorization": f"Bearer {self.token}",
@@ -152,7 +134,9 @@ class GCP(object):
     def list_instances(self) -> dict:
         """Auto discovery of new servers"""
         servers = {}
-        instance_name_pattern = gcp_unified_cfg.get("distributed", "instance_name_pattern", "cape-server")
+        instance_name_pattern = "cape-server"
+        if hasattr(gcp_cfg, "distributed"):
+            instance_name_pattern = gcp_cfg.distributed.get("instance_name_pattern", "cape-server")
         if self.token:
             for zone in self.zones:
                 try:
@@ -193,7 +177,9 @@ class GCP(object):
         return servers
 
     def autodiscovery(self):
-        autodiscovery_interval = int(gcp_unified_cfg.get("distributed", "autodiscovery_interval", 600))
+        autodiscovery_interval = 600
+        if hasattr(gcp_cfg, "distributed"):
+            autodiscovery_interval = int(gcp_cfg.distributed.get("autodiscovery_interval", 600))
         while True:
             servers = self.list_instances()
             if not servers:
@@ -364,7 +350,7 @@ def gcs_refetch_banned(time_range, samples_bucket=None):
         return
 
     if not samples_bucket:
-        samples_bucket = gcp_unified_cfg.get("samples_pubsub", "samples_bucket")
+        samples_bucket = gcp_cfg.samples_pubsub.get("samples_bucket") if hasattr(gcp_cfg, "samples_pubsub") else None
         if not samples_bucket:
             # Fallback to the one we saw in logs if not configured
             samples_bucket = "sandbox-samples-unique"
@@ -375,22 +361,33 @@ def gcs_refetch_banned(time_range, samples_bucket=None):
     with db.session.begin():
         stmt = select(Task).where(Task.status == TASK_BANNED).where(Task.added_on >= past_time)
         tasks = db.session.scalars(stmt).all()
+        task_data = [
+            {
+                "id": t.id,
+                "sample_id": t.sample_id,
+                "options": t.options,
+                "custom": t.custom,
+                "category": t.category,
+                "target": t.target,
+            }
+            for t in tasks
+        ]
 
-    if not tasks:
+    if not task_data:
         log.info("No banned tasks found in the given time range.")
         return
 
-    log.info("Found %d banned tasks to refetch.", len(tasks))
+    log.info("Found %d banned tasks to refetch.", len(task_data))
 
-    for task in tasks:
-        if not task.sample_id:
-            log.warning("Task %d has no sample associated, skipping", task.id)
+    for task in task_data:
+        if not task["sample_id"]:
+            log.warning("Task %d has no sample associated, skipping", task["id"])
             continue
 
         with db.session.begin():
-            sample = db.view_sample(task.sample_id)
+            sample = db.view_sample(task["sample_id"])
             if not sample:
-                log.warning("Sample for task %d not found in DB", task.id)
+                log.warning("Sample for task %d not found in DB", task["id"])
                 continue
             sha256 = sample.sha256
 
@@ -401,18 +398,18 @@ def gcs_refetch_banned(time_range, samples_bucket=None):
         try:
             if download_from_gcs(gcs_uri, tmp_path):
                 log.info("Successfully downloaded %s, resubmitting...", sha256)
-                task_ids = submit_file(
+                task_ids, extra_details = submit_file(
                     db=db,
                     file_path=tmp_path,
-                    options=task.options,
-                    custom=task.custom,
-                    category=task.category,
-                    filename=os.path.basename(task.target),
+                    options=task["options"],
+                    custom=task["custom"],
+                    category=task["category"],
+                    filename=os.path.basename(task["target"]),
                 )
                 if task_ids:
-                    log.info("Task %d refetched as new task(s): %s", task.id, task_ids)
+                    log.info("Task %d refetched as new task(s): %s", task["id"], task_ids)
                 else:
-                    log.error("Failed to resubmit %s", sha256)
+                    log.error("Failed to resubmit %s: %s", sha256, extra_details.get("errors"))
             else:
                 log.error("Failed to download %s from %s", sha256, gcs_uri)
         finally:

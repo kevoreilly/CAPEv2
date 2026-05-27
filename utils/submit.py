@@ -105,9 +105,13 @@ def submit_file(
         l.error("Unexpected error in submit_file: %s\n%s", e, traceback.format_exc())
         return [], {"errors": [str(e)]}
     finally:
-        # We do NOT delete tmp_path here.
-        # CAPE's AnalysisManager will copy it to storage/binaries when analysis starts.
-        pass
+        # If submission failed, clean up the temp file.
+        # If it succeeded, CAPE's AnalysisManager will handle it.
+        if not task_ids and tmp_path and path_exists(tmp_path):
+            try:
+                os.unlink(tmp_path)
+            except Exception as e:
+                l.warning("Failed to delete temp file %s: %s", tmp_path, e)
 
 
 def main():

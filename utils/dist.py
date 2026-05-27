@@ -57,11 +57,15 @@ from lib.cuckoo.core.database import (
 from lib.cuckoo.core.data.task import Task as MD_Task
 from dev_utils.mongodb import mongo_update_one
 
+cfg = Config()
+reporting_conf = Config("reporting")
+web_conf = Config("web")
 dist_conf = Config("distributed")
+gcp_conf = Config("gcp")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")
 
 HAVE_GCP = False
-if dist_conf.gcs.enabled:
+if gcp_conf.samples_pubsub.enabled:
     from lib.cuckoo.common.gcp import (
         GCP,
         GCS_ENABLED,
@@ -77,10 +81,6 @@ if dist_conf.gcs.enabled:
 
 # we need original db to reserve ID in db,
 # to store later report, from master or worker
-
-cfg = Config()
-reporting_conf = Config("reporting")
-web_conf = Config("web")
 
 zip_pwd = web_conf.zipped_download.zip_pwd
 if not isinstance(zip_pwd, bytes):

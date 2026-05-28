@@ -12,8 +12,6 @@ import subprocess
 # from contextlib import suppress
 from typing import Any, DefaultDict, List, Optional, Set
 
-import threading
-
 import pebble
 
 from lib.cuckoo.common.config import Config

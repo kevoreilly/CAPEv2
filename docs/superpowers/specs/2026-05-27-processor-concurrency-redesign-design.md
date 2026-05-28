@@ -5,6 +5,8 @@
 **Branch:** `feature/processor-prefork-engine` (off `feature/guac-auth-evtx-snapshots`)
 **Status:** Design — awaiting review before implementation planning
 
+**Status (2026-05-28):** implementation complete on branch `feature/processor-prefork-engine` (commits `47576a166` through `beb829e67`); A/B runbook at `docs/superpowers/notes/2026-05-27-processor-engine-ab-runbook.md`.
+
 ---
 
 ## 1. Background & Problem

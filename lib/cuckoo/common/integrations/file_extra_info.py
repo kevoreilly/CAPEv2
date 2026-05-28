@@ -185,14 +185,6 @@ def static_file_info(
         if "pe" not in data_dictionary:
             with PortableExecutable(file_path) as pe:
                 data_dictionary["pe"] = pe.run(task_id)
-        elif not data_dictionary["pe"].get("digital_signers") and data_dictionary["pe"].get("guest_signers", {}).get("aux_signers"):
-            # Only re-run cert extraction when DigiSig.json confirms the file is signed
-            # (aux_signers non-empty) but digital_signers is empty — avoids re-parsing
-            # every unsigned PE on reprocess.
-            with PortableExecutable(file_path) as pe:
-                data_dictionary["pe"]["digital_signers"] = pe.get_digital_signers(pe.pe)
-                if not data_dictionary["pe"]["guest_signers"].get("aux_sha1"):
-                    data_dictionary["pe"]["guest_signers"] = pe.get_guest_digital_signers(task_id)
 
         if HAVE_FLARE_CAPA and "flare_capa" not in data_dictionary:
             # https://github.com/mandiant/capa/issues/2620

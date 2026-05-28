@@ -271,6 +271,6 @@ These items are not part of the A/B itself but are outstanding work to track:
 | Extractor sub-pool spike (fork vs forkserver) | `docs/superpowers/notes/2026-05-27-extractor-subpool-spike.md` |
 | Stopgap drop-in (live) | `/etc/systemd/system/cape-processor.service.d/stopgap-no-recycle.conf` |
 | Processor entry point | `utils/process.py` |
-| Engine implementations | `utils/engines/pebble_engine.py`, `utils/engines/prefork_engine.py` |
-| Engine registry | `utils/engines/__init__.py` |
+| Engine implementations | `lib/cuckoo/core/processing_engine/pebble.py`, `lib/cuckoo/core/processing_engine/prefork.py` |
+| Engine registry | `lib/cuckoo/core/processing_engine/__init__.py` |
 | Extractor sub-pool (rewritten in Task 10) | `lib/cuckoo/common/integrations/file_extra_info.py` |

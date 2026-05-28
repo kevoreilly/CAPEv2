@@ -446,9 +446,9 @@ def autoprocess(
         parallel=parallel,
         timeout=processing_timeout,
     )
+    eng.max_count = cfg.cuckoo.max_analysis_count
     if engine == "pebble":
         eng.max_tasks = maxtasksperchild
-        eng.max_count = cfg.cuckoo.max_analysis_count
     eng.run()
 
 

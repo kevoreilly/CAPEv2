@@ -8,6 +8,8 @@ import signal
 import threading
 import time
 
+from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.core.processing_engine.base import ProcessingEngine
 
 log = logging.getLogger(__name__)
@@ -88,9 +90,17 @@ class PreforkEngine(ProcessingEngine):
             if child.timed_out:
                 continue  # already marked failed during timeout enforcement
             ok = os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
-            if not ok:
-                log.warning("prefork: task %d (pid %d) abnormal exit status=%d -> FAILED_PROCESSING",
-                            child.task_id, pid, status)
+            if ok:
+                log.info("Reports generation completed for Task #%d", child.task_id)
+            else:
+                if os.WIFEXITED(status):
+                    detail = "exit=%d" % os.WEXITSTATUS(status)
+                elif os.WIFSIGNALED(status):
+                    detail = "signal=%d" % os.WTERMSIG(status)
+                else:
+                    detail = "status=%d" % status
+                log.warning("prefork: task %d (pid %d) abnormal %s -> FAILED_PROCESSING",
+                            child.task_id, pid, detail)
                 self.source.mark_failed(child.task_id)
 
     def _enforce_timeouts(self):
@@ -128,12 +138,17 @@ class PreforkEngine(ProcessingEngine):
                 child.kill_deadline = None
 
     def run(self):
+        cfg = Config()
         count = 0
         last_hb = 0.0
         while True:
             self._reap()
             self._enforce_timeouts()
             self._escalate_kills()
+            if cfg.cuckoo.freespace_processing:
+                from lib.cuckoo.common.cleaners_utils import free_space_monitor
+                dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+                free_space_monitor(dir_path, processing=True)
             if self.max_count and count >= self.max_count and not self._inflight:
                 return
             free = self.parallel - len(self._inflight)

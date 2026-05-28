@@ -3,6 +3,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 import argparse
+import functools
 import gc
 import json
 import logging
@@ -201,15 +202,19 @@ def run_task(task, memory_debugging=False, debug=False):
             sample = db.view_sample(task.sample_id)
             if sample:
                 sample_hash = sample.sha256
-    process(
-        task.target,
-        sample_hash,
-        report=True,
-        auto=True,
-        task=task,
-        memory_debugging=memory_debugging,
-        debug=debug,
-    )
+    try:
+        process(
+            task.target,
+            sample_hash,
+            report=True,
+            auto=True,
+            task=task,
+            memory_debugging=memory_debugging,
+            debug=debug,
+        )
+    finally:
+        set_formatter_fmt()
+        setproctitle(original_proctitle)
 
 
 def init_worker():
@@ -435,7 +440,7 @@ def autoprocess(
     source = TaskSource(db, failed_processing=failed_processing)
     eng = get_engine(
         engine,
-        task_fn=lambda task: run_task(task, memory_debugging=memory_debugging, debug=debug),
+        task_fn=functools.partial(run_task, memory_debugging=memory_debugging, debug=debug),
         worker_init=init_worker,
         source=source,
         parallel=parallel,

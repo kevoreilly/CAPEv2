@@ -1,6 +1,8 @@
+import functools
 import os
+import pickle
 
-from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_REPORTED
+from lib.cuckoo.core.data.task import TASK_COMPLETED
 from lib.cuckoo.core.processing_engine.pebble import PebbleEngine
 from lib.cuckoo.core.processing_engine.source import TaskSource
 
@@ -41,3 +43,12 @@ def test_pebble_engine_processes_one_task(db, temp_pe32, tmp_path, monkeypatch):
     # Confirm task_fn actually executed in the worker subprocess.
     assert os.path.exists(sentinel), "worker did not write sentinel — task_fn never ran"
     assert open(sentinel).read().strip() == str(tid)
+
+
+def test_autoprocess_task_fn_is_picklable():
+    """Regression: pebble dispatches task_fn over multiprocessing pipes; a
+    function-scope lambda would crash with 'Can't pickle local object' on the
+    first task. functools.partial is picklable; lambdas are not."""
+    from utils.process import run_task
+    task_fn = functools.partial(run_task, memory_debugging=False, debug=False)
+    pickle.dumps(task_fn)  # would raise PicklingError for a lambda

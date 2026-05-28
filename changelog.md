@@ -1,3 +1,6 @@
+### [28.05.2026]
+* Monitor update: Fix issue with hooking very small 32-bit functions (e.g. GetCommandLineA/W)
+
 ### [13.05.2026]
 * Update Formbook (Xloader) dynamic config extractor
 * Monitor updates:

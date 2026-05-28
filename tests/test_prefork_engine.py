@@ -73,3 +73,35 @@ def test_crashing_task_marked_failed_by_supervisor(db, temp_pe32):
     eng.run()
     with db.session.begin():
         assert db.view_task(tid).status == TASK_FAILED_PROCESSING
+
+
+def test_timeout_kills_process_group_no_orphans(db, temp_pe32):
+    with db.session.begin():
+        tid = db.add_path(temp_pe32)
+        db.set_status(tid, TASK_COMPLETED)
+
+    marker = "/tmp/prefork_orphan_%d" % os.getpid()
+
+    def task_fn(task):
+        # spawn a grandchild that would outlive the worker, then hang
+        import subprocess, sys
+        subprocess.Popen([sys.executable, "-c",
+                          "import time,os;open(%r,'w').close();time.sleep(120)" % marker])
+        time.sleep(120)
+
+    eng = PreforkEngine(task_fn=task_fn, worker_init=lambda: None, source=TaskSource(db),
+                        parallel=1, timeout=1, term_grace=1, max_count=1, poll_interval=0.1)
+    if os.path.exists(marker):
+        os.unlink(marker)
+    eng.run()
+
+    with db.session.begin():
+        assert db.view_task(tid).status == TASK_FAILED_PROCESSING
+
+    # grandchild must have been swept by killpg (give it a moment)
+    time.sleep(2)
+    import subprocess
+    out = subprocess.run(["pgrep", "-f", marker], capture_output=True, text=True)
+    assert out.stdout.strip() == "", "orphaned grandchild survived killpg"
+    if os.path.exists(marker):
+        os.unlink(marker)

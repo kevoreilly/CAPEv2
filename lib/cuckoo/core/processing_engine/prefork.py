@@ -93,11 +93,38 @@ class PreforkEngine(ProcessingEngine):
                             child.task_id, pid, status)
                 self.source.mark_failed(child.task_id)
 
+    def _enforce_timeouts(self):
+        now = time.monotonic()
+        for child in list(self._inflight.values()):
+            if child.timed_out or now - child.start <= self.timeout:
+                continue
+            log.error("prefork: task %d (pid %d) exceeded %ds -> killpg",
+                      child.task_id, child.pid, self.timeout)
+            child.timed_out = True
+            self.source.mark_failed(child.task_id)
+            try:
+                os.killpg(child.pgid, signal.SIGTERM)
+            except ProcessLookupError:
+                continue
+            child.kill_deadline = now + self.term_grace
+
+    def _escalate_kills(self):
+        now = time.monotonic()
+        for child in list(self._inflight.values()):
+            if child.timed_out and child.kill_deadline and now > child.kill_deadline:
+                try:
+                    os.killpg(child.pgid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+                child.kill_deadline = None
+
     def run(self):
         count = 0
         last_hb = 0.0
         while True:
             self._reap()
+            self._enforce_timeouts()
+            self._escalate_kills()
             if self.max_count and count >= self.max_count and not self._inflight:
                 return
             free = self.parallel - len(self._inflight)

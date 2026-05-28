@@ -18,11 +18,11 @@ class TaskSource:
         (in-flight). Tasks are expunged so they are safe to use after the txn."""
         if limit <= 0:
             return []
-        with self.db.session.begin_nested():
+        with self.db.session.begin():
             tasks = self.db.list_tasks(status=self._status, limit=limit, order_by=Task.completed_on.asc())
             self.db.session.expunge_all()
         return [t for t in tasks if t.id not in exclude_ids]
 
     def mark_failed(self, task_id):
-        with self.db.session.begin_nested():
+        with self.db.session.begin():
             self.db.set_status(task_id, TASK_FAILED_PROCESSING)

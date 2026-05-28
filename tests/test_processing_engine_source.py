@@ -4,10 +4,11 @@ from lib.cuckoo.core.processing_engine.source import TaskSource
 
 
 def test_fetch_returns_completed_tasks_excluding_inflight(db, temp_pe32):
-    t1 = db.add_path(temp_pe32)
-    t2 = db.add_path(temp_pe32)
-    db.set_status(t1, TASK_COMPLETED)
-    db.set_status(t2, TASK_COMPLETED)
+    with db.session.begin():
+        t1 = db.add_path(temp_pe32)
+        t2 = db.add_path(temp_pe32)
+        db.set_status(t1, TASK_COMPLETED)
+        db.set_status(t2, TASK_COMPLETED)
 
     src = TaskSource(db)
     got = src.fetch(limit=10, exclude_ids={t2})
@@ -16,9 +17,12 @@ def test_fetch_returns_completed_tasks_excluding_inflight(db, temp_pe32):
 
 
 def test_mark_failed_sets_status(db, temp_pe32):
-    t1 = db.add_path(temp_pe32)
-    db.set_status(t1, TASK_COMPLETED)
+    with db.session.begin():
+        t1 = db.add_path(temp_pe32)
+        db.set_status(t1, TASK_COMPLETED)
 
     src = TaskSource(db)
     src.mark_failed(t1)
-    assert db.view_task(t1).status == TASK_FAILED_PROCESSING
+
+    with db.session.begin():
+        assert db.view_task(t1).status == TASK_FAILED_PROCESSING

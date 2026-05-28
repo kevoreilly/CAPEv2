@@ -51,3 +51,64 @@ class PreforkEngine(ProcessingEngine):
         else:
             oldest = 0.0
         log.info("prefork heartbeat: in_flight=%d oldest=%.0fs", len(self._inflight), oldest)
+
+    def _child_main(self, task):
+        os.setsid()  # own session/process group; supervisor killpg sweeps the subtree
+        try:
+            self.worker_init()
+            self.task_fn(task)
+            return 0
+        except BaseException:
+            log.exception("prefork child: task %s crashed", getattr(task, "id", "?"))
+            return 1
+
+    def _launch(self, task):
+        self._assert_single_threaded()
+        pid = os.fork()
+        if pid == 0:
+            code = 1
+            try:
+                code = self._child_main(task)
+            finally:
+                os._exit(code)  # NEVER return: skip multiprocessing atexit join
+        self._inflight[pid] = _Child(task_id=task.id, pid=pid, start=time.monotonic(), pgid=pid)
+        log.debug("prefork: launched task %d as pid %d", task.id, pid)
+
+    def _reap(self):
+        while True:
+            try:
+                pid, status = os.waitpid(-1, os.WNOHANG)
+            except ChildProcessError:
+                return
+            if pid == 0:
+                return
+            child = self._inflight.pop(pid, None)
+            if child is None:
+                continue
+            if child.timed_out:
+                continue  # already marked failed during timeout enforcement
+            ok = os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
+            if not ok:
+                log.warning("prefork: task %d (pid %d) abnormal exit status=%d -> FAILED_PROCESSING",
+                            child.task_id, pid, status)
+                self.source.mark_failed(child.task_id)
+
+    def run(self):
+        count = 0
+        last_hb = 0.0
+        while True:
+            self._reap()
+            if self.max_count and count >= self.max_count and not self._inflight:
+                return
+            free = self.parallel - len(self._inflight)
+            launchable = free if not self.max_count else min(free, self.max_count - count)
+            if launchable > 0:
+                tasks = self.source.fetch(limit=launchable, exclude_ids=self._inflight_task_ids())
+                for task in tasks[:launchable]:
+                    self._launch(task)
+                    count += 1
+            now = time.monotonic()
+            if now - last_hb >= self.heartbeat_interval:
+                self._heartbeat()
+                last_hb = now
+            time.sleep(self.poll_interval)

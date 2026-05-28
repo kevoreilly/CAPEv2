@@ -100,6 +100,9 @@ def test_timeout_kills_process_group_no_orphans(db, temp_pe32):
 
     # grandchild must have been swept by killpg (give it a moment)
     time.sleep(2)
+    # Sanity: the grandchild must have started and written the marker
+    # before being killed; otherwise the pgrep check below would pass vacuously.
+    assert os.path.exists(marker), "grandchild never started — test is vacuous"
     import subprocess
     out = subprocess.run(["pgrep", "-f", marker], capture_output=True, text=True)
     assert out.stdout.strip() == "", "orphaned grandchild survived killpg"

@@ -106,16 +106,25 @@ class PreforkEngine(ProcessingEngine):
                 os.killpg(child.pgid, signal.SIGTERM)
             except ProcessLookupError:
                 continue
+            except OSError as e:
+                log.warning("prefork: killpg(SIGTERM) failed for task %d (pid %d): %s",
+                            child.task_id, child.pid, e)
+                continue
             child.kill_deadline = now + self.term_grace
 
     def _escalate_kills(self):
         now = time.monotonic()
         for child in list(self._inflight.values()):
             if child.timed_out and child.kill_deadline and now > child.kill_deadline:
+                log.warning("prefork: task %d (pid %d) did not exit after SIGTERM, escalating to SIGKILL",
+                            child.task_id, child.pid)
                 try:
                     os.killpg(child.pgid, signal.SIGKILL)
                 except ProcessLookupError:
                     pass
+                except OSError as e:
+                    log.warning("prefork: killpg(SIGKILL) failed for task %d (pid %d): %s",
+                                child.task_id, child.pid, e)
                 child.kill_deadline = None
 
     def run(self):

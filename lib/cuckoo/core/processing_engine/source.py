@@ -15,7 +15,12 @@ class TaskSource:
 
     def fetch(self, limit, exclude_ids):
         """Return up to `limit` tasks needing processing, excluding `exclude_ids`
-        (in-flight). Tasks are expunged so they are safe to use after the txn."""
+        (in-flight). Tasks are expunged so they are safe to use after the txn.
+
+        Note: `limit` is applied at the DB level before `exclude_ids` filtering,
+        so the returned list may contain fewer than `limit` tasks even when more
+        eligible tasks exist in the DB (those in `exclude_ids` are still counted
+        against `limit`)."""
         if limit <= 0:
             return []
         with self.db.session.begin():
@@ -24,5 +29,7 @@ class TaskSource:
         return [t for t in tasks if t.id not in exclude_ids]
 
     def mark_failed(self, task_id):
+        # Always writes TASK_FAILED_PROCESSING regardless of which status this
+        # source polls (the `failed_processing` constructor flag controls reads).
         with self.db.session.begin():
             self.db.set_status(task_id, TASK_FAILED_PROCESSING)

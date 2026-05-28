@@ -199,9 +199,10 @@ def run_task(task, memory_debugging=False, debug=False):
     Extracted from autoprocess so every engine shares identical per-task setup."""
     sample_hash = ""
     if task.category != "url":
-        sample = db.view_sample(task.sample_id)
-        if sample:
-            sample_hash = sample.sha256
+        with db.session.begin():
+            sample = db.view_sample(task.sample_id)
+            if sample:
+                sample_hash = sample.sha256
     process(
         task.target,
         sample_hash,

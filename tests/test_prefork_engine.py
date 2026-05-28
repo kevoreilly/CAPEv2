@@ -39,6 +39,29 @@ def test_single_threaded_invariant_raises_when_extra_thread(db):
         t.join()
 
 
+def test_single_threaded_invariant_raises_on_kernel_thread_count(db, monkeypatch):
+    """Native C-extension threads (e.g. STPyV8's V8 worker pool) show up in
+    /proc/self/task but NOT in threading.active_count(). The supervisor must
+    catch them — otherwise it forks from a multi-kernel-thread state."""
+    eng = PreforkEngine(task_fn=lambda t: None, worker_init=lambda: None,
+                        source=TaskSource(db), parallel=2, timeout=30)
+
+    # Simulate a process with 1 Python thread but several kernel threads
+    # (e.g., STPyV8 spawned 16 V8 workers at import; Python sees only main).
+    import os as _os
+    real_listdir = _os.listdir
+
+    def fake_listdir(path):
+        if path == "/proc/self/task":
+            return ["1", "2", "3", "4"]  # 4 fake kernel threads
+        return real_listdir(path)
+
+    monkeypatch.setattr(os, "listdir", fake_listdir)
+    import pytest
+    with pytest.raises(RuntimeError, match="single-threaded"):
+        eng._assert_single_threaded()
+
+
 def test_normal_task_runs_and_status_set_by_child(db_file, temp_pe32):
     with db_file.session.begin():
         tid = db_file.add_path(temp_pe32)

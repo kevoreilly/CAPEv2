@@ -38,11 +38,18 @@ class PreforkEngine(ProcessingEngine):
         self._inflight = {}  # pid -> _Child
 
     def _assert_single_threaded(self):
-        n = threading.active_count()
-        if n != 1:
+        py_count = threading.active_count()
+        try:
+            kernel_count = len(os.listdir("/proc/self/task"))
+        except OSError:
+            kernel_count = None  # /proc unavailable; fall back to Python check only
+
+        if py_count != 1 or (kernel_count is not None and kernel_count != 1):
             raise RuntimeError(
                 "prefork supervisor must be single-threaded before fork; "
-                "active_count=%d (a thread/Mongo client/pool leaked into the supervisor)" % n)
+                "python active_count=%d kernel /proc/self/task=%s "
+                "(a thread / Mongo client / pool / native C extension like STPyV8 "
+                "leaked into the supervisor)" % (py_count, kernel_count))
 
     def _inflight_task_ids(self):
         return {c.task_id for c in self._inflight.values()}

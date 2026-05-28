@@ -108,3 +108,32 @@ def test_timeout_kills_process_group_no_orphans(db, temp_pe32):
     assert out.stdout.strip() == "", "orphaned grandchild survived killpg"
     if os.path.exists(marker):
         os.unlink(marker)
+
+
+def test_worker_init_called_in_child(db_file, temp_pe32):
+    with db_file.session.begin():
+        tid = db_file.add_path(temp_pe32)
+        db_file.set_status(tid, TASK_COMPLETED)
+    flag = "/tmp/prefork_winit_ran_%d" % os.getpid()
+
+    def worker_init():
+        open(flag, "w").close()
+
+    def task_fn(task):
+        assert os.path.exists(flag), "worker_init must run before task_fn in child"
+        from lib.cuckoo.core.database import Database
+        db = Database()
+        with db.session.begin():
+            db.set_status(task.id, TASK_REPORTED)
+
+    if os.path.exists(flag):
+        os.unlink(flag)
+    try:
+        eng = PreforkEngine(task_fn=task_fn, worker_init=worker_init, source=TaskSource(db_file),
+                            parallel=1, timeout=30, max_count=1)
+        eng.run()
+        with db_file.session.begin():
+            assert db_file.view_task(tid).status == TASK_REPORTED
+    finally:
+        if os.path.exists(flag):
+            os.unlink(flag)

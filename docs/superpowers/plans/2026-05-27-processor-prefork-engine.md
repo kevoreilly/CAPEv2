@@ -967,7 +967,7 @@ git commit -m "fix(extractors): per-call pool with explicit teardown, swept by p
 
 - [ ] **Step 1: Write the A/B runbook**
 
-Document: how to flip engines (systemd drop-in `ExecStart ... --engine prefork`), the metrics to compare (throughput tasks/min, wedge incidents, peak RSS, orphan count after induced timeouts via `pgrep`), how to roll back (remove drop-in line), and the condition to retire the `-mc 0` stopgap (once `prefork` is the default).
+Document: how to flip engines (systemd drop-in `ExecStart ... --engine prefork`), the metrics to compare (throughput tasks/min, wedge incidents, peak RSS, orphan count after induced timeouts via `pgrep`), how to roll back (remove drop-in line), and the condition to retire the `-mc 0` stopgap (once `prefork` is the default). **State explicitly that the A/B runs against the production PostgreSQL database — both engines share the same module-level `Database()` (configured `postgresql://...`); the `sqlite://` `db` fixture in `tests/conftest.py` is a unit-test harness only and has no production path.**
 
 - [ ] **Step 2: Update spec status + commit**
 

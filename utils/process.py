@@ -194,6 +194,25 @@ def process(
         db.session.remove()
 
 
+def run_task(task, memory_debugging=False, debug=False):
+    """Run exactly one completed task to completion (processing -> report).
+    Extracted from autoprocess so every engine shares identical per-task setup."""
+    sample_hash = ""
+    if task.category != "url":
+        sample = db.view_sample(task.sample_id)
+        if sample:
+            sample_hash = sample.sha256
+    process(
+        task.target,
+        sample_hash,
+        report=True,
+        auto=True,
+        task=task,
+        memory_debugging=memory_debugging,
+        debug=debug,
+    )
+
+
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork

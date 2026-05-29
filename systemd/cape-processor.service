@@ -6,7 +6,9 @@ After=cape-rooter.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
-ExecStart=/etc/poetry/bin/poetry run python process.py -p7 auto -pt 900
+Environment=PROCESSING_TIMEOUT=900
+EnvironmentFile=-/opt/CAPEv2/custom/conf/cape-processor.ini
+ExecStart=/etc/poetry/bin/poetry run python process.py -p7 auto -pt ${PROCESSING_TIMEOUT}
 User=cape
 Group=cape
 Restart=always

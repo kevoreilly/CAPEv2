@@ -5,12 +5,28 @@ Wants=cape.service
 After=cape-rooter.service
 
 [Service]
-WorkingDirectory=/opt/CAPEv2/utils/
-ExecStart=/etc/poetry/bin/poetry run python process.py -p7 auto -pt 900
+Type=exec
+WorkingDirectory=/opt/CAPEv2
+# Default configuration via environment variables
+Environment=CAPE_PROCESSING_TIMEOUT=900
+Environment=CAPE_PARALLEL=7
+Environment=CAPE_MAXTASKSPERCHILD=7
+Environment=CAPE_ID=auto
+# Optional environment variables (can be set to 'true' or '1' to enable)
+# Environment=CAPE_DEBUG=false
+# Environment=CAPE_FAILED_PROCESSING=false
+# Environment=CAPE_MEMORY_DEBUGGING=false
+# Environment=CAPE_DISABLE_MEMORY_LIMIT=false
+
+# Allow user overrides via file
+EnvironmentFile=-/opt/CAPEv2/conf/default/cape-processor.env
+EnvironmentFile=-/opt/CAPEv2/conf/cape-processor.env
+
+ExecStart=/etc/poetry/bin/poetry run python utils/process.py
 User=cape
 Group=cape
 Restart=always
-RestartSec=5m
+RestartSec=10
 LimitNOFILE=100000
 
 [Install]

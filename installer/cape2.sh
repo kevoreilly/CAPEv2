@@ -1400,7 +1400,10 @@ function install_CAPE() {
 
     cd "$CAPE_ROOT/" || return
     # copy *.conf.default and *.env to their destination so we have all properly updated fields
-    for filename in conf/default/*.conf.default conf/default/*.env; do cp -vf "./$filename" "./$(echo "$filename" | sed -e 's/.default//g' | sed -e 's/default//g')";  done
+    for filename in conf/default/*.conf.default conf/default/*.env; do
+        dest="conf/${filename#conf/default/}"
+        cp -vf "./$filename" "./${dest%.default}"
+    done
 
     sed -i "/connection =/cconnection = postgresql://${USER}:${PASSWD}@localhost:5432/${USER}" conf/cuckoo.conf
     # sed -i "/tor/{n;s/enabled = no/enabled = yes/g}" conf/routing.conf

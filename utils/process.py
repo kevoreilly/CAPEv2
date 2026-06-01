@@ -550,7 +550,9 @@ def _load_report(task_id: int):
 def str_to_bool(v):
     if isinstance(v, bool):
         return v
-    return v.lower() in ("yes", "true", "t", "y", "1")
+    if isinstance(v, str):
+        return v.lower() in ("yes", "true", "t", "y", "1")
+    return False
 
 
 def parse_id(id_string: str):

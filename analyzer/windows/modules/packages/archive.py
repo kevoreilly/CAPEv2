@@ -140,11 +140,10 @@ class Archive(Package):
                         extract_archive(seven_zip_path, f, output_dir, password, try_multiple_passwords)
                         os.remove(f)
                     except subprocess.CalledProcessError:
-                        print(f"Extraction failed: {f}")
+                        log.warning()(f"Extraction failed: {f}")
 
                     j += 1
             else:
-                # Если ничего не нашли, выходим из цикла рекурсии (break)
                 break
 
         # Handle special characters that 7ZIP cannot

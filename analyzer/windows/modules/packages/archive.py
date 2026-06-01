@@ -108,7 +108,7 @@ class Archive(Package):
 
         if not file_names:
             raise CuckooPackageError("Empty archive")
-        
+
         for _ in range(1, archive_depth + 1):
             packs = []
 
@@ -129,20 +129,20 @@ class Archive(Package):
                         continue
 
             if packs:
-                j = 0
-                for f in packs:
-                    pack_name = os.path.basename(f)
-                    output_dir = os.path.join(root, str(j), pack_name)
+                i = 0
+                for p in packs:
+                    pack_name = os.path.basename(p)
+                    output_dir = os.path.join(root, str(i), pack_name)
                     os.makedirs(output_dir, exist_ok=True)
 
                     try:
                         try_multiple_passwords = attempt_multiple_passwords(self.options, password)
-                        extract_archive(seven_zip_path, f, output_dir, password, try_multiple_passwords)
-                        os.remove(f)
+                        extract_archive(seven_zip_path, p, output_dir, password, try_multiple_passwords)
+                        os.remove(p)
                     except subprocess.CalledProcessError:
-                        log.warning()(f"Extraction failed: {f}")
+                        log.warning()(f"Extraction failed: {p}")
 
-                    j += 1
+                    i += 1
             else:
                 break
 

@@ -630,7 +630,7 @@ def main():
         action="store",
         type=int,
         required=False,
-        default=int(os.getenv("CAPE_MAXTASKSPERCHILD", 7)),
+        default=int(os.getenv("CAPE_MAXTASKSPERCHILD") or 7),
     )
     parser.add_argument(
         "-md",

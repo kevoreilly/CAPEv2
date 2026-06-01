@@ -5,28 +5,28 @@ Wants=cape.service
 After=cape-rooter.service
 
 [Service]
-WorkingDirectory=/opt/CAPEv2/utils/
-# Max amount of time spent in processing before we fail a task
-Environment=PROCESSING_TIMEOUT=900
-# Number of parallel threads to use (auto mode only)
-Environment=PARALLEL=7
-# Max children tasks per worker
-Environment=MAXTASKSPERCHILD=7
-# Disable a memory limit for the current process on Linux systems
-Environment=DISABLE_MEMORY_LIMIT=
-# Enable logging garbage collection related info
-Environment=MEMORY_DEBUGGING=
-# Reprocess failed processing
-Environment=FAILED_PROCESSING=
-# Display debug messages
-Environment=DEBUG=
-# Environment override
-EnvironmentFile=-/opt/CAPEv2/custom/conf/cape-processor.env
-ExecStart=/etc/poetry/bin/poetry run python process.py -p${PARALLEL} auto -pt ${PROCESSING_TIMEOUT} -mc ${MAXTASKSPERCHILD} ${DISABLE_MEMORY_LIMIT} ${MEMORY_DEBUGGING} ${FAILED_PROCESSING} ${DEBUG}
+Type=exec
+WorkingDirectory=/opt/CAPEv2
+# Default configuration via environment variables
+Environment=CAPE_PROCESSING_TIMEOUT=900
+Environment=CAPE_PARALLEL=7
+Environment=CAPE_MAXTASKSPERCHILD=7
+Environment=CAPE_ID=auto
+# Optional environment variables (can be set to 'true' or '1' to enable)
+# Environment=CAPE_DEBUG=false
+# Environment=CAPE_FAILED_PROCESSING=false
+# Environment=CAPE_MEMORY_DEBUGGING=false
+# Environment=CAPE_DISABLE_MEMORY_LIMIT=false
+
+# Allow user overrides via file
+EnvironmentFile=-/opt/CAPEv2/conf/default/cape-processor.env
+EnvironmentFile=-/opt/CAPEv2/conf/cape-processor.env
+
+ExecStart=/etc/poetry/bin/poetry run python utils/process.py
 User=cape
 Group=cape
 Restart=always
-RestartSec=5m
+RestartSec=10
 LimitNOFILE=100000
 
 [Install]

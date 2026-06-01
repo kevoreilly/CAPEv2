@@ -1,18 +1,58 @@
 {% extends 'base.html' %}
 {% load i18n %}
 {% load crispy_forms_tags %}
-{% block title %}Log In{% endblock title %}
+{% load socialaccount %}
+{% block title %}Sign In{% endblock title %}
+
 {% block content %}
-<div style="margin-top:6%" class="container">
-    <h2>{% trans "Sign In" %}</h2>
-    <p>
-        {% blocktrans %}If you have not created an account yet, then please <a style="color:red" href="{{signup_url}}">Sign up</a> first.
-        {% endblocktrans %}
-    </p>
-    <form method="post" autocomplete="off">
-    {% csrf_token %}
-    {{ form|crispy }}
-    <button class="btn btn-secondary" type="submit">Login</button> <a style="color:red" href="/accounts/password/reset/">{% trans "Forgot password?" %}</a>
-    </form>
+<div class="container my-5" style="max-width: 480px;">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary text-center">
+            <h4 class="mb-0 text-white"><i class="fas fa-sign-in-alt me-2 text-danger"></i>{% trans "Sign In" %}</h4>
+        </div>
+        <div class="card-body">
+
+            {% if messages %}
+                {% for m in messages %}
+                <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %}">{{ m }}</div>
+                {% endfor %}
+            {% endif %}
+
+            {% get_providers as socialaccount_providers %}
+            {% if socialaccount_providers %}
+                <div class="d-grid gap-2 mb-3">
+                    {% for provider in socialaccount_providers %}
+                    <a href="{% provider_login_url provider.id process='login' %}" class="btn btn-danger btn-lg">
+                        <i class="fas fa-sign-in-alt me-1"></i>
+                        {% blocktrans with name=provider.name %}Sign in with {{ name }}{% endblocktrans %}
+                    </a>
+                    {% endfor %}
+                </div>
+                <div class="d-flex align-items-center my-3">
+                    <hr class="flex-grow-1 border-secondary">
+                    <span class="px-2 small text-white-50">{% trans "or sign in locally" %}</span>
+                    <hr class="flex-grow-1 border-secondary">
+                </div>
+            {% endif %}
+
+            <form method="post" autocomplete="off">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <div class="d-grid mt-3">
+                    <button class="btn btn-outline-secondary text-white" type="submit">
+                        <i class="fas fa-key me-1"></i> {% trans "Sign In" %}
+                    </button>
+                </div>
+                <div class="text-center mt-2">
+                    <a href="/accounts/password/reset/" class="text-danger small">{% trans "Forgot password?" %}</a>
+                </div>
+            </form>
+
+            <hr class="border-secondary mt-4">
+            <p class="text-center text-white-50 small mb-0">
+                {% blocktrans %}Don't have an account? <a class="text-danger" href="{{signup_url}}">Sign up</a>.{% endblocktrans %}
+            </p>
+        </div>
+    </div>
 </div>
 {% endblock content %}

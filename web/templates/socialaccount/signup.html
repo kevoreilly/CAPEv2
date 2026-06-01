@@ -1,22 +1,33 @@
 {% extends "base.html" %}
-
 {% load i18n %}
+{% load crispy_forms_tags %}
 
-{% block head_title %}{% trans "Signup" %}{% endblock %}
+{% block head_title %}{% trans "Sign Up" %}{% endblock %}
 
 {% block content %}
-    <h1>{% trans "Sign Up" %}</h1>
+<div class="container my-5" style="max-width: 540px;">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h4 class="mb-0 text-white"><i class="fas fa-user-plus me-2 text-danger"></i>{% trans "Complete your account" %}</h4>
+        </div>
+        <div class="card-body">
+            <p class="text-white-50">
+                {% blocktrans with provider_name=account.get_provider.name %}You're signing in with {{provider_name}} for the first time. Confirm a couple of details to finish creating your CAPE account:{% endblocktrans %}
+            </p>
 
-<p>{% blocktrans with provider_name=account.get_provider.name site_name=site.name %}You are about to use your {{provider_name}} account to login to
-{{site_name}}. As a final step, please complete the following form:{% endblocktrans %}</p>
-
-<form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}">
-  {% csrf_token %}
-  {{ form.as_p }}
-  {% if redirect_field_value %}
-  <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
-  {% endif %}
-  <button type="submit">{% trans "Sign Up" %} &raquo;</button>
-</form>
-
+            <form class="signup" id="signup_form" method="post" action="{% url 'socialaccount_signup' %}" autocomplete="off">
+                {% csrf_token %}
+                {{ form|crispy }}
+                {% if redirect_field_value %}
+                <input type="hidden" name="{{ redirect_field_name }}" value="{{ redirect_field_value }}" />
+                {% endif %}
+                <div class="d-grid mt-3">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-check me-1"></i> {% trans "Continue" %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}

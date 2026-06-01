@@ -17,6 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 RUNNING_TESTS = "test" in sys.argv
 
+from django.core.exceptions import ImproperlyConfigured
 from lib.cuckoo.common.config import Config
 
 # In case we have VPNs enabled we need to initialize through the following
@@ -279,17 +280,58 @@ INSTALLED_APPS = [
     "apikey",
 ]
 
+# OpenID Connect (Okta / Azure AD / Auth0 / Google Workspace / Keycloak /
+# any OIDC-compliant IdP) is wired through django-allauth's generic
+# `openid_connect` provider — registered conditionally so the dependency
+# stays inert when SSO is disabled. Configure via [oauth_oidc] in web.conf.
+OIDC_CFG = getattr(web_cfg, "oauth_oidc", None)
+if OIDC_CFG is not None and OIDC_CFG.get("enabled", False):
+    _missing = [k for k in ("client_id", "client_secret", "server_url") if not (OIDC_CFG.get(k) or "").strip()]
+    if _missing:
+        raise ImproperlyConfigured(
+            f"[oauth_oidc] enabled = yes but required fields are blank: {', '.join(_missing)}. Check conf/web.conf."
+        )
+    INSTALLED_APPS.append("allauth.socialaccount.providers.openid_connect")
+    SOCIALACCOUNT_PROVIDERS = {
+        "openid_connect": {
+            # Use our subclass for process-level discovery-doc / JWKS caching.
+            "provider_class": "web.allauth_adapters.CachedOpenIDConnectProvider",
+            "APPS": [
+                {
+                    "provider_id": OIDC_CFG.get("provider_id", "oidc"),
+                    "name": OIDC_CFG.get("name", "OIDC"),
+                    "client_id": OIDC_CFG.get("client_id", ""),
+                    "secret": OIDC_CFG.get("client_secret", ""),
+                    "settings": {
+                        "server_url": OIDC_CFG.get("server_url", ""),
+                    },
+                }
+            ],
+        }
+    }
+
 AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
 
 if api_cfg.api.token_auth_enabled:
+    # Per-user labeled API keys; ApiKeyAuthentication internally falls back to
+    # DRF's legacy TokenAuthentication so tokens issued via
+    # /apiv2/api-token-auth/ keep working without migration.
+    #
+    # When SSO is enabled, scripts targeting /apiv2/ MUST present an explicit
+    # API key (Authorization: Token <key>) — we drop SessionAuthentication from
+    # the default chain so a browser session cookie issued via the IdP can't
+    # authenticate API calls. Browser-only flows (apikey list/create pages, etc.)
+    # live outside DRF and continue to use Django session auth. Specific
+    # UI-internal endpoints that legitimately need cookie auth can opt back in
+    # per-view with @authentication_classes([SessionAuthentication]).
+    _api_auth_classes = ["apikey.authentication.ApiKeyAuthentication"]
+    if not (OIDC_CFG and OIDC_CFG.get("enabled", False)):
+        # No SSO configured — keep the legacy session-cookie fallback for
+        # back-compat with deployments that script against /apiv2/ using
+        # their browser cookies.
+        _api_auth_classes.append("rest_framework.authentication.SessionAuthentication")
     REST_FRAMEWORK = {
-        "DEFAULT_AUTHENTICATION_CLASSES": [
-            # Per-user labeled API keys; internally falls back to DRF's legacy
-            # TokenAuthentication so tokens issued via /apiv2/api-token-auth/
-            # keep working without migration.
-            "apikey.authentication.ApiKeyAuthentication",
-            "rest_framework.authentication.SessionAuthentication",
-        ],
+        "DEFAULT_AUTHENTICATION_CLASSES": _api_auth_classes,
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
         "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
         "DEFAULT_THROTTLE_RATES": {
@@ -366,13 +408,18 @@ REGISTRATION_ENABLED = web_cfg.registration.get("enabled", False)
 EMAIL_CONFIRMATION = web_cfg.registration.get("email_confirmation", False)
 SOCIAL_AUTH_EMAIL_DOMAIN = web_cfg.web_auth.get("social_auth_email_domain", False)
 
-# be careful with SOCIALACCOUNT_AUTO_SIGNUP, if True, it will bypass custom sighup functions, default is True
-# SOCIALACCOUNT_AUTO_SIGNUP = True
+# Activate the social adapter so OIDC signups bypass the REGISTRATION_ENABLED
+# toggle (the public-signup form gate). Users coming through the IdP have
+# already been vetted and explicitly assigned to the app, so they shouldn't be
+# blocked by the same flag that closes anonymous signup. The adapter also
+# enforces the email-domain allowlist and IdP-group role mapping.
+SOCIALACCOUNT_ADAPTER = "web.allauth_adapters.MySocialAccountAdapter"
+SOCIALACCOUNT_AUTO_SIGNUP = True
+# Send the user straight to the IdP when they click the SSO button, skipping
+# allauth's intermediate confirmation page. (Login is initiated via GET.)
+SOCIALACCOUNT_LOGIN_ON_GET = True
 # SOCIALACCOUNT_ONLY = True
-# SOCIALACCOUNT_LOGIN_ON_GET=True
 # ACCOUNT_SIGNUP_FORM_CLASS = None
-# In case you want to verify domain of email + set the username
-# SOCIALACCOUNT_ADAPTER = 'web.allauth_adapters.MySocialAccountAdapter'
 # ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 
 #### AllAuth end
@@ -418,6 +465,14 @@ SILENCED_SYSTEM_CHECKS = [
 ]
 
 ALLOWED_HOSTS = ["*"]
+
+# Reverse-proxy TLS termination: when nginx terminates HTTPS and forwards plain
+# HTTP to gunicorn/daphne, Django must be told via X-Forwarded-Proto that the
+# original request was HTTPS — otherwise request.is_secure() is False and the
+# absolute OIDC redirect_uri django-allauth builds comes out as http://…, which
+# the IdP rejects. Requires `proxy_set_header X-Forwarded-Proto $scheme;` in nginx.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
 
 # Max size
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size

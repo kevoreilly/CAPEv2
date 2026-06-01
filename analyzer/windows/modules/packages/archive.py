@@ -82,7 +82,7 @@ class Archive(Package):
         diec_path = self.get_path_app_in_path("diec.exe")
         password = self.options.get(OPT_PASSWORD, "infected")
         archive_name = Path(path).name
-        archive_depth = max(1, int(self.options.get(OPT_ARCHIVE_DEPTH, 1)))
+        archive_depth = max(0, int(self.options.get(OPT_ARCHIVE_DEPTH, 0)))
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
         # actors are using LNK files that use relative directory traversal at arbitrary depth.
@@ -109,7 +109,7 @@ class Archive(Package):
         if not file_names:
             raise CuckooPackageError("Empty archive")
 
-        for _ in range(1, archive_depth + 1):
+        for _ in range(0, archive_depth):
             packs = []
 
             target_words = ["archive", "compress", "image", "filesystem"]

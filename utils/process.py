@@ -594,7 +594,7 @@ def main():
         "id",
         type=parse_id,
         help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10 or 1,3,5,7",
-        default=os.getenv("CAPE_ID", "auto"),
+        default=os.getenv("CAPE_ID") or "auto",
         nargs="?",
     )
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)

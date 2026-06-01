@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5">
+  <div class="card bg-dark border-secondary mx-auto" style="max-width: 720px;">
+    <div class="card-body">
+      <h3 class="text-danger mb-3"><i class="fas fa-ban me-2"></i> API key management not available</h3>
+      <p class="text-light">
+        Your account is provisioned via single sign-on without programmatic-API
+        privileges. CAPE issues API keys to local service accounts and
+        designated administrators only.
+      </p>
+      <p class="text-light mb-0">
+        If you need programmatic access for an integration, please contact a
+        CAPE administrator.
+      </p>
+    </div>
+  </div>
+</div>
+{% endblock %}

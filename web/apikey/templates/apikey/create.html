@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container my-4" style="max-width: 600px;">
+    <h3 class="text-white mb-3"><i class="fas fa-key me-2"></i>New API Key</h3>
+    <form method="post">
+        {% csrf_token %}
+        <div class="mb-3">
+            <label for="id_name" class="form-label">Name</label>
+            {{ form.name }}
+            <div class="form-text text-white-50">A label to help you remember what this key is for. Doesn't have to be unique.</div>
+            {% if form.name.errors %}<div class="text-danger small mt-1">{{ form.name.errors|join:", " }}</div>{% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="fas fa-plus me-1"></i> Create</button>
+        <a href="{% url 'apikey:list' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

@@ -647,7 +647,7 @@ def main():
         action="store",
         type=int,
         required=False,
-        default=int(os.getenv("CAPE_PROCESSING_TIMEOUT", 300)),
+        default=int(os.getenv("CAPE_PROCESSING_TIMEOUT") or 300),
     )
     testing_args = parser.add_argument_group("Signature testing options")
     testing_args.add_argument(

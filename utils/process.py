@@ -613,7 +613,7 @@ def main():
         help="Number of parallel threads to use (auto mode only).",
         type=int,
         required=False,
-        default=int(os.getenv("CAPE_PARALLEL", 1)),
+        default=int(os.getenv("CAPE_PARALLEL") or 1),
     )
     parser.add_argument(
         "-fp",

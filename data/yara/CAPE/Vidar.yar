@@ -6,7 +6,7 @@ rule Vidar
         cape_type = "Vidar Payload"
         packed = "96ab9c389a6a53c54a3ea05d139aaf2d775e8db06f37d027f696828dcc55e2bb"
     strings:
-        $code = {4D 85 C0 75 0? [0-16] (41|45) 88 ?? [0-20] (41|45) 38 (08|10) 74 ?? [0-16] (48|4C) 63 [0-16] 4? 3B ?? 73}
+        $code = {4D 85 C0 75 0? [0-16] (41|45) 88 ?? [0-20] (41|45) 38 (08|10) 74 ?? [0-16] (48|49|4C|4D) (63|2B) [0-16] 4? 3B ?? 73}
     condition:
         uint16(0) == 0x5A4D and all of them
 }

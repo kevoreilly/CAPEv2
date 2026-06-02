@@ -55,12 +55,17 @@ def _cached_fetch(cache_key: str, url: str, ttl: int, validate=None) -> dict:
         if validate is not None:
             validate(doc)
     except (requests.RequestException, ValueError) as e:
-        if entry is not None:
+        # Re-read under the lock: another thread may have populated the cache
+        # while our fetch was in flight (concurrent cold start). Prefer any
+        # cached value — stale or freshly-won — over failing the login.
+        with _OIDC_CACHE_LOCK:
+            latest = _OIDC_CACHE.get(cache_key)
+        if latest is not None:
             log.warning(
-                "OIDC fetch failed for %s (%s); serving stale cached value",
+                "OIDC fetch failed for %s (%s); serving cached value",
                 url, e,
             )
-            return entry["doc"]
+            return latest["doc"]
         log.error("OIDC fetch failed for %s with no cached fallback: %s", url, e)
         raise
 
@@ -187,6 +192,10 @@ def _extract_groups(extra: dict) -> set:
     raw = extra.get(claim) or []
     if isinstance(raw, str):
         raw = [raw]
+    elif not isinstance(raw, (list, tuple, set)):
+        # Unexpected claim shape (int/bool/dict/…) — don't crash the login.
+        log.warning("OIDC groups claim %r has unexpected type %s; ignoring", claim, type(raw).__name__)
+        return set()
     return {g for g in raw if isinstance(g, str)}
 
 
@@ -209,6 +218,11 @@ def _apply_idp_roles_and_email(user, extra: dict) -> bool:
     configured; otherwise roles are left untouched so they can be managed
     manually in Django. When configured, membership is authoritative — a user
     removed from the admin group in the IdP is demoted on their next login.
+
+    Guard: if the groups claim is entirely *absent* from the token (scope or
+    claim-mapping misconfiguration, or a provider that drops it), role
+    reconciliation is skipped rather than silently demoting everyone. A present
+    but empty claim is honoured (the user really is in no groups → demote).
     """
     changed = False
 
@@ -220,13 +234,21 @@ def _apply_idp_roles_and_email(user, extra: dict) -> bool:
     admin_groups = _group_set("admin_groups")
     super_groups = _group_set("superadmin_groups")
     if admin_groups or super_groups:
-        user_groups = _extract_groups(extra)
-        new_staff = bool(user_groups & (admin_groups | super_groups))
-        new_super = bool(user_groups & super_groups)
-        if user.is_staff != new_staff or user.is_superuser != new_super:
-            user.is_staff = new_staff
-            user.is_superuser = new_super
-            changed = True
+        oidc_cfg = getattr(settings, "OIDC_CFG", None) or {}
+        claim = oidc_cfg.get("groups_claim") or "groups"
+        if claim not in extra:
+            log.warning(
+                "OIDC groups claim %r absent from token for %s; skipping role reconciliation",
+                claim, user.username,
+            )
+        else:
+            user_groups = _extract_groups(extra)
+            new_staff = bool(user_groups & (admin_groups | super_groups))
+            new_super = bool(user_groups & super_groups)
+            if user.is_staff != new_staff or user.is_superuser != new_super:
+                user.is_staff = new_staff
+                user.is_superuser = new_super
+                changed = True
 
     return changed
 
@@ -274,7 +296,17 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
         wrapper and rendered as a user-facing error page (a bare
         ValidationError here would bubble up as a 500)."""
         user_email = sociallogin.account.extra_data.get("email") or ""
-        if user_email and settings.SOCIAL_AUTH_EMAIL_DOMAIN:
+        if settings.SOCIAL_AUTH_EMAIL_DOMAIN:
+            if not user_email:
+                # Fail closed: a domain allowlist is configured but the IdP sent
+                # no email, so we can't verify the domain. Don't provision.
+                raise ImmediateHttpResponse(
+                    render(
+                        request,
+                        "socialaccount/authentication_error.html",
+                        {"reason": "An email address is required to sign in."},
+                    )
+                )
             domain = user_email.rsplit("@", 1)[-1]
             if domain != settings.SOCIAL_AUTH_EMAIL_DOMAIN:
                 raise ImmediateHttpResponse(
@@ -330,11 +362,13 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
             or ""
         )
         if identifier:
-            base = identifier.split("@")[0] if "@" in identifier else identifier
+            base = (identifier.split("@")[0] if "@" in identifier else identifier)[:150]
             if User.objects.filter(username=base).exclude(pk=user.pk).exists():
-                suffix = (extra.get("sub") or "")[:8] or str(user.pk)
-                base = f"{base}_{suffix}"
-            user.username = base[:150]
+                # Reserve room for the suffix so truncation can't drop the bit
+                # that makes the name unique (and can't exceed the 150 limit).
+                suffix = "_" + ((extra.get("sub") or "")[:8] or str(user.pk))
+                base = base[: 150 - len(suffix)] + suffix
+            user.username = base
 
         _apply_idp_roles_and_email(user, extra)
         user.save()

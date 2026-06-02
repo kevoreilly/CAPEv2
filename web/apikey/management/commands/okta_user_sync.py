@@ -88,10 +88,13 @@ class Command(BaseCommand):
                 continue
 
             try:
-                # search filter — exact email match. URL-quoting is handled by requests.
+                # search filter — exact email match. URL-quoting is handled by
+                # requests; escape backslashes and quotes so an address with
+                # those characters can't break the SCIM filter syntax.
+                safe_email = email.replace("\\", "\\\\").replace('"', '\\"')
                 r = session.get(
                     f"{admin_url}/api/v1/users",
-                    params={"search": f'profile.email eq "{email}"'},
+                    params={"search": f'profile.email eq "{safe_email}"'},
                     timeout=10,
                 )
                 r.raise_for_status()

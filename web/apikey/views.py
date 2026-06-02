@@ -31,10 +31,13 @@ def _user_may_manage_keys(user):
     Local-only users always pass; SSO-provisioned users must be staff."""
     if not user or not user.is_authenticated:
         return False
-    is_sso = SocialAccount.objects.filter(user=user).exists()
-    if not is_sso:
-        return True
-    return bool(user.is_staff)
+    # Called from the apikey_access context processor on every page load —
+    # cache the SocialAccount lookup on the user object for the request to
+    # avoid a redundant query per render.
+    if not hasattr(user, "_may_manage_keys"):
+        is_sso = SocialAccount.objects.filter(user=user).exists()
+        user._may_manage_keys = True if not is_sso else bool(user.is_staff)
+    return user._may_manage_keys
 
 
 def _forbidden(request):

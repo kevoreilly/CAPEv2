@@ -25,6 +25,13 @@ def _capture_previous_is_active(sender, instance, **kwargs):
     if not instance.pk:
         instance._previous_is_active = True  # treat new users as active
         return
+    # Optimization: if update_fields is given and excludes is_active, its value
+    # can't have changed — skip the extra SELECT. This fires on every login
+    # (Django saves with update_fields=["last_login"]).
+    update_fields = kwargs.get("update_fields")
+    if update_fields is not None and "is_active" not in update_fields:
+        instance._previous_is_active = instance.is_active
+        return
     try:
         previous = sender.objects.only("is_active").get(pk=instance.pk)
         instance._previous_is_active = previous.is_active

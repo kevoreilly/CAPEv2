@@ -62,9 +62,12 @@ class ApiKeyAuthentication(BaseAuthentication):
                 # fire (e.g. user deactivated via direct SQL), the runtime
                 # check still shuts the key down.
                 raise AuthenticationFailed("User inactive or deleted.")
-            # Single UPDATE — avoid a save() round-trip and the auto_now
-            # cascading-touch behaviour.
-            ApiKey.objects.filter(pk=apikey.pk).update(last_used_at=timezone.now())
+            # Throttle last_used_at writes to at most once per minute. Writing
+            # on every request causes needless write load and lock contention,
+            # especially painful on SQLite (CAPE's default web-auth DB).
+            now = timezone.now()
+            if apikey.last_used_at is None or (now - apikey.last_used_at).total_seconds() > 60:
+                ApiKey.objects.filter(pk=apikey.pk).update(last_used_at=now)
             return (apikey.user, apikey)
 
         # Fall through to the legacy DRF Token model. Anyone with an

@@ -7,16 +7,24 @@ revoke any of them independently. Authentication remains the standard
 existing CAPE clients.
 """
 
+import hashlib
 import secrets
 from django.conf import settings
 from django.db import models
 
 
 def _generate_key() -> str:
-    """43-char URL-safe key with ~256 bits of entropy. Long enough that
-    even an attacker enumerating against the indexed `key` column has no
-    realistic shot, short enough to fit cleanly in an Authorization header."""
+    """43-char URL-safe raw key with ~256 bits of entropy — shown to the
+    operator exactly once and never stored. Only its hash (see `hash_key`)
+    is persisted, so a database leak doesn't expose usable credentials."""
     return secrets.token_urlsafe(32)
+
+
+def hash_key(raw: str) -> str:
+    """SHA-256 hex digest of a raw key (what we store and look up by).
+    Raw keys are high-entropy random tokens, so an unsalted SHA-256 is
+    sufficient — there is no low-entropy secret to brute-force."""
+    return hashlib.sha256(raw.encode()).hexdigest()
 
 
 class ApiKey(models.Model):
@@ -29,6 +37,7 @@ class ApiKey(models.Model):
         max_length=100,
         help_text="A human-readable label (e.g. 'ci-bot', 'personal-laptop').",
     )
+    # Stores the SHA-256 hex digest of the raw key (64 chars), never the raw key.
     key = models.CharField(max_length=64, unique=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     last_used_at = models.DateTimeField(null=True, blank=True)
@@ -54,8 +63,10 @@ class ApiKey(models.Model):
         return self.revoked_at is None
 
     @classmethod
-    def issue(cls, user, name: str) -> "ApiKey":
-        """Create a new key for `user` with the given label. Caller is
-        responsible for showing the raw `key` to the operator exactly
-        once — we don't display it again after creation."""
-        return cls.objects.create(user=user, name=name, key=_generate_key())
+    def issue(cls, user, name: str) -> tuple["ApiKey", str]:
+        """Create a new key for `user` with the given label. Returns
+        ``(obj, raw_key)``: only the hash is stored, so the caller MUST show
+        the raw key to the operator exactly once — it can never be recovered."""
+        raw = _generate_key()
+        obj = cls.objects.create(user=user, name=name, key=hash_key(raw))
+        return obj, raw

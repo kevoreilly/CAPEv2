@@ -15,7 +15,7 @@ from rest_framework.authentication import (
 )
 from rest_framework.exceptions import AuthenticationFailed
 
-from .models import ApiKey
+from .models import ApiKey, hash_key
 
 
 class ApiKeyAuthentication(BaseAuthentication):
@@ -47,9 +47,10 @@ class ApiKeyAuthentication(BaseAuthentication):
         except UnicodeError:
             raise AuthenticationFailed("Invalid token header. Token string contains invalid characters.")
 
-        # Try our multi-key model first.
+        # Try our multi-key model first. We store only the SHA-256 hash of the
+        # raw key, so hash the presented token before looking it up.
         try:
-            apikey = ApiKey.objects.select_related("user").get(key=key)
+            apikey = ApiKey.objects.select_related("user").get(key=hash_key(key))
         except ApiKey.DoesNotExist:
             apikey = None
 

@@ -60,13 +60,14 @@ def create_view(request):
     if request.method == "POST":
         form = ApiKeyCreateForm(request.POST)
         if form.is_valid():
-            apikey = ApiKey.issue(user=request.user, name=form.cleaned_data["name"])
-            # Stash the raw key in the session so we can show it once on
-            # the list page and then forget it. Avoids the "save my key"
-            # being lost if the user navigates away from the create page.
+            apikey, raw_key = ApiKey.issue(user=request.user, name=form.cleaned_data["name"])
+            # Stash the raw key in the session so we can show it once on the
+            # list page and then forget it (only its hash is stored, so this is
+            # the only moment we ever have the raw value). Avoids the "save my
+            # key" being lost if the user navigates away from the create page.
             request.session["apikey_flash"] = {
                 "name": apikey.name,
-                "key": apikey.key,
+                "key": raw_key,
             }
             messages.success(request, f"API key '{apikey.name}' created.")
             return redirect("apikey:list")

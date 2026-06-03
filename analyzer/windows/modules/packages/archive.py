@@ -79,11 +79,10 @@ class Archive(Package):
         # if not os.path.exists(seven_zip_path):
         # Let's hope it's in the VM image
         seven_zip_path = self.get_path_app_in_path("7z.exe")
-        diec_path = self.get_path_app_in_path("diec.exe")
-        password = self.options.get("password")
         password = self.options.get(OPT_PASSWORD, "infected")
         archive_name = Path(path).name
         recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0)))
+        diec_path = self.get_path_app_in_path("diec.exe") if recursion_depth > 0 else None
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
         # actors are using LNK files that use relative directory traversal at arbitrary depth.

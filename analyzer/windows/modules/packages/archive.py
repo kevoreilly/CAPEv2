@@ -119,6 +119,7 @@ class Archive(Package):
 
                 for file in files:
                     file_path = os.path.join(r, file)
+                    extracted_files.add(file_path)
                     if file_path == path or file_path in extracted_files:
                         continue
 
@@ -128,7 +129,6 @@ class Archive(Package):
 
                         if any(word in file_info for word in target_words):
                             packs.append(file_path)
-                        extracted_files.add(file_path)
                     except subprocess.CalledProcessError:
                         continue
 

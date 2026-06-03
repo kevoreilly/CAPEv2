@@ -122,7 +122,7 @@ class Archive(Package):
                     file_path = os.path.join(r, file)
                     if file_path == path or file_path in extracted_files:
                         continue
-                    
+
                     extracted_files.add(file_path)
 
                     try:

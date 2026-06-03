@@ -110,6 +110,7 @@ class Archive(Package):
             raise CuckooPackageError("Empty archive")
 
         extracted_files = set()
+        extracted_archives = set()
         for i in range(0, recursion_depth):
 
             packs = []
@@ -119,9 +120,10 @@ class Archive(Package):
 
                 for file in files:
                     file_path = os.path.join(r, file)
-                    extracted_files.add(file_path)
                     if file_path == path or file_path in extracted_files:
                         continue
+                    
+                    extracted_files.add(file_path)
 
                     try:
                         result = subprocess.run([diec_path, "-p", file_path], capture_output=True, text=True, check=True, encoding="utf-8")
@@ -142,6 +144,7 @@ class Archive(Package):
                     try:
                         try_multiple_passwords = attempt_multiple_passwords(self.options, password)
                         extract_archive(seven_zip_path, p, output_dir, password, try_multiple_passwords)
+                        extracted_archives.add(p)
                     except Exception as e:
                         log.warning("Extraction failed for %s: %s", p, e)
 
@@ -153,7 +156,13 @@ class Archive(Package):
         # We have the file names according to 7ZIP output (file_names)
         # We have the file names that were actually extracted (files at root)
         # If these values are different, replace all
-        files_at_root = [os.path.join(r, f).replace(f"{root}\\", "") for r, _, files in os.walk(root) for f in files]
+        log.warning("Extracted archives:%s", extracted_archives)
+        files_at_root = [
+            os.path.relpath(os.path.join(r, f), root)
+            for r, _, files in os.walk(root)
+            for f in files
+            if os.path.join(r, f) != path and os.path.join(r, f) not in extracted_archives
+        ]
         log.debug(files_at_root)
         file_names = files_at_root
 

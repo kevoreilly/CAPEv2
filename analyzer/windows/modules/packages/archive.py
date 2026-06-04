@@ -114,7 +114,7 @@ class Archive(Package):
         for i in range(0, recursion_depth):
 
             packs = []
-            target_words = ["archive", "compress", "filesystem", "zip", "tar", "gzip", "bzip", "7-zip", "rar", "shell"]
+            target_words = {'archive', 'compress', 'filesystem', 'zip', 'tar', 'gzip', 'bzip', '7-zip', 'rar', 'shell'}
 
             for r, _, files in os.walk(root):
 

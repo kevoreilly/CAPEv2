@@ -30,6 +30,13 @@ disposable_domain_list = data/safelist/disposable_domain_list.txt
 
 [general]
 timezone = UTC
+# Set to yes only when CAPE is served behind a reverse proxy (e.g. nginx) that
+# terminates TLS and strips/overwrites X-Forwarded-Proto / X-Forwarded-Host from
+# clients. Enables Django's SECURE_PROXY_SSL_HEADER + USE_X_FORWARDED_HOST so
+# request.is_secure() and absolute URLs (incl. the OIDC redirect_uri) are correct.
+# Leave no for a directly-exposed app — trusting forwarded headers would allow
+# proto/host spoofing.
+behind_proxy = no
 # Prescan new file tasks with YARA for sample identification and custom execution
 # Useful to set options, tags, timeout, etc for packers/obfuscators/cryptors
 yara_recon = no

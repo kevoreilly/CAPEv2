@@ -12,6 +12,7 @@ from django.conf import settings
 from django.contrib.auth.models import User
 from django.dispatch import receiver
 from django.shortcuts import render
+from django.utils.translation import gettext as _
 
 
 log = logging.getLogger(__name__)
@@ -34,6 +35,10 @@ _OIDC_CACHE: dict = {}
 _OIDC_CACHE_LOCK = threading.Lock()
 _DISCOVERY_TTL = 3600
 _JWKS_TTL = 300
+# Asymmetric signing algorithms accepted for ID tokens when the provider's
+# discovery doc doesn't advertise `id_token_signing_alg_values_supported`.
+# Deliberately excludes "none" and the HMAC family to avoid algorithm-confusion.
+_DEFAULT_OIDC_ALGS = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "PS256", "PS384", "PS512"]
 
 
 def _cached_fetch(cache_key: str, url: str, ttl: int, validate=None) -> dict:
@@ -144,7 +149,6 @@ try:
             import jwt as _jwt
             header = _jwt.get_unverified_header(id_token)
             kid = header["kid"]
-            alg = header["alg"]
             keys_data = _get_cached_jwks(keys_url)
             key = jwtkit.lookup_kid_jwk(keys_data, kid)
             if key is None:
@@ -156,8 +160,12 @@ try:
             if key is None:
                 from allauth.socialaccount.providers.oauth2.client import OAuth2Error
                 raise OAuth2Error(f"Invalid 'kid': '{kid}'")
+            # Pin accepted algorithms to the provider's advertised set rather
+            # than reflecting the token header's untrusted `alg`. PyJWT rejects
+            # a token whose alg isn't in this list, blocking "none"/HS* confusion.
+            allowed_algs = self.openid_config.get("id_token_signing_alg_values_supported") or _DEFAULT_OIDC_ALGS
             data = _jwt.decode(
-                id_token, key=key, algorithms=[alg],
+                id_token, key=key, algorithms=allowed_algs,
                 issuer=issuer, audience=app.client_id,
                 leeway=30,
             )
@@ -304,7 +312,8 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
                     render(
                         request,
                         "socialaccount/authentication_error.html",
-                        {"reason": "An email address is required to sign in."},
+                        {"reason": _("An email address is required to sign in.")},
+                        status=403,
                     )
                 )
             domain = user_email.rsplit("@", 1)[-1]
@@ -313,10 +322,9 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
                     render(
                         request,
                         "socialaccount/authentication_error.html",
-                        {"reason": (
-                            f"Please use an email with domain: "
-                            f"{settings.SOCIAL_AUTH_EMAIL_DOMAIN}"
-                        )},
+                        {"reason": _("Please use an email with domain: %(domain)s")
+                         % {"domain": settings.SOCIAL_AUTH_EMAIL_DOMAIN}},
+                        status=403,
                     )
                 )
 

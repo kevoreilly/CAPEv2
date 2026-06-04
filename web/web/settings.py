@@ -276,8 +276,9 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",
     # Per-user labeled API keys (multi-key, individually revocable). Lives
     # alongside DRF's legacy `authtoken` so ApiKeyAuthentication can fall
-    # back to existing tokens for back-compat.
-    "apikey",
+    # back to existing tokens for back-compat. Reference the AppConfig
+    # explicitly so its ready() (disable-cascade signal wiring) always loads.
+    "apikey.apps.ApiKeyConfig",
 ]
 
 # OpenID Connect (Okta / Azure AD / Auth0 / Google Workspace / Keycloak /
@@ -292,22 +293,23 @@ if OIDC_CFG is not None and OIDC_CFG.get("enabled", False):
             f"[oauth_oidc] enabled = yes but required fields are blank: {', '.join(_missing)}. Check conf/web.conf."
         )
     INSTALLED_APPS.append("allauth.socialaccount.providers.openid_connect")
-    SOCIALACCOUNT_PROVIDERS = {
-        "openid_connect": {
-            # Use our subclass for process-level discovery-doc / JWKS caching.
-            "provider_class": "web.allauth_adapters.CachedOpenIDConnectProvider",
-            "APPS": [
-                {
-                    "provider_id": OIDC_CFG.get("provider_id", "oidc"),
-                    "name": OIDC_CFG.get("name", "OIDC"),
-                    "client_id": OIDC_CFG.get("client_id", ""),
-                    "secret": OIDC_CFG.get("client_secret", ""),
-                    "settings": {
-                        "server_url": OIDC_CFG.get("server_url", ""),
-                    },
-                }
-            ],
-        }
+    # Merge into any existing provider config instead of reassigning, so
+    # enabling OIDC doesn't clobber other providers a deployment may have set.
+    SOCIALACCOUNT_PROVIDERS = globals().get("SOCIALACCOUNT_PROVIDERS") or {}
+    SOCIALACCOUNT_PROVIDERS["openid_connect"] = {
+        # Use our subclass for process-level discovery-doc / JWKS caching.
+        "provider_class": "web.allauth_adapters.CachedOpenIDConnectProvider",
+        "APPS": [
+            {
+                "provider_id": OIDC_CFG.get("provider_id", "oidc"),
+                "name": OIDC_CFG.get("name", "OIDC"),
+                "client_id": OIDC_CFG.get("client_id", ""),
+                "secret": OIDC_CFG.get("client_secret", ""),
+                "settings": {
+                    "server_url": OIDC_CFG.get("server_url", ""),
+                },
+            }
+        ],
     }
 
 AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
@@ -471,8 +473,13 @@ ALLOWED_HOSTS = ["*"]
 # original request was HTTPS — otherwise request.is_secure() is False and the
 # absolute OIDC redirect_uri django-allauth builds comes out as http://…, which
 # the IdP rejects. Requires `proxy_set_header X-Forwarded-Proto $scheme;` in nginx.
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-USE_X_FORWARDED_HOST = True
+#
+# Gated behind [general] behind_proxy because trusting X-Forwarded-Proto/Host is
+# only safe when a reverse proxy strips/overwrites those headers from clients —
+# enabling them with a directly-reachable app would allow proto/host spoofing.
+if web_cfg.general.get("behind_proxy", False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
 # Max size
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size

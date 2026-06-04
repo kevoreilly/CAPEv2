@@ -547,6 +547,14 @@ def _load_report(task_id: int):
     return False
 
 
+def str_to_bool(v):
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.lower() in ("yes", "true", "t", "y", "1")
+    return False
+
+
 def parse_id(id_string: str):
     """
     Parses a string representing a range or list of ranges of IDs and returns a list of tuples.
@@ -586,18 +594,43 @@ def main():
         "id",
         type=parse_id,
         help="ID of the analysis to process (auto for continuous processing of unprocessed tasks). Can be 1 or 1-10 or 1,3,5,7",
+        default=os.getenv("CAPE_ID") or "auto",
+        nargs="?",
     )
     parser.add_argument("-c", "--caperesubmit", help="Allow CAPE resubmit processing.", action="store_true", required=False)
-    parser.add_argument("-d", "--debug", help="Display debug messages", action="store_true", required=False)
+    parser.add_argument(
+        "-d",
+        "--debug",
+        help="Display debug messages",
+        action="store_true",
+        required=False,
+        default=str_to_bool(os.getenv("CAPE_DEBUG", "false")),
+    )
     parser.add_argument("-r", "--report", help="Re-generate report", action="store_true", required=False)
     parser.add_argument(
-        "-p", "--parallel", help="Number of parallel threads to use (auto mode only).", type=int, required=False, default=1
+        "-p",
+        "--parallel",
+        help="Number of parallel threads to use (auto mode only).",
+        type=int,
+        required=False,
+        default=int(os.getenv("CAPE_PARALLEL") or 1),
     )
     parser.add_argument(
-        "-fp", "--failed-processing", help="reprocess failed processing", action="store_true", required=False, default=False
+        "-fp",
+        "--failed-processing",
+        help="reprocess failed processing",
+        action="store_true",
+        required=False,
+        default=str_to_bool(os.getenv("CAPE_FAILED_PROCESSING", "false")),
     )
     parser.add_argument(
-        "-mc", "--maxtasksperchild", help="Max children tasks per worker", action="store", type=int, required=False, default=7
+        "-mc",
+        "--maxtasksperchild",
+        help="Max children tasks per worker",
+        action="store",
+        type=int,
+        required=False,
+        default=int(os.getenv("CAPE_MAXTASKSPERCHILD") or 7),
     )
     parser.add_argument(
         "-md",
@@ -605,7 +638,7 @@ def main():
         help="Enable logging garbage collection related info",
         action="store_true",
         required=False,
-        default=False,
+        default=str_to_bool(os.getenv("CAPE_MEMORY_DEBUGGING", "false")),
     )
     parser.add_argument(
         "-pt",
@@ -614,7 +647,7 @@ def main():
         action="store",
         type=int,
         required=False,
-        default=300,
+        default=int(os.getenv("CAPE_PROCESSING_TIMEOUT") or 300),
     )
     testing_args = parser.add_argument_group("Signature testing options")
     testing_args.add_argument(
@@ -641,7 +674,13 @@ def main():
         default=False,
         required=False,
     )
-    parser.add_argument("--disable-memory-limit", help="Disable memory limit.", action="store_true", default=False, required=False)
+    parser.add_argument(
+        "--disable-memory-limit",
+        help="Disable memory limit.",
+        action="store_true",
+        required=False,
+        default=str_to_bool(os.getenv("CAPE_DISABLE_MEMORY_LIMIT", "false")),
+    )
     args = parser.parse_args()
 
     init_database()

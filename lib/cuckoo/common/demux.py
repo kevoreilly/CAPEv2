@@ -5,7 +5,7 @@
 import logging
 import os
 import tempfile
-from typing import List
+from typing import Any, Dict, List, Tuple
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -185,17 +185,17 @@ JUNK_NAMES = {b"license", b"copying", b"makefile", b"authors", b"readme"}
 
 
 # ToDo fix return type
-def _sf_children(child: sfFile):  # -> bytes:
-    path_to_extract = ""
+def _sf_children(child: Any) -> Tuple[bytes, str, str, int]:
+    path_to_extract = b""
     filename_lower = child.filename.lower()
 
     # Skip junk files
     if any(filename_lower.endswith(ext) for ext in JUNK_EXTENSIONS):
-        return (b"", child.platform, child.magic, child.filesize)
+        return b"", child.platform, child.magic, child.filesize
     if any(name in filename_lower for name in JUNK_NAMES):
-        return (b"", child.platform, child.magic, child.filesize)
+        return b"", child.platform, child.magic, child.filesize
     if b".github/" in filename_lower or b".git/" in filename_lower:
-        return (b"", child.platform, child.magic, child.filesize)
+        return b"", child.platform, child.magic, child.filesize
 
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
@@ -213,15 +213,14 @@ def _sf_children(child: sfFile):  # -> bytes:
         tmp_dir = tempfile.mkdtemp(dir=target_path)
         try:
             if child.contents:
-                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode()))
+                path_to_extract = os.path.join(tmp_dir, sanitize_filename((child.filename).decode())).encode()
                 _ = path_write_file(path_to_extract, child.contents)
         except Exception as e:
             log.exception(e)
-    return (path_to_extract.encode(), child.platform, child.magic or "", child.filesize)
+    return path_to_extract, child.platform, child.magic or "", child.filesize
 
 
-# ToDo fix typing need to add str as error msg
-def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  # -> List[bytes]:
+def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) -> Tuple[List[Tuple[bytes, str, str, int]], str]:
     retlist = []
     # do not extract from .bin (downloaded from us)
     if os.path.splitext(filename)[1] == b".bin":
@@ -229,6 +228,14 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
 
     # ToDo need to introduce error msgs here
     try:
+        platform = ""
+        magic_type = ""
+        file_size = 0
+
+        # Before unpacking, ensure the file actually exists and is not empty to avoid IncorrectUsageException
+        if not path_exists(filename) or os.path.getsize(filename) == 0:
+            return [(filename, platform, magic_type, file_size)], "file not found or empty"
+
         password = options2passwd(options) or "infected"
         try:
             unpacked = unpack(filename, password=password, check_shellcode=check_shellcode)
@@ -240,7 +247,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
             magic_type = file.get_type() or ""
             platform = file.get_platform()
             file_size = file.get_size()
-            return [[filename, platform, magic_type, file_size]], ""
+            return [(filename, platform, magic_type, file_size)], ""
         if unpacked.package in blacklist_extensions:
             return [], "blacklisted package"
         for sf_child in unpacked.children:
@@ -267,7 +274,9 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True):  
     return list(filter(None, retlist)), ""
 
 
-def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""):  # -> tuple[bytes, str]:
+def demux_sample(
+    filename: bytes, package: str, options: str, use_sflock: bool = True, platform: str = ""
+) -> Tuple[List[Tuple[bytes, str]], List[Dict[str, str]]]:
     """
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
@@ -311,9 +320,7 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
         return retlist, error_list
 
     # handle quarantine files
-    tmp_path = unquarantine(filename)
-    if tmp_path:
-        filename = tmp_path
+    filename = unquarantine(filename)
 
     # don't try to extract from office docs
     magic = File(filename).get_type() or ""
@@ -407,3 +414,4 @@ def demux_sample(filename: bytes, package: str, options: str, use_sflock: bool =
             new_retlist.append((filename, platform))
 
     return new_retlist[:demux_files_limit], error_list
+

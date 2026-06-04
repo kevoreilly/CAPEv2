@@ -1,5 +1,6 @@
 import os
 import logging
+from typing import Any, Dict
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
@@ -19,7 +20,7 @@ class GCS(Report):
     # This Report module is not executed by default
     order = 9999
 
-    def run(self, results):
+    def run(self, results: Dict[str, Any]):
         """
         Run the Report module.
 

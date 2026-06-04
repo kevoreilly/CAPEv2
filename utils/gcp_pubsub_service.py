@@ -9,6 +9,7 @@ import os
 import sys
 import tempfile
 import warnings
+from typing import Any, Dict, Tuple
 
 # Mute Google Cloud's Python version support warning for Python 3.10
 warnings.filterwarnings("ignore", category=FutureWarning, module="google.api_core")
@@ -29,7 +30,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelna
 log = logging.getLogger("gcp_pubsub_service")
 
 class GCPServiceLogger(logging.LoggerAdapter):
-    def process(self, msg, kwargs):
+    def process(self, msg: str, kwargs: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
         correlation_id = self.extra.get("correlation_id")
         if correlation_id:
             msg = f"[{correlation_id}] {msg}"
@@ -134,7 +135,7 @@ class GCPPubSubService:
 
         self.subscription_path = self.subscriber.subscription_path(self.project_id, self.subscription_id)
 
-    def process_message(self, message):
+    def process_message(self, message: Any):
         msg_id = message.message_id
         with self.ids_lock:
             if msg_id in self.processing_ids:

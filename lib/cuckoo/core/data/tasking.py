@@ -472,7 +472,8 @@ class TasksMixIn:
         if extracted_files and not any(file_path == path for path, _ in extracted_files):
             parent_sample = self.register_sample(File(file_path), source_url=source_url)
             if conf.cuckoo.delete_archive:
-                path_delete(file_path.decode())
+                if path_exists(file_path):
+                    path_delete(file_path.decode())
 
         # create tasks for each file in the archive
         for file, platform in extracted_files:
@@ -630,8 +631,9 @@ class TasksMixIn:
                 parent_sample = self.register_sample(File(file_path))
             if conf.cuckoo.delete_archive:
                 # ToDo keep as info for now
-                log.info("Deleting archive: %s. conf.cuckoo.delete_archive is enabled. %s", file_path, str(extracted_files))
-                path_delete(file_path)
+                if path_exists(file_path):
+                    log.info("Deleting archive: %s. conf.cuckoo.delete_archive is enabled. %s", file_path, str(extracted_files))
+                    path_delete(file_path.decode())
 
         task_ids = []
         # create tasks for each file in the archive

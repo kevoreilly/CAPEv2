@@ -128,9 +128,10 @@ class Archive(Package):
                     try:
                         result = subprocess.run([diec_path, "-p", file_path], capture_output=True, text=True, check=True, encoding="utf-8")
                         file_info = result.stdout.lower()
-
-                        if any(word in file_info for word in target_words):
-                            packs.append(file_path)
+                        for word in target_words:
+                            if word in file_info:
+                                packs.append(file_path)
+                                break
                     except subprocess.CalledProcessError:
                         continue
 

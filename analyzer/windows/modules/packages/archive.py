@@ -114,7 +114,7 @@ class Archive(Package):
         for i in range(0, recursion_depth):
 
             packs = []
-            target_words = {'archive', 'compress', 'filesystem', 'zip', 'tar', 'gzip', 'bzip', '7-zip', 'rar', 'shell'}
+            target_words = {'Archive', 'Image', 'filesystem', 'ZIP', 'RAR', 'Shell'}
 
             for r, _, files in os.walk(root):
 
@@ -127,7 +127,7 @@ class Archive(Package):
 
                     try:
                         result = subprocess.run([diec_path, "-p", file_path], capture_output=True, text=True, check=True, encoding="utf-8")
-                        file_info = result.stdout.lower()
+                        file_info = result.stdout
                         for word in target_words:
                             if word in file_info:
                                 packs.append(file_path)

@@ -39,7 +39,7 @@ DEBUG = True
 
 LOGGING_CONFIG = None
 
-WEB_AUTHENTICATION = Config("web").web_auth.get("enabled", False)
+WEB_AUTHENTICATION = getattr(Config("web"), "web_auth", {}).get("enabled", False)
 
 ALLOWED_HOSTS = [
     "*",

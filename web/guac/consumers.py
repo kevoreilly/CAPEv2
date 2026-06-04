@@ -35,6 +35,7 @@ def _get_vnc_port(vm_label):
     """Look up VNC port for a VM from libvirt. Must be called from sync context."""
     if not LIBVIRT_AVAILABLE:
         return None
+
     conn = None
     try:
         conn = libvirt.open(machinery_dsn)
@@ -139,24 +140,47 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             self.guac_task_id = session_data["task_id"]
             vm_label = session_data["vm_label"]
 
-            # 3. Verify task can still host an interactive session
-            task = await sync_to_async(db.view_task)(self.guac_task_id)
-            if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
-                logger.warning(
-                    "WebSocket rejected: task %s is not active for guac", self.guac_task_id
-                )
-                await self._delete_guac_session()
-                await self.close()
-                return
+            vnc_port = None
+            if self.guac_task_id > 0:
+                # 3. Verify task can still host an interactive session
+                task = await sync_to_async(db.view_task)(self.guac_task_id)
+                if not task or task.status not in ACTIVE_GUAC_TASK_STATUSES:
+                    logger.warning(
+                        "WebSocket rejected: task %s is not active for guac", self.guac_task_id
+                    )
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
 
-            # 4. Look up VNC port server-side from libvirt
-            vnc_port = await sync_to_async(_get_vnc_port)(vm_label)
-            if not vnc_port:
-                logger.warning(
-                    "WebSocket rejected: no VNC port for VM %s", vm_label
-                )
-                await self.close()
-                return
+                # 4. Look up VNC port server-side from libvirt
+                vnc_port = await sync_to_async(_get_vnc_port)(vm_label)
+                if not vnc_port:
+                    logger.warning(
+                        "WebSocket rejected: no VNC port for VM %s", vm_label
+                    )
+                    await self.close()
+                    return
+            else:
+                # Direct VNC connection
+                guest_ip = session_data.get("guest_ip")
+                if not guest_ip:
+                    # Autodiscover port given just the VM name
+                    vnc_port = await sync_to_async(_get_vnc_port)(vm_label)
+                    if not vnc_port:
+                        logger.warning(
+                            "WebSocket rejected: could not autodiscover VNC port for VM %s", vm_label
+                        )
+                        await self.close()
+                        return
+                else:
+                    try:
+                        vnc_port = int(vm_label)
+                    except ValueError:
+                        logger.warning(
+                            "WebSocket rejected: invalid direct VNC port %s", vm_label
+                        )
+                        await self.close()
+                        return
 
             # 5. Parse config
             guacd_hostname = web_cfg.guacamole.guacd_host or "localhost"
@@ -174,22 +198,38 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             raw_recording = params.get("recording_name", ["task-recording"])[0]
             guacd_recording_name = re.sub(r"[^a-zA-Z0-9_-]", "", raw_recording)
 
-            if "rdp" in guest_protocol:
-                guest_host = session_data.get("guest_ip", vm_label)
-                if not guest_host:
-                    guest_host = vm_label
-                guest_port = int(web_cfg.guacamole.guest_rdp_port) or 3389
-                ignore_cert = (
-                    "true"
-                    if web_cfg.guacamole.ignore_rdp_cert is True
-                    else "false"
-                )
-                extra_args = {
-                    "disable-wallpaper": "true",
-                    "disable-theming": "true",
-                }
+            if self.guac_task_id > 0:
+                if "rdp" in guest_protocol:
+                    guest_host = session_data.get("guest_ip", vm_label)
+                    if not guest_host:
+                        guest_host = vm_label
+                    guest_port = int(web_cfg.guacamole.guest_rdp_port) or 3389
+                    ignore_cert = (
+                        "true"
+                        if web_cfg.guacamole.ignore_rdp_cert is True
+                        else "false"
+                    )
+                    extra_args = {
+                        "disable-wallpaper": "true",
+                        "disable-theming": "true",
+                    }
+                else:
+                    guest_host = web_cfg.guacamole.vnc_host or "localhost"
+                    guest_port = vnc_port
+                    ignore_cert = "false"
+                    vnc_color_depth = str(
+                        getattr(web_cfg.guacamole, "vnc_color_depth", 16)
+                    )
+                    vnc_cursor = getattr(web_cfg.guacamole, "vnc_cursor", "local")
+                    extra_args = {
+                        "color-depth": vnc_color_depth,
+                        "cursor": vnc_cursor,
+                    }
             else:
-                guest_host = web_cfg.guacamole.vnc_host or "localhost"
+                # Direct VNC connection
+                guest_protocol = "vnc"
+                guest_ip = session_data.get("guest_ip")
+                guest_host = guest_ip or web_cfg.guacamole.vnc_host or "localhost"
                 guest_port = vnc_port
                 ignore_cert = "false"
                 vnc_color_depth = str(
@@ -203,6 +243,16 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
             # 6. Connect to guacd
             self.client = GuacamoleClient(guacd_hostname, guacd_port)
+
+            logger.info(
+                "Guacamole connecting to guacd at %s:%s. Handshake: protocol=%s, host=%s, port=%s, recording_name=%s",
+                guacd_hostname,
+                guacd_port,
+                guest_protocol,
+                guest_host,
+                guest_port,
+                guacd_recording_name,
+            )
 
             await sync_to_async(self.client.handshake)(
                 protocol=guest_protocol,
@@ -227,21 +277,25 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 )
 
                 # 7. Initialize timeout handling
-                try:
-                    vm_ip = session_data.get("guest_ip") or guest_host
-                    self.timeout_manager = SessionTimeoutManager(
-                        vm_ip=vm_ip,
-                        user="unknown_user",
-                        session_id=self.guac_token,
-                        task_id=str(self.guac_task_id),
-                    )
-                except Exception as e:
-                    logger.error("Failed to initialize timeout manager: %s", e)
+                if self.guac_task_id > 0:
+                    try:
+                        vm_ip = session_data.get("guest_ip") or guest_host
+                        self.timeout_manager = SessionTimeoutManager(
+                            vm_ip=vm_ip,
+                            user="unknown_user",
+                            session_id=self.guac_token,
+                            task_id=str(self.guac_task_id),
+                        )
+                    except Exception as e:
+                        logger.error("Failed to initialize timeout manager: %s", e)
+                        self.timeout_manager = None
+                else:
                     self.timeout_manager = None
 
                 # 8. Start background tasks
                 self.task = asyncio.create_task(self.read_guacd())
-                self.monitor_task = asyncio.create_task(self.monitor_task_status())
+                if self.guac_task_id > 0:
+                    self.monitor_task = asyncio.create_task(self.monitor_task_status())
                 if self.timeout_manager and self.timeout_manager.idle_timeout_seconds > 0:
                     self.timeout_task = asyncio.create_task(self.monitor_timeout())
             else:

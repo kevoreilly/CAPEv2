@@ -23,11 +23,19 @@
                 <img src="{% static 'graphic/cape.png' %}" height="28" alt="CAPE Sandbox">
             </a>
             <span class="text-secondary me-2 small">|</span>
+            {% if task_id and task_id != 0 and task_id != '0' %}
             <span class="text-secondary small me-1">Task</span>
             <a href="/submit/status/{{ task_id }}/" class="text-info small me-auto text-decoration-none">#{{ task_id }}</a>
             <button id="stopTask" class="btn btn-sm btn-outline-danger">
                 <i class="fas fa-stop-circle me-1"></i>End Session
             </button>
+            {% else %}
+            <span class="text-secondary small me-1">Direct VNC</span>
+            <span class="text-info small me-auto">{{ vnc_host }}:{{ vnc_port }}</span>
+            <button id="stopTask" class="btn btn-sm btn-outline-danger">
+                <i class="fas fa-sign-out-alt me-1"></i>Disconnect
+            </button>
+            {% endif %}
         </div>
         <div id="container">
             <div id="terminal"></div>
@@ -35,15 +43,25 @@
                 <div style="background:#212529;border:1px solid #495057;border-radius:8px;padding:20px;box-shadow:0 0 30px rgba(0,0,0,0.8);color:#fff;">
                     <h6 id="dialog-heading" class="mb-2" style="color:#fff;">Session Ended</h6>
                     <p id="dialog-message" class="mb-2 small" style="color:#6c757d;"></p>
+                    {% if task_id and task_id != 0 and task_id != '0' %}
                     <a id="taskStatus" href="/submit/status/{{ task_id }}/" class="btn btn-sm btn-outline-light"><i class="fas fa-tasks me-1"></i>View Task</a>
+                    {% else %}
+                    <a id="taskStatus" href="/" class="btn btn-sm btn-outline-light"><i class="fas fa-home me-1"></i>Go Home</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
     </div>
     <script>
+        {% if task_id and task_id != 0 and task_id != '0' %}
         document.getElementById("stopTask").addEventListener("click", function() {
             stopTask("{{ task_id }}");
         });
+        {% else %}
+        document.getElementById("stopTask").addEventListener("click", function() {
+            window.location.href = "/";
+        });
+        {% endif %}
         GuacMe("html", "{{ session_id }}", "{{ recording_name }}");
     </script>
 </body>

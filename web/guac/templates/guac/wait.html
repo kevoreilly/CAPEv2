@@ -29,9 +29,15 @@
                         <div class="progress mb-4" style="height: 4px;">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger w-100"></div>
                         </div>
+                        {% if task_id and task_id != 0 and task_id != '0' %}
                         <button type="button" id="taskStatus" class="btn btn-outline-secondary">
                             <i class="fas fa-tasks me-1"></i> View Task
                         </button>
+                        {% else %}
+                        <button type="button" id="taskStatus" class="btn btn-outline-secondary">
+                            <i class="fas fa-home me-1"></i> Go Home
+                        </button>
+                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -40,7 +46,11 @@
 
     <script>
         document.getElementById("taskStatus").addEventListener("click", function() {
+            {% if task_id and task_id != 0 and task_id != '0' %}
             location.replace(location.origin + '/submit/status/{{ task_id }}/');
+            {% else %}
+            location.replace(location.origin + '/');
+            {% endif %}
         });
         setTimeout(function() { location.reload(true); }, 5000);
     </script>

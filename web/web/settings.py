@@ -193,6 +193,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.messages.context_processors.messages",
                 "django_settings_export.settings_export",
+                # Surfaces `may_manage_apikeys` for the API Keys link in the user dropdown.
+                "apikey.context_processors.apikey_access",
             ],
             "loaders": [
                 "django.template.loaders.filesystem.Loader",
@@ -271,6 +273,10 @@ INSTALLED_APPS = [
     "django_recaptcha",  # https://pypi.org/project/django-recaptcha/
     "rest_framework",
     "rest_framework.authtoken",
+    # Per-user labeled API keys (multi-key, individually revocable). Lives
+    # alongside DRF's legacy `authtoken` so ApiKeyAuthentication can fall
+    # back to existing tokens for back-compat.
+    "apikey",
 ]
 
 AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
@@ -278,7 +284,10 @@ AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
 if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": [
-            "rest_framework.authentication.TokenAuthentication",
+            # Per-user labeled API keys; internally falls back to DRF's legacy
+            # TokenAuthentication so tokens issued via /apiv2/api-token-auth/
+            # keep working without migration.
+            "apikey.authentication.ApiKeyAuthentication",
             "rest_framework.authentication.SessionAuthentication",
         ],
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3 class="text-white"><i class="fas fa-key me-2"></i>API Keys</h3>
+        <a href="{% url 'apikey:create' %}" class="btn btn-primary"><i class="fas fa-plus me-1"></i> New key</a>
+    </div>
+
+    {% if flash_key %}
+    <div class="alert alert-success">
+        <h5 class="alert-heading"><i class="fas fa-check-circle me-1"></i> Key created — copy it now</h5>
+        <p class="mb-2">This is the only time you'll see the full value. After you leave this page it can't be recovered — just revoked and re-issued.</p>
+        <div class="input-group mb-2">
+            <span class="input-group-text">{{ flash_key.name }}</span>
+            <input type="text" class="form-control font-monospace" id="apikey-value" value="{{ flash_key.key }}" readonly>
+            <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('apikey-value').value)">
+                <i class="far fa-copy"></i> Copy
+            </button>
+        </div>
+        <p class="mb-0 small text-muted">Authenticate with: <code>Authorization: Token {{ flash_key.key }}</code></p>
+    </div>
+    {% endif %}
+
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-{% if m.tags == 'error' %}danger{% else %}{{ m.tags|default:'info' }}{% endif %}">{{ m }}</div>
+        {% endfor %}
+    {% endif %}
+
+    {% if keys %}
+    <table class="table table-dark table-striped table-bordered">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Created</th>
+                <th>Last used</th>
+                <th>Status</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for k in keys %}
+            <tr>
+                <td>{{ k.name }}</td>
+                <td>{{ k.created_at }}</td>
+                <td>{% if k.last_used_at %}{{ k.last_used_at }}{% else %}<span class="text-white-50">never</span>{% endif %}</td>
+                <td>
+                    {% if k.revoked_at %}
+                    <span class="badge bg-secondary" title="Revoked at {{ k.revoked_at }}">revoked</span>
+                    {% else %}
+                    <span class="badge bg-success">active</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if not k.revoked_at %}
+                    <form method="post" action="{% url 'apikey:revoke' k.pk %}" onsubmit="return confirm('Revoke {{ k.name }}? Existing scripts using this key will start receiving 401 immediately.');" class="d-inline">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <div class="alert alert-info">No API keys yet. <a href="{% url 'apikey:create' %}" class="alert-link">Create one</a> to call the REST API as yourself.</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -4,9 +4,10 @@ import sys
 from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
-
 CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
+
+from lib.cuckoo.common.config import Config
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,6 +39,8 @@ DEBUG = True
 
 LOGGING_CONFIG = None
 
+WEB_AUTHENTICATION = getattr(Config("web"), "web_auth", {}).get("enabled", False)
+
 ALLOWED_HOSTS = [
     "*",
 ]
@@ -55,6 +58,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -179,4 +183,3 @@ if _CapeConfig('web').guacamole.get('enabled', False):
     from lib.cuckoo.core.data.guac_session import GuacSession  # noqa: F401
     from lib.cuckoo.core.data.db_common import Base
     Base.metadata.create_all(_db.engine)
-

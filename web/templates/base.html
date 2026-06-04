@@ -41,6 +41,7 @@
 <script src="{{ STATIC_URL }}js/lightbox.js"></script>
 <script src="{{ STATIC_URL }}js/bootstrap-transition.js"></script>
 <script src="{{ STATIC_URL }}js/moment.min.js"></script>
+<script src="{{ STATIC_URL }}js/cape-shortcuts.js"></script>
 <script>
     // Initialize Bootstrap tooltips and popovers globally
     $(function () {
@@ -48,6 +49,50 @@
         $('[data-bs-toggle="popover"]').popover();
     })
 </script>
+<!-- Shortcuts Help Modal -->
+<div class="modal fade" id="shortcutsHelpModal" tabindex="-1" aria-labelledby="shortcutsHelpModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark border-secondary shadow-lg">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title text-white" id="shortcutsHelpModalLabel"><i class="fas fa-keyboard me-2 text-info"></i> Keyboard Shortcuts</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <div class="row mb-3">
+                    <div class="col-4 text-end"><kbd>/</kbd></div>
+                    <div class="col-8">Focus global search</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 text-end"><kbd>Ctrl</kbd>+<kbd>K</kbd> / <kbd>⌘</kbd>+<kbd>K</kbd></div>
+                    <div class="col-8">Open Omni-Box Spotlight Search</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 text-end"><kbd>j</kbd> / <kbd>k</kbd></div>
+                    <div class="col-8">Navigate through lists / tables</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 text-end"><kbd>o</kbd></div>
+                    <div class="col-8">Open or expand selected item</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 text-end"><i class="fas fa-mouse-pointer me-1"></i> <kbd>Right-Click</kbd></div>
+                    <div class="col-8">Pivot from IPs, Hashes, and Domains</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 text-end"><kbd>Alt</kbd> + <kbd>1-9</kbd></div>
+                    <div class="col-8">Quick switch between report tabs</div>
+                </div>
+                <div class="row mb-3">
+                    <div class="col-4 text-end"><kbd>?</kbd></div>
+                    <div class="col-8">Show this help menu</div>
+                </div>
+                <div class="row mb-0 text-white-50 small mt-4 pt-3 border-top border-secondary">
+                    <div class="col-12 text-center">Press <kbd>Esc</kbd> to dismiss this menu.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% block extra_scripts %}{% endblock %}
 </body>
 </html>

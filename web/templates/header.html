@@ -41,7 +41,12 @@
             {% endif %}
             <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/" target="_blank"><i class="fas fa-info-circle me-1"></i> Docs</a></li>
             <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md" target="_blank"><i class="far fa-newspaper me-1"></i> Changelog</a></li>
-          </ul>
+           <li class="nav-item">
+                <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#shortcutsHelpModal" title="Keyboard Shortcuts (?)">
+                    <i class="fas fa-keyboard"></i>
+                </a>
+            </li>
+	  </ul>
 
         </div>
         <form class="d-flex me-auto" action="{% url "search" %}" method="get">

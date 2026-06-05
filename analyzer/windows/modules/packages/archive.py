@@ -159,7 +159,7 @@ class Archive(Package):
         # If these values are different, replace all
         log.debug("Extracted archives:%s", extracted_archives)
         files_at_root = [
-            p.replace(f"{root}\\", "")
+            os.path.relpath(p, root)
             for r, _, files in os.walk(root)
             for f in files
             if (p := os.path.join(r, f)) not in extracted_archives

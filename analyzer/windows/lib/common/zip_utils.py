@@ -52,6 +52,7 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
         stdin=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
+        check=False
     )
     stdoutput, stderr = p.stdout, p.stderr
     log.debug("%s %s", p.stdout, p.stderr)
@@ -76,6 +77,7 @@ def extract_archive(seven_zip_path, archive_path, extract_path, password="infect
                 stdin=subprocess.DEVNULL,
                 stderr=subprocess.PIPE,
                 stdout=subprocess.PIPE,
+                check=False
             )
             stdoutput, stderr = p.stdout, p.stderr
             log.debug("%s - %s", p.stdout, p.stderr)
@@ -107,9 +109,11 @@ def get_file_names(seven_zip_path, archive_path):
         stdin=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
+        encoding="utf-8",
+        errors="replace",
+        check=False
     )
-    stdoutput = p.stdout.decode("utf-8", errors="replace")
-    stdoutput_lines = stdoutput.splitlines()
+    stdoutput_lines = p.stdout.splitlines()
     in_table = False
     items_under_header = False
     file_names = []
@@ -264,6 +268,7 @@ def winrar_extractor(winrar_binary, extract_path, archive_path):
         stdin=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
         stdout=subprocess.PIPE,
+        check=False
     )
     # stdoutput, stderr = p.stdout, p.stderr
     log.debug("%s - %s", p.stdout, p.stderr)

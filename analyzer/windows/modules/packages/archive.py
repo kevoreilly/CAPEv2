@@ -157,7 +157,7 @@ class Archive(Package):
         # We have the file names according to 7ZIP output (file_names)
         # We have the file names that were actually extracted (files at root)
         # If these values are different, replace all
-        log.warning("Extracted archives:%s", extracted_archives)
+        log.debug("Extracted archives:%s", extracted_archives)
         files_at_root = [
             p.replace(f"{root}\\", "")
             for r, _, files in os.walk(root)

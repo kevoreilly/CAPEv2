@@ -120,7 +120,7 @@ class Archive(Package):
 
                 for file in files:
                     file_path = os.path.join(r, file)
-                    if file_path == path or file_path in extracted_files:
+                    if file_path in extracted_files:
                         continue
 
                     extracted_files.add(file_path)
@@ -159,10 +159,10 @@ class Archive(Package):
         # If these values are different, replace all
         log.warning("Extracted archives:%s", extracted_archives)
         files_at_root = [
-            os.path.relpath(os.path.join(r, f), root)
+            p.replace(f"{root}\\", "")
             for r, _, files in os.walk(root)
             for f in files
-            if os.path.join(r, f) != path and os.path.join(r, f) not in extracted_archives
+            if (p := os.path.join(r, f)) not in extracted_archives
         ]
         log.debug(files_at_root)
         file_names = files_at_root

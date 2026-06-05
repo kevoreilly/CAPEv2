@@ -1,3 +1,9 @@
+### [05.06.2026]
+* Monitor updates:
+    * NtCreateUserProcess hook: Dynamically patch ping commandline to thwart ping delays (e.g. Formbook/Xloader)
+    * Debugger: Persistent software breakpoints via softbpmode=1 (default is one-shot)
+    * TLS capture improvements
+
 ### [01.06.2026]
 * Monitor update: Fix standalone mode broken since August
 

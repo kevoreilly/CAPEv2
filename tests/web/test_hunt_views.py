@@ -1,0 +1,182 @@
+from unittest.mock import MagicMock, patch
+import json
+import pytest
+from django.conf import settings
+from django.test import SimpleTestCase
+from analysis.views import enabledconf
+
+
+@pytest.mark.usefixtures("db")
+class TestHuntViews(SimpleTestCase):
+    def setUp(self):
+        self.original_mongodb_enabled = enabledconf["mongodb"]
+        self.original_hunt_enabled = getattr(settings, "HUNT_ENABLED", False)
+        settings.HUNT_ENABLED = True
+
+    def tearDown(self):
+        enabledconf["mongodb"] = self.original_mongodb_enabled
+        settings.HUNT_ENABLED = self.original_hunt_enabled
+
+    def test_hunt_page_requires_enabled_setting(self):
+        """If HUNT_ENABLED is set to False in settings (via web.conf), the page should render an error."""
+        settings.HUNT_ENABLED = False
+        response = self.client.get("/hunt/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("The Hunt/Threat Discovery feature is disabled in web.conf", response.content.decode())
+
+    def test_hunt_page_requires_mongodb(self):
+        """If MongoDB is disabled, the hunt page should render an error."""
+        enabledconf["mongodb"] = False
+        response = self.client.get("/hunt/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("MongoDB is required", response.content.decode())
+
+    @patch("analysis.views.mongo_aggregate")
+    def test_hunt_page_success_renders_template(self, mock_mongo_aggregate):
+        """The hunt page should render facets correctly after whitelisting system noise."""
+        enabledconf["mongodb"] = True
+
+        # Mock MongoDB returning aggregations with noise and signal
+        mock_mongo_aggregate.return_value = [{
+            "domains": [
+                {"_id": "malicious-c2.com", "count": 5, "task_ids": {101, 102}},
+                {"_id": "crl.microsoft.com", "count": 20, "task_ids": {101, 102}} # Should be whitelisted out
+            ],
+            "ips": [
+                {"_id": "185.190.140.1", "count": 4, "task_ids": {101, 102}},
+                {"_id": "127.0.0.1", "count": 10, "task_ids": {101}} # Private IP, should be whitelisted out
+            ],
+            "mutexes": [
+                {"_id": "EvilCampaignMutex", "count": 3, "task_ids": {101, 102}},
+                {"_id": "Local\\ZoneBaseMutex", "count": 15, "task_ids": {101}} # Whitelisted out
+            ],
+            "dropped_files": [
+                {"_id": "C:\\Windows\\Temp\\payload.exe", "count": 3, "task_ids": {101, 102}},
+                {"_id": "Device\\KsecDD", "count": 10, "task_ids": {101}} # Whitelisted out
+            ],
+            "executed_commands": [
+                {"_id": "powershell.exe -enc BADCODE", "count": 4, "task_ids": {101, 102}},
+                {"_id": "chcp", "count": 12, "task_ids": {101}} # Whitelisted out
+            ],
+            "registry_keys": [
+                {"_id": "HKCU\\Software\\EvilKey", "count": 3, "task_ids": {101, 102}},
+                {"_id": "HKLM\\SOFTWARE\\Microsoft\\CTF\\", "count": 14, "task_ids": {101}} # Whitelisted out
+            ],
+            "dropped_hashes": [
+                {"_id": "a" * 64, "count": 4, "task_ids": {101, 102}},
+                {"_id": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "count": 12, "task_ids": {101}} # Blank hash, should be filtered
+            ],
+            "procdump_hashes": [
+                {"_id": "b" * 64, "count": 3, "task_ids": {101, 102}},
+                {"_id": "invalid_hash_len", "count": 10, "task_ids": {101}} # Invalid hash length, filtered
+            ],
+            "extracted_hashes": [
+                {"_id": "c" * 64, "count": 5, "task_ids": {101, 102}}
+            ]
+        }]
+
+        response = self.client.get("/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=14")
+        self.assertEqual(response.status_code, 200)
+
+        html_content = response.content.decode()
+
+        # Check that title / elements are present
+        self.assertIn("Threat Discovery & Hunting", html_content)
+
+        # Check signal values are rendered
+        self.assertIn("malicious-c2.com", html_content)
+        self.assertIn("185.190.140.1", html_content)
+        self.assertIn("EvilCampaignMutex", html_content)
+        self.assertIn("payload.exe", html_content)
+        self.assertIn("powershell.exe -enc BADCODE", html_content)
+        self.assertIn("HKCU\\Software\\EvilKey", html_content)
+        self.assertIn("a" * 64, html_content)
+        self.assertIn("b" * 64, html_content)
+        self.assertIn("c" * 64, html_content)
+
+        # Ensure whitelisted / noise items are successfully filtered out and not rendered
+        self.assertNotIn("crl.microsoft.com", html_content)
+        self.assertNotIn("127.0.0.1", html_content)
+        self.assertNotIn("ZoneBaseMutex", html_content)
+        self.assertNotIn("Device\\KsecDD", html_content)
+        self.assertNotIn("HKLM\\SOFTWARE\\Microsoft\\CTF\\", html_content)
+        self.assertNotIn("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", html_content)
+        self.assertNotIn("invalid_hash_len", html_content)
+
+        # Verify query parameters are passed back to forms
+        self.assertIn('value="downloaded_by_"', html_content)
+        self.assertIn('value="2"', html_content)
+        # Select box selection option checked
+        self.assertIn('<option value="14" selected>Last 14 Days</option>', html_content)
+
+    @patch("analysis.views.mongo_aggregate")
+    def test_hunt_page_blank_prefix_works(self, mock_mongo_aggregate):
+        """When filename_prefix is left blank, the match query should skip the target.file.name check to allow global hunting."""
+        enabledconf["mongodb"] = True
+        mock_mongo_aggregate.return_value = [{}]
+
+        response = self.client.get("/hunt/?filename_prefix=&min_count=2&days_back=7")
+        self.assertEqual(response.status_code, 200)
+
+        # Ensure mongo_aggregate was called
+        self.assertTrue(mock_mongo_aggregate.called)
+        called_pipeline = mock_mongo_aggregate.call_args[0][1]
+
+        # Extract the $match stage from the pipeline
+        match_stage = called_pipeline[0]["$match"]
+
+        # Assert that 'target.file.name' was omitted from the match query
+        self.assertNotIn("target.file.name", match_stage)
+        self.assertIn("malfamily", match_stage)
+        self.assertIn("detections", match_stage)
+        self.assertIn("info.started", match_stage)
+        self.assertEqual(match_stage["detections"], {"$exists": False})
+
+    @patch("analysis.views.mongo_aggregate")
+    def test_hunt_page_ignore_detections_toggle_works(self, mock_mongo_aggregate):
+        """When ignore_detections is toggled ON, the query should completely skip malfamily and detections filters."""
+        enabledconf["mongodb"] = True
+        mock_mongo_aggregate.return_value = [{}]
+
+        # Send ignore_detections=on (standard GET form checkbox format)
+        response = self.client.get("/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=7&ignore_detections=on")
+        self.assertEqual(response.status_code, 200)
+
+        # Ensure mongo_aggregate was called
+        self.assertTrue(mock_mongo_aggregate.called)
+        called_pipeline = mock_mongo_aggregate.call_args[0][1]
+
+        # Extract the $match stage from the pipeline
+        match_stage = called_pipeline[0]["$match"]
+
+        # Assert that 'malfamily' and 'detections' were skipped
+        self.assertNotIn("malfamily", match_stage)
+        self.assertNotIn("detections", match_stage)
+        self.assertIn("target.file.name", match_stage)
+
+    @patch("analysis.views.db.session.get")
+    @patch("analysis.views.db.session.commit")
+    def test_tag_tasks_endpoint_works(self, mock_commit, mock_get):
+        """The tag_tasks API should properly add and append custom tags to SQL Task entries."""
+        # Mock Task SQL object
+        mock_task = MagicMock()
+        mock_task.tags_tasks = "existing_tag"
+        mock_get.return_value = mock_task
+
+        payload = {"task_ids": [101, 102], "tag": "New_Campaign"}
+        response = self.client.post(
+            "/hunt/tag/",
+            data=json.dumps(payload),
+            content_type="application/json"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # Verify returned JSON response
+        data = response.json()
+        self.assertEqual(data["status"], "success")
+        self.assertEqual(data["tag"], "New_Campaign")
+        self.assertEqual(data["updated_count"], 2)
+
+        # Verify SQL updates happened and the tag was appended to the list correctly
+        self.assertEqual(mock_task.tags_tasks, "existing_tag,New_Campaign")
+        self.assertTrue(mock_commit.called)

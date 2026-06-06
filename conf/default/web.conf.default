@@ -274,3 +274,7 @@ enabled = no
 [display_authenticode]
 # Show Authenticode certificate chain card on the analysis overview tab
 enabled = no
+
+[hunt]
+# Proactively discover new emerging campaigns by grouping undetected analyses by shared indicators
+enabled = no

@@ -4129,3 +4129,301 @@ def failed_processing(request, task_id):
         "process_log": log_content,
         "settings": settings,
     })
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def hunt(request):
+    if not settings.HUNT_ENABLED:
+        return render(request, "error.html", {"error": "The Hunt/Threat Discovery feature is disabled in web.conf."})
+
+    if not enabledconf["mongodb"]:
+        return render(request, "error.html", {"error": "MongoDB is required for the Hunt/Threat Discovery feature."})
+
+    import ipaddress
+    import re
+    from data.safelist.domains import domain_passlist, domain_passlist_re
+    from data.safelist.replacepatterns import FILES_DENYLIST, FILES_ENDING_DENYLIST, MUTEX_DENYLIST
+
+    filename_prefix = request.GET.get("filename_prefix", "downloaded_by_")
+    min_count = request.GET.get("min_count", "3")
+    days_back = request.GET.get("days_back", "14")
+    ignore_detections = request.GET.get("ignore_detections") == "on"
+    try:
+        min_count = int(min_count)
+    except ValueError:
+        min_count = 3
+    try:
+        days_back = int(days_back)
+    except ValueError:
+        days_back = 14
+
+    # Define validation filters
+    def is_valid_domain(domain):
+        if not domain or not isinstance(domain, str):
+            return False
+        domain_lower = domain.lower()
+        for safe in domain_passlist:
+            if domain_lower == safe or domain_lower.endswith("." + safe):
+                return False
+        for safe_re in domain_passlist_re:
+            try:
+                if re.match(safe_re, domain_lower, re.IGNORECASE):
+                    return False
+            except Exception:
+                pass
+        return True
+
+    def is_valid_ip(ip):
+        if not ip or not isinstance(ip, str):
+            return False
+        try:
+            ip_obj = ipaddress.ip_address(ip)
+            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_multicast or ip_obj.is_link_local:
+                return False
+            if ip in ("8.8.8.8", "8.8.4.4", "1.1.1.1", "9.9.9.9", "208.67.222.222", "208.67.220.220"):
+                return False
+        except ValueError:
+            return False
+        return True
+
+    def is_valid_file(file_path):
+        if not file_path or not isinstance(file_path, str):
+            return False
+        file_path_lower = file_path.lower()
+        for item in FILES_DENYLIST:
+            if item.lower() in file_path_lower:
+                return False
+        for item in FILES_ENDING_DENYLIST:
+            if file_path_lower.endswith(item.lower()):
+                return False
+        return True
+
+    def is_valid_hash(h):
+        if not h or not isinstance(h, str):
+            return False
+        if h in ("d41d8cd98f00b204e9800998ecf8427e", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"):
+            return False
+        if len(h) != 64:
+            return False
+        return True
+
+    # Common system mutexes that generate noise
+    noisy_mutexes = [
+        "Local\\ZoneBaseMutex", "CTF.Asm.Mutex", "Global\\Access_Registry_Mutex",
+        "Local\\__wf_mut__", "cuckoo_mutex", "Local\\_Global_", "Local\\MS-LanguageProfile"
+    ]
+    def is_valid_mutex(mutex):
+        if not mutex or not isinstance(mutex, str):
+            return False
+        mutex_lower = mutex.lower()
+        for m in MUTEX_DENYLIST:
+            if m.lower() in mutex_lower:
+                return False
+        for m in noisy_mutexes:
+            if m.lower() in mutex_lower:
+                return False
+        return True
+
+    noisy_registry_substrings = [
+        "Controlset001\\Control\\Lsa",
+        "Cryptography\\Providers",
+        "System\\CurrentControlSet\\Control\\Nls",
+        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Font",
+        "SOFTWARE\\Microsoft\\CTF\\",
+        "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2"
+    ]
+    def is_valid_registry(key):
+        if not key or not isinstance(key, str):
+            return False
+        key_lower = key.lower()
+        for sub in noisy_registry_substrings:
+            if sub.lower() in key_lower:
+                return False
+        return True
+
+    noisy_command_substrings = [
+        "chcp", "reg query", "sc query", "net start", "tasklist"
+    ]
+    def is_valid_command(cmd):
+        if not cmd or not isinstance(cmd, str):
+            return False
+        cmd_lower = cmd.lower()
+        for sub in noisy_command_substrings:
+            if sub.lower() in cmd_lower:
+                return False
+        return True
+
+    # Clean prefix to avoid double caret and force strict case-sensitive Prefix Match.
+    # MongoDB B-Tree indexes are ONLY fully utilized by regex if it is anchored at the start (^)
+    # and case-sensitive (no $options: "i").
+    clean_prefix = filename_prefix.lstrip("^").strip()
+
+    # Build match query with optional date filters for performance
+    match_query = {}
+
+    if not ignore_detections:
+        match_query["malfamily"] = {"$exists": False}
+        match_query["detections"] = {"$exists": False}
+
+    if clean_prefix:
+        match_query["target.file.name"] = {"$regex": f"^{clean_prefix}"}
+
+    if days_back > 0:
+        import datetime
+        delta = datetime.timedelta(days=days_back)
+        start_date = (datetime.datetime.utcnow() - delta).strftime("%Y-%m-%d %H:%M:%S")
+        match_query["info.started"] = {"$gte": start_date}
+
+    # MongoDB Pipeline using $facet for multi-category aggregation
+    pipeline = [
+        {"$match": match_query},
+        {"$facet": {
+            "domains": [
+                {"$unwind": "$network.domains"},
+                {"$group": {"_id": "$network.domains.domain", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ],
+            "ips": [
+                {"$unwind": "$network.hosts"},
+                {"$group": {"_id": "$network.hosts.ip", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ],
+            "mutexes": [
+                {"$unwind": "$behavior.summary.mutexes"},
+                {"$group": {"_id": "$behavior.summary.mutexes", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ],
+            "dropped_files": [
+                {"$unwind": "$behavior.summary.files"},
+                {"$group": {"_id": "$behavior.summary.files", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ],
+            "executed_commands": [
+                {"$unwind": "$behavior.summary.executed_commands"},
+                {"$group": {"_id": "$behavior.summary.executed_commands", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ],
+            "registry_keys": [
+                {"$unwind": "$behavior.summary.keys"},
+                {"$group": {"_id": "$behavior.summary.keys", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ],
+            "dropped_hashes": [
+                {"$unwind": "$dropped"},
+                {"$group": {"_id": "$dropped.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ],
+            "procdump_hashes": [
+                {"$unwind": "$procdump"},
+                {"$group": {"_id": "$procdump.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ],
+            "extracted_hashes": [
+                {"$unwind": "$extracted"},
+                {"$group": {"_id": "$extracted.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": {"count": {"$gte": min_count}}},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ]
+        }}
+    ]
+
+    try:
+        res = list(mongo_aggregate("analysis", pipeline))
+        facets = res[0] if res else {}
+    except Exception as e:
+        return render(request, "error.html", {"error": f"Threat hunting aggregation failed: {e}"})
+
+    # Apply noise whitelists
+    raw_domains = facets.get("domains", [])
+    raw_ips = facets.get("ips", [])
+    raw_mutexes = facets.get("mutexes", [])
+    raw_files = facets.get("dropped_files", [])
+    raw_commands = facets.get("executed_commands", [])
+    raw_keys = facets.get("registry_keys", [])
+    raw_dropped_hashes = facets.get("dropped_hashes", [])
+    raw_procdump_hashes = facets.get("procdump_hashes", [])
+    raw_extracted_hashes = facets.get("extracted_hashes", [])
+
+    clean_facets = {
+        "domains": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_domains if is_valid_domain(item["_id"])][:15],
+        "ips": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_ips if is_valid_ip(item["_id"])][:15],
+        "mutexes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_mutexes if is_valid_mutex(item["_id"])][:15],
+        "dropped_files": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_files if is_valid_file(item["_id"])][:15],
+        "executed_commands": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_commands if is_valid_command(item["_id"])][:15],
+        "registry_keys": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_keys if is_valid_registry(item["_id"])][:15],
+        "dropped_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_dropped_hashes if is_valid_hash(item["_id"])][:15],
+        "procdump_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_procdump_hashes if is_valid_hash(item["_id"])][:15],
+        "extracted_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_extracted_hashes if is_valid_hash(item["_id"])][:15],
+    }
+
+    return render(request, "analysis/hunt.html", {
+        "facets": clean_facets,
+        "filename_prefix": filename_prefix,
+        "min_count": min_count,
+        "days_back": days_back,
+        "ignore_detections": ignore_detections,
+        "settings": settings,
+    })
+
+
+from django.views.decorators.http import require_POST
+from django.views.decorators.csrf import csrf_exempt
+from django.http import JsonResponse
+import json
+
+@csrf_exempt
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def tag_tasks(request):
+    try:
+        data = json.loads(request.body)
+    except ValueError:
+        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    task_ids = data.get("task_ids", [])
+    tag = data.get("tag", "").strip()
+
+    if not task_ids or not tag:
+        return JsonResponse({"status": "error", "message": "Missing task_ids or tag"}, status=400)
+
+    # Sanitize tag string (alphanumeric, underscores, hyphens)
+    tag = "".join(c for c in tag if c.isalnum() or c in ("_", "-")).strip()
+    if not tag:
+        return JsonResponse({"status": "error", "message": "Invalid tag string"}, status=400)
+
+    from lib.cuckoo.core.data.task import Task
+    updated_count = 0
+    try:
+        for tid in task_ids:
+            task = db.session.get(Task, int(tid))
+            if task:
+                existing_tags = task.tags_tasks or ""
+                current_tags = [t.strip() for t in existing_tags.split(",") if t.strip()]
+                if tag not in current_tags:
+                    current_tags.append(tag)
+                    task.tags_tasks = ",".join(current_tags)
+                    updated_count += 1
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return JsonResponse({"status": "error", "message": f"Database update failed: {e}"}, status=500)
+
+    return JsonResponse({"status": "success", "updated_count": updated_count, "tag": tag})

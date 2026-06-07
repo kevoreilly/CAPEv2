@@ -22,7 +22,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, get_memdump_path
 from lib.cuckoo.core.database import Database, _Database
-from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING, Task
+from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING, TASK_FAILED_ANALYSIS, Task
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.data.guests import Guest
 from lib.cuckoo.core.guest import GuestManager

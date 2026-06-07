@@ -446,12 +446,12 @@ class TestAnalysisManager:
     ):
         """Verify that machine_running stops and releases the machine even if an unhandled exception is raised in yield."""
         analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
-        
+
         # Mock machinery manager functions
         mock_start = mocker.patch.object(machinery_manager, "start_machine")
         mock_stop = mocker.patch.object(machinery_manager, "stop_machine")
         mock_release = mocker.patch.object(machinery_manager.machinery, "release")
-        
+
         guest = Guest()
         guest.id = 123
         analysis_man.guest = guest
@@ -470,7 +470,7 @@ class TestAnalysisManager:
     ):
         """Verify that launch_analysis handles unexpected exceptions by setting status to failed and unlocking the machine."""
         analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
-        
+
         # Force perform_analysis to raise an unhandled exception
         mocker.patch.object(analysis_man, "perform_analysis", side_effect=RuntimeError("Unexpected perform_analysis error"))
         mock_unlock = mocker.patch.object(db, "unlock_machine")

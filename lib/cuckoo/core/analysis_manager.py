@@ -341,13 +341,11 @@ class AnalysisManager(threading.Thread):
             raise CuckooDeadMachine(self.machine.name) from e
         finally:
             if not is_dead:
-                with self.db.session.begin():
-                    try:
+                try:
+                    with self.db.session.begin():
                         self.machinery_manager.stop_machine(self.machine)
-                    except CuckooMachineError as e:
-                        self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
-                        # Explicitly rollback since we don't re-raise the exception.
-                        self.db.session.rollback()
+                except CuckooMachineError as e:
+                    self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
 
                 try:
                     # Release the analysis machine, but only if the machine is not dead.

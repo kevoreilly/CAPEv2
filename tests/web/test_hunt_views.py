@@ -50,11 +50,13 @@ class TestHuntViews(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("The hunt.json configuration file is missing", response.content.decode())
 
+    @patch("lib.cuckoo.common.hunting.os.path.getmtime")
     @patch("lib.cuckoo.common.hunting.os.path.exists")
     @patch("lib.cuckoo.common.hunting.open")
-    def test_hunt_page_error_when_config_invalid(self, mock_open, mock_exists):
+    def test_hunt_page_error_when_config_invalid(self, mock_open, mock_exists, mock_getmtime):
         """If hunt.json contains invalid syntax, log detailed tracebacks internally and render a secure error page."""
         mock_exists.return_value = True
+        mock_getmtime.return_value = 12345678.0
         mock_open.side_effect = ValueError("Invalid JSON syntax")
         enabledconf["mongodb"] = True
         response = self.client.get("/analysis/hunt/")

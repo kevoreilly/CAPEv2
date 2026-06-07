@@ -41,7 +41,7 @@ class TestHuntViews(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("An all-time global hunt with no filename prefix is not allowed", response.content.decode())
 
-    @patch("analysis.views.mongo_aggregate")
+    @patch("analysis.views.mongo_aggregate", create=True)
     def test_hunt_page_success_renders_template(self, mock_mongo_aggregate):
         """The hunt page should render facets correctly after whitelisting system noise."""
         enabledconf["mongodb"] = True
@@ -119,7 +119,7 @@ class TestHuntViews(SimpleTestCase):
         # Select box selection option checked
         self.assertIn('<option value="14" selected>Last 14 Days</option>', html_content)
 
-    @patch("analysis.views.mongo_aggregate")
+    @patch("analysis.views.mongo_aggregate", create=True)
     def test_hunt_page_blank_prefix_works(self, mock_mongo_aggregate):
         """When filename_prefix is left blank, the match query should skip the target.file.name check to allow global hunting."""
         enabledconf["mongodb"] = True
@@ -142,7 +142,7 @@ class TestHuntViews(SimpleTestCase):
         self.assertIn("info.started", match_stage)
         self.assertEqual(match_stage["detections"], {"$exists": False})
 
-    @patch("analysis.views.mongo_aggregate")
+    @patch("analysis.views.mongo_aggregate", create=True)
     def test_hunt_page_ignore_detections_toggle_works(self, mock_mongo_aggregate):
         """When ignore_detections is toggled ON, the query should completely skip malfamily and detections filters."""
         enabledconf["mongodb"] = True
@@ -192,7 +192,7 @@ class TestHuntViews(SimpleTestCase):
         # Verify commit happened
         self.assertTrue(mock_commit.called)
 
-    @patch("analysis.views.mongo_aggregate")
+    @patch("analysis.views.mongo_aggregate", create=True)
     def test_hunt_page_category_filtering_works(self, mock_mongo_aggregate):
         """The hunt page should dynamically construct pipeline facets based on untoggled category checkboxes."""
         enabledconf["mongodb"] = True

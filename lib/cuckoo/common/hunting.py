@@ -4,7 +4,6 @@ import os
 import re
 import json
 
-from dev_utils.mongo_hooks import FILE_REF_KEY
 from data.safelist.domains import domain_passlist, domain_passlist_re
 from data.safelist.replacepatterns import FILES_DENYLIST, FILES_ENDING_DENYLIST, MUTEX_DENYLIST
 
@@ -182,11 +181,11 @@ def load_hunt_map(min_count: int = 3):
         if os.path.exists(path):
             try:
                 current_mtime = os.path.getmtime(path)
-                
+
                 # Cache Hit: If cached configuration matches this path and modification time, return instantly!
                 if _CACHED_HUNT_MAP is not None and _CACHED_HUNT_PATH == path and _CACHED_HUNT_MTIME == current_mtime:
                     return _CACHED_HUNT_MAP, VALIDATORS
-                
+
                 # Cache Miss: Parse the JSON file
                 with open(path, "r") as f:
                     raw_map = json.load(f)
@@ -195,23 +194,23 @@ def load_hunt_map(min_count: int = 3):
                         for cat_id, cat_config in raw_map.items():
                             val_func_name = cat_config.get("validator", "is_valid_string")
                             cat_config["validator"] = VALIDATORS.get(val_func_name, lambda x: isinstance(x, str) and bool(x))
-                            
+
                             # Dynamically replace min_count placeholders inside the custom db_match if present
                             if "db_match" in cat_config:
                                 if "count" in cat_config["db_match"] and "$gte" in cat_config["db_match"]["count"]:
                                     cat_config["db_match"]["count"]["$gte"] = min_count
-                            
+
                             temp_map[cat_id] = cat_config
-                        
+
                         # Save to cache
                         _CACHED_HUNT_MAP = temp_map
                         _CACHED_HUNT_MTIME = current_mtime
                         _CACHED_HUNT_PATH = path
-                        
+
                         return _CACHED_HUNT_MAP, VALIDATORS
             except Exception as e:
                 # Log detailed traceback of corrupted file, but proceed to fallback paths
-                log.error("Failed to load hunting configuration from %s: %s", path, e, exc_info=True)
+                log.exception("Failed to load hunting configuration from %s: %s", path, e)
                 has_invalid_syntax = True
 
     # If no configuration file could be loaded successfully

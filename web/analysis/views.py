@@ -10,7 +10,6 @@ import os
 import re
 import subprocess
 import sys
-import ipaddress
 import tempfile
 import zipfile
 from contextlib import suppress
@@ -52,8 +51,6 @@ from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
 # Import for now, but we already doing cleanup on processing
-from data.safelist.domains import domain_passlist, domain_passlist_re
-from data.safelist.replacepatterns import FILES_DENYLIST, FILES_ENDING_DENYLIST, MUTEX_DENYLIST
 
 try:
     from django_ratelimit.decorators import ratelimit

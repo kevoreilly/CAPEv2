@@ -474,6 +474,7 @@ class TestAnalysisManager:
         # Force perform_analysis to raise an unhandled exception
         mocker.patch.object(analysis_man, "perform_analysis", side_effect=RuntimeError("Unexpected perform_analysis error"))
         mock_unlock = mocker.patch.object(db, "unlock_machine")
+        mock_log_exception = mocker.patch.object(analysis_man.log, "exception")
 
         with pytest.raises(RuntimeError, match="Unexpected perform_analysis error"):
             analysis_man.launch_analysis()
@@ -483,3 +484,4 @@ class TestAnalysisManager:
             db.session.refresh(task)
             assert task.status == TASK_FAILED_ANALYSIS
         assert mock_unlock.called
+        assert mock_log_exception.called

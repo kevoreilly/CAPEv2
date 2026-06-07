@@ -481,7 +481,7 @@ class TestAnalysisManager:
 
         # Verify task is flagged failed and machine is unlocked
         with db.session.begin():
-            db.session.refresh(task)
-            assert task.status == TASK_FAILED_ANALYSIS
+            db_task = db.view_task(task.id)
+            assert db_task.status == TASK_FAILED_ANALYSIS
         assert mock_unlock.called
         assert mock_log_exception.called

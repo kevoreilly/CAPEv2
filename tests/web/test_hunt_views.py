@@ -11,30 +11,33 @@ class TestHuntViews(SimpleTestCase):
     def setUp(self):
         self.original_mongodb_enabled = enabledconf["mongodb"]
         self.original_hunt_enabled = getattr(settings, "HUNT_ENABLED", False)
+        self.original_web_auth = getattr(settings, "WEB_AUTHENTICATION", False)
         settings.HUNT_ENABLED = True
+        settings.WEB_AUTHENTICATION = False
 
     def tearDown(self):
         enabledconf["mongodb"] = self.original_mongodb_enabled
         settings.HUNT_ENABLED = self.original_hunt_enabled
+        settings.WEB_AUTHENTICATION = self.original_web_auth
 
     def test_hunt_page_requires_enabled_setting(self):
         """If HUNT_ENABLED is set to False in settings (via web.conf), the page should render an error."""
         settings.HUNT_ENABLED = False
-        response = self.client.get("/hunt/")
+        response = self.client.get("/analysis/hunt/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("The Hunt/Threat Discovery feature is disabled in web.conf", response.content.decode())
 
     def test_hunt_page_requires_mongodb(self):
         """If MongoDB is disabled, the hunt page should render an error."""
         enabledconf["mongodb"] = False
-        response = self.client.get("/hunt/")
+        response = self.client.get("/analysis/hunt/")
         self.assertEqual(response.status_code, 200)
         self.assertIn("MongoDB is required", response.content.decode())
 
     def test_hunt_page_prevents_global_all_time_hunt(self):
         """If filename_prefix is blank and days_back is set to 0 (All Time), render a database performance safeguard error."""
         enabledconf["mongodb"] = True
-        response = self.client.get("/hunt/?filename_prefix=&days_back=0")
+        response = self.client.get("/analysis/hunt/?filename_prefix=&days_back=0")
         self.assertEqual(response.status_code, 200)
         self.assertIn("An all-time global hunt with no filename prefix is not allowed", response.content.decode())
 
@@ -82,7 +85,7 @@ class TestHuntViews(SimpleTestCase):
             ]
         }]
 
-        response = self.client.get("/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=14")
+        response = self.client.get("/analysis/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=14")
         self.assertEqual(response.status_code, 200)
 
         html_content = response.content.decode()
@@ -122,7 +125,7 @@ class TestHuntViews(SimpleTestCase):
         enabledconf["mongodb"] = True
         mock_mongo_aggregate.return_value = [{}]
 
-        response = self.client.get("/hunt/?filename_prefix=&min_count=2&days_back=7")
+        response = self.client.get("/analysis/hunt/?filename_prefix=&min_count=2&days_back=7")
         self.assertEqual(response.status_code, 200)
 
         # Ensure mongo_aggregate was called
@@ -146,7 +149,7 @@ class TestHuntViews(SimpleTestCase):
         mock_mongo_aggregate.return_value = [{}]
 
         # Send ignore_detections=on (standard GET form checkbox format)
-        response = self.client.get("/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=7&ignore_detections=on")
+        response = self.client.get("/analysis/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=7&ignore_detections=on")
         self.assertEqual(response.status_code, 200)
 
         # Ensure mongo_aggregate was called
@@ -172,7 +175,7 @@ class TestHuntViews(SimpleTestCase):
 
         payload = {"task_ids": [101, 102], "tag": "New_Campaign"}
         response = self.client.post(
-            "/hunt/tag/",
+            "/analysis/hunt/tag/",
             data=json.dumps(payload),
             content_type="application/json"
         )
@@ -196,7 +199,7 @@ class TestHuntViews(SimpleTestCase):
 
         # Submit form with only cat_domains and cat_ips enabled (others default to false when form submitted)
         response = self.client.get(
-            "/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=7&cat_domains=on&cat_ips=on"
+            "/analysis/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=7&cat_domains=on&cat_ips=on"
         )
         self.assertEqual(response.status_code, 200)
 

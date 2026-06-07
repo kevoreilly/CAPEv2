@@ -327,10 +327,11 @@ class GuestManager:
         # If the target is a file, upload it to the guest.
         if options["category"] in ("file", "archive"):
             # Use the correct os.sep in the filepath based on what OS this file is destined for
+            # Store the sample in a unique per-task subdirectory instead of %TEMP%\<filename> to prevent guest path collisions
             if self.platform == "windows":
-                filepath = ntpath.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
+                filepath = ntpath.join(self.determine_temp_path(), str(options["id"]), sanitize_filename(options["file_name"]))
             else:
-                filepath = os.path.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
+                filepath = os.path.join(self.determine_temp_path(), str(options["id"]), sanitize_filename(options["file_name"]))
             data = {"filepath": filepath}
             files = {
                 "file": ("sample.bin", open(sample_path, "rb")),

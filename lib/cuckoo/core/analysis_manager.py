@@ -309,6 +309,7 @@ class AnalysisManager(threading.Thread):
     def machine_running(self) -> Generator[None, None, None]:
         assert self.machinery_manager and self.machine and self.guest
 
+        is_dead = False
         try:
             with self.db.session.begin():
                 self.machinery_manager.start_machine(self.machine)
@@ -319,6 +320,7 @@ class AnalysisManager(threading.Thread):
             self.dump_machine_memory()
 
         except (CuckooMachineError, CuckooGuestCriticalTimeout) as e:
+            is_dead = True
             # This machine has turned dead, so we'll throw an exception
             # which informs the AnalysisManager that it should analyze
             # this task again with another available machine.
@@ -337,25 +339,26 @@ class AnalysisManager(threading.Thread):
             shutil.rmtree(self.storage)
 
             raise CuckooDeadMachine(self.machine.name) from e
+        finally:
+            if not is_dead:
+                with self.db.session.begin():
+                    try:
+                        self.machinery_manager.stop_machine(self.machine)
+                    except CuckooMachineError as e:
+                        self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
+                        # Explicitly rollback since we don't re-raise the exception.
+                        self.db.session.rollback()
 
-        with self.db.session.begin():
-            try:
-                self.machinery_manager.stop_machine(self.machine)
-            except CuckooMachineError as e:
-                self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
-                # Explicitly rollback since we don't re-raise the exception.
-                self.db.session.rollback()
-
-        try:
-            # Release the analysis machine, but only if the machine is not dead.
-            with self.db.session.begin():
-                self.machinery_manager.machinery.release(self.machine)
-        except CuckooMachineError as e:
-            self.log.error(
-                "Unable to release machine %s, reason %s. You might need to restore it manually",
-                self.machine.label,
-                e,
-            )
+                try:
+                    # Release the analysis machine, but only if the machine is not dead.
+                    with self.db.session.begin():
+                        self.machinery_manager.machinery.release(self.machine)
+                except CuckooMachineError as e:
+                    self.log.error(
+                        "Unable to release machine %s, reason %s. You might need to restore it manually",
+                        self.machine.label,
+                        e,
+                    )
 
     def dump_machine_memory(self) -> None:
         if not self.cfg.cuckoo.memory_dump and not self.task.memory:
@@ -481,6 +484,13 @@ class AnalysisManager(threading.Thread):
             with self.db.session.begin():
                 # Put the task back in pending so that the schedule can attempt to choose a new machine.
                 self.db.set_status(self.task.id, TASK_PENDING)
+            raise
+        except Exception as e:
+            self.log.exception("Unexpected exception during analysis: %s", e)
+            with self.db.session.begin():
+                self.db.set_status(self.task.id, TASK_FAILED_ANALYSIS)
+                if hasattr(self, "machine") and self.machine:
+                    self.db.unlock_machine(self.machine)
             raise
         else:
             with self.db.session.begin():

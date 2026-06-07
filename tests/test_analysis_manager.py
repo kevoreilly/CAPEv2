@@ -452,7 +452,7 @@ class TestAnalysisManager:
         mock_stop = mocker.patch.object(machinery_manager, "stop_machine")
         mock_release = mocker.patch.object(machinery_manager.machinery, "release")
 
-        guest = Guest()
+        guest = mocker.MagicMock()
         guest.id = 123
         analysis_man.guest = guest
 

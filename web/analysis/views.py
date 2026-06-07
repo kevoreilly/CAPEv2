@@ -4158,6 +4158,19 @@ def hunt(request):
     except ValueError:
         days_back = 14
 
+    is_submitted = "min_count" in request.GET or "filename_prefix" in request.GET
+    categories = {
+        "domains": True if not is_submitted else (request.GET.get("cat_domains") == "on"),
+        "ips": True if not is_submitted else (request.GET.get("cat_ips") == "on"),
+        "mutexes": True if not is_submitted else (request.GET.get("cat_mutexes") == "on"),
+        "dropped_files": True if not is_submitted else (request.GET.get("cat_files") == "on"),
+        "executed_commands": True if not is_submitted else (request.GET.get("cat_commands") == "on"),
+        "registry_keys": True if not is_submitted else (request.GET.get("cat_registry") == "on"),
+        "dropped_hashes": True if not is_submitted else (request.GET.get("cat_dropped_hashes") == "on"),
+        "procdump_hashes": True if not is_submitted else (request.GET.get("cat_procdump_hashes") == "on"),
+        "extracted_hashes": True if not is_submitted else (request.GET.get("cat_extracted_hashes") == "on"),
+    }
+
     # Define validation filters
     def is_valid_domain(domain):
         if not domain or not isinstance(domain, str):
@@ -4275,79 +4288,94 @@ def hunt(request):
         start_date = (datetime.datetime.utcnow() - delta).strftime("%Y-%m-%d %H:%M:%S")
         match_query["info.started"] = {"$gte": start_date}
 
+    # Dynamic multi-category aggregation
+    facet_stages = {}
+    if categories["domains"]:
+        facet_stages["domains"] = [
+            {"$unwind": "$network.domains"},
+            {"$group": {"_id": "$network.domains.domain", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["ips"]:
+        facet_stages["ips"] = [
+            {"$unwind": "$network.hosts"},
+            {"$group": {"_id": "$network.hosts.ip", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["mutexes"]:
+        facet_stages["mutexes"] = [
+            {"$unwind": "$behavior.summary.mutexes"},
+            {"$group": {"_id": "$behavior.summary.mutexes", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["dropped_files"]:
+        facet_stages["dropped_files"] = [
+            {"$unwind": "$behavior.summary.files"},
+            {"$group": {"_id": "$behavior.summary.files", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["executed_commands"]:
+        facet_stages["executed_commands"] = [
+            {"$unwind": "$behavior.summary.executed_commands"},
+            {"$group": {"_id": "$behavior.summary.executed_commands", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["registry_keys"]:
+        facet_stages["registry_keys"] = [
+            {"$unwind": "$behavior.summary.keys"},
+            {"$group": {"_id": "$behavior.summary.keys", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["dropped_hashes"]:
+        facet_stages["dropped_hashes"] = [
+            {"$unwind": "$dropped"},
+            {"$group": {"_id": "$dropped.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["procdump_hashes"]:
+        facet_stages["procdump_hashes"] = [
+            {"$unwind": "$procdump"},
+            {"$group": {"_id": "$procdump.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["extracted_hashes"]:
+        facet_stages["extracted_hashes"] = [
+            {"$unwind": "$extracted"},
+            {"$group": {"_id": "$extracted.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+
     # MongoDB Pipeline using $facet for multi-category aggregation
     pipeline = [
-        {"$match": match_query},
-        {"$facet": {
-            "domains": [
-                {"$unwind": "$network.domains"},
-                {"$group": {"_id": "$network.domains.domain", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ],
-            "ips": [
-                {"$unwind": "$network.hosts"},
-                {"$group": {"_id": "$network.hosts.ip", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ],
-            "mutexes": [
-                {"$unwind": "$behavior.summary.mutexes"},
-                {"$group": {"_id": "$behavior.summary.mutexes", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ],
-            "dropped_files": [
-                {"$unwind": "$behavior.summary.files"},
-                {"$group": {"_id": "$behavior.summary.files", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ],
-            "executed_commands": [
-                {"$unwind": "$behavior.summary.executed_commands"},
-                {"$group": {"_id": "$behavior.summary.executed_commands", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ],
-            "registry_keys": [
-                {"$unwind": "$behavior.summary.keys"},
-                {"$group": {"_id": "$behavior.summary.keys", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ],
-            "dropped_hashes": [
-                {"$unwind": "$dropped"},
-                {"$group": {"_id": "$dropped.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ],
-            "procdump_hashes": [
-                {"$unwind": "$procdump"},
-                {"$group": {"_id": "$procdump.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ],
-            "extracted_hashes": [
-                {"$unwind": "$extracted"},
-                {"$group": {"_id": "$extracted.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": {"count": {"$gte": min_count}}},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ]
-        }}
+        {"$match": match_query}
     ]
+    if facet_stages:
+        pipeline.append({"$facet": facet_stages})
 
     try:
-        res = list(mongo_aggregate("analysis", pipeline))
-        facets = res[0] if res else {}
+        if facet_stages:
+            res = list(mongo_aggregate("analysis", pipeline))
+            facets = res[0] if res else {}
+        else:
+            facets = {}
     except Exception as e:
         return render(request, "error.html", {"error": f"Threat hunting aggregation failed: {e}"})
 
@@ -4380,6 +4408,7 @@ def hunt(request):
         "min_count": min_count,
         "days_back": days_back,
         "ignore_detections": ignore_detections,
+        "categories": categories,
         "settings": settings,
     })
 

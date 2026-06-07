@@ -48,6 +48,47 @@
                     <div class="col-md-2 d-flex align-items-end">
                         <button class="btn btn-outline-info w-100" type="submit"><i class="fas fa-binoculars me-1"></i> Hunt</button>
                     </div>
+
+                    <!-- Dynamic Category Toggles -->
+                    <div class="col-12 mt-3 pt-3 border-top border-secondary">
+                        <span class="text-white-50 me-3 font-weight-bold" style="font-size: 0.85rem;"><i class="fas fa-filter me-1 text-info"></i> Target Categories:</span>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_domains" name="cat_domains" {% if categories.domains %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_domains">Domains</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_ips" name="cat_ips" {% if categories.ips %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_ips">IPs</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_mutexes" name="cat_mutexes" {% if categories.mutexes %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_mutexes">Mutexes</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_files" name="cat_files" {% if categories.dropped_files %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_files">Dropped Files</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_commands" name="cat_commands" {% if categories.executed_commands %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_commands">Commands</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_registry" name="cat_registry" {% if categories.registry_keys %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_registry">Registry Keys</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_dropped_hashes" name="cat_dropped_hashes" {% if categories.dropped_hashes %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_dropped_hashes">Dropped Hashes</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_procdump_hashes" name="cat_procdump_hashes" {% if categories.procdump_hashes %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_procdump_hashes">Memory Hashes</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_extracted_hashes" name="cat_extracted_hashes" {% if categories.extracted_hashes %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_extracted_hashes">Extracted Hashes</label>
+                        </div>
+                    </div>
                 </form>
             </div>
         </div>
@@ -56,6 +97,7 @@
 
 <div class="row">
     <!-- Network Domains -->
+    {% if categories.domains %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -97,8 +139,10 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Network IPs -->
+    {% if categories.ips %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -140,8 +184,10 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Mutexes -->
+    {% if categories.mutexes %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -179,8 +225,10 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Dropped Files -->
+    {% if categories.dropped_files %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -218,8 +266,10 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Executed Commands -->
+    {% if categories.executed_commands %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -257,8 +307,10 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Registry Keys -->
+    {% if categories.registry_keys %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -296,8 +348,10 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Dropped File Hashes -->
+    {% if categories.dropped_hashes %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -339,8 +393,10 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Unpacked Process Memory Dumps -->
+    {% if categories.procdump_hashes %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -382,8 +438,10 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Extracted Payload Hashes -->
+    {% if categories.extracted_hashes %}
     <div class="col-md-6 col-lg-4 mb-4">
         <div class="card bg-dark shadow-sm border-secondary h-100">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
@@ -425,6 +483,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 </div>
 
 <script>

@@ -180,3 +180,41 @@ class TestHuntViews(SimpleTestCase):
         # Verify SQL updates happened and the tag was appended to the list correctly
         self.assertEqual(mock_task.tags_tasks, "existing_tag,New_Campaign")
         self.assertTrue(mock_commit.called)
+
+    @patch("analysis.views.mongo_aggregate")
+    def test_hunt_page_category_filtering_works(self, mock_mongo_aggregate):
+        """The hunt page should dynamically construct pipeline facets based on untoggled category checkboxes."""
+        enabledconf["mongodb"] = True
+        mock_mongo_aggregate.return_value = [{}]
+
+        # Submit form with only cat_domains and cat_ips enabled (others default to false when form submitted)
+        response = self.client.get(
+            "/hunt/?filename_prefix=downloaded_by_&min_count=2&days_back=7&cat_domains=on&cat_ips=on"
+        )
+        self.assertEqual(response.status_code, 200)
+
+        # Verify mongo_aggregate was called with only those 2 facets
+        self.assertTrue(mock_mongo_aggregate.called)
+        called_pipeline = mock_mongo_aggregate.call_args[0][1]
+
+        # Extract $facet stage
+        facet_stage = called_pipeline[1]["$facet"]
+        self.assertIn("domains", facet_stage)
+        self.assertIn("ips", facet_stage)
+
+        # Assert other facets were excluded to save database performance
+        self.assertNotIn("mutexes", facet_stage)
+        self.assertNotIn("dropped_files", facet_stage)
+        self.assertNotIn("executed_commands", facet_stage)
+        self.assertNotIn("registry_keys", facet_stage)
+        self.assertNotIn("dropped_hashes", facet_stage)
+        self.assertNotIn("procdump_hashes", facet_stage)
+        self.assertNotIn("extracted_hashes", facet_stage)
+
+        # Verify template did not render untoggled panels
+        html_content = response.content.decode()
+        self.assertIn("Top Shared Domains", html_content)
+        self.assertIn("Top Shared IPs", html_content)
+        self.assertNotIn("Top Shared Mutexes", html_content)
+        self.assertNotIn("Shared Registry Keys", html_content)
+        self.assertNotIn("Unpacked Memory Hashes", html_content)

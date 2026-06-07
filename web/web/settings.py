@@ -333,7 +333,8 @@ SETTINGS_EXPORT = [
     "NETWORK_PROC_MAP",
     "REPROCESS_TASKS",
     "REPROCESS_FAILED_PROCESSING",
-    "AUDIT_FRAMEWORK"
+    "AUDIT_FRAMEWORK",
+    "HUNT_ENABLED"
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

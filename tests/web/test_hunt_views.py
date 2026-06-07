@@ -31,6 +31,13 @@ class TestHuntViews(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("MongoDB is required", response.content.decode())
 
+    def test_hunt_page_prevents_global_all_time_hunt(self):
+        """If filename_prefix is blank and days_back is set to 0 (All Time), render a database performance safeguard error."""
+        enabledconf["mongodb"] = True
+        response = self.client.get("/hunt/?filename_prefix=&days_back=0")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("An all-time global hunt with no filename prefix is not allowed", response.content.decode())
+
     @patch("analysis.views.mongo_aggregate")
     def test_hunt_page_success_renders_template(self, mock_mongo_aggregate):
         """The hunt page should render facets correctly after whitelisting system noise."""

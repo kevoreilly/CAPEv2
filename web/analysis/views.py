@@ -4171,6 +4171,17 @@ def hunt(request):
         "extracted_hashes": True if not is_submitted else (request.GET.get("cat_extracted_hashes") == "on"),
     }
 
+    # Precompile regex list once for performance
+    compiled_passlist_re = []
+    for safe_re in domain_passlist_re:
+        try:
+            if isinstance(safe_re, str):
+                compiled_passlist_re.append(re.compile(safe_re, re.IGNORECASE))
+            elif hasattr(safe_re, "match"):
+                compiled_passlist_re.append(safe_re)
+        except Exception:
+            pass
+
     # Define validation filters
     def is_valid_domain(domain):
         if not domain or not isinstance(domain, str):
@@ -4179,9 +4190,9 @@ def hunt(request):
         for safe in domain_passlist:
             if domain_lower == safe or domain_lower.endswith("." + safe):
                 return False
-        for safe_re in domain_passlist_re:
+        for regex in compiled_passlist_re:
             try:
-                if re.match(safe_re, domain_lower, re.IGNORECASE):
+                if regex.match(domain_lower):
                     return False
             except Exception:
                 pass
@@ -4270,7 +4281,11 @@ def hunt(request):
     # Clean prefix to avoid double caret and force strict case-sensitive Prefix Match.
     # MongoDB B-Tree indexes are ONLY fully utilized by regex if it is anchored at the start (^)
     # and case-sensitive (no $options: "i").
-    clean_prefix = filename_prefix.lstrip("^").strip()
+    clean_prefix = re.escape(filename_prefix.lstrip("^").strip())
+
+    # Database Safeguard: Prevent global all-time hunts to avoid database timeouts
+    if not clean_prefix and days_back == 0:
+        return render(request, "error.html", {"error": "An all-time global hunt with no filename prefix is not allowed due to performance risks."})
 
     # Build match query with optional date filters for performance
     match_query = {}
@@ -4412,7 +4427,7 @@ def hunt(request):
         "settings": settings,
     })
 
-@csrf_exempt
+
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def tag_tasks(request):

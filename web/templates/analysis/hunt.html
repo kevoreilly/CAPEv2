@@ -497,7 +497,8 @@ function tagCluster(taskIds) {
     fetch("{% url 'tag_tasks' %}", {
         method: "POST",
         headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
         },
         body: JSON.stringify({
             task_ids: taskIds,

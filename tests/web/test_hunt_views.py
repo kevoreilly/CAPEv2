@@ -41,6 +41,26 @@ class TestHuntViews(SimpleTestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("An all-time global hunt with no filename prefix is not allowed", response.content.decode())
 
+    @patch("lib.cuckoo.common.hunting.os.path.exists")
+    def test_hunt_page_error_when_config_missing(self, mock_exists):
+        """If hunt.json is missing from disk, render a clean error page and block execution."""
+        mock_exists.return_value = False
+        enabledconf["mongodb"] = True
+        response = self.client.get("/analysis/hunt/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("The hunt.json configuration file is missing", response.content.decode())
+
+    @patch("lib.cuckoo.common.hunting.os.path.exists")
+    @patch("lib.cuckoo.common.hunting.open")
+    def test_hunt_page_error_when_config_invalid(self, mock_open, mock_exists):
+        """If hunt.json contains invalid syntax, log detailed tracebacks internally and render a secure error page."""
+        mock_exists.return_value = True
+        mock_open.side_effect = ValueError("Invalid JSON syntax")
+        enabledconf["mongodb"] = True
+        response = self.client.get("/analysis/hunt/")
+        self.assertEqual(response.status_code, 200)
+        self.assertIn("The hunt.json configuration file is invalid", response.content.decode())
+
     @patch("analysis.views.mongo_aggregate", create=True)
     def test_hunt_page_success_renders_template(self, mock_mongo_aggregate):
         """The hunt page should render facets correctly after whitelisting system noise."""

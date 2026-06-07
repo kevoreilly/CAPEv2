@@ -49,57 +49,15 @@
                         <button class="btn btn-outline-info w-100" type="submit"><i class="fas fa-binoculars me-1"></i> Hunt</button>
                     </div>
 
-                    <!-- Dynamic Category Toggles -->
+                    <!-- Dynamic Category Switches generated directly from hunt_map config registry -->
                     <div class="col-12 mt-3 pt-3 border-top border-secondary text-truncate">
                         <span class="text-white-50 me-3 font-weight-bold" style="font-size: 0.85rem;"><i class="fas fa-filter me-1 text-info"></i> Target Categories:</span>
+                        {% for cat_id, cat_config in hunt_map.items %}
                         <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_domains" name="cat_domains" {% if categories.domains %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_domains">Domains</label>
+                            <input class="form-check-input" type="checkbox" role="switch" id="{{ cat_config.form_key }}" name="{{ cat_config.form_key }}" {% if categories|get_item:cat_id %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="{{ cat_config.form_key }}">{{ cat_id|capfirst }}</label>
                         </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_ips" name="cat_ips" {% if categories.ips %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_ips">IPs</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_mutexes" name="cat_mutexes" {% if categories.mutexes %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_mutexes">Mutexes</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_files" name="cat_files" {% if categories.dropped_files %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_files">Dropped Files</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_commands" name="cat_commands" {% if categories.executed_commands %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_commands">Commands</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_registry" name="cat_registry" {% if categories.registry_keys %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_registry">Registry Keys</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_dropped_hashes" name="cat_dropped_hashes" {% if categories.dropped_hashes %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_dropped_hashes">Dropped Hashes</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_procdump_hashes" name="cat_procdump_hashes" {% if categories.procdump_hashes %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_procdump_hashes">Memory Hashes</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_extracted_hashes" name="cat_extracted_hashes" {% if categories.extracted_hashes %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_extracted_hashes">Extracted Hashes</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_imphashes" name="cat_imphashes" {% if categories.imphashes %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_imphashes">PE ImpHashes</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_http_uris" name="cat_http_uris" {% if categories.http_uris %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_http_uris">HTTP URIs</label>
-                        </div>
-                        <div class="form-check form-check-inline form-switch">
-                            <input class="form-check-input" type="checkbox" role="switch" id="cat_signatures" name="cat_signatures" {% if categories.signatures %}checked{% endif %}>
-                            <label class="form-check-label text-white-50" for="cat_signatures">Signatures</label>
-                        </div>
+                        {% endfor %}
                     </div>
                 </form>
             </div>
@@ -107,525 +65,55 @@
     </div>
 </div>
 
+<!-- Dynamic Grid Card Generation -->
 <div class="row">
-    <!-- Network Domains -->
-    {% if categories.domains %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-info"><i class="fas fa-globe me-2"></i> Top Shared Domains</h5>
-                <span class="badge bg-info text-dark">{{facets.domains|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Domain</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.domains %}
-                            {% for item in facets.domains %}
+    {% for cat_id, cat_config in hunt_map.items %}
+        {% if categories|get_item:cat_id %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card bg-dark shadow-sm border-secondary h-100">
+                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-white"><i class="{{ cat_config.icon }} me-2"></i> {{ cat_config.title }}</h5>
+                    <span class="badge bg-{{ cat_config.badge_color }} text-dark">{{ facets|get_item:cat_id|length }} clusters</span>
+                </div>
+                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                    <table class="table table-dark table-hover table-striped table-sm mb-0">
+                        <thead>
                             <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">
-                                    {{item.0}}
-                                    <a href="https://www.virustotal.com/gui/domain/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
-                                    <a href="https://otx.alienvault.com/indicator/domain/{{item.0}}" target="_blank" class="text-info ms-1" title="AlienVault OTX"><i class="fas fa-shield-alt" style="font-size: 0.7rem;"></i></a>
-                                </td>
-                                <td class="text-center font-weight-bold text-info">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
+                                <th>Indicator Value</th>
+                                <th style="width: 15%;" class="text-center">Count</th>
+                                <th style="width: 35%;">Tasks</th>
                             </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated domains found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {% if facets|get_item:cat_id %}
+                                {% for item in facets|get_item:cat_id %}
+                                <tr>
+                                    <td class="text-truncate" style="max-width: 150px;" title="{{ item.0 }}">
+                                        {{ item.0 }}
+                                        <!-- Dynamic External OSINT Lookup Links -->
+                                        {% for pivot in cat_config.pivots %}
+                                            <a href="{{ pivot.url }}{{ item.0 }}" target="_blank" class="text-info ms-1" title="{{ pivot.name }}"><i class="{{ pivot.icon }}" style="font-size: 0.7rem;"></i></a>
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center font-weight-bold text-{{ cat_config.badge_color }}">{{ item.1 }}</td>
+                                    <td>
+                                        {% for tid in item.2 %}
+                                            <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{ tid }}</a>
+                                        {% endfor %}
+                                        <a href="javascript:void(0);" onclick="tagCluster({{ item.2 }});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="3" class="text-muted text-center py-3">No correlated indicators found.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
-    </div>
-    {% endif %}
-
-    <!-- Network IPs -->
-    {% if categories.ips %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-info"><i class="fas fa-network-wired me-2"></i> Top Shared IPs</h5>
-                <span class="badge bg-info text-dark">{{facets.ips|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>IP Address</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.ips %}
-                            {% for item in facets.ips %}
-                            <tr>
-                                <td>
-                                    {{item.0}}
-                                    <a href="https://www.virustotal.com/gui/ip-address/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
-                                    <a href="https://www.shodan.io/host/{{item.0}}" target="_blank" class="text-info ms-1" title="Shodan"><i class="fas fa-search" style="font-size: 0.7rem;"></i></a>
-                                </td>
-                                <td class="text-center font-weight-bold text-info">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated IPs found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Mutexes -->
-    {% if categories.mutexes %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-warning"><i class="fas fa-lock me-2"></i> Top Shared Mutexes</h5>
-                <span class="badge bg-warning text-dark">{{facets.mutexes|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Mutex Name</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.mutexes %}
-                            {% for item in facets.mutexes %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">{{item.0}}</td>
-                                <td class="text-center font-weight-bold text-warning">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated mutexes found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Dropped Files -->
-    {% if categories.dropped_files %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-success"><i class="fas fa-file-alt me-2"></i> Shared Dropped Files</h5>
-                <span class="badge bg-success text-dark">{{facets.dropped_files|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>File Path</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.dropped_files %}
-                            {% for item in facets.dropped_files %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">{{item.0}}</td>
-                                <td class="text-center font-weight-bold text-success">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated dropped files found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Executed Commands -->
-    {% if categories.executed_commands %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-success"><i class="fas fa-terminal me-2"></i> Shared Executed Commands</h5>
-                <span class="badge bg-success text-dark">{{facets.executed_commands|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Command Line</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.executed_commands %}
-                            {% for item in facets.executed_commands %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">{{item.0}}</td>
-                                <td class="text-center font-weight-bold text-success">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated command executions found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Registry Keys -->
-    {% if categories.registry_keys %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-danger"><i class="fas fa-key me-2"></i> Shared Registry Keys</h5>
-                <span class="badge bg-danger text-dark">{{facets.registry_keys|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Registry Key</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.registry_keys %}
-                            {% for item in facets.registry_keys %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">{{item.0}}</td>
-                                <td class="text-center font-weight-bold text-danger">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated registry keys found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Dropped File Hashes -->
-    {% if categories.dropped_hashes %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-hashtag me-2"></i> Top Dropped File Hashes</h5>
-                <span class="badge bg-light text-dark">{{facets.dropped_hashes|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>SHA256 Hash</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.dropped_hashes %}
-                            {% for item in facets.dropped_hashes %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">
-                                    {{item.0}}
-                                    <a href="https://www.virustotal.com/gui/file/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
-                                    <a href="https://bazaar.abuse.ch/sample/{{item.0}}" target="_blank" class="text-info ms-1" title="MalwareBazaar"><i class="fas fa-database" style="font-size: 0.7rem;"></i></a>
-                                </td>
-                                <td class="text-center font-weight-bold text-light">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated dropped hashes found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Unpacked Process Memory Dumps -->
-    {% if categories.procdump_hashes %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-memory me-2"></i> Unpacked Memory Hashes</h5>
-                <span class="badge bg-light text-dark">{{facets.procdump_hashes|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>SHA256 Hash</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.procdump_hashes %}
-                            {% for item in facets.procdump_hashes %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">
-                                    {{item.0}}
-                                    <a href="https://www.virustotal.com/gui/file/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
-                                    <a href="https://bazaar.abuse.ch/sample/{{item.0}}" target="_blank" class="text-info ms-1" title="MalwareBazaar"><i class="fas fa-database" style="font-size: 0.7rem;"></i></a>
-                                </td>
-                                <td class="text-center font-weight-bold text-light">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated unpacked hashes found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Extracted Payload Hashes -->
-    {% if categories.extracted_hashes %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-file-medical me-2"></i> Extracted Payload Hashes</h5>
-                <span class="badge bg-light text-dark">{{facets.extracted_hashes|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>SHA256 Hash</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.extracted_hashes %}
-                            {% for item in facets.extracted_hashes %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">
-                                    {{item.0}}
-                                    <a href="https://www.virustotal.com/gui/file/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
-                                    <a href="https://bazaar.abuse.ch/sample/{{item.0}}" target="_blank" class="text-info ms-1" title="MalwareBazaar"><i class="fas fa-database" style="font-size: 0.7rem;"></i></a>
-                                </td>
-                                <td class="text-center font-weight-bold text-light">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated extracted hashes found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Import Hashes (ImpHashes) -->
-    {% if categories.imphashes %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-white"><i class="fas fa-file-invoice me-2"></i> PE Import Hashes (ImpHashes)</h5>
-                <span class="badge bg-light text-dark">{{facets.imphashes|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>MD5 Import Hash</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.imphashes %}
-                            {% for item in facets.imphashes %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">
-                                    {{item.0}}
-                                    <a href="https://www.virustotal.com/gui/search/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
-                                    <a href="https://bazaar.abuse.ch/browse.php?search=imphash%3A{{item.0}}" target="_blank" class="text-info ms-1" title="MalwareBazaar"><i class="fas fa-database" style="font-size: 0.7rem;"></i></a>
-                                </td>
-                                <td class="text-center font-weight-bold text-light">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated PE Import Hashes found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- HTTP Request URIs -->
-    {% if categories.http_uris %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-info"><i class="fas fa-link me-2"></i> Shared HTTP Request URIs</h5>
-                <span class="badge bg-info text-dark">{{facets.http_uris|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>HTTP Request Path</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.http_uris %}
-                            {% for item in facets.http_uris %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">
-                                    {{item.0}}
-                                    <a href="https://www.virustotal.com/gui/search/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
-                                </td>
-                                <td class="text-center font-weight-bold text-info">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated HTTP Request URIs found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Behavioral Signatures -->
-    {% if categories.signatures %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card bg-dark shadow-sm border-secondary h-100">
-            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
-                <h5 class="mb-0 text-warning"><i class="fas fa-signature me-2"></i> Shared Signatures</h5>
-                <span class="badge bg-warning text-dark">{{facets.signatures|length}} clusters</span>
-            </div>
-            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
-                <table class="table table-dark table-hover table-striped table-sm mb-0">
-                    <thead>
-                        <tr>
-                            <th>Signature Name</th>
-                            <th style="width: 15%;" class="text-center">Count</th>
-                            <th style="width: 35%;">Tasks</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% if facets.signatures %}
-                            {% for item in facets.signatures %}
-                            <tr>
-                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">{{item.0}}</td>
-                                <td class="text-center font-weight-bold text-warning">{{item.1}}</td>
-                                <td>
-                                    {% for tid in item.2 %}
-                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
-                                    {% endfor %}
-                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        {% else %}
-                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated Signatures found.</td></tr>
-                        {% endif %}
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-    {% endif %}
+        {% endif %}
+    {% endfor %}
 </div>
 
 <script>

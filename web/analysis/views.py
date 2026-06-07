@@ -7,8 +7,10 @@ import collections
 import datetime
 import json
 import os
+import re
 import subprocess
 import sys
+import ipaddress
 import tempfile
 import zipfile
 from contextlib import suppress
@@ -17,6 +19,7 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
+
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -48,6 +51,9 @@ from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_
 from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
+# Import for now, but we already doing cleanup on processing
+from data.safelist.domains import domain_passlist, domain_passlist_re
+from data.safelist.replacepatterns import FILES_DENYLIST, FILES_ENDING_DENYLIST, MUTEX_DENYLIST
 
 try:
     from django_ratelimit.decorators import ratelimit
@@ -4131,6 +4137,9 @@ def failed_processing(request, task_id):
     })
 
 
+from lib.cuckoo.common.hunting import load_hunt_map
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def hunt(request):
@@ -4139,11 +4148,6 @@ def hunt(request):
 
     if not enabledconf["mongodb"]:
         return render(request, "error.html", {"error": "MongoDB is required for the Hunt/Threat Discovery feature."})
-
-    import ipaddress
-    import re
-    from data.safelist.domains import domain_passlist, domain_passlist_re
-    from data.safelist.replacepatterns import FILES_DENYLIST, FILES_ENDING_DENYLIST, MUTEX_DENYLIST
 
     filename_prefix = request.GET.get("filename_prefix", "downloaded_by_")
     min_count = request.GET.get("min_count", "3")
@@ -4158,137 +4162,20 @@ def hunt(request):
     except ValueError:
         days_back = 14
 
+    # Hot-reload HUNT_MAP with modular, high-performance system mtime caching
+    HUNT_MAP, VALIDATORS = load_hunt_map(min_count)
+    if HUNT_MAP is None:
+        if VALIDATORS == "missing":
+            return render(request, "error.html", {"error": "The hunt.json configuration file is missing. Please contact your system administrator."})
+        else:
+            return render(request, "error.html", {"error": "The hunt.json configuration file is invalid. Please check system logs."})
+
+    # Evaluate dynamic categories based on HUNT_MAP definitions
     has_category_filter = any(key.startswith("cat_") for key in request.GET)
-    categories = {
-        "domains": True if not has_category_filter else (request.GET.get("cat_domains") == "on"),
-        "ips": True if not has_category_filter else (request.GET.get("cat_ips") == "on"),
-        "mutexes": True if not has_category_filter else (request.GET.get("cat_mutexes") == "on"),
-        "dropped_files": True if not has_category_filter else (request.GET.get("cat_files") == "on"),
-        "executed_commands": True if not has_category_filter else (request.GET.get("cat_commands") == "on"),
-        "registry_keys": True if not has_category_filter else (request.GET.get("cat_registry") == "on"),
-        "dropped_hashes": True if not has_category_filter else (request.GET.get("cat_dropped_hashes") == "on"),
-        "procdump_hashes": True if not has_category_filter else (request.GET.get("cat_procdump_hashes") == "on"),
-        "extracted_hashes": True if not has_category_filter else (request.GET.get("cat_extracted_hashes") == "on"),
-        "imphashes": True if not has_category_filter else (request.GET.get("cat_imphashes") == "on"),
-        "http_uris": True if not has_category_filter else (request.GET.get("cat_http_uris") == "on"),
-        "signatures": True if not has_category_filter else (request.GET.get("cat_signatures") == "on"),
-    }
-
-    # Precompile regex list once for performance
-    compiled_passlist_re = []
-    for safe_re in domain_passlist_re:
-        try:
-            if isinstance(safe_re, str):
-                compiled_passlist_re.append(re.compile(safe_re, re.IGNORECASE))
-            elif hasattr(safe_re, "match"):
-                compiled_passlist_re.append(safe_re)
-        except Exception:
-            pass
-
-    # Define validation filters
-    def is_valid_domain(domain):
-        if not domain or not isinstance(domain, str):
-            return False
-        domain_lower = domain.lower()
-        for safe in domain_passlist:
-            if domain_lower == safe or domain_lower.endswith("." + safe):
-                return False
-        for regex in compiled_passlist_re:
-            try:
-                if regex.match(domain_lower):
-                    return False
-            except Exception:
-                pass
-        return True
-
-    def is_valid_ip(ip):
-        if not ip or not isinstance(ip, str):
-            return False
-        try:
-            ip_obj = ipaddress.ip_address(ip)
-            if ip_obj.is_private or ip_obj.is_loopback or ip_obj.is_multicast or ip_obj.is_link_local:
-                return False
-            if ip in ("8.8.8.8", "8.8.4.4", "1.1.1.1", "9.9.9.9", "208.67.222.222", "208.67.220.220"):
-                return False
-        except ValueError:
-            return False
-        return True
-
-    def is_valid_file(file_path):
-        if not file_path or not isinstance(file_path, str):
-            return False
-        file_path_lower = file_path.lower()
-        for item in FILES_DENYLIST:
-            if item.lower() in file_path_lower:
-                return False
-        for item in FILES_ENDING_DENYLIST:
-            if file_path_lower.endswith(item.lower()):
-                return False
-        return True
-
-    def is_valid_hash(h):
-        if not h or not isinstance(h, str):
-            return False
-        if h in ("d41d8cd98f00b204e9800998ecf8427e", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"):
-            return False
-        if len(h) != 64:
-            return False
-        return True
-
-    def is_valid_md5(h):
-        if not h or not isinstance(h, str):
-            return False
-        if h == "d41d8cd98f00b204e9800998ecf8427e":
-            return False
-        if len(h) != 32:
-            return False
-        return True
-
-    # Common system mutexes that generate noise
-    noisy_mutexes = [
-        "Local\\ZoneBaseMutex", "CTF.Asm.Mutex", "Global\\Access_Registry_Mutex",
-        "Local\\__wf_mut__", "cuckoo_mutex", "Local\\_Global_", "Local\\MS-LanguageProfile"
-    ]
-    def is_valid_mutex(mutex):
-        if not mutex or not isinstance(mutex, str):
-            return False
-        mutex_lower = mutex.lower()
-        for m in MUTEX_DENYLIST:
-            if m.lower() in mutex_lower:
-                return False
-        for m in noisy_mutexes:
-            if m.lower() in mutex_lower:
-                return False
-        return True
-
-    noisy_registry_substrings = [
-        "Controlset001\\Control\\Lsa",
-        "Cryptography\\Providers",
-        "System\\CurrentControlSet\\Control\\Nls",
-        "SOFTWARE\\Microsoft\\Windows NT\\CurrentVersion\\Font",
-        "SOFTWARE\\Microsoft\\CTF\\",
-        "SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\MountPoints2"
-    ]
-    def is_valid_registry(key):
-        if not key or not isinstance(key, str):
-            return False
-        key_lower = key.lower()
-        for sub in noisy_registry_substrings:
-            if sub.lower() in key_lower:
-                return False
-        return True
-
-    noisy_command_substrings = [
-        "chcp", "reg query", "sc query", "net start", "tasklist"
-    ]
-    def is_valid_command(cmd):
-        if not cmd or not isinstance(cmd, str):
-            return False
-        cmd_lower = cmd.lower()
-        for sub in noisy_command_substrings:
-            if sub.lower() in cmd_lower:
-                return False
-        return True
+    categories = {}
+    for cat_id, cat_config in HUNT_MAP.items():
+        fkey = cat_config["form_key"]
+        categories[cat_id] = True if not has_category_filter else (request.GET.get(fkey) == "on")
 
     # Clean prefix to avoid double caret and force strict case-sensitive Prefix Match.
     # MongoDB B-Tree indexes are ONLY fully utilized by regex if it is anchored at the start (^)
@@ -4317,101 +4204,18 @@ def hunt(request):
 
     # Dynamic multi-category aggregation
     facet_stages = {}
-    if categories["domains"]:
-        facet_stages["domains"] = [
-            {"$unwind": "$network.domains"},
-            {"$group": {"_id": "$network.domains.domain", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["ips"]:
-        facet_stages["ips"] = [
-            {"$unwind": "$network.hosts"},
-            {"$group": {"_id": "$network.hosts.ip", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["mutexes"]:
-        facet_stages["mutexes"] = [
-            {"$unwind": "$behavior.summary.mutexes"},
-            {"$group": {"_id": "$behavior.summary.mutexes", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["dropped_files"]:
-        facet_stages["dropped_files"] = [
-            {"$unwind": "$behavior.summary.files"},
-            {"$group": {"_id": "$behavior.summary.files", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["executed_commands"]:
-        facet_stages["executed_commands"] = [
-            {"$unwind": "$behavior.summary.executed_commands"},
-            {"$group": {"_id": "$behavior.summary.executed_commands", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["registry_keys"]:
-        facet_stages["registry_keys"] = [
-            {"$unwind": "$behavior.summary.keys"},
-            {"$group": {"_id": "$behavior.summary.keys", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["dropped_hashes"]:
-        facet_stages["dropped_hashes"] = [
-            {"$unwind": "$dropped"},
-            {"$group": {"_id": "$dropped.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["procdump_hashes"]:
-        facet_stages["procdump_hashes"] = [
-            {"$unwind": "$procdump"},
-            {"$group": {"_id": "$procdump.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["extracted_hashes"]:
-        facet_stages["extracted_hashes"] = [
-            {"$unwind": "$extracted"},
-            {"$group": {"_id": "$extracted.sha256", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["imphashes"]:
-        facet_stages["imphashes"] = [
-            {"$group": {"_id": "$static.pe.imphash", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"_id": {"$ne": None}, "count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["http_uris"]:
-        facet_stages["http_uris"] = [
-            {"$unwind": "$network.http"},
-            {"$group": {"_id": "$network.http.uri", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
-    if categories["signatures"]:
-        facet_stages["signatures"] = [
-            {"$unwind": "$signatures"},
-            {"$group": {"_id": "$signatures.name", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-            {"$match": {"count": {"$gte": min_count}}},
-            {"$sort": {"count": -1}},
-            {"$limit": 100}
-        ]
+    for cat_id, cat_config in HUNT_MAP.items():
+        if categories[cat_id]:
+            stages = []
+            if cat_config["db_unwind"]:
+                stages.append({"$unwind": cat_config["db_unwind"]})
+            stages.extend([
+                {"$group": {"_id": cat_config["db_group"], "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": cat_config.get("db_match", {"count": {"$gte": min_count}})},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ])
+            facet_stages[cat_id] = stages
 
     # MongoDB Pipeline using $facet for multi-category aggregation
     pipeline = [
@@ -4429,34 +4233,16 @@ def hunt(request):
     except Exception as e:
         return render(request, "error.html", {"error": f"Threat hunting aggregation failed: {e}"})
 
-    # Apply noise whitelists
-    raw_domains = facets.get("domains", [])
-    raw_ips = facets.get("ips", [])
-    raw_mutexes = facets.get("mutexes", [])
-    raw_files = facets.get("dropped_files", [])
-    raw_commands = facets.get("executed_commands", [])
-    raw_keys = facets.get("registry_keys", [])
-    raw_dropped_hashes = facets.get("dropped_hashes", [])
-    raw_procdump_hashes = facets.get("procdump_hashes", [])
-    raw_extracted_hashes = facets.get("extracted_hashes", [])
-    raw_imphashes = facets.get("imphashes", [])
-    raw_http_uris = facets.get("http_uris", [])
-    raw_signatures = facets.get("signatures", [])
-
-    clean_facets = {
-        "domains": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_domains if is_valid_domain(item["_id"])][:15],
-        "ips": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_ips if is_valid_ip(item["_id"])][:15],
-        "mutexes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_mutexes if is_valid_mutex(item["_id"])][:15],
-        "dropped_files": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_files if is_valid_file(item["_id"])][:15],
-        "executed_commands": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_commands if is_valid_command(item["_id"])][:15],
-        "registry_keys": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_keys if is_valid_registry(item["_id"])][:15],
-        "dropped_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_dropped_hashes if is_valid_hash(item["_id"])][:15],
-        "procdump_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_procdump_hashes if is_valid_hash(item["_id"])][:15],
-        "extracted_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_extracted_hashes if is_valid_hash(item["_id"])][:15],
-        "imphashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_imphashes if is_valid_md5(item["_id"])][:15],
-        "http_uris": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_http_uris if item["_id"] and isinstance(item["_id"], str)][:15],
-        "signatures": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_signatures if item["_id"] and isinstance(item["_id"], str)][:15],
-    }
+    # Apply noise whitelists and validators dynamically
+    clean_facets = {}
+    for cat_id, cat_config in HUNT_MAP.items():
+        if categories[cat_id]:
+            raw_items = facets.get(cat_id, [])
+            validator_func = cat_config["validator"]
+            clean_facets[cat_id] = [
+                (item["_id"], item["count"], sorted(list(item["task_ids"])))
+                for item in raw_items if validator_func(item["_id"])
+            ][:15]
 
     return render(request, "analysis/hunt.html", {
         "facets": clean_facets,
@@ -4465,6 +4251,7 @@ def hunt(request):
         "days_back": days_back,
         "ignore_detections": ignore_detections,
         "categories": categories,
+        "hunt_map": HUNT_MAP,
         "settings": settings,
     })
 

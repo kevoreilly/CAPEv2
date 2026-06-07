@@ -4158,17 +4158,17 @@ def hunt(request):
     except ValueError:
         days_back = 14
 
-    is_submitted = "min_count" in request.GET or "filename_prefix" in request.GET
+    has_category_filter = any(key.startswith("cat_") for key in request.GET)
     categories = {
-        "domains": True if not is_submitted else (request.GET.get("cat_domains") == "on"),
-        "ips": True if not is_submitted else (request.GET.get("cat_ips") == "on"),
-        "mutexes": True if not is_submitted else (request.GET.get("cat_mutexes") == "on"),
-        "dropped_files": True if not is_submitted else (request.GET.get("cat_files") == "on"),
-        "executed_commands": True if not is_submitted else (request.GET.get("cat_commands") == "on"),
-        "registry_keys": True if not is_submitted else (request.GET.get("cat_registry") == "on"),
-        "dropped_hashes": True if not is_submitted else (request.GET.get("cat_dropped_hashes") == "on"),
-        "procdump_hashes": True if not is_submitted else (request.GET.get("cat_procdump_hashes") == "on"),
-        "extracted_hashes": True if not is_submitted else (request.GET.get("cat_extracted_hashes") == "on"),
+        "domains": True if not has_category_filter else (request.GET.get("cat_domains") == "on"),
+        "ips": True if not has_category_filter else (request.GET.get("cat_ips") == "on"),
+        "mutexes": True if not has_category_filter else (request.GET.get("cat_mutexes") == "on"),
+        "dropped_files": True if not has_category_filter else (request.GET.get("cat_files") == "on"),
+        "executed_commands": True if not has_category_filter else (request.GET.get("cat_commands") == "on"),
+        "registry_keys": True if not has_category_filter else (request.GET.get("cat_registry") == "on"),
+        "dropped_hashes": True if not has_category_filter else (request.GET.get("cat_dropped_hashes") == "on"),
+        "procdump_hashes": True if not has_category_filter else (request.GET.get("cat_procdump_hashes") == "on"),
+        "extracted_hashes": True if not has_category_filter else (request.GET.get("cat_extracted_hashes") == "on"),
     }
 
     # Precompile regex list once for performance

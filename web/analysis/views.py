@@ -4169,6 +4169,9 @@ def hunt(request):
         "dropped_hashes": True if not has_category_filter else (request.GET.get("cat_dropped_hashes") == "on"),
         "procdump_hashes": True if not has_category_filter else (request.GET.get("cat_procdump_hashes") == "on"),
         "extracted_hashes": True if not has_category_filter else (request.GET.get("cat_extracted_hashes") == "on"),
+        "imphashes": True if not has_category_filter else (request.GET.get("cat_imphashes") == "on"),
+        "http_uris": True if not has_category_filter else (request.GET.get("cat_http_uris") == "on"),
+        "signatures": True if not has_category_filter else (request.GET.get("cat_signatures") == "on"),
     }
 
     # Precompile regex list once for performance
@@ -4229,6 +4232,15 @@ def hunt(request):
         if h in ("d41d8cd98f00b204e9800998ecf8427e", "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"):
             return False
         if len(h) != 64:
+            return False
+        return True
+
+    def is_valid_md5(h):
+        if not h or not isinstance(h, str):
+            return False
+        if h == "d41d8cd98f00b204e9800998ecf8427e":
+            return False
+        if len(h) != 32:
             return False
         return True
 
@@ -4377,6 +4389,29 @@ def hunt(request):
             {"$sort": {"count": -1}},
             {"$limit": 100}
         ]
+    if categories["imphashes"]:
+        facet_stages["imphashes"] = [
+            {"$group": {"_id": "$static.pe.imphash", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"_id": {"$ne": None}, "count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["http_uris"]:
+        facet_stages["http_uris"] = [
+            {"$unwind": "$network.http"},
+            {"$group": {"_id": "$network.http.uri", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
+    if categories["signatures"]:
+        facet_stages["signatures"] = [
+            {"$unwind": "$signatures"},
+            {"$group": {"_id": "$signatures.name", "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+            {"$match": {"count": {"$gte": min_count}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 100}
+        ]
 
     # MongoDB Pipeline using $facet for multi-category aggregation
     pipeline = [
@@ -4404,6 +4439,9 @@ def hunt(request):
     raw_dropped_hashes = facets.get("dropped_hashes", [])
     raw_procdump_hashes = facets.get("procdump_hashes", [])
     raw_extracted_hashes = facets.get("extracted_hashes", [])
+    raw_imphashes = facets.get("imphashes", [])
+    raw_http_uris = facets.get("http_uris", [])
+    raw_signatures = facets.get("signatures", [])
 
     clean_facets = {
         "domains": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_domains if is_valid_domain(item["_id"])][:15],
@@ -4415,6 +4453,9 @@ def hunt(request):
         "dropped_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_dropped_hashes if is_valid_hash(item["_id"])][:15],
         "procdump_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_procdump_hashes if is_valid_hash(item["_id"])][:15],
         "extracted_hashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_extracted_hashes if is_valid_hash(item["_id"])][:15],
+        "imphashes": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_imphashes if is_valid_md5(item["_id"])][:15],
+        "http_uris": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_http_uris if item["_id"] and isinstance(item["_id"], str)][:15],
+        "signatures": [(item["_id"], item["count"], sorted(list(item["task_ids"]))) for item in raw_signatures if item["_id"] and isinstance(item["_id"], str)][:15],
     }
 
     return render(request, "analysis/hunt.html", {

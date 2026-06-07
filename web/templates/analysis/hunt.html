@@ -50,7 +50,7 @@
                     </div>
 
                     <!-- Dynamic Category Toggles -->
-                    <div class="col-12 mt-3 pt-3 border-top border-secondary">
+                    <div class="col-12 mt-3 pt-3 border-top border-secondary text-truncate">
                         <span class="text-white-50 me-3 font-weight-bold" style="font-size: 0.85rem;"><i class="fas fa-filter me-1 text-info"></i> Target Categories:</span>
                         <div class="form-check form-check-inline form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" id="cat_domains" name="cat_domains" {% if categories.domains %}checked{% endif %}>
@@ -87,6 +87,18 @@
                         <div class="form-check form-check-inline form-switch">
                             <input class="form-check-input" type="checkbox" role="switch" id="cat_extracted_hashes" name="cat_extracted_hashes" {% if categories.extracted_hashes %}checked{% endif %}>
                             <label class="form-check-label text-white-50" for="cat_extracted_hashes">Extracted Hashes</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_imphashes" name="cat_imphashes" {% if categories.imphashes %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_imphashes">PE ImpHashes</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_http_uris" name="cat_http_uris" {% if categories.http_uris %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_http_uris">HTTP URIs</label>
+                        </div>
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="cat_signatures" name="cat_signatures" {% if categories.signatures %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="cat_signatures">Signatures</label>
                         </div>
                     </div>
                 </form>
@@ -477,6 +489,136 @@
                             {% endfor %}
                         {% else %}
                             <tr><td colspan="3" class="text-muted text-center py-3">No correlated extracted hashes found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Import Hashes (ImpHashes) -->
+    {% if categories.imphashes %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card bg-dark shadow-sm border-secondary h-100">
+            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-white"><i class="fas fa-file-invoice me-2"></i> PE Import Hashes (ImpHashes)</h5>
+                <span class="badge bg-light text-dark">{{facets.imphashes|length}} clusters</span>
+            </div>
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <table class="table table-dark table-hover table-striped table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>MD5 Import Hash</th>
+                            <th style="width: 15%;" class="text-center">Count</th>
+                            <th style="width: 35%;">Tasks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if facets.imphashes %}
+                            {% for item in facets.imphashes %}
+                            <tr>
+                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">
+                                    {{item.0}}
+                                    <a href="https://www.virustotal.com/gui/search/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
+                                    <a href="https://bazaar.abuse.ch/browse.php?search=imphash%3A{{item.0}}" target="_blank" class="text-info ms-1" title="MalwareBazaar"><i class="fas fa-database" style="font-size: 0.7rem;"></i></a>
+                                </td>
+                                <td class="text-center font-weight-bold text-light">{{item.1}}</td>
+                                <td>
+                                    {% for tid in item.2 %}
+                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
+                                    {% endfor %}
+                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated PE Import Hashes found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- HTTP Request URIs -->
+    {% if categories.http_uris %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card bg-dark shadow-sm border-secondary h-100">
+            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-info"><i class="fas fa-link me-2"></i> Shared HTTP Request URIs</h5>
+                <span class="badge bg-info text-dark">{{facets.http_uris|length}} clusters</span>
+            </div>
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <table class="table table-dark table-hover table-striped table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>HTTP Request Path</th>
+                            <th style="width: 15%;" class="text-center">Count</th>
+                            <th style="width: 35%;">Tasks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if facets.http_uris %}
+                            {% for item in facets.http_uris %}
+                            <tr>
+                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">
+                                    {{item.0}}
+                                    <a href="https://www.virustotal.com/gui/search/{{item.0}}" target="_blank" class="text-info ms-1" title="VirusTotal"><i class="fas fa-external-link-alt" style="font-size: 0.7rem;"></i></a>
+                                </td>
+                                <td class="text-center font-weight-bold text-info">{{item.1}}</td>
+                                <td>
+                                    {% for tid in item.2 %}
+                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
+                                    {% endfor %}
+                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated HTTP Request URIs found.</td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Behavioral Signatures -->
+    {% if categories.signatures %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card bg-dark shadow-sm border-secondary h-100">
+            <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+                <h5 class="mb-0 text-warning"><i class="fas fa-signature me-2"></i> Shared Signatures</h5>
+                <span class="badge bg-warning text-dark">{{facets.signatures|length}} clusters</span>
+            </div>
+            <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                <table class="table table-dark table-hover table-striped table-sm mb-0">
+                    <thead>
+                        <tr>
+                            <th>Signature Name</th>
+                            <th style="width: 15%;" class="text-center">Count</th>
+                            <th style="width: 35%;">Tasks</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if facets.signatures %}
+                            {% for item in facets.signatures %}
+                            <tr>
+                                <td class="text-truncate" style="max-width: 150px;" title="{{item.0}}">{{item.0}}</td>
+                                <td class="text-center font-weight-bold text-warning">{{item.1}}</td>
+                                <td>
+                                    {% for tid in item.2 %}
+                                        <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{tid}}</a>
+                                    {% endfor %}
+                                    <a href="javascript:void(0);" onclick="tagCluster({{item.2}});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="3" class="text-muted text-center py-3">No correlated Signatures found.</td></tr>
                         {% endif %}
                     </tbody>
                 </table>

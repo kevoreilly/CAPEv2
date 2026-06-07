@@ -82,6 +82,16 @@ class TestHuntViews(SimpleTestCase):
             ],
             "extracted_hashes": [
                 {"_id": "c" * 64, "count": 5, "task_ids": {101, 102}}
+            ],
+            "imphashes": [
+                {"_id": "d" * 32, "count": 4, "task_ids": {101, 102}},
+                {"_id": "invalid_imphash_len", "count": 15, "task_ids": {101}} # Invalid imphash length, filtered
+            ],
+            "http_uris": [
+                {"_id": "/api/v1/beacon.php", "count": 6, "task_ids": {101, 102}}
+            ],
+            "signatures": [
+                {"_id": "has_pogo_autorun", "count": 8, "task_ids": {101, 102}}
             ]
         }]
 
@@ -103,6 +113,9 @@ class TestHuntViews(SimpleTestCase):
         self.assertIn("a" * 64, html_content)
         self.assertIn("b" * 64, html_content)
         self.assertIn("c" * 64, html_content)
+        self.assertIn("d" * 32, html_content)
+        self.assertIn("/api/v1/beacon.php", html_content)
+        self.assertIn("has_pogo_autorun", html_content)
 
         # Ensure whitelisted / noise items are successfully filtered out and not rendered
         self.assertNotIn("crl.microsoft.com", html_content)
@@ -112,6 +125,7 @@ class TestHuntViews(SimpleTestCase):
         self.assertNotIn("HKLM\\SOFTWARE\\Microsoft\\CTF\\", html_content)
         self.assertNotIn("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", html_content)
         self.assertNotIn("invalid_hash_len", html_content)
+        self.assertNotIn("invalid_imphash_len", html_content)
 
         # Verify query parameters are passed back to forms
         self.assertIn('value="downloaded_by_"', html_content)
@@ -221,6 +235,9 @@ class TestHuntViews(SimpleTestCase):
         self.assertNotIn("dropped_hashes", facet_stage)
         self.assertNotIn("procdump_hashes", facet_stage)
         self.assertNotIn("extracted_hashes", facet_stage)
+        self.assertNotIn("imphashes", facet_stage)
+        self.assertNotIn("http_uris", facet_stage)
+        self.assertNotIn("signatures", facet_stage)
 
         # Verify template did not render untoggled panels
         html_content = response.content.decode()
@@ -229,3 +246,6 @@ class TestHuntViews(SimpleTestCase):
         self.assertNotIn("Top Shared Mutexes", html_content)
         self.assertNotIn("Shared Registry Keys", html_content)
         self.assertNotIn("Unpacked Memory Hashes", html_content)
+        self.assertNotIn("PE Import Hashes", html_content)
+        self.assertNotIn("Shared HTTP Request URIs", html_content)
+        self.assertNotIn("Shared Signatures", html_content)

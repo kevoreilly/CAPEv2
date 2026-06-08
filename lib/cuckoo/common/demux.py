@@ -167,7 +167,7 @@ FILE_EXT_OF_INTEREST = (
 )
 
 
-def find_payload_to_run(file_list: List[str]) -> Optional[str]:
+def find_payload_to_run(file_list: List[Any]) -> List[str]:
     """
     Analyzes a list of filenames to find the most likely executable payload.
 
@@ -175,7 +175,7 @@ def find_payload_to_run(file_list: List[str]) -> Optional[str]:
         file_list: A list of filenames (e.g., from zipfile.namelist())
 
     Returns:
-        The filename of the executable to run, or None if no payload is found.
+        A list of filenames of the executables to run.
     """
 
     executables_found = []
@@ -187,10 +187,13 @@ def find_payload_to_run(file_list: List[str]) -> Optional[str]:
         if not filename:
             continue
 
+        # Ensure filename is bytes to match regexes and endswith accurately
+        filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
+
         # --- Step 1: Check against Ignorable Patterns ---
         is_ignorable = False
         for pattern in IGNORABLE_PATTERNS:
-            if pattern.match(filename):
+            if pattern.match(filename_bytes):
                 is_ignorable = True
                 ignorable_files_found += 1
                 break
@@ -199,20 +202,19 @@ def find_payload_to_run(file_list: List[str]) -> Optional[str]:
             continue # It's a known runtime DLL, skip to the next file
 
         # --- Step 2: Check for Executable ---
-        if filename.lower().endswith(FILE_EXT_OF_INTEREST):
-            executables_found.append(filename.decode())
+        if filename_bytes.lower().endswith(FILE_EXT_OF_INTEREST):
+            executables_found.append(filename_bytes)
             continue
 
         # --- Step 3: It's an unknown file ---
-        # (e.g., sqlite.dll, ._, config.ini, etc.)
-        unknown_other_files.append(filename.decode())
+        unknown_other_files.append(filename_bytes)
 
     # --- Triage Decision Logic ---
 
     # Case 1: No executables found at all.
     if not executables_found:
         log.debug("No executables found. Ignored %d runtime files.", ignorable_files_found)
-        return [] # -> Decision: SKIP this archive
+        return []
 
     # Case 2: Multiple executables found. Use heuristics.
     log.debug("Found multiple executables: %s", str(executables_found))
@@ -222,10 +224,10 @@ def find_payload_to_run(file_list: List[str]) -> Optional[str]:
         for exe_name in executables_found:
             if exe_name.lower() == preferred_name:
                 log.debug("Heuristic: Choosing '%s' from preference list.", exe_name)
-                return [exe_name.decode()] # -> Decision: RUN this preferred file
+                return [exe_name.decode(errors="ignore")]
 
-    # if no prefered name, return all files of interest
-    return executables_found
+    # if no preferred name, return all files of interest
+    return [exe.decode(errors="ignore") for exe in executables_found]
 
 def options2passwd(options: str) -> str:
     password = ""
@@ -381,7 +383,7 @@ def demux_sflock(
                     # We loop through THIS sub-archive's children.
                     # Note: Ensure 'current_child.children' exists in your object model.
                     # If 'unpacked.children' already contained the deep files, this loop might need adjusting based on your specific API.
-                    execs = find_payload_to_run(current_child.filepaths)
+                    execs = find_payload_to_run(getattr(current_child, "filepaths", []))
                     if execs:
                         extracted = _sf_children(current_child)
                         path = extracted[0]
@@ -527,7 +529,8 @@ def demux_sample(
 
     # Si sflock encontró ejecutables específicos que quiere forzar (ej. payload en un zip)
     if execs:
-        error_list.extend(execs)
+        for opt in execs:
+            error_list.append({"option": opt})
 
     # If nothing extracted (not an archive, or sflock failed/skipped)
     if not extracted_files:

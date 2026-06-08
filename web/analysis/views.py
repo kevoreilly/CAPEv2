@@ -50,7 +50,7 @@ from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_
 from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
-# Import for now, but we already doing cleanup on processing
+from lib.cuckoo.common.hunting import load_hunt_map
 
 try:
     from django_ratelimit.decorators import ratelimit
@@ -4132,9 +4132,6 @@ def failed_processing(request, task_id):
         "process_log": log_content,
         "settings": settings,
     })
-
-
-from lib.cuckoo.common.hunting import load_hunt_map
 
 
 @require_safe

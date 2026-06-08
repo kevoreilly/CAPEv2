@@ -7,6 +7,7 @@ import collections
 import datetime
 import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -17,6 +18,7 @@ from io import BytesIO
 from pathlib import Path
 from urllib.parse import quote
 from wsgiref.util import FileWrapper
+
 
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
@@ -48,6 +50,7 @@ from lib.cuckoo.common.web_utils import category_all_files, my_rate_minutes, my_
 from lib.cuckoo.core.database import Database, TasksMixIn
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from modules.reporting.report_doc import CHUNK_CALL_SIZE
+from lib.cuckoo.common.hunting import load_hunt_map
 
 try:
     from django_ratelimit.decorators import ratelimit
@@ -4129,3 +4132,158 @@ def failed_processing(request, task_id):
         "process_log": log_content,
         "settings": settings,
     })
+
+
+@require_safe
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def hunt(request):
+    if not settings.HUNT_ENABLED:
+        return render(request, "error.html", {"error": "The Hunt/Threat Discovery feature is disabled in web.conf."})
+
+    if not enabledconf["mongodb"]:
+        return render(request, "error.html", {"error": "MongoDB is required for the Hunt/Threat Discovery feature."})
+
+    filename_prefix = request.GET.get("filename_prefix", "downloaded_by_")
+    min_count = request.GET.get("min_count", "3")
+    days_back = request.GET.get("days_back", "14")
+    ignore_detections = request.GET.get("ignore_detections") == "on"
+    try:
+        min_count = int(min_count)
+    except ValueError:
+        min_count = 3
+    try:
+        days_back = int(days_back)
+    except ValueError:
+        days_back = 14
+
+    # Hot-reload HUNT_MAP with modular, high-performance system mtime caching
+    HUNT_MAP, VALIDATORS = load_hunt_map(min_count)
+    if HUNT_MAP is None:
+        if VALIDATORS == "missing":
+            return render(request, "error.html", {"error": "The hunt.json configuration file is missing. Please contact your system administrator."})
+        else:
+            return render(request, "error.html", {"error": "The hunt.json configuration file is invalid. Please check system logs."})
+
+    # Evaluate dynamic categories based on HUNT_MAP definitions
+    has_category_filter = any(key.startswith("cat_") for key in request.GET)
+    categories = {}
+    for cat_id, cat_config in HUNT_MAP.items():
+        fkey = cat_config["form_key"]
+        categories[cat_id] = True if not has_category_filter else (request.GET.get(fkey) == "on")
+
+    # Clean prefix to avoid double caret and force strict case-sensitive Prefix Match.
+    # MongoDB B-Tree indexes are ONLY fully utilized by regex if it is anchored at the start (^)
+    # and case-sensitive (no $options: "i").
+    clean_prefix = re.escape(filename_prefix.lstrip("^").strip())
+
+    # Database Safeguard: Prevent global all-time hunts to avoid database timeouts
+    if not clean_prefix and days_back == 0:
+        return render(request, "error.html", {"error": "An all-time global hunt with no filename prefix is not allowed due to performance risks."})
+
+    # Build match query with optional date filters for performance
+    match_query = {}
+
+    if not ignore_detections:
+        match_query["malfamily"] = {"$exists": False}
+        match_query["detections"] = {"$exists": False}
+
+    if clean_prefix:
+        match_query["target.file.name"] = {"$regex": f"^{clean_prefix}"}
+
+    if days_back > 0:
+        import datetime
+        delta = datetime.timedelta(days=days_back)
+        start_date = (datetime.datetime.utcnow() - delta).strftime("%Y-%m-%d %H:%M:%S")
+        match_query["info.started"] = {"$gte": start_date}
+
+    # Dynamic multi-category aggregation
+    facet_stages = {}
+    for cat_id, cat_config in HUNT_MAP.items():
+        if categories[cat_id]:
+            stages = []
+            if cat_config["db_unwind"]:
+                stages.append({"$unwind": cat_config["db_unwind"]})
+            stages.extend([
+                {"$group": {"_id": cat_config["db_group"], "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                {"$match": cat_config.get("db_match", {"count": {"$gte": min_count}})},
+                {"$sort": {"count": -1}},
+                {"$limit": 100}
+            ])
+            facet_stages[cat_id] = stages
+
+    # MongoDB Pipeline using $facet for multi-category aggregation
+    pipeline = [
+        {"$match": match_query}
+    ]
+    if facet_stages:
+        pipeline.append({"$facet": facet_stages})
+
+    try:
+        if facet_stages:
+            res = list(mongo_aggregate("analysis", pipeline))
+            facets = res[0] if res else {}
+        else:
+            facets = {}
+    except Exception as e:
+        return render(request, "error.html", {"error": f"Threat hunting aggregation failed: {e}"})
+
+    # Apply noise whitelists and validators dynamically
+    clean_facets = {}
+    for cat_id, cat_config in HUNT_MAP.items():
+        if categories[cat_id]:
+            raw_items = facets.get(cat_id, [])
+            validator_func = cat_config["validator"]
+            clean_facets[cat_id] = [
+                (item["_id"], item["count"], sorted(list(item["task_ids"])))
+                for item in raw_items if validator_func(item["_id"])
+            ][:15]
+
+    return render(request, "analysis/hunt.html", {
+        "facets": clean_facets,
+        "filename_prefix": filename_prefix,
+        "min_count": min_count,
+        "days_back": days_back,
+        "ignore_detections": ignore_detections,
+        "categories": categories,
+        "hunt_map": HUNT_MAP,
+        "settings": settings,
+    })
+
+
+@require_POST
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def tag_tasks(request):
+    try:
+        data = json.loads(request.body)
+    except ValueError:
+        return JsonResponse({"status": "error", "message": "Invalid JSON"}, status=400)
+
+    task_ids = data.get("task_ids", [])
+    tag = data.get("tag", "").strip()
+
+    if not task_ids or not tag:
+        return JsonResponse({"status": "error", "message": "Missing task_ids or tag"}, status=400)
+
+    # Sanitize tag string (alphanumeric, underscores, hyphens)
+    tag = "".join(c for c in tag if c.isalnum() or c in ("_", "-")).strip()
+    if not tag:
+        return JsonResponse({"status": "error", "message": "Invalid tag string"}, status=400)
+
+    from lib.cuckoo.core.data.task import Task
+    updated_count = 0
+    try:
+        for tid in task_ids:
+            task = db.session.get(Task, int(tid))
+            if task:
+                existing_tags = task.tags_tasks or ""
+                current_tags = [t.strip() for t in existing_tags.split(",") if t.strip()]
+                if tag not in current_tags:
+                    current_tags.append(tag)
+                    task.tags_tasks = ",".join(current_tags)
+                    updated_count += 1
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return JsonResponse({"status": "error", "message": f"Database update failed: {e}"}, status=500)
+
+    return JsonResponse({"status": "success", "updated_count": updated_count, "tag": tag})

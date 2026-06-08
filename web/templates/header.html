@@ -14,6 +14,9 @@
             <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><i class="fas fa-list me-1"></i> Recent</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><i class="fas fa-clock me-1"></i> Pending</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><i class="fas fa-search me-1"></i> Search</a></li>
+            {% if settings.HUNT_ENABLED %}
+            <li class="nav-item"><a class="nav-link" href="{% url "hunt" %}"><i class="fas fa-bullseye me-1"></i> Hunt</a></li>
+            {% endif %}
             <li class="nav-item"><a class="nav-link" href="{% url "apiv2" %}"><i class="fas fa-cog me-1"></i> API</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><i class="fas fa-upload me-1"></i> Submit</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><i class="fas fa-chart-area me-1"></i> Statistics</a></li>

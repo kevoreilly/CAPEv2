@@ -102,6 +102,7 @@ index_clamav = no
 index_hashes = no
 index_detections = no
 index_filenames = no
+index_hunt = no
 
 # Set this value if you are using mongodb with TLS enabled
 # tlscafile =

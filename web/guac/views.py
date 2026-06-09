@@ -302,6 +302,17 @@ def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
                 dom.revertToSnapshot(snap, flags=0)
             else:
                 dom.create()
+
+            # Enforce 'none' (no internet) route by default
+            try:
+                machine = db.view_machine_by_label(vm_name)
+                if machine:
+                    from utils.router_manager import route_enable
+                    route_enable("none", None, None, machine, None, None)
+                    logger.info("Successfully set default 'none' route for VM '%s'", vm_name)
+            except Exception as routing_err:
+                logger.error(f"Failed to enforce default 'none' route for VM {vm_name}: {routing_err}")
+
     except Exception as e:
         logger.error(f"Error starting VM {vm_name} in background: {e}")
         try:
@@ -381,6 +392,9 @@ def direct_vnc_vm_start(request, vm_name):
                     db.unlock_machine(machine)
                     db.session.commit()
                 return _error(request, 0, f"Failed to restore snapshot: {e}")
+
+        # Initialize route session to 'none' by default
+        request.session[f"route_{vm_name}"] = "none"
 
         # Spawn background thread to start the VM
         threading.Thread(

@@ -145,6 +145,8 @@
                 window.location.href = "/";
             });
         }
+        {% endif %}
+
         {% if not task_id or task_id == 0 or task_id == '0' %}
         var routeSelect = document.getElementById("routeSelect");
         if (routeSelect) {

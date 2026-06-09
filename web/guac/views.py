@@ -501,11 +501,15 @@ def direct_vnc_vm_route(request, vm_name):
         data = {}
 
     target_route = data.get("route", "none")
+    logger.info("direct_vnc_vm_route: Received route change request for VM '%s' to target_route: '%s'", vm_name, target_route)
 
     # Load machine configuration
     machine = db.view_machine_by_label(vm_name)
     if not machine:
+        logger.error("direct_vnc_vm_route: VM '%s' not found in database", vm_name)
         return JsonResponse({"status": "error", "message": f"VM {vm_name} not found"}, status=404)
+
+    logger.info("direct_vnc_vm_route: Found machine in DB: name=%s, ip=%s, interface=%s", machine.name, machine.ip, machine.interface)
 
     from lib.cuckoo.common.config import Config as CapeConfig
     routing = CapeConfig("routing")
@@ -521,11 +525,16 @@ def direct_vnc_vm_route(request, vm_name):
     if routing.vpn.get("enabled", False):
         allowed_routes.extend(configured_vpns)
 
+    logger.info("direct_vnc_vm_route: Allowed routes based on routing.conf: %s", allowed_routes)
+
     if target_route not in allowed_routes:
+        logger.error("direct_vnc_vm_route: Target route '%s' is not in allowed_routes list", target_route)
         return JsonResponse({"status": "error", "message": f"Route '{target_route}' is not configured or enabled"}, status=400)
 
     current_route = request.session.get(f"route_{vm_name}", "none")
+    logger.info("direct_vnc_vm_route: Current active route in session: '%s'", current_route)
     if current_route == target_route:
+        logger.info("direct_vnc_vm_route: Current route is already '%s'. No action needed.", target_route)
         return JsonResponse({"status": "success", "current_route": current_route})
 
     from utils.router_manager import route_disable, route_enable
@@ -536,6 +545,7 @@ def direct_vnc_vm_route(request, vm_name):
             interface, rt_table, reject_segments, reject_hostports = get_route_params(
                 current_route, routing, configured_vpns
             )
+            logger.info("direct_vnc_vm_route: Disabling route '%s' (interface=%s, rt_table=%s)", current_route, interface, rt_table)
             route_disable(current_route, interface, rt_table, machine, reject_segments, reject_hostports)
 
         # Enable new route
@@ -543,14 +553,16 @@ def direct_vnc_vm_route(request, vm_name):
             interface, rt_table, reject_segments, reject_hostports = get_route_params(
                 target_route, routing, configured_vpns
             )
+            logger.info("direct_vnc_vm_route: Enabling route '%s' (interface=%s, rt_table=%s)", target_route, interface, rt_table)
             route_enable(target_route, interface, rt_table, machine, reject_segments, reject_hostports)
 
         # Save route in session
         request.session[f"route_{vm_name}"] = target_route
+        logger.info("direct_vnc_vm_route: Successfully updated route for VM '%s' to '%s'", vm_name, target_route)
         return JsonResponse({"status": "success", "current_route": target_route})
 
     except Exception as e:
-        logger.error(f"Failed to change route for VM {vm_name} to {target_route}: {e}")
+        logger.error(f"direct_vnc_vm_route: Failed to change route for VM {vm_name} to {target_route}: {e}")
         return JsonResponse({
             "status": "error",
             "message": str(e),

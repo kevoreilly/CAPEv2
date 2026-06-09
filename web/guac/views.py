@@ -233,6 +233,26 @@ def direct_vnc_vm(request, vm_name):
     machine = db.view_machine_by_label(vm_name)
     started_by_console = machine.locked if machine else False
 
+    # Determine configured VPNs and Tor/Internet routing options
+    from lib.cuckoo.common.config import Config as CapeConfig
+    routing = CapeConfig("routing")
+    tor_enabled = routing.tor.get("enabled", False)
+    internet_interface = routing.routing.get("internet", "none")
+    internet_configured = internet_interface and internet_interface != "none"
+
+    vpns_raw = routing.vpn.get("vpns", "")
+    vpn_list = []
+    if routing.vpn.get("enabled", False) and vpns_raw:
+        for vpn_name in [v.strip() for v in vpns_raw.split(",") if v.strip()]:
+            vpn_section = getattr(routing, vpn_name, None)
+            if vpn_section:
+                vpn_list.append({
+                    "name": vpn_name,
+                    "description": vpn_section.get("description", vpn_name)
+                })
+
+    current_route = request.session.get(f"route_{vm_name}", "none")
+
     response = render(request, "guac/index.html", {
         "session_id": str(token),
         "task_id": 0,
@@ -240,6 +260,10 @@ def direct_vnc_vm(request, vm_name):
         "vnc_host": vm_name,
         "vnc_port": "auto",
         "started_by_console": started_by_console,
+        "tor_enabled": tor_enabled,
+        "internet_configured": internet_configured,
+        "vpns": vpn_list,
+        "current_route": current_route,
     })
 
     response.set_cookie(
@@ -402,8 +426,27 @@ def direct_vnc_vm_shutdown(request, vm_name):
         except Exception as e:
             logger.error("Failed to shutdown VM %s: %s", vm_name, e)
 
+        # Disable active routing if configured
+        current_route = request.session.get(f"route_{vm_name}", "none")
+        if current_route != "none" and machine:
+            try:
+                from lib.cuckoo.common.config import Config as CapeConfig
+                from utils.router_manager import route_disable
+                
+                routing = CapeConfig("routing")
+                vpns_raw = routing.vpn.get("vpns", "")
+                configured_vpns = [v.strip() for v in vpns_raw.split(",") if v.strip()] if vpns_raw else []
+                
+                interface, rt_table, reject_segments, reject_hostports = get_route_params(
+                    current_route, routing, configured_vpns
+                )
+                route_disable(current_route, interface, rt_table, machine, reject_segments, reject_hostports)
+            except Exception as routing_err:
+                logger.error(f"Failed to disable routing for {vm_name} on shutdown: {routing_err}")
+            finally:
+                request.session.pop(f"route_{vm_name}", None)
+
         # Unlock the machine in DB
-        machine = db.view_machine_by_label(vm_name)
         if machine:
             db.unlock_machine(machine)
             db.session.commit()
@@ -418,4 +461,99 @@ def direct_vnc_vm_shutdown(request, vm_name):
                 conn.close()
             except Exception:
                 pass
+
+
+def get_route_params(route_name, routing, configured_vpns):
+    if route_name == "tor":
+        return routing.tor.get("interface"), None, None, None
+    elif route_name == "internet":
+        interface = routing.routing.get("internet", "none")
+        rt_table = routing.routing.get("rt_table", "main")
+        
+        reject_segments = routing.routing.get("reject_segments", "none")
+        if reject_segments == "none":
+            reject_segments = None
+            
+        reject_hostports = routing.routing.get("reject_hostports", "none")
+        if reject_hostports == "none":
+            reject_hostports = None
+        else:
+            reject_hostports = str(reject_hostports)
+            
+        return interface, rt_table, reject_segments, reject_hostports
+    elif route_name in configured_vpns:
+        vpn = routing.get(route_name)
+        return vpn.get("interface"), vpn.get("rt_table"), None, None
+    return None, None, None, None
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def direct_vnc_vm_route(request, vm_name):
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
+
+    if not LIBVIRT_AVAILABLE:
+        return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        data = {}
+
+    target_route = data.get("route", "none")
+
+    # Load machine configuration
+    machine = db.view_machine_by_label(vm_name)
+    if not machine:
+        return JsonResponse({"status": "error", "message": f"VM {vm_name} not found"}, status=404)
+
+    from lib.cuckoo.common.config import Config as CapeConfig
+    routing = CapeConfig("routing")
+    vpns_raw = routing.vpn.get("vpns", "")
+    configured_vpns = [v.strip() for v in vpns_raw.split(",") if v.strip()] if vpns_raw else []
+
+    # Validate target route
+    allowed_routes = ["none"]
+    if routing.tor.get("enabled", False):
+        allowed_routes.append("tor")
+    if routing.routing.get("internet", "none") != "none":
+        allowed_routes.append("internet")
+    if routing.vpn.get("enabled", False):
+        allowed_routes.extend(configured_vpns)
+
+    if target_route not in allowed_routes:
+        return JsonResponse({"status": "error", "message": f"Route '{target_route}' is not configured or enabled"}, status=400)
+
+    current_route = request.session.get(f"route_{vm_name}", "none")
+    if current_route == target_route:
+        return JsonResponse({"status": "success", "current_route": current_route})
+
+    from utils.router_manager import route_disable, route_enable
+
+    try:
+        # Disable previous route
+        if current_route != "none":
+            interface, rt_table, reject_segments, reject_hostports = get_route_params(
+                current_route, routing, configured_vpns
+            )
+            route_disable(current_route, interface, rt_table, machine, reject_segments, reject_hostports)
+
+        # Enable new route
+        if target_route != "none":
+            interface, rt_table, reject_segments, reject_hostports = get_route_params(
+                target_route, routing, configured_vpns
+            )
+            route_enable(target_route, interface, rt_table, machine, reject_segments, reject_hostports)
+
+        # Save route in session
+        request.session[f"route_{vm_name}"] = target_route
+        return JsonResponse({"status": "success", "current_route": target_route})
+
+    except Exception as e:
+        logger.error(f"Failed to change route for VM {vm_name} to {target_route}: {e}")
+        return JsonResponse({
+            "status": "error",
+            "message": str(e),
+            "current_route": current_route
+        }, status=500)
 

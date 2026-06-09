@@ -32,8 +32,22 @@
             </button>
             {% else %}
             <span class="text-secondary small me-1">Direct VNC</span>
-            <span class="text-info small me-auto">{{ vnc_host }}:{{ vnc_port }}</span>
-            <button id="stopTask" class="btn btn-sm btn-outline-danger">
+            <span class="text-info small me-2">{{ vnc_host }}</span>
+            <span class="text-secondary me-2 small">|</span>
+            <span class="text-secondary small me-1">Route:</span>
+            <select id="routeSelect" class="form-select form-select-sm bg-dark text-white border-secondary me-auto" style="width: auto; height: 30px; padding-top: 2px; padding-bottom: 2px; font-size: 12px;">
+                <option value="none" {% if current_route == 'none' %}selected{% endif %}>None (No Internet)</option>
+                {% if internet_configured %}
+                <option value="internet" {% if current_route == 'internet' %}selected{% endif %}>Internet (Dirty Line)</option>
+                {% endif %}
+                {% if tor_enabled %}
+                <option value="tor" {% if current_route == 'tor' %}selected{% endif %}>Tor</option>
+                {% endif %}
+                {% for vpn in vpns %}
+                <option value="{{ vpn.name }}" {% if current_route == vpn.name %}selected{% endif %}>VPN: {{ vpn.description }}</option>
+                {% endfor %}
+            </select>
+            <button id="stopTask" class="btn btn-sm btn-outline-danger ms-3">
                 <i class="fas fa-sign-out-alt me-1"></i>Disconnect
             </button>
             {% endif %}
@@ -129,6 +143,38 @@
             .catch(function(err) {
                 console.error("Error shutting down:", err);
                 window.location.href = "/";
+            });
+        }
+        {% if not task_id or task_id == 0 or task_id == '0' %}
+        var routeSelect = document.getElementById("routeSelect");
+        if (routeSelect) {
+            routeSelect.addEventListener("change", function() {
+                var selectedRoute = routeSelect.value;
+                routeSelect.disabled = true;
+                
+                fetch('/guac/direct/vnc/{{ vnc_host }}/route/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCsrfToken()
+                    },
+                    body: JSON.stringify({ route: selectedRoute })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    routeSelect.disabled = false;
+                    if (data.status !== 'success') {
+                        alert('Failed to update routing: ' + (data.message || 'Unknown error'));
+                        if (data.current_route) {
+                            routeSelect.value = data.current_route;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error changing route:', error);
+                    alert('Error changing route');
+                    routeSelect.disabled = false;
+                });
             });
         }
         {% endif %}

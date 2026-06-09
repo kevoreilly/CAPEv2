@@ -149,6 +149,14 @@ def direct_vnc_host_port(request, host, port):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm(request, vm_name):
+    override = request.GET.get("override") == "true"
+    if not override:
+        from lib.cuckoo.core.data.guac_session import GuacSession
+        session = db.session()
+        active_session = session.query(GuacSession).filter_by(vm_label=vm_name).first()
+        if active_session:
+            return render(request, "guac/warn.html", {"vm_name": vm_name})
+
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
 

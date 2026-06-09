@@ -25,7 +25,11 @@
                             <i class="fas fa-desktop fa-3x text-secondary mb-3"></i>
                         </div>
                         <h4 class="text-white mb-2">Hang on...</h4>
+                        {% if vm_name %}
+                        <p class="text-secondary mb-4">The VM {{ vm_name }} is starting. This page will refresh every second.</p>
+                        {% else %}
                         <p class="text-secondary mb-4">The VM is not running yet. This page will refresh every 5 seconds.</p>
+                        {% endif %}
                         <div class="progress mb-4" style="height: 4px;">
                             <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger w-100"></div>
                         </div>
@@ -36,6 +40,11 @@
                         {% else %}
                         <button type="button" id="taskStatus" class="btn btn-outline-secondary">
                             <i class="fas fa-home me-1"></i> Go Home
+                        </button>
+                        {% endif %}
+                        {% if vm_name %}
+                        <button type="button" id="cancelStart" class="btn btn-outline-danger ms-2">
+                            <i class="fas fa-times me-1"></i> Cancel
                         </button>
                         {% endif %}
                     </div>
@@ -52,7 +61,43 @@
             location.replace(location.origin + '/');
             {% endif %}
         });
-        setTimeout(function() { location.reload(true); }, 5000);
+
+        {% if vm_name %}
+        var cancelBtn = document.getElementById("cancelStart");
+        if (cancelBtn) {
+            cancelBtn.addEventListener("click", function() {
+                cancelBtn.disabled = true;
+                cancelBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cancelling...';
+                
+                fetch('/guac/direct/vnc/{{ vm_name }}/shutdown/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ force: true })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.replace(location.origin + '/guac/direct/vnc/{{ vm_name }}/');
+                    } else {
+                        alert('Error cancelling startup: ' + (data.message || 'Unknown error'));
+                        cancelBtn.disabled = false;
+                        cancelBtn.innerHTML = '<i class="fas fa-times me-1"></i> Cancel';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error cancelling startup');
+                    cancelBtn.disabled = false;
+                    cancelBtn.innerHTML = '<i class="fas fa-times me-1"></i> Cancel';
+                });
+            });
+        }
+        {% endif %}
+
+        setTimeout(function() { location.reload(true); }, {% if vm_name %}1000{% else %}5000{% endif %});
     </script>
 </body>
 </html>

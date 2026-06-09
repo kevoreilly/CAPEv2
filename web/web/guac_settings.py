@@ -41,6 +41,20 @@ LOGGING_CONFIG = None
 
 WEB_AUTHENTICATION = getattr(Config("web"), "web_auth", {}).get("enabled", False)
 
+web_cfg = Config("web")
+csfr_list = []
+if web_cfg.security.csrf_trusted_origins:
+    for host in web_cfg.security.csrf_trusted_origins.split(","):
+        host = host.strip()
+        if not host:
+            continue
+        if host.startswith(("http://", "https://")):
+            csfr_list.append(host)
+        else:
+            csfr_list.extend([f"http://{host}", f"https://{host}"])
+
+CSRF_TRUSTED_ORIGINS = csfr_list
+
 ALLOWED_HOSTS = [
     "*",
 ]

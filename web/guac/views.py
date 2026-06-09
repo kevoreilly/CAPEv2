@@ -1,4 +1,5 @@
 import uuid
+import threading
 from base64 import urlsafe_b64decode
 
 import json
@@ -202,6 +203,12 @@ def direct_vnc_vm(request, vm_name):
 
     if not is_running:
         machine = db.view_machine_by_label(vm_name)
+        if machine and machine.locked:
+            return render(request, "guac/wait.html", {
+                "vm_name": vm_name,
+                "task_id": 0,
+            })
+
         default_snapshot = machine.snapshot if (machine and machine.snapshot) else None
         return render(request, "guac/start.html", {
             "vm_name": vm_name,
@@ -247,6 +254,37 @@ def direct_vnc_vm(request, vm_name):
     return response
 
 
+def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
+    import libvirt
+    from lib.cuckoo.core.database import Database
+    db = Database()
+    conn = None
+    try:
+        conn = libvirt.open(machinery_dsn)
+        if conn:
+            dom = conn.lookupByName(vm_name)
+            if start_mode == "snapshot":
+                snap = dom.snapshotLookupByName(snapshot_name, flags=0)
+                dom.revertToSnapshot(snap, flags=0)
+            else:
+                dom.create()
+    except Exception as e:
+        logger.error(f"Error starting VM {vm_name} in background: {e}")
+        try:
+            machine = db.view_machine_by_label(vm_name)
+            if machine:
+                db.unlock_machine(machine)
+                db.session.commit()
+        except Exception as db_err:
+            logger.error(f"Failed to unlock machine {vm_name} after background start error: {db_err}")
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_start(request, vm_name):
     if not LIBVIRT_AVAILABLE:
@@ -284,6 +322,7 @@ def direct_vnc_vm_start(request, vm_name):
             db.lock_machine(machine)
             db.session.commit()
 
+        snapshot_name = None
         if start_mode == "snapshot":
             snapshot_name = selected_snapshot or (machine.snapshot if (machine and machine.snapshot) else None)
             if not snapshot_name:
@@ -300,23 +339,21 @@ def direct_vnc_vm_start(request, vm_name):
                     db.session.commit()
                 return _error(request, 0, f"No snapshot configured or found for VM {vm_name}")
 
+            # Verify snapshot exists before starting thread
             try:
-                snap = dom.snapshotLookupByName(snapshot_name, flags=0)
-                dom.revertToSnapshot(snap, flags=0)
+                dom.snapshotLookupByName(snapshot_name, flags=0)
             except Exception as e:
                 if machine:
                     db.unlock_machine(machine)
                     db.session.commit()
                 return _error(request, 0, f"Failed to restore snapshot: {e}")
-        else:
-            # Start dirty
-            try:
-                dom.create()
-            except Exception as e:
-                if machine:
-                    db.unlock_machine(machine)
-                    db.session.commit()
-                return _error(request, 0, f"Failed to power on VM dirty: {e}")
+
+        # Spawn background thread to start the VM
+        threading.Thread(
+            target=bg_revert_and_start,
+            args=(machinery_dsn, vm_name, start_mode, snapshot_name),
+            daemon=True
+        ).start()
 
         return redirect("direct_vnc_vm", vm_name=vm_name)
 

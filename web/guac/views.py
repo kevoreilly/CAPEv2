@@ -150,14 +150,6 @@ def direct_vnc_host_port(request, host, port):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm(request, vm_name):
-    override = request.GET.get("override") == "true"
-    if not override:
-        from lib.cuckoo.core.data.guac_session import GuacSession
-        session = db.session()
-        active_session = session.query(GuacSession).filter_by(vm_label=vm_name).first()
-        if active_session:
-            return render(request, "guac/warn.html", {"vm_name": vm_name})
-
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
 
@@ -201,7 +193,25 @@ def direct_vnc_vm(request, vm_name):
     if not vm_exists:
         return _error(request, 0, f"VM {vm_name} not found")
 
+    # If the VM is running, check for an active Guacamole connection session
+    override = request.GET.get("override") == "true"
+    if is_running and not override:
+        from lib.cuckoo.core.data.guac_session import GuacSession
+        session = db.session()
+        active_session = session.query(GuacSession).filter_by(vm_label=vm_name).first()
+        if active_session:
+            return render(request, "guac/warn.html", {"vm_name": vm_name})
+
+    # If the VM is not running, delete any stale GuacSession entries to prevent lockups
     if not is_running:
+        try:
+            from lib.cuckoo.core.data.guac_session import GuacSession
+            session = db.session()
+            session.query(GuacSession).filter_by(vm_label=vm_name).delete()
+            session.commit()
+        except Exception as e:
+            logger.error(f"Failed to clear stale GuacSession for VM {vm_name}: {e}")
+
         machine = db.view_machine_by_label(vm_name)
         if machine and machine.locked:
             return render(request, "guac/wait.html", {

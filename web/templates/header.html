@@ -42,6 +42,20 @@
               </div>
             </li>
             {% endif %}
+            {% if vnc_console_enabled %}
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVNC" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i class="fas fa-desktop me-1"></i> VNC Console</a>
+              <div class="dropdown-menu dropdown-menu-end bg-dark border-secondary" aria-labelledby="navbarDropdownVNC">
+                {% if vnc_console_machines %}
+                  {% for machine_label in vnc_console_machines %}
+                    <a class="dropdown-item text-light" href="{% url 'direct_vnc_vm' machine_label %}"{% if vnc_console_new_tab %} target="_blank"{% endif %}><i class="fas fa-terminal me-2 text-white-50"></i> {{ machine_label }}</a>
+                  {% endfor %}
+                {% else %}
+                  <span class="dropdown-item text-muted small">No machines configured</span>
+                {% endif %}
+              </div>
+            </li>
+            {% endif %}
             <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/" target="_blank"><i class="fas fa-info-circle me-1"></i> Docs</a></li>
             <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md" target="_blank"><i class="far fa-newspaper me-1"></i> Changelog</a></li>
            <li class="nav-item">

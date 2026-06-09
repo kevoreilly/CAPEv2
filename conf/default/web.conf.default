@@ -237,6 +237,10 @@ enabled = yes
 enabled = no
 
 [guacamole]
+# Show a VNC Console dropdown of VM guests in the navigation bar
+vnc_console_enabled = no
+# Open VNC console sessions in a new tab
+vnc_console_new_tab = yes
 enabled = no
 mode = vnc
 username =

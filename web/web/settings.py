@@ -197,6 +197,7 @@ TEMPLATES = [
                 "django_settings_export.settings_export",
                 # Surfaces `may_manage_apikeys` for the API Keys link in the user dropdown.
                 "apikey.context_processors.apikey_access",
+                "guac.context_processors.guac_vnc_console",
             ],
             "loaders": [
                 "django.template.loaders.filesystem.Loader",

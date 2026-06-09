@@ -15,6 +15,7 @@
     <script src="{% static 'js/guacamole-1.6.0-all.min.js' %}"></script>
     <script src="{% static 'js/jquery.js' %}"></script>
     <script src="{% static 'js/jquery-ui.min.js' %}"></script>
+    <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
 </head>
 <body class="bg-dark text-white" style="margin:0;padding:0;overflow:hidden;">
     <div class="guaconsole">
@@ -52,6 +53,30 @@
             </div>
         </div>
     </div>
+    {% if started_by_console %}
+    <!-- Disconnect / Shutdown Modal -->
+    <div class="modal fade text-white" id="disconnectModal" tabindex="-1" aria-labelledby="disconnectModalLabel" aria-hidden="true" style="z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-secondary shadow-lg">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="disconnectModalLabel"><i class="fas fa-power-off text-danger me-2"></i> Disconnect Session</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-start">
+                    <p>This virtual machine was started by the VNC Console.</p>
+                    <p class="text-secondary small">Choose how you want to handle the virtual machine upon disconnecting:</p>
+                </div>
+                <div class="modal-footer border-secondary justify-content-between">
+                    <button type="button" id="btnDisconnectOnly" class="btn btn-outline-light btn-sm"><i class="fas fa-sign-out-alt me-1"></i> Keep Running</button>
+                    <div>
+                        <button type="button" id="btnShutdownGraceful" class="btn btn-warning btn-sm"><i class="fas fa-stop me-1"></i> Shutdown</button>
+                        <button type="button" id="btnShutdownForce" class="btn btn-danger btn-sm"><i class="fas fa-bolt me-1"></i> Force Off</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
     <script>
         {% if task_id and task_id != 0 and task_id != '0' %}
         document.getElementById("stopTask").addEventListener("click", function() {
@@ -59,9 +84,55 @@
         });
         {% else %}
         document.getElementById("stopTask").addEventListener("click", function() {
+            {% if started_by_console %}
+            var disconnectModalEl = document.getElementById('disconnectModal');
+            var myModal = new bootstrap.Modal(disconnectModalEl);
+            myModal.show();
+            {% else %}
             window.location.href = "/";
+            {% endif %}
         });
         {% endif %}
+
+        {% if started_by_console %}
+        document.getElementById("btnDisconnectOnly").addEventListener("click", function() {
+            window.location.href = "/";
+        });
+        document.getElementById("btnShutdownGraceful").addEventListener("click", function() {
+            performShutdown(false);
+        });
+        document.getElementById("btnShutdownForce").addEventListener("click", function() {
+            performShutdown(true);
+        });
+
+        function performShutdown(force) {
+            document.getElementById("btnDisconnectOnly").disabled = true;
+            document.getElementById("btnShutdownGraceful").disabled = true;
+            document.getElementById("btnShutdownForce").disabled = true;
+
+            var url = "/guac/direct/vnc/{{ vnc_host }}/shutdown/";
+            var data = {
+                force: force
+            };
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify(data)
+            })
+            .then(function() {
+                window.location.href = "/";
+            })
+            .catch(function(err) {
+                console.error("Error shutting down:", err);
+                window.location.href = "/";
+            });
+        }
+        {% endif %}
+
         GuacMe("html", "{{ session_id }}", "{{ recording_name }}");
     </script>
 </body>

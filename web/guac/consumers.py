@@ -74,6 +74,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
         self.monitor_task = None
         self.guac_token = None
         self.guac_task_id = None
+        self.vm_label = None
         self.is_closing = False
         self.timeout_manager = None
         self.timeout_task = None
@@ -138,7 +139,8 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
 
             self.guac_token = str(token)
             self.guac_task_id = session_data["task_id"]
-            vm_label = session_data["vm_label"]
+            self.vm_label = session_data["vm_label"]
+            vm_label = self.vm_label
 
             vnc_port = None
             if self.guac_task_id > 0:
@@ -296,6 +298,8 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 self.task = asyncio.create_task(self.read_guacd())
                 if self.guac_task_id > 0:
                     self.monitor_task = asyncio.create_task(self.monitor_task_status())
+                else:
+                    self.monitor_task = asyncio.create_task(self.monitor_vm_status())
                 if self.timeout_manager and self.timeout_manager.idle_timeout_seconds > 0:
                     self.timeout_task = asyncio.create_task(self.monitor_timeout())
             else:
@@ -329,6 +333,46 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             pass
         except Exception as e:
             logger.error("Error in task monitor: %s", e)
+
+    async def monitor_vm_status(self):
+        """Periodically check if the VM is still running. If not, release the lock and close."""
+        try:
+            while True:
+                await asyncio.sleep(TASK_POLL_INTERVAL)
+                if self.guac_task_id > 0:
+                    break
+
+                is_running = False
+                conn = None
+                try:
+                    conn = await sync_to_async(libvirt.open)(machinery_dsn)
+                    if conn:
+                        dom = conn.lookupByName(self.vm_label)
+                        if dom:
+                            state = dom.state(flags=0)
+                            is_running = state and state[0] == 1
+                except Exception as e:
+                    logger.error("Error checking VM status for %s: %s", self.vm_label, e)
+                finally:
+                    if conn:
+                        try:
+                            conn.close()
+                        except Exception:
+                            pass
+
+                if not is_running:
+                    logger.info("VM %s is no longer running, unlocking and disconnecting", self.vm_label)
+                    db = Database()
+                    machine = await sync_to_async(db.view_machine_by_label)(self.vm_label)
+                    if machine and machine.locked:
+                        await sync_to_async(db.unlock_machine)(machine)
+                        await sync_to_async(db.session.commit)()
+                    await self._close_websocket()
+                    break
+        except asyncio.CancelledError:
+            pass
+        except Exception as e:
+            logger.error("Error in VM monitor: %s", e)
 
     async def disconnect(self, code):
         """Clean up on WebSocket disconnect."""

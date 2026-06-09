@@ -28,9 +28,18 @@
                             <div class="card bg-secondary bg-opacity-10 border-secondary p-3 mb-4 text-start">
                                 <div class="form-check mb-3">
                                     <input class="form-check-input" type="radio" name="start_mode" id="modeSnapshot" value="snapshot" checked>
-                                    <label class="form-check-label text-white" for="modeSnapshot">
+                                    <label class="form-check-label text-white w-100" for="modeSnapshot">
                                         <strong>Restore Snapshot</strong>
-                                        <div class="text-muted small">Revert to the clean, configured snapshot state before booting.</div>
+                                        <div class="text-muted small mb-2">Revert to a clean snapshot state before booting.</div>
+                                        {% if snapshots %}
+                                        <select class="form-select form-select-sm bg-dark text-white border-secondary mt-2" name="selected_snapshot" id="snapshotSelect">
+                                            {% for snap in snapshots %}
+                                                <option value="{{ snap }}" {% if default_snapshot == snap %}selected{% endif %}>{{ snap }}{% if default_snapshot == snap %} (configured default){% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        {% else %}
+                                        <div class="text-danger small mt-2"><i class="fas fa-exclamation-circle me-1"></i> No snapshots found for this VM.</div>
+                                        {% endif %}
                                     </label>
                                 </div>
                                 <div class="form-check">
@@ -52,5 +61,17 @@
             </div>
         </div>
     </div>
+    <script>
+        var selectEl = document.getElementById("snapshotSelect");
+        if (selectEl) {
+            var modeSnapshotRadio = document.getElementById("modeSnapshot");
+            selectEl.addEventListener("change", function() {
+                modeSnapshotRadio.checked = true;
+            });
+            selectEl.addEventListener("click", function() {
+                modeSnapshotRadio.checked = true;
+            });
+        }
+    </script>
 </body>
 </html>

@@ -166,6 +166,7 @@ def direct_vnc_vm(request, vm_name):
     is_running = False
     vm_exists = False
     error_msg = ""
+    snapshot_names = []
 
     conn = None
     try:
@@ -177,6 +178,11 @@ def direct_vnc_vm(request, vm_name):
                     vm_exists = True
                     state = dom.state(flags=0)
                     is_running = state and state[0] == 1
+                    if not is_running:
+                        try:
+                            snapshot_names = dom.snapshotListNames(flags=0)
+                        except Exception:
+                            pass
             except Exception as e:
                 error_msg = str(e)
     except Exception as e:
@@ -195,7 +201,13 @@ def direct_vnc_vm(request, vm_name):
         return _error(request, 0, f"VM {vm_name} not found")
 
     if not is_running:
-        return render(request, "guac/start.html", {"vm_name": vm_name})
+        machine = db.view_machine_by_label(vm_name)
+        default_snapshot = machine.snapshot if (machine and machine.snapshot) else None
+        return render(request, "guac/start.html", {
+            "vm_name": vm_name,
+            "snapshots": snapshot_names,
+            "default_snapshot": default_snapshot,
+        })
 
     token = uuid.uuid4()
     try:
@@ -247,6 +259,7 @@ def direct_vnc_vm_start(request, vm_name):
         return _error(request, 0, "Invalid request method")
 
     start_mode = request.POST.get("start_mode", "snapshot")
+    selected_snapshot = request.POST.get("selected_snapshot")
 
     conn = None
     try:
@@ -272,7 +285,7 @@ def direct_vnc_vm_start(request, vm_name):
             db.session.commit()
 
         if start_mode == "snapshot":
-            snapshot_name = machine.snapshot if (machine and machine.snapshot) else None
+            snapshot_name = selected_snapshot or (machine.snapshot if (machine and machine.snapshot) else None)
             if not snapshot_name:
                 try:
                     snapshot_names = dom.snapshotListNames(flags=0)

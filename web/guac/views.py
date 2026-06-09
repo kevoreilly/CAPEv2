@@ -313,6 +313,148 @@ def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
             except Exception as routing_err:
                 logger.error(f"Failed to enforce default 'none' route for VM {vm_name}: {routing_err}")
 
+            # Wait for the agent to become available and sync the clock to America/New_York (EST/EDT) zone
+            try:
+                machine = db.view_machine_by_label(vm_name)
+                if machine:
+                    import socket
+                    import time
+                    import requests
+                    import pytz
+                    import datetime
+                    import io
+
+                    ip = machine.ip
+                    port = 8000
+                    agent_ready = False
+                    start_time = time.time()
+                    timeout = 180  # 3 minutes timeout
+
+                    logger.info("Waiting for agent to become available on %s:%d to update guest clock...", ip, port)
+                    while time.time() - start_time < timeout:
+                        # Check if VM is still running
+                        try:
+                            state = dom.state(flags=0)
+                            is_running = state and state[0] == 1
+                            if not is_running:
+                                logger.info("VM '%s' is no longer running. Aborting guest clock update.", vm_name)
+                                break
+                        except Exception:
+                            pass
+
+                        try:
+                            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                            sock.settimeout(2.0)
+                            result = sock.connect_ex((ip, port))
+                            sock.close()
+                            if result == 0:
+                                session = requests.Session()
+                                session.trust_env = False
+                                session.proxies = None
+                                res = session.get(f"http://{ip}:{port}/", timeout=2.0)
+                                if res.status_code == 200:
+                                    agent_ready = True
+                                    break
+                        except Exception:
+                            pass
+                        time.sleep(2.0)
+
+                    if agent_ready:
+                        logger.info("Agent is ready on VM '%s'. Syncing clock...", vm_name)
+                        session = requests.Session()
+                        session.trust_env = False
+                        session.proxies = None
+
+                        # Timezone conversion to EST (America/New_York)
+                        try:
+                            tz = pytz.timezone("America/New_York")
+                            now_est = datetime.datetime.now(tz)
+                        except ImportError:
+                            now_utc = datetime.datetime.utcnow()
+                            if 3 < now_utc.month < 11:
+                                offset = datetime.timedelta(hours=-4)
+                            else:
+                                offset = datetime.timedelta(hours=-5)
+                            tz = datetime.timezone(offset)
+                            now_est = datetime.datetime.now(tz)
+
+                        date_str = now_est.strftime("%Y-%m-%d %H:%M:%S")
+                        platform = (machine.platform or "windows").lower()
+
+                        # Construct guest clock update script
+                        if platform == "windows":
+                            script_content = f"""import ctypes
+import sys
+
+class SYSTEMTIME(ctypes.Structure):
+    _fields_ = [
+        ("wYear", ctypes.c_ushort),
+        ("wMonth", ctypes.c_ushort),
+        ("wDayOfWeek", ctypes.c_ushort),
+        ("wDay", ctypes.c_ushort),
+        ("wHour", ctypes.c_ushort),
+        ("wMinute", ctypes.c_ushort),
+        ("wSecond", ctypes.c_ushort),
+        ("wMilliseconds", ctypes.c_ushort),
+    ]
+
+st = SYSTEMTIME()
+st.wYear = {now_est.year}
+st.wMonth = {now_est.month}
+st.wDay = {now_est.day}
+st.wHour = {now_est.hour}
+st.wMinute = {now_est.minute}
+st.wSecond = {now_est.second}
+st.wMilliseconds = 0
+
+if not ctypes.windll.kernel32.SetLocalTime(ctypes.byref(st)):
+    sys.exit(1)
+"""
+                        else:
+                            script_content = f"""import subprocess
+import sys
+
+res = subprocess.run(["date", "-s", "{date_str}"])
+sys.exit(res.returncode)
+"""
+
+                        # Determine temp path on guest
+                        temp_path = "C:\\Windows\\Temp" if platform == "windows" else "/tmp"
+                        try:
+                            env_res = session.get(f"http://{ip}:{port}/environ", timeout=5.0)
+                            if env_res.status_code == 200:
+                                env_data = env_res.json().get("environ", {})
+                                env_upper = {str(k).upper(): v for k, v in env_data.items()}
+                                if platform == "windows":
+                                    temp_path = env_upper.get("TEMP") or env_upper.get("TMP") or temp_path
+                        except Exception as env_err:
+                            logger.warning(f"Could not query guest environment on VM '{vm_name}': {env_err}")
+
+                        remote_script_path = f"{temp_path}\\set_clock.py" if platform == "windows" else f"{temp_path}/set_clock.py"
+
+                        files = {
+                            "file": ("set_clock.py", io.BytesIO(script_content.encode("utf-8"))),
+                        }
+                        store_res = session.post(f"http://{ip}:{port}/store", files=files, data={"filepath": remote_script_path}, timeout=10.0)
+                        if store_res.status_code == 200:
+                            exec_res = session.post(f"http://{ip}:{port}/execpy", data={"filepath": remote_script_path}, timeout=10.0)
+                            if exec_res.status_code == 200 and exec_res.json().get("status") == "success":
+                                logger.info(f"Successfully updated guest clock for VM '{vm_name}' via /execpy to {date_str} EST")
+                            else:
+                                logger.error(f"Execpy clock sync failed on VM '{vm_name}': {exec_res.text}")
+
+                            try:
+                                session.post(f"http://{ip}:{port}/remove", data={"filepath": remote_script_path}, timeout=5.0)
+                            except Exception:
+                                pass
+                        else:
+                            logger.error(f"Store clock sync script failed on VM '{vm_name}': {store_res.text}")
+                    else:
+                        logger.warning(f"Agent did not become ready within timeout. Skipping clock update for VM '{vm_name}'.")
+
+            except Exception as clock_err:
+                logger.error(f"Error during guest clock update for VM '{vm_name}': {clock_err}")
+
     except Exception as e:
         logger.error(f"Error starting VM {vm_name} in background: {e}")
         try:

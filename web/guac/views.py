@@ -183,6 +183,13 @@ def direct_vnc_vm(request, vm_name):
                                 current_snapshot = dom.currentSnapshot().getName()
                         except Exception:
                             pass
+
+                        if not current_snapshot:
+                            current_snapshot = request.session.get(f"snapshot_{vm_name}")
+                            if not current_snapshot:
+                                machine = db.view_machine_by_label(vm_name) or db.view_machine(vm_name)
+                                if machine and machine.snapshot:
+                                    current_snapshot = machine.snapshot
             except Exception as e:
                 error_msg = str(e)
     except Exception as e:
@@ -612,6 +619,7 @@ def direct_vnc_vm_start(request, vm_name):
 
         # Initialize route session to 'none' by default
         request.session[f"route_{vm_name}"] = "none"
+        request.session[f"snapshot_{vm_name}"] = snapshot_name if start_mode == "snapshot" else None
 
         # Spawn background thread to start the VM
         threading.Thread(
@@ -843,7 +851,14 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
         except Exception:
             pass
 
-        machine = db.view_machine_by_label(vm_name)
+        if not current_snapshot:
+            current_snapshot = request.session.get(f"snapshot_{vm_name}")
+            if not current_snapshot:
+                machine = db.view_machine_by_label(vm_name) or db.view_machine(vm_name)
+                if machine and machine.snapshot:
+                    current_snapshot = machine.snapshot
+
+        machine = db.view_machine_by_label(vm_name) or db.view_machine(vm_name)
         default_snapshot = machine.snapshot if (machine and machine.snapshot) else None
 
         return JsonResponse({

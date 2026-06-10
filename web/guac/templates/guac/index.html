@@ -33,6 +33,7 @@
             {% else %}
             <span class="text-secondary small me-1">Direct VNC</span>
             <span class="text-info small me-2">{{ vnc_host }}</span>
+            <span id="runningSnapshotBadgeContainer" class="me-2"></span>
             <span class="text-secondary me-2 small">|</span>
             <span class="text-secondary small me-1">Route:</span>
             <select id="routeSelect" class="form-select form-select-sm bg-dark text-white border-secondary me-auto" style="width: auto; height: 30px; padding-top: 2px; padding-bottom: 2px; font-size: 12px;">
@@ -52,9 +53,12 @@
                 <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="snapshotMenu" data-bs-toggle="dropdown" aria-expanded="false">
                     <i class="fas fa-camera me-1"></i>Snapshots
                 </button>
-                <ul class="dropdown-menu dropdown-menu-dark border-secondary shadow" aria-labelledby="snapshotMenu" style="font-size: 12px;">
+                <ul class="dropdown-menu dropdown-menu-dark border-secondary shadow" aria-labelledby="snapshotMenu" style="font-size: 12px; min-width: 220px;">
                     <li><a class="dropdown-item" href="#" id="takeSnapshotBtn"><i class="fas fa-plus-circle me-2 text-success"></i>Take Snapshot</a></li>
                     <li><a class="dropdown-item" href="#" id="deleteSnapshotBtn"><i class="fas fa-trash-alt me-2 text-danger"></i>Delete Snapshot</a></li>
+                    <li><hr class="dropdown-divider border-secondary"></li>
+                    <li class="dropdown-header text-secondary py-1" style="font-size: 10px;">EXISTING SNAPSHOTS</li>
+                    <div id="dropdownSnapshotsList"></div>
                 </ul>
             </div>
             {% endif %}
@@ -256,6 +260,7 @@
                 if (data.status === 'success') {
                     takeSnapshotModal.hide();
                     alert(data.message || 'Snapshot created successfully.');
+                    loadSnapshotsMenu();
                 } else {
                     errDiv.textContent = data.message || 'Failed to create snapshot.';
                     errDiv.style.display = 'block';
@@ -337,6 +342,7 @@
                 if (data.status === 'success') {
                     deleteSnapshotModal.hide();
                     alert(data.message || 'Snapshot deleted successfully.');
+                    loadSnapshotsMenu();
                 } else {
                     errDiv.textContent = data.message || 'Failed to delete snapshot.';
                     errDiv.style.display = 'block';
@@ -349,6 +355,84 @@
                 errDiv.style.display = 'block';
             });
         });
+
+        function updateRunningSnapshotBadge(runningName) {
+            var container = document.getElementById('runningSnapshotBadgeContainer');
+            if (!container) return;
+            if (runningName) {
+                container.innerHTML = '<span class="badge bg-success text-white" style="font-size: 11px;"><i class="fas fa-history me-1"></i>Active: ' + runningName + '</span>';
+            } else {
+                container.innerHTML = '<span class="badge bg-secondary text-white-50" style="font-size: 11px;"><i class="fas fa-history me-1"></i>Active: None</span>';
+            }
+        }
+
+        function loadSnapshotsMenu() {
+            var listContainer = document.getElementById('dropdownSnapshotsList');
+            if (!listContainer) return;
+            
+            listContainer.innerHTML = '<li><span class="dropdown-item-text text-secondary small py-1">Loading...</span></li>';
+
+            fetch("/guac/direct/vnc/{{ vnc_host }}/snapshots/")
+            .then(response => response.json())
+            .then(data => {
+                listContainer.innerHTML = '';
+                if (data.status === 'success') {
+                    updateRunningSnapshotBadge(data.current_snapshot);
+
+                    if (data.snapshots && data.snapshots.length > 0) {
+                        data.snapshots.forEach(function(snapName) {
+                            var li = document.createElement('li');
+                            li.className = 'px-3 py-1 d-flex justify-content-between align-items-center';
+                            
+                            var spanName = document.createElement('span');
+                            spanName.className = 'text-white small';
+                            spanName.textContent = snapName;
+                            
+                            var badgeContainer = document.createElement('div');
+                            badgeContainer.className = 'd-flex gap-1';
+
+                            if (snapName === data.current_snapshot) {
+                                var badgeActive = document.createElement('span');
+                                badgeActive.className = 'badge bg-success text-white';
+                                badgeActive.style.fontSize = '9px';
+                                badgeActive.innerHTML = '<i class="fas fa-play me-1"></i>Active';
+                                badgeContainer.appendChild(badgeActive);
+                            }
+
+                            if (snapName === data.default_snapshot) {
+                                var badgeDefault = document.createElement('span');
+                                badgeDefault.className = 'badge bg-info text-white';
+                                badgeDefault.style.fontSize = '9px';
+                                badgeDefault.innerHTML = '<i class="fas fa-star me-1"></i>Default';
+                                badgeContainer.appendChild(badgeDefault);
+                            }
+
+                            li.appendChild(spanName);
+                            li.appendChild(badgeContainer);
+                            listContainer.appendChild(li);
+                        });
+                    } else {
+                        listContainer.innerHTML = '<li><span class="dropdown-item-text text-secondary small py-1">No snapshots found</span></li>';
+                    }
+                } else {
+                    listContainer.innerHTML = '<li><span class="dropdown-item-text text-danger small py-1">Error loading</span></li>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading snapshots menu:', error);
+                listContainer.innerHTML = '<li><span class="dropdown-item-text text-danger small py-1">Network error</span></li>';
+            });
+        }
+
+        var snapshotMenuBtn = document.getElementById('snapshotMenu');
+        if (snapshotMenuBtn) {
+            snapshotMenuBtn.addEventListener('click', function() {
+                loadSnapshotsMenu();
+            });
+        }
+        
+        updateRunningSnapshotBadge("{{ current_snapshot|default:'' }}");
+        loadSnapshotsMenu();
         {% endif %}
 
         {% if not task_id or task_id == 0 or task_id == '0' %}

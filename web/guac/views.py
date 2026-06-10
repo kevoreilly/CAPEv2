@@ -160,6 +160,7 @@ def direct_vnc_vm(request, vm_name):
     vm_exists = False
     error_msg = ""
     snapshot_names = []
+    current_snapshot = None
 
     conn = None
     try:
@@ -174,6 +175,12 @@ def direct_vnc_vm(request, vm_name):
                     if not is_running:
                         try:
                             snapshot_names = dom.snapshotListNames(flags=0)
+                        except Exception:
+                            pass
+                    else:
+                        try:
+                            if dom.hasCurrentSnapshot() == 1:
+                                current_snapshot = dom.currentSnapshot().getName()
                         except Exception:
                             pass
             except Exception as e:
@@ -274,6 +281,7 @@ def direct_vnc_vm(request, vm_name):
         "internet_configured": internet_configured,
         "vpns": vpn_list,
         "current_route": current_route,
+        "current_snapshot": current_snapshot,
     })
 
     response.set_cookie(
@@ -760,6 +768,13 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
         except Exception:
             snapshot_names = []
 
+        current_snapshot = None
+        try:
+            if dom.hasCurrentSnapshot() == 1:
+                current_snapshot = dom.currentSnapshot().getName()
+        except Exception:
+            pass
+
         machine = db.view_machine_by_label(vm_name)
         default_snapshot = machine.snapshot if (machine and machine.snapshot) else None
 
@@ -767,6 +782,7 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
             "status": "success",
             "snapshots": snapshot_names,
             "default_snapshot": default_snapshot,
+            "current_snapshot": current_snapshot,
         })
     except Exception as e:
         return JsonResponse({"status": "error", "message": str(e)}, status=500)

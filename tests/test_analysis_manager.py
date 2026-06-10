@@ -12,7 +12,7 @@ from sqlalchemy import select
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config, ConfigMeta
 from lib.cuckoo.core.analysis_manager import AnalysisManager
-from lib.cuckoo.core.data.task import TASK_RUNNING, Task
+from lib.cuckoo.core.data.task import TASK_RUNNING, Task, TASK_FAILED_ANALYSIS
 from lib.cuckoo.core.data.guests import Guest
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.database import _Database
@@ -440,3 +440,48 @@ class TestAnalysisManager:
         assert analysis_man.init_storage() is True
         mocker.patch("lib.cuckoo.core.database._Database.view_sample", return_value=mock_sample())
         assert analysis_man.category_checks() is True
+
+    def test_machine_running_finally_cleanup(
+        self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        """Verify that machine_running stops and releases the machine even if an unhandled exception is raised in yield."""
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+
+        # Mock machinery manager functions
+        mock_start = mocker.patch.object(machinery_manager, "start_machine")
+        mock_stop = mocker.patch.object(machinery_manager, "stop_machine")
+        mock_release = mocker.patch.object(machinery_manager.machinery, "release")
+
+        guest = mocker.MagicMock()
+        guest.id = 123
+        analysis_man.guest = guest
+
+        with pytest.raises(RuntimeError, match="Simulated unhandled exception"):
+            with analysis_man.machine_running():
+                raise RuntimeError("Simulated unhandled exception")
+
+        # Verify stop and release are still cleanly called on unhandled exceptions
+        assert mock_start.called
+        assert mock_stop.called
+        assert mock_release.called
+
+    def test_launch_analysis_unexpected_exception(
+        self, db: _Database, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        """Verify that launch_analysis handles unexpected exceptions by setting status to failed and unlocking the machine."""
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+
+        # Force perform_analysis to raise an unhandled exception
+        mocker.patch.object(analysis_man, "perform_analysis", side_effect=RuntimeError("Unexpected perform_analysis error"))
+        mock_unlock = mocker.patch("lib.cuckoo.core.database._Database.unlock_machine")
+        mock_log_exception = mocker.patch.object(analysis_man.log, "exception")
+
+        with pytest.raises(RuntimeError, match="Unexpected perform_analysis error"):
+            analysis_man.launch_analysis()
+
+        # Verify task is flagged failed and machine is unlocked
+        with db.session.begin():
+            db_task = db.view_task(task.id)
+            assert db_task.status == TASK_FAILED_ANALYSIS
+        assert mock_unlock.called
+        assert mock_log_exception.called

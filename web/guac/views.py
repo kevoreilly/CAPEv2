@@ -35,6 +35,14 @@ machinery = Config().cuckoo.machinery
 machinery_available = ["kvm", "qemu"]
 machinery_dsn = getattr(Config(machinery), machinery).get("dsn", "qemu:///system")
 db = Database()
+web_cfg = Config("web")
+
+
+def is_vnc_console_enabled():
+    enabled = web_cfg.guacamole.get("vnc_console_enabled", False)
+    if isinstance(enabled, str):
+        return enabled.lower() in ("yes", "true", "on", "1")
+    return bool(enabled)
 
 
 def _error(request, task_id, msg):
@@ -114,6 +122,9 @@ def index(request, task_id, session_data):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_host_port(request, host, port):
+    if not is_vnc_console_enabled():
+        return _error(request, 0, "VNC Console is disabled in configuration")
+
     token = uuid.uuid4()
     try:
         guac_session = db.create_guac_session(
@@ -150,6 +161,9 @@ def direct_vnc_host_port(request, host, port):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm(request, vm_name):
+    if not is_vnc_console_enabled():
+        return _error(request, 0, "VNC Console is disabled in configuration")
+
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
 
@@ -533,6 +547,9 @@ sys.exit(res.returncode)
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_start(request, vm_name):
+    if not is_vnc_console_enabled():
+        return _error(request, 0, "VNC Console is disabled in configuration")
+
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
 
@@ -641,6 +658,9 @@ def direct_vnc_vm_start(request, vm_name):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_shutdown(request, vm_name):
+    if not is_vnc_console_enabled():
+        return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
 
@@ -739,6 +759,9 @@ def get_route_params(route_name, routing, configured_vpns):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_route(request, vm_name):
+    if not is_vnc_console_enabled():
+        return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
 
@@ -822,6 +845,9 @@ def direct_vnc_vm_route(request, vm_name):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_snapshots_list(request, vm_name):
+    if not is_vnc_console_enabled():
+        return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
 
@@ -879,6 +905,9 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_snapshot_create(request, vm_name):
+    if not is_vnc_console_enabled():
+        return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
 
@@ -957,6 +986,9 @@ def direct_vnc_vm_snapshot_create(request, vm_name):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_snapshot_delete(request, vm_name):
+    if not is_vnc_console_enabled():
+        return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
 

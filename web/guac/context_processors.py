@@ -7,6 +7,8 @@ web_cfg = Config("web")
 def guac_vnc_console(request):
     """Context processor that exposes VNC Console settings and guests to templates."""
     enabled = web_cfg.guacamole.get("vnc_console_enabled", False)
+    if isinstance(enabled, str):
+        enabled = enabled.lower() in ("yes", "true", "on", "1")
     if not enabled:
         return {"vnc_console_enabled": False}
 

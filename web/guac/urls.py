@@ -9,5 +9,8 @@ urlpatterns = [
     path("direct/vnc/<str:vm_name>/start/", views.direct_vnc_vm_start, name="direct_vnc_vm_start"),
     path("direct/vnc/<str:vm_name>/shutdown/", views.direct_vnc_vm_shutdown, name="direct_vnc_vm_shutdown"),
     path("direct/vnc/<str:vm_name>/route/", views.direct_vnc_vm_route, name="direct_vnc_vm_route"),
+    path("direct/vnc/<str:vm_name>/snapshots/", views.direct_vnc_vm_snapshots_list, name="direct_vnc_vm_snapshots_list"),
+    path("direct/vnc/<str:vm_name>/snapshot/create/", views.direct_vnc_vm_snapshot_create, name="direct_vnc_vm_snapshot_create"),
+    path("direct/vnc/<str:vm_name>/snapshot/delete/", views.direct_vnc_vm_snapshot_delete, name="direct_vnc_vm_snapshot_delete"),
 ]
 

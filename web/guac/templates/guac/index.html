@@ -47,6 +47,17 @@
                 <option value="{{ vpn.name }}" {% if current_route == vpn.name %}selected{% endif %}>VPN: {{ vpn.description }}</option>
                 {% endfor %}
             </select>
+            {% if started_by_console %}
+            <div class="dropdown ms-3">
+                <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" id="snapshotMenu" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i class="fas fa-camera me-1"></i>Snapshots
+                </button>
+                <ul class="dropdown-menu dropdown-menu-dark border-secondary shadow" aria-labelledby="snapshotMenu" style="font-size: 12px;">
+                    <li><a class="dropdown-item" href="#" id="takeSnapshotBtn"><i class="fas fa-plus-circle me-2 text-success"></i>Take Snapshot</a></li>
+                    <li><a class="dropdown-item" href="#" id="deleteSnapshotBtn"><i class="fas fa-trash-alt me-2 text-danger"></i>Delete Snapshot</a></li>
+                </ul>
+            </div>
+            {% endif %}
             <button id="stopTask" class="btn btn-sm btn-outline-danger ms-3">
                 <i class="fas fa-sign-out-alt me-1"></i>Disconnect
             </button>
@@ -86,6 +97,59 @@
                         <button type="button" id="btnShutdownGraceful" class="btn btn-warning btn-sm"><i class="fas fa-stop me-1"></i> Shutdown</button>
                         <button type="button" id="btnShutdownForce" class="btn btn-danger btn-sm"><i class="fas fa-bolt me-1"></i> Force Off</button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Take Snapshot Modal -->
+    <div class="modal fade text-white" id="takeSnapshotModal" tabindex="-1" aria-labelledby="takeSnapshotModalLabel" aria-hidden="true" style="z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-secondary shadow-lg">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="takeSnapshotModalLabel"><i class="fas fa-camera text-success me-2"></i> Take Snapshot</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-start">
+                    <div class="mb-3">
+                        <label for="newSnapshotName" class="form-label small text-secondary">Snapshot Name</label>
+                        <input type="text" class="form-control form-control-sm bg-dark text-white border-secondary" id="newSnapshotName" placeholder="e.g. baseline_clean" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newSnapshotDesc" class="form-label small text-secondary">Description (Optional)</label>
+                        <textarea class="form-control form-control-sm bg-dark text-white border-secondary" id="newSnapshotDesc" rows="2" placeholder="e.g. Installed software baseline"></textarea>
+                    </div>
+                    <div id="takeSnapshotError" class="text-danger small" style="display: none;"></div>
+                </div>
+                <div class="modal-footer border-secondary justify-content-end">
+                    <button type="button" class="btn btn-outline-light btn-sm me-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="btnConfirmTakeSnapshot" class="btn btn-success btn-sm"><i class="fas fa-save me-1"></i> Save Snapshot</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Delete Snapshot Modal -->
+    <div class="modal fade text-white" id="deleteSnapshotModal" tabindex="-1" aria-labelledby="deleteSnapshotModalLabel" aria-hidden="true" style="z-index: 2000;">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content bg-dark border-secondary shadow-lg">
+                <div class="modal-header border-secondary">
+                    <h5 class="modal-title" id="deleteSnapshotModalLabel"><i class="fas fa-trash-alt text-danger me-2"></i> Delete Snapshot</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body text-start">
+                    <p class="small text-secondary">Select the snapshot you want to permanently delete. If you delete the last/configured snapshot, the VM's fallback in the database will be cleared or updated.</p>
+                    <div class="mb-3">
+                        <label for="deleteSnapshotSelect" class="form-label small text-secondary">Select Snapshot</label>
+                        <select id="deleteSnapshotSelect" class="form-select form-select-sm bg-dark text-white border-secondary">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div id="deleteSnapshotError" class="text-danger small" style="display: none;"></div>
+                </div>
+                <div class="modal-footer border-secondary justify-content-end">
+                    <button type="button" class="btn btn-outline-light btn-sm me-2" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="btnConfirmDeleteSnapshot" class="btn btn-danger btn-sm"><i class="fas fa-trash me-1"></i> Delete</button>
                 </div>
             </div>
         </div>
@@ -145,6 +209,146 @@
                 window.location.href = "/";
             });
         }
+
+        // Take Snapshot handlers
+        var takeSnapshotModalEl = document.getElementById('takeSnapshotModal');
+        var takeSnapshotModal = new bootstrap.Modal(takeSnapshotModalEl);
+
+        document.getElementById('takeSnapshotBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            document.getElementById('newSnapshotName').value = '';
+            document.getElementById('newSnapshotDesc').value = '';
+            document.getElementById('takeSnapshotError').style.display = 'none';
+            takeSnapshotModal.show();
+        });
+
+        document.getElementById('btnConfirmTakeSnapshot').addEventListener('click', function() {
+            var name = document.getElementById('newSnapshotName').value.trim();
+            var desc = document.getElementById('newSnapshotDesc').value.trim();
+            var errDiv = document.getElementById('takeSnapshotError');
+            
+            if (!name) {
+                errDiv.textContent = 'Snapshot name is required.';
+                errDiv.style.display = 'block';
+                return;
+            }
+
+            if (!/^[a-zA-Z0-9_\-]+$/.test(name)) {
+                errDiv.textContent = 'Snapshot name can only contain letters, numbers, underscores, and hyphens.';
+                errDiv.style.display = 'block';
+                return;
+            }
+
+            errDiv.style.display = 'none';
+            document.getElementById('btnConfirmTakeSnapshot').disabled = true;
+
+            fetch("/guac/direct/vnc/{{ vnc_host }}/snapshot/create/", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ name: name, description: desc })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('btnConfirmTakeSnapshot').disabled = false;
+                if (data.status === 'success') {
+                    takeSnapshotModal.hide();
+                    alert(data.message || 'Snapshot created successfully.');
+                } else {
+                    errDiv.textContent = data.message || 'Failed to create snapshot.';
+                    errDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                document.getElementById('btnConfirmTakeSnapshot').disabled = false;
+                console.error('Error creating snapshot:', error);
+                errDiv.textContent = 'Network or server error occurred.';
+                errDiv.style.display = 'block';
+            });
+        });
+
+        // Delete Snapshot handlers
+        var deleteSnapshotModalEl = document.getElementById('deleteSnapshotModal');
+        var deleteSnapshotModal = new bootstrap.Modal(deleteSnapshotModalEl);
+
+        document.getElementById('deleteSnapshotBtn').addEventListener('click', function(e) {
+            e.preventDefault();
+            var select = document.getElementById('deleteSnapshotSelect');
+            var errDiv = document.getElementById('deleteSnapshotError');
+            errDiv.style.display = 'none';
+            select.innerHTML = '<option value="">Loading snapshots...</option>';
+            document.getElementById('btnConfirmDeleteSnapshot').disabled = true;
+            deleteSnapshotModal.show();
+
+            // Fetch list of snapshots
+            fetch("/guac/direct/vnc/{{ vnc_host }}/snapshots/")
+            .then(response => response.json())
+            .then(data => {
+                select.innerHTML = '';
+                if (data.status === 'success' && data.snapshots && data.snapshots.length > 0) {
+                    data.snapshots.forEach(function(snapName) {
+                        var opt = document.createElement('option');
+                        opt.value = snapName;
+                        opt.textContent = snapName + (snapName === data.default_snapshot ? ' (Configured Default)' : '');
+                        select.appendChild(opt);
+                    });
+                    document.getElementById('btnConfirmDeleteSnapshot').disabled = false;
+                } else {
+                    select.innerHTML = '<option value="">No snapshots found</option>';
+                }
+            })
+            .catch(error => {
+                console.error('Error loading snapshots:', error);
+                select.innerHTML = '<option value="">Error loading snapshots</option>';
+            });
+        });
+
+        document.getElementById('btnConfirmDeleteSnapshot').addEventListener('click', function() {
+            var select = document.getElementById('deleteSnapshotSelect');
+            var name = select.value;
+            var errDiv = document.getElementById('deleteSnapshotError');
+            
+            if (!name) {
+                errDiv.textContent = 'Please select a snapshot to delete.';
+                errDiv.style.display = 'block';
+                return;
+            }
+
+            if (!confirm('Are you sure you want to permanently delete snapshot "' + name + '"?')) {
+                return;
+            }
+
+            errDiv.style.display = 'none';
+            document.getElementById('btnConfirmDeleteSnapshot').disabled = true;
+
+            fetch("/guac/direct/vnc/{{ vnc_host }}/snapshot/delete/", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ name: name })
+            })
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('btnConfirmDeleteSnapshot').disabled = false;
+                if (data.status === 'success') {
+                    deleteSnapshotModal.hide();
+                    alert(data.message || 'Snapshot deleted successfully.');
+                } else {
+                    errDiv.textContent = data.message || 'Failed to delete snapshot.';
+                    errDiv.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                document.getElementById('btnConfirmDeleteSnapshot').disabled = false;
+                console.error('Error deleting snapshot:', error);
+                errDiv.textContent = 'Network or server error occurred.';
+                errDiv.style.display = 'block';
+            });
+        });
         {% endif %}
 
         {% if not task_id or task_id == 0 or task_id == '0' %}

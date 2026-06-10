@@ -735,3 +735,194 @@ def direct_vnc_vm_route(request, vm_name):
             "current_route": current_route
         }, status=500)
 
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def direct_vnc_vm_snapshots_list(request, vm_name):
+    if not LIBVIRT_AVAILABLE:
+        return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
+
+    if machinery not in machinery_available:
+        return JsonResponse({"status": "error", "message": f"Machinery type '{machinery}' is not supported"}, status=400)
+
+    conn = None
+    try:
+        conn = libvirt.open(machinery_dsn)
+        if not conn:
+            return JsonResponse({"status": "error", "message": "Could not connect to hypervisor"}, status=500)
+
+        try:
+            dom = conn.lookupByName(vm_name)
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": f"VM {vm_name} not found: {e}"}, status=404)
+
+        try:
+            snapshot_names = dom.snapshotListNames(flags=0)
+        except Exception:
+            snapshot_names = []
+
+        machine = db.view_machine_by_label(vm_name)
+        default_snapshot = machine.snapshot if (machine and machine.snapshot) else None
+
+        return JsonResponse({
+            "status": "success",
+            "snapshots": snapshot_names,
+            "default_snapshot": default_snapshot,
+        })
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def direct_vnc_vm_snapshot_create(request, vm_name):
+    if not LIBVIRT_AVAILABLE:
+        return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
+
+    if machinery not in machinery_available:
+        return JsonResponse({"status": "error", "message": f"Machinery type '{machinery}' is not supported"}, status=400)
+
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        data = {}
+
+    snapshot_name = data.get("name")
+    description = data.get("description", "")
+
+    if not snapshot_name:
+        return JsonResponse({"status": "error", "message": "Snapshot name is required"}, status=400)
+
+    conn = None
+    try:
+        conn = libvirt.open(machinery_dsn)
+        if not conn:
+            return JsonResponse({"status": "error", "message": "Could not connect to hypervisor"}, status=500)
+
+        try:
+            dom = conn.lookupByName(vm_name)
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": f"VM {vm_name} not found: {e}"}, status=404)
+
+        state = dom.state(flags=0)
+        is_running = state and state[0] == 1
+        if not is_running:
+            return JsonResponse({"status": "error", "message": "Snapshot creation failed: The VM must be running for a full state capture."}, status=400)
+
+        try:
+            dom.snapshotLookupByName(snapshot_name, flags=0)
+            return JsonResponse({"status": "error", "message": f"Snapshot '{snapshot_name}' already exists"}, status=400)
+        except libvirt.libvirtError:
+            pass
+
+        xml = f"""<domainsnapshot>
+  <name>{snapshot_name}</name>
+  <description>{description}</description>
+</domainsnapshot>"""
+
+        flags = 0
+        if hasattr(libvirt, "VIR_DOMAIN_SNAPSHOT_CREATE_ATOMIC"):
+            flags |= libvirt.VIR_DOMAIN_SNAPSHOT_CREATE_ATOMIC
+
+        try:
+            dom.snapshotCreateXML(xml, flags=flags)
+        except Exception as e:
+            logger.error("Failed to create snapshot '%s' for VM '%s': %s", snapshot_name, vm_name, e)
+            return JsonResponse({"status": "error", "message": f"Failed to create snapshot: {e}"}, status=500)
+
+        machine = db.view_machine_by_label(vm_name)
+        if machine:
+            try:
+                machine.snapshot = snapshot_name
+                db.session.commit()
+            except Exception as db_err:
+                logger.error("Failed to update default snapshot in database for '%s': %s", vm_name, db_err)
+
+        return JsonResponse({"status": "success", "message": f"Snapshot '{snapshot_name}' created successfully"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+def direct_vnc_vm_snapshot_delete(request, vm_name):
+    if not LIBVIRT_AVAILABLE:
+        return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
+
+    if machinery not in machinery_available:
+        return JsonResponse({"status": "error", "message": f"Machinery type '{machinery}' is not supported"}, status=400)
+
+    if request.method != "POST":
+        return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
+
+    try:
+        data = json.loads(request.body.decode("utf-8"))
+    except Exception:
+        data = {}
+
+    snapshot_name = data.get("name")
+    if not snapshot_name:
+        return JsonResponse({"status": "error", "message": "Snapshot name is required to delete"}, status=400)
+
+    conn = None
+    try:
+        conn = libvirt.open(machinery_dsn)
+        if not conn:
+            return JsonResponse({"status": "error", "message": "Could not connect to hypervisor"}, status=500)
+
+        try:
+            dom = conn.lookupByName(vm_name)
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": f"VM {vm_name} not found: {e}"}, status=404)
+
+        try:
+            snap = dom.snapshotLookupByName(snapshot_name, flags=0)
+        except libvirt.libvirtError:
+            return JsonResponse({"status": "error", "message": f"Snapshot '{snapshot_name}' not found"}, status=404)
+
+        try:
+            snap.delete(flags=0)
+        except Exception as e:
+            logger.error("Failed to delete snapshot '%s' for VM '%s': %s", snapshot_name, vm_name, e)
+            return JsonResponse({"status": "error", "message": f"Failed to delete snapshot: {e}"}, status=500)
+
+        machine = db.view_machine_by_label(vm_name)
+        if machine and machine.snapshot == snapshot_name:
+            try:
+                try:
+                    remaining = dom.snapshotListNames(flags=0)
+                except Exception:
+                    remaining = []
+
+                if remaining:
+                    machine.snapshot = remaining[0]
+                else:
+                    machine.snapshot = None
+
+                db.session.commit()
+            except Exception as db_err:
+                logger.error("Failed to update/clear machine snapshot in DB after deletion: %s", db_err)
+
+        return JsonResponse({"status": "success", "message": f"Snapshot '{snapshot_name}' deleted successfully"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+

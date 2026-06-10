@@ -1,11 +1,19 @@
 {% extends "base.html" %}
-
 {% load i18n %}
 
 {% block head_title %}{% trans "Sign Up Closed" %}{% endblock %}
 
 {% block content %}
-<h1>{% trans "Sign Up Closed" %}</h1>
-
-<p>{% trans "We are sorry, but the sign up is currently closed." %}</p>
+<div class="container my-5" style="max-width: 540px;">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h4 class="mb-0 text-white"><i class="fas fa-lock me-2 text-danger"></i>{% trans "Sign Up Closed" %}</h4>
+        </div>
+        <div class="card-body">
+            <p class="mb-3">{% trans "We're sorry, but public sign-up is closed on this CAPE instance." %}</p>
+            <p class="text-white-50 small">{% trans "If your organization uses single sign-on, return to the login page and click the SSO button — accounts are auto-provisioned for users your administrator has authorized." %}</p>
+            <a href="{% url 'account_login' %}" class="btn btn-outline-secondary text-white mt-2"><i class="fas fa-arrow-left me-1"></i>{% trans "Back to login" %}</a>
+        </div>
+    </div>
+</div>
 {% endblock %}

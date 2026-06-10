@@ -55,7 +55,7 @@
                 </td>
                 <td>
                     {% if not k.revoked_at %}
-                    <form method="post" action="{% url 'apikey:revoke' k.pk %}" onsubmit="return confirm('Revoke {{ k.name }}? Existing scripts using this key will start receiving 401 immediately.');" class="d-inline">
+                    <form method="post" action="{% url 'apikey:revoke' k.pk %}" onsubmit="return confirm('Revoke {{ k.name|escapejs }}? Existing scripts using this key will start receiving 401 immediately.');" class="d-inline">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
                     </form>

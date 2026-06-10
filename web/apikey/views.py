@@ -15,7 +15,6 @@ Authorization model:
     their behalf, or admin creates a key for them in Django admin).
 """
 
-from allauth.socialaccount.models import SocialAccount
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
@@ -24,20 +23,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import ApiKeyCreateForm
 from .models import ApiKey
-
-
-def _user_may_manage_keys(user):
-    """Return True if `user` is allowed to view/create/revoke their own keys.
-    Local-only users always pass; SSO-provisioned users must be staff."""
-    if not user or not user.is_authenticated:
-        return False
-    # Called from the apikey_access context processor on every page load —
-    # cache the SocialAccount lookup on the user object for the request to
-    # avoid a redundant query per render.
-    if not hasattr(user, "_may_manage_keys"):
-        is_sso = SocialAccount.objects.filter(user=user).exists()
-        user._may_manage_keys = True if not is_sso else bool(user.is_staff)
-    return user._may_manage_keys
+from .policy import user_may_manage_keys as _user_may_manage_keys
 
 
 def _forbidden(request):

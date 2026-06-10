@@ -7,8 +7,8 @@ enabled = no
 captcha = no
 2fa = no
 # To enable Oauth check https://django-allauth.readthedocs.io and web/web/settings.py.
-# Allow only SSO for users with specific domain. Can be allow to all if empty.
-social_auth_email_domain = example.com
+# Allow only SSO for users with a specific email domain. Leave blank to allow any.
+social_auth_email_domain =
 
 [registration]
 enabled = no
@@ -30,6 +30,13 @@ disposable_domain_list = data/safelist/disposable_domain_list.txt
 
 [general]
 timezone = UTC
+# Set to yes only when CAPE is served behind a reverse proxy (e.g. nginx) that
+# terminates TLS and strips/overwrites X-Forwarded-Proto / X-Forwarded-Host from
+# clients. Enables Django's SECURE_PROXY_SSL_HEADER + USE_X_FORWARDED_HOST so
+# request.is_secure() and absolute URLs (incl. the OIDC redirect_uri) are correct.
+# Leave no for a directly-exposed app — trusting forwarded headers would allow
+# proto/host spoofing.
+behind_proxy = no
 # Prescan new file tasks with YARA for sample identification and custom execution
 # Useful to set options, tags, timeout, etc for packers/obfuscators/cryptors
 yara_recon = no
@@ -149,6 +156,47 @@ amazon = no
 github = no
 gitlab = no
 twitter = no
+
+
+# OpenID Connect SSO. Generic — works with Okta / Azure AD / Auth0 / Google
+# Workspace / Keycloak or any OIDC-compliant IdP via django-allauth's
+# openid_connect provider. Set enabled = yes and fill in the fields below.
+[oauth_oidc]
+enabled = no
+# Arbitrary identifier; becomes part of the callback URL:
+#   /accounts/oidc/<provider_id>/login/callback/
+# Must match the redirect URI registered in your IdP app.
+provider_id = oidc
+# Display name shown on the login button.
+name = SSO
+# OAuth2 client credentials from your IdP app.
+client_id =
+client_secret =
+# IdP discovery root — the /.well-known/openid-configuration is appended
+# automatically. Examples:
+#   Okta:     https://<domain>/oauth2/default
+#   Azure:    https://login.microsoftonline.com/<tenant>/v2.0
+#   Auth0:    https://<domain>
+#   Keycloak: https://<host>/realms/<realm>
+server_url =
+# Group-claim -> Django role mapping. The IdP must include group names in the
+# ID token under `groups_claim` (default: "groups").
+# required_groups: if set, only users in at least one of these groups get a
+# CAPE account provisioned. Leave blank to allow any IdP-authenticated user.
+# admin_groups / superadmin_groups: membership maps to is_staff / is_superuser
+# and is reconciled on every login (removal from the group demotes the user).
+# Leave both blank to manage roles manually in Django.
+required_groups =
+admin_groups =
+superadmin_groups =
+groups_claim = groups
+# Optional: periodic Okta account-status reconciliation (okta_user_sync
+# management command, run via systemd timer). When a user with active API keys
+# is no longer ACTIVE in Okta, they are deactivated locally and their keys are
+# revoked. Requires an Okta admin API base URL and an SSWS token with the
+# okta.users.read scope. Leave blank to disable.
+admin_api_url =
+admin_api_token =
 
 [display_browser_martians]
 enabled = no

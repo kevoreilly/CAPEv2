@@ -219,12 +219,50 @@ def direct_vnc_vm(request, vm_name):
         except Exception as e:
             logger.error(f"Failed to clear stale GuacSession for VM {vm_name}: {e}")
 
+        is_starting = any(t.name == f"start_{vm_name}" for t in threading.enumerate())
         machine = db.view_machine_by_label(vm_name)
-        if machine and machine.locked:
-            return render(request, "guac/wait.html", {
-                "vm_name": vm_name,
-                "task_id": 0,
-            })
+        if machine:
+            if is_starting:
+                return render(request, "guac/wait.html", {
+                    "vm_name": vm_name,
+                    "task_id": 0,
+                })
+            elif machine.locked:
+                # Check if this lock belongs to a legitimate active CAPE analysis task
+                try:
+                    from lib.cuckoo.core.data.guests import Guest
+                    from lib.cuckoo.core.data.task import Task
+                    from lib.cuckoo.common.constants import TASK_RUNNING
+                    
+                    session = db.session()
+                    active_task = session.query(Task).filter(
+                        Task.machine_id == machine.id,
+                        Task.status == TASK_RUNNING
+                    ).first()
+                    
+                    active_guest = session.query(Guest).filter(
+                        Guest.label == vm_name,
+                        Guest.shutdown_on == None
+                    ).first()
+                except Exception as query_err:
+                    logger.error("Failed to query active tasks/guests: %s", query_err)
+                    active_task = None
+                    active_guest = None
+
+                if active_task or active_guest:
+                    # Legitimate task is active, DO NOT unlock! Show wait screen.
+                    return render(request, "guac/wait.html", {
+                        "vm_name": vm_name,
+                        "task_id": active_task.id if active_task else 0,
+                    })
+                else:
+                    # No active task/guest and no console start thread -> stale lock!
+                    try:
+                        db.unlock_machine(machine)
+                        db.session.commit()
+                        logger.info("Automatically unlocked stale machine lock for VM '%s'", vm_name)
+                    except Exception as db_err:
+                        logger.error("Failed to unlock stale machine lock for '%s': %s", vm_name, db_err)
 
         default_snapshot = machine.snapshot if (machine and machine.snapshot) else None
         return render(request, "guac/start.html", {
@@ -514,6 +552,29 @@ def direct_vnc_vm_start(request, vm_name):
         # Lock the machine in DB
         machine = db.view_machine_by_label(vm_name)
         if machine:
+            if machine.locked:
+                try:
+                    from lib.cuckoo.core.data.guests import Guest
+                    from lib.cuckoo.core.data.task import Task
+                    from lib.cuckoo.common.constants import TASK_RUNNING
+                    
+                    session = db.session()
+                    active_task = session.query(Task).filter(
+                        Task.machine_id == machine.id,
+                        Task.status == TASK_RUNNING
+                    ).first()
+                    
+                    active_guest = session.query(Guest).filter(
+                        Guest.label == vm_name,
+                        Guest.shutdown_on == None
+                    ).first()
+                except Exception:
+                    active_task = None
+                    active_guest = None
+
+                if active_task or active_guest:
+                    return _error(request, active_task.id if active_task else 0, f"VM {vm_name} is currently in use by an active analysis task.")
+
             db.lock_machine(machine)
             db.session.commit()
 
@@ -550,6 +611,7 @@ def direct_vnc_vm_start(request, vm_name):
         threading.Thread(
             target=bg_revert_and_start,
             args=(machinery_dsn, vm_name, start_mode, snapshot_name),
+            name=f"start_{vm_name}",
             daemon=True
         ).start()
 

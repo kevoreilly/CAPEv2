@@ -608,6 +608,18 @@ EOH
         echo "[+] You should logout and login "
     fi
 
+    _set_libvirt_default_uri
+}
+
+function _set_libvirt_default_uri() {
+    local rc_file
+    if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
+        rc_file="$HOME/.zshrc"
+    else
+        rc_file="$HOME/.bashrc"
+    fi
+    grep -qxF 'export LIBVIRT_DEFAULT_URI=qemu:///system' "$rc_file" 2>/dev/null \
+        || echo 'export LIBVIRT_DEFAULT_URI=qemu:///system' >> "$rc_file"
 }
 
 function install_virt_manager() {
@@ -688,13 +700,7 @@ function install_virt_manager() {
     # https://github.com/virt-manager/virt-manager/blob/main/INSTALL.md
     meson setup build
     meson install -C build
-    if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ] ; then
-        echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> "$HOME/.zsh"
-        # echo "export GI_TYPELIB_PATH=/usr/local/lib/girepository-1.0:$GI_TYPELIB_PATH" >> "$HOME/.zsh"
-    else
-        echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> "$HOME/.bashrc"
-        # echo "export GI_TYPELIB_PATH=/usr/local/lib/girepository-1.0:$GI_TYPELIB_PATH" >> "$HOME/.bashrc"
-    fi
+    _set_libvirt_default_uri
 
     if [ -f /usr/share/virt-manager/local/share/glib-2.0/schemas/org.virt-manager.virt-manager.gschema.xml ]; then
         cp /usr/share/virt-manager/local/share/glib-2.0/schemas/org.virt-manager.virt-manager.gschema.xml /usr/share/glib-2.0/schemas/

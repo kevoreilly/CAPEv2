@@ -219,9 +219,15 @@ def direct_vnc_vm(request, vm_name):
         except Exception as e:
             logger.error(f"Failed to clear stale GuacSession for VM {vm_name}: {e}")
 
-        is_starting = any(t.name == f"start_{vm_name}" for t in threading.enumerate())
-        machine = db.view_machine_by_label(vm_name)
+        is_starting = False
+        machine = db.view_machine_by_label(vm_name) or db.view_machine(vm_name)
         if machine:
+            if machine.locked_changed_on:
+                from datetime import datetime
+                # Check if it was locked within the last 90 seconds (startup window)
+                delta = datetime.utcnow() - machine.locked_changed_on
+                is_starting = delta.total_seconds() < 90
+
             if is_starting:
                 return render(request, "guac/wait.html", {
                     "vm_name": vm_name,
@@ -256,7 +262,7 @@ def direct_vnc_vm(request, vm_name):
                         "task_id": active_task.id if active_task else 0,
                     })
                 else:
-                    # No active task/guest and no console start thread -> stale lock!
+                    # No active task/guest and no active console startup -> stale lock!
                     try:
                         db.unlock_machine(machine)
                         db.session.commit()
@@ -285,8 +291,8 @@ def direct_vnc_vm(request, vm_name):
     recording_name = f"direct_{vm_name}_{str(token)[:8]}"
 
     # Determine if it was started by the VNC Console
-    machine = db.view_machine_by_label(vm_name)
-    started_by_console = machine.locked if machine else False
+    machine = db.view_machine_by_label(vm_name) or db.view_machine(vm_name)
+    started_by_console = True
 
     # Determine configured VPNs and Tor/Internet routing options
     from lib.cuckoo.common.config import Config as CapeConfig

@@ -2,10 +2,11 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import re
 import logging
 import os
 import tempfile
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Tuple, Optional
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDemuxError
@@ -123,6 +124,111 @@ OFFICE_TYPES = [
 ]
 
 
+IGNORABLE_PATTERNS = (
+    re.compile(br"msvcp\d+\.dll$", re.IGNORECASE),
+    re.compile(br"vcruntime\d+(_\d)?\.dll$", re.IGNORECASE),
+    re.compile(br"api-ms-win-.*\.dll$", re.IGNORECASE),
+    re.compile(br"ucrtbase\.dll$", re.IGNORECASE),
+    re.compile(br"concrt\d+\.dll$", re.IGNORECASE),
+    re.compile(br"vccorlib\d+\.dll$", re.IGNORECASE),
+    # You can add more patterns here, e.g., for .NET runtimes:
+    # re.compile(r"coreclr\.dll$", re.IGNORECASE),
+    # re.compile(r"System\..*\.dll$", re.IGNORECASE),
+)
+
+EXE_PREFERENCE_LIST = (
+    b"setup.exe",
+    b"install.exe",
+    b"installer.exe",
+    b"main.exe",
+)
+
+FILE_EXT_OF_INTEREST = (
+    b".bat",
+    b".cmd",
+    b".dat",
+    b".db",
+    # b".dll",
+    b".doc",
+    b".exe",
+    b".html",
+    b".js",
+    b".jse",
+    b".lnk",
+    b".msi",
+    b".ps1",
+    b".scr",
+    b".temp",
+    b".tmp",
+    b".vbe",
+    b".vbs",
+    b".wsf",
+    b".xls",
+)
+
+
+def find_payload_to_run(file_list: List[Any]) -> List[str]:
+    """
+    Analyzes a list of filenames to find the most likely executable payload.
+
+    Args:
+        file_list: A list of filenames (e.g., from zipfile.namelist())
+
+    Returns:
+        A list of filenames of the executables to run.
+    """
+
+    executables_found = []
+    unknown_other_files = []
+    ignorable_files_found = 0
+
+    for filename in file_list:
+        # Skip empty names (can happen with directory entries)
+        if not filename:
+            continue
+
+        # Ensure filename is bytes to match regexes and endswith accurately
+        filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
+
+        # --- Step 1: Check against Ignorable Patterns ---
+        is_ignorable = False
+        for pattern in IGNORABLE_PATTERNS:
+            if pattern.match(filename_bytes):
+                is_ignorable = True
+                ignorable_files_found += 1
+                break
+
+        if is_ignorable:
+            continue # It's a known runtime DLL, skip to the next file
+
+        # --- Step 2: Check for Executable ---
+        if filename_bytes.lower().endswith(FILE_EXT_OF_INTEREST):
+            executables_found.append(filename_bytes)
+            continue
+
+        # --- Step 3: It's an unknown file ---
+        unknown_other_files.append(filename_bytes)
+
+    # --- Triage Decision Logic ---
+
+    # Case 1: No executables found at all.
+    if not executables_found:
+        log.debug("No executables found. Ignored %d runtime files.", ignorable_files_found)
+        return []
+
+    # Case 2: Multiple executables found. Use heuristics.
+    log.debug("Found multiple executables: %s", str(executables_found))
+
+    # Check against our preferred list
+    for preferred_name in EXE_PREFERENCE_LIST:
+        for exe_name in executables_found:
+            if exe_name.lower() == preferred_name:
+                log.debug("Heuristic: Choosing '%s' from preference list.", exe_name)
+                return [exe_name.decode(errors="ignore")]
+
+    # if no preferred name, return all files of interest
+    return [exe.decode(errors="ignore") for exe in executables_found]
+
 def options2passwd(options: str) -> str:
     password = ""
     if "password=" in options:
@@ -220,11 +326,15 @@ def _sf_children(child: Any) -> Tuple[bytes, str, str, int]:
     return path_to_extract, child.platform, child.magic or "", child.filesize
 
 
-def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) -> Tuple[List[Tuple[bytes, str, str, int]], str]:
+# ToDo fix typing need to add str as error msg
+def demux_sflock(
+    filename: bytes, options: str, check_shellcode: bool = True
+) -> Tuple[List[Tuple[bytes, str, str, int]], str, List[str]]:
     retlist = []
+    submit_opts = []
     # do not extract from .bin (downloaded from us)
     if os.path.splitext(filename)[1] == b".bin":
-        return retlist, ""
+        return retlist, "", submit_opts
 
     # ToDo need to introduce error msgs here
     try:
@@ -234,7 +344,7 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) ->
 
         # Before unpacking, ensure the file actually exists and is not empty to avoid IncorrectUsageException
         if not path_exists(filename) or os.path.getsize(filename) == 0:
-            return [(filename, platform, magic_type, file_size)], "file not found or empty"
+            return [(filename, platform, magic_type, file_size)], "file not found or empty", []
 
         password = options2passwd(options) or "infected"
         try:
@@ -247,9 +357,48 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) ->
             magic_type = file.get_type() or ""
             platform = file.get_platform()
             file_size = file.get_size()
-            return [(filename, platform, magic_type, file_size)], ""
+            return [(filename, platform, magic_type, file_size)], "", []
         if unpacked.package in blacklist_extensions:
-            return [], "blacklisted package"
+            return retlist, "blacklisted package", submit_opts
+
+        if unpacked.filepaths:
+            # CASE 1: Archive contains multiple files
+            if len(unpacked.filepaths) > 1:
+                # Find interesting files (exe/dll) and submit the ORIGINAL archive
+                # with instructions to run specifically those files.
+                execs = find_payload_to_run(unpacked.filepaths)
+                submit_opts = [f"file={runable}" for runable in execs]
+                # returning empty retlist so it will use parent file
+                return [], "", submit_opts
+
+            # CASE 2: Archive contains exactly 1 file
+            single_file = unpacked.filepaths[0]
+            # assuming unpacked.children matches unpacked.filepaths indices
+            # we get the object representing this single file
+            current_child = unpacked.children[0] if unpacked.children else None
+
+            if current_child:
+                if single_file.endswith((b".7z", b".rar", b".zip")):
+                    # It's a sub-archive. We need to go one level deeper.
+                    # We loop through THIS sub-archive's children.
+                    # Note: Ensure 'current_child.children' exists in your object model.
+                    # If 'unpacked.children' already contained the deep files, this loop might need adjusting based on your specific API.
+                    execs = find_payload_to_run(getattr(current_child, "filepaths", []))
+                    if execs:
+                        extracted = _sf_children(current_child)
+                        path = extracted[0]
+                        if path:
+                            submit_opts += [f"file={runable}" for runable in execs]
+                            retlist.append(extracted)
+                else:
+                    # It's just a single regular file (e.g., malware.exe inside a zip).
+                    # Extract and add to task.
+                    extracted = _sf_children(current_child)
+                    path = extracted[0]
+                    if path:
+                        retlist.append(extracted)
+            return retlist, "", submit_opts
+
         for sf_child in unpacked.children:
             if sf_child.to_dict().get("children"):
                 for ch in sf_child.children:
@@ -271,7 +420,29 @@ def demux_sflock(filename: bytes, options: str, check_shellcode: bool = True) ->
                     retlist.append(tmp_child)
     except Exception as e:
         log.exception(e)
-    return list(filter(None, retlist)), ""
+    return list(filter(None, retlist)), "", submit_opts
+
+
+def _prepare_file(filename: bytes, options: str = "", size: int = 0) -> Tuple[Optional[bytes], Optional[str]]:
+    try:
+        f_basename = os.path.basename(filename).decode('utf-8', errors='replace')
+    except Exception:
+        f_basename = "unknown_filename"
+
+    if not size:
+        size = File(filename).get_size()
+    if size <= web_cfg.general.max_sample_size:
+        return filename, None
+
+    safe_options = options or ""
+    if web_cfg.general.allow_ignore_size and "ignore_size_check" in safe_options:
+        return filename, None
+
+    if web_cfg.general.enable_trim and trim_file(filename):
+        return trimmed_path(filename), None
+
+    error_msg = f"File too big ({f_basename}), enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option"
+    return None, error_msg
 
 
 def demux_sample(
@@ -297,121 +468,105 @@ def demux_sample(
 
     error_list = []
     retlist = []
-    # if a package was specified, trim if allowed and required
-    if package:
-        if package in ("msix",):
-            retlist.append((filename, "windows"))
-        else:
-            if File(filename).get_size() <= web_cfg.general.max_sample_size or (
-                web_cfg.general.allow_ignore_size and "ignore_size_check" in options
-            ):
-                retlist.append((filename, platform))
-            else:
-                if web_cfg.general.enable_trim and trim_file(filename):
-                    retlist.append((trimmed_path(filename), platform))
-                else:
-                    error_list.append(
-                        {
-                            os.path.basename(
-                                filename
-                            ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option"
-                        }
-                    )
-        return retlist, error_list
 
-    # handle quarantine files
+    # --- 1. Quick Handle: Specific Package ---
+    if package:
+        if package == "msix":
+            return [(filename, "windows")], []
+
+        valid_file, error = _prepare_file(filename, options)
+        if valid_file:
+            return [(valid_file, platform)], []
+        else:
+            return [], [{os.path.basename(filename).decode(errors='ignore'): error}]
+
+    # --- 2. File Preparation (Unquarantine) ---
     filename = unquarantine(filename)
 
     # don't try to extract from office docs
     magic = File(filename).get_type() or ""
-    # if file is an Office doc and password is supplied, try to decrypt the doc
-    if "Microsoft" in magic:
-        pass
-        # ignore = {"Outlook", "Message", "Disk Image"}
-    elif any(x in magic for x in OFFICE_TYPES):
-        password = options2passwd(options) or None
-        if use_sflock:
-            if HAS_SFLOCK:
-                retlist = demux_office(filename, password, platform)
-                return retlist, error_list
-            else:
-                log.error("Detected password protected office file, but no sflock is installed: poetry install")
-                error_list.append(
-                    {
-                        os.path.basename(
-                            filename
-                        ).decode(): "Detected password protected office file, but no sflock is installed or correct password provided"
-                    }
-                )
 
-    # don't try to extract from Java archives or executables
-    if (
-        "Java Jar" in magic
-        or "Java archive data" in magic
-        or "PE32" in magic
-        or "MS-DOS executable" in magic
-        or any(x in magic for x in File.LINUX_TYPES)
-    ):
-        retlist = []
-        if File(filename).get_size() <= web_cfg.general.max_sample_size or (
-            web_cfg.general.allow_ignore_size and "ignore_size_check" in options
-        ):
-            retlist.append((filename, platform))
+    # --- 3. Handle Password-Protected Office Files ---
+    is_office = "Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)
+    if is_office and use_sflock:
+        password = options2passwd(options)
+        if HAS_SFLOCK and password:
+            retlist = demux_office(filename, password, platform)
+            return retlist, error_list
         else:
-            if web_cfg.general.enable_trim and trim_file(filename):
-                retlist.append((trimmed_path(filename), platform))
-            else:
-                error_list.append(
-                    {
-                        os.path.basename(
-                            filename
-                        ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
-                    }
-                )
+            log.error("Detected password protected office file, but no sflock is installed.")
+            return [], [{os.path.basename(filename).decode(errors='ignore'): "Detected password protected office file, but no sflock is installed"}]
+
+    # --- 4. Skip Extraction for specific types ---
+    ignored_signatures = [
+        "Java Jar",
+        "Java archive data",
+        "PE32",
+        "MS-DOS executable"
+    ]
+    # Añadimos tipos de Linux si están definidos
+    if hasattr(File, "LINUX_TYPES"):
+        ignored_signatures.extend(File.LINUX_TYPES)
+
+    # If magic matches an ignored type, treat as regular file and skip sflock
+    if any(sig in magic for sig in ignored_signatures):
+        valid_file, error = _prepare_file(filename, options)
+        if valid_file:
+            return [(valid_file, platform)], []
+        else:
+            return [], [{os.path.basename(filename).decode(errors='ignore'): error}]
+
+    # --- 5. Generic Extraction (Sflock) ---
+    check_shellcode = "check_shellcode=0" not in (options or "")
+
+    # Inicializamos variables de retorno de sflock
+    extracted_files = []
+    sflock_error = ""
+    execs = []
+
+    if HAS_SFLOCK and use_sflock:
+        extracted_files, sflock_error, execs = demux_sflock(filename, options, check_shellcode)
+
+    # Si sflock encontró ejecutables específicos que quiere forzar (ej. payload en un zip)
+    if execs:
+        for opt in execs:
+            error_list.append({"option": opt})
+
+    # If nothing extracted (not an archive, or sflock failed/skipped)
+    if not extracted_files:
+        if sflock_error:
+            error_list.append({os.path.basename(filename).decode(errors='ignore'): sflock_error})
+
+        # Fallback: submit the original file
+        valid_file, error = _prepare_file(filename, options)
+        if valid_file:
+            retlist.append((valid_file, platform))
+        elif error and not sflock_error:
+            # Only report size error if sflock didn't already report a more relevant error
+            error_list.append({os.path.basename(filename).decode(errors='ignore'): error})
+
         return retlist, error_list
 
-    new_retlist = []
+    # --- 6. Process Extracted Files ---
+    for block in extracted_files:
+        if len(retlist) >= demux_files_limit:
+            break
 
-    check_shellcode = True
-    if options and "check_shellcode=0" in options:
-        check_shellcode = False
+        ex_filename, ex_platform, ex_magic, ex_size = block
+        f_basename_str = os.path.basename(ex_filename).decode(errors='ignore')
 
-    # all in one unarchiver
-    retlist, error_msg = demux_sflock(filename, options, check_shellcode) if HAS_SFLOCK and use_sflock else ([], "")
-    # if it isn't a ZIP or an email, or we aren't able to obtain anything interesting from either, then just submit the
-    # original file
-    if not retlist:
-        if error_msg:
-            error_list.append({os.path.basename(filename).decode(): error_msg})
-        new_retlist.append((filename, platform))
-    else:
-        for entry in retlist:
-            if not isinstance(entry, (list, tuple)) or len(entry) < 2:
-                log.warning("Skipping invalid entry in retlist: %s", entry)
-                continue
-            filename, platform = entry[0], entry[1]
-            magic_type = entry[2] if len(entry) > 2 else ""
-            file_size = entry[3] if len(entry) > 3 else 0
-            # verify not Windows binaries here:
-            if platform == "linux" and not linux_enabled and "Python" not in magic_type:
-                error_list.append({os.path.basename(filename).decode(): "Linux processing is disabled"})
-                continue
+        # Platform check (Linux)
+        if ex_platform == "linux" and not linux_enabled and "Python" not in ex_magic:
+            error_list.append({f_basename_str: "Linux processing is disabled"})
+            continue
 
-            if file_size > web_cfg.general.max_sample_size:
-                if web_cfg.general.allow_ignore_size and "ignore_size_check" in options:
-                    if web_cfg.general.enable_trim:
-                        # maybe identify here
-                        if trim_file(filename):
-                            filename = trimmed_path(filename)
-                else:
-                    error_list.append(
-                        {
-                            os.path.basename(
-                                filename
-                            ).decode(): "File too big, enable 'allow_ignore_size' in web.conf or use 'ignore_size_check' option",
-                        }
-                    )
-            new_retlist.append((filename, platform))
+        # Validate size and trim if necessary
+        # Pass 'ex_size' to _prepare_file to avoid re-calculating it
+        valid_file, error = _prepare_file(ex_filename, options, size=ex_size)
 
-    return new_retlist[:demux_files_limit], error_list
+        if valid_file:
+            retlist.append((valid_file, ex_platform))
+        else:
+            error_list.append({f_basename_str: error})
 
+    return retlist, error_list

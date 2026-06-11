@@ -201,8 +201,13 @@ def _claims(extra: dict) -> dict:
     (email, groups, preferred_username, sub) live under ``userinfo``, not at the
     top level. Other providers store the claims flat, so fall back to the dict
     itself when there's no nested ``userinfo``.
+
+    Gated on ``"id_token"`` (which the openid_connect provider always puts at the
+    top level) so the function is idempotent: calling it on already-flattened
+    claims — or on a flat provider's data — returns them unchanged even if they
+    happen to carry their own ``userinfo`` key.
     """
-    if isinstance(extra, dict):
+    if isinstance(extra, dict) and "id_token" in extra:
         ui = extra.get("userinfo")
         if isinstance(ui, dict) and ui:
             return ui
@@ -323,7 +328,7 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
         ValidationError here would bubble up as a 500)."""
         user_email = (
             _claims(sociallogin.account.extra_data or {}).get("email")
-            or getattr(getattr(sociallogin, "user", None), "email", None)
+            or (sociallogin.user.email if sociallogin.user else "")
             or ""
         )
         if settings.SOCIAL_AUTH_EMAIL_DOMAIN:

@@ -4,10 +4,10 @@ import sys
 from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
+from lib.cuckoo.common.config import Config
+
 CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
-
-from lib.cuckoo.common.config import Config
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent

@@ -38,20 +38,14 @@ ALLOWED_HOSTS = ["*"]
 # STATIC_ROOT = ""
 # STATIC_ROOT = os.path.join(os.getcwd(), "static")
 
-SOCIALACCOUNT_PROVIDERS = {
-    "google": {
-        "SCOPE": [
-            "profile",
-            "email",
-        ],
-        "AUTH_PARAMS": {
-            "access_type": "online",
-        },
-    },
-    "github": {
-        "SCOPE": [
-            "read:user",
-            "user:email",
-        ],
-    },
-}
+# SOCIALACCOUNT_PROVIDERS removed: managed dynamically from web.conf [oauth_oidc] in settings.py.
+# The previous stub here (google + github) was dead — the provider apps were commented out in INSTALLED_APPS.
+
+# Session lifetime: 8-hour sliding idle timeout. SESSION_SAVE_EVERY_REQUEST
+# resets the SESSION_COOKIE_AGE window on each request, so the session expires
+# only after 8h of *inactivity* (not 8h absolute). Combined with django-allauth
+# + Okta SSO, an idle user is forced back through Okta, capping the gap between
+# an Okta account disable/lockout and CAPE access being revoked. Note: saving
+# the session every request adds session-store writes; fine for this scale.
+SESSION_COOKIE_AGE = 28800
+SESSION_SAVE_EVERY_REQUEST = True

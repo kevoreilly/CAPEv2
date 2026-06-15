@@ -3,11 +3,11 @@ import os
 import logging
 import time
 import shutil
+from typing import Any, Dict, List, Optional, Set
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.constants import CUCKOO_ROOT
-
 try:
     from google.api_core.exceptions import Forbidden
     from google.cloud import compute_v1
@@ -38,7 +38,7 @@ class GCSUploader:
     """Helper class to upload files to GCS."""
 
     @staticmethod
-    def parse_custom_string(custom_str):
+    def parse_custom_string(custom_str: str) -> Dict[str, str]:
         if not custom_str:
             return {}
 
@@ -52,7 +52,15 @@ class GCSUploader:
                 data[key] = value
         return data
 
-    def __init__(self, bucket_name=None, auth_by=None, credentials_path=None, exclude_dirs=None, exclude_files=None, mode=None):
+    def __init__(
+        self,
+        bucket_name: Optional[str] = None,
+        auth_by: Optional[str] = None,
+        credentials_path: Optional[str] = None,
+        exclude_dirs: Optional[Set[str]] = None,
+        exclude_files: Optional[Set[str]] = None,
+        mode: Optional[str] = None,
+    ):
         if not HAVE_GCP:
             raise ImportError("google-cloud-storage library is missing")
 
@@ -89,7 +97,7 @@ class GCSUploader:
 
         self.bucket = self.storage_client.bucket(bucket_name)
 
-    def _iter_files_to_upload(self, source_directory):
+    def _iter_files_to_upload(self, source_directory: str):
         """Generator that yields files to be uploaded, skipping excluded ones."""
         for root, dirs, files in os.walk(source_directory):
             # Exclude specified directories
@@ -105,13 +113,13 @@ class GCSUploader:
                 relative_path = os.path.relpath(local_path, source_directory)
                 yield local_path, relative_path
 
-    def upload(self, source_directory, analysis_id, tlp=None, metadata=None):
+    def upload(self, source_directory: str, analysis_id: int, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
         if self.mode == "zip":
             self.upload_zip_archive(analysis_id, source_directory, tlp=tlp, metadata=metadata)
         else:
             self.upload_files_individually(analysis_id, source_directory, tlp=tlp, metadata=metadata)
 
-    def upload_zip_archive(self, analysis_id, source_directory, tlp=None, metadata=None):
+    def upload_zip_archive(self, analysis_id: int, source_directory: str, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
         log.debug("Compressing and uploading files for analysis ID %s to GCS", analysis_id)
         blob_name = f"{analysis_id}_tlp_{tlp}.zip" if tlp else f"{analysis_id}.zip"
 
@@ -130,7 +138,9 @@ class GCSUploader:
             os.unlink(tmp_zip_file_name)
         log.info("Successfully uploaded archive for analysis %s to GCS.", analysis_id)
 
-    def upload_files_individually(self, analysis_id, source_directory, tlp=None, metadata=None):
+    def upload_files_individually(
+        self, analysis_id: int, source_directory: str, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
+    ):
         log.debug("Uploading files for analysis ID %s to GCS", analysis_id)
         folder_name = f"{analysis_id}_tlp_{tlp}" if tlp else str(analysis_id)
 
@@ -144,7 +154,7 @@ class GCSUploader:
 
         log.info("Successfully uploaded files for analysis %s to GCS.", analysis_id)
 
-    def check_exists(self, analysis_id):
+    def check_exists(self, analysis_id: int) -> bool:
         """Check if any blobs exist for the given analysis ID."""
         prefix = str(analysis_id)
         blobs = list(self.storage_client.list_blobs(self.bucket, prefix=prefix, max_results=1))
@@ -165,7 +175,7 @@ if GCS_ENABLED:
         GCS_ENABLED = False
 
 
-def download_from_gcs(gcs_uri, destination_path, logger=None, client=None):
+def download_from_gcs(gcs_uri: str, destination_path: str, logger: Optional[Any] = None, client: Optional[storage.Client] = None) -> bool:
     """
     Downloads a file from GCS.
     gcs_uri: gs://bucket_name/object_name
@@ -174,7 +184,9 @@ def download_from_gcs(gcs_uri, destination_path, logger=None, client=None):
         logger = log
 
     if not HAVE_GCP:
-        logger.error("Google Cloud Storage dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-storage`")
+        logger.error(
+            "Google Cloud Storage dependencies not installed. Please run `poetry install --extras gcp` or `pip install google-cloud-storage`"
+        )
         return False
 
     try:
@@ -220,6 +232,7 @@ def download_from_gcs(gcs_uri, destination_path, logger=None, client=None):
         logger.error("Failed to download from GCS %s: %s", gcs_uri, e)
         return False
 
+
 def check_node_up(host: str) -> bool:
     """Auxiliar function for autodiscovery of instances when cluster autoscale"""
     try:
@@ -252,7 +265,7 @@ class GCP(object):
             "Authorization": f"Bearer {self.token}",
         }
 
-    def list_instances(self) -> dict:
+    def list_instances(self) -> Dict[str, List[str]]:
         """Auto discovery of new servers"""
         servers = {}
         instance_name_pattern = "cape-server"
@@ -261,7 +274,9 @@ class GCP(object):
         if self.token:
             for zone in self.zones:
                 try:
-                    r = requests.get(f"{self.GCP_BASE_URL}projects/{self.project_id}/zones/{zone}/instances", headers=self.headers)
+                    r = requests.get(
+                        f"{self.GCP_BASE_URL}projects/{self.project_id}/zones/{zone}/instances", headers=self.headers
+                    )
                     for instance in r.json().get("items", []):
                         if not instance["name"].startswith(instance_name_pattern):
                             continue
@@ -329,7 +344,7 @@ class GCP(object):
             time.sleep(autodiscovery_interval)
 
 
-def gcs_replay(task_range):
+def gcs_replay(task_range: str):
     if not GCS_ENABLED:
         log.error("GCS is not enabled in reporting.conf")
         return
@@ -372,7 +387,7 @@ def gcs_replay(task_range):
                     metadata["md5"] = samples[0].sample.md5
                     metadata["sha1"] = samples[0].sample.sha1
 
-                metadata["task_id"] = task_id
+                metadata["task_id"] = str(task_id)
 
                 gcs_upload_report(report_path, task_id, tlp, metadata=metadata)
 
@@ -380,7 +395,7 @@ def gcs_replay(task_range):
             log.error("Failed to replay GCS upload for task %d: %s", task_id, e)
 
 
-def gcs_upload_report(report_path, analysis_id, tlp=None, metadata=None):
+def gcs_upload_report(report_path: str, analysis_id: int, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
     if not GCS_ENABLED:
         return
 
@@ -399,7 +414,7 @@ def gcs_upload_report(report_path, analysis_id, tlp=None, metadata=None):
         log.error("Failed to upload report to GCS for task %d: %s", analysis_id, e)
 
 
-def gcs_sync(time_range):
+def gcs_sync(time_range: str):
     if not GCS_ENABLED:
         log.error("GCS is not enabled in reporting.conf")
         return
@@ -450,7 +465,7 @@ def gcs_sync(time_range):
     gcs_replay(",".join(map(str, sorted(missing_ids))))
 
 
-def gcs_refetch_banned(time_range, samples_bucket=None):
+def gcs_refetch_banned(time_range: str, samples_bucket: Optional[str] = None):
     if not HAVE_GCP:
         log.error("Google Cloud Storage dependencies not installed.")
         return

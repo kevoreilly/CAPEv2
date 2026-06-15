@@ -17,6 +17,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 RUNNING_TESTS = "test" in sys.argv
 
+from django.core.exceptions import ImproperlyConfigured
 from lib.cuckoo.common.config import Config
 
 # In case we have VPNs enabled we need to initialize through the following
@@ -36,6 +37,7 @@ pro_cfg = Config("processing")
 
 REPROCESS_TASKS = web_cfg.general.reprocess_tasks
 REPROCESS_FAILED_PROCESSING = web_cfg.general.reprocess_failed_processing
+HUNT_ENABLED = getattr(web_cfg, "hunt", {}).get("enabled", False)
 # CSRF TRUSTED ORIGINS
 # For requests that include the Origin header, Django's CSRF protection
 # requires that header match the origin present in the Host header.
@@ -193,6 +195,8 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.messages.context_processors.messages",
                 "django_settings_export.settings_export",
+                # Surfaces `may_manage_apikeys` for the API Keys link in the user dropdown.
+                "apikey.context_processors.apikey_access",
             ],
             "loaders": [
                 "django.template.loaders.filesystem.Loader",
@@ -271,16 +275,66 @@ INSTALLED_APPS = [
     "django_recaptcha",  # https://pypi.org/project/django-recaptcha/
     "rest_framework",
     "rest_framework.authtoken",
+    # Per-user labeled API keys (multi-key, individually revocable). Lives
+    # alongside DRF's legacy `authtoken` so ApiKeyAuthentication can fall
+    # back to existing tokens for back-compat. Reference the AppConfig
+    # explicitly so its ready() (disable-cascade signal wiring) always loads.
+    "apikey.apps.ApiKeyConfig",
 ]
+
+# OpenID Connect (Okta / Azure AD / Auth0 / Google Workspace / Keycloak /
+# any OIDC-compliant IdP) is wired through django-allauth's generic
+# `openid_connect` provider — registered conditionally so the dependency
+# stays inert when SSO is disabled. Configure via [oauth_oidc] in web.conf.
+OIDC_CFG = getattr(web_cfg, "oauth_oidc", None)
+if OIDC_CFG is not None and OIDC_CFG.get("enabled", False):
+    _missing = [k for k in ("client_id", "client_secret", "server_url") if not (OIDC_CFG.get(k) or "").strip()]
+    if _missing:
+        raise ImproperlyConfigured(
+            f"[oauth_oidc] enabled = yes but required fields are blank: {', '.join(_missing)}. Check conf/web.conf."
+        )
+    INSTALLED_APPS.append("allauth.socialaccount.providers.openid_connect")
+    # Merge into any existing provider config instead of reassigning, so
+    # enabling OIDC doesn't clobber other providers a deployment may have set.
+    SOCIALACCOUNT_PROVIDERS = globals().get("SOCIALACCOUNT_PROVIDERS") or {}
+    SOCIALACCOUNT_PROVIDERS["openid_connect"] = {
+        # Use our subclass for process-level discovery-doc / JWKS caching.
+        "provider_class": "web.allauth_adapters.CachedOpenIDConnectProvider",
+        "APPS": [
+            {
+                "provider_id": OIDC_CFG.get("provider_id", "oidc"),
+                "name": OIDC_CFG.get("name", "OIDC"),
+                "client_id": OIDC_CFG.get("client_id", ""),
+                "secret": OIDC_CFG.get("client_secret", ""),
+                "settings": {
+                    "server_url": OIDC_CFG.get("server_url", ""),
+                },
+            }
+        ],
+    }
 
 AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
 
 if api_cfg.api.token_auth_enabled:
+    # Per-user labeled API keys; ApiKeyAuthentication internally falls back to
+    # DRF's legacy TokenAuthentication so tokens issued via
+    # /apiv2/api-token-auth/ keep working without migration.
+    #
+    # When SSO is enabled, scripts targeting /apiv2/ MUST present an explicit
+    # API key (Authorization: Token <key>) — we drop SessionAuthentication from
+    # the default chain so a browser session cookie issued via the IdP can't
+    # authenticate API calls. Browser-only flows (apikey list/create pages, etc.)
+    # live outside DRF and continue to use Django session auth. Specific
+    # UI-internal endpoints that legitimately need cookie auth can opt back in
+    # per-view with @authentication_classes([SessionAuthentication]).
+    _api_auth_classes = ["apikey.authentication.ApiKeyAuthentication"]
+    if not (OIDC_CFG and OIDC_CFG.get("enabled", False)):
+        # No SSO configured — keep the legacy session-cookie fallback for
+        # back-compat with deployments that script against /apiv2/ using
+        # their browser cookies.
+        _api_auth_classes.append("rest_framework.authentication.SessionAuthentication")
     REST_FRAMEWORK = {
-        "DEFAULT_AUTHENTICATION_CLASSES": [
-            "rest_framework.authentication.TokenAuthentication",
-            "rest_framework.authentication.SessionAuthentication",
-        ],
+        "DEFAULT_AUTHENTICATION_CLASSES": _api_auth_classes,
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
         "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
         "DEFAULT_THROTTLE_RATES": {
@@ -323,7 +377,8 @@ SETTINGS_EXPORT = [
     "NETWORK_PROC_MAP",
     "REPROCESS_TASKS",
     "REPROCESS_FAILED_PROCESSING",
-    "AUDIT_FRAMEWORK"
+    "AUDIT_FRAMEWORK",
+    "HUNT_ENABLED"
 ]
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
@@ -357,13 +412,18 @@ REGISTRATION_ENABLED = web_cfg.registration.get("enabled", False)
 EMAIL_CONFIRMATION = web_cfg.registration.get("email_confirmation", False)
 SOCIAL_AUTH_EMAIL_DOMAIN = web_cfg.web_auth.get("social_auth_email_domain", False)
 
-# be careful with SOCIALACCOUNT_AUTO_SIGNUP, if True, it will bypass custom sighup functions, default is True
-# SOCIALACCOUNT_AUTO_SIGNUP = True
+# Activate the social adapter so OIDC signups bypass the REGISTRATION_ENABLED
+# toggle (the public-signup form gate). Users coming through the IdP have
+# already been vetted and explicitly assigned to the app, so they shouldn't be
+# blocked by the same flag that closes anonymous signup. The adapter also
+# enforces the email-domain allowlist and IdP-group role mapping.
+SOCIALACCOUNT_ADAPTER = "web.allauth_adapters.MySocialAccountAdapter"
+SOCIALACCOUNT_AUTO_SIGNUP = True
+# Send the user straight to the IdP when they click the SSO button, skipping
+# allauth's intermediate confirmation page. (Login is initiated via GET.)
+SOCIALACCOUNT_LOGIN_ON_GET = True
 # SOCIALACCOUNT_ONLY = True
-# SOCIALACCOUNT_LOGIN_ON_GET=True
 # ACCOUNT_SIGNUP_FORM_CLASS = None
-# In case you want to verify domain of email + set the username
-# SOCIALACCOUNT_ADAPTER = 'web.allauth_adapters.MySocialAccountAdapter'
 # ACCOUNT_DEFAULT_HTTP_PROTOCOL = "https"
 
 #### AllAuth end
@@ -409,6 +469,19 @@ SILENCED_SYSTEM_CHECKS = [
 ]
 
 ALLOWED_HOSTS = ["*"]
+
+# Reverse-proxy TLS termination: when nginx terminates HTTPS and forwards plain
+# HTTP to gunicorn/daphne, Django must be told via X-Forwarded-Proto that the
+# original request was HTTPS — otherwise request.is_secure() is False and the
+# absolute OIDC redirect_uri django-allauth builds comes out as http://…, which
+# the IdP rejects. Requires `proxy_set_header X-Forwarded-Proto $scheme;` in nginx.
+#
+# Gated behind [general] behind_proxy because trusting X-Forwarded-Proto/Host is
+# only safe when a reverse proxy strips/overwrites those headers from clients —
+# enabling them with a directly-reachable app would allow proto/host spoofing.
+if web_cfg.general.get("behind_proxy", False):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    USE_X_FORWARDED_HOST = True
 
 # Max size
 MAX_UPLOAD_SIZE = web_cfg.general.max_sample_size

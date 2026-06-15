@@ -9,9 +9,11 @@
     document.addEventListener('keydown', function(e) {
         // Don't trigger if user is typing in an input or textarea
         const activeElement = document.activeElement;
-        const isInput = activeElement.tagName === 'INPUT' || 
-                        activeElement.tagName === 'TEXTAREA' || 
-                        activeElement.isContentEditable;
+        const isInput = activeElement && (
+                        activeElement.tagName === 'INPUT' ||
+                        activeElement.tagName === 'TEXTAREA' ||
+                        activeElement.tagName === 'SELECT' ||
+                        activeElement.isContentEditable);
 
         if (isInput && e.key !== 'Escape') {
             return;
@@ -48,28 +50,24 @@
                 break;
 
             case 'j': // Next Item
-                if (!isInput) navigateList(1);
+                navigateList(1);
                 break;
-            
+
             case 'k': // Previous Item
-                if (!isInput) navigateList(-1);
+                navigateList(-1);
                 break;
 
             case 'o': // Open/Expand
-                if (!isInput) {
-                    const activeRow = $('.table-hover tbody tr.keyboard-active');
-                    if (activeRow.length) {
-                        const link = activeRow.find('a').first();
-                        if (link.length) link[0].click();
-                    }
+                const activeRow = $('.table-hover tbody tr.keyboard-active');
+                if (activeRow.length) {
+                    const link = activeRow.find('a').first();
+                    if (link.length) link[0].click();
                 }
                 break;
 
             case '?': // Show help
-                if (!isInput) {
-                    const helpModal = new bootstrap.Modal(document.getElementById('shortcutsHelpModal'));
-                    helpModal.show();
-                }
+                const helpModal = bootstrap.Modal.getOrCreateInstance(document.getElementById('shortcutsHelpModal'));
+                helpModal.show();
                 break;
         }
     });
@@ -108,8 +106,8 @@
     // Add visual feedback for keyboard navigation
     const style = document.createElement('style');
     style.innerHTML = `
-        .keyboard-active { 
-            outline: 2px solid #3498db !important; 
+        .keyboard-active {
+            outline: 2px solid #3498db !important;
             outline-offset: -2px;
             background-color: rgba(52, 152, 219, 0.1) !important;
         }

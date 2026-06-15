@@ -308,6 +308,14 @@ class GuestManager:
         # Upload the analyzer.
         self.upload_analyzer()
 
+        # Update file_name in options if category is file/archive to include task-id unique subdirectory
+        # This must be done BEFORE self.add_config(options) is called so that analysis.conf in guest has the correct path
+        if options["category"] in ("file", "archive"):
+            if self.platform == "windows":
+                options["file_name"] = f"{options['id']}\\{sanitize_filename(options['file_name'])}"
+            else:
+                options["file_name"] = f"{options['id']}/{sanitize_filename(options['file_name'])}"
+
         # Pass along the analysis.conf file.
         self.add_config(options)
         # Allow Auxiliary modules to prepare the Guest.
@@ -328,9 +336,9 @@ class GuestManager:
         if options["category"] in ("file", "archive"):
             # Use the correct os.sep in the filepath based on what OS this file is destined for
             if self.platform == "windows":
-                filepath = ntpath.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
+                filepath = ntpath.join(self.determine_temp_path(), options["file_name"])
             else:
-                filepath = os.path.join(self.determine_temp_path(), sanitize_filename(options["file_name"]))
+                filepath = os.path.join(self.determine_temp_path(), options["file_name"])
             data = {"filepath": filepath}
             files = {
                 "file": ("sample.bin", open(sample_path, "rb")),

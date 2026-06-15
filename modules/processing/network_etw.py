@@ -453,7 +453,12 @@ class NetworkETW(Processing):
         pid_to_image = {}
         dns_queries = []
         evtx_path = os.path.join(self.analysis_path, "evtx", "evtx.zip")
-        if not HAVE_EVTX or not os.path.exists(evtx_path):
+        # Either parser can read the snapshot; _iter_sysmon_records prefers
+        # evtx-rs and only falls back to python-evtx. Gating solely on
+        # HAVE_EVTX (python-evtx) silently returned empty on images that ship
+        # only evtx-rs, zeroing out the pid->image map and leaving every
+        # network flow without a process name.
+        if not (HAVE_EVTX or HAVE_EVTX_RS) or not os.path.exists(evtx_path):
             return connections, pid_to_image, dns_queries
 
         tmpdir = tempfile.mkdtemp()

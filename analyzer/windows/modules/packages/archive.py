@@ -5,6 +5,7 @@
 import logging
 import os
 import shutil
+import subprocess
 from pathlib import Path
 
 from lib.common.abstracts import Package
@@ -16,6 +17,7 @@ from lib.common.constants import (
     OPT_FUNCTION,
     OPT_MULTI_PASSWORD,
     OPT_PASSWORD,
+    OPT_RECURSION_DEPTH,
 )
 from lib.common.exceptions import CuckooPackageError
 from lib.common.zip_utils import (
@@ -44,6 +46,7 @@ class Archive(Package):
         ("SystemRoot", "system32", "xpsrchvw.exe"),
         ("ProgramFiles", "7-Zip", "7z.exe"),
         ("ProgramFiles", "WinRAR", "WinRAR.exe"),
+        ("ProgramFiles", "die", "diec.exe"),
         ("ProgramFiles", "Microsoft Office", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office", "Office*", "WINWORD.EXE"),
         ("ProgramFiles", "Microsoft Office*", "root", "Office*", "WINWORD.EXE"),
@@ -65,6 +68,8 @@ class Archive(Package):
     Various options apply depending on the file type.
     The options '{OPT_FUNCTION}' and '{OPT_DLLLOADER}' will be applied to .DLL execution attempts.
     The option '{OPT_ARGUMENTS}' will be applied to a .DLL or a PE executable.
+    For recursive extraction guest Windows VM must contain die app (Detect It Easy) with extra
+    database in Program Files.
     """
     option_names = sorted(set(DLL_OPTIONS + ARCHIVE_OPTIONS + (OPT_MULTI_PASSWORD,)))
 
@@ -76,6 +81,8 @@ class Archive(Package):
         seven_zip_path = self.get_path_app_in_path("7z.exe")
         password = self.options.get(OPT_PASSWORD, "infected")
         archive_name = Path(path).name
+        recursion_depth = max(0, int(self.options.get(OPT_RECURSION_DEPTH, 0)))
+        diec_path = self.get_path_app_in_path("diec.exe") if recursion_depth > 0 else None
 
         # We are extracting the archive to C:\\<archive_name> rather than the TEMP directory because
         # actors are using LNK files that use relative directory traversal at arbitrary depth.
@@ -102,15 +109,63 @@ class Archive(Package):
         if not file_names:
             raise CuckooPackageError("Empty archive")
 
+        extracted_files = set()
+        extracted_archives = set()
+        for i in range(0, recursion_depth):
+
+            packs = []
+            target_words = {'Archive', 'Image', 'filesystem', 'ZIP', 'RAR', 'SFX'}
+
+            for r, _, files in os.walk(root):
+
+                for file in files:
+                    file_path = os.path.join(r, file)
+                    if file_path in extracted_files:
+                        continue
+
+                    extracted_files.add(file_path)
+
+                    try:
+                        result = subprocess.run([diec_path, "-p", file_path], capture_output=True, text=True, check=True, encoding="utf-8")
+                        file_info = result.stdout
+                        for word in target_words:
+                            if word in file_info:
+                                packs.append(file_path)
+                                break
+                    except subprocess.CalledProcessError:
+                        continue
+
+            if packs:
+                j = 0
+                for p in packs:
+                    pack_name = os.path.basename(p)
+                    output_dir = os.path.join(root, str(i), str(j), pack_name)
+                    os.makedirs(output_dir, exist_ok=True)
+
+                    try:
+                        try_multiple_passwords = attempt_multiple_passwords(self.options, password)
+                        extract_archive(seven_zip_path, p, output_dir, password, try_multiple_passwords)
+                        extracted_archives.add(p)
+                    except Exception as e:
+                        log.warning("Extraction failed for %s: %s", p, e)
+
+                    j += 1
+            else:
+                break
+
         # Handle special characters that 7ZIP cannot
         # We have the file names according to 7ZIP output (file_names)
         # We have the file names that were actually extracted (files at root)
         # If these values are different, replace all
-        files_at_root = [os.path.join(r, f).replace(f"{root}\\", "") for r, _, files in os.walk(root) for f in files]
+        log.debug("Extracted archives:%s", extracted_archives)
+        files_at_root = [
+            os.path.relpath(p, root)
+            for r, _, files in os.walk(root)
+            for f in files
+            if (p := os.path.join(r, f)) not in extracted_archives
+        ]
         log.debug(files_at_root)
-        if set(file_names) != set(files_at_root):
-            log.debug("Replacing %s with %s", str(file_names), str(files_at_root))
-            file_names = files_at_root
+        file_names = files_at_root
 
         upload_extracted_files(root, files_at_root)
 

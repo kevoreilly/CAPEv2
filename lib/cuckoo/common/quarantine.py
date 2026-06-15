@@ -9,6 +9,7 @@ import os
 import struct
 from binascii import crc32
 from pathlib import Path
+from typing import Optional, Tuple, Union
 
 from Cryptodome.Cipher import ARC4
 
@@ -24,13 +25,13 @@ except ImportError:
     print("Missed olefile dependency: poetry run pip install olefile")
 
 
-def bytearray_xor(data, key):
+def bytearray_xor(data: bytearray, key: int) -> bytearray:
     for i in range(len(data)):
         data[i] ^= key
     return data
 
 
-def read_trend_tag(data, offset):
+def read_trend_tag(data: bytes, offset: int) -> Tuple[int, bytes]:
     """@return a code byte and data tuple"""
     code, length = struct.unpack("<BH", data[offset : offset + 3])
     return code, bytes(data[offset + 3 : offset + 3 + length])
@@ -99,11 +100,11 @@ log = logging.getLogger(__name__)
 # in archive formats.
 
 
-def read_sep_tag(data, offset):
+def read_sep_tag(data: bytearray, offset: int) -> Tuple[int, int, int, bytes]:
     """@return a code byte, metalength, metaval, and extra data tuple"""
     code = struct.unpack("B", data[offset : offset + 1])[0]
     codeval = 0
-    retdata = ""
+    retdata = b""
     length = 0
 
     if code in {1, 10}:
@@ -122,7 +123,7 @@ def read_sep_tag(data, offset):
     return code, length, codeval, retdata
 
 
-def sep_unquarantine(f):
+def sep_unquarantine(f: str) -> Optional[bytes]:
     qdata = Path(f).read_bytes()
     data = bytearray(qdata)
     dataoffset = struct.unpack("<I", data[:4])[0]
@@ -192,7 +193,7 @@ def sep_unquarantine(f):
     return store_temp_file(bindata, origname)
 
 
-def mse_unquarantine(f):
+def mse_unquarantine(f: str) -> Optional[bytes]:
     with open(f, "rb") as quarfile:
         data = bytearray(quarfile.read())
 
@@ -491,7 +492,7 @@ def mse_unquarantine(f):
 # the decrypted metadata file from the line beginning with "ObjectName:"
 
 
-def mbam_unquarantine(f):
+def mbam_unquarantine(f: str) -> Optional[bytes]:
     with open(f, "rb") as quarfile:
         data = bytearray(quarfile.read())
 
@@ -507,7 +508,7 @@ def mbam_unquarantine(f):
 # format, partially on reversing qb.ppl
 
 
-def kav_unquarantine(file):
+def kav_unquarantine(file: str) -> Optional[bytes]:
     with open(file, "rb") as quarfile:
         data = bytearray(quarfile.read())
 
@@ -558,7 +559,7 @@ def kav_unquarantine(file):
 # for the sake of documentation
 
 
-def trend_unquarantine(f):
+def trend_unquarantine(f: str) -> Optional[bytes]:
     # Read first 10 bytes
     with open(f, "rb") as fil:
         qheader = fil.read(10)
@@ -630,7 +631,7 @@ def trend_unquarantine(f):
     return store_temp_file(data[dataoffset:], origname)
 
 
-def mcafee_unquarantine(f):
+def mcafee_unquarantine(f: str) -> Optional[bytes]:
     if not HAVE_OLEFILE:
         log.info("Missed olefile dependency: pip3 install olefile")
         return None
@@ -673,7 +674,7 @@ def mcafee_unquarantine(f):
                     return store_temp_file(value, malname)
 
 
-def xorff_unquarantine(f):
+def xorff_unquarantine(f: str) -> Optional[bytes]:
     """
     sentinelone
     forefront
@@ -694,35 +695,43 @@ func_map = {
 }
 
 
-def unquarantine(f):
-    f = f.decode() if isinstance(f, bytes) else f
-    if not path_exists(f):
-        return f
+def unquarantine(f: Union[str, bytes]) -> bytes:
+    f_bytes = f if isinstance(f, bytes) else f.encode()
+    f_str = f_bytes.decode()
 
-    base = os.path.basename(f)
+    if not path_exists(f_str):
+        return f_bytes
+
+    base = os.path.basename(f_str)
     realbase, ext = os.path.splitext(base)
 
     if not HAVE_OLEFILE:
         log.info("Missed olefile dependency: pip3 install olefile")
 
     try:
-        if ext.lower() == ".bup" or (HAVE_OLEFILE and olefile.isOleFile(f)):
+        if ext.lower() == ".bup" or (HAVE_OLEFILE and olefile.isOleFile(f_str)):
             with contextlib.suppress(Exception):
-                return mcafee_unquarantine(f)
+                res = mcafee_unquarantine(f_str)
+                if res:
+                    return res if isinstance(res, bytes) else res.encode()
     except (FileNotFoundError, PermissionError, IsADirectoryError):
         pass
 
     if ext.lower() in func_map:
         try:
-            return func_map[ext.lower()](f)
+            res = func_map[ext.lower()](f_str)
+            if res:
+                return res if isinstance(res, bytes) else res.encode()
         except Exception as e:
             print(e)
 
     for func in (mse_unquarantine, kav_unquarantine, trend_unquarantine, sep_unquarantine):
         with contextlib.suppress(Exception):
-            quarfile = func(f)
+            quarfile = func(f_str)
             if quarfile:
-                return quarfile
+                return quarfile if isinstance(quarfile, bytes) else quarfile.encode()
+
+    return f_bytes
 
 
 if __name__ == "__main__":

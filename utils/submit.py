@@ -9,6 +9,7 @@ import logging
 import os
 import random
 import sys
+from typing import Any, Dict, List, Optional, Tuple
 
 try:
     import requests
@@ -30,25 +31,25 @@ check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
 
 
 def submit_file(
-    db,
-    file_path,
-    package="",
-    timeout=0,
-    options="",
-    priority=1,
-    machine="",
-    platform="",
-    memory=False,
-    enforce_timeout=False,
-    custom="",
-    tags=None,
-    route=None,
-    clock=None,
-    unique=False,
-    quiet=False,
-    category=None,
-    filename=None,
-):
+    db: Database,
+    file_path: str,
+    package: str = "",
+    timeout: int = 0,
+    options: str = "",
+    priority: int = 1,
+    machine: str = "",
+    platform: str = "",
+    memory: bool = False,
+    enforce_timeout: bool = False,
+    custom: str = "",
+    tags: Optional[str] = None,
+    route: Optional[str] = None,
+    clock: Optional[str] = None,
+    unique: bool = False,
+    quiet: bool = False,
+    category: Optional[str] = None,
+    filename: Optional[str] = None,
+) -> Tuple[List[int], Dict[str, Any]]:
     if not File(file_path).get_size():
         if not quiet:
             print((bold(yellow("Empty") + ": sample {0} (skipping file)".format(file_path))))
@@ -68,6 +69,8 @@ def submit_file(
     l = logging.getLogger(__name__)
 
     tmp_path = ""
+    task_ids = []
+    extra_details = {}
     try:
         # Create a temp file with the correct name for demuxing (if needed)
         # Some demuxers rely on the filename/extension
@@ -112,7 +115,7 @@ def submit_file(
                 l.warning("Failed to delete temp file %s: %s", tmp_path, e)
 
 
-def main():
+def main() -> Optional[bool]:
     parser = argparse.ArgumentParser()
     parser.add_argument("target", help="URL, path to the file or folder to analyze")
     parser.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")

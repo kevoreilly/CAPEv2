@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-12">
+        <div class="card bg-dark shadow-sm border-secondary">
+            <div class="card-header border-secondary bg-transparent d-flex align-items-center">
+                <h4 class="mb-0 text-white"><i class="fas fa-bullseye text-danger me-2"></i> Threat Discovery & Hunting</h4>
+            </div>
+            <div class="card-body">
+                <p class="text-white-50">
+                    Proactively discover new emerging campaigns by grouping undetected analyses by shared indicators.
+                    Search specifically by filename prefix to cluster similar samples and uncover shared infrastructure or behavioral signatures.
+                </p>
+                <form role="form" action="{% url "hunt" %}" method="get" class="row g-3">
+                    <div class="col-md-4">
+                        <label for="filename_prefix" class="form-label text-white-50">Filename Prefix (e.g., downloaded_by_)</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-secondary text-white-50"><i class="fas fa-file-signature"></i></span>
+                            <input type="text" class="form-control bg-dark text-white border-secondary" id="filename_prefix" name="filename_prefix" value="{{filename_prefix}}" placeholder="e.g., downloaded_by_">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="days_back" class="form-label text-white-50">Time Range</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-secondary text-white-50"><i class="fas fa-calendar-alt"></i></span>
+                            <select class="form-select bg-dark text-white border-secondary" id="days_back" name="days_back">
+                                <option value="7" {% if days_back == 7 %}selected{% endif %}>Last 7 Days</option>
+                                <option value="14" {% if days_back == 14 %}selected{% endif %}>Last 14 Days</option>
+                                <option value="30" {% if days_back == 30 %}selected{% endif %}>Last 30 Days</option>
+                                <option value="90" {% if days_back == 90 %}selected{% endif %}>Last 90 Days</option>
+                                <option value="0" {% if days_back == 0 %}selected{% endif %}>All Time</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <label for="min_count" class="form-label text-white-50">Min Correlated</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-dark border-secondary text-white-50"><i class="fas fa-layer-group"></i></span>
+                            <input type="number" class="form-control bg-dark text-white border-secondary" id="min_count" name="min_count" value="{{min_count}}" min="2">
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-center pt-4">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="ignore_detections" name="ignore_detections" {% if ignore_detections %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="ignore_detections">Ignore Detections</label>
+                        </div>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-outline-info w-100" type="submit"><i class="fas fa-binoculars me-1"></i> Hunt</button>
+                    </div>
+
+                    <!-- Dynamic Category Switches generated directly from hunt_map config registry -->
+                    <div class="col-12 mt-3 pt-3 border-top border-secondary text-truncate">
+                        <span class="text-white-50 me-3 font-weight-bold" style="font-size: 0.85rem;"><i class="fas fa-filter me-1 text-info"></i> Target Categories:</span>
+                        {% for cat_id, cat_config in hunt_map.items %}
+                        <div class="form-check form-check-inline form-switch">
+                            <input class="form-check-input" type="checkbox" role="switch" id="{{ cat_config.form_key }}" name="{{ cat_config.form_key }}" {% if categories|get_item:cat_id %}checked{% endif %}>
+                            <label class="form-check-label text-white-50" for="{{ cat_config.form_key }}">{{ cat_id|capfirst }}</label>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Dynamic Grid Card Generation -->
+<div class="row">
+    {% for cat_id, cat_config in hunt_map.items %}
+        {% if categories|get_item:cat_id %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card bg-dark shadow-sm border-secondary h-100">
+                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-white"><i class="{{ cat_config.icon }} me-2"></i> {{ cat_config.title }}</h5>
+                    <span class="badge bg-{{ cat_config.badge_color }} text-dark">{{ facets|get_item:cat_id|length }} clusters</span>
+                </div>
+                <div class="table-responsive" style="max-height: 350px; overflow-y: auto;">
+                    <table class="table table-dark table-hover table-striped table-sm mb-0">
+                        <thead>
+                            <tr>
+                                <th>Indicator Value</th>
+                                <th style="width: 15%;" class="text-center">Count</th>
+                                <th style="width: 35%;">Tasks</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if facets|get_item:cat_id %}
+                                {% for item in facets|get_item:cat_id %}
+                                <tr>
+                                    <td class="text-truncate" style="max-width: 150px;" title="{{ item.0 }}">
+                                        {{ item.0 }}
+                                        <!-- Dynamic External OSINT Lookup Links -->
+                                        {% for pivot in cat_config.pivots %}
+                                            <a href="{{ pivot.url }}{{ item.0 }}" target="_blank" class="text-info ms-1" title="{{ pivot.name }}"><i class="{{ pivot.icon }}" style="font-size: 0.7rem;"></i></a>
+                                        {% endfor %}
+                                    </td>
+                                    <td class="text-center font-weight-bold text-{{ cat_config.badge_color }}">{{ item.1 }}</td>
+                                    <td>
+                                        {% for tid in item.2 %}
+                                            <a href="{% url "report" task_id=tid %}" class="badge bg-secondary text-white text-decoration-none" target="_blank">{{ tid }}</a>
+                                        {% endfor %}
+                                        <a href="javascript:void(0);" onclick="tagCluster({{ item.2 }});" class="text-warning ms-1" title="Tag this cluster"><i class="fas fa-tag" style="font-size: 0.8rem;"></i></a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr><td colspan="3" class="text-muted text-center py-3">No correlated indicators found.</td></tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    {% endfor %}
+</div>
+
+<script>
+function tagCluster(taskIds) {
+    if (!taskIds || taskIds.length === 0) return;
+    var tag = prompt("Enter custom tag to apply to tasks [" + taskIds.join(", ") + "]:");
+    if (!tag) return;
+    tag = tag.trim();
+    if (tag === "") return;
+    
+    fetch("{% url 'tag_tasks' %}", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": "{{ csrf_token }}"
+        },
+        body: JSON.stringify({
+            task_ids: taskIds,
+            tag: tag
+        })
+    })
+    .then(function(response) {
+        if (!response.ok) {
+            throw new Error("HTTP error " + response.status);
+        }
+        return response.json();
+    })
+    .then(function(data) {
+        if (data.status === "success") {
+            alert("Successfully tagged " + data.updated_count + " tasks with tag: " + data.tag);
+            // Optionally reload to update display
+            window.location.reload();
+        } else {
+            alert("Error: " + data.message);
+        }
+    })
+    .catch(function(err) {
+        alert("Request failed: " + err.message);
+    });
+}
+</script>
+{% endblock %}

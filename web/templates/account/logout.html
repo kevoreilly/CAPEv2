@@ -1,14 +1,25 @@
 {% extends 'base.html' %}
+{% load i18n %}
 {% load crispy_forms_tags %}
-{% block title %}Log Out{% endblock %}
+{% block title %}{% trans "Sign Out" %}{% endblock %}
+
 {% block content %}
-<div style="margin-top:6%" class="container">
-    <h1>Log Out</h1>
-    <p>Are you sure you want to log out?</p>
-    <form method="post" action="{% url 'account_logout' %}">
-        {% csrf_token %}
-        {{ form|crispy }}
-        <button class="btn btn-danger" type="submit">Log Out</button>
-    </form>
+<div class="container my-5" style="max-width: 480px;">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h4 class="mb-0 text-white"><i class="fas fa-sign-out-alt me-2 text-danger"></i>{% trans "Sign Out" %}</h4>
+        </div>
+        <div class="card-body">
+            <p>{% trans "Are you sure you want to sign out?" %}</p>
+            <form method="post" action="{% url 'account_logout' %}">
+                {% csrf_token %}
+                {{ form|crispy }}
+                <div class="d-flex gap-2 mt-3">
+                    <button class="btn btn-danger" type="submit"><i class="fas fa-sign-out-alt me-1"></i>{% trans "Sign Out" %}</button>
+                    <a href="/" class="btn btn-outline-secondary text-white">{% trans "Cancel" %}</a>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 {% endblock content %}

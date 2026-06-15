@@ -64,6 +64,30 @@ def _get_vnc_port(vm_label):
                 pass
 
 
+def _check_vm_running(vm_label):
+    """Check if the VM is running in libvirt. Must be called from sync context."""
+    if not LIBVIRT_AVAILABLE:
+        return False
+
+    conn = None
+    try:
+        conn = libvirt.open(machinery_dsn)
+        if conn:
+            dom = conn.lookupByName(vm_label)
+            if dom:
+                state = dom.state(flags=0)
+                return state and state[0] == 1
+    except Exception as e:
+        logger.error("Error checking VM status for %s: %s", vm_label, e)
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+    return False
+
+
 class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
     subprotocols = ["guacamole"]
 
@@ -342,23 +366,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                 if self.guac_task_id > 0:
                     break
 
-                is_running = False
-                conn = None
-                try:
-                    conn = await sync_to_async(libvirt.open)(machinery_dsn)
-                    if conn:
-                        dom = conn.lookupByName(self.vm_label)
-                        if dom:
-                            state = dom.state(flags=0)
-                            is_running = state and state[0] == 1
-                except Exception as e:
-                    logger.error("Error checking VM status for %s: %s", self.vm_label, e)
-                finally:
-                    if conn:
-                        try:
-                            conn.close()
-                        except Exception:
-                            pass
+                is_running = await sync_to_async(_check_vm_running)(self.vm_label)
 
                 if not is_running:
                     logger.info("VM %s is no longer running, unlocking and disconnecting", self.vm_label)

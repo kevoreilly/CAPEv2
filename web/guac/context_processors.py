@@ -15,6 +15,8 @@ def guac_vnc_console(request):
     db = Database()
     machines = [machine.label for machine in db.list_machines(include_reserved=True)]
     new_tab = web_cfg.guacamole.get("vnc_console_new_tab", True)
+    if isinstance(new_tab, str):
+        new_tab = new_tab.lower() in ("yes", "true", "on", "1")
 
     return {
         "vnc_console_enabled": True,

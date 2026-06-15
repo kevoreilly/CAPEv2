@@ -538,6 +538,10 @@ sys.exit(res.returncode)
         except Exception as db_err:
             logger.error("Failed to unlock machine %s after background start error: %s", vm_name, db_err)
     finally:
+        try:
+            db.session.remove()
+        except Exception as db_remove_err:
+            logger.error("Failed to clean up db session in background thread: %s", db_remove_err)
         if conn:
             try:
                 conn.close()
@@ -929,6 +933,10 @@ def direct_vnc_vm_snapshot_create(request, vm_name):
     if not snapshot_name:
         return JsonResponse({"status": "error", "message": "Snapshot name is required"}, status=400)
 
+    import re
+    if not re.match(r"^[a-zA-Z0-9_-]+$", snapshot_name):
+        return JsonResponse({"status": "error", "message": "Invalid snapshot name. Only alphanumeric characters, dashes, and underscores are allowed."}, status=400)
+
     conn = None
     try:
         conn = libvirt.open(machinery_dsn)
@@ -951,10 +959,14 @@ def direct_vnc_vm_snapshot_create(request, vm_name):
         except libvirt.libvirtError:
             pass
 
-        xml = f"""<domainsnapshot>
-  <name>{snapshot_name}</name>
-  <description>{description}</description>
-</domainsnapshot>"""
+        import xml.etree.ElementTree as ET
+        root = ET.Element("domainsnapshot")
+        name_elem = ET.SubElement(root, "name")
+        name_elem.text = snapshot_name
+        if description:
+            desc_elem = ET.SubElement(root, "description")
+            desc_elem.text = description
+        xml = ET.tostring(root, encoding="utf-8").decode("utf-8")
 
         flags = 0
         if hasattr(libvirt, "VIR_DOMAIN_SNAPSHOT_CREATE_ATOMIC"):
@@ -1007,6 +1019,10 @@ def direct_vnc_vm_snapshot_delete(request, vm_name):
     snapshot_name = data.get("name")
     if not snapshot_name:
         return JsonResponse({"status": "error", "message": "Snapshot name is required to delete"}, status=400)
+
+    import re
+    if not re.match(r"^[a-zA-Z0-9_-]+$", snapshot_name):
+        return JsonResponse({"status": "error", "message": "Invalid snapshot name. Only alphanumeric characters, dashes, and underscores are allowed."}, status=400)
 
     conn = None
     try:

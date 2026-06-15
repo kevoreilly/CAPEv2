@@ -238,7 +238,7 @@ def direct_vnc_vm(request, vm_name):
             session.query(GuacSession).filter_by(vm_label=vm_name).delete()
             session.commit()
         except Exception as e:
-            logger.error(f"Failed to clear stale GuacSession for VM {vm_name}: {e}")
+            logger.error("Failed to clear stale GuacSession for VM %s: %s", vm_name, e)
 
         is_starting = False
         machine = db.view_machine_by_label(vm_name) or db.view_machine(vm_name)
@@ -260,16 +260,16 @@ def direct_vnc_vm(request, vm_name):
                     from lib.cuckoo.core.data.guests import Guest
                     from lib.cuckoo.core.data.task import Task
                     from lib.cuckoo.common.constants import TASK_RUNNING
-                    
+
                     session = db.session()
                     active_task = session.query(Task).filter(
                         Task.machine_id == machine.id,
                         Task.status == TASK_RUNNING
                     ).first()
-                    
+
                     active_guest = session.query(Guest).filter(
                         Guest.label == vm_name,
-                        Guest.shutdown_on == None
+                        Guest.shutdown_on.is_(None)
                     ).first()
                 except Exception as query_err:
                     logger.error("Failed to query active tasks/guests: %s", query_err)
@@ -384,7 +384,7 @@ def bg_revert_and_start(machinery_dsn, vm_name, start_mode, snapshot_name):
                     route_enable("none", None, None, machine, None, None)
                     logger.info("Successfully set default 'none' route for VM '%s'", vm_name)
             except Exception as routing_err:
-                logger.error(f"Failed to enforce default 'none' route for VM {vm_name}: {routing_err}")
+                logger.error("Failed to enforce default 'none' route for VM %s: %s", vm_name, routing_err)
 
             # Wait for the agent to become available and sync the clock to America/New_York (EST/EDT) zone
             try:
@@ -501,7 +501,7 @@ sys.exit(res.returncode)
                                 if platform == "windows":
                                     temp_path = env_upper.get("TEMP") or env_upper.get("TMP") or temp_path
                         except Exception as env_err:
-                            logger.warning(f"Could not query guest environment on VM '{vm_name}': {env_err}")
+                            logger.warning("Could not query guest environment on VM '%s': %s", vm_name, env_err)
 
                         remote_script_path = f"{temp_path}\\set_clock.py" if platform == "windows" else f"{temp_path}/set_clock.py"
 
@@ -512,31 +512,31 @@ sys.exit(res.returncode)
                         if store_res.status_code == 200:
                             exec_res = session.post(f"http://{ip}:{port}/execpy", data={"filepath": remote_script_path}, timeout=10.0)
                             if exec_res.status_code == 200 and exec_res.json().get("status") == "success":
-                                logger.info(f"Successfully updated guest clock for VM '{vm_name}' via /execpy to {date_str} EST")
+                                logger.info("Successfully updated guest clock for VM '%s' via /execpy to %s EST", vm_name, date_str)
                             else:
-                                logger.error(f"Execpy clock sync failed on VM '{vm_name}': {exec_res.text}")
+                                logger.error("Execpy clock sync failed on VM '%s': %s", vm_name, exec_res.text)
 
                             try:
                                 session.post(f"http://{ip}:{port}/remove", data={"filepath": remote_script_path}, timeout=5.0)
                             except Exception:
                                 pass
                         else:
-                            logger.error(f"Store clock sync script failed on VM '{vm_name}': {store_res.text}")
+                            logger.error("Store clock sync script failed on VM '%s': %s", vm_name, store_res.text)
                     else:
-                        logger.warning(f"Agent did not become ready within timeout. Skipping clock update for VM '{vm_name}'.")
+                        logger.warning("Agent did not become ready within timeout. Skipping clock update for VM '%s'.", vm_name)
 
             except Exception as clock_err:
-                logger.error(f"Error during guest clock update for VM '{vm_name}': {clock_err}")
+                logger.error("Error during guest clock update for VM '%s': %s", vm_name, clock_err)
 
     except Exception as e:
-        logger.error(f"Error starting VM {vm_name} in background: {e}")
+        logger.error("Error starting VM %s in background: %s", vm_name, e)
         try:
             machine = db.view_machine_by_label(vm_name)
             if machine:
                 db.unlock_machine(machine)
                 db.session.commit()
         except Exception as db_err:
-            logger.error(f"Failed to unlock machine {vm_name} after background start error: {db_err}")
+            logger.error("Failed to unlock machine %s after background start error: %s", vm_name, db_err)
     finally:
         if conn:
             try:
@@ -587,16 +587,16 @@ def direct_vnc_vm_start(request, vm_name):
                     from lib.cuckoo.core.data.guests import Guest
                     from lib.cuckoo.core.data.task import Task
                     from lib.cuckoo.common.constants import TASK_RUNNING
-                    
+
                     session = db.session()
                     active_task = session.query(Task).filter(
                         Task.machine_id == machine.id,
                         Task.status == TASK_RUNNING
                     ).first()
-                    
+
                     active_guest = session.query(Guest).filter(
                         Guest.label == vm_name,
-                        Guest.shutdown_on == None
+                        Guest.shutdown_on.is_(None)
                     ).first()
                 except Exception:
                     active_task = None
@@ -677,6 +677,7 @@ def direct_vnc_vm_shutdown(request, vm_name):
 
     force = data.get("force", False)
 
+    machine = db.view_machine_by_label(vm_name) or db.view_machine(vm_name)
     conn = None
     try:
         conn = libvirt.open(machinery_dsn)
@@ -702,17 +703,17 @@ def direct_vnc_vm_shutdown(request, vm_name):
             try:
                 from lib.cuckoo.common.config import Config as CapeConfig
                 from utils.router_manager import route_disable
-                
+
                 routing = CapeConfig("routing")
                 vpns_raw = routing.vpn.get("vpns", "")
                 configured_vpns = [v.strip() for v in vpns_raw.split(",") if v.strip()] if vpns_raw else []
-                
+
                 interface, rt_table, reject_segments, reject_hostports = get_route_params(
                     current_route, routing, configured_vpns
                 )
                 route_disable(current_route, interface, rt_table, machine, reject_segments, reject_hostports)
             except Exception as routing_err:
-                logger.error(f"Failed to disable routing for {vm_name} on shutdown: {routing_err}")
+                logger.error("Failed to disable routing for %s on shutdown: %s", vm_name, routing_err)
             finally:
                 request.session.pop(f"route_{vm_name}", None)
 
@@ -739,17 +740,17 @@ def get_route_params(route_name, routing, configured_vpns):
     elif route_name == "internet":
         interface = routing.routing.get("internet", "none")
         rt_table = routing.routing.get("rt_table", "main")
-        
+
         reject_segments = routing.routing.get("reject_segments", "none")
         if reject_segments == "none":
             reject_segments = None
-            
+
         reject_hostports = routing.routing.get("reject_hostports", "none")
         if reject_hostports == "none":
             reject_hostports = None
         else:
             reject_hostports = str(reject_hostports)
-            
+
         return interface, rt_table, reject_segments, reject_hostports
     elif route_name in configured_vpns:
         vpn = routing.get(route_name)
@@ -835,7 +836,7 @@ def direct_vnc_vm_route(request, vm_name):
         return JsonResponse({"status": "success", "current_route": target_route})
 
     except Exception as e:
-        logger.error(f"direct_vnc_vm_route: Failed to change route for VM {vm_name} to {target_route}: {e}")
+        logger.error("direct_vnc_vm_route: Failed to change route for VM %s to %s: %s", vm_name, target_route, e)
         return JsonResponse({
             "status": "error",
             "message": str(e),

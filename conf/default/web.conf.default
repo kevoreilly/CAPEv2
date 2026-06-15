@@ -237,10 +237,6 @@ enabled = yes
 enabled = no
 
 [guacamole]
-# Show a VNC Console dropdown of VM guests in the navigation bar
-vnc_console_enabled = no
-# Open VNC console sessions in a new tab
-vnc_console_new_tab = yes
 enabled = no
 mode = vnc
 username =
@@ -281,6 +277,10 @@ vnc_color_depth = 16
 vnc_cursor = local
 # Audio (enable only if needed, consumes bandwidth)
 enable_audio = no
+# Show a VNC Console dropdown of VM guests in the navigation bar
+vnc_console_enabled = no
+# Open VNC console sessions in a new tab
+vnc_console_new_tab = no
 
 [packages]
 # VM tags may be used to specify on which guest machines a sample should be run

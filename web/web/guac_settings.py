@@ -4,10 +4,9 @@ import sys
 from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
+
 CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
-
-from lib.cuckoo.common.config import Config
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,22 +38,6 @@ DEBUG = True
 
 LOGGING_CONFIG = None
 
-WEB_AUTHENTICATION = getattr(Config("web"), "web_auth", {}).get("enabled", False)
-
-web_cfg = Config("web")
-csfr_list = []
-if web_cfg.security.csrf_trusted_origins:
-    for host in web_cfg.security.csrf_trusted_origins.split(","):
-        host = host.strip()
-        if not host:
-            continue
-        if host.startswith(("http://", "https://")):
-            csfr_list.append(host)
-        else:
-            csfr_list.extend([f"http://{host}", f"https://{host}"])
-
-CSRF_TRUSTED_ORIGINS = csfr_list
-
 ALLOWED_HOSTS = [
     "*",
 ]
@@ -72,7 +55,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",

@@ -1,0 +1,6 @@
+---
+guest_scripts_dir: "{{ playbook_dir }}/generated_guest_scripts"
+resultserver_ip: "{{ iface_ip }}"
+resultserver_port: 8000
+agent_python_version: "3.11.4"
+agent_vc_redist_year: "2013"

@@ -1,0 +1,7 @@
+---
+- name: Test guest_provisioning role syntax
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - role: guest_provisioning

@@ -1,0 +1,19 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# Worker node overrides (multi-node mode)
+#
+# In multi-node mode, workers handle processing, signatures,
+# and VM management but do not run the web interface or database.
+# ────────────────────────────────────────────────────────────────────
+
+# Workers connect back to the control node's PostgreSQL
+db_host: "{{ hostvars['cape-master']['ansible_host'] | default('10.0.0.10') }}"
+
+# Workers do not serve the web UI
+cape_web_enable: false
+
+# Workers may serve VMs under libvirt
+libvirt_enable: true
+
+# Workers run suricata on their own physical interface
+network_iface: virbr1

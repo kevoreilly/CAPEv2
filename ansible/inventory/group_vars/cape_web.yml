@@ -1,0 +1,24 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# Web / control node overrides (multi-node mode)
+#
+# The control node runs the web interface, database, and scheduler
+# but does not process samples locally in multi-node mode.
+# ────────────────────────────────────────────────────────────────────
+
+# Control node hosts the databases
+postgresql_enable: true
+mongo_enable: true
+
+# Control node serves the web UI
+cape_web_enable: true
+
+# Control node runs the scheduler
+cape_scheduler_enable: true
+
+# Control node does not run processing engines
+cape_processor_enable: false
+
+# Control node does not manage VMs
+libvirt_enable: false
+suricata_enable: false

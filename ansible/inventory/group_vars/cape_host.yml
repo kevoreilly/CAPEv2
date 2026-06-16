@@ -1,0 +1,33 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# CAPE host node variables
+# ────────────────────────────────────────────────────────────────────
+
+# Database password (stored in Ansible Vault)
+vault_db_password: ""  # encrypt via ansible-vault; see plan.md
+
+# Database connection string (constructed from parts in all.yml)
+db_connection_string: "postgresql://{{ db_user }}:{{ vault_db_password }}@{{ db_host }}:{{ db_port }}/{{ db_name }}"
+
+# SSH key path for inter-node communication (multi-node mode)
+ansible_ssh_private_key_file: ~/.ssh/id_rsa
+
+# ────────────────────────────────────────────────────────────────────
+# KVM / QEMU hardware anti-VM replacement patterns
+# These must be customized to match your real hardware.
+# See installer/kvm-qemu.sh for details.
+# ────────────────────────────────────────────────────────────────────
+
+# CPUID string replacement
+cpuid: "Intel(R) Core(TM) i3-4130 CPU"
+# hypervisor_string_replacement: "GenuineIntel"  # or "AuthenticAMD"
+
+# Disk replacement strings
+# qemu_hd_replacement: "SanDisk SDSSD"
+# qemu_dvd_replacement: "HL-DT-ST WH1"
+# bochs_cpu_replacement: "INTELCPU"
+
+# ACPI table date replacements
+# src_misc_bios_table: "07/02/18"
+# src_bios_table_date2: "11/03/2018"
+# src_fw_smbios_date: "11/03/2018"

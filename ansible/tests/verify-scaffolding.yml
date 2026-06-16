@@ -13,6 +13,12 @@
         - inventory
         - inventory/group_vars
         - inventory/host_vars
+        - inventory/hosts.ini
+        - inventory/group_vars/all.yml
+        - inventory/group_vars/cape_host.yml
+        - inventory/group_vars/cape_guests.yml
+        - inventory/group_vars/cape_worker.yml
+        - inventory/group_vars/cape_web.yml
         - playbooks
         - roles
         - generated_guest_scripts

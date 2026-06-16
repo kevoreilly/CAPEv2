@@ -1,0 +1,44 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# Guest VM variables
+#
+# Guest provisioning is done via generated manual scripts
+# (see generated_guest_scripts/), not via live WinRM connections.
+# These vars are used to template those scripts.
+# ────────────────────────────────────────────────────────────────────
+
+# Guest OS type (windows, linux)
+guest_os_type: windows
+
+# Agent configuration
+agent_version: "0.22"
+agent_install_path: "C:\\CAPE\\agent"
+
+# Resource allocation for guest VMs
+vm_cpu: 2
+vm_memory_mb: 4096
+vm_disk_gb: 64
+vm_os_variant: win10
+
+# Host result server connection (used by agent to report back)
+resultserver_ip: "{{ iface_ip }}"
+resultserver_port: 8000
+
+# Guest network configuration
+guest_dns_primary: "{{ dns_primary }}"
+guest_dns_secondary: "{{ dns_secondary }}"
+guest_gateway: "{{ iface_ip }}"
+guest_netmask: 24
+
+# Windows hardening options (used by generated harden.ps1)
+disable_defender: true
+disable_firewall: true
+disable_uac: true
+disable_windows_update: true
+disable_sleep: true
+disable_hibernate: true
+disable_error_reporting: true
+
+# Python download URL for guest (used by install_deps.ps1)
+python_installer_url: "https://www.python.org/ftp/python/3.12.9/python-3.12.9-amd64.exe"
+python_installer_hash: ""

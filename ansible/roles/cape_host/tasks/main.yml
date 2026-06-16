@@ -22,3 +22,9 @@
   tags:
     - cape_host
     - signatures
+
+- name: Include systemd tasks (unit files, enable, logrotate, jemalloc)
+  ansible.builtin.include_tasks: systemd.yml
+  tags:
+    - cape_host
+    - systemd

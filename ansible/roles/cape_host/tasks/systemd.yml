@@ -1,0 +1,120 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# 7.1: Copy systemd unit files
+# ────────────────────────────────────────────────────────────────────
+
+- name: Copy systemd unit files from CAPE root
+  ansible.builtin.copy:
+    src: "{{ cape_root }}/systemd/{{ item }}"
+    dest: "/lib/systemd/system/{{ item }}"
+    remote_src: true
+    mode: "0644"
+  loop:
+    - cape.service
+    - cape-processor.service
+    - cape-web.service
+    - cape-rooter.service
+    - suricata.service
+  notify: daemon reload
+
+# ────────────────────────────────────────────────────────────────────
+# 7.2: Customize unit paths for non-default cape_root
+# ────────────────────────────────────────────────────────────────────
+
+- name: Replace CAPE_ROOT path in unit files
+  ansible.builtin.replace:
+    path: "/lib/systemd/system/{{ item }}"
+    regexp: "/opt/CAPEv2"
+    replacement: "{{ cape_root }}"
+  loop:
+    - cape.service
+    - cape-processor.service
+    - cape-web.service
+    - cape-rooter.service
+  when: cape_root != "/opt/CAPEv2"
+  notify: daemon reload
+
+- name: Remove ExecStartPre poetry lines for uv
+  ansible.builtin.lineinfile:
+    path: "/lib/systemd/system/{{ item }}"
+    regexp: "^ExecStartPre=.*/poetry .*"
+    state: absent
+  loop:
+    - cape-fstab.service
+    - cape-rooter.service
+  failed_when: false
+  when: use_uv
+  notify: daemon reload
+
+- name: Replace poetry binary path with uv in service files
+  ansible.builtin.replace:
+    path: "/lib/systemd/system/{{ item }}"
+    regexp: "/etc/poetry/bin/poetry"
+    replacement: "/usr/local/bin/uv"
+  loop: "{{ query('fileglob', '/lib/systemd/system/cape*.service') + query('fileglob', '/lib/systemd/system/guac*.service') | list }}"
+  when: use_uv
+  notify: daemon reload
+
+# ────────────────────────────────────────────────────────────────────
+# 7.3: Enable and start services
+# ────────────────────────────────────────────────────────────────────
+
+- name: Build list of services to enable
+  ansible.builtin.set_fact:
+    cape_services:
+      - cape
+      - cape-rooter
+      - cape-processor
+      - suricata
+      - "{{ 'cape-web' if mongo_enable else '' }}"
+
+- name: Enable and start CAPE services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: "{{ cape_services | reject('equalto', '') | list }}"
+  notify: daemon reload
+
+# ────────────────────────────────────────────────────────────────────
+# 7.4: Logrotate
+# ────────────────────────────────────────────────────────────────────
+
+- name: Write logrotate config for CAPE
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/cape.conf
+    content: |
+      {{ cape_root }}/storage/analyses/*/logs/*.log {
+          daily
+          missingok
+          rotate 7
+          compress
+          create
+          maxsize 10G
+      }
+
+      {{ cape_root }}/storage/analyses/*/files/*.log {
+          daily
+          missingok
+          rotate 7
+          compress
+          create
+          maxsize 10G
+      }
+    mode: "0644"
+
+- name: Run logrotate
+  ansible.builtin.command:
+    cmd: /usr/sbin/logrotate --force /etc/logrotate.conf
+  changed_when: false
+
+# ────────────────────────────────────────────────────────────────────
+# 7.5: jemalloc
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install jemalloc
+  ansible.builtin.apt:
+    pkg:
+      - libjemalloc-dev
+    state: present

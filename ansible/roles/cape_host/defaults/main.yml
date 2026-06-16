@@ -4,3 +4,29 @@ cape_repo_url: https://github.com/kevoreilly/CAPEv2/
 
 # tcpdump path
 tcpdump_path: /usr/bin/tcpdump
+
+# Extra optional feature gates (default: disabled)
+elasticsearch_enable: false
+fluentd_enable: false
+mitmproxy_enable: false
+polarproxy_enable: false
+passivedns_enable: false
+redsocks2_enable: false
+docker_enable: false
+die_enable: false
+die_version: "3.10"
+yarax_enable: false
+introvirt_enable: false
+distributed_enable: false
+re_frameworks_enable: false
+ssh_authkeys_enable: false
+ssh_authkeys_public_key: ""
+snmp_enable: false
+snmp_community: "ChangeMePublicRO"
+snmp_location: "Rack, Room, Building, City, Country"
+snmp_contact: "admin@localhost"
+librenms_enable: false
+
+# Enabled by default (low-impact changes)
+disable_unattended_upgrades: true
+smtp_sinkhole_enable: true

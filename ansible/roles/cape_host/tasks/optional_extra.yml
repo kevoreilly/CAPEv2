@@ -1,0 +1,605 @@
+---
+# ════════════════════════════════════════════════════════════════════
+# Extra Optional Components (from cape2.sh)
+# All tasks tagged `optional` so they can be skipped with
+# `--skip-tags optional`
+# ════════════════════════════════════════════════════════════════════
+
+# ────────────────────────────────────────────────────────────────────
+# Elasticsearch — log shipping & analysis
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install Elasticsearch
+  when: elasticsearch_enable | default(false)
+  block:
+    - name: Add Elasticsearch APT key
+      ansible.builtin.apt_key:
+        url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+        state: present
+
+    - name: Add Elasticsearch APT repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/elasticsearch-keyring.gpg] https://artifacts.elastic.co/packages/7.x/apt stable main"
+        state: present
+        update_cache: true
+
+    - name: Install elasticsearch
+      ansible.builtin.apt:
+        pkg:
+          - elasticsearch
+        state: present
+
+    - name: Install elasticsearch Python client
+      ansible.builtin.pip:
+        name: elasticsearch
+        state: present
+        break_system_packages: true
+
+    - name: Enable and start elasticsearch
+      ansible.builtin.systemd:
+        name: elasticsearch
+        enabled: true
+        state: started
+        daemon_reload: true
+  tags: [optional, elasticsearch]
+
+# ────────────────────────────────────────────────────────────────────
+# fluentd — log aggregator (Google Cloud Logging agent)
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install fluentd
+  when: fluentd_enable | default(false)
+  block:
+    - name: Add fluentd repository
+      ansible.builtin.shell:
+        cmd: curl -sSO https://dl.google.com/cloudagents/add-logging-agent-repo.sh && bash add-logging-agent-repo.sh
+      args:
+        executable: /bin/bash
+      changed_when: false
+
+    - name: Install google-fluentd
+      ansible.builtin.apt:
+        pkg:
+          - google-fluentd
+          - google-fluentd-catch-all-config-structured
+        state: present
+        update_cache: true
+
+    - name: Start fluentd service
+      ansible.builtin.systemd:
+        name: google-fluentd
+        enabled: true
+        state: started
+  tags: [optional, fluentd]
+
+# ────────────────────────────────────────────────────────────────────
+# mitmproxy — TLS introspection proxy
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install mitmproxy
+  when: mitmproxy_enable | default(false)
+  block:
+    - name: Get latest mitmproxy version
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/mitmproxy/mitmproxy/releases/latest
+        return_content: true
+      register: mitmproxy_release
+
+    - name: Set mitmproxy version fact
+      ansible.builtin.set_fact:
+        mitmproxy_version: "{{ mitmproxy_release.json.tag_name | regex_replace('^v', '') }}"
+
+    - name: Create mitmproxy directory
+      ansible.builtin.file:
+        path: /opt/mitmproxy
+        state: directory
+        owner: "{{ cape_user }}"
+        group: "{{ cape_user }}"
+        mode: "0755"
+
+    - name: Download mitmproxy
+      ansible.builtin.get_url:
+        url: "https://downloads.mitmproxy.org/{{ mitmproxy_version }}/mitmproxy-{{ mitmproxy_version }}-linux-x86_64.tar.gz"
+        dest: /tmp/mitmproxy.tar.gz
+        timeout: 120
+
+    - name: Extract mitmproxy
+      ansible.builtin.unarchive:
+        src: /tmp/mitmproxy.tar.gz
+        dest: /opt/mitmproxy
+        remote_src: true
+        owner: "{{ cape_user }}"
+        group: "{{ cape_user }}"
+
+    - name: Write mitmdump wrapper script
+      ansible.builtin.copy:
+        dest: /opt/mitmproxy/mitmdump_wrapper.sh
+        content: |
+          #!/bin/bash
+          echo $$ > mitmdump.pid
+          exec $@
+        mode: "0755"
+  tags: [optional, mitmproxy]
+
+# ────────────────────────────────────────────────────────────────────
+# PolarProxy — TLS proxy for malware analysis
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install PolarProxy
+  when: polarproxy_enable | default(false)
+  block:
+    - name: Create PolarProxy directory
+      ansible.builtin.file:
+        path: /opt/PolarProxy
+        state: directory
+        mode: "0755"
+
+    - name: Download PolarProxy
+      ansible.builtin.get_url:
+        url: https://www.netresec.com/?download=PolarProxy
+        dest: /opt/PolarProxy/PolarProxy.tar.gz
+        timeout: 120
+
+    - name: Extract PolarProxy
+      ansible.builtin.unarchive:
+        src: /opt/PolarProxy/PolarProxy.tar.gz
+        dest: /opt/PolarProxy
+        remote_src: true
+
+    - name: Make PolarProxy executable
+      ansible.builtin.file:
+        path: /opt/PolarProxy/PolarProxy
+        mode: "0755"
+  tags: [optional, polarproxy]
+
+# ────────────────────────────────────────────────────────────────────
+# passiveDNS — DNS monitoring
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install passiveDNS
+  when: passivedns_enable | default(false)
+  block:
+    - name: Install passiveDNS build dependencies
+      ansible.builtin.apt:
+        pkg:
+          - binutils-dev
+          - libldns-dev
+          - libpcap-dev
+          - libdate-simple-perl
+          - libdatetime-perl
+          - libdbd-mysql-perl
+          - checkinstall
+        state: present
+
+    - name: Download passiveDNS source
+      ansible.builtin.git:
+        repo: https://github.com/gamelinux/passivedns.git
+        dest: /tmp/passivedns
+        version: master
+        force: true
+
+    - name: Bootstrap passiveDNS
+      ansible.builtin.command:
+        cmd: autoreconf --install
+        chdir: /tmp/passivedns
+      changed_when: false
+
+    - name: Configure passiveDNS
+      ansible.builtin.command:
+        cmd: ./configure
+        chdir: /tmp/passivedns
+      changed_when: false
+
+    - name: Build passiveDNS
+      ansible.builtin.command:
+        cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
+        chdir: /tmp/passivedns
+      changed_when: false
+
+    - name: Package passiveDNS as .deb
+      ansible.builtin.command:
+        cmd: checkinstall -D --pkgname=passivedns --default
+        chdir: /tmp/passivedns
+      changed_when: false
+
+    - name: Install passiveDNS .deb
+      ansible.builtin.command:
+        cmd: dpkg -i /tmp/passivedns*.deb
+      changed_when: false
+      failed_when: false
+  tags: [optional, passivedns]
+
+# ────────────────────────────────────────────────────────────────────
+# redsocks2 — transparent proxy redirect
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install redsocks2
+  when: redsocks2_enable | default(false)
+  block:
+    - name: Install redsocks2 build dependencies
+      ansible.builtin.apt:
+        pkg:
+          - git
+          - libevent-dev
+          - libreadline-dev
+          - zlib1g-dev
+          - libncurses5-dev
+          - libssl-dev
+        state: present
+
+    - name: Clone redsocks2
+      ansible.builtin.git:
+        repo: https://github.com/semigodking/redsocks
+        dest: /tmp/redsocks2
+        version: master
+        force: true
+
+    - name: Build redsocks2
+      ansible.builtin.command:
+        cmd: DISABLE_SHADOWSOCKS=true make -j"{{ ansible_processor_vcpus | default(1) }}"
+        chdir: /tmp/redsocks2
+
+    - name: Install redsocks2 binary
+      ansible.builtin.copy:
+        src: /tmp/redsocks2/redsocks2
+        dest: /usr/bin/redsocks2
+        remote_src: true
+        mode: "0755"
+  tags: [optional, redsocks2]
+
+# ────────────────────────────────────────────────────────────────────
+# Docker — container analysis support
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install Docker
+  when: docker_enable | default(false)
+  block:
+    - name: Add Docker GPG key
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
+
+    - name: Add Docker APT repository
+      ansible.builtin.apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        state: present
+        update_cache: true
+
+    - name: Install Docker CE
+      ansible.builtin.apt:
+        pkg:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+    - name: Add cape user to docker group
+      ansible.builtin.user:
+        name: "{{ cape_user }}"
+        groups: docker
+        append: true
+
+    - name: Enable and start Docker
+      ansible.builtin.systemd:
+        name: docker
+        enabled: true
+        state: started
+  tags: [optional, docker]
+
+# ────────────────────────────────────────────────────────────────────
+# DIE (Detect It Easy) — packer detection
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install Detect It Easy (DIE)
+  when: die_enable | default(false)
+  block:
+    - name: Install DIE dependencies
+      ansible.builtin.apt:
+        pkg:
+          - libqt5opengl5
+          - libqt5script5
+          - libqt5scripttools5
+          - libqt5sql5
+        state: present
+
+    - name: Download DIE .deb
+      ansible.builtin.get_url:
+        url: "https://github.com/horsicq/DIE-engine/releases/download/{{ die_version }}/die_{{ die_version }}_Ubuntu_{{ ansible_distribution_version }}_amd64.deb"
+        dest: /tmp/die.deb
+        timeout: 120
+
+    - name: Install DIE .deb
+      ansible.builtin.command:
+        cmd: dpkg -i /tmp/die.deb
+      changed_when: false
+      failed_when: false
+
+    - name: Fix missing DIE dependencies
+      ansible.builtin.command:
+        cmd: apt-get install -f -y
+      changed_when: false
+      failed_when: false
+  tags: [optional, die]
+
+# ────────────────────────────────────────────────────────────────────
+# Yara-X — next-gen YARA implementation
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install Yara-X
+  when: yarax_enable | default(false)
+  block:
+    - name: Install Rust toolchain
+      ansible.builtin.shell:
+        cmd: curl https://sh.rustup.rs -sSf | sh -s -- -y
+      args:
+        executable: /bin/bash
+      become: true
+      become_user: "{{ cape_user }}"
+      changed_when: false
+
+    - name: Clone Yara-X
+      ansible.builtin.git:
+        repo: https://github.com/VirusTotal/yara-x
+        dest: /tmp/yara-x
+        version: main
+        force: true
+      become: true
+      become_user: "{{ cape_user }}"
+
+    - name: Build Yara-X CLI
+      ansible.builtin.shell:
+        cmd: source "$HOME/.cargo/env" && cargo install --path cli
+        chdir: /tmp/yara-x
+        executable: /bin/bash
+      become: true
+      become_user: "{{ cape_user }}"
+      timeout: 1800
+      environment:
+        HOME: "/home/{{ cape_user }}"
+
+    - name: Install Yara-X Python package
+      ansible.builtin.command:
+        cmd: "{{ 'uv pip' if use_uv else '/etc/poetry/bin/poetry run pip' }} install yara-x"
+        chdir: "{{ cape_root }}"
+      become: true
+      become_user: "{{ cape_user }}"
+  tags: [optional, yarax]
+
+# ────────────────────────────────────────────────────────────────────
+# IntroVirt — introspection-based detection
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install IntroVirt
+  when: introvirt_enable | default(false)
+  block:
+    - name: Get Ubuntu release info
+      ansible.builtin.command:
+        cmd: lsb_release -sc
+      changed_when: false
+      register: ubuntu_codename
+
+    - name: Get Ubuntu version
+      ansible.builtin.command:
+        cmd: lsb_release -sr
+      changed_when: false
+      register: ubuntu_version
+
+    - name: Download IntroVirt release
+      ansible.builtin.get_url:
+        url: "https://github.com/IntroVirt/IntroVirt/releases/latest/download/Ubuntu-{{ ubuntu_codename.stdout }}-{{ ubuntu_version.stdout }}.tar.xz"
+        dest: /tmp/introvirt.tar.xz
+        timeout: 120
+
+    - name: Create IntroVirt directory
+      ansible.builtin.file:
+        path: /opt/introvirt
+        state: directory
+
+    - name: Extract IntroVirt
+      ansible.builtin.unarchive:
+        src: /tmp/introvirt.tar.xz
+        dest: /opt/introvirt
+        remote_src: true
+  tags: [optional, introvirt]
+
+# ────────────────────────────────────────────────────────────────────
+# Distributed CAPE setup
+# ────────────────────────────────────────────────────────────────────
+
+- name: Configure distributed CAPE
+  when: distributed_enable | default(false)
+  block:
+    - name: Install uwsgi and flask dependencies
+      ansible.builtin.apt:
+        pkg:
+          - uwsgi
+          - uwsgi-plugin-python3
+        state: present
+
+    - name: Install distributed Python packages
+      ansible.builtin.command:
+        cmd: >
+          {{ 'uv pip' if use_uv else '/etc/poetry/bin/poetry run pip' }}
+          install flask flask-restful flask-sqlalchemy requests
+        chdir: "{{ cape_root }}"
+      become: true
+      become_user: "{{ cape_user }}"
+
+    - name: Copy distributed uwsgi config
+      ansible.builtin.copy:
+        src: "{{ cape_root }}/uwsgi/capedist.ini"
+        dest: /etc/uwsgi/apps-available/cape_dist.ini
+        remote_src: true
+        mode: "0644"
+
+    - name: Enable distributed uwsgi app
+      ansible.builtin.file:
+        src: /etc/uwsgi/apps-available/cape_dist.ini
+        dest: /etc/uwsgi/apps-enabled/cape_dist.ini
+        state: link
+
+    - name: Create distributed PostgreSQL database
+      become: true
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: "psql -c \"CREATE DATABASE {{ db_user }}dist\""
+      failed_when: false
+      changed_when: false
+  tags: [optional, distributed]
+
+# ────────────────────────────────────────────────────────────────────
+# IDAPython / Ghidra — RE framework integration
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install RE framework dependencies
+  when: re_frameworks_enable | default(false)
+  block:
+    - name: Install IDAPython dependencies
+      ansible.builtin.pip:
+        name:
+          - idapython
+        state: present
+        break_system_packages: true
+      failed_when: false
+
+    - name: Install Ghidra dependencies
+      ansible.builtin.pip:
+        name:
+          - ghidra
+        state: present
+        break_system_packages: true
+      failed_when: false
+  tags: [optional, re_frameworks]
+
+# ────────────────────────────────────────────────────────────────────
+# SSH authorized keys for cape user
+# ────────────────────────────────────────────────────────────────────
+
+- name: Configure SSH authorized keys
+  when: ssh_authkeys_enable | default(false)
+  ansible.builtin.authorized_key:
+    user: "{{ cape_user }}"
+    state: present
+    key: "{{ ssh_authkeys_public_key }}"
+    exclusive: false
+  tags: [optional, ssh_authkeys]
+
+# ────────────────────────────────────────────────────────────────────
+# SNMP configuration for monitoring
+# ────────────────────────────────────────────────────────────────────
+
+- name: Configure SNMP
+  when: snmp_enable | default(false)
+  block:
+    - name: Install SNMP daemon
+      ansible.builtin.apt:
+        pkg:
+          - snmpd
+          - snmp
+        state: present
+
+    - name: Write snmpd.conf
+      ansible.builtin.copy:
+        dest: /etc/snmp/snmpd.conf
+        content: |
+          rocommunity {{ snmp_community | default('ChangeMePublicRO') }}
+          syslocation {{ snmp_location | default('Rack, Room, Building, City, Country') }}
+          syscontact {{ snmp_contact | default('admin@localhost') }}
+          extend distro /etc/snmp/extends/distro
+          extend serial '/bin/cat /etc/snmp/serial'
+          extend hv-monitor /bin/cat /var/cache/hv_monitor.cache
+        mode: "0644"
+
+    - name: Enable and start snmpd
+      ansible.builtin.systemd:
+        name: snmpd
+        enabled: true
+        state: started
+  tags: [optional, snmp]
+
+# ────────────────────────────────────────────────────────────────────
+# LibreNMS — monitoring cron and config
+# ────────────────────────────────────────────────────────────────────
+
+- name: Configure LibreNMS
+  when: librenms_enable | default(false)
+  block:
+    - name: Install LibreNMS dependencies
+      ansible.builtin.apt:
+        pkg:
+          - monitoring-plugins
+          - monitoring-plugins-contrib
+          - monitoring-plugins-standard
+          - dmidecode
+          - snmpd
+        state: present
+
+    - name: Create /etc/snmp/extends directory
+      ansible.builtin.file:
+        path: /etc/snmp/extends
+        state: directory
+        mode: "0755"
+
+    - name: Download LibreNMS agent scripts
+      ansible.builtin.get_url:
+        url: "https://raw.githubusercontent.com/librenms/librenms-agent/master/snmp/{{ item }}"
+        dest: "/etc/snmp/extends/{{ item }}"
+        mode: "0755"
+        timeout: 60
+      loop:
+        - distro
+        - cape
+        - smart
+        - osupdate
+
+    - name: Generate smart config
+      ansible.builtin.command:
+        cmd: /etc/snmp/extends/smart -g > /etc/snmp/extends/smart.config
+      changed_when: false
+      failed_when: false
+
+    - name: Write board serial
+      ansible.builtin.command:
+        cmd: /bin/cat /sys/devices/virtual/dmi/id/board_serial > /etc/snmp/serial
+      changed_when: false
+      failed_when: false
+
+    - name: Write LibreNMS cron entries
+      ansible.builtin.copy:
+        dest: /etc/cron.d/librenms_auto
+        content: |
+          */5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/cape | /usr/local/bin/librenms_return_optimizer 2> /dev/null > /var/cache/cape.cache
+          */5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/smart -u
+          */5 * * * * root /usr/bin/env PATH=/sbin:/bin:/usr/sbin:/usr/bin:/usr/local/sbin:/usr/local/bin /etc/snmp/extends/osupdate 2> /dev/null > /var/cache/osupdate.extend
+          1 1 * * * root /bin/cat /sys/devices/virtual/dmi/id/board_serial > /etc/snmp/serial
+        mode: "0644"
+  tags: [optional, librenms]
+
+# ────────────────────────────────────────────────────────────────────
+# Disable unattended-upgrades (stability for analysis)
+# ────────────────────────────────────────────────────────────────────
+
+- name: Disable unattended-upgrades
+  when: disable_unattended_upgrades | default(true)
+  ansible.builtin.lineinfile:
+    path: /etc/apt/apt.conf.d/20auto-upgrades
+    regexp: '^APT::Periodic::Unattended-Upgrade "1"'
+    line: 'APT::Periodic::Unattended-Upgrade "0"'
+    backrefs: true
+    create: false
+  tags: [optional, unattended_upgrades]
+
+# ────────────────────────────────────────────────────────────────────
+# Monitor crontab — SMTP sinkhole on reboot
+# ────────────────────────────────────────────────────────────────────
+
+- name: Add SMTP sinkhole crontab on reboot
+  when: smtp_sinkhole_enable | default(true)
+  ansible.builtin.cron:
+    name: SMTP sinkhole on reboot
+    user: "{{ cape_user }}"
+    job: cd {{ cape_root }}/utils/ && ./smtp_sinkhole.sh 2>/dev/null
+    special_time: reboot
+  tags: [optional, monitor]

@@ -34,3 +34,9 @@
   tags:
     - cape_host
     - optional
+
+- name: Include extra optional tasks (elasticsearch, mitmproxy, docker, yarax, etc.)
+  ansible.builtin.include_tasks: optional_extra.yml
+  tags:
+    - cape_host
+    - optional

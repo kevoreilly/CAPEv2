@@ -222,7 +222,7 @@
       unzip -q "/tmp/v{{ libvirt_version }}.zip" -d /tmp
       cd "/tmp/libvirt-python-{{ libvirt_version }}"
       python3 setup.py build
-      pip3 install --break-system-packages .
+      pip3 install --no-build-isolation --break-system-packages .
       cd /tmp
       rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
   args:

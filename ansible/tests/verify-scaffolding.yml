@@ -14,7 +14,8 @@
         - inventory/group_vars
         - inventory/host_vars
         - inventory/hosts.ini
-        - inventory/group_vars/all.yml
+        - inventory/group_vars/all/vars.yml
+        - inventory/group_vars/all/vault.yml
         - inventory/group_vars/cape_host.yml
         - inventory/group_vars/cape_guests.yml
         - inventory/group_vars/cape_worker.yml
@@ -24,6 +25,7 @@
         - generated_guest_scripts
         - tests
         - ansible.cfg
+        - .vault_pass
       register: stats
 
     - name: Fail if any path is missing
@@ -36,10 +38,48 @@
 
     - name: Verify ansible.cfg is valid INI
       ansible.builtin.command:
-        cmd: python3 -c "import configparser; c=configparser.ConfigParser(); c.read('{{ base_dir }}/ansible.cfg'); assert 'defaults' in c.sections(); assert 'ssh_connection' in c.sections(); print('OK')"
+        cmd: "python3 -c \"import configparser; c=configparser.ConfigParser(); c.read('{{ base_dir }}/ansible.cfg'); assert 'defaults' in c.sections(); assert 'ssh_connection' in c.sections(); print('OK')\""
       changed_when: false
       register: ini_check
-      failed_when: ini_check.stdout != 'OK'
+      failed_when: "'OK' not in ini_check.stdout"
+
+    - name: Verify ansible.cfg references vault_password_file
+      ansible.builtin.command:
+        cmd: "python3 -c \"import configparser; c=configparser.ConfigParser(); c.read('{{ base_dir }}/ansible.cfg'); assert c.get('defaults', 'vault_password_file', fallback='') == '.vault_pass', 'missing'; print('OK')\""
+      changed_when: false
+      register: vault_cfg_check
+      failed_when: "'OK' not in vault_cfg_check.stdout"
+
+    - name: Verify vault.yml is encrypted Ansible Vault format
+      ansible.builtin.command:
+        cmd: "head -1 {{ base_dir }}/inventory/group_vars/all/vault.yml"
+      changed_when: false
+      register: vault_header
+      failed_when: "'$ANSIBLE_VAULT' not in vault_header.stdout"
+
+    - name: Write vault decrypt test script
+      ansible.builtin.copy:
+        dest: "{{ base_dir }}/tests/verify_vault.py"
+        content: |
+          import sys, yaml
+          d = yaml.safe_load(sys.stdin)
+          assert "vault_db_password" in d, "Missing vault_db_password"
+          print("OK decrypt")
+        mode: "0644"
+
+    - name: Verify vault decrypts correctly
+      ansible.builtin.shell:
+        cmd: "ansible-vault decrypt {{ base_dir }}/inventory/group_vars/all/vault.yml --vault-password-file {{ base_dir }}/.vault_pass --output - 2>/dev/null | python3 {{ base_dir }}/tests/verify_vault.py"
+      changed_when: false
+      register: vault_decrypt_check
+      failed_when: "'OK decrypt' not in vault_decrypt_check.stdout"
+
+    - name: Verify .vault_pass is in .gitignore
+      ansible.builtin.shell:
+        cmd: "grep -q '^\\.vault_pass' {{ base_dir | dirname }}/.gitignore && echo 'OK' || echo 'MISSING'"
+      changed_when: false
+      register: gitignore_check
+      failed_when: gitignore_check.stdout != 'OK'
 
     - name: Find top-level roles
       ansible.builtin.find:
@@ -58,5 +98,9 @@
     - name: Print success summary
       ansible.builtin.debug:
         msg:
-          - "All {{ stats.results | length }} scaffolding checks passed"
+          - "All {{ stats.results | length }} path checks passed"
+          - "ansible.cfg vault_password_file: configured"
+          - "vault.yml encrypted: {{ vault_header.stdout[:15] }}..."
+          - "vault decryption: {{ vault_decrypt_check.stdout }}"
+          - ".gitignore vault entry: {{ gitignore_check.stdout }}"
           - "Top-level roles: {{ role_dirs.files | map(attribute='path') | list }}"

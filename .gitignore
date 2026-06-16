@@ -28,3 +28,6 @@ installer/kvm-config.sh
 docs/book/src/_build
 /.vs
 .venv
+
+# Ansible vault password (local dev only, never commit)
+.vault_pass

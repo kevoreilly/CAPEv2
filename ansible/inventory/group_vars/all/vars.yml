@@ -1,0 +1,97 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# Global variables — apply to all hosts and guests
+# ────────────────────────────────────────────────────────────────────
+
+# Deployment topology: "single" or "multi"
+deployment_mode: single
+
+# CAPE root directory on the host
+cape_root: /opt/CAPEv2
+
+# System user for CAPE services
+cape_user: cape
+
+# Package manager: use uv instead of poetry
+use_uv: false
+
+# ────────────────────────────────────────────────────────────────────
+# Network
+# ────────────────────────────────────────────────────────────────────
+
+# Internal bridge interface for guest VM network
+network_iface: virbr1
+
+# IP address of the host on the internal bridge
+iface_ip: 192.168.1.1
+
+# Internet-facing interface (auto-detected from default route if empty)
+internet_iface: ""
+
+# DNS servers for the internal bridge
+dns_primary: 8.8.8.8
+dns_secondary: 8.8.4.4
+
+# ────────────────────────────────────────────────────────────────────
+# Databases
+# ────────────────────────────────────────────────────────────────────
+
+db_user: "{{ cape_user }}"
+db_name: "{{ cape_user }}"
+db_host: localhost
+db_port: 5432
+
+# Enable MongoDB (required for web interface)
+mongo_enable: true
+
+# ────────────────────────────────────────────────────────────────────
+# Hypervisor versions
+# ────────────────────────────────────────────────────────────────────
+
+libvirt_version: 11.1.0
+qemu_version: 9.2.2
+seabios_version: 1.16.3
+
+# ────────────────────────────────────────────────────────────────────
+# Optional component versions
+# ────────────────────────────────────────────────────────────────────
+
+nginx_version: 1.27.3
+prometheus_version: 2.20.1
+grafana_version: 7.1.5
+node_exporter_version: 1.0.1
+csnb_version: 1.0.8
+die_version: "3.10"
+
+# ────────────────────────────────────────────────────────────────────
+# Tor
+# ────────────────────────────────────────────────────────────────────
+
+tor_socket_timeout: "60"
+
+# ────────────────────────────────────────────────────────────────────
+# Monitoring / LibreNMS (disabled by default)
+# ────────────────────────────────────────────────────────────────────
+
+librenms_enable: false
+librenms_ipmi: false
+librenms_mdadm_enable: false
+librenms_megaraid_enable: false
+librenms_clamav_warn: 2
+librenms_clamav_crit: 3
+snmp_community: ChangeMePublicRO
+snmp_agentaddress: ""
+snmp_location: "Rack, Room, Building, City, Country [GPSX,Y]"
+snmp_contact: "Admin <admin@example.com>"
+
+# ────────────────────────────────────────────────────────────────────
+# ClamAV (disabled by default)
+# ────────────────────────────────────────────────────────────────────
+
+clamav_enable: false
+
+# ────────────────────────────────────────────────────────────────────
+# Prometheus / Grafana node exporter (disabled by default)
+# ────────────────────────────────────────────────────────────────────
+
+librenms_mongo_args: ""

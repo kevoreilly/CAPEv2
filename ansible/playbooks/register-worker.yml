@@ -5,16 +5,22 @@
   vars:
     control_host: "{{ groups['cape_control'][0] }}"
   tasks:
-    - name: Wait for control node facts
+    - name: Gather control node facts
       ansible.builtin.setup:
       delegate_to: "{{ control_host }}"
       delegate_facts: true
+
+    - name: Read control node SSH public key
+      ansible.builtin.slurp:
+        src: "/home/{{ hostvars[control_host]['cape_user'] | default('cape') }}/.ssh/id_rsa.pub"
+      register: control_pubkey
+      delegate_to: "{{ control_host }}"
 
     - name: Authorize worker SSH key on control
       ansible.builtin.authorized_key:
         user: "{{ hostvars[control_host]['cape_user'] | default('cape') }}"
         state: present
-        key: "{{ hostvars[control_host]['control_pubkey']['content'] | b64decode }}"
+        key: "{{ control_pubkey['content'] | b64decode }}"
       delegate_to: "{{ control_host }}"
 
     - name: Set remote PostgreSQL connection in cuckoo.conf

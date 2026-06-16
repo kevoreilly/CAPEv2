@@ -8,7 +8,7 @@
 - name: Set fact for IOMMU status and flag
   ansible.builtin.set_fact:
     iommu_needed: "{{ 'intel_iommu=on' not in cmdline.stdout and 'amd_iommu=on' not in cmdline.stdout }}"
-    iommu_flag: "{{ 'amd_iommu=on' if ansible_processor_vendor == 'AuthenticAMD' else 'intel_iommu=on' }}"
+    iommu_flag: "{{ 'amd_iommu=on' if (ansible_processor_vendor | default('')) == 'AuthenticAMD' else 'intel_iommu=on' }}"
 
 - name: Add IOMMU flag to GRUB_CMDLINE_LINUX
   ansible.builtin.replace:

@@ -227,5 +227,7 @@
       rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
   args:
     executable: /bin/bash
+  environment:
+    PKG_CONFIG_PATH: "/usr/lib64/pkgconfig"
   register: libvirt_python_install
   changed_when: "'Successfully installed' in libvirt_python_install.stdout"

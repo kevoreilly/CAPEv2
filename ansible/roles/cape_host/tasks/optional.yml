@@ -1,0 +1,863 @@
+---
+# ════════════════════════════════════════════════════════════════════
+# Epic 8: Optional Components
+# All tasks tagged `optional` so they can be skipped with
+# `--skip-tags optional`
+# ════════════════════════════════════════════════════════════════════
+
+# ────────────────────────────────────────────────────────────────────
+# 8.1: nginx — compile from source with modules
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install nginx build dependencies
+  ansible.builtin.apt:
+    pkg:
+      - perl
+      - libperl-dev
+      - libgd3
+      - libgd-dev
+      - libgeoip1
+      - libgeoip-dev
+      - geoip-bin
+      - libxml2
+      - libxml2-dev
+      - libxslt1.1
+      - libxslt1-dev
+    state: present
+  tags: [optional, nginx]
+
+- name: Add maxmind PPA
+  ansible.builtin.apt_repository:
+    repo: ppa:maxmind/ppa
+    state: present
+  tags: [optional, nginx]
+
+- name: Download nginx source
+  ansible.builtin.get_url:
+    url: "https://nginx.org/download/nginx-{{ nginx_version }}.tar.gz"
+    dest: "/tmp/nginx-{{ nginx_version }}.tar.gz"
+    timeout: 120
+  tags: [optional, nginx]
+
+- name: Extract nginx source
+  ansible.builtin.unarchive:
+    src: "/tmp/nginx-{{ nginx_version }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+    creates: "/tmp/nginx-{{ nginx_version }}"
+  tags: [optional, nginx]
+
+- name: Download PCRE2 source
+  ansible.builtin.get_url:
+    url: "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.37/pcre2-10.37.tar.gz"
+    dest: /tmp/pcre2-10.37.tar.gz
+    timeout: 120
+  tags: [optional, nginx]
+
+- name: Extract PCRE2 source
+  ansible.builtin.unarchive:
+    src: /tmp/pcre2-10.37.tar.gz
+    dest: /tmp
+    remote_src: true
+    creates: /tmp/pcre2-10.37
+  tags: [optional, nginx]
+
+- name: Download OpenSSL source
+  ansible.builtin.get_url:
+    url: "https://www.openssl.org/source/openssl-3.4.0.tar.gz"
+    dest: /tmp/openssl-3.4.0.tar.gz
+    timeout: 120
+  tags: [optional, nginx]
+
+- name: Extract OpenSSL source
+  ansible.builtin.unarchive:
+    src: /tmp/openssl-3.4.0.tar.gz
+    dest: /tmp
+    remote_src: true
+    creates: /tmp/openssl-3.4.0
+  tags: [optional, nginx]
+
+- name: Download zlib source
+  ansible.builtin.get_url:
+    url: "https://www.zlib.net/zlib-1.3.1.tar.gz"
+    dest: /tmp/zlib-1.3.1.tar.gz
+    timeout: 120
+  tags: [optional, nginx]
+
+- name: Extract zlib source
+  ansible.builtin.unarchive:
+    src: /tmp/zlib-1.3.1.tar.gz
+    dest: /tmp
+    remote_src: true
+    creates: /tmp/zlib-1.3.1
+  tags: [optional, nginx]
+
+- name: Configure nginx build
+  ansible.builtin.command:
+    cmd: >
+      ./configure
+      --prefix=/usr/share/nginx
+      --sbin-path=/usr/sbin/nginx
+      --modules-path=/usr/lib/nginx/modules
+      --conf-path=/etc/nginx/nginx.conf
+      --error-log-path=/var/log/nginx/error.log
+      --http-log-path=/var/log/nginx/access.log
+      --pid-path=/tmp/nginx.pid
+      --lock-path=/var/lock/nginx.lock
+      --user=www-data
+      --group=www-data
+      --build=Ubuntu
+      --http-client-body-temp-path=/var/lib/nginx/body
+      --http-fastcgi-temp-path=/var/lib/nginx/fastcgi
+      --http-proxy-temp-path=/var/lib/nginx/proxy
+      --http-scgi-temp-path=/var/lib/nginx/scgi
+      --http-uwsgi-temp-path=/var/lib/nginx/uwsgi
+      --with-openssl=/tmp/openssl-3.4.0
+      --with-openssl-opt=enable-ec_nistp_64_gcc_128
+      --with-openssl-opt=no-nextprotoneg
+      --with-openssl-opt=no-weak-ssl-ciphers
+      --with-openssl-opt=no-ssl3
+      --with-pcre=/tmp/pcre2-10.37
+      --with-pcre-jit
+      --with-zlib=/tmp/zlib-1.3.1
+      --with-compat
+      --with-file-aio
+      --with-threads
+      --with-http_addition_module
+      --with-http_auth_request_module
+      --with-http_dav_module
+      --with-http_flv_module
+      --with-http_gunzip_module
+      --with-http_gzip_static_module
+      --with-http_mp4_module
+      --with-http_random_index_module
+      --with-http_realip_module
+      --with-http_slice_module
+      --with-http_ssl_module
+      --with-http_sub_module
+      --with-http_stub_status_module
+      --with-http_v2_module
+      --with-http_secure_link_module
+      --with-mail
+      --with-mail_ssl_module
+      --with-stream
+      --with-stream_realip_module
+      --with-stream_ssl_module
+      --with-stream_ssl_preread_module
+      --with-debug
+      --with-cc-opt='-g -O2 -fPIE -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2'
+      --with-ld-opt='-Wl,-Bsymbolic-functions -fPIE -pie -Wl,-z,relro -Wl,-z,now'
+      --with-http_v3_module
+    chdir: "/tmp/nginx-{{ nginx_version }}"
+  tags: [optional, nginx]
+
+- name: Build nginx
+  ansible.builtin.command:
+    cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
+    chdir: "/tmp/nginx-{{ nginx_version }}"
+  tags: [optional, nginx]
+
+- name: Create nginx build directory
+  ansible.builtin.file:
+    path: /tmp/nginx_builded/DEBIAN
+    state: directory
+  tags: [optional, nginx]
+
+- name: Write nginx deb control
+  ansible.builtin.copy:
+    dest: /tmp/nginx_builded/DEBIAN/control
+    content: |
+      Package: nginx
+      Version: {{ nginx_version }}
+      Architecture: {{ deb_architecture }}
+      Maintainer: CAPEv2
+      Description: nginx-{{ nginx_version }}
+  tags: [optional, nginx]
+
+- name: Install nginx via DESTDIR
+  ansible.builtin.command:
+    cmd: "make install DESTDIR=/tmp/nginx_builded"
+    chdir: "/tmp/nginx-{{ nginx_version }}"
+  tags: [optional, nginx]
+
+- name: Build and install nginx .deb
+  ansible.builtin.command:
+    cmd: "dpkg-deb --build --root-owner-group /tmp/nginx_builded && dpkg -i --force-overwrite /tmp/nginx_builded.deb"
+  tags: [optional, nginx]
+
+- name: Create nginx user and group
+  ansible.builtin.user:
+    name: nginx
+    system: true
+    home: /nonexistent
+    shell: /bin/false
+    create_home: false
+    group: nginx
+  tags: [optional, nginx]
+
+- name: Link nginx modules
+  ansible.builtin.file:
+    src: /usr/lib/nginx/modules
+    dest: /etc/nginx/modules
+    state: link
+  tags: [optional, nginx]
+
+- name: Create nginx directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0700"
+    owner: nginx
+    group: root
+  loop:
+    - /var/lib/nginx/body
+    - /var/cache/nginx/client_temp
+    - /var/cache/nginx/fastcgi_temp
+    - /var/cache/nginx/proxy_temp
+    - /var/cache/nginx/scgi_temp
+    - /var/cache/nginx/uwsgi_temp
+    - /etc/nginx/bots.d
+    - /etc/nginx/conf.d
+    - /etc/nginx/snippets
+    - /etc/nginx/sites-available
+    - /etc/nginx/sites-enabled
+  tags: [optional, nginx]
+
+- name: Generate dhparam
+  ansible.builtin.command:
+    cmd: openssl dhparam -out /etc/nginx/cert/dhparam.pem 2048
+    creates: /etc/nginx/cert/dhparam.pem
+  tags: [optional, nginx]
+
+- name: Download bot blocker configs
+  ansible.builtin.get_url:
+    url: "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/{{ item.src }}"
+    dest: "{{ item.dest }}"
+    timeout: 60
+  loop:
+    - src: conf.d/globalblacklist.conf
+      dest: /etc/nginx/conf.d/globalblacklist.conf
+    - src: bots.d/blockbots.conf
+      dest: /etc/nginx/bots.d/blockbots.conf
+    - src: bots.d/ddos.conf
+      dest: /etc/nginx/bots.d/ddos.conf
+    - src: bots.d/whitelist-ips.conf
+      dest: /etc/nginx/bots.d/whitelist-ips.conf
+    - src: bots.d/whitelist-domains.conf
+      dest: /etc/nginx/bots.d/whitelist-domains.conf
+    - src: bots.d/blacklist-user-agents.conf
+      dest: /etc/nginx/bots.d/blacklist-user-agents.conf
+    - src: bots.d/custom-bad-referrers.conf
+      dest: /etc/nginx/bots.d/custom-bad-referrers.conf
+    - src: bots.d/blacklist-ips.conf
+      dest: /etc/nginx/bots.d/blacklist-ips.conf
+    - src: bots.d/bad-referrer-words.conf
+      dest: /etc/nginx/bots.d/bad-referrer-words.conf
+  tags: [optional, nginx]
+
+- name: Write nginx systemd service
+  ansible.builtin.copy:
+    dest: /lib/systemd/system/nginx.service
+    content: |
+      [Unit]
+      Description=nginx - high performance web server
+      Documentation=https://nginx.org/en/docs/
+      After=network-online.target remote-fs.target nss-lookup.target
+      Wants=network-online.target
+      [Service]
+      Type=forking
+      PIDFile=/tmp/nginx.pid
+      ExecStartPre=/usr/sbin/nginx -t -c /etc/nginx/nginx.conf
+      ExecStart=/usr/sbin/nginx -c /etc/nginx/nginx.conf
+      ExecReload=/bin/kill -s HUP $MAINPID
+      ExecStop=/bin/kill -s TERM $MAINPID
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  tags: [optional, nginx]
+
+- name: Write nginx logrotate config
+  ansible.builtin.copy:
+    dest: /etc/logrotate.d/nginx
+    content: |
+      /var/log/nginx/*.log {
+          daily
+          missingok
+          rotate 52
+          compress
+          delaycompress
+          notifempty
+          create 640 nginx adm
+          sharedscripts
+          postrotate
+              if [ -f /tmp/nginx.pid ]; then
+                  kill -USR1 $(cat /tmp/nginx.pid)
+              fi
+          endscript
+      }
+    mode: "0644"
+  tags: [optional, nginx]
+
+- name: Enable and start nginx
+  ansible.builtin.systemd:
+    name: nginx
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [optional, nginx]
+
+# ────────────────────────────────────────────────────────────────────
+# 8.2: letsencrypt
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install certbot
+  ansible.builtin.pip:
+    name:
+      - certbot
+      - certbot-nginx
+    state: present
+    break_system_packages: true
+  tags: [optional, letsencrypt]
+  when: letsencrypt_domain is defined and letsencrypt_domain | length > 0
+
+- name: Run certbot
+  ansible.builtin.command:
+    cmd: "certbot --nginx -d {{ letsencrypt_domain }} -d www.{{ letsencrypt_domain }} --non-interactive --agree-tos --email {{ letsencrypt_email | default('admin@' + letsencrypt_domain) }}"
+  tags: [optional, letsencrypt]
+  when: letsencrypt_domain is defined and letsencrypt_domain | length > 0
+
+# ────────────────────────────────────────────────────────────────────
+# 8.3: Guacamole
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install guacamole build dependencies
+  ansible.builtin.apt:
+    pkg:
+      - libcairo2-dev
+      - libjpeg-turbo8-dev
+      - libpng-dev
+      - libossp-uuid-dev
+      - freerdp2-dev
+      - libssh2-1-dev
+      - libvncserver-dev
+      - libpulse-dev
+      - libssl-dev
+      - libvorbis-dev
+      - libwebp-dev
+      - libpango1.0-dev
+      - libavcodec-dev
+      - libavformat-dev
+      - libavutil-dev
+      - libswscale-dev
+      - python3-twisted
+    state: present
+  tags: [optional, guacamole]
+
+- name: Get latest guacamole version
+  ansible.builtin.uri:
+    url: https://downloads.apache.org/guacamole/
+    return_content: true
+  register: guacamole_index
+  tags: [optional, guacamole]
+
+- name: Set guacamole version fact
+  ansible.builtin.set_fact:
+    guacamole_version: "{{ guacamole_index.content | regex_findall('href=\"([0-9.]+)/\"') | first }}"
+  tags: [optional, guacamole]
+
+- name: Download guacamole server source
+  ansible.builtin.get_url:
+    url: "https://downloads.apache.org/guacamole/{{ guacamole_version }}/source/guacamole-server-{{ guacamole_version }}.tar.gz"
+    dest: "/tmp/guacamole-server-{{ guacamole_version }}.tar.gz"
+    timeout: 120
+  tags: [optional, guacamole]
+
+- name: Extract guacamole server
+  ansible.builtin.unarchive:
+    src: "/tmp/guacamole-server-{{ guacamole_version }}.tar.gz"
+    dest: /tmp/guac-build
+    remote_src: true
+    creates: "/tmp/guac-build/guacamole-server-{{ guacamole_version }}"
+  tags: [optional, guacamole]
+
+- name: Configure guacamole build
+  ansible.builtin.command:
+    cmd: "CFLAGS=-Wno-error ./configure --with-systemd-dir=/etc/systemd/system/"
+    chdir: "/tmp/guac-build/guacamole-server-{{ guacamole_version }}"
+  tags: [optional, guacamole]
+
+- name: Build guacamole
+  ansible.builtin.command:
+    cmd: "USE_SYSTEM=1 make -j{{ ansible_processor_vcpus | default(1) }}"
+    chdir: "/tmp/guac-build/guacamole-server-{{ guacamole_version }}"
+  tags: [optional, guacamole]
+
+- name: Create guacamole deb package directory
+  ansible.builtin.file:
+    path: "/tmp/guacamole-{{ guacamole_version }}_builded/DEBIAN"
+    state: directory
+  tags: [optional, guacamole]
+
+- name: Write guacamole deb control
+  ansible.builtin.copy:
+    dest: "/tmp/guacamole-{{ guacamole_version }}_builded/DEBIAN/control"
+    content: |
+      Package: guacamole
+      Version: {{ guacamole_version }}
+      Architecture: {{ deb_architecture }}
+      Maintainer: CAPEv2
+      Description: Guacamole {{ guacamole_version }}
+  tags: [optional, guacamole]
+
+- name: Install guacamole via DESTDIR
+  ansible.builtin.command:
+    cmd: "USE_SYSTEM=1 make install DESTDIR=/tmp/guacamole-{{ guacamole_version }}_builded"
+    chdir: "/tmp/guac-build/guacamole-server-{{ guacamole_version }}"
+  tags: [optional, guacamole]
+
+- name: Build and install guacamole .deb
+  ansible.builtin.command:
+    cmd: >
+      dpkg-deb --build --root-owner-group /tmp/guacamole-{{ guacamole_version }}_builded &&
+      dpkg -i --force-overwrite /tmp/guacamole-{{ guacamole_version }}_builded.deb
+  tags: [optional, guacamole]
+
+- name: Run ldconfig after guacamole
+  ansible.builtin.command:
+    cmd: ldconfig
+  changed_when: false
+  tags: [optional, guacamole]
+
+- name: Create guacamole recordings directory
+  ansible.builtin.file:
+    path: "{{ cape_root }}/storage/guacrecordings"
+    state: directory
+    owner: "{{ cape_user }}"
+    group: "{{ cape_user }}"
+    mode: "0755"
+  tags: [optional, guacamole]
+
+- name: Copy guacamole systemd units
+  ansible.builtin.copy:
+    src: "{{ cape_root }}/systemd/{{ item }}"
+    dest: "/lib/systemd/system/{{ item }}"
+    remote_src: true
+    mode: "0644"
+  loop:
+    - guacd.service
+    - guac-web.service
+  tags: [optional, guacamole]
+
+- name: Customize guacamole unit paths
+  ansible.builtin.replace:
+    path: "/lib/systemd/system/{{ item }}"
+    regexp: "/opt/CAPEv2"
+    replacement: "{{ cape_root }}"
+  loop:
+    - guac-web.service
+  when: cape_root != "/opt/CAPEv2"
+  tags: [optional, guacamole]
+
+- name: Replace poetry with uv in guacamole units
+  ansible.builtin.replace:
+    path: "/lib/systemd/system/{{ item }}"
+    regexp: "/etc/poetry/bin/poetry"
+    replacement: "/usr/local/bin/uv"
+  loop:
+    - guacd.service
+    - guac-web.service
+  when: use_uv
+  tags: [optional, guacamole]
+
+- name: Add www-data to cape group
+  ansible.builtin.user:
+    name: www-data
+    groups: "{{ cape_user }}"
+    append: true
+  tags: [optional, guacamole]
+
+- name: Enable and start guacamole services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - guacd.service
+    - guac-web.service
+  tags: [optional, guacamole]
+
+# ────────────────────────────────────────────────────────────────────
+# 8.4: ClamAV
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install ClamAV
+  ansible.builtin.apt:
+    pkg:
+      - clamav
+      - clamav-daemon
+      - clamav-freshclam
+      - clamav-unofficial-sigs
+      - python3-pyclamd
+    state: present
+  tags: [optional, clamav]
+
+- name: Write clamav unofficial sigs config
+  ansible.builtin.copy:
+    dest: /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
+    content: |
+      PATH="/bin:/sbin:/usr/bin:/usr/sbin:/usr/local/bin:/usr/local/sbin"
+      export PATH
+      clam_user="clamav"
+      clam_group="clamav"
+      setmode="yes"
+      clam_dbs="/var/lib/clamav"
+      clamd_pid="/var/run/clamd.pid"
+      reload_dbs="no"
+      reload_opt="clamdscan --reload"
+      enable_random="yes"
+      min_sleep_time="60"
+      max_sleep_time="600"
+      ss_dbs="blurl.ndb junk.ndb jurlbl.ndb phish.ndb rogue.hdb sanesecurity.ftm scam.ndb sigwhitelist.ign2 spamattach.hdb spamimg.hdb winnow.attachments.hdb winnow_bad_cw.hdb winnow_extended_malware.hdb winnow_malware.hdb winnow_malware_links.ndb doppelstern.hdb bofhland_cracked_URL.ndb bofhland_malware_attach.hdb bofhland_malware_URL.ndb bofhland_phishing_URL.ndb crdfam.clamav.hdb phishtank.ndb porcupine.ndb foxhole_filename.cdb foxhole_all.cdb"
+      si_update_hours="4"
+      mbl_update_hours="6"
+      rsync_connect_timeout="15"
+      rsync_max_time="60"
+      curl_connect_timeout="15"
+      curl_max_time="90"
+      work_dir="/usr/unofficial-dbs"
+      ss_dir="$work_dir/ss-dbs"
+      si_dir="$work_dir/si-dbs"
+      mbl_dir="$work_dir/mbl-dbs"
+      config_dir="$work_dir/configs"
+      gpg_dir="$work_dir/gpg-key"
+      add_dir="$work_dir/add-dbs"
+      keep_db_backup="no"
+      curl_silence="no"
+      rsync_silence="no"
+      gpg_silence="no"
+      comment_silence="no"
+      enable_logging="yes"
+      log_file_path="/var/log"
+      log_file_name="clamav-unofficial-sigs.log"
+      rsync_proxy=""
+      curl_proxy=""
+      user_configuration_complete="yes"
+    mode: "0644"
+    owner: root
+    group: root
+  tags: [optional, clamav]
+
+- name: Add clamav to cape group
+  ansible.builtin.user:
+    name: clamav
+    groups: "{{ cape_user }}"
+    append: true
+  tags: [optional, clamav]
+
+- name: Allow CAPE storage in clamav AppArmor profile
+  ansible.builtin.lineinfile:
+    path: /etc/apparmor.d/local/usr.sbin.clamd
+    line: "{{ cape_root }}/storage/** r,"
+    create: true
+  tags: [optional, clamav]
+
+- name: Reload clamav AppArmor profile
+  ansible.builtin.command:
+    cmd: apparmor_parser -r /etc/apparmor.d/usr.sbin.clamd
+  changed_when: false
+  failed_when: false
+  tags: [optional, clamav]
+
+- name: Enable and start clamav-daemon
+  ansible.builtin.systemd:
+    name: clamav-daemon
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [optional, clamav]
+
+- name: Run clamav unofficial sigs
+  ansible.builtin.command:
+    cmd: /usr/sbin/clamav-unofficial-sigs
+  become: true
+  become_user: clamav
+  changed_when: false
+  tags: [optional, clamav]
+
+# ────────────────────────────────────────────────────────────────────
+# 8.5: fail2ban
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install fail2ban
+  ansible.builtin.apt:
+    pkg:
+      - fail2ban
+    state: present
+  tags: [optional, fail2ban]
+
+- name: Copy jail.conf to jail.local
+  ansible.builtin.copy:
+    src: /etc/fail2ban/jail.conf
+    dest: /etc/fail2ban/jail.local
+    remote_src: true
+    mode: "0644"
+  tags: [optional, fail2ban]
+
+- name: Enable and start fail2ban
+  ansible.builtin.systemd:
+    name: fail2ban
+    enabled: true
+    state: started
+    daemon_reload: true
+  tags: [optional, fail2ban]
+
+# ────────────────────────────────────────────────────────────────────
+# 8.6: Prometheus + Grafana
+# ────────────────────────────────────────────────────────────────────
+
+- name: Download Prometheus
+  ansible.builtin.get_url:
+    url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    dest: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    timeout: 120
+  tags: [optional, prometheus]
+
+- name: Extract Prometheus
+  ansible.builtin.unarchive:
+    src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
+    dest: /opt
+    remote_src: true
+    creates: "/opt/prometheus-{{ prometheus_version }}.linux-amd64"
+  tags: [optional, prometheus]
+
+- name: Install Grafana
+  ansible.builtin.apt:
+    pkg:
+      - adduser
+      - libfontconfig1
+    state: present
+  tags: [optional, prometheus]
+
+- name: Download Grafana
+  ansible.builtin.get_url:
+    url: "https://dl.grafana.com/oss/release/grafana_{{ grafana_version }}_amd64.deb"
+    dest: "/tmp/grafana_{{ grafana_version }}_amd64.deb"
+    timeout: 120
+  tags: [optional, prometheus]
+
+- name: Install Grafana .deb
+  ansible.builtin.command:
+    cmd: "dpkg -i /tmp/grafana_{{ grafana_version }}_amd64.deb"
+  tags: [optional, prometheus]
+
+- name: Enable Grafana
+  ansible.builtin.systemd:
+    name: grafana-server
+    enabled: true
+    daemon_reload: true
+  tags: [optional, prometheus]
+
+# ────────────────────────────────────────────────────────────────────
+# 8.7: ModSecurity (requires nginx 8.1)
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install ModSecurity build dependencies
+  ansible.builtin.apt:
+    pkg:
+      - g++
+      - apt-utils
+      - autoconf
+      - automake
+      - build-essential
+      - libcurl4-openssl-dev
+      - libgeoip-dev
+      - liblmdb-dev
+      - libpcre2-dev
+      - libtool
+      - libxml2-dev
+      - libyajl-dev
+      - pkgconf
+      - zlib1g-dev
+    state: present
+  tags: [optional, modsecurity]
+
+- name: Clone ModSecurity v3
+  ansible.builtin.git:
+    repo: https://github.com/SpiderLabs/ModSecurity
+    dest: /tmp/ModSecurity
+    version: v3/master
+    depth: 500
+    force: true
+  tags: [optional, modsecurity]
+
+- name: Initialize ModSecurity submodules
+  ansible.builtin.command:
+    cmd: git submodule update --init --recursive
+    chdir: /tmp/ModSecurity
+  tags: [optional, modsecurity]
+
+- name: Build ModSecurity
+  ansible.builtin.command:
+    cmd: ./build.sh && ./configure --with-pcre2
+    chdir: /tmp/ModSecurity
+  tags: [optional, modsecurity]
+
+- name: Compile ModSecurity
+  ansible.builtin.command:
+    cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
+    chdir: /tmp/ModSecurity
+  tags: [optional, modsecurity]
+
+- name: Install ModSecurity
+  ansible.builtin.command:
+    cmd: make install
+    chdir: /tmp/ModSecurity
+  tags: [optional, modsecurity]
+
+- name: Clone ModSecurity-nginx connector
+  ansible.builtin.git:
+    repo: https://github.com/SpiderLabs/ModSecurity-nginx.git
+    dest: /tmp/ModSecurity-nginx
+    depth: 1
+    force: true
+  tags: [optional, modsecurity]
+
+- name: Build ModSecurity nginx module
+  ansible.builtin.command:
+    cmd: >
+      ./configure --with-compat --add-dynamic-module=/tmp/ModSecurity-nginx
+    chdir: "/tmp/nginx-{{ nginx_version }}"
+  tags: [optional, modsecurity]
+
+- name: Compile nginx modules
+  ansible.builtin.command:
+    cmd: make modules
+    chdir: "/tmp/nginx-{{ nginx_version }}"
+  tags: [optional, modsecurity]
+
+- name: Copy ModSecurity nginx module
+  ansible.builtin.copy:
+    src: "/tmp/nginx-{{ nginx_version }}/objs/ngx_http_modsecurity_module.so"
+    dest: /usr/lib/nginx/modules/ngx_http_modsecurity_module.so
+    remote_src: true
+    mode: "0644"
+  tags: [optional, modsecurity]
+
+- name: Create ModSecurity config directory
+  ansible.builtin.file:
+    path: /etc/nginx/modsec
+    state: directory
+    mode: "0755"
+  tags: [optional, modsecurity]
+
+- name: Download ModSecurity recommended config
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/SpiderLabs/ModSecurity/v3/master/modsecurity.conf-recommended
+    dest: /etc/nginx/modsec/modsecurity.conf
+    timeout: 60
+  tags: [optional, modsecurity]
+
+- name: Copy ModSecurity unicode mapping
+  ansible.builtin.copy:
+    src: /tmp/ModSecurity/unicode.mapping
+    dest: /etc/nginx/modsec/unicode.mapping
+    remote_src: true
+  tags: [optional, modsecurity]
+
+- name: Enable ModSecurity RuleEngine
+  ansible.builtin.lineinfile:
+    path: /etc/nginx/modsec/modsecurity.conf
+    regexp: ^SecRuleEngine
+    line: SecRuleEngine On
+  tags: [optional, modsecurity]
+
+- name: Write ModSecurity main.conf
+  ansible.builtin.copy:
+    dest: /etc/nginx/modsec/main.conf
+    content: 'Include "/etc/nginx/modsec/modsecurity.conf"'
+    mode: "0644"
+  tags: [optional, modsecurity]
+
+- name: Load ModSecurity module in nginx.conf
+  ansible.builtin.lineinfile:
+    path: /etc/nginx/nginx.conf
+    line: load_module modules/ngx_http_modsecurity_module.so;
+    insertbefore: BOF
+    create: true
+  tags: [optional, modsecurity]
+
+# ────────────────────────────────────────────────────────────────────
+# 8.8: Crowdsec
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install crowdsec dependencies
+  ansible.builtin.apt:
+    pkg:
+      - bash
+      - gettext
+      - whiptail
+      - curl
+      - wget
+    state: present
+  tags: [optional, crowdsec]
+
+- name: Download crowdsec release
+  ansible.builtin.get_url:
+    url: "https://github.com/crowdsecurity/crowdsec/releases/latest/download/crowdsec-release.tgz"
+    dest: /tmp/crowdsec-release.tgz
+    timeout: 120
+  tags: [optional, crowdsec]
+
+- name: Extract crowdsec
+  ansible.builtin.unarchive:
+    src: /tmp/crowdsec-release.tgz
+    dest: /tmp
+    remote_src: true
+  tags: [optional, crowdsec]
+
+- name: Find crowdsec extracted directory
+  ansible.builtin.find:
+    paths: /tmp
+    patterns: "crowdsec-v*"
+    file_type: directory
+  register: crowdsec_dir
+  tags: [optional, crowdsec]
+
+- name: Install crowdsec
+  ansible.builtin.command:
+    cmd: sudo ./wizard.sh -i
+    chdir: "{{ crowdsec_dir.files[0].path }}"
+  when: crowdsec_dir.files | length > 0
+  tags: [optional, crowdsec]
+
+- name: Install crowdsec nginx collection
+  ansible.builtin.command:
+    cmd: cscli collections install crowdsecurity/nginx
+  tags: [optional, crowdsec]
+
+- name: Reload crowdsec
+  ansible.builtin.systemd:
+    name: crowdsec
+    state: reloaded
+  tags: [optional, crowdsec]
+
+- name: Download crowdsec nginx bouncer
+  ansible.builtin.get_url:
+    url: "https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/v{{ csnb_version }}/crowdsec-nginx-bouncer.tgz"
+    dest: "/tmp/crowdsec-nginx-bouncer.tgz"
+    timeout: 120
+  tags: [optional, crowdsec]
+
+- name: Extract nginx bouncer
+  ansible.builtin.unarchive:
+    src: /tmp/crowdsec-nginx-bouncer.tgz
+    dest: /tmp
+    remote_src: true
+  tags: [optional, crowdsec]
+
+- name: Install crowdsec nginx bouncer
+  ansible.builtin.command:
+    cmd: sudo ./install.sh
+    chdir: "/tmp/crowdsec-nginx-bouncer-v{{ csnb_version }}"
+  tags: [optional, crowdsec]

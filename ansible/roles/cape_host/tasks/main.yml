@@ -28,3 +28,9 @@
   tags:
     - cape_host
     - systemd
+
+- name: Include optional tasks (nginx, guacamole, clamav, fail2ban, prometheus, modsecurity, crowdsec)
+  ansible.builtin.include_tasks: optional.yml
+  tags:
+    - cape_host
+    - optional

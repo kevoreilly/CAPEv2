@@ -1,0 +1,228 @@
+---
+- name: Add PostgreSQL APT repository key
+  ansible.builtin.apt_key:
+    url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
+    state: present
+
+- name: Add PostgreSQL APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ {{ ansible_distribution_release }}-pgdg main"
+    state: present
+    update_cache: true
+
+- name: Install PostgreSQL
+  ansible.builtin.apt:
+    pkg:
+      - libpq-dev
+      - postgresql
+      - postgresql-client
+    state: present
+
+- name: Enable and start PostgreSQL
+  ansible.builtin.systemd:
+    name: postgresql
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Create PostgreSQL user
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: "psql -c \"CREATE USER {{ db_user }} WITH PASSWORD '{{ vault_db_password }}'\""
+  register: pg_create_user
+  failed_when: false
+  changed_when: pg_create_user.rc == 0
+  no_log: true
+
+- name: Create PostgreSQL database
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: "psql -c \"CREATE DATABASE {{ db_name }} OWNER {{ db_user }}\""
+  register: pg_create_db
+  failed_when: false
+  changed_when: pg_create_db.rc == 0
+
+- name: Grant all privileges on database
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: "psql -d \"{{ db_name }}\" -c \"GRANT ALL PRIVILEGES ON DATABASE {{ db_name }} to {{ db_user }}\""
+  changed_when: false
+
+- name: Alter database owner
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: "psql -d \"{{ db_name }}\" -c \"ALTER DATABASE {{ db_name }} OWNER TO {{ db_user }}\""
+  changed_when: false
+
+- name: Refresh collation version
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: "psql -d \"{{ db_name }}\" -c \"ALTER DATABASE {{ db_name }} REFRESH COLLATION VERSION\""
+  changed_when: false
+  failed_when: false
+
+- name: Refresh postgres database collation
+  become: true
+  become_user: postgres
+  ansible.builtin.command:
+    cmd: "psql -d postgres -c \"ALTER DATABASE postgres REFRESH COLLATION VERSION\""
+  changed_when: false
+  failed_when: false
+
+# ────────────────────────────────────────────────────────────────────
+# MongoDB (optional — gated by mongo_enable)
+# ────────────────────────────────────────────────────────────────────
+
+- name: Check for AVX CPU support
+  ansible.builtin.slurp:
+    src: /proc/cpuinfo
+  register: cpuinfo
+  when: mongo_enable
+
+- name: Set MongoDB version based on AVX support
+  ansible.builtin.set_fact:
+    mongo_version: "{% if 'avx' in cpuinfo.content | b64decode %}8.0{% else %}4.4{% endif %}"
+  when: mongo_enable
+
+- name: Add MongoDB APT key
+  ansible.builtin.apt_key:
+    url: "https://pgp.mongodb.com/server-{{ mongo_version }}.asc"
+    state: present
+  when: mongo_enable
+
+- name: Add MongoDB APT repository
+  ansible.builtin.apt_repository:
+    repo: "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/{{ mongo_version }} multiverse"
+    state: present
+    update_cache: true
+  when: mongo_enable
+
+- name: Install MongoDB
+  ansible.builtin.apt:
+    pkg:
+      - libpcre3-dev
+      - numactl
+      - mongodb-org
+    state: present
+  when: mongo_enable
+
+- name: Install pymongo
+  ansible.builtin.pip:
+    name: pymongo
+    state: present
+    break_system_packages: true
+  when: mongo_enable
+
+- name: Create MongoDB data directories
+  ansible.builtin.file:
+    path: "/data/{{ item }}"
+    state: directory
+    owner: mongodb
+    group: mongodb
+    mode: "0755"
+  loop:
+    - db
+    - configdb
+  when: mongo_enable
+
+- name: Write enable-transparent-huge-pages service
+  ansible.builtin.copy:
+    dest: /lib/systemd/system/enable-transparent-huge-pages.service
+    content: |
+      [Unit]
+      Description=Enable Transparent Hugepages (THP)
+      DefaultDependencies=no
+      After=sysinit.target local-fs.target
+      Before=mongod.service
+      [Service]
+      Type=oneshot
+      ExecStart=/bin/sh -c 'echo always | tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null && echo defer+madvise | tee /sys/kernel/mm/transparent_hugepage/defrag > /dev/null && echo 0 | tee /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none > /dev/null && echo 1 | tee /proc/sys/vm/overcommit_memory > /dev/null'
+      [Install]
+      WantedBy=basic.target
+    mode: "0644"
+  when: mongo_enable
+  notify: daemon reload
+
+- name: Enable transparent-huge-pages service
+  ansible.builtin.systemd:
+    name: enable-transparent-huge-pages
+    enabled: true
+    daemon_reload: true
+  when: mongo_enable
+
+- name: Disable stock mongod service if present
+  ansible.builtin.systemd:
+    name: mongod
+    enabled: false
+    state: stopped
+  failed_when: false
+  when: mongo_enable
+
+- name: Write custom mongodb.service
+  ansible.builtin.copy:
+    dest: /lib/systemd/system/mongodb.service
+    content: |
+      [Unit]
+      Description=High-performance, schema-free document-oriented database
+      Wants=network.target
+      After=network.target
+      [Service]
+      PermissionsStartOnly=true
+      Environment="GLIBC_TUNABLES=glibc.pthread.rseq=0"
+      ExecStart=/usr/bin/numactl --interleave=all /usr/bin/mongod --setParameter "tcmallocReleaseRate=5.0"
+      ExecReload=/bin/kill -HUP $MAINPID
+      Restart=always
+      User=mongodb
+      Group=mongodb
+      SyslogIdentifier=mongodb
+      LimitNOFILE=1048576
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  when: mongo_enable
+  notify: daemon reload
+
+- name: Enable and start MongoDB
+  ansible.builtin.systemd:
+    name: mongodb
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: mongo_enable
+
+- name: Add tcp_fastopen sysctl for MongoDB
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/30-tcp_fastopen.conf
+    content: |
+      net.ipv4.tcp_fastopen = 3
+    mode: "0644"
+  when: mongo_enable
+
+# ────────────────────────────────────────────────────────────────────
+# Alembic migrations
+# ────────────────────────────────────────────────────────────────────
+
+- name: Run Alembic migrations with uv
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/uv run alembic upgrade head
+    chdir: "{{ cape_root }}/utils/db_migration"
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+  when: use_uv
+
+- name: Run Alembic migrations with Poetry
+  ansible.builtin.command:
+    cmd: >
+      /etc/poetry/bin/poetry run alembic upgrade head
+    chdir: "{{ cape_root }}/utils/db_migration"
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+  when: not use_uv

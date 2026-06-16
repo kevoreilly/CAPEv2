@@ -10,3 +10,9 @@
   tags:
     - cape_host
     - config
+
+- name: Include database tasks (PostgreSQL, MongoDB, Alembic)
+  ansible.builtin.include_tasks: database.yml
+  tags:
+    - cape_host
+    - database

@@ -23,11 +23,26 @@
         key: "{{ control_pubkey['content'] | b64decode }}"
       delegate_to: "{{ control_host }}"
 
+    - name: Resolve control node IP from iface_ip
+      ansible.builtin.set_fact:
+        control_ip: "{{ hostvars[control_host]['iface_ip'] }}"
+      when: hostvars[control_host]['iface_ip'] is defined
+
+    - name: Fallback to default IPv4 address
+      ansible.builtin.set_fact:
+        control_ip: "{{ hostvars[control_host]['ansible_default_ipv4']['address'] }}"
+      when: control_ip is not defined
+
+    - name: Fail if control node IP could not be resolved
+      ansible.builtin.fail:
+        msg: "Unable to resolve control node IP. Set iface_ip in inventory or ensure ansible_default_ipv4 is available."
+      when: control_ip is not defined or control_ip | length == 0
+
     - name: Set remote PostgreSQL connection in cuckoo.conf
       ansible.builtin.lineinfile:
         path: "{{ cape_root }}/conf/cuckoo.conf"
         regexp: "^connection ="
-        line: "connection = postgresql://{{ db_user }}:{{ vault_db_password }}@{{ hostvars[control_host]['ansible_default_ipv4']['address'] }}:{{ db_port }}/{{ db_name }}"
+        line: "connection = postgresql://{{ db_user }}:{{ vault_db_password }}@{{ control_ip }}:{{ db_port }}/{{ db_name }}"
         backrefs: true
       no_log: true
 
@@ -35,12 +50,12 @@
       ansible.builtin.lineinfile:
         path: "{{ cape_root }}/conf/cuckoo.conf"
         regexp: "^resultserver_host ="
-        line: "resultserver_host = {{ hostvars[control_host]['iface_ip'] }}"
+        line: "resultserver_host = {{ control_ip }}"
         backrefs: true
 
     - name: Test PostgreSQL connectivity from worker
       ansible.builtin.command:
-        cmd: "psql -U {{ db_user }} -d {{ db_name }} -h {{ hostvars[control_host]['ansible_default_ipv4']['address'] }} -c 'SELECT 1'"
+        cmd: "psql -U {{ db_user }} -d {{ db_name }} -h {{ control_ip }} -c 'SELECT 1'"
       register: pg_test
       changed_when: false
       failed_when: pg_test.rc != 0

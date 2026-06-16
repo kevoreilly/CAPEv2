@@ -1,0 +1,298 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# 6.1: YARA — compile from source
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install YARA build dependencies
+  ansible.builtin.apt:
+    pkg:
+      - libtool
+      - libjansson-dev
+      - libmagic1
+      - libmagic-dev
+      - jq
+      - autoconf
+      - libyara-dev
+    state: present
+
+- name: Get latest YARA release info
+  ansible.builtin.uri:
+    url: https://api.github.com/repos/VirusTotal/yara/releases/latest
+    return_content: true
+  register: yara_release
+
+- name: Set YARA version facts
+  ansible.builtin.set_fact:
+    yara_version: "{{ yara_release.json.tag_name }}"
+    yara_version_only: "{{ yara_release.json.tag_name | regex_replace('^v', '') }}"
+
+- name: Download YARA source
+  ansible.builtin.get_url:
+    url: "https://github.com/VirusTotal/yara/archive/refs/tags/{{ yara_version }}.tar.gz"
+    dest: "/tmp/yara-{{ yara_version }}.tar.gz"
+    timeout: 120
+
+- name: Extract YARA source
+  ansible.builtin.unarchive:
+    src: "/tmp/yara-{{ yara_version }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+    creates: "/tmp/yara-{{ yara_version_only }}"
+
+- name: Bootstrap and configure YARA
+  ansible.builtin.command:
+    cmd: >
+      ./bootstrap.sh && ./configure --enable-cuckoo --enable-magic --enable-profiling
+    chdir: "/tmp/yara-{{ yara_version_only }}"
+  changed_when: false
+
+- name: Build YARA
+  ansible.builtin.command:
+    cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
+    chdir: "/tmp/yara-{{ yara_version_only }}"
+  changed_when: false
+
+- name: Build .deb package with checkinstall
+  ansible.builtin.command:
+    cmd: >
+      checkinstall -D --pkgname="yara-{{ yara_version }}" --pkgversion="{{ yara_version_only }}" --default
+    chdir: "/tmp/yara-{{ yara_version_only }}"
+  changed_when: false
+
+- name: Install YARA .deb
+  ansible.builtin.command:
+    cmd: "dpkg -i --force-overwrite /tmp/yara-{{ yara_version }}*.deb"
+  changed_when: false
+
+- name: Run ldconfig
+  ansible.builtin.command:
+    cmd: ldconfig
+  changed_when: false
+
+# ────────────────────────────────────────────────────────────────────
+# 6.2: Suricata
+# ────────────────────────────────────────────────────────────────────
+
+- name: Add Suricata PPA (stable 7.0)
+  ansible.builtin.apt_repository:
+    repo: ppa:oisf/suricata-7.0
+    state: present
+    update_cache: true
+
+- name: Install Suricata
+  ansible.builtin.apt:
+    pkg:
+      - suricata
+    state: present
+    dpkg_options: "force-confold,force-overwrite"
+
+- name: Create Suricata rules directory
+  ansible.builtin.file:
+    path: /etc/suricata/rules
+    state: directory
+    mode: "0755"
+
+- name: Create threshold.config
+  ansible.builtin.file:
+    path: /etc/suricata/threshold.config
+    state: touch
+    mode: "0644"
+    modification_time: preserve
+    access_time: preserve
+
+- name: Copy rules from /usr/share/suricata/rules
+  ansible.builtin.copy:
+    src: /usr/share/suricata/rules/
+    dest: /etc/suricata/rules/
+    remote_src: true
+  failed_when: false
+
+- name: Copy rules from /var/lib/suricata/rules
+  ansible.builtin.copy:
+    src: /var/lib/suricata/rules/
+    dest: /etc/suricata/rules/
+    remote_src: true
+  failed_when: false
+
+- name: Write Suricata cape.yaml
+  ansible.builtin.copy:
+    dest: /etc/suricata/cape.yaml
+    content: |
+      %YAML 1.1
+      ---
+      default-rule-path: /etc/suricata/rules
+      rule-files: suricata.rules
+      mpm-algo: hs
+      stream.reassembly.depth: 0
+      stream.checksum-validation:  none
+      netmap.checksum-checks: no
+      pcap-file.checksum-checks: no
+      app-layer.protocols.http.libhtp.default-config.request-body-limit: 0
+      app-layer.protocols.http.libhtp.default-config.response-body-limit: 0
+      app-layer.protocols.tls.ja3-fingerprints: yes
+      vars.address-groups.EXTERNAL_NET: "ANY"
+      security.limit-noproc: false
+      outputs.1.eve-log.enabled: yes
+      file-store.enabled: yes
+    mode: "0644"
+
+- name: Include cape.yaml in suricata.yaml
+  ansible.builtin.lineinfile:
+    path: /etc/suricata/suricata.yaml
+    line: "include: cape.yaml"
+    insertbefore: EOF
+  failed_when: false
+
+- name: Create pcap and suricata groups
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+    system: true
+  loop:
+    - pcap
+    - suricata
+
+- name: Add suricata to pcap group
+  ansible.builtin.user:
+    name: suricata
+    groups: pcap
+    append: true
+
+- name: Add cape_user to suricata group
+  ansible.builtin.user:
+    name: "{{ cape_user }}"
+    groups: suricata
+    append: true
+
+# ────────────────────────────────────────────────────────────────────
+# 6.3: volatility3
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install volatility3 with uv
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/uv pip install git+https://github.com/volatilityfoundation/volatility3
+    chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: use_uv
+
+- name: Install volatility3 with Poetry
+  ansible.builtin.command:
+    cmd: >
+      /etc/poetry/bin/poetry run pip install git+https://github.com/volatilityfoundation/volatility3
+    chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: not use_uv
+
+- name: Get volatility3 symbols path
+  ansible.builtin.command:
+    cmd: >
+      python3 -c "import volatility3.plugins; print(volatility3.__file__.replace('__init__.py', 'symbols/'))"
+    chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  register: vol_symbols_path
+  environment:
+    PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+  when: use_uv
+
+- name: Get volatility3 symbols path (Poetry)
+  ansible.builtin.command:
+    cmd: >
+      /etc/poetry/bin/poetry run python3 -c "import volatility3.plugins; print(volatility3.__file__.replace('__init__.py', 'symbols/'))"
+    chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  register: vol_symbols_path
+  when: not use_uv
+
+- name: Download Windows symbols for volatility3
+  ansible.builtin.get_url:
+    url: https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip
+    dest: "{{ vol_symbols_path.stdout }}/windows.zip"
+    timeout: 300
+  when: vol_symbols_path.stdout is defined
+
+- name: Extract volatility3 Windows symbols
+  ansible.builtin.unarchive:
+    src: "{{ vol_symbols_path.stdout }}/windows.zip"
+    dest: "{{ vol_symbols_path.stdout }}"
+    remote_src: true
+    creates: "{{ vol_symbols_path.stdout }}/win10x64_19041.zip"
+
+# ────────────────────────────────────────────────────────────────────
+# 6.4: FLARE CAPA
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install FLARE CAPA with uv
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/uv pip install flare-capa
+    chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: use_uv
+
+- name: Install FLARE CAPA with Poetry
+  ansible.builtin.command:
+    cmd: >
+      /etc/poetry/bin/poetry run pip install flare-capa
+    chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: not use_uv
+
+# ────────────────────────────────────────────────────────────────────
+# 6.5: Crontab entries
+# ────────────────────────────────────────────────────────────────────
+
+- name: Add crontab — community signatures and CAPA update
+  ansible.builtin.cron:
+    name: update community signatures and CAPA
+    user: "{{ cape_user }}"
+    job: >
+      cd {{ cape_root }}/utils/ &&
+      sudo -u {{ cape_user }}
+      {% if use_uv %}/usr/local/bin/uv run{% else %}/etc/poetry/bin/poetry run{% endif %}
+      python3 community.py -waf -cr &&
+      {% if use_uv %}/usr/local/bin/uv pip{% else %}/etc/poetry/bin/poetry run pip{% endif %}
+      install -U flare-capa &&
+      systemctl restart cape-processor 2>/dev/null
+    minute: "5"
+    hour: "0"
+    day: "*"
+    month: "*"
+    weekday: "*"
+
+- name: Add crontab — Tor newnym rotation
+  ansible.builtin.cron:
+    name: Tor newnym rotation
+    user: "{{ cape_user }}"
+    job: (echo authenticate ''; echo signal newnym; echo quit) | nc localhost 9051 2>/dev/null
+    minute: "0"
+    hour: "*"
+    day: "*"
+    month: "*"
+    weekday: "*"
+
+- name: Add crontab — suricata-update
+  ansible.builtin.cron:
+    name: suricata-update
+    job: >
+      /usr/bin/suricata-update --suricata /usr/bin/suricata
+      --suricata-conf /etc/suricata/suricata.yaml
+      -o /etc/suricata/rules/ &>/dev/null
+    minute: "15"
+    hour: "*"
+    day: "*"
+    month: "*"
+    weekday: "*"
+
+- name: Add crontab — SMTP sinkhole on reboot
+  ansible.builtin.cron:
+    name: SMTP sinkhole on reboot
+    user: "{{ cape_user }}"
+    job: cd {{ cape_root }}/utils/ && ./smtp_sinkhole.sh 2>/dev/null
+    special_time: reboot

@@ -16,3 +16,9 @@
   tags:
     - cape_host
     - database
+
+- name: Include signatures tasks (YARA, Suricata, volatility3, CAPA, crontab)
+  ansible.builtin.include_tasks: signatures.yml
+  tags:
+    - cape_host
+    - signatures

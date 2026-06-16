@@ -1,0 +1,39 @@
+---
+- name: CAPEv2 single-node deployment
+  hosts: cape_host
+  gather_facts: true
+  tasks:
+    - name: Include common role
+      ansible.builtin.include_role:
+        name: common
+      tags: [common]
+
+    - name: Include hypervisor role
+      ansible.builtin.include_role:
+        name: hypervisor
+      tags: [hypervisor]
+
+    - name: Include cape_host role (repo, config, database, signatures, systemd)
+      ansible.builtin.include_role:
+        name: cape_host
+      tags: [cape_host]
+
+    - name: Include optional components
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: optional
+      tags: [optional]
+
+    - name: Include guest provisioning scripts
+      ansible.builtin.include_role:
+        name: guest_provisioning
+      tags: [guest]
+
+    - name: Deployment complete
+      ansible.builtin.debug:
+        msg: |
+          ✅ CAPEv2 single-node deployment complete!
+          Next steps:
+            1. Run `ansible-playbook playbooks/verify.yml` to verify the deployment
+            2. Follow guest provisioning instructions in generated_guest_scripts/SNAPSHOT_INSTRUCTIONS.md
+            3. Run `ansible-playbook playbooks/smoke-test.yml` for an integration smoke test

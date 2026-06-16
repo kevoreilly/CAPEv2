@@ -1,0 +1,53 @@
+---
+- name: Deploy CAPE worker node
+  hosts: cape_worker
+  gather_facts: true
+  vars:
+    deployment_role: worker
+  tasks:
+    - name: Include common role
+      ansible.builtin.include_role:
+        name: common
+      tags: [common]
+
+    - name: Include cape_host repo
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: repo
+
+    - name: Include cape_host config (worker-specific)
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: config
+
+    - name: Include cape_host signatures
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: signatures
+
+    - name: Configure remote result server
+      ansible.builtin.lineinfile:
+        path: "{{ cape_root }}/conf/cuckoo.conf"
+        regexp: "^resultserver_host ="
+        line: "resultserver_host = {{ hostvars[groups['cape_control'][0]]['iface_ip'] | default(groups['cape_control'][0]) }}"
+        backrefs: true
+      when: groups['cape_control'] is defined
+
+    - name: Configure remote PostgreSQL
+      ansible.builtin.lineinfile:
+        path: "{{ cape_root }}/conf/cuckoo.conf"
+        regexp: "^connection ="
+        line: "connection = postgresql://{{ db_user }}:{{ vault_db_password }}@{{ hostvars[groups['cape_control'][0]]['ansible_default_ipv4']['address'] }}:{{ db_port }}/{{ db_name }}"
+        backrefs: true
+      no_log: true
+      when: groups['cape_control'] is defined
+
+    - name: Enable and start worker services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        enabled: true
+        state: started
+        daemon_reload: true
+      loop:
+        - cape-processor
+        - suricata

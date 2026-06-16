@@ -1,0 +1,47 @@
+---
+- name: Register worker node with control node
+  hosts: cape_worker
+  gather_facts: true
+  vars:
+    control_host: "{{ groups['cape_control'][0] }}"
+  tasks:
+    - name: Wait for control node facts
+      ansible.builtin.setup:
+      delegate_to: "{{ control_host }}"
+      delegate_facts: true
+
+    - name: Authorize worker SSH key on control
+      ansible.builtin.authorized_key:
+        user: "{{ hostvars[control_host]['cape_user'] | default('cape') }}"
+        state: present
+        key: "{{ hostvars[control_host]['control_pubkey']['content'] | b64decode }}"
+      delegate_to: "{{ control_host }}"
+
+    - name: Set remote PostgreSQL connection in cuckoo.conf
+      ansible.builtin.lineinfile:
+        path: "{{ cape_root }}/conf/cuckoo.conf"
+        regexp: "^connection ="
+        line: "connection = postgresql://{{ db_user }}:{{ vault_db_password }}@{{ hostvars[control_host]['ansible_default_ipv4']['address'] }}:{{ db_port }}/{{ db_name }}"
+        backrefs: true
+      no_log: true
+
+    - name: Set remote result server
+      ansible.builtin.lineinfile:
+        path: "{{ cape_root }}/conf/cuckoo.conf"
+        regexp: "^resultserver_host ="
+        line: "resultserver_host = {{ hostvars[control_host]['iface_ip'] }}"
+        backrefs: true
+
+    - name: Test PostgreSQL connectivity from worker
+      ansible.builtin.command:
+        cmd: "psql -U {{ db_user }} -d {{ db_name }} -h {{ hostvars[control_host]['ansible_default_ipv4']['address'] }} -c 'SELECT 1'"
+      register: pg_test
+      changed_when: false
+      failed_when: pg_test.rc != 0
+      environment:
+        PGPASSWORD: "{{ vault_db_password }}"
+      no_log: true
+
+    - name: Worker registration complete
+      ansible.builtin.debug:
+        msg: "Worker {{ inventory_hostname }} registered with control node {{ control_host }}"

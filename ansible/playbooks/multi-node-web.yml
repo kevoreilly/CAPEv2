@@ -1,0 +1,41 @@
+---
+- name: Deploy CAPE web node
+  hosts: cape_web
+  gather_facts: true
+  vars:
+    deployment_role: web
+  tasks:
+    - name: Include common role
+      ansible.builtin.include_role:
+        name: common
+      tags: [common]
+
+    - name: Include cape_host repo (minimal — no processing/signatures)
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: repo
+
+    - name: Include cape_host config
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: config
+
+    - name: Include cape_host database — MongoDB only
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: database
+      vars:
+        install_postgresql: false
+
+    - name: Enable and start cape-web only
+      ansible.builtin.systemd:
+        name: cape-web
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Include nginx (optional)
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: optional
+      tags: [optional]

@@ -1,0 +1,28 @@
+---
+# ════════════════════════════════════════════════════════════════════
+# CAPEv2 — Master site playbook
+# ════════════════════════════════════════════════════════════════════
+# Behaviour depends on `deployment_mode`:
+#   single — deploys everything on one host (default)
+#   multi  — per-group playbooks: control, web, worker
+#
+# Usage:
+#   ansible-playbook site.yml -i inventory/hosts.ini
+#   ansible-playbook site.yml --skip-tags optional
+# ════════════════════════════════════════════════════════════════════
+
+- name: Include single-node playbook
+  ansible.builtin.import_playbook: playbooks/single-node.yml
+  when: deployment_mode == "single"
+
+- name: Include multi-node control node playbook
+  ansible.builtin.import_playbook: playbooks/multi-node-control.yml
+  when: deployment_mode == "multi"
+
+- name: Include multi-node web node playbook
+  ansible.builtin.import_playbook: playbooks/multi-node-web.yml
+  when: deployment_mode == "multi"
+
+- name: Include multi-node worker node playbook
+  ansible.builtin.import_playbook: playbooks/multi-node-worker.yml
+  when: deployment_mode == "multi"

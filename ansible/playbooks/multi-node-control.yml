@@ -1,0 +1,44 @@
+---
+- name: CAPEv2 multi-node control node deployment
+  hosts: cape_control
+  gather_facts: true
+  vars:
+    deployment_role: control
+  tasks:
+    - name: Include common role
+      ansible.builtin.include_role:
+        name: common
+      tags: [common]
+
+    - name: Include hypervisor role
+      ansible.builtin.include_role:
+        name: hypervisor
+      tags: [hypervisor]
+
+    - name: Include cape_host role (full)
+      ansible.builtin.include_role:
+        name: cape_host
+      tags: [cape_host]
+
+    - name: Include optional components
+      ansible.builtin.include_role:
+        name: cape_host
+        tasks_from: optional
+      tags: [optional]
+
+    - name: Include guest provisioning scripts
+      ansible.builtin.include_role:
+        name: guest_provisioning
+      tags: [guest]
+
+    - name: Generate SSH key for worker registration
+      ansible.builtin.user:
+        name: "{{ cape_user }}"
+        generate_ssh_key: true
+        ssh_key_bits: 4096
+        ssh_key_file: ".ssh/id_rsa"
+
+    - name: Fetch public key for worker registration
+      ansible.builtin.slurp:
+        src: "/home/{{ cape_user }}/.ssh/id_rsa.pub"
+      register: control_pubkey

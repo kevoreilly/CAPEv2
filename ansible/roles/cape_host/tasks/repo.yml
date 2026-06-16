@@ -1,24 +1,20 @@
 ---
-- name: Clone CAPEv2 repository (tarball — git GnuTLS issue on 26.04)
-  block:
-    - name: Download CAPEv2 source tarball
-      ansible.builtin.get_url:
-        url: "https://github.com/kevoreilly/CAPEv2/archive/master.tar.gz"
-        dest: "/tmp/CAPEv2-master.tar.gz"
-        timeout: 120
+- name: Download CAPEv2 source tarball
+  ansible.builtin.get_url:
+    url: "https://github.com/kevoreilly/CAPEv2/archive/master.tar.gz"
+    dest: "/tmp/CAPEv2-master.tar.gz"
+    timeout: 120
 
-    - name: Extract CAPEv2 tarball
-      ansible.builtin.unarchive:
-        src: "/tmp/CAPEv2-master.tar.gz"
-        dest: "{{ cape_root | dirname }}"
-        remote_src: true
+- name: Extract CAPEv2 tarball
+  ansible.builtin.unarchive:
+    src: "/tmp/CAPEv2-master.tar.gz"
+    dest: "{{ cape_root | dirname }}"
+    remote_src: true
 
-    - name: Rename extracted directory to cape_root
-      ansible.builtin.command:
-        cmd: mv "{{ cape_root | dirname }}/CAPEv2-master" "{{ cape_root }}"
-        creates: "{{ cape_root }}"
-  become: true
-  become_user: "{{ cape_user }}"
+- name: Rename extracted directory to cape_root
+  ansible.builtin.command:
+    cmd: mv "{{ cape_root | dirname }}/CAPEv2-master" "{{ cape_root }}"
+    creates: "{{ cape_root }}"
 
 - name: Ensure CAPE root ownership
   ansible.builtin.file:

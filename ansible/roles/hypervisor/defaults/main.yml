@@ -41,3 +41,21 @@ seabios_bochs_block_replacer3: "<WOOT>"
 seabios_bios_date: "07/02/18"
 seabios_bios_date2: "11/03/2018"
 seabios_fw_date: "11/03/2018"
+
+# ────────────────────────────────────────────────────────────────────
+# Libvirt
+# ────────────────────────────────────────────────────────────────────
+
+libvirt_version: "11.1.0"
+libvirt_source_url: "https://libvirt.org/sources/libvirt-{{ libvirt_version }}.tar.xz"
+libvirt_python_url: "https://github.com/libvirt/libvirt-python/archive/v{{ libvirt_version }}.zip"
+libvirt_build_dir: "/tmp/libvirt-{{ libvirt_version }}"
+libvirt_so_path: ""
+libvirt_firewall_backend: "iptables"
+
+# virbr1 network
+virbr1_network: "192.168.1"
+virbr1_gateway: "192.168.1.1"
+virbr1_netmask: "255.255.255.0"
+virbr1_dhcp_start: "192.168.1.2"
+virbr1_dhcp_end: "192.168.1.254"

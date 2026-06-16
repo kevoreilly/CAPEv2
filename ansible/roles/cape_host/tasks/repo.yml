@@ -7,6 +7,46 @@
     force: true
   become: true
   become_user: "{{ cape_user }}"
+  register: cape_clone_result
+  ignore_errors: true
+
+- name: Fallback to tarball when git clone fails
+  block:
+    - name: Check if git clone actually succeeded
+      ansible.builtin.stat:
+        path: "{{ cape_root }}/.git"
+      register: cape_git_dir
+      when: cape_clone_result is failed
+
+    - name: Download CAPEv2 source tarball
+      ansible.builtin.get_url:
+        url: "https://github.com/kevoreilly/CAPEv2/archive/master.tar.gz"
+        dest: "/tmp/CAPEv2-master.tar.gz"
+        timeout: 120
+      when: cape_git_dir is defined and not (cape_git_dir.stat.exists | default(false))
+
+    - name: Extract CAPEv2 tarball
+      ansible.builtin.unarchive:
+        src: "/tmp/CAPEv2-master.tar.gz"
+        dest: "{{ cape_root | dirname }}"
+        remote_src: true
+      when: cape_git_dir is defined and not (cape_git_dir.stat.exists | default(false))
+
+    - name: Rename extracted directory to cape_root
+      ansible.builtin.command:
+        cmd: mv "{{ cape_root | dirname }}/CAPEv2-master" "{{ cape_root }}"
+        creates: "{{ cape_root }}"
+      when: cape_git_dir is defined and not (cape_git_dir.stat.exists | default(false))
+
+    - name: Ensure CAPE root ownership
+      ansible.builtin.file:
+        path: "{{ cape_root }}"
+        state: directory
+        owner: "{{ cape_user }}"
+        group: "{{ cape_user }}"
+        recurse: true
+      when: cape_git_dir is defined and not (cape_git_dir.stat.exists | default(false))
+  when: cape_clone_result is failed
 
 - name: Ensure CAPE root ownership
   ansible.builtin.file:

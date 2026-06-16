@@ -75,13 +75,12 @@
   failed_when: false
   when: "'podlators' not in ansible_facts.packages | default({})"
 
-- name: Ensure pip packages for build
-  ansible.builtin.pip:
-    name:
-      - sphinx
-      - ninja
+- name: Install sphinx and ninja via apt (more reliable than pip on restricted networks)
+  ansible.builtin.apt:
+    pkg:
+      - python3-sphinx
+      - ninja-build
     state: present
-    extra_args: "--break-system-packages"
 
 - name: Block — QEMU build
   when: qemu_needs_build

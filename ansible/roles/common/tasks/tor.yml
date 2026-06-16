@@ -1,0 +1,59 @@
+---
+- name: Add Tor repository GPG key
+  ansible.builtin.apt_key:
+    url: https://deb.torproject.org/torproject.org/archive-key.gpg
+    state: present
+
+- name: Add Tor repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}] https://deb.torproject.org/torproject.org {{ ansible_distribution_release }} main"
+    state: present
+    update_cache: true
+
+- name: Install Tor
+  ansible.builtin.apt:
+    pkg:
+      - tor
+      - deb.torproject.org-keyring
+      - libzstd1
+    state: present
+
+- name: Generate hashed Tor control password
+  ansible.builtin.command:
+    cmd: tor --hash-password "{{ tor_password }}"
+  register: tor_hashed_password
+  changed_when: false
+  when: tor_password | length > 0
+  no_log: true
+
+- name: Write torrc configuration
+  ansible.builtin.copy:
+    dest: /etc/tor/torrc
+    content: |
+      ## CAPEv2 Tor configuration
+
+      # Transparent proxy port
+      VirtualAddrNetworkIPv4 10.192.0.0/10
+      AutomapHostsOnResolve 1
+      TransPort {{ tor_trans_port }}  # Transparent proxy
+      DNSPort {{ tor_dns_port }}      # DNS proxy
+      ControlPort {{ tor_control_port }}
+
+      # Hashed control password
+      {% if tor_password | length > 0 %}
+      HashedControlPassword {{ tor_hashed_password.stdout }}
+      {% endif %}
+
+      # Logging
+      Log notice syslog
+    mode: "0640"
+    owner: debian-tor
+    group: debian-tor
+  notify: restart tor
+
+- name: Enable and start Tor service
+  ansible.builtin.systemd:
+    name: tor
+    enabled: true
+    state: started
+    daemon_reload: true

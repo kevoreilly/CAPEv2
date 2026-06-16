@@ -1,0 +1,14 @@
+---
+- name: Ensure en_US.UTF-8 locale is generated
+  ansible.builtin.locale_gen:
+    name: en_US.UTF-8
+    state: present
+
+- name: Set system locale
+  ansible.builtin.command:
+    cmd: update-locale LANG=en_US.UTF-8
+  changed_when: false
+
+- name: Set timezone to UTC
+  ansible.builtin.timezone:
+    name: UTC

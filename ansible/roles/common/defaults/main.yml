@@ -1,0 +1,14 @@
+---
+cape_user: cape
+cape_root: /opt/CAPEv2
+use_uv: false
+
+# Tor
+tor_password: ""  # will be auto-generated if empty
+tor_control_port: 9051
+tor_dns_port: 5353
+tor_trans_port: 9040
+
+# de4dot
+de4dot_version: "3.1"
+de4dot_url: "https://github.com/de4dot/de4dot/releases/download/v{{ de4dot_version }}/de4dot.netframework.zip"

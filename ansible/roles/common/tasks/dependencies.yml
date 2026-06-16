@@ -1,0 +1,103 @@
+---
+- name: Install core APT dependencies for CAPEv2
+  ansible.builtin.apt:
+    pkg:
+      - python3-pip
+      - build-essential
+      - libssl-dev
+      - libssl3
+      - python3-dev
+      - cmake
+      - nfs-common
+      - crudini
+      - innoextract
+      - msitools
+      - iptables
+      - psmisc
+      - jq
+      - sqlite3
+      - tmux
+      - net-tools
+      - checkinstall
+      - graphviz
+      - python3-pydot
+      - git
+      - numactl
+      - python3
+      - python3-dev
+      - python3-pip
+      - libjpeg-dev
+      - zlib1g-dev
+      - zpaq
+      - upx-ucl
+      - wget
+      - zip
+      - unzip
+      - lzip
+      - rar
+      - unrar
+      - cabextract
+      - geoip-database
+      - libgeoip-dev
+      - mono-utils
+      - ssdeep
+      - libfuzzy-dev
+      - exiftool
+      - uthash-dev
+      - libconfig-dev
+      - libarchive-dev
+      - libtool
+      - autoconf
+      - automake
+      - privoxy
+      - software-properties-common
+      - wkhtmltopdf
+      - xvfb
+      - xfonts-100dpi
+      - tcpdump
+      - libcap2-bin
+      - wireshark-common
+      - python3-pil
+      - subversion
+      - uwsgi
+      - uwsgi-plugin-python3
+      - python3-pyelftools
+      - curl
+      - openvpn
+      - wireguard
+      - libgraphviz-dev
+      - plocate
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install de4dot dependencies
+  ansible.builtin.apt:
+    pkg:
+      - libgdiplus
+      - libdnlib2.1-cil
+      - libgif7
+      - libmono-accessibility4.0-cil
+      - libmono-ldap4.0-cil
+      - libmono-posix4.0-cil
+      - libmono-sqlite4.0-cil
+      - libmono-system-componentmodel-dataannotations4.0-cil
+      - libmono-system-data4.0-cil
+      - libmono-system-design4.0-cil
+      - libmono-system-drawing4.0-cil
+      - libmono-system-enterpriseservices4.0-cil
+      - libmono-system-ldap4.0-cil
+      - libmono-system-runtime-serialization-formatters-soap4.0-cil
+      - libmono-system-runtime4.0-cil
+      - libmono-system-transactions4.0-cil
+      - libmono-system-web-applicationservices4.0-cil
+      - libmono-system-web-services4.0-cil
+      - libmono-system-web4.0-cil
+      - libmono-system-windows-forms4.0-cil
+      - libmono-webbrowser4.0-cil
+    state: present
+
+- name: Update locate database
+  ansible.builtin.command:
+    cmd: updatedb
+  changed_when: false

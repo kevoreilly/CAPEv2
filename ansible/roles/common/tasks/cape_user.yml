@@ -1,0 +1,39 @@
+---
+- name: Create libvirt and kvm groups if missing
+  ansible.builtin.group:
+    name: "{{ item }}"
+    state: present
+    system: true
+  loop:
+    - libvirt
+    - kvm
+
+- name: Create cape system user
+  ansible.builtin.user:
+    name: "{{ cape_user }}"
+    comment: "CAPEv2 service user"
+    group: "{{ cape_user }}"
+    groups:
+      - kvm
+      - libvirt
+      - systemd-journal
+    home: "/home/{{ cape_user }}"
+    shell: /bin/bash
+    system: true
+    create_home: true
+
+- name: Create cape home directory if missing
+  ansible.builtin.file:
+    path: "/home/{{ cape_user }}"
+    state: directory
+    owner: "{{ cape_user }}"
+    group: "{{ cape_user }}"
+    mode: "0755"
+
+- name: Create CAPE root directory
+  ansible.builtin.file:
+    path: "{{ cape_root }}"
+    state: directory
+    owner: "{{ cape_user }}"
+    group: "{{ cape_user }}"
+    mode: "0755"

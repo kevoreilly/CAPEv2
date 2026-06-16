@@ -1,0 +1,26 @@
+---
+- name: Install de4dot mono dependencies
+  ansible.builtin.apt:
+    pkg:
+      - libgdiplus
+      - mono-complete
+    state: present
+
+- name: Download de4dot
+  ansible.builtin.get_url:
+    url: "{{ de4dot_url }}"
+    dest: "/tmp/de4dot-{{ de4dot_version }}.zip"
+    timeout: 120
+
+- name: Extract de4dot
+  ansible.builtin.unarchive:
+    src: "/tmp/de4dot-{{ de4dot_version }}.zip"
+    dest: "/opt/de4dot-{{ de4dot_version }}"
+    remote_src: true
+    creates: "/opt/de4dot-{{ de4dot_version }}/de4dot.exe"
+
+- name: Create de4dot symlink
+  ansible.builtin.file:
+    src: "/opt/de4dot-{{ de4dot_version }}"
+    dest: /opt/de4dot
+    state: link

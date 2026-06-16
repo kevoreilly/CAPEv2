@@ -1,0 +1,42 @@
+---
+- name: Include APT dependencies
+  ansible.builtin.import_tasks: dependencies.yml
+  tags:
+    - common
+    - dependencies
+
+- name: Include cape user creation
+  ansible.builtin.import_tasks: cape_user.yml
+  tags:
+    - common
+    - cape_user
+
+- name: Include package manager (poetry/uv)
+  ansible.builtin.import_tasks: python_package_manager.yml
+  tags:
+    - common
+    - python
+
+- name: Include sysctl and limits
+  ansible.builtin.import_tasks: sysctl.yml
+  tags:
+    - common
+    - sysctl
+
+- name: Include locale and timezone
+  ansible.builtin.import_tasks: locale.yml
+  tags:
+    - common
+    - locale
+
+- name: Include de4dot
+  ansible.builtin.import_tasks: de4dot.yml
+  tags:
+    - common
+    - de4dot
+
+- name: Include Tor
+  ansible.builtin.import_tasks: tor.yml
+  tags:
+    - common
+    - tor

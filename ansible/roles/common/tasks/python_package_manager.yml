@@ -1,0 +1,23 @@
+---
+- name: Install uv package manager
+  ansible.builtin.shell:
+    cmd: curl -LsSf https://astral.sh/uv/install.sh | sh
+  args:
+    creates: /usr/local/bin/uv
+  when: use_uv
+
+- name: Install Poetry package manager
+  ansible.builtin.shell:
+    cmd: |
+      curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -
+      /etc/poetry/bin/poetry self add poetry-plugin-shell
+  args:
+    creates: /etc/poetry/bin/poetry
+  when: not use_uv
+
+- name: Add poetry to system PATH
+  ansible.builtin.file:
+    src: /etc/poetry/bin/poetry
+    dest: /usr/local/bin/poetry
+    state: link
+  when: not use_uv

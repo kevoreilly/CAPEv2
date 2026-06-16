@@ -5,6 +5,12 @@
     - hypervisor
     - kvm_qemu
 
+- name: Include SeaBIOS tasks
+  ansible.builtin.import_tasks: kvm_qemu/tasks/seabios.yml
+  tags:
+    - hypervisor
+    - seabios
+
 # Future: include libvirt tasks here
 # - name: Include Libvirt tasks
 #   ansible.builtin.import_tasks: libvirt/tasks/main.yml

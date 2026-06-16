@@ -1,0 +1,95 @@
+---
+- name: Install SeaBIOS build dependencies
+  ansible.builtin.apt:
+    pkg:
+      - git
+      - acpica-tools
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Check if SeaBIOS is already patched at target version
+  ansible.builtin.command:
+    cmd: shasum -a 256 /usr/share/qemu/bios.bin
+  changed_when: false
+  failed_when: false
+  register: bios_hash
+
+- name: Download SeaBIOS source tarball
+  ansible.builtin.get_url:
+    url: "{{ seabios_source_url }}"
+    dest: "/tmp/seabios-{{ seabios_version }}.tar.gz"
+    timeout: 120
+
+- name: Extract SeaBIOS source
+  ansible.builtin.unarchive:
+    src: "/tmp/seabios-{{ seabios_version }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+    creates: "/tmp/seabios-rel-{{ seabios_version }}/Makefile"
+
+- name: Apply SeaBIOS anti-VM string replacements and build
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      cd /tmp/seabios-rel-{{ seabios_version }}
+      _sed() { [ -f "$2" ] && sed -i "$1" "$2" || true; }
+
+      _sed "s/Bochs/{{ seabios_bochs_replacer }}/g" src/config.h
+      _sed "s/BOCHSCPU/{{ qemu_bochs_cpu_replacement }}/g" src/config.h
+      _sed "s/BOCHS /{{ seabios_bochs_replacer }}/g" src/config.h
+      _sed "s/BXPC/{{ seabios_bxpc_replacer }}/g" src/config.h
+      _sed "s/QEMU\\/Bochs/{{ qemu_bochs_cpu }}/g" vgasrc/Kconfig
+      _sed "s/qemu /{{ qemu_space_replacement }}/g" vgasrc/Kconfig
+      _sed "s/06\\/23\\/99/{{ seabios_bios_date }}/g" src/misc.c
+      _sed "s/04\\/01\\/2014/{{ seabios_bios_date2 }}/g" src/fw/biostables.c
+      _sed "s/01\\/01\\/2011/{{ seabios_fw_date }}/g" src/fw/smbios.c
+      _sed 's/"SeaBios"/"AMIBios"/g' src/fw/biostables.c
+      _sed 's/"SeaBIOS"/"AMIBios"/g' src/fw/biostables.c
+      _sed 's/"QEMU"/"{{ seabios_bochs_block_replacer }}"/g' src/hw/blockcmd.c
+      _sed 's/"QEMU"/"{{ seabios_bochs_block_replacer2 }}"/g' src/hw/blockcmd.c
+      _sed 's/"QEMU"/"{{ seabios_bochs_block_replacer3 }}"/g' src/fw/paravirt.c
+
+      for f in src/fw/acpi-dsdt.dsl src/fw/q35-acpi-dsdt.dsl; do
+        _sed 's/"BXPC"/"'"$BXPC_REPLACER"'"/g' "$f"
+      done
+      _sed 's/"BXPC"/"AMPC"/g' src/fw/ssdt-pcihp.dsl
+      _sed 's/"BXDSDT"/"AMDSDT"/g' src/fw/ssdt-pcihp.dsl
+      _sed 's/"BXPC"/"AMPC"/g' src/fw/ssdt-proc.dsl
+      _sed 's/"BXSSDT"/"AMSSDT"/g' src/fw/ssdt-proc.dsl
+      _sed 's/"BXPC"/"AMPC"/g' src/fw/ssdt-misc.dsl
+      _sed 's/"BXSSDTSU"/"AMSSDTSU"/g' src/fw/ssdt-misc.dsl
+      _sed 's/"BXSSDTSUSP"/"AMSSDTSUSP"/g' src/fw/ssdt-misc.dsl
+      _sed 's/"BXSSDTPCIHP"/"AMSSDTPCIHP"/g' src/fw/ssdt-pcihp.dsl
+
+      for f in src/fw/q35-acpi-dsdt.dsl src/fw/acpi-dsdt.dsl src/fw/ssdt-misc.dsl src/fw/ssdt-proc.dsl src/fw/ssdt-pcihp.dsl src/config.h; do
+        _sed 's/"BXPC"/"A M I"/g' "$f"
+      done
+
+      # Disable Xen in config
+      [ -f .config ] && sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' .config || true
+      sed -i 's/PYTHON=python/PYTHON=python3/g' Makefile
+
+      make -j{{ ansible_processor_vcpus | default(1) }}
+  args:
+    executable: /bin/bash
+  environment:
+    PIP_BREAK_SYSTEM_PACKAGES: "1"
+  register: seabios_build
+
+- name: Ensure QEMU firmware directory exists
+  ansible.builtin.file:
+    path: /usr/share/qemu
+    state: directory
+
+- name: Copy compiled SeaBIOS to QEMU firmware directory
+  ansible.builtin.copy:
+    src: "/tmp/seabios-rel-{{ seabios_version }}/out/bios.bin"
+    dest: "/usr/share/qemu/{{ item }}"
+    remote_src: true
+    mode: "0644"
+    force: true
+  loop:
+    - bios.bin
+    - bios-256k.bin
+  when: seabios_build is success

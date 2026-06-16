@@ -17,7 +17,27 @@ qemu_microdrive_replacer: "<WOOT>"
 qemu_bochs_block_replacer: "<WOOT>"
 qemu_bxpc_replacer: "<WOOT>"
 qemu_acpi_bios_replacer: "ALASKA"
+qemu_bochs_cpu: "INTEL/INTEL"
+qemu_space_replacement: "intel "
 qemu_bios_date: "07/02/18"
 qemu_bios_date2: "11/03/2018"
 qemu_fw_date: "11/03/2018"
 deb_architecture: "{{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}"
+
+# ────────────────────────────────────────────────────────────────────
+# SeaBIOS
+# ────────────────────────────────────────────────────────────────────
+
+seabios_version: "1.16.3"
+seabios_source_url: "https://github.com/coreboot/seabios/archive/refs/tags/rel-{{ seabios_version }}.tar.gz"
+seabios_checksum: ""
+
+# SeaBIOS anti-VM replacement strings
+seabios_bochs_replacer: "<WOOT>"
+seabios_bxpc_replacer: "<WOOT>"
+seabios_bochs_block_replacer: "<WOOT>"
+seabios_bochs_block_replacer2: "<WOOT>"
+seabios_bochs_block_replacer3: "<WOOT>"
+seabios_bios_date: "07/02/18"
+seabios_bios_date2: "11/03/2018"
+seabios_fw_date: "11/03/2018"

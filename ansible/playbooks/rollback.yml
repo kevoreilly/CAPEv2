@@ -2,18 +2,16 @@
 - name: Rollback all CAPEv2 changes
   hosts: all
   gather_facts: true
-  vars:
-    rollback_confirm: false
   tasks:
     - name: Confirm rollback
       ansible.builtin.pause:
         prompt: "⚠️  This will remove CAPEv2 from ALL hosts. Type 'yes' to continue."
-      when: not rollback_confirm
+      register: rollback_confirm
 
     - name: Fail if not confirmed
       ansible.builtin.fail:
         msg: "Rollback aborted by user."
-      when: not rollback_confirm and (rollback_confirm is undefined or not rollback_confirm)
+      when: rollback_confirm.user_input != 'yes'
 
 # ────────────────────────────────────────────────────────────────────
 # Systemd services

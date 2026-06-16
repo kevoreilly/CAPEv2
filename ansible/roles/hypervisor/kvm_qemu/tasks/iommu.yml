@@ -1,0 +1,39 @@
+---
+- name: Check if IOMMU is already enabled in kernel cmdline
+  ansible.builtin.command:
+    cmd: cat /proc/cmdline
+  changed_when: false
+  register: cmdline
+
+- name: Set fact for IOMMU status
+  ansible.builtin.set_fact:
+    iommu_needed: "{{ 'intel_iommu=on' not in cmdline.stdout and 'amd_iommu=on' not in cmdline.stdout }}"
+
+- name: Add intel_iommu=on to GRUB_CMDLINE_LINUX
+  ansible.builtin.replace:
+    path: /etc/default/grub
+    regexp: '^GRUB_CMDLINE_LINUX="(.*)"'
+    replace: 'GRUB_CMDLINE_LINUX="intel_iommu=on \1"'
+  when: iommu_needed
+  notify: reboot required
+
+- name: Update GRUB configuration
+  ansible.builtin.command:
+    cmd: update-grub
+  when: iommu_needed
+  changed_when: true
+
+- name: Reboot if IOMMU was enabled
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+  when: iommu_needed
+
+- name: Wait for host to come back after reboot
+  ansible.builtin.wait_for_connection:
+    delay: 30
+    timeout: 300
+  when: iommu_needed
+
+- name: Re-gather facts after reboot
+  ansible.builtin.setup:
+  when: iommu_needed

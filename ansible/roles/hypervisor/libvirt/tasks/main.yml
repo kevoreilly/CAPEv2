@@ -1,0 +1,223 @@
+---
+- name: Gather package facts
+  ansible.builtin.package_facts:
+  when: ansible_facts.packages is not defined
+
+- name: Check if libvirt is already at target version
+  ansible.builtin.command:
+    cmd: libvirtd --version
+  changed_when: false
+  failed_when: false
+  register: libvirt_check
+
+- name: Set fact for libvirt installation status
+  ansible.builtin.set_fact:
+    libvirt_needs_build: "{{ libvirt_check.rc != 0 or libvirt_version not in libvirt_check.stdout }}"
+
+- name: Install libvirt build dependencies
+  ansible.builtin.apt:
+    pkg:
+      - meson
+      - plocate
+      - libxml2-utils
+      - gnutls-bin
+      - gnutls-dev
+      - libxml2-dev
+      - bash-completion
+      - libreadline-dev
+      - numactl
+      - libnuma-dev
+      - python3-docutils
+      - flex
+      - libjson-c-dev
+      - pylint
+      - pycodestyle
+      - iptables
+      - python3-dev
+      - unzip
+      - numad
+      - libglib2.0-dev
+      - libsdl1.2-dev
+      - lvm2
+      - python3-pip
+      - ebtables
+      - libosinfo-1.0-dev
+      - libnl-3-dev
+      - libnl-route-3-dev
+      - libyajl-dev
+      - xsltproc
+      - libdevmapper-dev
+      - libpciaccess-dev
+      - dnsmasq
+      - dmidecode
+      - librbd-dev
+      - libtirpc-dev
+      - bison
+      - apparmor
+      - apparmor-profiles
+      - apparmor-profiles-extra
+      - apparmor-utils
+      - libapparmor-dev
+      - libapparmor1
+      - python3-apparmor
+      - python3-libapparmor
+      - libapparmor-perl
+      - linux-generic-hwe-24.04
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Ensure pip packages for libvirt build
+  ansible.builtin.pip:
+    name:
+      - ipaddr
+      - ninja
+      - meson
+      - flake8
+    state: present
+    break_system_packages: true
+
+- name: Block — libvirt build
+  when: libvirt_needs_build
+  block:
+    - name: Purge existing libvirt packages
+      ansible.builtin.shell:
+        cmd: |
+          dpkg -l 2>/dev/null | awk '/^ii/ && /libvirt/ {print $2}' | xargs -r dpkg --purge --force-all
+          dpkg -l 2>/dev/null | awk '/^ii/ && /libvirt0/ {print $2}' | xargs -r dpkg --purge --force-all
+          dpkg -l 2>/dev/null | awk '/^ii/ && /libvirt-bin/ {print $2}' | xargs -r dpkg --purge --force-all
+      changed_when: true
+      failed_when: false
+
+    - name: Remove old libvirt library symlinks
+      ansible.builtin.shell:
+        cmd: |
+          for f in /lib/{{ ansible_architecture }}-linux-gnu/libvirt*.so.0; do
+            [ -f "$f" ] && rm -f "$f" || true
+          done
+          ldconfig
+      changed_when: true
+
+    - name: Remove old library binaries
+      ansible.builtin.file:
+        path: /usr/local/lib/{{ ansible_architecture }}-linux-gnu/libvirt*
+        state: absent
+
+    - name: Ensure build directory is clean
+      ansible.builtin.file:
+        path: "{{ libvirt_build_dir }}"
+        state: absent
+
+    - name: Download libvirt source tarball
+      ansible.builtin.get_url:
+        url: "{{ libvirt_source_url }}"
+        dest: "/tmp/libvirt-{{ libvirt_version }}.tar.xz"
+        timeout: 120
+
+    - name: Extract libvirt source
+      ansible.builtin.unarchive:
+        src: "/tmp/libvirt-{{ libvirt_version }}.tar.xz"
+        dest: /tmp
+        remote_src: true
+        creates: "{{ libvirt_build_dir }}/meson.build"
+
+    - name: Configure libvirt build with meson
+      ansible.builtin.command:
+        cmd: |
+          meson setup build
+          -D system=true
+          -D driver_remote=enabled
+          -D driver_qemu=enabled
+          -D driver_libvirtd=enabled
+          -D qemu_group=libvirt
+          -D qemu_user=root
+          -D secdriver_apparmor=enabled
+          -D apparmor_profiles=enabled
+          -D bash_completion=auto
+        chdir: "{{ libvirt_build_dir }}"
+        creates: "{{ libvirt_build_dir }}/build/build.ninja"
+
+    - name: Compile libvirt with ninja
+      ansible.builtin.command:
+        cmd: "ninja -C build -j{{ ansible_processor_vcpus | default(1) }}"
+        chdir: "{{ libvirt_build_dir }}"
+      register: libvirt_ninja
+      timeout: 3600
+
+    - name: Install libvirt
+      ansible.builtin.command:
+        cmd: ninja -C build install
+        chdir: "{{ libvirt_build_dir }}"
+      register: libvirt_install
+      timeout: 300
+
+    - name: Copy libvirt .so symlinks to system library path
+      ansible.builtin.shell:
+        cmd: |
+          set -e
+          updatedb
+          so_path=$(locate libvirt-qemu.so | grep -v docker | head -1 | xargs dirname)
+          if [ -n "$so_path" ]; then
+            for f in "$so_path"/libvirt*.so.0; do
+              cp "$f" /lib/{{ ansible_architecture }}-linux-gnu/$(basename "$f")
+            done
+            ldconfig
+          fi
+      changed_when: true
+
+    - name: Hold libvirt packages to prevent accidental upgrades
+      ansible.builtin.dpkg_selections:
+        name: "{{ item }}"
+        selection: hold
+      loop:
+        - libvirt
+        - libvirt0
+        - libvirt-bin
+      ignore_errors: true
+
+    - name: Write apt preferences to prevent accidental libvirt upgrades
+      ansible.builtin.copy:
+        dest: /etc/apt/preferences.d/cape
+        content: |
+          Package: libvirt-bin
+          Pin: release *
+          Pin-Priority: -1
+          Package: libvirt0
+          Pin: release *
+          Pin-Priority: -1
+          Package: qemu
+          Pin: release *
+          Pin-Priority: -1
+          Package: libvirt
+          Pin: release *
+          Pin-Priority: -1
+          Package: gir1.2-libvirt-glib-1.0
+          Pin: release *
+          Pin-Priority: -1
+          Package: libvirt-glib-1.0-0
+          Pin: release *
+          Pin-Priority: -1
+          Package: libvirt-glib-1.0-data
+          Pin: release *
+          Pin-Priority: -1
+        mode: "0644"
+
+- name: Install libvirt Python bindings
+  ansible.builtin.shell:
+    cmd: |
+      set -e
+      cd /tmp
+      if [ ! -f "/tmp/v{{ libvirt_version }}.zip" ]; then
+        wget -q "{{ libvirt_python_url }}" -O "/tmp/v{{ libvirt_version }}.zip"
+      fi
+      rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
+      unzip -q "/tmp/v{{ libvirt_version }}.zip" -d /tmp
+      cd "/tmp/libvirt-python-{{ libvirt_version }}"
+      python3 setup.py build
+      pip3 install --break-system-packages .
+      cd /tmp
+      rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
+  args:
+    executable: /bin/bash
+  register: libvirt_python_install
+  changed_when: "'Successfully installed' in libvirt_python_install.stdout"

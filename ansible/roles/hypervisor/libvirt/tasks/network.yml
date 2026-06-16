@@ -1,0 +1,43 @@
+---
+- name: Define virbr1 virtual network
+  ansible.builtin.virt_net:
+    command: define
+    name: virbr1
+    xml: |
+      <network xmlns:dnsmasq='http://libvirt.org/schemas/network/dnsmasq/1.0'>
+        <name>virbr1</name>
+        <bridge name='virbr1' stp='on' delay='0'/>
+        <forward mode='nat'>
+          <nat>
+            <port start='1024' end='65535'/>
+          </nat>
+        </forward>
+        <domain name='capevms'/>
+        <dns>
+          <forwarder addr='{{ dns_primary }}'/>
+          <forwarder addr='{{ dns_secondary }}'/>
+        </dns>
+        <ip address='{{ virbr1_gateway }}' netmask='{{ virbr1_netmask }}'>
+          <dhcp>
+            <range start='{{ virbr1_dhcp_start }}' end='{{ virbr1_dhcp_end }}'/>
+          </dhcp>
+        </ip>
+        <route address='0.0.0.0' prefix='24' gateway='{{ virbr1_gateway }}'/>
+        <dnsmasq:options>
+          <dnsmasq:option value='dhcp-option=44,{{ virbr1_gateway }}'/>
+          <dnsmasq:option value='dhcp-option=45,{{ virbr1_gateway }}'/>
+          <dnsmasq:option value='dhcp-option=46,8'/>
+          <dnsmasq:option value='dhcp-option=252,"\n"'/>
+          <dnsmasq:option value='stop-dns-rebind'/>
+        </dnsmasq:options>
+      </network>
+
+- name: Set virbr1 to autostart
+  ansible.builtin.virt_net:
+    name: virbr1
+    autostart: true
+
+- name: Start virbr1 network
+  ansible.builtin.virt_net:
+    name: virbr1
+    state: active

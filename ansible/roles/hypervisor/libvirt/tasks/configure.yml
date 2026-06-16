@@ -1,0 +1,85 @@
+---
+- name: Configure libvirtd socket permissions
+  ansible.builtin.replace:
+    path: "{{ item.path }}"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.replace }}"
+  loop:
+    - path: /etc/libvirt/libvirtd.conf
+      regexp: '#unix_sock_group'
+      replace: unix_sock_group
+    - path: /etc/libvirt/libvirtd.conf
+      regexp: '#unix_sock_ro_perms = "0777"'
+      replace: 'unix_sock_ro_perms = "0770"'
+    - path: /etc/libvirt/libvirtd.conf
+      regexp: '#unix_sock_rw_perms = "0770"'
+      replace: 'unix_sock_rw_perms = "0770"'
+    - path: /etc/libvirt/libvirtd.conf
+      regexp: '#auth_unix_ro = "none"'
+      replace: 'auth_unix_ro = "none"'
+    - path: /etc/libvirt/libvirtd.conf
+      regexp: '#auth_unix_rw = "none"'
+      replace: 'auth_unix_rw = "none"'
+    - path: /etc/libvirt/libvirtd.conf
+      regexp: '#auth_unix_ro = "polkit"'
+      replace: 'auth_unix_ro = "none"'
+    - path: /etc/libvirt/libvirtd.conf
+      regexp: '#auth_unix_rw = "polkit"'
+      replace: 'auth_unix_rw = "none"'
+  notify: reboot required
+
+- name: Set AppArmor security driver in qemu.conf
+  ansible.builtin.replace:
+    path: /etc/libvirt/qemu.conf
+    regexp: '#security_driver = "selinux"'
+    replace: 'security_driver = "apparmor"'
+  notify: reboot required
+
+- name: Set AppArmor profiles to complain mode
+  ansible.builtin.command:
+    cmd: aa-complain {{ item }}
+  loop:
+    - /etc/apparmor.d/usr.sbin.libvirtd
+    - /usr/sbin/libvirtd
+    - /usr/libexec/virt-aa-helper
+  changed_when: false
+  failed_when: false
+
+- name: Create libvirt group if missing
+  ansible.builtin.group:
+    name: libvirt
+    state: present
+    system: true
+
+- name: Add root user to libvirt group
+  ansible.builtin.user:
+    name: root
+    groups: libvirt
+    append: true
+
+- name: Set firewall backend to iptables
+  ansible.builtin.replace:
+    path: /etc/libvirt/network.conf
+    regexp: '#firewall_backend = "nftables"'
+    replace: 'firewall_backend = "{{ libvirt_firewall_backend }}"'
+  when: libvirt_firewall_backend != "nftables"
+
+- name: Enable and start libvirt services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - virtqemud.service
+    - virtnetworkd.service
+    - virtstoraged.service
+    - virtqemud.socket
+    - libvirtd.service
+
+- name: Set LIBVIRT_DEFAULT_URI in profile
+  ansible.builtin.lineinfile:
+    path: /etc/profile.d/libvirt.sh
+    create: true
+    line: 'export LIBVIRT_DEFAULT_URI=qemu:///system'
+    mode: "0644"

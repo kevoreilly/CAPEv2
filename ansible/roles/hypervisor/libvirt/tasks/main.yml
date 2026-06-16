@@ -206,14 +206,18 @@
           Pin-Priority: -1
         mode: "0644"
 
+- name: Download libvirt Python bindings source
+  ansible.builtin.get_url:
+    url: "{{ libvirt_python_url }}"
+    dest: "/tmp/v{{ libvirt_version }}.zip"
+    timeout: 120
+  register: libvirt_python_download
+
 - name: Install libvirt Python bindings
   ansible.builtin.shell:
     cmd: |
       set -e
       cd /tmp
-      if [ ! -f "/tmp/v{{ libvirt_version }}.zip" ]; then
-        wget -q "{{ libvirt_python_url }}" -O "/tmp/v{{ libvirt_version }}.zip"
-      fi
       rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
       unzip -q "/tmp/v{{ libvirt_version }}.zip" -d /tmp
       cd "/tmp/libvirt-python-{{ libvirt_version }}"

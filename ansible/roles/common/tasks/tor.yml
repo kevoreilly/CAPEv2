@@ -26,6 +26,7 @@
     repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }} signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org {{ tor_repo_codename }} main"
     state: present
     update_cache: true
+  when: tor_key_stat.stat.exists
 
 - name: Install Tor
   ansible.builtin.apt:
@@ -34,13 +35,14 @@
       - deb.torproject.org-keyring
       - libzstd1
     state: present
+  when: tor_key_stat.stat.exists
 
 - name: Generate hashed Tor control password
   ansible.builtin.command:
     cmd: tor --hash-password "{{ tor_password }}"
   register: tor_hashed_password
   changed_when: false
-  when: tor_password | length > 0
+  when: tor_password | length > 0 and tor_key_stat.stat.exists
   no_log: true
 
 - name: Write torrc configuration
@@ -67,6 +69,7 @@
     owner: debian-tor
     group: debian-tor
   notify: restart tor
+  when: tor_key_stat.stat.exists
 
 - name: Enable and start Tor service
   ansible.builtin.systemd:
@@ -74,3 +77,4 @@
     enabled: true
     state: started
     daemon_reload: true
+  when: tor_key_stat.stat.exists

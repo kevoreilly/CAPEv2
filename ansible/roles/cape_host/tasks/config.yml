@@ -69,7 +69,7 @@
   ansible.builtin.copy:
     dest: /etc/sudoers.d/ip_netns
     content: |
-      {{ cape_user }} ALL=NOPASSWD: /usr/sbin/ip netns exec * /usr/bin/sudo -u cape *
+      {{ cape_user }} ALL=NOPASSWD: /usr/sbin/ip
     mode: "0440"
     validate: visudo -cf %s
 

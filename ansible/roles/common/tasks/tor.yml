@@ -9,12 +9,13 @@
     url: https://deb.torproject.org/torproject.org/archive-key.gpg
     dest: /usr/share/keyrings/tor-archive-keyring.gpg
     mode: "0644"
-    timeout: 30
-  retries: 3
-  delay: 5
+    timeout: 15
+  retries: 2
+  delay: 3
   until: tor_key_download is success
   register: tor_key_download
   when: not tor_key_stat.stat.exists
+  ignore_errors: true
 
 - name: Determine Tor repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:

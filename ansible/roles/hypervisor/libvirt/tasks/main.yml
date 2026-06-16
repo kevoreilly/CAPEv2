@@ -123,7 +123,7 @@
 
     - name: Configure libvirt build with meson
       ansible.builtin.command:
-        cmd: |
+        cmd: >-
           meson setup build
           -D system=true
           -D driver_remote=enabled

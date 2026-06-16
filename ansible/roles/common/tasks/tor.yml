@@ -1,8 +1,9 @@
 ---
 - name: Add Tor repository GPG key
-  ansible.builtin.apt_key:
+  ansible.builtin.get_url:
     url: https://deb.torproject.org/torproject.org/archive-key.gpg
-    state: present
+    dest: /usr/share/keyrings/tor-archive-keyring.gpg
+    mode: "0644"
 
 - name: Determine Tor repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:
@@ -10,7 +11,7 @@
 
 - name: Add Tor repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}] https://deb.torproject.org/torproject.org {{ tor_repo_codename }} main"
+    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }} signed-by=/usr/share/keyrings/tor-archive-keyring.gpg] https://deb.torproject.org/torproject.org {{ tor_repo_codename }} main"
     state: present
     update_cache: true
 

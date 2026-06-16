@@ -13,9 +13,10 @@
   when: elasticsearch_enable | default(false)
   block:
     - name: Add Elasticsearch APT key
-      ansible.builtin.apt_key:
+      ansible.builtin.get_url:
         url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
-        state: present
+        dest: /etc/apt/keyrings/elasticsearch-keyring.gpg
+        mode: "0644"
 
     - name: Add Elasticsearch APT repository
       ansible.builtin.apt_repository:
@@ -255,9 +256,10 @@
   when: docker_enable | default(false)
   block:
     - name: Add Docker GPG key
-      ansible.builtin.apt_key:
+      ansible.builtin.get_url:
         url: https://download.docker.com/linux/ubuntu/gpg
-        state: present
+        dest: /usr/share/keyrings/docker.gpg
+        mode: "0644"
 
     - name: Determine Docker repo codename (fallback for unsupported releases)
       ansible.builtin.set_fact:
@@ -265,7 +267,7 @@
 
     - name: Add Docker APT repository
       ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ docker_repo_codename }} stable"
+        repo: "deb [arch=amd64 signed-by=/usr/share/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ docker_repo_codename }} stable"
         state: present
         update_cache: true
 

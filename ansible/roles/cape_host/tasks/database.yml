@@ -1,8 +1,9 @@
 ---
 - name: Add PostgreSQL APT repository key
-  ansible.builtin.apt_key:
+  ansible.builtin.get_url:
     url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
-    state: present
+    dest: /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg
+    mode: "0644"
 
 - name: Determine PostgreSQL repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:
@@ -88,9 +89,10 @@
   when: mongo_enable
 
 - name: Add MongoDB APT key
-  ansible.builtin.apt_key:
+  ansible.builtin.get_url:
     url: "https://pgp.mongodb.com/server-{{ mongo_version }}.asc"
-    state: present
+    dest: /etc/apt/keyrings/mongo.gpg
+    mode: "0644"
   when: mongo_enable
 
 - name: Determine MongoDB repo codename (fallback for unsupported releases)

@@ -312,12 +312,6 @@
 # Crowdsec
 # ────────────────────────────────────────────────────────────────────
 
-    - name: Remove crowdsec
-      ansible.builtin.command:
-        cmd: "cscli hub delete"
-      changed_when: false
-      failed_when: false
-
     - name: Remove crowdsec package
       ansible.builtin.command:
         cmd: "dpkg --purge --force-all crowdsec"

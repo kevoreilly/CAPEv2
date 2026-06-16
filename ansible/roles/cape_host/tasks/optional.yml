@@ -217,6 +217,7 @@
     - /var/cache/nginx/scgi_temp
     - /var/cache/nginx/uwsgi_temp
     - /etc/nginx/bots.d
+    - /etc/nginx/cert
     - /etc/nginx/conf.d
     - /etc/nginx/snippets
     - /etc/nginx/sites-available
@@ -686,7 +687,7 @@
   ansible.builtin.git:
     repo: https://github.com/SpiderLabs/ModSecurity
     dest: /tmp/ModSecurity
-    version: v3/master
+    version: v3.0.12
     depth: 500
     force: true
   tags: [optional, modsecurity]
@@ -753,7 +754,7 @@
 
 - name: Download ModSecurity recommended config
   ansible.builtin.get_url:
-    url: https://raw.githubusercontent.com/SpiderLabs/ModSecurity/v3/master/modsecurity.conf-recommended
+    url: https://raw.githubusercontent.com/SpiderLabs/ModSecurity/v3.0.12/modsecurity.conf-recommended
     dest: /etc/nginx/modsec/modsecurity.conf
     timeout: 60
   tags: [optional, modsecurity]
@@ -826,7 +827,7 @@
 
 - name: Install crowdsec
   ansible.builtin.command:
-    cmd: sudo ./wizard.sh -i
+    cmd: sudo ./wizard.sh -i -n
     chdir: "{{ crowdsec_dir.files[0].path }}"
   when: crowdsec_dir.files | length > 0
   tags: [optional, crowdsec]

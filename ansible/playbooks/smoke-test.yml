@@ -1,0 +1,62 @@
+---
+- name: Integration smoke test — submit benign file and verify processing
+  hosts: cape_host
+  gather_facts: true
+  vars:
+    smoke_test_file: /tmp/smoke_test.txt
+    smoke_test_timeout: 300
+    smoke_test_interval: 15
+
+  tasks:
+    - name: Check that CAPE API is reachable
+      ansible.builtin.uri:
+        url: "http://{{ iface_ip }}:8000/"
+        return_content: true
+      register: api_check
+      failed_when: api_check.status not in [200, 302, 401]
+
+    - name: Create a benign test file
+      ansible.builtin.copy:
+        dest: "{{ smoke_test_file }}"
+        content: "CAPEv2 smoke test file — benign content.\n"
+        mode: "0644"
+
+    - name: Submit file via curl
+      ansible.builtin.command:
+        cmd: >
+          curl -s -F "file=@{{ smoke_test_file }}"
+          http://{{ iface_ip }}:8000/apiv2/tasks/create/file/
+      register: submit_result
+      changed_when: false
+
+    - name: Parse submission response
+      ansible.builtin.set_fact:
+        smoke_task_id: "{{ (submit_result.stdout | from_json).task_id }}"
+
+    - name: Print submitted task ID
+      ansible.builtin.debug:
+        msg: "Submitted task {{ smoke_task_id }}. Polling for completion..."
+
+    - name: Poll for task completion
+      ansible.builtin.uri:
+        url: "http://{{ iface_ip }}:8000/apiv2/tasks/view/{{ smoke_task_id }}"
+        return_content: true
+      register: task_status
+      until: task_status.json.task.status == "reported"
+      retries: "{{ (smoke_test_timeout / smoke_test_interval) | int }}"
+      delay: "{{ smoke_test_interval }}"
+      failed_when: task_status.json.task.status == "failed_processing"
+
+    - name: Verify report has expected fields
+      ansible.builtin.assert:
+        that:
+          - task_status.json.task.status == "reported"
+          - task_status.json.task.file_name is defined
+          - task_status.json.task.added is defined
+        fail_msg: "Smoke test report is missing expected fields"
+        success_msg: "✅ Smoke test passed: task {{ smoke_task_id }} completed successfully"
+
+    - name: Clean up test file
+      ansible.builtin.file:
+        path: "{{ smoke_test_file }}"
+        state: absent

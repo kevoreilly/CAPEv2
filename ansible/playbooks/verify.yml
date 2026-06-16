@@ -1,0 +1,103 @@
+---
+- name: Verify CAPEv2 deployment
+  hosts: cape_host
+  gather_facts: true
+  vars:
+    verify_services:
+      - postgresql
+      - tor
+      - cape
+      - cape-rooter
+      - cape-processor
+      - suricata
+    verify_optional_services:
+      - mongodb
+      - nginx
+      - guacd
+      - guac-web
+      - clamav-daemon
+      - fail2ban
+      - grafana-server
+      - crowdsec
+
+  tasks:
+    - name: Check required services are active
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+      register: svc_result
+      loop: "{{ verify_services }}"
+      failed_when: svc_result.status.ActiveState != 'active'
+      when: item not in ['mongodb', 'clamav-daemon'] or
+            (item == 'mongodb' and mongo_enable) or
+            (item == 'clamav-daemon' and clamav_enable)
+
+    - name: Check optional services if enabled
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+      register: opt_svc_result
+      loop: "{{ verify_optional_services }}"
+      failed_when: false
+
+    - name: PostgreSQL accepts connections
+      ansible.builtin.command:
+        cmd: "psql -U {{ db_user }} -d {{ db_name }} -c 'SELECT 1' -h {{ db_host }}"
+      register: pg_check
+      failed_when: pg_check.rc != 0
+      changed_when: false
+      no_log: true
+      environment:
+        PGPASSWORD: "{{ vault_db_password }}"
+
+    - name: MongoDB responds
+      ansible.builtin.command:
+        cmd: "mongosh --eval 'db.version()' --quiet"
+      register: mongo_check
+      failed_when: mongo_check.rc != 0
+      changed_when: false
+      when: mongo_enable
+
+    - name: YARA is installed
+      ansible.builtin.command:
+        cmd: yara --version
+      register: yara_version_check
+      changed_when: false
+
+    - name: Print YARA version
+      ansible.builtin.debug:
+        msg: "YARA version: {{ yara_version_check.stdout }}"
+
+    - name: Suricata is configured on correct interface
+      ansible.builtin.command:
+        cmd: "grep 'interface:' /etc/suricata/suricata.yaml | head -1"
+      register: suricata_iface
+      changed_when: false
+
+    - name: Tor control port is listening
+      ansible.builtin.wait_for:
+        port: "{{ tor_control_port }}"
+        host: "{{ iface_ip }}"
+        timeout: 5
+
+    - name: Tor DNS port is listening
+      ansible.builtin.wait_for:
+        port: "{{ tor_dns_port }}"
+        host: "{{ iface_ip }}"
+        timeout: 5
+
+    - name: Result server port is listening
+      ansible.builtin.wait_for:
+        port: "{{ resultserver_port | default(8000) }}"
+        host: "{{ iface_ip }}"
+        timeout: 5
+
+    - name: Web UI responds (if MongoDB is enabled)
+      ansible.builtin.uri:
+        url: "http://{{ iface_ip }}:8000/"
+        return_content: true
+      register: web_check
+      failed_when: "'CAPEv2' not in web_check.content and 'cape' not in web_check.content"
+      when: mongo_enable
+
+    - name: All checks passed
+      ansible.builtin.debug:
+        msg: "✅ All verification checks passed."

@@ -1,0 +1,416 @@
+---
+- name: Rollback all CAPEv2 changes
+  hosts: all
+  gather_facts: true
+  vars:
+    rollback_confirm: false
+  tasks:
+    - name: Confirm rollback
+      ansible.builtin.pause:
+        prompt: "⚠️  This will remove CAPEv2 from ALL hosts. Type 'yes' to continue."
+      when: not rollback_confirm
+
+    - name: Fail if not confirmed
+      ansible.builtin.fail:
+        msg: "Rollback aborted by user."
+      when: not rollback_confirm and (rollback_confirm is undefined or not rollback_confirm)
+
+# ────────────────────────────────────────────────────────────────────
+# Systemd services
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Stop and disable CAPE systemd services
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - cape
+        - cape-rooter
+        - cape-processor
+        - cape-web
+        - suricata
+        - guacd
+        - guac-web
+        - nginx
+        - mongodb
+      failed_when: false
+
+    - name: Remove systemd unit files
+      ansible.builtin.file:
+        path: "/lib/systemd/system/{{ item }}"
+        state: absent
+      loop:
+        - cape.service
+        - cape-processor.service
+        - cape-web.service
+        - cape-rooter.service
+        - suricata.service
+        - guacd.service
+        - guac-web.service
+        - nginx.service
+        - mongodb.service
+        - enable-transparent-huge-pages.service
+
+# ────────────────────────────────────────────────────────────────────
+# CAPE directory
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove CAPE root directory
+      ansible.builtin.file:
+        path: "{{ cape_root }}"
+        state: absent
+
+    - name: Remove cape user
+      ansible.builtin.user:
+        name: "{{ cape_user }}"
+        state: absent
+        remove: true
+      failed_when: false
+
+    - name: Remove cape home directory
+      ansible.builtin.file:
+        path: "/home/{{ cape_user }}"
+        state: absent
+
+# ────────────────────────────────────────────────────────────────────
+# Databases
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Drop PostgreSQL database
+      become: true
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: "psql -c 'DROP DATABASE IF EXISTS {{ db_name }}'"
+      changed_when: false
+      failed_when: false
+
+    - name: Drop PostgreSQL user
+      become: true
+      become_user: postgres
+      ansible.builtin.command:
+        cmd: "psql -c 'DROP USER IF EXISTS {{ db_user }}'"
+      changed_when: false
+      failed_when: false
+
+    - name: Remove PostgreSQL
+      ansible.builtin.apt:
+        pkg:
+          - postgresql
+          - postgresql-client
+          - libpq-dev
+        state: absent
+        purge: true
+      failed_when: false
+
+    - name: Remove MongoDB data directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /data/db
+        - /data/configdb
+
+    - name: Remove MongoDB
+      ansible.builtin.apt:
+        pkg:
+          - mongodb-org
+        state: absent
+        purge: true
+      failed_when: false
+
+    - name: Remove PostgreSQL APT repo
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ {{ ansible_distribution_release }}-pgdg main"
+        state: absent
+
+    - name: Remove MongoDB APT repo
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/{{ mongo_version }} multiverse"
+        state: absent
+      when: mongo_enable
+
+# ────────────────────────────────────────────────────────────────────
+# Sudoers
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove sudoers entries
+      ansible.builtin.file:
+        path: "/etc/sudoers.d/{{ item }}"
+        state: absent
+      loop:
+        - cape
+        - ip_netns
+        - tcpdump
+
+# ────────────────────────────────────────────────────────────────────
+# System configuration
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove sysctl config
+      ansible.builtin.file:
+        path: /etc/sysctl.d/99-cape.conf
+        state: absent
+
+    - name: Remove limits config
+      ansible.builtin.file:
+        path: /etc/security/limits.d/99-cape.conf
+        state: absent
+
+    - name: Remove modules load config
+      ansible.builtin.file:
+        path: /etc/modules-load.d/cape.conf
+        state: absent
+
+    - name: Remove rt_tables internet entry
+      ansible.builtin.lineinfile:
+        path: /etc/iproute2/rt_tables
+        line: "400 {{ internet_iface }}"
+        state: absent
+      when: internet_iface | length > 0
+
+    - name: Remove tcp_fastopen sysctl
+      ansible.builtin.file:
+        path: /etc/sysctl.d/30-tcp_fastopen.conf
+        state: absent
+
+    - name: Remove Tor config
+      ansible.builtin.file:
+        path: /etc/tor/torrc
+        state: absent
+
+    - name: Remove Tor
+      ansible.builtin.apt:
+        pkg:
+          - tor
+          - deb.torproject.org-keyring
+        state: absent
+        purge: true
+      failed_when: false
+
+    - name: Remove de4dot directory
+      ansible.builtin.file:
+        path: /opt/de4dot
+        state: absent
+
+# ────────────────────────────────────────────────────────────────────
+# Hypervisor
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove virbr1 network
+      ansible.builtin.command:
+        cmd: "virsh net-destroy virbr1"
+      changed_when: false
+      failed_when: false
+
+    - name: Undefine virbr1 network
+      ansible.builtin.command:
+        cmd: "virsh net-undefine virbr1"
+      changed_when: false
+      failed_when: false
+
+    - name: Stop and disable libvirtd
+      ansible.builtin.systemd:
+        name: "{{ item }}"
+        state: stopped
+        enabled: false
+      loop:
+        - libvirtd
+        - virtqemud
+      failed_when: false
+
+    - name: Remove libvirt
+      ansible.builtin.command:
+        cmd: "dpkg --purge --force-all libvirt"
+      changed_when: false
+      failed_when: false
+
+    - name: Remove QEMU
+      ansible.builtin.command:
+        cmd: "dpkg --purge --force-all qemu"
+      changed_when: false
+      failed_when: false
+
+    - name: Remove QEMU systemd units
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/systemd/system/qemu*
+        - /lib/systemd/system/qemu*
+
+    - name: Remove SeaBIOS custom build
+      ansible.builtin.file:
+        path: /usr/share/qemu/seabios-custom.bin
+        state: absent
+
+# ────────────────────────────────────────────────────────────────────
+# Nginx
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove nginx
+      ansible.builtin.command:
+        cmd: "dpkg --purge --force-all nginx"
+      changed_when: false
+      failed_when: false
+
+    - name: Remove nginx directories
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/nginx
+        - /var/lib/nginx
+        - /var/cache/nginx
+        - /usr/share/nginx
+        - /usr/lib/nginx
+
+# ────────────────────────────────────────────────────────────────────
+# Guacamole
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove guacamole
+      ansible.builtin.command:
+        cmd: "dpkg --purge --force-all guacamole"
+      changed_when: false
+      failed_when: false
+
+    - name: Remove guacamole systemd units
+      ansible.builtin.file:
+        path: "/lib/systemd/system/{{ item }}"
+        state: absent
+      loop:
+        - guacd.service
+        - guac-web.service
+
+    - name: Remove guacamole recordings
+      ansible.builtin.file:
+        path: "{{ cape_root }}/storage/guacrecordings"
+        state: absent
+
+# ────────────────────────────────────────────────────────────────────
+# fail2ban + ClamAV
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove fail2ban
+      ansible.builtin.apt:
+        pkg: fail2ban
+        state: absent
+        purge: true
+      failed_when: false
+
+    - name: Remove ClamAV
+      ansible.builtin.apt:
+        pkg:
+          - clamav
+          - clamav-daemon
+          - clamav-freshclam
+          - clamav-unofficial-sigs
+        state: absent
+        purge: true
+      failed_when: false
+
+# ────────────────────────────────────────────────────────────────────
+# Crowdsec
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove crowdsec
+      ansible.builtin.command:
+        cmd: "cscli hub delete"
+      changed_when: false
+      failed_when: false
+
+    - name: Remove crowdsec package
+      ansible.builtin.command:
+        cmd: "dpkg --purge --force-all crowdsec"
+      changed_when: false
+      failed_when: false
+
+# ────────────────────────────────────────────────────────────────────
+# Prometheus + Grafana
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove Grafana
+      ansible.builtin.command:
+        cmd: "dpkg --purge --force-all grafana"
+      changed_when: false
+      failed_when: false
+
+    - name: Remove prometheus binary
+      ansible.builtin.file:
+        path: "/opt/prometheus-{{ prometheus_version }}.linux-amd64"
+        state: absent
+
+# ────────────────────────────────────────────────────────────────────
+# Logrotate
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove logrotate configs
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /etc/logrotate.d/cape.conf
+        - /etc/logrotate.d/nginx
+
+# ────────────────────────────────────────────────────────────────────
+# Crontabs
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove CAPE crontabs
+      ansible.builtin.cron:
+        name: "{{ item }}"
+        state: absent
+      loop:
+        - update community signatures and CAPA
+        - Tor newnym rotation
+        - suricata-update
+        - SMTP sinkhole on reboot
+
+# ────────────────────────────────────────────────────────────────────
+# GRUB IOMMU revert
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove intel_iommu from GRUB
+      ansible.builtin.replace:
+        path: /etc/default/grub
+        regexp: 'intel_iommu=on'
+        replacement: ''
+
+    - name: Update GRUB
+      ansible.builtin.command:
+        cmd: update-grub
+      changed_when: false
+
+# ────────────────────────────────────────────────────────────────────
+# APT clean
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Remove CAPE APT packages
+      ansible.builtin.apt:
+        pkg:
+          - libjemalloc-dev
+          - suricata
+          - privoxy
+        state: absent
+        purge: true
+      failed_when: false
+
+    - name: Autoremove orphaned packages
+      ansible.builtin.apt:
+        autoremove: true
+        purge: true
+
+    - name: Clean APT cache
+      ansible.builtin.apt:
+        autoclean: true
+
+# ────────────────────────────────────────────────────────────────────
+# Summary
+# ────────────────────────────────────────────────────────────────────
+
+    - name: Rollback complete
+      ansible.builtin.debug:
+        msg: |
+          ⚠️  Rollback complete. The system has been returned to a pre-CAPEv2 state.
+          A reboot is recommended to ensure all changes take effect.

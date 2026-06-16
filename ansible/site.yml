@@ -11,6 +11,17 @@
 #   ansible-playbook site.yml --skip-tags optional
 # ════════════════════════════════════════════════════════════════════
 
+- name: Validate deployment_mode
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Assert deployment_mode is valid
+      ansible.builtin.assert:
+        that:
+          - deployment_mode in ['single', 'multi']
+        fail_msg: "deployment_mode must be 'single' or 'multi' (got: '{{ deployment_mode }}')"
+        success_msg: "deployment_mode = {{ deployment_mode }} — OK"
+
 - name: Include single-node playbook
   ansible.builtin.import_playbook: playbooks/single-node.yml
   when: deployment_mode == "single"

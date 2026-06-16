@@ -67,7 +67,7 @@ die_version: "3.10"
 # Tor
 # ────────────────────────────────────────────────────────────────────
 
-tor_socket_timeout: "60"
+tor_socket_timeout: 60
 
 # ────────────────────────────────────────────────────────────────────
 # Monitoring / LibreNMS (disabled by default)

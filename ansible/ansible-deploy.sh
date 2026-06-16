@@ -27,6 +27,7 @@ Options:
       --skip-tags TAGS    Skip tasks with these tags (comma-separated)
       --check             Only run syntax + dry-run, do NOT execute
       --diff             Show diff output
+      --list-tags        List available tags and exit
   -e, --extra-var K=V     Set extra Ansible variable (can be repeated)
   -h, --help              Show this help
 
@@ -47,12 +48,14 @@ EOF
 # ── Argument parsing ────────────────────────────────────────────────
 CHECK_ONLY=false
 DIFF=""
+LIST_TAGS=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -h|--help) usage ;;
         --check) CHECK_ONLY=true ;;
         --diff) DIFF="--diff" ;;
+        --list-tags) LIST_TAGS=true ;;
         -p|--playbook) shift; PLAYBOOK="$1" ;;
         -i|--inventory) shift; INVENTORY="$1" ;;
         -v|--vault-pass) shift; VAULT_PASS="$1" ;;
@@ -119,6 +122,17 @@ run_ansible() {
         --vault-password-file "$VAULT_PASS_PATH" $extra_opts \
         "${ANSIBLE_OPTS[@]}"
 }
+
+# ── List tags and exit ────────────────────────────────────────────
+if [[ "$LIST_TAGS" == "true" ]]; then
+    echo ""
+    echo "Available tags:"
+    echo ""
+    ansible-playbook "$PLAYBOOK_PATH" -i "$INVENTORY_PATH" \
+        --vault-password-file "$VAULT_PASS_PATH" --list-tags 2>&1 | \
+        grep -oP 'TAGS: \K.*' | tr ',' '\n' | sed 's/^ *//' | sort -u || true
+    exit 0
+fi
 
 # ── Step 1: Syntax check ───────────────────────────────────────────
 echo ""

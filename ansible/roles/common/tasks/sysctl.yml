@@ -18,11 +18,31 @@
       net.core.netdev_max_backlog = 2500
       vm.swappiness = 1
       vm.dirty_ratio = 15
-      net.core.default_qdisc = fq
-      net.ipv4.tcp_congestion_control = bbr
       net.ipv6.conf.all.disable_ipv6 = 1
       net.ipv6.conf.default.disable_ipv6 = 1
     mode: "0644"
+
+- name: Load tcp_bbr module
+  ansible.builtin.command:
+    cmd: modprobe tcp_bbr
+  changed_when: false
+  failed_when: false
+  register: bbr_module
+
+- name: Enable BBR congestion control
+  ansible.builtin.sysctl:
+    name: net.ipv4.tcp_congestion_control
+    value: bbr
+    state: present
+    reload: true
+  when: bbr_module.rc == 0
+
+- name: Keep IPv6 on loopback
+  ansible.builtin.sysctl:
+    name: net.ipv6.conf.lo.disable_ipv6
+    value: "0"
+    state: present
+    reload: true
 
 - name: Apply sysctl settings
   ansible.builtin.command:

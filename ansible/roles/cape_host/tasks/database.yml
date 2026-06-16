@@ -78,15 +78,9 @@
 # MongoDB (optional — gated by mongo_enable)
 # ────────────────────────────────────────────────────────────────────
 
-- name: Check for AVX CPU support
-  ansible.builtin.slurp:
-    src: /proc/cpuinfo
-  register: cpuinfo
-  when: mongo_enable
-
-- name: Set MongoDB version based on AVX support
+- name: Set MongoDB version based on AVX CPU support
   ansible.builtin.set_fact:
-    mongo_version: "{% if 'avx' in cpuinfo.content | b64decode %}8.0{% else %}4.4{% endif %}"
+    mongo_version: "{{ '8.0' if 'avx' in ansible_processor_flags else '4.4' }}"
   when: mongo_enable
 
 - name: Add MongoDB APT key

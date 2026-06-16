@@ -1,0 +1,56 @@
+---
+- name: Verify Ansible scaffolding
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    base_dir: "{{ playbook_dir | dirname }}"
+  tasks:
+    - name: Collect stat of all expected paths
+      ansible.builtin.stat:
+        path: "{{ base_dir }}/{{ item }}"
+      loop:
+        - inventory
+        - inventory/group_vars
+        - inventory/host_vars
+        - playbooks
+        - roles
+        - generated_guest_scripts
+        - tests
+        - ansible.cfg
+      register: stats
+
+    - name: Fail if any path is missing
+      ansible.builtin.assert:
+        that:
+          - item.stat.exists
+        fail_msg: "Path does not exist: {{ base_dir }}/{{ item.item }}"
+        success_msg: "Found: {{ base_dir }}/{{ item.item }}"
+      loop: "{{ stats.results }}"
+
+    - name: Verify ansible.cfg is valid INI
+      ansible.builtin.command:
+        cmd: python3 -c "import configparser; c=configparser.ConfigParser(); c.read('{{ base_dir }}/ansible.cfg'); assert 'defaults' in c.sections(); assert 'ssh_connection' in c.sections(); print('OK')"
+      changed_when: false
+      register: ini_check
+      failed_when: ini_check.stdout != 'OK'
+
+    - name: Find top-level roles
+      ansible.builtin.find:
+        paths: "{{ base_dir }}/roles"
+        file_type: directory
+        depth: 1
+      register: role_dirs
+
+    - name: Assert at least one role exists
+      ansible.builtin.assert:
+        that:
+          - role_dirs.files | length > 0
+        fail_msg: "No top-level role directories found in {{ base_dir }}/roles"
+        success_msg: "Found {{ role_dirs.files | length }} top-level roles"
+
+    - name: Print success summary
+      ansible.builtin.debug:
+        msg:
+          - "All {{ stats.results | length }} scaffolding checks passed"
+          - "Top-level roles: {{ role_dirs.files | map(attribute='path') | list }}"

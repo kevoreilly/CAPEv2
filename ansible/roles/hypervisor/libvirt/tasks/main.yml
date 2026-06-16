@@ -61,7 +61,6 @@
       - libapparmor1
       - python3-apparmor
       - python3-libapparmor
-      - libapparmor-perl
       - linux-generic
     state: present
     update_cache: true

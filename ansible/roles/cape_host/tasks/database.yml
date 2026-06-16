@@ -87,29 +87,31 @@
 
 - name: Set MongoDB version based on AVX CPU support
   ansible.builtin.set_fact:
-    mongo_version: "{{ '8.0' if 'avx' in ansible_processor_flags else '4.4' }}"
+    mongo_version: "{{ '8.0' if 'avx' in (ansible_processor_flags | default('')) else '4.4' }}"
   when: mongo_enable
 
-- name: Add MongoDB APT key
+- name: Add MongoDB APT key (best-effort on restricted networks)
   ansible.builtin.get_url:
     url: "https://pgp.mongodb.com/server-{{ mongo_version }}.asc"
     dest: /etc/apt/keyrings/mongo.gpg
     mode: "0644"
   when: mongo_enable
+  ignore_errors: true
 
 - name: Determine MongoDB repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:
     mongo_repo_codename: "{{ 'noble' if ansible_distribution_release == 'resolute' else ansible_distribution_release }}"
   when: mongo_enable
 
-- name: Add MongoDB APT repository
+- name: Add MongoDB APT repository (best-effort on restricted networks)
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu {{ mongo_repo_codename }}/mongodb-org/{{ mongo_version }} multiverse"
     state: present
     update_cache: true
   when: mongo_enable
+  ignore_errors: true
 
-- name: Install MongoDB
+- name: Install MongoDB (best-effort; may fail if repo unavailable)
   ansible.builtin.apt:
     pkg:
       - libpcre3-dev
@@ -117,6 +119,7 @@
       - mongodb-org
     state: present
   when: mongo_enable
+  ignore_errors: true
 
 - name: Install pymongo
   ansible.builtin.pip:

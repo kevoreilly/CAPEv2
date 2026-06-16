@@ -10,13 +10,13 @@
     - name: Extract CAPEv2 tarball
       ansible.builtin.unarchive:
         src: "/tmp/CAPEv2-master.tar.gz"
-        dest: "/home"
+        dest: "{{ cape_root | dirname }}"
         remote_src: true
         creates: "{{ cape_root }}"
 
     - name: Rename extracted directory to cape_root
       ansible.builtin.command:
-        cmd: mv "/home/CAPEv2-master" "{{ cape_root }}"
+        cmd: mv "{{ cape_root | dirname }}/CAPEv2-master" "{{ cape_root }}"
         creates: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"

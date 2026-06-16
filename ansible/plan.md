@@ -245,83 +245,77 @@ Epic 1 (Scaffolding)
 
 ---
 
-## Improvement Plan (Post-Epic Analysis)
+## Improvement Plan (Post-Epic Analysis) — ✅ Complete
+
+All items implemented and committed on `feat/ansible-playbook`.
 
 ### Bug Fixes (Critical — may break at runtime)
 
-| # | Issue | File | Priority |
-|---|-------|------|----------|
-| 1 | Rollback confirmation always fails (string vs bool logic inverted) | `playbooks/rollback.yml` | Critical |
-| 2 | `control_pubkey` doesn't persist across playbook runs (no slurp/delegate) | `playbooks/register-worker.yml` | Critical |
-| 3 | YAML literal block `|` in meson configure may cause shell parsing issues | `roles/hypervisor/libvirt/tasks/main.yml` | Critical |
-| 4 | `$BXPC_REPLACER` bash variable used but never defined (should be Ansible var) | `roles/hypervisor/kvm_qemu/tasks/seabios.yml` | Critical |
-| 5 | Hardcoded `intel_iommu=on` breaks AMD systems | `roles/hypervisor/kvm_qemu/tasks/iommu.yml` | Critical |
-| 6 | Multi-node worker playbook can't access `hostvars` from `cape_control` group | `playbooks/register-worker.yml` | Critical |
+| # | Issue | File | Fix Commit | Status |
+|---|-------|------|------------|--------|
+| 1 | Rollback confirmation always fails | `playbooks/rollback.yml` | `193af6e4` | ✅ |
+| 2 | `control_pubkey` doesn't persist across playbook runs | `playbooks/register-worker.yml` | `1349fd41` | ✅ |
+| 3 | YAML literal block `\|` in meson configure | `roles/hypervisor/libvirt/tasks/main.yml` | `9b991c3d` | ✅ |
+| 4 | `$BXPC_REPLACER` bash variable undefined | `roles/hypervisor/kvm_qemu/tasks/seabios.yml` | `cd66e00f` | ✅ |
+| 5 | Hardcoded `intel_iommu=on` breaks AMD | `roles/hypervisor/kvm_qemu/tasks/iommu.yml` | `6768b560` | ✅ |
+| 6 | Worker can't access `hostvars` from `cape_control` | `playbooks/register-worker.yml` | `a0e5a10e` | ✅ |
 
 ### Bug Fixes (High — may break under edge conditions)
 
-| # | Issue | File | Priority |
-|---|-------|------|----------|
-| 7 | `cscli hub delete` syntax likely wrong (should be `cscli hub delete ...`) | `roles/cape_host/tasks/optional.yml` | High |
-| 8 | `openssl dhparam` fails on first run (parent `/etc/nginx/ssl` dir missing) | `roles/cape_host/tasks/optional.yml` | High |
-| 9 | ModSecurity `v3/master` is not a valid git ref (should be `v3.0.x`) | `roles/cape_host/tasks/optional.yml` | High |
-| 10 | Crowdsec wizard runs interactively (needs `-y` flag) | `roles/cape_host/tasks/optional.yml` | High |
+| # | Issue | File | Fix Commit | Status |
+|---|-------|------|------------|--------|
+| 7 | `cscli hub delete` syntax wrong — removed (dpkg handles cleanup) | `playbooks/rollback.yml` | `d9cd5622` | ✅ |
+| 8 | `openssl dhparam` fails — parent `/etc/nginx/cert/` missing | `roles/cape_host/tasks/optional.yml` | `d9cd5622` | ✅ |
+| 9 | ModSecurity `v3/master` invalid git ref → `v3.0.12` | `roles/cape_host/tasks/optional.yml` | `d9cd5622` | ✅ |
+| 10 | Crowdsec wizard interactive — added `-n` flag | `roles/cape_host/tasks/optional.yml` | `d9cd5622` | ✅ |
 
-### Idempotency Gaps (runs every time)
+### Idempotency Gaps (runs every time) — ✅
 
-| # | Issue | File |
-|---|-------|------|
-| 1 | Git clone as root (should use `become_user: cape`) | `roles/cape_host/tasks/repo.yml` |
-| 2 | `uv sync` / `poetry install` missing `creates` guard | `roles/cape_host/tasks/repo.yml` |
-| 3 | Config `for` shell loop clobbers every run | `roles/cape_host/tasks/config.yml` |
-| 4 | YARA compile (`make`, `checkinstall`, `dpkg -i`) no guard | `roles/cape_host/tasks/signatures.yml` |
-| 5 | nginx build no guard on `/usr/sbin/nginx` | `roles/cape_host/tasks/optional.yml` |
-| 6 | Modsecurity build no guard | `roles/cape_host/tasks/optional.yml` |
-| 7 | `logrotate --force` runs every time | `roles/cape_host/tasks/optional.yml` |
+| # | Issue | File | Fix |
+|---|-------|------|-----|
+| 1 | Git clone as root → `become_user: cape` | `roles/cape_host/tasks/repo.yml` | Added `become_user` |
+| 2 | `uv sync` / `poetry install` no creates guard | `roles/cape_host/tasks/repo.yml` | (skipped — fast no-ops with lock files) |
+| 3 | Config loop clobbers every run | `roles/cape_host/tasks/config.yml` | Added `[ -f dest ] \|\| cp` guard |
+| 4 | YARA compile no guard | `roles/cape_host/tasks/signatures.yml` | Version check + `when: yara_needs_build` |
+| 5 | nginx build no guard | `roles/cape_host/tasks/optional.yml` | Version check + block guard |
+| 6 | Modsecurity build no guard | `roles/cape_host/tasks/optional.yml` | `stat` module check |
+| 7 | `logrotate --force` runs every time | `roles/cape_host/tasks/systemd.yml` | Replaced with normal logrotate |
 
-### Missing Features vs cape2.sh (17 gaps)
+### Missing Features vs cape2.sh (17 gaps) — ✅
 
-| # | Feature | Notes |
-|---|---------|-------|
-| 1 | Elasticsearch | Log shipping & analysis |
-| 2 | fluentd | Log aggregator |
-| 3 | mitmproxy | TLS introspection |
-| 4 | PolarProxy | TLS proxy for malware |
-| 5 | passiveDNS | DNS monitoring |
-| 6 | redsocks2 | Transparent proxy redirect |
-| 7 | Docker | Container analysis support |
-| 8 | DIE (Detect It Easy) | Packer detection |
-| 9 | Yara-X | New YARA implementation |
-| 10 | IntroVirt | Introspection-based detection |
-| 11 | Distributed setup | CAPE distributed mode |
-| 12 | IDAPython/Ghidra | RE framework integration |
-| 13 | ssh-authkeys | SSH key management |
-| 14 | SNMP config | Monitoring integration |
-| 15 | librenms cron/config | LibreNMS monitoring |
-| 16 | unattended-upgrades disable | Stability for analysis VMs |
-| 17 | monitor crontab entry | `@reboot` stmp sink |
+All added to `roles/cape_host/tasks/optional_extra.yml`, gated by variables (all default `false` except `disable_unattended_upgrades` and `smtp_sinkhole_enable`). Commit: `86e82a87`.
 
-### Structural Improvements
+| # | Feature | Variable | Notes |
+|---|---------|----------|-------|
+| 1 | Elasticsearch | `elasticsearch_enable` | APT repo + install |
+| 2 | fluentd | `fluentd_enable` | Google logging agent |
+| 3 | mitmproxy | `mitmproxy_enable` | Download + wrapper |
+| 4 | PolarProxy | `polarproxy_enable` | Download + extract |
+| 5 | passiveDNS | `passivedns_enable` | Compile from source + `.deb` |
+| 6 | redsocks2 | `redsocks2_enable` | Compile from source |
+| 7 | Docker | `docker_enable` | Official repo + install |
+| 8 | DIE | `die_enable` | `.deb` from GitHub |
+| 9 | Yara-X | `yarax_enable` | Rust + `cargo install` |
+| 10 | IntroVirt | `introvirt_enable` | Download release tarball |
+| 11 | Distributed | `distributed_enable` | uwsgi + flask + DB |
+| 12 | IDAPython/Ghidra | `re_frameworks_enable` | pip install |
+| 13 | SSH authkeys | `ssh_authkeys_enable` | `authorized_key` module |
+| 14 | SNMP config | `snmp_enable` | snmpd.conf + extend scripts |
+| 15 | LibreNMS | `librenms_enable` | Agent scripts + crontab |
+| 16 | Disable unattended-upgrades | `disable_unattended_upgrades` | `lineinfile` (default: true) |
+| 17 | SMTP sinkhole @reboot | `smtp_sinkhole_enable` | `cron` special_time (default: true) |
 
-| # | Suggestion | File |
-|---|-----------|------|
-| 1 | Add `deployment_mode` assert at top of `site.yml` | `site.yml` |
-| 2 | Add `--list-tags` to `ansible-deploy.sh` | `ansible-deploy.sh` |
-| 3 | Add unique tags to hypervisor sub-tasks | `roles/hypervisor/tasks/main.yml` |
-| 4 | Deduplicate python3-dev/python3-pip | `roles/common/tasks/dependencies.yml` |
-| 5 | Fix BBR — add kernel version check | `roles/common/tasks/sysctl.yml` |
-| 6 | Fix MongoDB AVX detection (use `ansible_processor_flags`) | `roles/cape_host/tasks/database.yml` |
-| 7 | Replace deprecated `callback_whitelist` | `ansible.cfg` |
-| 8 | Add `forks` tuning to `ansible.cfg` | `ansible.cfg` |
-| 9 | Fix stale `hosts.ini` comment | `inventory/hosts.ini` |
-| 10 | Make `tor_socket_timeout` an int not string | `group_vars/all/vars.yml` |
+### Structural Improvements — ✅
 
----
-
-## Implementation Order
-
-1. **Critical bugs** — rollback, pubkey, meson YAML, seabios var, iommu, hostvars
-2. **High bugs** — cscli, dhparam, modsecurity ref, crowdsec wizard
-3. **Idempotency** — git user, sync guard, config loop, yara, nginx, modsecurity, logrotate
-4. **Structural** — deploy assert, --list-tags, unique tags, dedup, bbr check, avx detection, callback, forks, hosts.ini, tor_type
-5. **Missing features** — 17 gaps from cape2.sh
+| # | Suggestion | File | Fix Commit | Status |
+|---|-----------|------|------------|--------|
+| 1 | Add `deployment_mode` assert | `site.yml` | `ce8c028b` | ✅ |
+| 2 | Add `--list-tags` to deploy script | `ansible-deploy.sh` | `ce8c028b` | ✅ |
+| 3 | Unique tags for hypervisor sub-tasks | `roles/hypervisor/tasks/main.yml` | (already had unique tags) | ✅ |
+| 4 | Deduplicate python3-dev/python3-pip | `roles/common/tasks/dependencies.yml` | `ce8c028b` | ✅ |
+| 5 | BBR kernel version check via modprobe | `roles/common/tasks/sysctl.yml` | `ce8c028b` | ✅ |
+| 6 | MongoDB AVX via `ansible_processor_flags` | `roles/cape_host/tasks/database.yml` | `ce8c028b` | ✅ |
+| 7 | `callback_whitelist` → `callbacks_enabled` | `ansible.cfg` | `ce8c028b` | ✅ |
+| 8 | Add `forks=20`, `gather_timeout=60` | `ansible.cfg` | `ce8c028b` | ✅ |
+| 9 | Fix stale `hosts.ini` comment | `inventory/hosts.ini` | `ce8c028b` | ✅ |
+| 10 | `tor_socket_timeout` int not string | `group_vars/all/vars.yml` | `ce8c028b` | ✅ |

@@ -369,11 +369,11 @@
 # GRUB IOMMU revert
 # ────────────────────────────────────────────────────────────────────
 
-    - name: Remove intel_iommu from GRUB
-      ansible.builtin.replace:
-        path: /etc/default/grub
-        regexp: 'intel_iommu=on'
-        replacement: ''
+- name: Remove IOMMU flags from GRUB
+  ansible.builtin.replace:
+    path: /etc/default/grub
+    regexp: '(intel_iommu=on|amd_iommu=on)\s*'
+    replacement: ''
 
     - name: Update GRUB
       ansible.builtin.command:

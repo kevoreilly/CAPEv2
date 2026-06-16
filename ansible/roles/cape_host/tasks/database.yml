@@ -1,21 +1,23 @@
 ---
-- name: Add PostgreSQL APT repository key
+- name: Add PostgreSQL APT repository key (best-effort; may fail on restricted networks)
   ansible.builtin.get_url:
     url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
     dest: /etc/apt/trusted.gpg.d/apt.postgresql.org.gpg
     mode: "0644"
+  ignore_errors: true
 
 - name: Determine PostgreSQL repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:
     pg_repo_codename: "{{ 'noble' if ansible_distribution_release == 'resolute' else ansible_distribution_release }}"
 
-- name: Add PostgreSQL APT repository
+- name: Add PostgreSQL APT repository (best-effort; Ubuntu repos used as fallback)
   ansible.builtin.apt_repository:
     repo: "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ {{ pg_repo_codename }}-pgdg main"
     state: present
     update_cache: true
+  ignore_errors: true
 
-- name: Install PostgreSQL
+- name: Install PostgreSQL (from Ubuntu repo if official repo unavailable)
   ansible.builtin.apt:
     pkg:
       - libpq-dev

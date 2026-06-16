@@ -25,7 +25,6 @@
       - libsnappy-dev
       - libbz2-dev
       - libxml2-dev
-      - google-perftools
       - libgoogle-perftools-dev
       - libvde-dev
       - python3-sphinx-rtd-theme

@@ -4,9 +4,13 @@
     url: https://deb.torproject.org/torproject.org/archive-key.gpg
     state: present
 
+- name: Determine Tor repo codename (fallback for unsupported releases)
+  ansible.builtin.set_fact:
+    tor_repo_codename: "{{ 'jammy' if ansible_distribution_release in ['noble', 'plucky'] else ansible_distribution_release }}"
+
 - name: Add Tor repository
   ansible.builtin.apt_repository:
-    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}] https://deb.torproject.org/torproject.org {{ ansible_distribution_release }} main"
+    repo: "deb [arch={{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}] https://deb.torproject.org/torproject.org {{ tor_repo_codename }} main"
     state: present
     update_cache: true
 

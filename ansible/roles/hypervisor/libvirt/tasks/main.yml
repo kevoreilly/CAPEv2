@@ -62,7 +62,7 @@
       - python3-apparmor
       - python3-libapparmor
       - libapparmor-perl
-      - linux-generic-hwe-24.04
+      - "linux-generic-hwe-{{ ansible_distribution_release }}"
     state: present
     update_cache: true
     cache_valid_time: 3600

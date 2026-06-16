@@ -4,9 +4,13 @@
     url: https://www.postgresql.org/media/keys/ACCC4CF8.asc
     state: present
 
+- name: Determine PostgreSQL repo codename (fallback for unsupported releases)
+  ansible.builtin.set_fact:
+    pg_repo_codename: "{{ 'noble' if ansible_distribution_release == 'plucky' else ansible_distribution_release }}"
+
 - name: Add PostgreSQL APT repository
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ {{ ansible_distribution_release }}-pgdg main"
+    repo: "deb [signed-by=/etc/apt/trusted.gpg.d/apt.postgresql.org.gpg arch=amd64] http://apt.postgresql.org/pub/repos/apt/ {{ pg_repo_codename }}-pgdg main"
     state: present
     update_cache: true
 
@@ -89,9 +93,14 @@
     state: present
   when: mongo_enable
 
+- name: Determine MongoDB repo codename (fallback for unsupported releases)
+  ansible.builtin.set_fact:
+    mongo_repo_codename: "{{ 'noble' if ansible_distribution_release == 'plucky' else ansible_distribution_release }}"
+  when: mongo_enable
+
 - name: Add MongoDB APT repository
   ansible.builtin.apt_repository:
-    repo: "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu {{ ansible_distribution_release }}/mongodb-org/{{ mongo_version }} multiverse"
+    repo: "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu {{ mongo_repo_codename }}/mongodb-org/{{ mongo_version }} multiverse"
     state: present
     update_cache: true
   when: mongo_enable

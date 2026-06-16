@@ -259,9 +259,13 @@
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
+    - name: Determine Docker repo codename (fallback for unsupported releases)
+      ansible.builtin.set_fact:
+        docker_repo_codename: "{{ 'noble' if ansible_distribution_release == 'plucky' else ansible_distribution_release }}"
+
     - name: Add Docker APT repository
       ansible.builtin.apt_repository:
-        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ ansible_distribution_release }} stable"
+        repo: "deb [arch=amd64] https://download.docker.com/linux/ubuntu {{ docker_repo_codename }} stable"
         state: present
         update_cache: true
 

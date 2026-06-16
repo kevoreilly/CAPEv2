@@ -1,0 +1,10 @@
+---
+- name: Test cape_host role syntax
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  vars:
+    vault_db_password: testpass
+    internet_iface: eth0
+  roles:
+    - role: cape_host

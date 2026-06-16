@@ -1,0 +1,88 @@
+---
+- name: Copy .conf.default and .env files to .conf and .env
+  ansible.builtin.shell:
+    cmd: >
+      for f in conf/default/*.conf.default conf/default/*.env; do
+        dest="conf/$(basename "${f%.default}")";
+        cp -v "./$f" "./${dest%.default}";
+      done
+    chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+
+- name: Set PostgreSQL connection string in cuckoo.conf
+  ansible.builtin.lineinfile:
+    path: "{{ cape_root }}/conf/cuckoo.conf"
+    regexp: "^connection ="
+    line: "connection = postgresql://{{ db_user }}:{{ vault_db_password }}@{{ db_host }}:{{ db_port }}/{{ db_name }}"
+    backrefs: true
+  no_log: true
+
+- name: Set network interface in auxiliary.conf
+  ansible.builtin.lineinfile:
+    path: "{{ cape_root }}/conf/auxiliary.conf"
+    regexp: "^interface ="
+    line: "interface = {{ network_iface }}"
+    backrefs: true
+
+- name: Enable MongoDB in reporting.conf
+  community.general.crudini:
+    path: "{{ cape_root }}/conf/reporting.conf"
+    section: mongodb
+    option: enabled
+    value: "yes"
+  when: mongo_enable
+
+- name: Ensure CAPE root ownership after config copy
+  ansible.builtin.file:
+    path: "{{ cape_root }}"
+    state: directory
+    owner: "{{ cape_user }}"
+    group: "{{ cape_user }}"
+    recurse: true
+
+- name: Download community signatures
+  ansible.builtin.command:
+    cmd: >
+      python3 utils/community.py -waf -cr
+    chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+
+- name: Create /etc/sudoers.d/cape
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/cape
+    content: |
+      Cmnd_Alias CAPE_SERVICES = /usr/bin/systemctl restart cape-rooter, /usr/bin/systemctl restart cape-processor, /usr/bin/systemctl restart cape, /usr/bin/systemctl restart cape-web, /usr/bin/systemctl restart cape-dist, /usr/bin/systemctl restart cape-fstab, /usr/bin/systemctl restart suricata, /usr/bin/systemctl restart guac-web, /usr/bin/systemctl restart guacd
+      Cmnd_Alias UFW_STATUS = /usr/sbin/ufw status
+      {{ cape_user }} ALL=(ALL) NOPASSWD:CAPE_SERVICES, UFW_STATUS
+      {{ cape_user }} ALL=(ALL) NOPASSWD: /usr/bin/chmod o+x {{ cape_root }}
+      {{ cape_user }} ALL=(ALL) NOPASSWD: /usr/bin/chmod o+x {{ cape_root }}/web
+      {{ cape_user }} ALL=(ALL) NOPASSWD: /usr/bin/chmod -R o+rX {{ cape_root }}/web/static_collected/
+    mode: "0440"
+    validate: visudo -cf %s
+
+- name: Create /etc/sudoers.d/ip_netns
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/ip_netns
+    content: |
+      {{ cape_user }} ALL=NOPASSWD: /usr/sbin/ip netns exec * /usr/bin/sudo -u cape *
+    mode: "0440"
+    validate: visudo -cf %s
+
+- name: Create /etc/sudoers.d/tcpdump
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/tcpdump
+    content: |
+      {{ cape_user }} ALL=NOPASSWD: {{ tcpdump_path }}
+    mode: "0440"
+    validate: visudo -cf %s
+
+- name: Configure rt_tables for internet interface
+  ansible.builtin.lineinfile:
+    path: /etc/iproute2/rt_tables
+    line: "400 {{ internet_iface }}"
+    insertafter: EOF
+  when: internet_iface | length > 0

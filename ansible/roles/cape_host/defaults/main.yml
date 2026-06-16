@@ -1,0 +1,6 @@
+---
+# CAPE repo
+cape_repo_url: https://github.com/kevoreilly/CAPEv2/
+
+# tcpdump path
+tcpdump_path: /usr/bin/tcpdump

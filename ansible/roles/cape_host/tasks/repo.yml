@@ -1,0 +1,93 @@
+---
+- name: Clone CAPEv2 repository
+  ansible.builtin.git:
+    repo: "{{ cape_repo_url }}"
+    dest: "{{ cape_root }}"
+    version: master
+    force: true
+
+- name: Ensure CAPE root ownership
+  ansible.builtin.file:
+    path: "{{ cape_root }}"
+    state: directory
+    owner: "{{ cape_user }}"
+    group: "{{ cape_user }}"
+    recurse: true
+
+- name: Create Python virtual environment with uv
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/uv venv "{{ cape_root }}/.venv"
+    creates: "{{ cape_root }}/.venv/pyvenv.cfg"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: use_uv
+
+- name: Create Python virtual environment with Poetry
+  ansible.builtin.command:
+    cmd: >
+      /etc/poetry/bin/poetry config virtualenvs.in-project true
+    creates: "{{ cape_root }}/.venv/pyvenv.cfg"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: not use_uv
+
+- name: Sync dependencies with uv
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/uv sync --no-install-project
+    args:
+      chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  environment:
+    PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+    CRYPTOGRAPHY_DONT_BUILD_RUST: "1"
+  when: use_uv
+
+- name: Sync dependencies with Poetry
+  ansible.builtin.command:
+    cmd: >
+      /etc/poetry/bin/poetry install
+    args:
+      chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  environment:
+    PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+    CRYPTOGRAPHY_DONT_BUILD_RUST: "1"
+  when: not use_uv
+
+- name: Install yara-python system dependencies
+  ansible.builtin.apt:
+    pkg:
+      - libjansson-dev
+      - libmagic1
+      - libmagic-dev
+    state: present
+
+- name: Install yara-python with uv
+  ansible.builtin.command:
+    cmd: >
+      /usr/local/bin/uv pip install yara-python
+      --no-binary :all:
+    args:
+      chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: use_uv
+
+- name: Install yara-python with Poetry
+  ansible.builtin.command:
+    cmd: >
+      /etc/poetry/bin/poetry run pip install yara-python
+      --no-binary :all:
+      --config-settings="--global-option=build"
+      --config-settings="--global-option=--enable-cuckoo"
+      --config-settings="--global-option=--enable-magic"
+      --config-settings="--global-option=--enable-profiling"
+    args:
+      chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: not use_uv

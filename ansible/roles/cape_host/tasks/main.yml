@@ -1,0 +1,12 @@
+---
+- name: Include repo tasks (clone, venv, yara-python)
+  ansible.builtin.include_tasks: repo.yml
+  tags:
+    - cape_host
+    - repo
+
+- name: Include config tasks (configs, community, sudoers, rt_tables)
+  ansible.builtin.include_tasks: config.yml
+  tags:
+    - cape_host
+    - config

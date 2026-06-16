@@ -51,7 +51,7 @@
       _sed 's/"QEMU"/"{{ seabios_bochs_block_replacer3 }}"/g' src/fw/paravirt.c
 
       for f in src/fw/acpi-dsdt.dsl src/fw/q35-acpi-dsdt.dsl; do
-        _sed 's/"BXPC"/"'"$BXPC_REPLACER"'"/g' "$f"
+        _sed 's/"BXPC"/"{{ seabios_bxpc_replacer }}"/g' "$f"
       done
       _sed 's/"BXPC"/"AMPC"/g' src/fw/ssdt-pcihp.dsl
       _sed 's/"BXDSDT"/"AMDSDT"/g' src/fw/ssdt-pcihp.dsl

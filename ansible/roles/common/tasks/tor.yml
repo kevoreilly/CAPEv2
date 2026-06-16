@@ -1,9 +1,20 @@
 ---
+- name: Check if Tor key already exists
+  ansible.builtin.stat:
+    path: /usr/share/keyrings/tor-archive-keyring.gpg
+  register: tor_key_stat
+
 - name: Add Tor repository GPG key
   ansible.builtin.get_url:
     url: https://deb.torproject.org/torproject.org/archive-key.gpg
     dest: /usr/share/keyrings/tor-archive-keyring.gpg
     mode: "0644"
+    timeout: 30
+  retries: 3
+  delay: 5
+  until: tor_key_download is success
+  register: tor_key_download
+  when: not tor_key_stat.stat.exists
 
 - name: Determine Tor repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:

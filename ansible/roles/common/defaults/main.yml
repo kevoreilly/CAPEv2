@@ -10,5 +10,5 @@ tor_dns_port: 5353
 tor_trans_port: 9040
 
 # de4dot
-de4dot_version: "3.1"
-de4dot_url: "https://github.com/de4dot/de4dot/releases/download/v{{ de4dot_version }}/de4dot.netframework.zip"
+de4dot_package_name: "de4dot_3.1.41592.3405-2_all.deb"
+de4dot_url: "http://archive.ubuntu.com/ubuntu/pool/universe/d/de4dot/{{ de4dot_package_name }}"

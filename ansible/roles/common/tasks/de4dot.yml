@@ -6,21 +6,27 @@
       - mono-complete
     state: present
 
-- name: Download de4dot
+- name: Check if de4dot is already installed
+  ansible.builtin.shell:
+    cmd: which de4dot 2>/dev/null && de4dot --version 2>/dev/null || true
+  changed_when: false
+  failed_when: false
+  register: de4dot_check
+
+- name: Download de4dot .deb from Ubuntu archive
   ansible.builtin.get_url:
     url: "{{ de4dot_url }}"
-    dest: "/tmp/de4dot-{{ de4dot_version }}.zip"
+    dest: "/tmp/{{ de4dot_package_name }}"
     timeout: 120
+  when: de4dot_check.rc != 0 or de4dot_check.stdout == ""
 
-- name: Extract de4dot
-  ansible.builtin.unarchive:
-    src: "/tmp/de4dot-{{ de4dot_version }}.zip"
-    dest: "/opt/de4dot-{{ de4dot_version }}"
-    remote_src: true
-    creates: "/opt/de4dot-{{ de4dot_version }}/de4dot.exe"
+- name: Install de4dot .deb (best-effort; may fail on newer Ubuntu)
+  ansible.builtin.apt:
+    deb: "/tmp/{{ de4dot_package_name }}"
+  when: de4dot_check.rc != 0 or de4dot_check.stdout == ""
+  ignore_errors: true
 
-- name: Create de4dot symlink
+- name: Clean up de4dot .deb
   ansible.builtin.file:
-    src: "/opt/de4dot-{{ de4dot_version }}"
-    dest: /opt/de4dot
-    state: link
+    path: "/tmp/{{ de4dot_package_name }}"
+    state: absent

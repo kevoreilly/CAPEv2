@@ -8,6 +8,11 @@
     - libvirt
     - kvm
 
+- name: Create cape primary group
+  ansible.builtin.group:
+    name: "{{ cape_user }}"
+    state: present
+
 - name: Create cape system user
   ansible.builtin.user:
     name: "{{ cape_user }}"

@@ -75,7 +75,7 @@
       - meson
       - flake8
     state: present
-    break_system_packages: true
+    extra_args: "--break-system-packages"
 
 - name: Block — libvirt build
   when: libvirt_needs_build

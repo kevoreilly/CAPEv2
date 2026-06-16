@@ -120,7 +120,7 @@
   ansible.builtin.pip:
     name: pymongo
     state: present
-    break_system_packages: true
+    extra_args: "--break-system-packages"
   when: mongo_enable
 
 - name: Create MongoDB data directories

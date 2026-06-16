@@ -81,7 +81,7 @@
       - sphinx
       - ninja
     state: present
-    break_system_packages: true
+    extra_args: "--break-system-packages"
 
 - name: Block — QEMU build
   when: qemu_needs_build

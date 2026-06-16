@@ -34,7 +34,7 @@
       ansible.builtin.pip:
         name: elasticsearch
         state: present
-        break_system_packages: true
+        extra_args: "--break-system-packages"
 
     - name: Enable and start elasticsearch
       ansible.builtin.systemd:
@@ -467,7 +467,7 @@
         name:
           - idapython
         state: present
-        break_system_packages: true
+        extra_args: "--break-system-packages"
       failed_when: false
 
     - name: Install Ghidra dependencies
@@ -475,7 +475,7 @@
         name:
           - ghidra
         state: present
-        break_system_packages: true
+        extra_args: "--break-system-packages"
       failed_when: false
   tags: [optional, re_frameworks]
 

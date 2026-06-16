@@ -328,7 +328,7 @@
       - certbot
       - certbot-nginx
     state: present
-    break_system_packages: true
+    extra_args: "--break-system-packages"
   tags: [optional, letsencrypt]
   when: letsencrypt_domain is defined and letsencrypt_domain | length > 0
 

@@ -27,11 +27,12 @@
     backrefs: true
 
 - name: Enable MongoDB in reporting.conf
-  community.general.crudini:
+  community.general.ini_file:
     path: "{{ cape_root }}/conf/reporting.conf"
     section: mongodb
     option: enabled
     value: "yes"
+    state: present
   when: mongo_enable
 
 - name: Ensure CAPE root ownership after config copy

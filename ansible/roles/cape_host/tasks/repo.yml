@@ -12,7 +12,6 @@
         src: "/tmp/CAPEv2-master.tar.gz"
         dest: "{{ cape_root | dirname }}"
         remote_src: true
-        creates: "{{ cape_root }}"
 
     - name: Rename extracted directory to cape_root
       ansible.builtin.command:

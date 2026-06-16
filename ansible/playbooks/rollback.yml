@@ -119,8 +119,8 @@
 
     - name: Determine repo codenames (fallback for unsupported releases)
       ansible.builtin.set_fact:
-        pg_repo_codename: "{{ 'noble' if ansible_distribution_release == 'plucky' else ansible_distribution_release }}"
-        mongo_repo_codename: "{{ 'noble' if ansible_distribution_release == 'plucky' else ansible_distribution_release }}"
+        pg_repo_codename: "{{ 'noble' if ansible_distribution_release == 'resolute' else ansible_distribution_release }}"
+        mongo_repo_codename: "{{ 'noble' if ansible_distribution_release == 'resolute' else ansible_distribution_release }}"
 
     - name: Remove PostgreSQL APT repo
       ansible.builtin.apt_repository:

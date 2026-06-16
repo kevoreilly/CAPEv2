@@ -261,7 +261,7 @@
 
     - name: Determine Docker repo codename (fallback for unsupported releases)
       ansible.builtin.set_fact:
-        docker_repo_codename: "{{ 'noble' if ansible_distribution_release == 'plucky' else ansible_distribution_release }}"
+        docker_repo_codename: "{{ 'noble' if ansible_distribution_release == 'resolute' else ansible_distribution_release }}"
 
     - name: Add Docker APT repository
       ansible.builtin.apt_repository:

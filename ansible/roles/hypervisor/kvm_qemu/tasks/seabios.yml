@@ -68,10 +68,12 @@
 
       # Disable Xen in config
       [ -f .config ] && sed -i 's/CONFIG_XEN=y/CONFIG_XEN=n/g' .config || true
-      sed -i 's/PYTHON=python/PYTHON=python3/g' Makefile
+      # Only patch if Makefile uses bare 'python' (not already 'python3')
+      sed -i 's/^[[:space:]]*PYTHON=python$/PYTHON=python3/' Makefile
 
       make -j{{ ansible_processor_vcpus | default(1) }}
   args:
+    creates: "/tmp/seabios-rel-{{ seabios_version }}/out/bios.bin"
     executable: /bin/bash
   environment:
     PIP_BREAK_SYSTEM_PACKAGES: "1"

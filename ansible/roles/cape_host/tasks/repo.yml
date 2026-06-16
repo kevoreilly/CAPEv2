@@ -5,6 +5,8 @@
     dest: "{{ cape_root }}"
     version: master
     force: true
+  become: true
+  become_user: "{{ cape_user }}"
 
 - name: Ensure CAPE root ownership
   ansible.builtin.file:

@@ -26,48 +26,62 @@
     yara_version: "{{ yara_release.json.tag_name }}"
     yara_version_only: "{{ yara_release.json.tag_name | regex_replace('^v', '') }}"
 
-- name: Download YARA source
-  ansible.builtin.get_url:
-    url: "https://github.com/VirusTotal/yara/archive/refs/tags/{{ yara_version }}.tar.gz"
-    dest: "/tmp/yara-{{ yara_version }}.tar.gz"
-    timeout: 120
-
-- name: Extract YARA source
-  ansible.builtin.unarchive:
-    src: "/tmp/yara-{{ yara_version }}.tar.gz"
-    dest: /tmp
-    remote_src: true
-    creates: "/tmp/yara-{{ yara_version_only }}"
-
-- name: Bootstrap and configure YARA
+- name: Check if YARA is already at target version
   ansible.builtin.command:
-    cmd: >
-      ./bootstrap.sh && ./configure --enable-cuckoo --enable-magic --enable-profiling
-    chdir: "/tmp/yara-{{ yara_version_only }}"
+    cmd: yara --version
   changed_when: false
+  failed_when: false
+  register: yara_check
 
-- name: Build YARA
-  ansible.builtin.command:
-    cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
-    chdir: "/tmp/yara-{{ yara_version_only }}"
-  changed_when: false
+- name: Set fact for YARA build needed
+  ansible.builtin.set_fact:
+    yara_needs_build: "{{ yara_check.rc != 0 or yara_version_only not in yara_check.stdout }}"
 
-- name: Build .deb package with checkinstall
-  ansible.builtin.command:
-    cmd: >
-      checkinstall -D --pkgname="yara-{{ yara_version }}" --pkgversion="{{ yara_version_only }}" --default
-    chdir: "/tmp/yara-{{ yara_version_only }}"
-  changed_when: false
+- name: Block — YARA build
+  when: yara_needs_build
+  block:
+    - name: Download YARA source
+      ansible.builtin.get_url:
+        url: "https://github.com/VirusTotal/yara/archive/refs/tags/{{ yara_version }}.tar.gz"
+        dest: "/tmp/yara-{{ yara_version }}.tar.gz"
+        timeout: 120
 
-- name: Install YARA .deb
-  ansible.builtin.command:
-    cmd: "dpkg -i --force-overwrite /tmp/yara-{{ yara_version }}*.deb"
-  changed_when: false
+    - name: Extract YARA source
+      ansible.builtin.unarchive:
+        src: "/tmp/yara-{{ yara_version }}.tar.gz"
+        dest: /tmp
+        remote_src: true
+        creates: "/tmp/yara-{{ yara_version_only }}"
 
-- name: Run ldconfig
-  ansible.builtin.command:
-    cmd: ldconfig
-  changed_when: false
+    - name: Bootstrap and configure YARA
+      ansible.builtin.command:
+        cmd: >
+          ./bootstrap.sh && ./configure --enable-cuckoo --enable-magic --enable-profiling
+        chdir: "/tmp/yara-{{ yara_version_only }}"
+      changed_when: false
+
+    - name: Build YARA
+      ansible.builtin.command:
+        cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
+        chdir: "/tmp/yara-{{ yara_version_only }}"
+      changed_when: false
+
+    - name: Build .deb package with checkinstall
+      ansible.builtin.command:
+        cmd: >
+          checkinstall -D --pkgname="yara-{{ yara_version }}" --pkgversion="{{ yara_version_only }}" --default
+        chdir: "/tmp/yara-{{ yara_version_only }}"
+      changed_when: false
+
+    - name: Install YARA .deb
+      ansible.builtin.command:
+        cmd: "dpkg -i --force-overwrite /tmp/yara-{{ yara_version }}*.deb"
+      changed_when: false
+
+    - name: Run ldconfig
+      ansible.builtin.command:
+        cmd: ldconfig
+      changed_when: false
 
 # ────────────────────────────────────────────────────────────────────
 # 6.2: Suricata

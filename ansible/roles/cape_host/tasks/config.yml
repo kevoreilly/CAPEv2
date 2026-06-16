@@ -4,7 +4,7 @@
     cmd: >
       for f in conf/default/*.conf.default conf/default/*.env; do
         dest="conf/$(basename "${f%.default}")";
-        cp -v "./$f" "./${dest%.default}";
+        [ -f "${dest%.default}" ] || cp -v "./$f" "./${dest%.default}";
       done
     chdir: "{{ cape_root }}"
   become: true

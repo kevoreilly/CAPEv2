@@ -104,10 +104,11 @@
       }
     mode: "0644"
 
-- name: Run logrotate
+- name: Run logrotate checkpoint
   ansible.builtin.command:
-    cmd: /usr/sbin/logrotate --force /etc/logrotate.conf
+    cmd: /usr/sbin/logrotate /etc/logrotate.d/cape.conf
   changed_when: false
+  failed_when: false
 
 # ────────────────────────────────────────────────────────────────────
 # 7.5: jemalloc

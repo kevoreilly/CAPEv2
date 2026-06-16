@@ -32,158 +32,169 @@
     state: present
   tags: [optional, nginx]
 
-- name: Download nginx source
-  ansible.builtin.get_url:
-    url: "https://nginx.org/download/nginx-{{ nginx_version }}.tar.gz"
-    dest: "/tmp/nginx-{{ nginx_version }}.tar.gz"
-    timeout: 120
-  tags: [optional, nginx]
-
-- name: Extract nginx source
-  ansible.builtin.unarchive:
-    src: "/tmp/nginx-{{ nginx_version }}.tar.gz"
-    dest: /tmp
-    remote_src: true
-    creates: "/tmp/nginx-{{ nginx_version }}"
-  tags: [optional, nginx]
-
-- name: Download PCRE2 source
-  ansible.builtin.get_url:
-    url: "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.37/pcre2-10.37.tar.gz"
-    dest: /tmp/pcre2-10.37.tar.gz
-    timeout: 120
-  tags: [optional, nginx]
-
-- name: Extract PCRE2 source
-  ansible.builtin.unarchive:
-    src: /tmp/pcre2-10.37.tar.gz
-    dest: /tmp
-    remote_src: true
-    creates: /tmp/pcre2-10.37
-  tags: [optional, nginx]
-
-- name: Download OpenSSL source
-  ansible.builtin.get_url:
-    url: "https://www.openssl.org/source/openssl-3.4.0.tar.gz"
-    dest: /tmp/openssl-3.4.0.tar.gz
-    timeout: 120
-  tags: [optional, nginx]
-
-- name: Extract OpenSSL source
-  ansible.builtin.unarchive:
-    src: /tmp/openssl-3.4.0.tar.gz
-    dest: /tmp
-    remote_src: true
-    creates: /tmp/openssl-3.4.0
-  tags: [optional, nginx]
-
-- name: Download zlib source
-  ansible.builtin.get_url:
-    url: "https://www.zlib.net/zlib-1.3.1.tar.gz"
-    dest: /tmp/zlib-1.3.1.tar.gz
-    timeout: 120
-  tags: [optional, nginx]
-
-- name: Extract zlib source
-  ansible.builtin.unarchive:
-    src: /tmp/zlib-1.3.1.tar.gz
-    dest: /tmp
-    remote_src: true
-    creates: /tmp/zlib-1.3.1
-  tags: [optional, nginx]
-
-- name: Configure nginx build
+- name: Check nginx version
   ansible.builtin.command:
-    cmd: >
-      ./configure
-      --prefix=/usr/share/nginx
-      --sbin-path=/usr/sbin/nginx
-      --modules-path=/usr/lib/nginx/modules
-      --conf-path=/etc/nginx/nginx.conf
-      --error-log-path=/var/log/nginx/error.log
-      --http-log-path=/var/log/nginx/access.log
-      --pid-path=/tmp/nginx.pid
-      --lock-path=/var/lock/nginx.lock
-      --user=www-data
-      --group=www-data
-      --build=Ubuntu
-      --http-client-body-temp-path=/var/lib/nginx/body
-      --http-fastcgi-temp-path=/var/lib/nginx/fastcgi
-      --http-proxy-temp-path=/var/lib/nginx/proxy
-      --http-scgi-temp-path=/var/lib/nginx/scgi
-      --http-uwsgi-temp-path=/var/lib/nginx/uwsgi
-      --with-openssl=/tmp/openssl-3.4.0
-      --with-openssl-opt=enable-ec_nistp_64_gcc_128
-      --with-openssl-opt=no-nextprotoneg
-      --with-openssl-opt=no-weak-ssl-ciphers
-      --with-openssl-opt=no-ssl3
-      --with-pcre=/tmp/pcre2-10.37
-      --with-pcre-jit
-      --with-zlib=/tmp/zlib-1.3.1
-      --with-compat
-      --with-file-aio
-      --with-threads
-      --with-http_addition_module
-      --with-http_auth_request_module
-      --with-http_dav_module
-      --with-http_flv_module
-      --with-http_gunzip_module
-      --with-http_gzip_static_module
-      --with-http_mp4_module
-      --with-http_random_index_module
-      --with-http_realip_module
-      --with-http_slice_module
-      --with-http_ssl_module
-      --with-http_sub_module
-      --with-http_stub_status_module
-      --with-http_v2_module
-      --with-http_secure_link_module
-      --with-mail
-      --with-mail_ssl_module
-      --with-stream
-      --with-stream_realip_module
-      --with-stream_ssl_module
-      --with-stream_ssl_preread_module
-      --with-debug
-      --with-cc-opt='-g -O2 -fPIE -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2'
-      --with-ld-opt='-Wl,-Bsymbolic-functions -fPIE -pie -Wl,-z,relro -Wl,-z,now'
-      --with-http_v3_module
-    chdir: "/tmp/nginx-{{ nginx_version }}"
+    cmd: /usr/sbin/nginx -v 2>&1 || true
+  changed_when: false
+  failed_when: false
+  register: nginx_check
   tags: [optional, nginx]
 
-- name: Build nginx
-  ansible.builtin.command:
-    cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
-    chdir: "/tmp/nginx-{{ nginx_version }}"
-  tags: [optional, nginx]
+- name: Block — nginx build from source
+  when: nginx_check.rc != 0 or nginx_version not in nginx_check.stdout
+  block:
+    - name: Download nginx source
+      ansible.builtin.get_url:
+        url: "https://nginx.org/download/nginx-{{ nginx_version }}.tar.gz"
+        dest: "/tmp/nginx-{{ nginx_version }}.tar.gz"
+        timeout: 120
+      tags: [optional, nginx]
 
-- name: Create nginx build directory
-  ansible.builtin.file:
-    path: /tmp/nginx_builded/DEBIAN
-    state: directory
-  tags: [optional, nginx]
+    - name: Extract nginx source
+      ansible.builtin.unarchive:
+        src: "/tmp/nginx-{{ nginx_version }}.tar.gz"
+        dest: /tmp
+        remote_src: true
+        creates: "/tmp/nginx-{{ nginx_version }}"
+      tags: [optional, nginx]
 
-- name: Write nginx deb control
-  ansible.builtin.copy:
-    dest: /tmp/nginx_builded/DEBIAN/control
-    content: |
-      Package: nginx
-      Version: {{ nginx_version }}
-      Architecture: {{ deb_architecture }}
-      Maintainer: CAPEv2
-      Description: nginx-{{ nginx_version }}
-  tags: [optional, nginx]
+    - name: Download PCRE2 source
+      ansible.builtin.get_url:
+        url: "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.37/pcre2-10.37.tar.gz"
+        dest: /tmp/pcre2-10.37.tar.gz
+        timeout: 120
+      tags: [optional, nginx]
 
-- name: Install nginx via DESTDIR
-  ansible.builtin.command:
-    cmd: "make install DESTDIR=/tmp/nginx_builded"
-    chdir: "/tmp/nginx-{{ nginx_version }}"
-  tags: [optional, nginx]
+    - name: Extract PCRE2 source
+      ansible.builtin.unarchive:
+        src: /tmp/pcre2-10.37.tar.gz
+        dest: /tmp
+        remote_src: true
+        creates: /tmp/pcre2-10.37
+      tags: [optional, nginx]
 
-- name: Build and install nginx .deb
-  ansible.builtin.command:
-    cmd: "dpkg-deb --build --root-owner-group /tmp/nginx_builded && dpkg -i --force-overwrite /tmp/nginx_builded.deb"
-  tags: [optional, nginx]
+    - name: Download OpenSSL source
+      ansible.builtin.get_url:
+        url: "https://www.openssl.org/source/openssl-3.4.0.tar.gz"
+        dest: /tmp/openssl-3.4.0.tar.gz
+        timeout: 120
+      tags: [optional, nginx]
+
+    - name: Extract OpenSSL source
+      ansible.builtin.unarchive:
+        src: /tmp/openssl-3.4.0.tar.gz
+        dest: /tmp
+        remote_src: true
+        creates: /tmp/openssl-3.4.0
+      tags: [optional, nginx]
+
+    - name: Download zlib source
+      ansible.builtin.get_url:
+        url: "https://www.zlib.net/zlib-1.3.1.tar.gz"
+        dest: /tmp/zlib-1.3.1.tar.gz
+        timeout: 120
+      tags: [optional, nginx]
+
+    - name: Extract zlib source
+      ansible.builtin.unarchive:
+        src: /tmp/zlib-1.3.1.tar.gz
+        dest: /tmp
+        remote_src: true
+        creates: /tmp/zlib-1.3.1
+      tags: [optional, nginx]
+
+    - name: Configure nginx build
+      ansible.builtin.command:
+        cmd: >
+          ./configure
+          --prefix=/usr/share/nginx
+          --sbin-path=/usr/sbin/nginx
+          --modules-path=/usr/lib/nginx/modules
+          --conf-path=/etc/nginx/nginx.conf
+          --error-log-path=/var/log/nginx/error.log
+          --http-log-path=/var/log/nginx/access.log
+          --pid-path=/tmp/nginx.pid
+          --lock-path=/var/lock/nginx.lock
+          --user=www-data
+          --group=www-data
+          --build=Ubuntu
+          --http-client-body-temp-path=/var/lib/nginx/body
+          --http-fastcgi-temp-path=/var/lib/nginx/fastcgi
+          --http-proxy-temp-path=/var/lib/nginx/proxy
+          --http-scgi-temp-path=/var/lib/nginx/scgi
+          --http-uwsgi-temp-path=/var/lib/nginx/uwsgi
+          --with-openssl=/tmp/openssl-3.4.0
+          --with-openssl-opt=enable-ec_nistp_64_gcc_128
+          --with-openssl-opt=no-nextprotoneg
+          --with-openssl-opt=no-weak-ssl-ciphers
+          --with-openssl-opt=no-ssl3
+          --with-pcre=/tmp/pcre2-10.37
+          --with-pcre-jit
+          --with-zlib=/tmp/zlib-1.3.1
+          --with-compat
+          --with-file-aio
+          --with-threads
+          --with-http_addition_module
+          --with-http_auth_request_module
+          --with-http_dav_module
+          --with-http_flv_module
+          --with-http_gunzip_module
+          --with-http_gzip_static_module
+          --with-http_mp4_module
+          --with-http_random_index_module
+          --with-http_realip_module
+          --with-http_slice_module
+          --with-http_ssl_module
+          --with-http_sub_module
+          --with-http_stub_status_module
+          --with-http_v2_module
+          --with-http_secure_link_module
+          --with-mail
+          --with-mail_ssl_module
+          --with-stream
+          --with-stream_realip_module
+          --with-stream_ssl_module
+          --with-stream_ssl_preread_module
+          --with-debug
+          --with-cc-opt='-g -O2 -fPIE -fstack-protector-strong -Wformat -Werror=format-security -Wdate-time -D_FORTIFY_SOURCE=2'
+          --with-ld-opt='-Wl,-Bsymbolic-functions -fPIE -pie -Wl,-z,relro -Wl,-z,now'
+          --with-http_v3_module
+        chdir: "/tmp/nginx-{{ nginx_version }}"
+      tags: [optional, nginx]
+
+    - name: Build nginx
+      ansible.builtin.command:
+        cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
+        chdir: "/tmp/nginx-{{ nginx_version }}"
+      tags: [optional, nginx]
+
+    - name: Create nginx build directory
+      ansible.builtin.file:
+        path: /tmp/nginx_builded/DEBIAN
+        state: directory
+      tags: [optional, nginx]
+
+    - name: Write nginx deb control
+      ansible.builtin.copy:
+        dest: /tmp/nginx_builded/DEBIAN/control
+        content: |
+          Package: nginx
+          Version: {{ nginx_version }}
+          Architecture: {{ deb_architecture }}
+          Maintainer: CAPEv2
+          Description: nginx-{{ nginx_version }}
+      tags: [optional, nginx]
+
+    - name: Install nginx via DESTDIR
+      ansible.builtin.command:
+        cmd: "make install DESTDIR=/tmp/nginx_builded"
+        chdir: "/tmp/nginx-{{ nginx_version }}"
+      tags: [optional, nginx]
+
+    - name: Build and install nginx .deb
+      ansible.builtin.command:
+        cmd: "dpkg-deb --build --root-owner-group /tmp/nginx_builded && dpkg -i --force-overwrite /tmp/nginx_builded.deb"
+      tags: [optional, nginx]
 
 - name: Create nginx user and group
   ansible.builtin.user:
@@ -683,59 +694,68 @@
     state: present
   tags: [optional, modsecurity]
 
-- name: Clone ModSecurity v3
-  ansible.builtin.git:
-    repo: https://github.com/SpiderLabs/ModSecurity
-    dest: /tmp/ModSecurity
-    version: v3.0.12
-    depth: 500
-    force: true
+- name: Check if ModSecurity nginx module exists
+  ansible.builtin.stat:
+    path: /usr/lib/nginx/modules/ngx_http_modsecurity_module.so
+  register: modsec_so
   tags: [optional, modsecurity]
 
-- name: Initialize ModSecurity submodules
-  ansible.builtin.command:
-    cmd: git submodule update --init --recursive
-    chdir: /tmp/ModSecurity
-  tags: [optional, modsecurity]
+- name: Block — ModSecurity build
+  when: not modsec_so.stat.exists
+  block:
+    - name: Clone ModSecurity v3
+      ansible.builtin.git:
+        repo: https://github.com/SpiderLabs/ModSecurity
+        dest: /tmp/ModSecurity
+        version: v3.0.12
+        depth: 500
+        force: true
+      tags: [optional, modsecurity]
 
-- name: Build ModSecurity
-  ansible.builtin.command:
-    cmd: ./build.sh && ./configure --with-pcre2
-    chdir: /tmp/ModSecurity
-  tags: [optional, modsecurity]
+    - name: Initialize ModSecurity submodules
+      ansible.builtin.command:
+        cmd: git submodule update --init --recursive
+        chdir: /tmp/ModSecurity
+      tags: [optional, modsecurity]
 
-- name: Compile ModSecurity
-  ansible.builtin.command:
-    cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
-    chdir: /tmp/ModSecurity
-  tags: [optional, modsecurity]
+    - name: Build ModSecurity
+      ansible.builtin.command:
+        cmd: ./build.sh && ./configure --with-pcre2
+        chdir: /tmp/ModSecurity
+      tags: [optional, modsecurity]
 
-- name: Install ModSecurity
-  ansible.builtin.command:
-    cmd: make install
-    chdir: /tmp/ModSecurity
-  tags: [optional, modsecurity]
+    - name: Compile ModSecurity
+      ansible.builtin.command:
+        cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
+        chdir: /tmp/ModSecurity
+      tags: [optional, modsecurity]
 
-- name: Clone ModSecurity-nginx connector
-  ansible.builtin.git:
-    repo: https://github.com/SpiderLabs/ModSecurity-nginx.git
-    dest: /tmp/ModSecurity-nginx
-    depth: 1
-    force: true
-  tags: [optional, modsecurity]
+    - name: Install ModSecurity
+      ansible.builtin.command:
+        cmd: make install
+        chdir: /tmp/ModSecurity
+      tags: [optional, modsecurity]
 
-- name: Build ModSecurity nginx module
-  ansible.builtin.command:
-    cmd: >
-      ./configure --with-compat --add-dynamic-module=/tmp/ModSecurity-nginx
-    chdir: "/tmp/nginx-{{ nginx_version }}"
-  tags: [optional, modsecurity]
+    - name: Clone ModSecurity-nginx connector
+      ansible.builtin.git:
+        repo: https://github.com/SpiderLabs/ModSecurity-nginx.git
+        dest: /tmp/ModSecurity-nginx
+        depth: 1
+        force: true
+      tags: [optional, modsecurity]
 
-- name: Compile nginx modules
-  ansible.builtin.command:
-    cmd: make modules
-    chdir: "/tmp/nginx-{{ nginx_version }}"
-  tags: [optional, modsecurity]
+    - name: Build ModSecurity nginx module
+      ansible.builtin.command:
+        cmd: >
+          ./configure --with-compat --add-dynamic-module=/tmp/ModSecurity-nginx
+        chdir: "/tmp/nginx-{{ nginx_version }}"
+      tags: [optional, modsecurity]
+
+    - name: Compile nginx modules
+      ansible.builtin.command:
+        cmd: make modules
+        chdir: "/tmp/nginx-{{ nginx_version }}"
+      tags: [optional, modsecurity]
 
 - name: Copy ModSecurity nginx module
   ansible.builtin.copy:

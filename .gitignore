@@ -8,6 +8,7 @@
 __pycache__/
 .cache/
 .local/
+.agents/
 .env/
 .vscode
 env/
@@ -19,6 +20,7 @@ conf/*.conf
 web/web/secret_key.py
 tests/test_bson.bson.compressed
 *~
+skills-lock.json
 
 installer/cape-config.sh
 installer/kvm-config.sh

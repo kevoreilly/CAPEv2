@@ -66,15 +66,20 @@
     update_cache: true
     cache_valid_time: 3600
 
-- name: Ensure pip packages for libvirt build
-  ansible.builtin.pip:
-    name:
-      - ipaddr
-      - ninja
+- name: Ensure build tools for libvirt via apt (preferred over pip on restricted networks)
+  ansible.builtin.apt:
+    pkg:
+      - ninja-build
       - meson
-      - flake8
+      - python3-flake8
+    state: present
+
+- name: Attempt pip install of ipaddr (test dependency, best-effort)
+  ansible.builtin.pip:
+    name: ipaddr
     state: present
     extra_args: "--break-system-packages"
+  ignore_errors: true
 
 - name: Block — libvirt build
   when: libvirt_needs_build

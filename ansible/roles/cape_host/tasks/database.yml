@@ -121,11 +121,11 @@
   when: mongo_enable
   ignore_errors: true
 
-- name: Install pymongo
-  ansible.builtin.pip:
-    name: pymongo
+- name: Install pymongo (apt — pip/PyPI may be blocked)
+  ansible.builtin.apt:
+    pkg:
+      - python3-pymongo
     state: present
-    extra_args: "--break-system-packages"
   when: mongo_enable
 
 - name: Create MongoDB data directories

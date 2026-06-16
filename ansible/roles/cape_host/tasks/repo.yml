@@ -53,7 +53,18 @@
     CRYPTOGRAPHY_DONT_BUILD_RUST: "1"
   when: use_uv
 
-- name: Sync dependencies with Poetry
+- name: Install CAPE dependency build requirements
+  ansible.builtin.apt:
+    pkg:
+      - libpq-dev
+      - libxslt1-dev
+      - libre2-dev
+      - python3-greenlet
+      - python3-gevent
+      - python3-psycopg2
+    state: present
+
+- name: Sync dependencies with Poetry (may fail on Python 3.14 — upstream incompatibility)
   ansible.builtin.command:
     cmd: /etc/poetry/bin/poetry install
     chdir: "{{ cape_root }}"
@@ -62,6 +73,7 @@
   environment:
     PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
     CRYPTOGRAPHY_DONT_BUILD_RUST: "1"
+  ignore_errors: true
   when: not use_uv
 
 - name: Install yara-python system dependencies

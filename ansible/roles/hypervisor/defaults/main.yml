@@ -1,0 +1,23 @@
+---
+qemu_version: "9.2.2"
+qemu_targets: "--target-list=i386-softmmu,x86_64-softmmu,i386-linux-user,x86_64-linux-user"
+qemu_source_url: "https://download.qemu.org/qemu-{{ qemu_version }}.tar.xz"
+qemu_build_dir: "/tmp/qemu-{{ qemu_version }}"
+
+# Anti-VM replacement strings
+qemu_cpuid: "Intel(R) Core(TM) i3-4130 CPU"
+qemu_hypervisor_string: "GenuineIntel"
+qemu_hd_replacement: "SAMSUNG MZ76E120"
+qemu_dvd_replacement: "HL-PQ-SV WB8"
+qemu_bochs_cpu_replacement: "INTELCPU"
+qemu_pen_replacer: "<WOOT>"
+qemu_scsi_replacer: "<WOOT>"
+qemu_atapi_replacer: "<WOOT>"
+qemu_microdrive_replacer: "<WOOT>"
+qemu_bochs_block_replacer: "<WOOT>"
+qemu_bxpc_replacer: "<WOOT>"
+qemu_acpi_bios_replacer: "ALASKA"
+qemu_bios_date: "07/02/18"
+qemu_bios_date2: "11/03/2018"
+qemu_fw_date: "11/03/2018"
+deb_architecture: "{{ 'amd64' if ansible_architecture == 'x86_64' else ansible_architecture }}"

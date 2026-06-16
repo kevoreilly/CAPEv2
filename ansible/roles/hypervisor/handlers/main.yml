@@ -1,0 +1,6 @@
+---
+- name: reboot required
+  ansible.builtin.reboot:
+    reboot_timeout: 300
+  listen: reboot required
+  become: true

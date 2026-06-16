@@ -1,0 +1,9 @@
+---
+- name: Test hypervisor/kvm_qemu role syntax
+  hosts: localhost
+  connection: local
+  gather_facts: true
+  roles:
+    - role: hypervisor
+  vars:
+    qemu_needs_build: false

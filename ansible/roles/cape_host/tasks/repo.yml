@@ -76,10 +76,8 @@
 
 - name: Sync dependencies with uv
   ansible.builtin.command:
-    cmd: >
-      /usr/local/bin/uv sync --no-install-project
-    args:
-      chdir: "{{ cape_root }}"
+    cmd: /usr/local/bin/uv sync --no-install-project
+    chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"
   environment:
@@ -89,10 +87,8 @@
 
 - name: Sync dependencies with Poetry
   ansible.builtin.command:
-    cmd: >
-      /etc/poetry/bin/poetry install
-    args:
-      chdir: "{{ cape_root }}"
+    cmd: /etc/poetry/bin/poetry install
+    chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"
   environment:
@@ -113,8 +109,7 @@
     cmd: >
       /usr/local/bin/uv pip install yara-python
       --no-binary :all:
-    args:
-      chdir: "{{ cape_root }}"
+    chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"
   when: use_uv
@@ -128,8 +123,7 @@
       --config-settings="--global-option=--enable-cuckoo"
       --config-settings="--global-option=--enable-magic"
       --config-settings="--global-option=--enable-profiling"
-    args:
-      chdir: "{{ cape_root }}"
+    chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"
   when: not use_uv

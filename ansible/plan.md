@@ -242,3 +242,86 @@ Epic 1 (Scaffolding)
 | 4 | Single-node and multi-node modes | `deployment_mode` var; inventory groups `[cape_control]`, `[cape_web]`, `[cape_worker]`; separate playbooks per node type |
 | 5 | Idempotency | Every task uses idempotent modules; compiled-from-source checks binary presence + version before recompile |
 | 6 | Rollback support | Dedicated `rollback.yml`; compiled software installed as `.deb`; uninstall scripts paired with guest deploy scripts |
+
+---
+
+## Improvement Plan (Post-Epic Analysis)
+
+### Bug Fixes (Critical — may break at runtime)
+
+| # | Issue | File | Priority |
+|---|-------|------|----------|
+| 1 | Rollback confirmation always fails (string vs bool logic inverted) | `playbooks/rollback.yml` | Critical |
+| 2 | `control_pubkey` doesn't persist across playbook runs (no slurp/delegate) | `playbooks/register-worker.yml` | Critical |
+| 3 | YAML literal block `|` in meson configure may cause shell parsing issues | `roles/hypervisor/libvirt/tasks/main.yml` | Critical |
+| 4 | `$BXPC_REPLACER` bash variable used but never defined (should be Ansible var) | `roles/hypervisor/kvm_qemu/tasks/seabios.yml` | Critical |
+| 5 | Hardcoded `intel_iommu=on` breaks AMD systems | `roles/hypervisor/kvm_qemu/tasks/iommu.yml` | Critical |
+| 6 | Multi-node worker playbook can't access `hostvars` from `cape_control` group | `playbooks/register-worker.yml` | Critical |
+
+### Bug Fixes (High — may break under edge conditions)
+
+| # | Issue | File | Priority |
+|---|-------|------|----------|
+| 7 | `cscli hub delete` syntax likely wrong (should be `cscli hub delete ...`) | `roles/cape_host/tasks/optional.yml` | High |
+| 8 | `openssl dhparam` fails on first run (parent `/etc/nginx/ssl` dir missing) | `roles/cape_host/tasks/optional.yml` | High |
+| 9 | ModSecurity `v3/master` is not a valid git ref (should be `v3.0.x`) | `roles/cape_host/tasks/optional.yml` | High |
+| 10 | Crowdsec wizard runs interactively (needs `-y` flag) | `roles/cape_host/tasks/optional.yml` | High |
+
+### Idempotency Gaps (runs every time)
+
+| # | Issue | File |
+|---|-------|------|
+| 1 | Git clone as root (should use `become_user: cape`) | `roles/cape_host/tasks/repo.yml` |
+| 2 | `uv sync` / `poetry install` missing `creates` guard | `roles/cape_host/tasks/repo.yml` |
+| 3 | Config `for` shell loop clobbers every run | `roles/cape_host/tasks/config.yml` |
+| 4 | YARA compile (`make`, `checkinstall`, `dpkg -i`) no guard | `roles/cape_host/tasks/signatures.yml` |
+| 5 | nginx build no guard on `/usr/sbin/nginx` | `roles/cape_host/tasks/optional.yml` |
+| 6 | Modsecurity build no guard | `roles/cape_host/tasks/optional.yml` |
+| 7 | `logrotate --force` runs every time | `roles/cape_host/tasks/optional.yml` |
+
+### Missing Features vs cape2.sh (17 gaps)
+
+| # | Feature | Notes |
+|---|---------|-------|
+| 1 | Elasticsearch | Log shipping & analysis |
+| 2 | fluentd | Log aggregator |
+| 3 | mitmproxy | TLS introspection |
+| 4 | PolarProxy | TLS proxy for malware |
+| 5 | passiveDNS | DNS monitoring |
+| 6 | redsocks2 | Transparent proxy redirect |
+| 7 | Docker | Container analysis support |
+| 8 | DIE (Detect It Easy) | Packer detection |
+| 9 | Yara-X | New YARA implementation |
+| 10 | IntroVirt | Introspection-based detection |
+| 11 | Distributed setup | CAPE distributed mode |
+| 12 | IDAPython/Ghidra | RE framework integration |
+| 13 | ssh-authkeys | SSH key management |
+| 14 | SNMP config | Monitoring integration |
+| 15 | librenms cron/config | LibreNMS monitoring |
+| 16 | unattended-upgrades disable | Stability for analysis VMs |
+| 17 | monitor crontab entry | `@reboot` stmp sink |
+
+### Structural Improvements
+
+| # | Suggestion | File |
+|---|-----------|------|
+| 1 | Add `deployment_mode` assert at top of `site.yml` | `site.yml` |
+| 2 | Add `--list-tags` to `ansible-deploy.sh` | `ansible-deploy.sh` |
+| 3 | Add unique tags to hypervisor sub-tasks | `roles/hypervisor/tasks/main.yml` |
+| 4 | Deduplicate python3-dev/python3-pip | `roles/common/tasks/dependencies.yml` |
+| 5 | Fix BBR — add kernel version check | `roles/common/tasks/sysctl.yml` |
+| 6 | Fix MongoDB AVX detection (use `ansible_processor_flags`) | `roles/cape_host/tasks/database.yml` |
+| 7 | Replace deprecated `callback_whitelist` | `ansible.cfg` |
+| 8 | Add `forks` tuning to `ansible.cfg` | `ansible.cfg` |
+| 9 | Fix stale `hosts.ini` comment | `inventory/hosts.ini` |
+| 10 | Make `tor_socket_timeout` an int not string | `group_vars/all/vars.yml` |
+
+---
+
+## Implementation Order
+
+1. **Critical bugs** — rollback, pubkey, meson YAML, seabios var, iommu, hostvars
+2. **High bugs** — cscli, dhparam, modsecurity ref, crowdsec wizard
+3. **Idempotency** — git user, sync guard, config loop, yara, nginx, modsecurity, logrotate
+4. **Structural** — deploy assert, --list-tags, unique tags, dedup, bbr check, avx detection, callback, forks, hosts.ini, tor_type
+5. **Missing features** — 17 gaps from cape2.sh

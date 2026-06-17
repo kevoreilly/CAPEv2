@@ -195,25 +195,27 @@
 # 6.3: volatility3
 # ────────────────────────────────────────────────────────────────────
 
-- name: Install volatility3 with uv
+- name: Install volatility3 with uv (best-effort; git+https may deadlock)
   ansible.builtin.command:
     cmd: >
       /usr/local/bin/uv pip install git+https://github.com/volatilityfoundation/volatility3
     chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"
+  failed_when: false
   when: use_uv
 
-- name: Install volatility3 with Poetry
+- name: Install volatility3 with Poetry (best-effort; git+https may deadlock)
   ansible.builtin.command:
     cmd: >
       /etc/poetry/bin/poetry run pip install git+https://github.com/volatilityfoundation/volatility3
     chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"
+  failed_when: false
   when: not use_uv
 
-- name: Get volatility3 symbols path
+- name: Get volatility3 symbols path (best-effort; may not be installed)
   ansible.builtin.command:
     cmd: >
       python3 -c "import volatility3.plugins; print(volatility3.__file__.replace('__init__.py', 'symbols/'))"
@@ -221,11 +223,12 @@
   become: true
   become_user: "{{ cape_user }}"
   register: vol_symbols_path
+  failed_when: false
   environment:
     PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
   when: use_uv
 
-- name: Get volatility3 symbols path (Poetry)
+- name: Get volatility3 symbols path (Poetry) — best-effort; may not be installed
   ansible.builtin.command:
     cmd: >
       /etc/poetry/bin/poetry run python3 -c "import volatility3.plugins; print(volatility3.__file__.replace('__init__.py', 'symbols/'))"
@@ -233,21 +236,25 @@
   become: true
   become_user: "{{ cape_user }}"
   register: vol_symbols_path
+  failed_when: false
   when: not use_uv
 
-- name: Download Windows symbols for volatility3
+- name: Download Windows symbols for volatility3 (best-effort)
   ansible.builtin.get_url:
     url: https://downloads.volatilityfoundation.org/volatility3/symbols/windows.zip
     dest: "{{ vol_symbols_path.stdout }}/windows.zip"
     timeout: 300
-  when: vol_symbols_path.stdout is defined
+  when: vol_symbols_path.stdout is defined and vol_symbols_path.stdout | length > 0
+  failed_when: false
 
-- name: Extract volatility3 Windows symbols
+- name: Extract volatility3 Windows symbols (best-effort)
   ansible.builtin.unarchive:
     src: "{{ vol_symbols_path.stdout }}/windows.zip"
     dest: "{{ vol_symbols_path.stdout }}"
     remote_src: true
     creates: "{{ vol_symbols_path.stdout }}/win10x64_19041.zip"
+  when: vol_symbols_path.stdout is defined and vol_symbols_path.stdout | length > 0
+  failed_when: false
 
 # ────────────────────────────────────────────────────────────────────
 # 6.4: FLARE CAPA

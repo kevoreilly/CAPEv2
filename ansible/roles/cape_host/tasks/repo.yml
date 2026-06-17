@@ -90,6 +90,19 @@
   failed_when: false
   when: not use_uv
 
+- name: Install libvirt Python bindings
+  ansible.builtin.apt:
+    pkg:
+      - python3-libvirt
+    state: present
+
+- name: Make libvirt accessible from Poetry venv
+  ansible.builtin.copy:
+    dest: /opt/CAPEv2/.venv/lib/python3.14/site-packages/libvirt.pth
+    content: "/usr/local/lib/python3.14/dist-packages\n"
+    mode: "0644"
+  when: not use_uv
+
 - name: Install yara-python system dependencies
   ansible.builtin.apt:
     pkg:

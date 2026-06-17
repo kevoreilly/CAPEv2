@@ -591,8 +591,8 @@
   when: disable_unattended_upgrades | default(true)
   ansible.builtin.lineinfile:
     path: /etc/apt/apt.conf.d/20auto-upgrades
-    regexp: '^APT::Periodic::Unattended-Upgrade "1"'
-    line: 'APT::Periodic::Unattended-Upgrade "0"'
+    regexp: '^APT::Periodic::Unattended-Upgrade\s+"[01]"'
+    line: 'APT::Periodic::Unattended-Upgrade "0";'
     backrefs: true
     create: false
   tags: [optional, unattended_upgrades]

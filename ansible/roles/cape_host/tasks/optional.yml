@@ -224,11 +224,12 @@
     group: nginx
   tags: [optional, nginx]
 
-- name: Link nginx modules
+- name: Link nginx modules (best-effort; may not exist if build failed)
   ansible.builtin.file:
     src: /usr/lib/nginx/modules
     dest: /etc/nginx/modules
     state: link
+  failed_when: false
   tags: [optional, nginx]
 
 - name: Create nginx directories
@@ -259,7 +260,7 @@
     creates: /etc/nginx/cert/dhparam.pem
   tags: [optional, nginx]
 
-- name: Download bot blocker configs
+- name: Download bot blocker configs (best-effort; GitHub raw may be unreachable)
   ansible.builtin.get_url:
     url: "https://raw.githubusercontent.com/mitchellkrogza/nginx-ultimate-bad-bot-blocker/master/{{ item.src }}"
     dest: "{{ item.dest }}"
@@ -283,6 +284,7 @@
       dest: /etc/nginx/bots.d/blacklist-ips.conf
     - src: bots.d/bad-referrer-words.conf
       dest: /etc/nginx/bots.d/bad-referrer-words.conf
+  failed_when: false
   tags: [optional, nginx]
 
 - name: Write nginx systemd service
@@ -328,25 +330,27 @@
     mode: "0644"
   tags: [optional, nginx]
 
-- name: Enable and start nginx
+- name: Enable and start nginx (best-effort; may fail if build was unsuccessful)
   ansible.builtin.systemd:
     name: nginx
     enabled: true
     state: started
     daemon_reload: true
+  failed_when: false
   tags: [optional, nginx]
 
 # ────────────────────────────────────────────────────────────────────
 # 8.2: letsencrypt
 # ────────────────────────────────────────────────────────────────────
 
-- name: Install certbot
+- name: Install certbot (best-effort; may fail on Python 3.14)
   ansible.builtin.pip:
     name:
       - certbot
       - certbot-nginx
     state: present
     extra_args: "--break-system-packages"
+  failed_when: false
   tags: [optional, letsencrypt]
   when: letsencrypt_domain is defined and letsencrypt_domain | length > 0
 
@@ -383,43 +387,49 @@
     state: present
   tags: [optional, guacamole]
 
-- name: Get latest guacamole version
+- name: Get latest guacamole version (best-effort; apache.org may be blocked)
   ansible.builtin.uri:
     url: https://downloads.apache.org/guacamole/
     return_content: true
   register: guacamole_index
+  failed_when: false
   tags: [optional, guacamole]
 
-- name: Set guacamole version fact
+- name: Set guacamole version fact (best-effort)
   ansible.builtin.set_fact:
     guacamole_version: "{{ guacamole_index.content | regex_findall('href=\"([0-9.]+)/\"') | first }}"
+  when: guacamole_index is defined and guacamole_index.content is defined and guacamole_index.content | length > 0
   tags: [optional, guacamole]
 
-- name: Download guacamole server source
+- name: Download guacamole server source (best-effort; apache.org may be blocked)
   ansible.builtin.get_url:
-    url: "https://downloads.apache.org/guacamole/{{ guacamole_version }}/source/guacamole-server-{{ guacamole_version }}.tar.gz"
-    dest: "/tmp/guacamole-server-{{ guacamole_version }}.tar.gz"
+    url: "https://downloads.apache.org/guacamole/{{ guacamole_version | default('1.5.5') }}/source/guacamole-server-{{ guacamole_version | default('1.5.5') }}.tar.gz"
+    dest: "/tmp/guacamole-server-{{ guacamole_version | default('1.5.5') }}.tar.gz"
     timeout: 120
+  failed_when: false
   tags: [optional, guacamole]
 
-- name: Extract guacamole server
+- name: Extract guacamole server (best-effort)
   ansible.builtin.unarchive:
-    src: "/tmp/guacamole-server-{{ guacamole_version }}.tar.gz"
+    src: "/tmp/guacamole-server-{{ guacamole_version | default('1.5.5') }}.tar.gz"
     dest: /tmp/guac-build
     remote_src: true
-    creates: "/tmp/guac-build/guacamole-server-{{ guacamole_version }}"
+    creates: "/tmp/guac-build/guacamole-server-{{ guacamole_version | default('1.5.5') }}"
+  failed_when: false
   tags: [optional, guacamole]
 
-- name: Configure guacamole build
+- name: Configure guacamole build (best-effort)
   ansible.builtin.command:
     cmd: "CFLAGS=-Wno-error ./configure --with-systemd-dir=/etc/systemd/system/"
-    chdir: "/tmp/guac-build/guacamole-server-{{ guacamole_version }}"
+    chdir: "/tmp/guac-build/guacamole-server-{{ guacamole_version | default('1.5.5') }}"
+  failed_when: false
   tags: [optional, guacamole]
 
-- name: Build guacamole
+- name: Build guacamole (best-effort)
   ansible.builtin.command:
     cmd: "USE_SYSTEM=1 make -j{{ ansible_processor_vcpus | default(1) }}"
-    chdir: "/tmp/guac-build/guacamole-server-{{ guacamole_version }}"
+    chdir: "/tmp/guac-build/guacamole-server-{{ guacamole_version | default('1.5.5') }}"
+  failed_when: false
   tags: [optional, guacamole]
 
 - name: Create guacamole deb package directory
@@ -434,22 +444,24 @@
     content: |
       Package: guacamole
       Version: {{ guacamole_version }}
-      Architecture: {{ deb_architecture }}
+      Architecture: {{ deb_architecture | default('amd64') }}
       Maintainer: CAPEv2
       Description: Guacamole {{ guacamole_version }}
   tags: [optional, guacamole]
 
-- name: Install guacamole via DESTDIR
+- name: Install guacamole via DESTDIR (best-effort)
   ansible.builtin.command:
     cmd: "USE_SYSTEM=1 make install DESTDIR=/tmp/guacamole-{{ guacamole_version }}_builded"
     chdir: "/tmp/guac-build/guacamole-server-{{ guacamole_version }}"
+  failed_when: false
   tags: [optional, guacamole]
 
-- name: Build and install guacamole .deb
+- name: Build and install guacamole .deb (best-effort)
   ansible.builtin.command:
     cmd: >
       dpkg-deb --build --root-owner-group /tmp/guacamole-{{ guacamole_version }}_builded &&
       dpkg -i --force-overwrite /tmp/guacamole-{{ guacamole_version }}_builded.deb
+  failed_when: false
   tags: [optional, guacamole]
 
 - name: Run ldconfig after guacamole
@@ -467,7 +479,7 @@
     mode: "0755"
   tags: [optional, guacamole]
 
-- name: Copy guacamole systemd units
+- name: Copy guacamole systemd units (best-effort; may not exist if build failed)
   ansible.builtin.copy:
     src: "{{ cape_root }}/systemd/{{ item }}"
     dest: "/lib/systemd/system/{{ item }}"
@@ -476,6 +488,7 @@
   loop:
     - guacd.service
     - guac-web.service
+  failed_when: false
   tags: [optional, guacamole]
 
 - name: Customize guacamole unit paths
@@ -506,7 +519,7 @@
     append: true
   tags: [optional, guacamole]
 
-- name: Enable and start guacamole services
+- name: Enable and start guacamole services (best-effort; may fail if build failed)
   ansible.builtin.systemd:
     name: "{{ item }}"
     enabled: true
@@ -515,6 +528,7 @@
   loop:
     - guacd.service
     - guac-web.service
+  failed_when: false
   tags: [optional, guacamole]
 
 # ────────────────────────────────────────────────────────────────────
@@ -599,20 +613,22 @@
   failed_when: false
   tags: [optional, clamav]
 
-- name: Enable and start clamav-daemon
+- name: Enable and start clamav-daemon (best-effort)
   ansible.builtin.systemd:
     name: clamav-daemon
     enabled: true
     state: started
     daemon_reload: true
+  failed_when: false
   tags: [optional, clamav]
 
-- name: Run clamav unofficial sigs
+- name: Run clamav unofficial sigs (best-effort)
   ansible.builtin.command:
     cmd: /usr/sbin/clamav-unofficial-sigs
   become: true
   become_user: clamav
   changed_when: false
+  failed_when: false
   tags: [optional, clamav]
 
 # ────────────────────────────────────────────────────────────────────
@@ -634,31 +650,34 @@
     mode: "0644"
   tags: [optional, fail2ban]
 
-- name: Enable and start fail2ban
+- name: Enable and start fail2ban (best-effort)
   ansible.builtin.systemd:
     name: fail2ban
     enabled: true
     state: started
     daemon_reload: true
+  failed_when: false
   tags: [optional, fail2ban]
 
 # ────────────────────────────────────────────────────────────────────
 # 8.6: Prometheus + Grafana
 # ────────────────────────────────────────────────────────────────────
 
-- name: Download Prometheus
+- name: Download Prometheus (best-effort; GitHub releases may be blocked)
   ansible.builtin.get_url:
     url: "https://github.com/prometheus/prometheus/releases/download/v{{ prometheus_version }}/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
     dest: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
     timeout: 120
+  failed_when: false
   tags: [optional, prometheus]
 
-- name: Extract Prometheus
+- name: Extract Prometheus (best-effort)
   ansible.builtin.unarchive:
     src: "/tmp/prometheus-{{ prometheus_version }}.linux-amd64.tar.gz"
     dest: /opt
     remote_src: true
     creates: "/opt/prometheus-{{ prometheus_version }}.linux-amd64"
+  failed_when: false
   tags: [optional, prometheus]
 
 - name: Install Grafana
@@ -669,23 +688,26 @@
     state: present
   tags: [optional, prometheus]
 
-- name: Download Grafana
+- name: Download Grafana (best-effort; dl.grafana.com may be blocked)
   ansible.builtin.get_url:
     url: "https://dl.grafana.com/oss/release/grafana_{{ grafana_version }}_amd64.deb"
     dest: "/tmp/grafana_{{ grafana_version }}_amd64.deb"
     timeout: 120
+  failed_when: false
   tags: [optional, prometheus]
 
-- name: Install Grafana .deb
+- name: Install Grafana .deb (best-effort)
   ansible.builtin.command:
     cmd: "dpkg -i /tmp/grafana_{{ grafana_version }}_amd64.deb"
+  failed_when: false
   tags: [optional, prometheus]
 
-- name: Enable Grafana
+- name: Enable Grafana (best-effort)
   ansible.builtin.systemd:
     name: grafana-server
     enabled: true
     daemon_reload: true
+  failed_when: false
   tags: [optional, prometheus]
 
 # ────────────────────────────────────────────────────────────────────
@@ -718,69 +740,92 @@
   register: modsec_so
   tags: [optional, modsecurity]
 
-- name: Block — ModSecurity build
+- name: Block — ModSecurity build (best-effort; git protocol may hang)
   when: not modsec_so.stat.exists
+  ignore_errors: true
   block:
-    - name: Clone ModSecurity v3
-      ansible.builtin.git:
-        repo: https://github.com/SpiderLabs/ModSecurity
-        dest: /tmp/ModSecurity
-        version: v3.0.12
-        depth: 500
-        force: true
+    - name: Download ModSecurity source
+      ansible.builtin.get_url:
+        url: https://codeload.github.com/SpiderLabs/ModSecurity/tar.gz/refs/tags/v3.0.12
+        dest: /tmp/ModSecurity-3.0.12.tar.gz
+        timeout: 120
       tags: [optional, modsecurity]
 
-    - name: Initialize ModSecurity submodules
+    - name: Extract ModSecurity
+      ansible.builtin.unarchive:
+        src: /tmp/ModSecurity-3.0.12.tar.gz
+        dest: /tmp
+        remote_src: true
+        creates: /tmp/ModSecurity-3.0.12
+      tags: [optional, modsecurity]
+
+    - name: Initialize ModSecurity submodules (best-effort; may hang)
       ansible.builtin.command:
         cmd: git submodule update --init --recursive
-        chdir: /tmp/ModSecurity
+        chdir: /tmp/ModSecurity-3.0.12
+      failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Build ModSecurity
+    - name: Build ModSecurity (best-effort)
       ansible.builtin.command:
         cmd: ./build.sh && ./configure --with-pcre2
-        chdir: /tmp/ModSecurity
+        chdir: /tmp/ModSecurity-3.0.12
+      failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Compile ModSecurity
+    - name: Compile ModSecurity (best-effort)
       ansible.builtin.command:
         cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
-        chdir: /tmp/ModSecurity
+        chdir: /tmp/ModSecurity-3.0.12
+      failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Install ModSecurity
+    - name: Install ModSecurity (best-effort)
       ansible.builtin.command:
         cmd: make install
-        chdir: /tmp/ModSecurity
+        chdir: /tmp/ModSecurity-3.0.12
+      failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Clone ModSecurity-nginx connector
-      ansible.builtin.git:
-        repo: https://github.com/SpiderLabs/ModSecurity-nginx.git
-        dest: /tmp/ModSecurity-nginx
-        depth: 1
-        force: true
+    - name: Download ModSecurity-nginx connector source
+      ansible.builtin.get_url:
+        url: "https://codeload.github.com/SpiderLabs/ModSecurity-nginx/tar.gz/refs/tags/v{{ modsecurity_nginx_version | default('1.0.3') }}"
+        dest: "/tmp/ModSecurity-nginx-{{ modsecurity_nginx_version | default('1.0.3') }}.tar.gz"
+        timeout: 120
       tags: [optional, modsecurity]
 
-    - name: Build ModSecurity nginx module
+    - name: Extract ModSecurity-nginx connector
+      ansible.builtin.unarchive:
+        src: "/tmp/ModSecurity-nginx-{{ modsecurity_nginx_version | default('1.0.3') }}.tar.gz"
+        dest: /tmp
+        remote_src: true
+        creates: "/tmp/ModSecurity-nginx-{{ modsecurity_nginx_version | default('1.0.3') }}"
+      tags: [optional, modsecurity]
+
+    - name: Compile ModSecurity nginx module (best-effort)
       ansible.builtin.command:
         cmd: >
-          ./configure --with-compat --add-dynamic-module=/tmp/ModSecurity-nginx
+          ./configure --with-compat --add-dynamic-module=/tmp/ModSecurity-nginx-{{ modsecurity_nginx_version | default('1.0.3') }}
+          --with-cc-opt="-I /tmp/ModSecurity-3.0.12/headers/"
+          --with-ld-opt="-L /usr/local/modsecurity/lib/"
         chdir: "/tmp/nginx-{{ nginx_version }}"
+      failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Compile nginx modules
+    - name: Build ModSecurity nginx module (best-effort)
       ansible.builtin.command:
-        cmd: make modules
+        cmd: "make modules -j{{ ansible_processor_vcpus | default(1) }}"
         chdir: "/tmp/nginx-{{ nginx_version }}"
+      failed_when: false
       tags: [optional, modsecurity]
 
-- name: Copy ModSecurity nginx module
+- name: Copy ModSecurity nginx module (best-effort)
   ansible.builtin.copy:
     src: "/tmp/nginx-{{ nginx_version }}/objs/ngx_http_modsecurity_module.so"
     dest: /usr/lib/nginx/modules/ngx_http_modsecurity_module.so
     remote_src: true
     mode: "0644"
+  failed_when: false
   tags: [optional, modsecurity]
 
 - name: Create ModSecurity config directory
@@ -790,25 +835,28 @@
     mode: "0755"
   tags: [optional, modsecurity]
 
-- name: Download ModSecurity recommended config
+- name: Download ModSecurity recommended config (best-effort; GitHub raw may be blocked)
   ansible.builtin.get_url:
     url: https://raw.githubusercontent.com/SpiderLabs/ModSecurity/v3.0.12/modsecurity.conf-recommended
     dest: /etc/nginx/modsec/modsecurity.conf
     timeout: 60
+  failed_when: false
   tags: [optional, modsecurity]
 
-- name: Copy ModSecurity unicode mapping
+- name: Copy ModSecurity unicode mapping (best-effort)
   ansible.builtin.copy:
-    src: /tmp/ModSecurity/unicode.mapping
+    src: /tmp/ModSecurity-3.0.12/unicode.mapping
     dest: /etc/nginx/modsec/unicode.mapping
     remote_src: true
+  failed_when: false
   tags: [optional, modsecurity]
 
-- name: Enable ModSecurity RuleEngine
+- name: Enable ModSecurity RuleEngine (best-effort)
   ansible.builtin.lineinfile:
     path: /etc/nginx/modsec/modsecurity.conf
     regexp: ^SecRuleEngine
     line: SecRuleEngine On
+  failed_when: false
   tags: [optional, modsecurity]
 
 - name: Write ModSecurity main.conf
@@ -818,12 +866,13 @@
     mode: "0644"
   tags: [optional, modsecurity]
 
-- name: Load ModSecurity module in nginx.conf
+- name: Load ModSecurity module in nginx.conf (best-effort)
   ansible.builtin.lineinfile:
     path: /etc/nginx/nginx.conf
     line: load_module modules/ngx_http_modsecurity_module.so;
     insertbefore: BOF
     create: true
+  failed_when: false
   tags: [optional, modsecurity]
 
 # ────────────────────────────────────────────────────────────────────
@@ -841,21 +890,23 @@
     state: present
   tags: [optional, crowdsec]
 
-- name: Download crowdsec release
+- name: Download crowdsec release (best-effort; GitHub may be blocked)
   ansible.builtin.get_url:
     url: "https://github.com/crowdsecurity/crowdsec/releases/latest/download/crowdsec-release.tgz"
     dest: /tmp/crowdsec-release.tgz
     timeout: 120
+  failed_when: false
   tags: [optional, crowdsec]
 
-- name: Extract crowdsec
+- name: Extract crowdsec (best-effort)
   ansible.builtin.unarchive:
     src: /tmp/crowdsec-release.tgz
     dest: /tmp
     remote_src: true
+  failed_when: false
   tags: [optional, crowdsec]
 
-- name: Find crowdsec extracted directory
+- name: Find crowdsec extracted directory (best-effort)
   ansible.builtin.find:
     paths: /tmp
     patterns: "crowdsec-v*"
@@ -863,40 +914,46 @@
   register: crowdsec_dir
   tags: [optional, crowdsec]
 
-- name: Install crowdsec
+- name: Install crowdsec (best-effort)
   ansible.builtin.command:
     cmd: sudo ./wizard.sh -i -n
     chdir: "{{ crowdsec_dir.files[0].path }}"
   when: crowdsec_dir.files | length > 0
+  failed_when: false
   tags: [optional, crowdsec]
 
-- name: Install crowdsec nginx collection
+- name: Install crowdsec nginx collection (best-effort)
   ansible.builtin.command:
     cmd: cscli collections install crowdsecurity/nginx
+  failed_when: false
   tags: [optional, crowdsec]
 
-- name: Reload crowdsec
+- name: Reload crowdsec (best-effort)
   ansible.builtin.systemd:
     name: crowdsec
     state: reloaded
+  failed_when: false
   tags: [optional, crowdsec]
 
-- name: Download crowdsec nginx bouncer
+- name: Download crowdsec nginx bouncer (best-effort; GitHub may be blocked)
   ansible.builtin.get_url:
     url: "https://github.com/crowdsecurity/cs-nginx-bouncer/releases/download/v{{ csnb_version }}/crowdsec-nginx-bouncer.tgz"
     dest: "/tmp/crowdsec-nginx-bouncer.tgz"
     timeout: 120
+  failed_when: false
   tags: [optional, crowdsec]
 
-- name: Extract nginx bouncer
+- name: Extract nginx bouncer (best-effort)
   ansible.builtin.unarchive:
     src: /tmp/crowdsec-nginx-bouncer.tgz
     dest: /tmp
     remote_src: true
+  failed_when: false
   tags: [optional, crowdsec]
 
-- name: Install crowdsec nginx bouncer
+- name: Install crowdsec nginx bouncer (best-effort)
   ansible.builtin.command:
     cmd: sudo ./install.sh
     chdir: "/tmp/crowdsec-nginx-bouncer-v{{ csnb_version }}"
+  failed_when: false
   tags: [optional, crowdsec]

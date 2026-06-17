@@ -535,18 +535,18 @@
 # 8.4: ClamAV
 # ────────────────────────────────────────────────────────────────────
 
-- name: Install ClamAV
+- name: Install ClamAV (best-effort; some packages may be unavailable on newer Ubuntu)
   ansible.builtin.apt:
     pkg:
       - clamav
       - clamav-daemon
       - clamav-freshclam
-      - clamav-unofficial-sigs
       - python3-pyclamd
     state: present
+  failed_when: false
   tags: [optional, clamav]
 
-- name: Write clamav unofficial sigs config
+- name: Write clamav unofficial sigs config (best-effort; package may not exist)
   ansible.builtin.copy:
     dest: /usr/share/clamav-unofficial-sigs/conf.d/00-clamav-unofficial-sigs.conf
     content: |
@@ -590,6 +590,7 @@
     mode: "0644"
     owner: root
     group: root
+  failed_when: false
   tags: [optional, clamav]
 
 - name: Add clamav to cape group
@@ -635,19 +636,21 @@
 # 8.5: fail2ban
 # ────────────────────────────────────────────────────────────────────
 
-- name: Install fail2ban
+- name: Install fail2ban (best-effort)
   ansible.builtin.apt:
     pkg:
       - fail2ban
     state: present
+  failed_when: false
   tags: [optional, fail2ban]
 
-- name: Copy jail.conf to jail.local
+- name: Copy jail.conf to jail.local (best-effort; may not exist if fail2ban not installed)
   ansible.builtin.copy:
     src: /etc/fail2ban/jail.conf
     dest: /etc/fail2ban/jail.local
     remote_src: true
     mode: "0644"
+  failed_when: false
   tags: [optional, fail2ban]
 
 - name: Enable and start fail2ban (best-effort)

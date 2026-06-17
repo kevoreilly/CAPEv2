@@ -16,20 +16,20 @@
       - libperl-dev
       - libgd3
       - libgd-dev
-      - libgeoip1
+      - libgeoip1t64
       - libgeoip-dev
       - geoip-bin
-      - libxml2
       - libxml2-dev
       - libxslt1.1
       - libxslt1-dev
     state: present
   tags: [optional, nginx]
 
-- name: Add maxmind PPA
+- name: Add maxmind PPA (best-effort; keyserver may be blocked)
   ansible.builtin.apt_repository:
     repo: ppa:maxmind/ppa
     state: present
+  ignore_errors: true
   tags: [optional, nginx]
 
 - name: Check nginx version
@@ -349,7 +349,7 @@
       - libjpeg-turbo8-dev
       - libpng-dev
       - libossp-uuid-dev
-      - freerdp2-dev
+      - freerdp3-dev
       - libssh2-1-dev
       - libvncserver-dev
       - libpulse-dev

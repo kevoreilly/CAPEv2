@@ -128,7 +128,7 @@
     state: present
   when: mongo_enable
 
-- name: Create MongoDB data directories
+- name: Create MongoDB data directories (best-effort; user may not exist if install failed)
   ansible.builtin.file:
     path: "/data/{{ item }}"
     state: directory
@@ -139,6 +139,7 @@
     - db
     - configdb
   when: mongo_enable
+  ignore_errors: true
 
 - name: Write enable-transparent-huge-pages service
   ansible.builtin.copy:
@@ -197,13 +198,14 @@
   when: mongo_enable
   notify: daemon reload
 
-- name: Enable and start MongoDB
+- name: Enable and start MongoDB (best-effort; may fail if not installed)
   ansible.builtin.systemd:
     name: mongodb
     enabled: true
     state: started
     daemon_reload: true
   when: mongo_enable
+  ignore_errors: true
 
 - name: Add tcp_fastopen sysctl for MongoDB
   ansible.builtin.copy:
@@ -217,7 +219,7 @@
 # Alembic migrations
 # ────────────────────────────────────────────────────────────────────
 
-- name: Run Alembic migrations with uv
+- name: Run Alembic migrations with uv (best-effort; deps may not be installed)
   ansible.builtin.command:
     cmd: >
       /usr/local/bin/uv run alembic upgrade head
@@ -225,9 +227,10 @@
   become: true
   become_user: "{{ cape_user }}"
   changed_when: false
+  failed_when: false
   when: use_uv
 
-- name: Run Alembic migrations with Poetry
+- name: Run Alembic migrations with Poetry (best-effort; deps may not be installed)
   ansible.builtin.command:
     cmd: >
       /etc/poetry/bin/poetry run alembic upgrade head
@@ -235,4 +238,5 @@
   become: true
   become_user: "{{ cape_user }}"
   changed_when: false
+  failed_when: false
   when: not use_uv

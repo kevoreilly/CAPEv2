@@ -76,6 +76,20 @@
   ignore_errors: true
   when: not use_uv
 
+# Poetry's venv is isolated from system site-packages, so apt-installed
+# python3-greenlet/python3-gevent aren't visible to it. The poetry.lock
+# pins old versions (greenlet 3.0.3, gevent 24.2.1, orjson 3.10.15) that
+# lack Python 3.14 wheels and fail to compile from source. Install them
+# directly via pip to get prebuilt cp314 wheels from PyPI.
+- name: Install native packages into Poetry venv for Python 3.14 compatibility
+  ansible.builtin.command:
+    cmd: /opt/CAPEv2/.venv/bin/pip install gevent greenlet orjson --break-system-packages
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+  failed_when: false
+  when: not use_uv
+
 - name: Install yara-python system dependencies
   ansible.builtin.apt:
     pkg:

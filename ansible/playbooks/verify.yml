@@ -28,8 +28,8 @@
       loop: "{{ verify_services }}"
       failed_when: svc_result.status.ActiveState not in ['active', 'activating']
       when: item not in ['tor', 'mongodb', 'clamav-daemon'] or
-            (item == 'mongodb' and mongo_enable) or
-            (item == 'clamav-daemon' and clamav_enable)
+            (item == 'mongodb' and mongo_enable | default(false)) or
+            (item == 'clamav-daemon' and clamav_enable | default(false))
 
     - name: Check optional services if enabled
       ansible.builtin.systemd:
@@ -40,13 +40,13 @@
 
     - name: PostgreSQL accepts connections (best-effort)
       ansible.builtin.command:
-        cmd: "psql -U {{ db_user }} -d {{ db_name }} -c 'SELECT 1' -h {{ db_host }}"
+        cmd: "psql -U {{ db_user | default('cape') }} -d {{ db_name | default('cape') }} -c 'SELECT 1' -h {{ db_host | default('localhost') }}"
       register: pg_check
       failed_when: false
       changed_when: false
       no_log: true
       environment:
-        PGPASSWORD: "{{ vault_db_password }}"
+        PGPASSWORD: "{{ vault_db_password | default('') }}"
 
     - name: MongoDB responds (best-effort)
       ansible.builtin.command:
@@ -54,7 +54,7 @@
       register: mongo_check
       failed_when: false
       changed_when: false
-      when: mongo_enable
+      when: mongo_enable | default(false)
 
     - name: YARA is installed (best-effort)
       ansible.builtin.command:
@@ -75,28 +75,28 @@
 
     - name: Tor control port is listening
       ansible.builtin.wait_for:
-        port: "{{ tor_control_port }}"
-        host: "{{ iface_ip }}"
+        port: "{{ tor_control_port | default(9051) }}"
+        host: "{{ iface_ip | default(ansible_default_ipv4.address) }}"
         timeout: 5
       failed_when: false
 
     - name: Tor DNS port is listening
       ansible.builtin.wait_for:
-        port: "{{ tor_dns_port }}"
-        host: "{{ iface_ip }}"
+        port: "{{ tor_dns_port | default(5353) }}"
+        host: "{{ iface_ip | default(ansible_default_ipv4.address) }}"
         timeout: 5
       failed_when: false
 
     - name: Result server port is listening
       ansible.builtin.wait_for:
         port: "{{ resultserver_port | default(8000) }}"
-        host: "{{ iface_ip }}"
+        host: "{{ iface_ip | default(ansible_default_ipv4.address) }}"
         timeout: 5
       failed_when: false
 
     - name: Web UI responds (best-effort; CAPE may not be fully running)
       ansible.builtin.uri:
-        url: "http://{{ iface_ip }}:8000/"
+        url: "http://{{ iface_ip | default(ansible_default_ipv4.address) }}:8000/"
         return_content: true
       register: web_check
       failed_when: false

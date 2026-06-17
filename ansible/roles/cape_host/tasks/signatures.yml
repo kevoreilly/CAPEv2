@@ -253,22 +253,24 @@
 # 6.4: FLARE CAPA
 # ────────────────────────────────────────────────────────────────────
 
-- name: Install FLARE CAPA with uv
+- name: Install FLARE CAPA with uv (best-effort; requires working venv)
   ansible.builtin.command:
     cmd: >
       /usr/local/bin/uv pip install flare-capa
     chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"
+  failed_when: false
   when: use_uv
 
-- name: Install FLARE CAPA with Poetry
+- name: Install FLARE CAPA with Poetry (best-effort; requires working venv)
   ansible.builtin.command:
     cmd: >
       /etc/poetry/bin/poetry run pip install flare-capa
     chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"
+  failed_when: false
   when: not use_uv
 
 # ────────────────────────────────────────────────────────────────────

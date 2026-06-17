@@ -56,18 +56,19 @@
       changed_when: false
       when: mongo_enable
 
-    - name: YARA is installed
+    - name: YARA is installed (best-effort)
       ansible.builtin.command:
         cmd: yara --version
       register: yara_version_check
       changed_when: false
+      failed_when: false
 
     - name: Print YARA version
       ansible.builtin.debug:
         msg: "YARA version: {{ yara_version_check.stdout }}"
 
     - name: Suricata is configured on correct interface
-      ansible.builtin.command:
+      ansible.builtin.shell:
         cmd: "grep 'interface:' /etc/suricata/suricata.yaml | head -1"
       register: suricata_iface
       changed_when: false

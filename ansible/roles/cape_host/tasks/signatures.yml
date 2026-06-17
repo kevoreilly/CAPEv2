@@ -99,11 +99,12 @@
 # 6.2: Suricata
 # ────────────────────────────────────────────────────────────────────
 
-- name: Add Suricata PPA (stable 7.0)
+- name: Add Suricata PPA (stable 7.0) — best-effort; falls back to Ubuntu repo
   ansible.builtin.apt_repository:
     repo: ppa:oisf/suricata-7.0
     state: present
     update_cache: true
+  ignore_errors: true
 
 - name: Install Suricata
   ansible.builtin.apt:

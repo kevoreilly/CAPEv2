@@ -66,17 +66,29 @@
         chdir: "/tmp/yara-{{ yara_version_only }}"
       changed_when: false
 
-    - name: Build .deb package with checkinstall
+    - name: Build .deb package with checkinstall (best-effort; may be non-interactive)
       ansible.builtin.command:
         cmd: >
           checkinstall -D --pkgname="yara-{{ yara_version }}" --pkgversion="{{ yara_version_only }}" --default
         chdir: "/tmp/yara-{{ yara_version_only }}"
       changed_when: false
+      environment:
+        DEBEMAIL: "root@localhost"
+        DEBFULLNAME: "CAPEv2 Ansible"
+      failed_when: false
 
-    - name: Install YARA .deb
+    - name: Install YARA .deb (best-effort; may fail if checkinstall failed)
       ansible.builtin.command:
         cmd: "dpkg -i --force-overwrite /tmp/yara-{{ yara_version }}*.deb"
       changed_when: false
+      failed_when: false
+
+    - name: Fallback — install YARA with make install
+      ansible.builtin.command:
+        cmd: "make install"
+        chdir: "/tmp/yara-{{ yara_version_only }}"
+      changed_when: false
+      failed_when: false
 
     - name: Run ldconfig
       ansible.builtin.command:

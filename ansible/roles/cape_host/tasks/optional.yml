@@ -190,7 +190,7 @@
         content: |
           Package: nginx
           Version: {{ nginx_version }}
-      Architecture: {{ deb_architecture | default('amd64') }}
+          Architecture: {{ deb_architecture | default('amd64') }}
           Maintainer: CAPEv2
           Description: nginx-{{ nginx_version }}
       tags: [optional, nginx]
@@ -208,7 +208,13 @@
       failed_when: false
       tags: [optional, nginx]
 
-- name: Create nginx user and group
+- name: Create nginx group
+  ansible.builtin.group:
+    name: nginx
+    system: true
+  tags: [optional, nginx]
+
+- name: Create nginx user
   ansible.builtin.user:
     name: nginx
     system: true

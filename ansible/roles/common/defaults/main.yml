@@ -3,6 +3,9 @@ cape_user: cape
 cape_root: /opt/CAPEv2
 use_uv: false
 
+# Debian package architecture mapping
+deb_architecture: "{{ {'x86_64': 'amd64', 'aarch64': 'arm64', 'armv7l': 'armhf'}[ansible_architecture] | default(ansible_architecture) }}"
+
 # Tor
 tor_password: ""  # will be auto-generated if empty
 tor_control_port: 9051

@@ -190,7 +190,7 @@
         content: |
           Package: nginx
           Version: {{ nginx_version }}
-          Architecture: {{ deb_architecture }}
+      Architecture: {{ deb_architecture | default('amd64') }}
           Maintainer: CAPEv2
           Description: nginx-{{ nginx_version }}
       tags: [optional, nginx]

@@ -57,6 +57,7 @@
         dest: /tmp
         remote_src: true
         creates: "/tmp/nginx-{{ nginx_version }}"
+      failed_when: false
       tags: [optional, nginx]
 
     - name: Download PCRE2 source
@@ -73,6 +74,7 @@
         dest: /tmp
         remote_src: true
         creates: /tmp/pcre2-10.37
+      failed_when: false
       tags: [optional, nginx]
 
     - name: Download OpenSSL source
@@ -89,6 +91,7 @@
         dest: /tmp
         remote_src: true
         creates: /tmp/openssl-3.4.0
+      failed_when: false
       tags: [optional, nginx]
 
     - name: Download zlib source
@@ -105,6 +108,7 @@
         dest: /tmp
         remote_src: true
         creates: /tmp/zlib-1.3.1
+      failed_when: false
       tags: [optional, nginx]
 
     - name: Configure nginx build

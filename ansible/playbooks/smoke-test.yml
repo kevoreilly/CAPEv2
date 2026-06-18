@@ -32,8 +32,11 @@
 
     - name: Parse submission response (best-effort)
       ansible.builtin.set_fact:
-        smoke_task_id: "{{ (submit_result.stdout | from_json).task_id }}"
-      when: submit_result.stdout | length > 0
+        smoke_task_id: "{{ (submit_result.stdout | from_json).task_id | default('') }}"
+      when:
+        - submit_result.stdout | length > 0
+        - submit_result.stdout is regex("^{")
+        - submit_result is defined
 
     - name: Print submitted task ID
       ansible.builtin.debug:
@@ -42,24 +45,26 @@
 
     - name: Poll for task completion (best-effort)
       ansible.builtin.uri:
-        url: "http://{{ iface_ip | default('127.0.0.1') }}:8000/apiv2/tasks/view/{{ smoke_task_id | default('0') }}"
+        url: "http://{{ iface_ip | default('127.0.0.1') }}:8000/apiv2/tasks/view/{{ smoke_task_id }}"
         return_content: true
       register: task_status
-      until: task_status.json.task.status == "reported"
+      until: task_status.json is defined and task_status.json.task.status == "reported"
       retries: "{{ (smoke_test_timeout / smoke_test_interval) | int }}"
       delay: "{{ smoke_test_interval }}"
       failed_when: false
-      when: smoke_task_id is defined
+      when: smoke_task_id is defined and smoke_task_id | length > 0
 
     - name: Verify report has expected fields (best-effort)
       ansible.builtin.assert:
         that:
+          - task_status.json is defined
+          - task_status.json.task is defined
           - task_status.json.task.status == "reported"
           - task_status.json.task.file_name is defined
           - task_status.json.task.added is defined
         fail_msg: "Smoke test report is missing expected fields"
-        success_msg: "✅ Smoke test passed: task {{ smoke_task_id | default('0') }} completed successfully"
-      when: task_status is defined and task_status.json is defined
+        success_msg: "Smoke test passed: task {{ smoke_task_id | default('0') }} completed successfully"
+      when: task_status is defined and task_status.json is defined and task_status.json.task is defined
       failed_when: false
 
     - name: Clean up test file

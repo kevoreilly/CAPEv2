@@ -40,26 +40,26 @@
   register: nginx_check
   tags: [optional, nginx]
 
+- name: Download nginx source (needed for ModSecurity module)
+  ansible.builtin.get_url:
+    url: "https://nginx.org/download/nginx-{{ nginx_version }}.tar.gz"
+    dest: "/tmp/nginx-{{ nginx_version }}.tar.gz"
+    timeout: 120
+  failed_when: false
+  tags: [optional, nginx]
+
+- name: Extract nginx source (needed for ModSecurity module)
+  ansible.builtin.unarchive:
+    src: "/tmp/nginx-{{ nginx_version }}.tar.gz"
+    dest: /tmp
+    remote_src: true
+    creates: "/tmp/nginx-{{ nginx_version }}"
+  failed_when: false
+  tags: [optional, nginx]
+
 - name: Block — nginx build from source
   when: nginx_check.rc != 0 or nginx_version not in nginx_check.stdout
   block:
-    - name: Download nginx source
-      ansible.builtin.get_url:
-        url: "https://nginx.org/download/nginx-{{ nginx_version }}.tar.gz"
-        dest: "/tmp/nginx-{{ nginx_version }}.tar.gz"
-        timeout: 120
-      failed_when: false
-      tags: [optional, nginx]
-
-    - name: Extract nginx source
-      ansible.builtin.unarchive:
-        src: "/tmp/nginx-{{ nginx_version }}.tar.gz"
-        dest: /tmp
-        remote_src: true
-        creates: "/tmp/nginx-{{ nginx_version }}"
-      failed_when: false
-      tags: [optional, nginx]
-
     - name: Download PCRE2 source
       ansible.builtin.get_url:
         url: "https://github.com/PCRE2Project/pcre2/releases/download/pcre2-10.37/pcre2-10.37.tar.gz"
@@ -202,15 +202,9 @@
       failed_when: false
       tags: [optional, nginx]
 
-    - name: Build nginx .deb
+    - name: Build nginx .deb (for reference only — not installed)
       ansible.builtin.command:
         cmd: "dpkg-deb --build --root-owner-group /tmp/nginx_builded"
-      failed_when: false
-      tags: [optional, nginx]
-
-    - name: Install nginx .deb (may replace Ubuntu-packaged nginx)
-      ansible.builtin.command:
-        cmd: "dpkg -i --force-overwrite --force-downgrade /tmp/nginx_builded.deb"
       failed_when: false
       tags: [optional, nginx]
 
@@ -235,6 +229,20 @@
     src: /usr/lib/nginx/modules
     dest: /etc/nginx/modules
     state: link
+  failed_when: false
+  tags: [optional, nginx]
+
+- name: Enable Lua and NDK modules (if packages installed)
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+    mode: "0644"
+  loop:
+    - src: /usr/share/nginx/modules-available/mod-http-lua.conf
+      dest: /etc/nginx/modules-enabled/50-mod-http-lua.conf
+    - src: /usr/share/nginx/modules-available/mod-http-ndk.conf
+      dest: /etc/nginx/modules-enabled/10-mod-http-ndk.conf
   failed_when: false
   tags: [optional, nginx]
 
@@ -772,10 +780,36 @@
         creates: /tmp/ModSecurity-3.0.12
       tags: [optional, modsecurity]
 
-    - name: Initialize ModSecurity submodules (best-effort; may hang)
-      ansible.builtin.command:
-        cmd: git submodule update --init --recursive
-        chdir: /tmp/ModSecurity-3.0.12
+    - name: Download libInjection submodule (best-effort; git protocol may deadlock)
+      ansible.builtin.get_url:
+        url: https://github.com/libinjection/libinjection/archive/refs/heads/main.tar.gz
+        dest: /tmp/libinjection-main.tar.gz
+        timeout: 120
+      failed_when: false
+      tags: [optional, modsecurity]
+
+    - name: Extract libInjection into ModSecurity source
+      ansible.builtin.unarchive:
+        src: /tmp/libinjection-main.tar.gz
+        dest: /tmp/ModSecurity-3.0.12/others
+        remote_src: true
+      failed_when: false
+      tags: [optional, modsecurity]
+
+    - name: Move libInjection to expected path
+      ansible.builtin.shell:
+        cmd: >
+          mv /tmp/ModSecurity-3.0.12/others/libinjection-main
+          /tmp/ModSecurity-3.0.12/others/libinjection
+        removes: /tmp/ModSecurity-3.0.12/others/libinjection-main
+      failed_when: false
+      tags: [optional, modsecurity]
+
+    - name: Patch ModSecurity headers for GCC 15+ (cstdint -> stdint.h)
+      ansible.builtin.replace:
+        path: /tmp/ModSecurity-3.0.12/headers/modsecurity/rules_set.h
+        regexp: '#include <cstdint>'
+        replace: '#include <stdint.h>'
       failed_when: false
       tags: [optional, modsecurity]
 
@@ -793,18 +827,34 @@
       failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Compile ModSecurity (best-effort)
-      ansible.builtin.command:
-        cmd: "make -j{{ ansible_processor_vcpus | default(1) }}"
+    - name: Compile ModSecurity (best-effort; examples may fail on GCC 15)
+      ansible.builtin.shell:
+        cmd: "make -j{{ ansible_processor_vcpus | default(1) }} -C src && make -j{{ ansible_processor_vcpus | default(1) }} -C others"
         chdir: /tmp/ModSecurity-3.0.12
       failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Install ModSecurity (best-effort)
-      ansible.builtin.command:
-        cmd: make install
+    - name: Install ModSecurity library manually (best-effort)
+      ansible.builtin.shell:
+        cmd: |
+          mkdir -p /usr/local/modsecurity/lib /usr/local/modsecurity/include
+          cp src/.libs/libmodsecurity.a src/.libs/libmodsecurity.so* /usr/local/modsecurity/lib/
+          cp -r headers/modsecurity /usr/local/modsecurity/include/
         chdir: /tmp/ModSecurity-3.0.12
       failed_when: false
+      tags: [optional, modsecurity]
+
+    - name: Add ModSecurity library to linker search path
+      ansible.builtin.copy:
+        dest: /etc/ld.so.conf.d/modsecurity.conf
+        content: /usr/local/modsecurity/lib
+        mode: "0644"
+      tags: [optional, modsecurity]
+
+    - name: Update linker cache
+      ansible.builtin.command:
+        cmd: ldconfig
+      changed_when: false
       tags: [optional, modsecurity]
 
     - name: Download ModSecurity-nginx connector source
@@ -831,8 +881,16 @@
           --conf-path=/etc/nginx/nginx.conf
           --with-compat
           --add-dynamic-module=/tmp/ModSecurity-nginx-{{ modsecurity_nginx_version | default('1.0.3') }}
-          --with-cc-opt="-I /tmp/ModSecurity-3.0.12/headers/"
-          --with-ld-opt="-L /usr/local/modsecurity/lib/"
+          --with-cc-opt="-Wno-error=implicit-function-declaration
+          -I /tmp/ModSecurity-3.0.12/headers/
+          -I /usr/local/modsecurity/include/
+          -g -O2 -fno-omit-frame-pointer -mno-omit-leaf-frame-pointer
+          -flto=auto -ffat-lto-objects -fstack-protector-strong
+          -fstack-clash-protection -Wformat -Werror=format-security
+          -fcf-protection -fPIC -Wdate-time -D_FORTIFY_SOURCE=3"
+          --with-ld-opt="-Wl,-Bsymbolic-functions -flto=auto
+          -ffat-lto-objects -Wl,-z,relro -Wl,-z,now -fPIC
+          -L /usr/local/modsecurity/lib/"
         chdir: "/tmp/nginx-{{ nginx_version }}"
       failed_when: false
       tags: [optional, modsecurity]
@@ -842,6 +900,13 @@
         cmd: "make modules -j{{ ansible_processor_vcpus | default(1) }}"
         chdir: "/tmp/nginx-{{ nginx_version }}"
       failed_when: false
+      tags: [optional, modsecurity]
+
+    - name: Create nginx modules directory
+      ansible.builtin.file:
+        path: /usr/lib/nginx/modules
+        state: directory
+        mode: "0755"
       tags: [optional, modsecurity]
 
 - name: Copy ModSecurity nginx module (best-effort)

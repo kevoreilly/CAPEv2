@@ -12,9 +12,13 @@
     remote_src: true
 
 - name: Rename extracted directory to cape_root
-  ansible.builtin.command:
-    cmd: mv "{{ cape_root | dirname }}/CAPEv2-master" "{{ cape_root }}"
-    creates: "{{ cape_root }}"
+  ansible.builtin.shell:
+    cmd: |
+      rm -rf "{{ cape_root }}" &&
+      mv "{{ cape_root | dirname }}/CAPEv2-master" "{{ cape_root }}"
+  args:
+    executable: /bin/bash
+    creates: "{{ cape_root }}/pyproject.toml"
 
 - name: Ensure CAPE root ownership
   ansible.builtin.file:
@@ -96,12 +100,21 @@
       - python3-libvirt
     state: present
 
+- name: Create .venv site-packages directory for libvirt .pth
+  ansible.builtin.file:
+    path: /opt/CAPEv2/.venv/lib/python3.14/site-packages
+    state: directory
+    mode: "0755"
+  when: not use_uv
+  failed_when: false
+
 - name: Make libvirt accessible from Poetry venv
   ansible.builtin.copy:
     dest: /opt/CAPEv2/.venv/lib/python3.14/site-packages/libvirt.pth
     content: "/usr/local/lib/python3.14/dist-packages\n"
     mode: "0644"
   when: not use_uv
+  failed_when: false
 
 - name: Install yara-python system dependencies
   ansible.builtin.apt:

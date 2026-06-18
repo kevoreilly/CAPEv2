@@ -844,19 +844,6 @@
       failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Add ModSecurity library to linker search path
-      ansible.builtin.copy:
-        dest: /etc/ld.so.conf.d/modsecurity.conf
-        content: /usr/local/modsecurity/lib
-        mode: "0644"
-      tags: [optional, modsecurity]
-
-    - name: Update linker cache
-      ansible.builtin.command:
-        cmd: ldconfig
-      changed_when: false
-      tags: [optional, modsecurity]
-
     - name: Download ModSecurity-nginx connector source
       ansible.builtin.get_url:
         url: "https://codeload.github.com/SpiderLabs/ModSecurity-nginx/tar.gz/refs/tags/v{{ modsecurity_nginx_version | default('1.0.3') }}"
@@ -908,6 +895,19 @@
         state: directory
         mode: "0755"
       tags: [optional, modsecurity]
+
+- name: Add ModSecurity library to linker search path
+  ansible.builtin.copy:
+    dest: /etc/ld.so.conf.d/modsecurity.conf
+    content: /usr/local/modsecurity/lib
+    mode: "0644"
+  tags: [optional, modsecurity]
+
+- name: Update linker cache
+  ansible.builtin.command:
+    cmd: ldconfig
+  changed_when: false
+  tags: [optional, modsecurity]
 
 - name: Copy ModSecurity nginx module (best-effort)
   ansible.builtin.copy:

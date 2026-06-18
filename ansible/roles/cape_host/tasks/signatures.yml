@@ -53,10 +53,15 @@
         remote_src: true
         creates: "/tmp/yara-{{ yara_version_only }}"
 
-    - name: Bootstrap and configure YARA
+    - name: Bootstrap YARA (autoreconf)
       ansible.builtin.command:
-        cmd: >
-          ./bootstrap.sh && ./configure --enable-cuckoo --enable-magic --enable-profiling
+        cmd: ./bootstrap.sh
+        chdir: "/tmp/yara-{{ yara_version_only }}"
+      changed_when: false
+
+    - name: Configure YARA
+      ansible.builtin.command:
+        cmd: ./configure --enable-cuckoo --enable-magic --enable-profiling
         chdir: "/tmp/yara-{{ yara_version_only }}"
       changed_when: false
 

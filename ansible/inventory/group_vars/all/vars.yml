@@ -56,7 +56,7 @@ seabios_version: 1.16.3
 # Optional component versions
 # ────────────────────────────────────────────────────────────────────
 
-nginx_version: 1.27.3
+nginx_version: 1.28.3
 prometheus_version: 2.20.1
 grafana_version: 7.1.5
 node_exporter_version: 1.0.1

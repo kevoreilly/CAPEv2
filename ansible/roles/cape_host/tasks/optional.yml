@@ -189,7 +189,7 @@
         dest: /tmp/nginx_builded/DEBIAN/control
         content: |
           Package: nginx
-          Version: {{ nginx_version }}
+          Version: {{ nginx_version }}+cape
           Architecture: {{ deb_architecture | default('amd64') }}
           Maintainer: CAPEv2
           Description: nginx-{{ nginx_version }}
@@ -202,9 +202,15 @@
       failed_when: false
       tags: [optional, nginx]
 
-    - name: Build and install nginx .deb
+    - name: Build nginx .deb
       ansible.builtin.command:
-        cmd: "dpkg-deb --build --root-owner-group /tmp/nginx_builded && dpkg -i --force-overwrite /tmp/nginx_builded.deb"
+        cmd: "dpkg-deb --build --root-owner-group /tmp/nginx_builded"
+      failed_when: false
+      tags: [optional, nginx]
+
+    - name: Install nginx .deb (may replace Ubuntu-packaged nginx)
+      ansible.builtin.command:
+        cmd: "dpkg -i --force-overwrite --force-downgrade /tmp/nginx_builded.deb"
       failed_when: false
       tags: [optional, nginx]
 
@@ -456,11 +462,15 @@
   failed_when: false
   tags: [optional, guacamole]
 
-- name: Build and install guacamole .deb (best-effort)
+- name: Build guacamole .deb (best-effort)
   ansible.builtin.command:
-    cmd: >
-      dpkg-deb --build --root-owner-group /tmp/guacamole-{{ guacamole_version }}_builded &&
-      dpkg -i --force-overwrite /tmp/guacamole-{{ guacamole_version }}_builded.deb
+    cmd: dpkg-deb --build --root-owner-group /tmp/guacamole-{{ guacamole_version }}_builded
+  failed_when: false
+  tags: [optional, guacamole]
+
+- name: Install guacamole .deb (best-effort)
+  ansible.builtin.command:
+    cmd: dpkg -i --force-overwrite --force-downgrade /tmp/guacamole-{{ guacamole_version }}_builded.deb
   failed_when: false
   tags: [optional, guacamole]
 
@@ -769,9 +779,16 @@
       failed_when: false
       tags: [optional, modsecurity]
 
-    - name: Build ModSecurity (best-effort)
+    - name: Bootstrap ModSecurity (autoreconf)
       ansible.builtin.command:
-        cmd: ./build.sh && ./configure --with-pcre2
+        cmd: ./build.sh
+        chdir: /tmp/ModSecurity-3.0.12
+      failed_when: false
+      tags: [optional, modsecurity]
+
+    - name: Configure ModSecurity
+      ansible.builtin.command:
+        cmd: ./configure --with-pcre2
         chdir: /tmp/ModSecurity-3.0.12
       failed_when: false
       tags: [optional, modsecurity]
@@ -808,7 +825,12 @@
     - name: Compile ModSecurity nginx module (best-effort)
       ansible.builtin.command:
         cmd: >
-          ./configure --with-compat --add-dynamic-module=/tmp/ModSecurity-nginx-{{ modsecurity_nginx_version | default('1.0.3') }}
+          ./configure --prefix=/usr/share/nginx
+          --sbin-path=/usr/sbin/nginx
+          --modules-path=/usr/lib/nginx/modules
+          --conf-path=/etc/nginx/nginx.conf
+          --with-compat
+          --add-dynamic-module=/tmp/ModSecurity-nginx-{{ modsecurity_nginx_version | default('1.0.3') }}
           --with-cc-opt="-I /tmp/ModSecurity-3.0.12/headers/"
           --with-ld-opt="-L /usr/local/modsecurity/lib/"
         chdir: "/tmp/nginx-{{ nginx_version }}"

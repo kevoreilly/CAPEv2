@@ -19,8 +19,8 @@ Environment=CAPE_ID=auto
 # Environment=CAPE_DISABLE_MEMORY_LIMIT=false
 
 # Allow user overrides via file
-EnvironmentFile=-/opt/CAPEv2/custom/conf/cape-processor.env
 EnvironmentFile=-/opt/CAPEv2/conf/cape-processor.env
+EnvironmentFile=-/opt/CAPEv2/custom/conf/cape-processor.env
 
 ExecStart=/etc/poetry/bin/poetry run python utils/process.py
 User=cape

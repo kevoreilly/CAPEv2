@@ -232,19 +232,7 @@
   failed_when: false
   tags: [optional, nginx]
 
-- name: Enable Lua and NDK modules (if packages installed)
-  ansible.builtin.copy:
-    src: "{{ item.src }}"
-    dest: "{{ item.dest }}"
-    remote_src: true
-    mode: "0644"
-  loop:
-    - src: /usr/share/nginx/modules-available/mod-http-lua.conf
-      dest: /etc/nginx/modules-enabled/50-mod-http-lua.conf
-    - src: /usr/share/nginx/modules-available/mod-http-ndk.conf
-      dest: /etc/nginx/modules-enabled/10-mod-http-ndk.conf
-  failed_when: false
-  tags: [optional, nginx]
+
 
 - name: Create nginx directories
   ansible.builtin.file:
@@ -312,7 +300,7 @@
       Wants=network-online.target
       [Service]
       Type=forking
-      PIDFile=/tmp/nginx.pid
+      PIDFile=/run/nginx.pid
       ExecStartPre=/usr/sbin/nginx -t -c /etc/nginx/nginx.conf
       ExecStart=/usr/sbin/nginx -c /etc/nginx/nginx.conf
       ExecReload=/bin/kill -s HUP $MAINPID
@@ -336,9 +324,9 @@
           create 640 nginx adm
           sharedscripts
           postrotate
-              if [ -f /tmp/nginx.pid ]; then
-                  kill -USR1 $(cat /tmp/nginx.pid)
-              fi
+                if [ -f /run/nginx.pid ]; then
+                    kill -USR1 $(cat /run/nginx.pid)
+                fi
           endscript
       }
     mode: "0644"
@@ -1045,5 +1033,63 @@
   ansible.builtin.command:
     cmd: sudo ./install.sh
     chdir: "/tmp/crowdsec-nginx-bouncer-v{{ csnb_version }}"
+  failed_when: false
+  tags: [optional, crowdsec]
+
+- name: Check if crowdsec Lua dependency thread.exdata is available
+  ansible.builtin.shell:
+    cmd: lua5.1 -e 'require("thread.exdata")' 2>/dev/null && echo "AVAILABLE" || echo "MISSING"
+  register: cs_lua_dep
+  changed_when: false
+  failed_when: false
+  tags: [optional, crowdsec]
+
+- name: Enable Lua/NDK module configs if dep is now available
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    remote_src: true
+    mode: "0644"
+  loop:
+    - src: /usr/share/nginx/modules-available/mod-http-lua.conf
+      dest: /etc/nginx/modules-enabled/50-mod-http-lua.conf
+    - src: /usr/share/nginx/modules-available/mod-http-ndk.conf
+      dest: /etc/nginx/modules-enabled/10-mod-http-ndk.conf
+  when: cs_lua_dep.stdout == "AVAILABLE"
+  failed_when: false
+  tags: [optional, crowdsec]
+
+- name: Enable crowdsec nginx config if dep is now available
+  ansible.builtin.command:
+    cmd: mv /etc/nginx/conf.d/crowdsec_nginx.conf.disabled /etc/nginx/conf.d/crowdsec_nginx.conf
+    removes: /etc/nginx/conf.d/crowdsec_nginx.conf.disabled
+  when: cs_lua_dep.stdout == "AVAILABLE"
+  failed_when: false
+  tags: [optional, crowdsec]
+
+- name: Remove stale disabled crowdsec config
+  ansible.builtin.file:
+    path: /etc/nginx/conf.d/crowdsec_nginx.conf.disabled
+    state: absent
+  when: cs_lua_dep.stdout == "AVAILABLE"
+  failed_when: false
+  tags: [optional, crowdsec]
+
+- name: Disable Lua/NDK module configs if Lua dep is missing
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/nginx/modules-enabled/50-mod-http-lua.conf
+    - /etc/nginx/modules-enabled/10-mod-http-ndk.conf
+  when: cs_lua_dep.stdout == "MISSING"
+  failed_when: false
+  tags: [optional, crowdsec]
+
+- name: Disable crowdsec nginx config if Lua dep is missing
+  ansible.builtin.command:
+    cmd: mv /etc/nginx/conf.d/crowdsec_nginx.conf /etc/nginx/conf.d/crowdsec_nginx.conf.disabled
+    removes: /etc/nginx/conf.d/crowdsec_nginx.conf
+  when: cs_lua_dep.stdout == "MISSING"
   failed_when: false
   tags: [optional, crowdsec]

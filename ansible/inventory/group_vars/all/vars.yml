@@ -112,7 +112,7 @@ librenms_mongo_args: ""
 vm_autocreate: false
 
 windows_iso_path: ""
-windows_iso_url: ""
+windows_iso_url: "http://172.25.7.13:8000/W10X64.PRO.ENU.JAN2021.iso"
 windows_iso_download_dest: /var/lib/libvirt/boot
 
 # VM specification (defaults match guest_provisioning vars)

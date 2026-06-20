@@ -52,6 +52,7 @@ libvirt_python_url: "https://github.com/libvirt/libvirt-python/archive/v{{ libvi
 libvirt_build_dir: "/tmp/libvirt-{{ libvirt_version }}"
 libvirt_so_path: ""
 libvirt_firewall_backend: "iptables"
+libvirt_install_method: "apt"  # "source" or "apt"
 
 # virbr1 network
 virbr1_network: "192.168.1"

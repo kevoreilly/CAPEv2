@@ -3,7 +3,7 @@
   ansible.builtin.package_facts:
   when: ansible_facts.packages is not defined
 
-- name: Check if libvirt is already at target version
+- name: Check if libvirt is already installed
   ansible.builtin.command:
     cmd: libvirtd --version
   changed_when: false
@@ -12,78 +12,83 @@
 
 - name: Set fact for libvirt installation status
   ansible.builtin.set_fact:
-    libvirt_needs_build: "{{ libvirt_check.rc != 0 or libvirt_version not in libvirt_check.stdout }}"
+    libvirt_needs_install: "{{ libvirt_check.rc != 0 }}"
 
-- name: Install libvirt build dependencies
-  ansible.builtin.apt:
-    pkg:
-      - meson
-      - plocate
-      - libxml2-utils
-      - gnutls-bin
-      - gnutls-dev
-      - libxml2-dev
-      - bash-completion
-      - libreadline-dev
-      - numactl
-      - libnuma-dev
-      - python3-docutils
-      - flex
-      - libjson-c-dev
-      - pylint
-      - pycodestyle
-      - iptables
-      - python3-dev
-      - unzip
-      - numad
-      - libglib2.0-dev
-      - libsdl1.2-dev
-      - lvm2
-      - python3-pip
-      - ebtables
-      - libosinfo-1.0-dev
-      - libnl-3-dev
-      - libnl-route-3-dev
-      - libyajl-dev
-      - xsltproc
-      - libdevmapper-dev
-      - libpciaccess-dev
-      - dnsmasq
-      - dmidecode
-      - librbd-dev
-      - libtirpc-dev
-      - bison
-      - apparmor
-      - apparmor-profiles
-      - apparmor-profiles-extra
-      - apparmor-utils
-      - libapparmor-dev
-      - libapparmor1
-      - python3-apparmor
-      - python3-libapparmor
-      - linux-generic
-    state: present
-    update_cache: true
-    cache_valid_time: 3600
-
-- name: Ensure build tools for libvirt via apt (preferred over pip on restricted networks)
-  ansible.builtin.apt:
-    pkg:
-      - ninja-build
-      - meson
-      - python3-flake8
-    state: present
-
-- name: Attempt pip install of ipaddr (test dependency, best-effort)
-  ansible.builtin.pip:
-    name: ipaddr
-    state: present
-    extra_args: "--break-system-packages"
-  ignore_errors: true
-
-- name: Block — libvirt build
-  when: libvirt_needs_build
+#
+# Source build path (original behavior — best-effort due to network restrictions)
+#
+- name: Block — source build
+  when:
+    - libvirt_needs_install
+    - libvirt_install_method == "source"
   block:
+    - name: Install libvirt build dependencies
+      ansible.builtin.apt:
+        pkg:
+          - meson
+          - plocate
+          - libxml2-utils
+          - gnutls-bin
+          - gnutls-dev
+          - libxml2-dev
+          - bash-completion
+          - libreadline-dev
+          - numactl
+          - libnuma-dev
+          - python3-docutils
+          - flex
+          - libjson-c-dev
+          - pylint
+          - pycodestyle
+          - iptables
+          - python3-dev
+          - unzip
+          - numad
+          - libglib2.0-dev
+          - libsdl1.2-dev
+          - lvm2
+          - python3-pip
+          - ebtables
+          - libosinfo-1.0-dev
+          - libnl-3-dev
+          - libnl-route-3-dev
+          - libyajl-dev
+          - xsltproc
+          - libdevmapper-dev
+          - libpciaccess-dev
+          - dnsmasq
+          - dmidecode
+          - librbd-dev
+          - libtirpc-dev
+          - bison
+          - apparmor
+          - apparmor-profiles
+          - apparmor-profiles-extra
+          - apparmor-utils
+          - libapparmor-dev
+          - libapparmor1
+          - python3-apparmor
+          - python3-libapparmor
+          - linux-generic
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Ensure build tools for libvirt via apt (preferred over pip)
+      ansible.builtin.apt:
+        pkg:
+          - ninja-build
+          - meson
+          - python3-flake8
+        state: present
+
+    - name: Attempt pip install of ipaddr (test dependency, best-effort)
+      ansible.builtin.pip:
+        name: ipaddr
+        state: present
+        extra_args: "--break-system-packages"
+      ignore_errors: true
+
     - name: Purge existing libvirt packages
       ansible.builtin.shell:
         cmd: |
@@ -117,6 +122,7 @@
         url: "{{ libvirt_source_url }}"
         dest: "/tmp/libvirt-{{ libvirt_version }}.tar.xz"
         timeout: 120
+      ignore_errors: true
 
     - name: Extract libvirt source
       ansible.builtin.unarchive:
@@ -169,65 +175,150 @@
           fi
       changed_when: true
 
-    - name: Hold libvirt packages to prevent accidental upgrades
-      ansible.builtin.dpkg_selections:
-        name: "{{ item }}"
-        selection: hold
-      loop:
-        - libvirt
-        - libvirt0
-        - libvirt-bin
-      ignore_errors: true
+    - name: Download libvirt Python bindings source
+      ansible.builtin.get_url:
+        url: "{{ libvirt_python_url }}"
+        dest: "/tmp/v{{ libvirt_version }}.zip"
+        timeout: 120
+      register: libvirt_python_download
 
-    - name: Write apt preferences to prevent accidental libvirt upgrades
-      ansible.builtin.copy:
-        dest: /etc/apt/preferences.d/cape
-        content: |
-          Package: libvirt-bin
-          Pin: release *
-          Pin-Priority: -1
-          Package: libvirt0
-          Pin: release *
-          Pin-Priority: -1
-          Package: qemu
-          Pin: release *
-          Pin-Priority: -1
-          Package: libvirt
-          Pin: release *
-          Pin-Priority: -1
-          Package: gir1.2-libvirt-glib-1.0
-          Pin: release *
-          Pin-Priority: -1
-          Package: libvirt-glib-1.0-0
-          Pin: release *
-          Pin-Priority: -1
-          Package: libvirt-glib-1.0-data
-          Pin: release *
-          Pin-Priority: -1
-        mode: "0644"
+    - name: Install libvirt Python bindings
+      ansible.builtin.shell:
+        cmd: |
+          set -e
+          cd /tmp
+          rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
+          unzip -q "/tmp/v{{ libvirt_version }}.zip" -d /tmp
+          cd "/tmp/libvirt-python-{{ libvirt_version }}"
+          python3 setup.py build
+          pip3 install --no-build-isolation --break-system-packages .
+          cd /tmp
+          rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
+      args:
+        executable: /bin/bash
+      environment:
+        PKG_CONFIG_PATH: "/usr/lib64/pkgconfig"
+      register: libvirt_python_install
+      changed_when: "'Successfully installed' in libvirt_python_install.stdout"
 
-- name: Download libvirt Python bindings source
-  ansible.builtin.get_url:
-    url: "{{ libvirt_python_url }}"
-    dest: "/tmp/v{{ libvirt_version }}.zip"
-    timeout: 120
-  register: libvirt_python_download
+#
+# APT path (default on restricted networks)
+#
 
-- name: Install libvirt Python bindings
+# Always run cleanup steps to fix partial install states from previous failed runs
+
+- name: Remove custom QEMU dpkg registration to avoid file conflicts
   ansible.builtin.shell:
     cmd: |
-      set -e
-      cd /tmp
-      rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
-      unzip -q "/tmp/v{{ libvirt_version }}.zip" -d /tmp
-      cd "/tmp/libvirt-python-{{ libvirt_version }}"
-      python3 setup.py build
-      pip3 install --no-build-isolation --break-system-packages .
-      cd /tmp
-      rm -rf "/tmp/libvirt-python-{{ libvirt_version }}"
-  args:
-    executable: /bin/bash
-  environment:
-    PKG_CONFIG_PATH: "/usr/lib64/pkgconfig"
-  register: libvirt_python_install
-  changed_when: "'Successfully installed' in libvirt_python_install.stdout"
+      if dpkg -l qemu 2>/dev/null | grep -q '^h[iI]'; then
+        dpkg --remove --force-depends qemu
+      fi
+  changed_when: false
+  failed_when: false
+  when: libvirt_install_method == "apt"
+
+- name: Fix any broken packages from previous partial install
+  ansible.builtin.shell:
+    cmd: |
+      apt-get install --fix-broken -y \
+        -o DPkg::Options::=--force-overwrite \
+        -o DPkg::Options::=--force-confnew
+  register: fix_broken
+  changed_when: "'upgraded' in fix_broken.stdout or 'newly' in fix_broken.stdout or 'fixed' in fix_broken.stdout"
+  failed_when: false
+  when: libvirt_install_method == "apt"
+
+- name: Install libvirt and dependencies via apt
+  ansible.builtin.shell:
+    cmd: |
+      DEBIAN_FRONTEND=noninteractive apt-get install -y \
+        -o DPkg::Options::=--force-overwrite \
+        libvirt-daemon-system libvirt-clients libvirt-dev \
+        dnsmasq dmidecode cpu-checker \
+        apparmor apparmor-profiles apparmor-profiles-extra \
+        apparmor-utils libapparmor1 iptables ebtables
+  register: libvirt_apt_install
+  changed_when: "'upgraded' in libvirt_apt_install.stdout or 'newly' in libvirt_apt_install.stdout or 'not upgraded' not in libvirt_apt_install.stdout"
+  when:
+    - libvirt_install_method == "apt"
+    - libvirt_needs_install
+
+- name: Hold libvirt packages to prevent accidental upgrades
+  ansible.builtin.shell:
+    cmd: |
+      apt-mark hold \
+        libvirt-daemon-system libvirt-clients libvirt-daemon \
+        libvirt-daemon-driver-qemu libvirt0 libvirt-dev \
+        libvirt-daemon-config-network libvirt-daemon-config-nwfilter \
+        libvirt-daemon-driver-network libvirt-daemon-driver-nodedev \
+        libvirt-daemon-driver-nwfilter libvirt-daemon-driver-secret \
+        libvirt-daemon-driver-storage libvirt-daemon-log \
+        libvirt-common 2>/dev/null || true
+  changed_when: false
+  failed_when: false
+  when: libvirt_install_method == "apt"
+
+- name: Write apt preferences to prevent accidental libvirt and QEMU upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/preferences.d/cape
+    content: |
+      Package: libvirt*
+      Pin: release *
+      Pin-Priority: -1
+      Package: libvirt-daemon*
+      Pin: release *
+      Pin-Priority: -1
+      Package: libvirt0
+      Pin: release *
+      Pin-Priority: -1
+      Package: qemu*
+      Pin: release *
+      Pin-Priority: -1
+      Package: gir1.2-libvirt-glib-1.0
+      Pin: release *
+      Pin-Priority: -1
+      Package: libvirt-glib-1.0-0
+      Pin: release *
+      Pin-Priority: -1
+      Package: libvirt-glib-1.0-data
+      Pin: release *
+      Pin-Priority: -1
+    mode: "0644"
+  when: libvirt_install_method == "apt"
+
+#
+# Always restore custom QEMU files (may have been overwritten by apt packages)
+#
+- name: Check if QEMU build directory exists
+  ansible.builtin.stat:
+    path: "/tmp/qemu-{{ qemu_version }}/Makefile"
+  register: qemu_build_makefile
+  when: libvirt_install_method == "apt"
+
+- name: Restore custom QEMU files from build directory
+  ansible.builtin.command:
+    cmd: "make install"
+    chdir: "/tmp/qemu-{{ qemu_version }}"
+  when:
+    - libvirt_install_method == "apt"
+    - qemu_build_makefile.stat is defined and qemu_build_makefile.stat.exists
+  register: qemu_restore
+  changed_when: "'installing' in qemu_restore.stdout or 'Nothing to be done' not in qemu_restore.stdout"
+
+- name: Recreate QEMU symlinks (may have been overwritten by apt)
+  ansible.builtin.file:
+    src: /usr/bin/qemu-system-x86_64
+    dest: "{{ item }}"
+    state: link
+  loop:
+    - /usr/bin/qemu-system-x86_64-spice
+    - /usr/bin/kvm-spice
+    - /usr/bin/kvm
+  when: libvirt_install_method == "apt"
+
+- name: Ensure python3-libvirt is installed for Poetry venv bindings
+  ansible.builtin.apt:
+    pkg:
+      - python3-libvirt
+    state: present
+  when: libvirt_install_method == "apt"

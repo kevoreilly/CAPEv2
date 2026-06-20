@@ -35,6 +35,18 @@
     replace: 'security_driver = "apparmor"'
   notify: reboot required
 
+- name: Set QEMU user/group to root/libvirt in qemu.conf
+  ansible.builtin.lineinfile:
+    path: /etc/libvirt/qemu.conf
+    regexp: "{{ item.regexp }}"
+    line: "{{ item.line }}"
+    create: true
+  loop:
+    - regexp: '^[# ]*user\s*='
+      line: 'user = "root"'
+    - regexp: '^[# ]*group\s*='
+      line: 'group = "libvirt"'
+
 - name: Set AppArmor profiles to complain mode
   ansible.builtin.command:
     cmd: aa-complain {{ item }}
@@ -71,11 +83,9 @@
     state: started
     daemon_reload: true
   loop:
-    - virtqemud.service
-    - virtnetworkd.service
-    - virtstoraged.service
-    - virtqemud.socket
     - libvirtd.service
+    - virtlockd.service
+    - virtlogd.service
 
 - name: Set LIBVIRT_DEFAULT_URI in profile
   ansible.builtin.lineinfile:

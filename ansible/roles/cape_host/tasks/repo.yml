@@ -111,7 +111,7 @@
 - name: Make libvirt accessible from Poetry venv
   ansible.builtin.copy:
     dest: /opt/CAPEv2/.venv/lib/python3.14/site-packages/libvirt.pth
-    content: "/usr/local/lib/python3.14/dist-packages\n"
+    content: "/usr/lib/python3/dist-packages\n"
     mode: "0644"
   when: not use_uv
   failed_when: false

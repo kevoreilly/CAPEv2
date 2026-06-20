@@ -95,3 +95,31 @@ clamav_enable: false
 # ────────────────────────────────────────────────────────────────────
 
 librenms_mongo_args: ""
+
+# ────────────────────────────────────────────────────────────────────
+# Windows ISO for automated VM creation
+#
+# Set vm_autocreate: true to have the playbook create a KVM guest
+# via virt-install. You must provide a Windows installation ISO via
+# windows_iso_path (local file) or windows_iso_url (download URL).
+#
+# If both are empty, the VM creation step is skipped with a warning.
+#
+# Example evaluation ISO URL (free 90-day trial; URL changes over time):
+#   https://go.microsoft.com/fwlink/p/?LinkID=2195437&clcid=0x409&culture=en-us&country=US
+# ────────────────────────────────────────────────────────────────────
+
+vm_autocreate: false
+
+windows_iso_path: ""
+windows_iso_url: ""
+windows_iso_download_dest: /var/lib/libvirt/boot
+
+# VM specification (defaults match guest_provisioning vars)
+vm_name: "cape1"
+vm_ram_mb: 4096
+vm_cpu: 2
+vm_disk_gb: 64
+vm_os_variant: win10
+vm_bridge: "{{ network_iface | default('virbr1') }}"
+vm_ip: "192.168.1.101"

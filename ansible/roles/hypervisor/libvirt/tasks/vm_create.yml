@@ -1,0 +1,137 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# Create KVM guest VM via virt-install
+#
+# Requires vm_autocreate: true and either windows_iso_path or
+# windows_iso_url to be set.  Skips gracefully if neither is
+# provided so the operator can create the VM manually.
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install virsh / virt-install
+  ansible.builtin.apt:
+    pkg:
+      - libvirt-clients
+      - virtinst
+    state: present
+
+- name: Ensure ISO download directory exists
+  ansible.builtin.file:
+    path: "{{ windows_iso_download_dest }}"
+    state: directory
+    mode: "0755"
+
+# ── Resolve the actual ISO source ──────────────────────────────────
+- name: Check if windows_iso_path exists
+  ansible.builtin.stat:
+    path: "{{ windows_iso_path }}"
+  register: _iso_path_stat
+  when: windows_iso_path | length > 0
+
+- name: Set windows_iso_final from windows_iso_path
+  ansible.builtin.set_fact:
+    windows_iso_final: "{{ windows_iso_path }}"
+  when:
+    - windows_iso_path | length > 0
+    - _iso_path_stat.stat.exists
+
+- name: Derive windows_iso_final from URL basename
+  ansible.builtin.set_fact:
+    windows_iso_final: "{{ windows_iso_download_dest }}/{{ windows_iso_url | basename }}"
+  when:
+    - windows_iso_path | length == 0
+    - windows_iso_url | length > 0
+
+- name: Download Windows ISO
+  ansible.builtin.get_url:
+    url: "{{ windows_iso_url }}"
+    dest: "{{ windows_iso_final }}"
+    timeout: 7200
+  when:
+    - windows_iso_url | length > 0
+    - windows_iso_final is defined
+
+- name: Stat the resolved ISO path
+  ansible.builtin.stat:
+    path: "{{ windows_iso_final }}"
+  register: _iso_final_stat
+  when: windows_iso_final is defined
+
+- name: Warn when windows_iso_path set but file missing
+  ansible.builtin.debug:
+    msg: >
+      windows_iso_path is set to '{{ windows_iso_path }}' but the file
+      does not exist.  Provide a valid path or use windows_iso_url instead.
+  when:
+    - windows_iso_path | length > 0
+    - _iso_path_stat is defined
+    - not _iso_path_stat.stat.exists
+
+- name: Warn and skip if no ISO available
+  ansible.builtin.debug:
+    msg: >
+      No Windows ISO found at '{{ windows_iso_final }}'.
+      Set windows_iso_path or windows_iso_url in group_vars/all/vars.yml,
+      or copy an ISO to {{ windows_iso_download_dest }}, then run
+      'ansible-playbook playbooks/single-node.yml --tags vm_create'
+      to create the VM.
+  when: _iso_final_stat is defined and not _iso_final_stat.stat.exists
+
+- name: Fail when vm_autocreate but no ISO available
+  ansible.builtin.fail:
+    msg: >
+      vm_autocreate is true but no Windows ISO is available.
+      Set windows_iso_path or windows_iso_url in group_vars/all/vars.yml.
+  when:
+    - _iso_final_stat is defined
+    - not _iso_final_stat.stat.exists
+
+- name: Warn when no ISO source configured at all
+  ansible.builtin.debug:
+    msg: >
+      vm_autocreate is true but neither windows_iso_path nor
+      windows_iso_url is set.  Skipping VM creation.
+      Set one of these in group_vars/all/vars.yml and re-run
+      with --tags vm_create.
+  when: windows_iso_final is undefined
+
+# ── Ensure default libvirt storage pool ────────────────────────────
+- name: Ensure libvirt default pool directory exists
+  ansible.builtin.file:
+    path: /var/lib/libvirt/images
+    state: directory
+    mode: "0755"
+
+- name: Define and start libvirt default pool
+  ansible.builtin.shell:
+    cmd: |
+      virsh pool-define-as default dir --target /var/lib/libvirt/images 2>/dev/null || true
+      virsh pool-build default 2>/dev/null || true
+      virsh pool-start default 2>/dev/null || true
+      virsh pool-autostart default 2>/dev/null || true
+  when: windows_iso_final is defined
+
+# ── Create the VM ──────────────────────────────────────────────────
+- name: Create KVM guest with virt-install
+  ansible.builtin.command:
+    cmd: >
+      virt-install
+        --name={{ vm_name }}
+        --memory={{ vm_ram_mb }}
+        --vcpus={{ vm_cpu }}
+        --disk size={{ vm_disk_gb }}
+        --cdrom={{ windows_iso_final }}
+        --os-variant={{ vm_os_variant }}
+        --network bridge={{ vm_bridge }}
+        --graphics spice,port=-1,listen=0.0.0.0
+        --noautoconsole
+        --wait=-1
+  when:
+    - windows_iso_final is defined
+    - _iso_final_stat.stat.exists
+  register: _vm_create
+  changed_when: "'Domain installation may still be in progress' in _vm_create.stdout or 'Domain created' in _vm_create.stdout"
+
+- name: Display VM creation result
+  ansible.builtin.debug:
+    var: _vm_create.stdout_lines
+  when: _vm_create is changed

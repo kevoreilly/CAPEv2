@@ -34,3 +34,10 @@
   tags:
     - hypervisor
     - iommu
+
+- name: Include VM creation tasks
+  ansible.builtin.import_tasks: libvirt/tasks/vm_create.yml
+  when: vm_autocreate | default(false) | bool
+  tags:
+    - hypervisor
+    - vm_create

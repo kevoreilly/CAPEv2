@@ -87,3 +87,32 @@
     line: "400 {{ internet_iface }}"
     insertafter: EOF
   when: internet_iface | length > 0
+
+# ── kvm.conf: wire in the autocreated VM ───────────────────────────
+- name: Update kvm.conf interface to {{ network_iface }}
+  ansible.builtin.lineinfile:
+    path: "{{ cape_root }}/conf/kvm.conf"
+    regexp: "^interface ="
+    line: "interface = {{ network_iface }}"
+    backrefs: true
+
+- name: Update kvm.conf machines list with {{ vm_name }}
+  ansible.builtin.lineinfile:
+    path: "{{ cape_root }}/conf/kvm.conf"
+    regexp: "^machines ="
+    line: "machines = {{ vm_name }}"
+    backrefs: true
+  when: vm_autocreate | default(false) | bool
+
+- name: Add {{ vm_name }} section to kvm.conf
+  ansible.builtin.blockinfile:
+    path: "{{ cape_root }}/conf/kvm.conf"
+    marker: "# {mark} ANSIBLE MANAGED: {{ vm_name }}"
+    block: |
+      [{{ vm_name }}]
+      label = {{ vm_name }}
+      platform = windows
+      ip = {{ vm_ip }}
+      arch = x86
+    insertafter: EOF
+  when: vm_autocreate | default(false) | bool

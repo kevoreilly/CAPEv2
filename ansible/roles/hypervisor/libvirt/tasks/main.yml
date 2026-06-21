@@ -305,7 +305,16 @@
   register: qemu_restore
   changed_when: "'installing' in qemu_restore.stdout or 'Nothing to be done' not in qemu_restore.stdout"
 
-- name: Recreate QEMU symlinks (may have been overwritten by apt)
+- name: Remove old QEMU symlink targets (may be regular files from apt)
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /usr/bin/qemu-system-x86_64-spice
+    - /usr/bin/kvm-spice
+    - /usr/bin/kvm
+
+- name: Recreate QEMU symlinks
   ansible.builtin.file:
     src: /usr/bin/qemu-system-x86_64
     dest: "{{ item }}"
@@ -314,7 +323,6 @@
     - /usr/bin/qemu-system-x86_64-spice
     - /usr/bin/kvm-spice
     - /usr/bin/kvm
-  when: libvirt_install_method == "apt"
 
 - name: Ensure python3-libvirt is installed for Poetry venv bindings
   ansible.builtin.apt:

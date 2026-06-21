@@ -1,17 +1,17 @@
 ---
 # ────────────────────────────────────────────────────────────────────
-# Create KVM guest VM via virt-install
+# Create KVM guest VM(s) via virt-install
 #
 # Requires vm_autocreate: true and either windows_iso_path or
-# windows_iso_url to be set.  Skips gracefully if neither is
-# provided so the operator can create the VM manually.
+# windows_iso_url to be set.  Loops over groups['cape_guests'].
 # ────────────────────────────────────────────────────────────────────
 
-- name: Install virsh / virt-install
+- name: Install virsh / virt-install / genisoimage
   ansible.builtin.apt:
     pkg:
       - libvirt-clients
       - virtinst
+      - genisoimage
     state: present
 
 - name: Ensure ISO download directory exists
@@ -110,28 +110,12 @@
       virsh pool-autostart default 2>/dev/null || true
   when: windows_iso_final is defined
 
-# ── Create the VM ──────────────────────────────────────────────────
-- name: Create KVM guest with virt-install
-  ansible.builtin.command:
-    cmd: >
-      virt-install
-        --name={{ vm_name }}
-        --memory={{ vm_ram_mb }}
-        --vcpus={{ vm_cpu }}
-        --disk size={{ vm_disk_gb }}
-        --cdrom={{ windows_iso_final }}
-        --os-variant={{ vm_os_variant }}
-        --network bridge={{ vm_bridge }}
-        --graphics spice,port=-1,listen=0.0.0.0
-        --noautoconsole
-        --wait=-1
+# ── Per-guest VM creation loop ─────────────────────────────────────
+- name: Create each guest VM
+  ansible.builtin.include_tasks: vm_create_guest.yml
+  loop: "{{ groups['cape_guests'] }}"
+  loop_control:
+    loop_var: _guest_name
   when:
     - windows_iso_final is defined
     - _iso_final_stat.stat.exists
-  register: _vm_create
-  changed_when: "'Domain installation may still be in progress' in _vm_create.stdout or 'Domain created' in _vm_create.stdout"
-
-- name: Display VM creation result
-  ansible.builtin.debug:
-    var: _vm_create.stdout_lines
-  when: _vm_create is changed

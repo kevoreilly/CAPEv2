@@ -88,7 +88,7 @@
     insertafter: EOF
   when: internet_iface | length > 0
 
-# ── kvm.conf: wire in the autocreated VM ───────────────────────────
+# ── kvm.conf: wire in autocreated VMs ──────────────────────────────
 - name: Update kvm.conf interface to {{ network_iface }}
   ansible.builtin.lineinfile:
     path: "{{ cape_root }}/conf/kvm.conf"
@@ -96,23 +96,28 @@
     line: "interface = {{ network_iface }}"
     backrefs: true
 
-- name: Update kvm.conf machines list with {{ vm_name }}
+- name: Update kvm.conf machines list
   ansible.builtin.lineinfile:
     path: "{{ cape_root }}/conf/kvm.conf"
     regexp: "^machines ="
-    line: "machines = {{ vm_name }}"
+    line: "machines = {{ groups['cape_guests'] | map('extract', hostvars, 'libvirt_name') | join(', ') }}"
     backrefs: true
-  when: vm_autocreate | default(false) | bool
+  when:
+    - vm_autocreate | default(false) | bool
+    - groups['cape_guests'] is defined
 
-- name: Add {{ vm_name }} section to kvm.conf
+- name: Add guest VM sections to kvm.conf
   ansible.builtin.blockinfile:
     path: "{{ cape_root }}/conf/kvm.conf"
-    marker: "# {mark} ANSIBLE MANAGED: {{ vm_name }}"
+    marker: "# {mark} ANSIBLE MANAGED: {{ hostvars[item].libvirt_name }}"
     block: |
-      [{{ vm_name }}]
-      label = {{ vm_name }}
+      [{{ hostvars[item].libvirt_name }}]
+      label = {{ hostvars[item].libvirt_name }}
       platform = windows
-      ip = {{ vm_ip }}
+      ip = {{ hostvars[item].guest_ip }}
       arch = x86
     insertafter: EOF
-  when: vm_autocreate | default(false) | bool
+  loop: "{{ groups['cape_guests'] }}"
+  when:
+    - vm_autocreate | default(false) | bool
+    - groups['cape_guests'] is defined

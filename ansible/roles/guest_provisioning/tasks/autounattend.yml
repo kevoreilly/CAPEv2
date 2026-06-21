@@ -1,0 +1,42 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# Generate answer ISO for unattended Windows installation
+#
+# Renders Autounattend.xml + postinstall.ps1, then packs them into
+# a bootable ISO via genisoimage. The ISO is attached as a second
+# CDROM to the virt-install command in vm_create.yml.
+#
+# Variables expected:
+#   ansible_host       — CAPE host IP (for VirtIO drivers download)
+#   windows_iso_path   — path to Windows ISO on the host
+#   windows_admin_password, windows_product_key, windows_locale
+#   vm_wim_index       — WIM index for the desired Windows edition
+# ────────────────────────────────────────────────────────────────────
+
+- name: Create answer file staging directory
+  ansible.builtin.tempfile:
+    state: directory
+    suffix: autounattend
+  register: autounattend_tmp_dir
+
+- name: Render Autounattend.xml from template
+  ansible.builtin.template:
+    src: Autounattend.xml.j2
+    dest: "{{ autounattend_tmp_dir.path }}/Autounattend.xml"
+    mode: "0644"
+
+- name: Render postinstall.ps1 from template
+  ansible.builtin.template:
+    src: postinstall.ps1.j2
+    dest: "{{ autounattend_tmp_dir.path }}/postinstall.ps1"
+    mode: "0644"
+
+- name: Create Windows answer ISO (automatically naming Virtual CD-ROM)
+  ansible.builtin.shell:
+    cmd: >
+      genisoimage -o "{{ autounattend_tmp_dir.path }}/autounattend.iso"
+      -J -r -V AUTOCAPE
+      "{{ autounattend_tmp_dir.path }}/Autounattend.xml"
+      "{{ autounattend_tmp_dir.path }}/postinstall.ps1"
+  args:
+    creates: "{{ autounattend_tmp_dir.path }}/autounattend.iso"

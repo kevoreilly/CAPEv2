@@ -4,3 +4,10 @@ resultserver_ip: "{{ iface_ip }}"
 resultserver_port: 8000
 agent_python_version: "3.11.4"
 agent_vc_redist_year: "2013"
+
+# Autounattend defaults (overridable in group_vars or host vars)
+windows_admin_password: "cape"
+windows_product_key: ""
+windows_auto_logon_count: 1
+windows_locale: en-US
+vm_wim_index: 6

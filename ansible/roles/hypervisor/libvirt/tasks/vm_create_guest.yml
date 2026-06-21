@@ -1,0 +1,78 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# Per-guest VM creation — called from vm_create.yml via include_tasks
+# loop.  _guest_name is the inventory host name from [cape_guests].
+#
+# Relies on host vars from the inventory entry:
+#   libvirt_name, guest_ip, vm_ram_mb, vm_cpu, vm_disk_gb,
+#   vm_os_variant, vm_wim_index
+#
+# Also uses the shared fact: windows_iso_final
+# ────────────────────────────────────────────────────────────────────
+
+- name: Look up guest host vars
+  ansible.builtin.set_fact:
+    _guest: "{{ hostvars[_guest_name] }}"
+
+- name: Check if VM already exists
+  ansible.builtin.shell:
+    cmd: "virsh dominfo {{ _guest.libvirt_name }} 2>/dev/null"
+  register: _dominfo
+  failed_when: false
+  changed_when: false
+
+- name: Skip existing VM
+  ansible.builtin.debug:
+    msg: "VM '{{ _guest.libvirt_name }}' already exists — skipping creation"
+  when: _dominfo.rc == 0
+
+- name: Include answer ISO generation
+  ansible.builtin.include_role:
+    name: guest_provisioning
+    tasks_from: autounattend.yml
+  vars:
+    vm_wim_index: "{{ _guest.vm_wim_index | default(vm_wim_index) }}"
+  when: _dominfo.rc != 0
+
+- name: Create KVM guest with virt-install (unattended)
+  ansible.builtin.command:
+    cmd: >
+      virt-install
+        --name={{ _guest.libvirt_name }}
+        --memory={{ _guest.vm_ram_mb | default(vm_ram_mb) }}
+        --vcpus={{ _guest.vm_cpu | default(vm_cpu) }}
+        --disk size={{ _guest.vm_disk_gb | default(vm_disk_gb) }}
+        --cdrom={{ windows_iso_final }}
+        --disk path={{ autounattend_tmp_dir.path }}/autounattend.iso,device=cdrom
+        --os-variant={{ _guest.vm_os_variant | default(vm_os_variant) }}
+        --network bridge={{ _guest.vm_bridge | default(vm_bridge) }}
+        --graphics spice,port=-1,listen=0.0.0.0
+        --noautoconsole
+        --wait=-1
+  when: _dominfo.rc != 0
+  register: _vm_create
+  changed_when: "'Domain installation may still be in progress' in _vm_create.stdout or 'Domain created' in _vm_create.stdout"
+  failed_when:
+    - _vm_create.rc != 0
+    - "'Domain already exists' not in _vm_create.stderr"
+
+- name: Display VM creation result
+  ansible.builtin.debug:
+    var: _vm_create.stdout_lines
+  when: _vm_create is changed
+
+# ── Snapshot ────────────────────────────────────────────────────────
+- name: Create initial libvirt snapshot
+  ansible.builtin.shell:
+    cmd: >
+      virsh snapshot-create-as {{ _guest.libvirt_name }}
+        --name clean
+        --description "Fresh Windows install with CAPE agent"
+  when: _vm_create is changed
+  register: _snapshot
+  changed_when: "'Domain snapshot' in _snapshot.stdout"
+
+- name: Display snapshot result
+  ansible.builtin.debug:
+    var: _snapshot.stdout_lines
+  when: _snapshot is changed

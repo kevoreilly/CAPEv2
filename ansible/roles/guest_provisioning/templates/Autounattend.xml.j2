@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="utf-8"?>
+<unattend xmlns="urn:schemas-microsoft-com:unattend">
+    <settings pass="windowsPE">
+        <component name="Microsoft-Windows-Setup" processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <DiskConfiguration>
+                <WillShowUI>Never</WillShowUI>
+                <Disk>
+                    <CreatePartitions>
+                        <CreatePartition>
+                            <Order>1</Order>
+                            <Size>100</Size>
+                            <Type>Primary</Type>
+                        </CreatePartition>
+                        <CreatePartition>
+                            <Extend>true</Extend>
+                            <Order>2</Order>
+                            <Type>Primary</Type>
+                        </CreatePartition>
+                    </CreatePartitions>
+                    <ModifyPartitions>
+                        <ModifyPartition>
+                            <Active>true</Active>
+                            <Extend>false</Extend>
+                            <Format>NTFS</Format>
+                            <Label>System Reserved</Label>
+                            <Order>1</Order>
+                            <PartitionID>1</PartitionID>
+                        </ModifyPartition>
+                        <ModifyPartition>
+                            <Active>true</Active>
+                            <Extend>false</Extend>
+                            <Format>NTFS</Format>
+                            <Label>OS</Label>
+                            <Order>2</Order>
+                            <PartitionID>2</PartitionID>
+                            <Letter>C</Letter>
+                        </ModifyPartition>
+                    </ModifyPartitions>
+                    <DiskID>0</DiskID>
+                    <WillWipeDisk>true</WillWipeDisk>
+                </Disk>
+            </DiskConfiguration>
+            <ImageInstall>
+                <OSImage>
+                    <InstallTo>
+                        <DiskID>0</DiskID>
+                        <PartitionID>2</PartitionID>
+                    </InstallTo>
+                    <InstallFrom>
+                        <MetaData>
+                            <Key>/IMAGE/INDEX</Key>
+                            <Value>{{ vm_wim_index | default(6) }}</Value>
+                        </MetaData>
+                    </InstallFrom>
+                </OSImage>
+            </ImageInstall>
+            <UserData>
+                <AcceptEula>true</AcceptEula>
+                <FullName>CAPE</FullName>
+                <Organization>CAPEv2</Organization>
+                {% if windows_product_key | length > 0 %}
+                <ProductKey>
+                    <Key>{{ windows_product_key }}</Key>
+                    <WillShowUI>Never</WillShowUI>
+                </ProductKey>
+                {% endif %}
+            </UserData>
+        </component>
+        <component name="Microsoft-Windows-International-Core-WinPE"
+                   processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <SetupUILanguage>
+                <UILanguage>{{ windows_locale | default('en-US') }}</UILanguage>
+            </SetupUILanguage>
+            <InputLocale>{{ windows_locale | default('en-US') }}</InputLocale>
+            <SystemLocale>{{ windows_locale | default('en-US') }}</SystemLocale>
+            <UILanguage>{{ windows_locale | default('en-US') }}</UILanguage>
+            <UserLocale>{{ windows_locale | default('en-US') }}</UserLocale>
+        </component>
+    </settings>
+    <settings pass="oobeSystem">
+        <component name="Microsoft-Windows-Shell-Setup"
+                   processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <UserAccounts>
+                <AdministratorPassword>
+                    <Value>{{ windows_admin_password | default('cape') }}</Value>
+                    <PlainText>true</PlainText>
+                </AdministratorPassword>
+                <LocalAccounts>
+                    <LocalAccount wcm:action="add">
+                        <Password>
+                            <Value>{{ windows_admin_password | default('cape') }}</Value>
+                            <PlainText>true</PlainText>
+                        </Password>
+                        <DisplayName>CAPE User</DisplayName>
+                        <Name>cape</Name>
+                        <Group>Administrators</Group>
+                    </LocalAccount>
+                </LocalAccounts>
+            </UserAccounts>
+            <AutoLogon>
+                <Enabled>true</Enabled>
+                <LogonCount>{{ windows_auto_logon_count | default(1) }}</LogonCount>
+                <Username>cape</Username>
+                <Password>
+                    <Value>{{ windows_admin_password | default('cape') }}</Value>
+                    <PlainText>true</PlainText>
+                </Password>
+            </AutoLogon>
+            <OOBE>
+                <HideEULAPage>true</HideEULAPage>
+                <HideOEMRegistrationScreen>true</HideOEMRegistrationScreen>
+                <HideOnlineAccountScreens>true</HideOnlineAccountScreens>
+                <HideWirelessSetupInOOBE>true</HideWirelessSetupInOOBE>
+                <NetworkLocation>Work</NetworkLocation>
+                <ProtectYourPC>1</ProtectYourPC>
+                <SkipMachineOOBE>true</SkipMachineOOBE>
+                <SkipUserOOBE>true</SkipUserOOBE>
+            </OOBE>
+            <FirstLogonCommands>
+                <SynchronousCommand wcm:action="add">
+                    <CommandLine>powershell.exe -ExecutionPolicy Bypass -File C:\Windows\Setup\Scripts\postinstall.ps1</CommandLine>
+                    <Description>CAPE post-install script</Description>
+                    <Order>1</Order>
+                    <RequiresUserInput>false</RequiresUserInput>
+                </SynchronousCommand>
+            </FirstLogonCommands>
+        </component>
+        <component name="Microsoft-Windows-International-Core"
+                   processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <InputLocale>{{ windows_locale | default('en-US') }}</InputLocale>
+            <SystemLocale>{{ windows_locale | default('en-US') }}</SystemLocale>
+            <UILanguage>{{ windows_locale | default('en-US') }}</UILanguage>
+            <UserLocale>{{ windows_locale | default('en-US') }}</UserLocale>
+        </component>
+    </settings>
+    <settings pass="specialize">
+        <component name="Microsoft-Windows-TerminalServices-LocalSessionManager"
+                   processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <fDenyTSConnections>false</fDenyTSConnections>
+        </component>
+        <component name="Microsoft-Windows-TerminalServices-RDP-WinStationExtensions"
+                   processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <UserAuthentication>0</UserAuthentication>
+        </component>
+        <component name="Networking-MPSSVC-Svc"
+                   processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <FirewallGroups>
+                <FirewallGroup wcm:action="add" active="true">
+                    <Active>true</Active>
+                    <Group>Remote Desktop</Group>
+                    <Profile>all</Profile>
+                </FirewallGroup>
+            </FirewallGroups>
+        </component>
+        <component name="Microsoft-Windows-Deployment"
+                   processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <RunSynchronous>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>1</Order>
+                    <Path>powershell.exe -Command "Enable-PSRemoting -SkipNetworkProfileCheck -Force"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>2</Order>
+                    <Path>powershell.exe -Command "Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -Name 'fDenyTSConnections' -Value 0"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>3</Order>
+                    <Path>powershell.exe -Command "netsh advfirewall firewall add rule name='WinRM-HTTP' dir=in localport=5985 protocol=TCP action=allow"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>4</Order>
+                    <Path>powershell.exe -Command "winrm set winrm/config/client/auth '@{Basic=''true''}'"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>5</Order>
+                    <Path>powershell.exe -Command "winrm set winrm/config/service/auth '@{Basic=''true''}'"</Path>
+                </RunSynchronousCommand>
+                <RunSynchronousCommand wcm:action="add">
+                    <Order>6</Order>
+                    <Path>powershell.exe -Command "winrm set winrm/config/service '@{AllowUnencrypted=''true''}'"</Path>
+                </RunSynchronousCommand>
+            </RunSynchronous>
+        </component>
+        <component name="Microsoft-Windows-Security-SPP-UX"
+                   processorArchitecture="amd64"
+                   publicKeyToken="31bf3856ad364e35" language="neutral"
+                   versionScope="nonSxS">
+            <SkipAutoActivation>true</SkipAutoActivation>
+        </component>
+    </settings>
+</unattend>

@@ -99,27 +99,31 @@ librenms_mongo_args: ""
 # ────────────────────────────────────────────────────────────────────
 # Windows ISO for automated VM creation
 #
-# Set vm_autocreate: true to have the playbook create a KVM guest
-# via virt-install. You must provide a Windows installation ISO via
-# windows_iso_path (local file) or windows_iso_url (download URL).
+# Set vm_autocreate: true to have the playbook create KVM guests
+# for each host in the [cape_guests] inventory group.
+# The Windows installation ISO must be provided via:
+#   - windows_iso_path (local file on the target host), or
+#   - windows_iso_url  (download URL)
 #
-# If both are empty, the VM creation step is skipped with a warning.
-#
-# Example evaluation ISO URL (free 90-day trial; URL changes over time):
-#   https://go.microsoft.com/fwlink/p/?LinkID=2195437&clcid=0x409&culture=en-us&country=US
+# Set these in group_vars/all/local_vars.yml (gitignored).
 # ────────────────────────────────────────────────────────────────────
 
 vm_autocreate: false
 
 windows_iso_path: ""
-windows_iso_url: "http://172.25.7.13:8000/W10X64.PRO.ENU.JAN2021.iso"
+windows_iso_url: ""
 windows_iso_download_dest: /var/lib/libvirt/boot
 
-# VM specification (defaults match guest_provisioning vars)
-vm_name: "cape1"
+# Answer file defaults for unattended Windows installation
+windows_admin_password: "cape"
+windows_product_key: ""
+windows_auto_logon_count: 1
+windows_locale: en-US
+
+# Guest VM resource defaults (overridable per-host in [cape_guests])
 vm_ram_mb: 4096
 vm_cpu: 2
 vm_disk_gb: 64
 vm_os_variant: win10
+vm_wim_index: 6
 vm_bridge: "{{ network_iface | default('virbr1') }}"
-vm_ip: "192.168.1.101"

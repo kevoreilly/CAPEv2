@@ -1,39 +1,56 @@
-; CAPEv2 Ansible Inventory
-; ========================
-; This file is gitignored. Copy from hosts.ini.example and customize.
+; CAPEv2 Ansible Inventory — EXAMPLE
+; ===================================
+; Copy this file to hosts.ini and replace placeholders with your values.
+;   cp hosts.ini.example hosts.ini
 ;
 ; Usage:
 ;   ansible-playbook -i inventory/hosts.ini playbooks/single-node.yml
+;
+; Private/site-specific variables go in group_vars/all/local_vars.yml
+; (see group_vars/all/local_vars.yml.example)
 
 ; ────────────────────────────────────────────────────────────────────
-; CONTROL NODE
+; CONTROL NODE — always present, runs web UI, database, scheduler
 ; ────────────────────────────────────────────────────────────────────
 [cape_control]
-cape-master ansible_host=172.25.2.2
+cape-master ansible_host=YOUR_HOST_IP
 
 ; ────────────────────────────────────────────────────────────────────
-; WEB NODE
+; WEB NODE — alias for control node (web services only in multi-mode)
 ; ────────────────────────────────────────────────────────────────────
 [cape_web:children]
 cape_control
 
 ; ────────────────────────────────────────────────────────────────────
-; WORKER NODES
+; WORKER NODES — processing, signatures, VM management
 ; ────────────────────────────────────────────────────────────────────
 [cape_worker]
 ; worker-1 ansible_host=10.0.0.20
+; worker-2 ansible_host=10.0.0.21
 
 ; ────────────────────────────────────────────────────────────────────
-; HOST
+; HOST — union of control + worker
 ; ────────────────────────────────────────────────────────────────────
 [cape_host:children]
 cape_control
 cape_worker
 
 ; ────────────────────────────────────────────────────────────────────
-; GUEST VMs
+; GUEST VMs — Windows analysis targets managed via libvirt
+; Add one entry per VM. The playbook will create them via virt-install
+; when vm_autocreate is true.
+;
+; Variables set here are available via hostvars in the playbook:
+;   - libvirt_name:  libvirt domain name (used as --name in virt-install)
+;   - guest_ip:      static IP assigned to the guest on virbr1
+;   - vm_ram_mb:     RAM in MB (defaults to 4096 from group_vars)
+;   - vm_cpu:        vCPUs (defaults to 2 from group_vars)
+;   - vm_disk_gb:    disk size in GB (defaults to 64 from group_vars)
+;   - vm_os_variant: osinfo variant (defaults to win10 from group_vars)
+;   - vm_wim_index:  install.wim image index (defaults to 6 = Pro)
 ; ────────────────────────────────────────────────────────────────────
 [cape_guests]
+; <label> libvirt_name=<name> guest_ip=<ip>
 win10-1 libvirt_name=win10_1 guest_ip=192.168.1.101 vm_ram_mb=4096 vm_cpu=2 vm_disk_gb=64 vm_os_variant=win10 vm_wim_index=6
 ; win10-2 libvirt_name=win10_2 guest_ip=192.168.1.102 vm_ram_mb=4096 vm_cpu=2 vm_disk_gb=64 vm_os_variant=win10 vm_wim_index=6
 

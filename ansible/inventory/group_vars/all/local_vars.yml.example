@@ -1,0 +1,10 @@
+---
+# ────────────────────────────────────────────────────────────────────
+# Local (site-specific) variable overrides
+# Copy to local_vars.yml and customize:
+#   cp local_vars.yml.example local_vars.yml
+# ────────────────────────────────────────────────────────────────────
+
+# Path or URL to a Windows installation ISO
+windows_iso_path: ""
+windows_iso_url: "http://YOUR_SERVER:8000/Win10.iso"

@@ -31,3 +31,9 @@ docs/book/src/_build
 
 # Ansible vault password (local dev only, never commit)
 .vault_pass
+
+# Ansible local inventory — contains private IPs
+ansible/inventory/hosts.ini
+
+# Ansible local vars — contains private URLs/paths
+ansible/inventory/group_vars/all/local_vars.yml

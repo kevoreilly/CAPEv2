@@ -1,7 +1,7 @@
 # CAPEv2 Windows Guest Post-Install Script
 # Runs at first logon via Autounattend.xml FirstLogonCommands
 
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = "Continue"
 $logFile = "C:\postinstall.log"
 Start-Transcript -Path $logFile -Append
 
@@ -9,74 +9,83 @@ Write-Host "=== CAPE Guest Post-Install Starting ==="
 
 # ── Disable Windows Defender ──
 Write-Host "Disabling Windows Defender..."
-Set-MpPreference -DisableRealtimeMonitoring $true
-Set-MpPreference -DisableBehaviorMonitoring $true
-Set-MpPreference -DisableScanOnRealtimeEnable $true
-Set-MpPreference -DisableBlockAtFirstSeen $true
+try { Set-MpPreference -DisableRealtimeMonitoring $true } catch { }
+try { Set-MpPreference -DisableBehaviorMonitoring $true } catch { }
+try { Set-MpPreference -DisableScanOnRealtimeEnable $true } catch { }
+try { Set-MpPreference -DisableBlockAtFirstSeen $true } catch { }
 
 # ── Disable Windows Update (permanent via registry) ──
 Write-Host "Disabling Windows Update..."
-New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" `
-    -Name "NoAutoUpdate" -Value 1 -PropertyType DWord -Force
+try {
+    New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" `
+        -Name "NoAutoUpdate" -Value 1 -PropertyType DWord -Force
+} catch { }
 
 # ── Disable Firewall (for CAPE agent network access) ──
 Write-Host "Disabling Windows Firewall..."
-netsh advfirewall set allprofiles state off
+try { netsh advfirewall set allprofiles state off } catch { }
 
 # ── Disable UAC ──
 Write-Host "Disabling UAC..."
-Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
-    -Name "EnableLUA" -Value 0 -Force
+try {
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" `
+        -Name "EnableLUA" -Value 0 -Force
+} catch { }
 
 # ── Disable Screen Saver ──
 Write-Host "Disabling screen saver..."
-Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "ScreenSaveActive" -Value 0 -Force
+try { Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "ScreenSaveActive" -Value 0 -Force } catch { }
 
 # ── Set power scheme to High Performance ──
 Write-Host "Setting power scheme to High Performance..."
-powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c
+try { powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c } catch { }
 
 # ── Install Python 3 and CAPE agent ──
-Write-Host "Downloading Python installer..."
+Write-Host "Downloading Python installer (best-effort)..."
 $pythonUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
 $pythonInstaller = "C:\python-installer.exe"
-Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonInstaller -UseBasicParsing
-
-Write-Host "Installing Python 3.11..."
-Start-Process -Wait -FilePath $pythonInstaller -ArgumentList `
-    "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0"
+try {
+    Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonInstaller -UseBasicParsing -TimeoutSec 30
+    Write-Host "Installing Python 3.11..."
+    Start-Process -Wait -FilePath $pythonInstaller -ArgumentList `
+        "/quiet InstallAllUsers=1 PrependPath=1 Include_test=0"
+} catch { Write-Host "Python download/install failed (non-fatal): $_" }
 
 # ── Download CAPE agent ──
-Write-Host "Downloading CAPE agent..."
+Write-Host "Downloading CAPE agent (best-effort)..."
 $agentUrl = "{{ cape_agent_url }}"
 $agentDir = "C:\CAPE"
 $agentPath = "$agentDir\agent.py"
-New-Item -ItemType Directory -Force -Path $agentDir
-Invoke-WebRequest -Uri $agentUrl -OutFile $agentPath -UseBasicParsing
-
-# ── Create agent startup script ──
-Write-Host "Creating CAPE agent startup script..."
-$startupScript = @"
+try {
+    New-Item -ItemType Directory -Force -Path $agentDir
+    Invoke-WebRequest -Uri $agentUrl -OutFile $agentPath -UseBasicParsing -TimeoutSec 30
+    # ── Create agent startup script ──
+    Write-Host "Creating CAPE agent startup script..."
+    $startupScript = @"
 cd C:\CAPE
 python agent.py
 "@
-Set-Content -Path "C:\CAPE\run-agent.bat" -Value $startupScript
-
-# Add to startup
-$startupFolder = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
-Copy-Item "C:\CAPE\run-agent.bat" "$startupFolder\run-agent.bat"
+    Set-Content -Path "C:\CAPE\run-agent.bat" -Value $startupScript
+    # Add to startup
+    $startupFolder = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
+    Copy-Item "C:\CAPE\run-agent.bat" "$startupFolder\run-agent.bat"
+} catch { Write-Host "CAPE agent download failed (non-fatal): $_" }
 
 # ── Enable RDP ──
 Write-Host "Enabling RDP..."
-Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
-    -Name "fDenyTSConnections" -Value 0 -Force
+try {
+    Set-ItemProperty -Path "HKLM:\System\CurrentControlSet\Control\Terminal Server" `
+        -Name "fDenyTSConnections" -Value 0 -Force
+} catch { }
 
 # ── Cleanup ──
 Write-Host "Cleaning up..."
-Remove-Item -Force $pythonInstaller -ErrorAction SilentlyContinue
+try { Remove-Item -Force $pythonInstaller -ErrorAction SilentlyContinue } catch { }
 
 Write-Host "=== CAPE Guest Post-Install Complete ==="
 
-# ── Shutdown so Ansible knows install is done ──
+# ── Always shutdown so Ansible knows install is done ──
 Write-Host "Shutting down..."
-Stop-Computer -Force
+try { Stop-Computer -Force } catch { }
+# fallback shutdown command
+shutdown /s /t 0

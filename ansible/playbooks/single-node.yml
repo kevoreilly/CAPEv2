@@ -11,7 +11,9 @@
     - name: Include hypervisor role
       ansible.builtin.include_role:
         name: hypervisor
-      tags: [hypervisor]
+      tags:
+        - hypervisor
+        - vm_create
 
     - name: Include cape_host role (repo, config, database, signatures, systemd)
       ansible.builtin.include_role:

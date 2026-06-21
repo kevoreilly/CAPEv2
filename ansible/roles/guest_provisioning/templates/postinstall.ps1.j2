@@ -48,7 +48,7 @@ Start-Process -Wait -FilePath $pythonInstaller -ArgumentList `
 
 # ── Download CAPE agent ──
 Write-Host "Downloading CAPE agent..."
-$agentUrl = "{% if cape_agent_url is defined %}{{ cape_agent_url }}{% else %}http://{{ hostvars[groups['cape_control'][0]]['ansible_host'] | default('192.168.1.1') }}:8000/agent/agent.py{% endif %}"
+$agentUrl = "{{ cape_agent_url }}"
 $agentDir = "C:\CAPE"
 $agentPath = "$agentDir\agent.py"
 New-Item -ItemType Directory -Force -Path $agentDir

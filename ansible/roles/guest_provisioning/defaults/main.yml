@@ -11,3 +11,8 @@ windows_product_key: ""
 windows_auto_logon_count: 1
 windows_locale: en-US
 vm_wim_index: 6
+
+# CAPE agent download URL for postinstall.ps1
+# Override in local_vars.yml if your host IP differs:
+#   cape_agent_url: "http://YOUR_HOST_IP:8000/agent/agent.py"
+cape_agent_url: "http://192.168.1.1:8000/agent/agent.py"

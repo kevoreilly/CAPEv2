@@ -8,3 +8,7 @@
 # Path or URL to a Windows installation ISO
 windows_iso_path: ""
 windows_iso_url: "http://YOUR_SERVER:8000/Win10.iso"
+
+# CAPE agent download URL (used by postinstall.ps1 on the guest)
+# Replace with the IP of your CAPE host
+cape_agent_url: "http://192.168.1.1:8000/agent/agent.py"

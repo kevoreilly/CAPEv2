@@ -18,7 +18,7 @@
     - name: Include cape_host role (repo, config, database, signatures, systemd)
       ansible.builtin.include_role:
         name: cape_host
-      tags: [cape_host]
+      tags: [cape_host, repo, config, database, signatures, systemd]
 
     - name: Include optional components
       ansible.builtin.include_role:

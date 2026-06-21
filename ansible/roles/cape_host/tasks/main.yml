@@ -1,42 +1,21 @@
 ---
 - name: Include repo tasks (clone, venv, yara-python)
   ansible.builtin.include_tasks: repo.yml
-  tags:
-    - cape_host
-    - repo
 
 - name: Include config tasks (configs, community, sudoers, rt_tables)
   ansible.builtin.include_tasks: config.yml
-  tags:
-    - cape_host
-    - config
 
 - name: Include database tasks (PostgreSQL, MongoDB, Alembic)
   ansible.builtin.include_tasks: database.yml
-  tags:
-    - cape_host
-    - database
 
 - name: Include signatures tasks (YARA, Suricata, volatility3, CAPA, crontab)
   ansible.builtin.include_tasks: signatures.yml
-  tags:
-    - cape_host
-    - signatures
 
 - name: Include systemd tasks (unit files, enable, logrotate, jemalloc)
   ansible.builtin.include_tasks: systemd.yml
-  tags:
-    - cape_host
-    - systemd
 
 - name: Include optional tasks (nginx, guacamole, clamav, fail2ban, prometheus, modsecurity, crowdsec)
   ansible.builtin.include_tasks: optional.yml
-  tags:
-    - cape_host
-    - optional
 
 - name: Include extra optional tasks (elasticsearch, mitmproxy, docker, yarax, etc.)
   ansible.builtin.include_tasks: optional_extra.yml
-  tags:
-    - cape_host
-    - optional

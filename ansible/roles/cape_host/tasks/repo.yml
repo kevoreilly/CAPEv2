@@ -60,12 +60,22 @@
   become_user: "{{ cape_user }}"
   when: not use_uv
 
+- name: Install pip in venv via ensurepip
+  ansible.builtin.command:
+    cmd: "{{ cape_root }}/.venv/bin/python3 -m ensurepip --upgrade --default-pip"
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+  failed_when: false
+  when: not use_uv
+
 - name: Upgrade pip in venv
   ansible.builtin.command:
     cmd: "{{ cape_root }}/.venv/bin/pip install --upgrade pip setuptools wheel"
   become: true
   become_user: "{{ cape_user }}"
   changed_when: false
+  failed_when: false
   when: not use_uv
 
 - name: Install missing Python packages into venv

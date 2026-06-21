@@ -32,6 +32,8 @@
     tasks_from: autounattend.yml
   vars:
     vm_wim_index: "{{ _guest.vm_wim_index | default(vm_wim_index) }}"
+  tags:
+    - vm_create
   when: _dominfo.rc != 0
 
 - name: Create KVM guest with virt-install (unattended)

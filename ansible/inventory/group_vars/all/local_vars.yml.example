@@ -1,8 +1,9 @@
 ---
 # ────────────────────────────────────────────────────────────────────
 # Local (site-specific) variable overrides
-# Copy to local_vars.yml and customize:
-#   cp local_vars.yml.example local_vars.yml
+# Copy to x-local_vars.yml and customize:
+#   cp local_vars.yml.example x-local_vars.yml
+# (The x- prefix ensures it loads after vars.yml alphabetically)
 # ────────────────────────────────────────────────────────────────────
 
 # Path or URL to a Windows installation ISO

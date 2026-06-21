@@ -37,3 +37,5 @@ ansible/inventory/hosts.ini
 
 # Ansible local vars — contains private URLs/paths
 ansible/inventory/group_vars/all/local_vars.yml
+ansible/inventory/group_vars/all/99-local_vars.yml
+ansible/inventory/group_vars/all/x-local_vars.yml

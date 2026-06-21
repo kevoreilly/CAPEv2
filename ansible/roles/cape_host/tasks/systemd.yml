@@ -34,7 +34,7 @@
   when: cape_root != "/opt/CAPEv2"
   notify: daemon reload
 
-- name: Remove ExecStartPre poetry lines for uv
+- name: Remove ExecStartPre poetry lines
   ansible.builtin.lineinfile:
     path: "/lib/systemd/system/{{ item }}"
     regexp: "^ExecStartPre=.*/poetry .*"
@@ -43,16 +43,30 @@
     - cape-fstab.service
     - cape-rooter.service
   failed_when: false
-  when: use_uv
   notify: daemon reload
 
-- name: Replace poetry binary path with uv in service files
+- name: Replace poetry run python with venv python3
   ansible.builtin.replace:
     path: "/lib/systemd/system/{{ item }}"
-    regexp: "/etc/poetry/bin/poetry"
-    replacement: "/usr/local/bin/uv"
+    regexp: "/etc/poetry/bin/poetry run python"
+    replacement: "{{ cape_root }}/.venv/bin/python3"
   loop: "{{ query('fileglob', '/lib/systemd/system/cape*.service') + query('fileglob', '/lib/systemd/system/guac*.service') | list }}"
-  when: use_uv
+  notify: daemon reload
+
+- name: Replace poetry gunicorn with venv gunicorn
+  ansible.builtin.replace:
+    path: "/lib/systemd/system/guac-web.service"
+    regexp: "/etc/poetry/bin/poetry run gunicorn"
+    replacement: "{{ cape_root }}/.venv/bin/gunicorn"
+  failed_when: false
+  notify: daemon reload
+
+- name: Replace poetry --directory run with venv python3
+  ansible.builtin.replace:
+    path: "/lib/systemd/system/cape-sigma-update.service"
+    regexp: "/etc/poetry/bin/poetry --directory .* run python"
+    replacement: "{{ cape_root }}/.venv/bin/python3"
+  failed_when: false
   notify: daemon reload
 
 # ────────────────────────────────────────────────────────────────────

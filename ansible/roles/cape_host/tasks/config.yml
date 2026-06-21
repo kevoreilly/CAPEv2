@@ -42,14 +42,13 @@
     value: "yes"
     state: present
 
-- name: Enable MongoDB in reporting.conf
+- name: Enable or disable MongoDB in reporting.conf
   community.general.ini_file:
     path: "{{ cape_root }}/conf/reporting.conf"
     section: mongodb
     option: enabled
-    value: "yes"
+    value: "{{ 'yes' if mongo_enable else 'no' }}"
     state: present
-  when: mongo_enable
 
 - name: Ensure CAPE root ownership after config copy
   ansible.builtin.file:

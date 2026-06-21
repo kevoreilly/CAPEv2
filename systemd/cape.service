@@ -6,7 +6,7 @@ After=cape-rooter.service
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/
-ExecStart=/etc/poetry/bin/poetry run python cuckoo.py
+ExecStart=/opt/CAPEv2/.venv/bin/python3 cuckoo.py
 User=cape
 Group=cape
 Restart=always

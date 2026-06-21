@@ -4,8 +4,7 @@ Documentation=https://github.com/kevoreilly/CAPEv2
 
 [Service]
 WorkingDirectory=/opt/CAPEv2/utils/
-ExecStartPre=/etc/poetry/bin/poetry config cache-dir /opt/CAPEv2/.cache/pypoetry
-ExecStart=/etc/poetry/bin/poetry run python fstab.py -g cape
+ExecStart=/opt/CAPEv2/.venv/bin/python3 fstab.py -g cape
 User=root
 Group=root
 Restart=always

@@ -11,6 +11,11 @@
     dest: "{{ cape_root | dirname }}"
     remote_src: true
 
+- name: Check if CAPEv2 repo is already deployed
+  ansible.builtin.stat:
+    path: "{{ cape_root }}/pyproject.toml"
+  register: _cape_repo_check
+
 - name: Rename extracted directory to cape_root
   ansible.builtin.shell:
     cmd: |
@@ -18,7 +23,7 @@
       mv "{{ cape_root | dirname }}/CAPEv2-master" "{{ cape_root }}"
   args:
     executable: /bin/bash
-    creates: "{{ cape_root }}/pyproject.toml"
+  when: not _cape_repo_check.stat.exists
 
 - name: Ensure CAPE root ownership
   ansible.builtin.file:
@@ -37,13 +42,39 @@
   become_user: "{{ cape_user }}"
   when: use_uv
 
-- name: Create Python virtual environment with Poetry
+- name: Configure Poetry for in-project venv
   ansible.builtin.command:
     cmd: >
       /etc/poetry/bin/poetry config virtualenvs.in-project true
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+  when: not use_uv
+
+- name: Create Python virtual environment for CAPE
+  ansible.builtin.command:
+    cmd: >
+      /usr/bin/python3 -m venv "{{ cape_root }}/.venv"
     creates: "{{ cape_root }}/.venv/pyvenv.cfg"
   become: true
   become_user: "{{ cape_user }}"
+  when: not use_uv
+
+- name: Upgrade pip in venv
+  ansible.builtin.command:
+    cmd: "{{ cape_root }}/.venv/bin/pip install --upgrade pip setuptools wheel"
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+  when: not use_uv
+
+- name: Install missing Python packages into venv
+  ansible.builtin.command:
+    cmd: "{{ cape_root }}/.venv/bin/pip install pytz sflock sqlparse txaio werkzeug setproctitle uvicorn pyzipper"
+  become: true
+  become_user: "{{ cape_user }}"
+  changed_when: false
+  failed_when: false
   when: not use_uv
 
 - name: Sync dependencies with uv
@@ -85,9 +116,9 @@
 # pins old versions (greenlet 3.0.3, gevent 24.2.1, orjson 3.10.15) that
 # lack Python 3.14 wheels and fail to compile from source. Install them
 # directly via pip to get prebuilt cp314 wheels from PyPI.
-- name: Install native packages into Poetry venv for Python 3.14 compatibility
+- name: Install native packages into venv for Python 3.14 compatibility
   ansible.builtin.command:
-    cmd: /opt/CAPEv2/.venv/bin/pip install gevent greenlet orjson --break-system-packages
+    cmd: "{{ cape_root }}/.venv/bin/pip install gevent greenlet orjson --break-system-packages"
   become: true
   become_user: "{{ cape_user }}"
   changed_when: false
@@ -102,15 +133,15 @@
 
 - name: Create .venv site-packages directory for libvirt .pth
   ansible.builtin.file:
-    path: /opt/CAPEv2/.venv/lib/python3.14/site-packages
+    path: "{{ cape_root }}/.venv/lib/python3.14/site-packages"
     state: directory
     mode: "0755"
   when: not use_uv
   failed_when: false
 
-- name: Make libvirt accessible from Poetry venv
+- name: Make libvirt accessible from venv
   ansible.builtin.copy:
-    dest: /opt/CAPEv2/.venv/lib/python3.14/site-packages/libvirt.pth
+    dest: "{{ cape_root }}/.venv/lib/python3.14/site-packages/libvirt.pth"
     content: "/usr/lib/python3/dist-packages\n"
     mode: "0644"
   when: not use_uv
@@ -134,10 +165,10 @@
   become_user: "{{ cape_user }}"
   when: use_uv
 
-- name: Install yara-python with Poetry
+- name: Install yara-python into venv
   ansible.builtin.command:
     cmd: >
-      /etc/poetry/bin/poetry run pip install yara-python
+      "{{ cape_root }}/.venv/bin/pip" install yara-python
       --no-binary :all:
       --config-settings="--global-option=build"
       --config-settings="--global-option=--enable-cuckoo"

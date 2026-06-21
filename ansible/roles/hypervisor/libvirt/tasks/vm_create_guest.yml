@@ -26,12 +26,16 @@
     msg: "VM '{{ _guest.libvirt_name }}' already exists — skipping creation"
   when: _dominfo.rc == 0
 
+- name: Set per-guest vm_wim_index for answer ISO
+  ansible.builtin.set_fact:
+    _guest_vm_wim_index: "{{ _guest.vm_wim_index | default(6) }}"
+
 - name: Include answer ISO generation
   ansible.builtin.include_role:
     name: guest_provisioning
     tasks_from: autounattend.yml
   vars:
-    vm_wim_index: "{{ _guest.vm_wim_index | default(vm_wim_index) }}"
+    vm_wim_index: "{{ _guest_vm_wim_index }}"
   tags:
     - vm_create
   when: _dominfo.rc != 0

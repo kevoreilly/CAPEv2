@@ -6,6 +6,24 @@
 # windows_iso_url to be set.  Loops over groups['cape_guests'].
 # ────────────────────────────────────────────────────────────────────
 
+# ── Prerequisite validation ──────────────────────────────────────────
+- name: Check for nested virtualization (KVM) availability
+  ansible.builtin.stat:
+    path: /dev/kvm
+  register: _kvm_dev
+
+- name: Fail if nested virtualization is not available
+  ansible.builtin.fail:
+    msg: >
+      Nested virtualization not available — /dev/kvm not found.
+      Without KVM, Windows guests run in TCG software emulation,
+      making installation and analysis extremely slow (potentially
+      hours to days).  Enable nested virtualization on the host
+      hypervisor, or set vm_autocreate: false in
+      group_vars/all/x-local_vars.yml to skip automated VM creation.
+  when: not _kvm_dev.stat.exists
+
+# ── Tooling and directories ──────────────────────────────────────────
 - name: Install virsh / virt-install / genisoimage
   ansible.builtin.apt:
     pkg:

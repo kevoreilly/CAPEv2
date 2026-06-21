@@ -85,8 +85,8 @@
     cmd: >
       virsh snapshot-current {{ _guest.libvirt_name }} --name 2>/dev/null
       || virsh snapshot-create-as {{ _guest.libvirt_name }}
-           --name clean
-           --description "Fresh Windows install with CAPE agent"
+      --name clean
+      --description "Fresh Windows install with CAPE agent"
   register: _snapshot
   changed_when: "'Domain snapshot' in _snapshot.stdout"
 

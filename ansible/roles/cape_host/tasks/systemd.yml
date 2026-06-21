@@ -50,7 +50,15 @@
     path: "/lib/systemd/system/{{ item }}"
     regexp: "/etc/poetry/bin/poetry run python"
     replacement: "{{ cape_root }}/.venv/bin/python3"
-  loop: "{{ query('fileglob', '/lib/systemd/system/cape*.service') + query('fileglob', '/lib/systemd/system/guac*.service') | list }}"
+  loop:
+    - cape.service
+    - cape-processor.service
+    - cape-web.service
+    - cape-rooter.service
+    - cape-dist.service
+    - cape-fstab.service
+    - cape-sigma-update.service
+  failed_when: false
   notify: daemon reload
 
 - name: Replace poetry gunicorn with venv gunicorn
@@ -61,7 +69,7 @@
   failed_when: false
   notify: daemon reload
 
-- name: Replace poetry --directory run with venv python3
+- name: Replace poetry --directory run with venv python3 in sigma
   ansible.builtin.replace:
     path: "/lib/systemd/system/cape-sigma-update.service"
     regexp: "/etc/poetry/bin/poetry --directory .* run python"

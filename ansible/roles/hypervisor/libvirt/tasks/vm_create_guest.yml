@@ -76,3 +76,10 @@
   ansible.builtin.debug:
     var: _snapshot.stdout_lines
   when: _snapshot is changed
+
+# ── Cleanup ─────────────────────────────────────────────────────────
+- name: Remove answer ISO staging directory
+  ansible.builtin.file:
+    path: "{{ autounattend_tmp_dir.path }}"
+    state: absent
+  when: autounattend_tmp_dir is defined

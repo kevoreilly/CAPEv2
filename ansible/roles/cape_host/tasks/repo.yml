@@ -80,11 +80,20 @@
 
 - name: Install missing Python packages into venv
   ansible.builtin.command:
-    cmd: "{{ cape_root }}/.venv/bin/pip install pytz sflock sqlparse txaio werkzeug setproctitle uvicorn pyzipper"
+    cmd: "{{ cape_root }}/.venv/bin/pip install {{ item }}"
   become: true
   become_user: "{{ cape_user }}"
   changed_when: false
   failed_when: false
+  loop:
+    - pytz
+    - sflock
+    - sqlparse
+    - txaio
+    - werkzeug
+    - setproctitle
+    - uvicorn
+    - pyzipper
   when: not use_uv
 
 - name: Sync dependencies with uv

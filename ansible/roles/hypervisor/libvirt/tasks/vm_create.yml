@@ -117,14 +117,14 @@
       vm_autocreate is true, [cape_guests] inventory group is empty.
       Add at least one entry to hosts.ini (e.g. under [cape_guests])
       or set vm_autocreate: false.
-  when: groups['cape_guests'] | length == 0
+  when: groups.get('cape_guests', []) | length == 0
 
 - name: Create each guest VM
   ansible.builtin.include_tasks: vm_create_guest.yml
-  loop: "{{ groups['cape_guests'] }}"
+  loop: "{{ groups.get('cape_guests', []) }}"
   loop_control:
     loop_var: _guest_name
   when:
-    - groups['cape_guests'] | length > 0
+    - groups.get('cape_guests', []) | length > 0
     - windows_iso_final is defined
     - _iso_final_stat.stat.exists

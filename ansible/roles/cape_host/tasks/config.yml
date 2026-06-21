@@ -100,11 +100,11 @@
   ansible.builtin.lineinfile:
     path: "{{ cape_root }}/conf/kvm.conf"
     regexp: "^machines ="
-    line: "machines = {{ groups['cape_guests'] | map('extract', hostvars, 'libvirt_name') | join(', ') }}"
+    line: "machines = {{ groups.get('cape_guests', []) | map('extract', hostvars, 'libvirt_name') | join(', ') }}"
     backrefs: true
   when:
     - vm_autocreate | default(false) | bool
-    - groups['cape_guests'] is defined
+    - groups.get('cape_guests', []) | length > 0
 
 - name: Add guest VM sections to kvm.conf
   ansible.builtin.blockinfile:
@@ -117,7 +117,7 @@
       ip = {{ hostvars[item].guest_ip }}
       arch = x86
     insertafter: EOF
-  loop: "{{ groups['cape_guests'] }}"
+  loop: "{{ groups.get('cape_guests', []) }}"
   when:
     - vm_autocreate | default(false) | bool
-    - groups['cape_guests'] is defined
+    - groups.get('cape_guests', []) | length > 0

@@ -6,7 +6,7 @@
 {% elif status == "failed_analysis" %}
 <div class="alert alert-secondary bg-dark text-warning">
     <h4>Status for task {{task_id}} - {{ target }}</h4>
-    <p>The analysis failed with status '{{status}}'. <a href="{% url "submission" task_id sha256 %}">Click here to resubmit.</a></p>
+    <p>The analysis failed with status '{{status}}'.{% if sha256 %} <a href="{% url "submission" task_id sha256 %}">Click here to resubmit.</a>{% endif %}</p>
 </div>
 {% else %}
     <script type="text/JavaScript">setTimeout("location.reload(true);",30000);</script>

@@ -779,13 +779,15 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
+    sha256_val = task.sample.sha256 if getattr(task, "sample", None) else ""
     response = {
         "title": "Task Status",
         "completed": completed,
         "status": status,
         "task_id": task_id,
         "session_data": "",
-        "target": task.sample.sha256 if getattr(task, "sample") else task.target,
+        "target": sha256_val or task.target,
+        "sha256": sha256_val,
     }
     if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1":
         machine = db.view_machine_by_label(task.machine)

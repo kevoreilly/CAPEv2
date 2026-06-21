@@ -67,14 +67,14 @@
     var: _vm_create.stdout_lines
   when: _vm_create is changed
 
-# ── Snapshot ────────────────────────────────────────────────────────
-- name: Create initial libvirt snapshot
+# ── Snapshot (idempotent — skips if already present) ────────────────
+- name: Create libvirt snapshot if not exists
   ansible.builtin.shell:
     cmd: >
-      virsh snapshot-create-as {{ _guest.libvirt_name }}
-        --name clean
-        --description "Fresh Windows install with CAPE agent"
-  when: _vm_create is changed
+      virsh snapshot-current {{ _guest.libvirt_name }} --name 2>/dev/null
+      || virsh snapshot-create-as {{ _guest.libvirt_name }}
+           --name clean
+           --description "Fresh Windows install with CAPE agent"
   register: _snapshot
   changed_when: "'Domain snapshot' in _snapshot.stdout"
 

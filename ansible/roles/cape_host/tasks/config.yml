@@ -26,6 +26,22 @@
     line: "interface = {{ network_iface }}"
     backrefs: true
 
+- name: Enable machinelist API endpoint
+  community.general.ini_file:
+    path: "{{ cape_root }}/conf/api.conf"
+    section: machinelist
+    option: enabled
+    value: "yes"
+    state: present
+
+- name: Enable cuckoostatus API endpoint
+  community.general.ini_file:
+    path: "{{ cape_root }}/conf/api.conf"
+    section: cuckoostatus
+    option: enabled
+    value: "yes"
+    state: present
+
 - name: Enable MongoDB in reporting.conf
   community.general.ini_file:
     path: "{{ cape_root }}/conf/reporting.conf"
@@ -116,6 +132,7 @@
       platform = windows
       ip = {{ hostvars[item].guest_ip }}
       arch = x86
+      snapshot = clean
     insertafter: EOF
   loop: "{{ groups.get('cape_guests', []) }}"
   when:

@@ -49,7 +49,7 @@
         --vcpus={{ _guest.vm_cpu | default(vm_cpu) }}
         --disk size={{ _guest.vm_disk_gb | default(vm_disk_gb) }}
         --cdrom={{ windows_iso_final }}
-        --disk path={{ autounattend_tmp_dir.path }}/autounattend.iso,device=cdrom
+        --disk path={{ autounattend_tmp_dir.path }}/autounattend.img,device=floppy
         --os-variant={{ _guest.vm_os_variant | default(vm_os_variant) }}
         --network bridge={{ _guest.vm_bridge | default(vm_bridge) }}
         --graphics spice,port=-1,listen=0.0.0.0

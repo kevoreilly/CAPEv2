@@ -1,10 +1,11 @@
 ---
 # ────────────────────────────────────────────────────────────────────
-# Generate answer ISO for unattended Windows installation
+# Generate answer floppy for unattended Windows installation
 #
 # Renders Autounattend.xml + postinstall.ps1, then packs them into
-# a bootable ISO via genisoimage. The ISO is attached as a second
-# CDROM to the virt-install command in vm_create.yml.
+# a FAT floppy image. The floppy is attached to the virt-install
+# command in vm_create.yml. Floppy is more reliably detected by
+# Windows setup than a secondary CDROM.
 #
 # Variables expected:
 #   ansible_host       — CAPE host IP (for VirtIO drivers download)
@@ -31,12 +32,20 @@
     dest: "{{ autounattend_tmp_dir.path }}/postinstall.ps1"
     mode: "0644"
 
-- name: Create Windows answer ISO (automatically naming Virtual CD-ROM)
+- name: Create FAT floppy image for Windows answer file
   ansible.builtin.shell:
     cmd: >
-      genisoimage -o "{{ autounattend_tmp_dir.path }}/autounattend.iso"
-      -J -r -V AUTOCAPE
-      "{{ autounattend_tmp_dir.path }}/Autounattend.xml"
-      "{{ autounattend_tmp_dir.path }}/postinstall.ps1"
+      set -e &&
+      dd if=/dev/zero of="{{ autounattend_tmp_dir.path }}/autounattend.img"
+      bs=512 count=2880 status=none &&
+      mkfs.fat "{{ autounattend_tmp_dir.path }}/autounattend.img" >/dev/null &&
+      mount -o loop "{{ autounattend_tmp_dir.path }}/autounattend.img"
+      /mnt &&
+      cp "{{ autounattend_tmp_dir.path }}/Autounattend.xml"
+      /mnt/ &&
+      cp "{{ autounattend_tmp_dir.path }}/postinstall.ps1"
+      /mnt/ &&
+      umount /mnt
+    executable: /bin/bash
   args:
-    creates: "{{ autounattend_tmp_dir.path }}/autounattend.iso"
+    creates: "{{ autounattend_tmp_dir.path }}/autounattend.img"

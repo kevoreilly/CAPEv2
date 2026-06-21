@@ -92,7 +92,10 @@
       or copy an ISO to {{ windows_iso_download_dest }}, then run
       'ansible-playbook playbooks/single-node.yml --tags vm_create'
       to create the VM.
-  when: _iso_final_stat is defined and not _iso_final_stat.stat.exists
+  when:
+    - _iso_final_stat is defined
+    - _iso_final_stat.stat is defined
+    - not _iso_final_stat.stat.exists
 
 - name: Fail when vm_autocreate but no ISO available
   ansible.builtin.fail:
@@ -101,6 +104,7 @@
       Set windows_iso_path or windows_iso_url in group_vars/all/vars.yml.
   when:
     - _iso_final_stat is defined
+    - _iso_final_stat.stat is defined
     - not _iso_final_stat.stat.exists
 
 - name: Warn when no ISO source configured at all
@@ -145,4 +149,5 @@
   when:
     - groups.get('cape_guests', []) | length > 0
     - windows_iso_final is defined
+    - _iso_final_stat.stat is defined
     - _iso_final_stat.stat.exists

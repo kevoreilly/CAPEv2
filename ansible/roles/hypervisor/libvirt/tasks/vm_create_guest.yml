@@ -31,6 +31,18 @@
   ansible.builtin.set_fact:
     _guest_vm_wim_index: "{{ _guest.vm_wim_index | default(6) }}"
 
+# ── 2. VM Creation Block (Runs only if VM is missing) ──────────────
+
+- name: Include answer ISO generation
+  ansible.builtin.include_role:
+    name: guest_provisioning
+    tasks_from: autounattend.yml
+  vars:
+    vm_wim_index: "{{ _guest_vm_wim_index }}"
+  tags:
+    - vm_create
+  when: _dominfo.rc != 0
+
 - name: Check if 'clean' snapshot already exists
   ansible.builtin.command: "virsh snapshot-info {{ _guest.libvirt_name }} clean"
   register: _snapshot_check
@@ -43,16 +55,6 @@
   register: _dominfo
   failed_when: false
   changed_when: false
-
-- name: Include answer ISO generation
-  ansible.builtin.include_role:
-    name: guest_provisioning
-    tasks_from: autounattend.yml
-  vars:
-    vm_wim_index: "{{ _guest_vm_wim_index }}"
-  tags:
-    - vm_create
-  when: _dominfo.rc != 0
 
 - name: Create KVM guest with virt-install (unattended)
   ansible.builtin.command:

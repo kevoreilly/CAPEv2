@@ -13,7 +13,7 @@
 - name: Look up guest host vars
   ansible.builtin.set_fact:
     _guest: "{{ hostvars[_guest_name] }}"
-    
+
 # ── 1. Initial State Gathering ─────────────────────────────────────
 
 - name: Check VM state and existence
@@ -21,6 +21,15 @@
   register: _vm_state
   failed_when: false
   changed_when: false
+
+- name: Skip existing VM
+  ansible.builtin.debug:
+    msg: "VM '{{ _guest.libvirt_name }}' already exists — skipping creation"
+  when: _dominfo.rc == 0
+
+- name: Set per-guest vm_wim_index for answer ISO
+  ansible.builtin.set_fact:
+    _guest_vm_wim_index: "{{ _guest.vm_wim_index | default(6) }}"
 
 - name: Check if 'clean' snapshot already exists
   ansible.builtin.command: "virsh snapshot-info {{ _guest.libvirt_name }} clean"
@@ -34,15 +43,6 @@
   register: _dominfo
   failed_when: false
   changed_when: false
-
-- name: Skip existing VM
-  ansible.builtin.debug:
-    msg: "VM '{{ _guest.libvirt_name }}' already exists — skipping creation"
-  when: _dominfo.rc == 0
-
-- name: Set per-guest vm_wim_index for answer ISO
-  ansible.builtin.set_fact:
-    _guest_vm_wim_index: "{{ _guest.vm_wim_index | default(6) }}"
 
 - name: Include answer ISO generation
   ansible.builtin.include_role:

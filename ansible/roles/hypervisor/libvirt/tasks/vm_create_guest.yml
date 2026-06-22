@@ -13,6 +13,8 @@
 - name: Look up guest host vars
   ansible.builtin.set_fact:
     _guest: "{{ hostvars[_guest_name] }}"
+    
+# ── 1. Initial State Gathering ─────────────────────────────────────
 
 - name: Check VM state and existence
   ansible.builtin.command: "virsh domstate {{ _guest.libvirt_name }}"

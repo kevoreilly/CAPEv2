@@ -43,8 +43,8 @@ cape_worker
 ; Variables set here are available via hostvars in the playbook:
 ;   - libvirt_name:  libvirt domain name (used as --name in virt-install)
 ;   - guest_ip:      static IP assigned to the guest on virbr1
-;   - vm_ram_mb:     RAM in MB (defaults to 4096 from group_vars)
-;   - vm_cpu:        vCPUs (defaults to 2 from group_vars)
+;   - vm_ram_mb:     RAM in MB (defaults to 8192 from group_vars)
+;   - vm_cpu:        vCPUs (defaults to 4 from group_vars)
 ;   - vm_disk_gb:    disk size in GB (defaults to 64 from group_vars)
 ;   - vm_os_variant: osinfo variant (defaults to win10 from group_vars)
 ;   - vm_wim_index:  install.wim image index (defaults to 6 = Pro)

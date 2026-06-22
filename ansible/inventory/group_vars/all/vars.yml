@@ -121,8 +121,8 @@ windows_auto_logon_count: 1
 windows_locale: en-US
 
 # Guest VM resource defaults (overridable per-host in [cape_guests])
-vm_ram_mb: 4096
-vm_cpu: 2
+vm_ram_mb: 8192
+vm_cpu: 4
 vm_disk_gb: 64
 vm_os_variant: win10
 vm_wim_index: 6

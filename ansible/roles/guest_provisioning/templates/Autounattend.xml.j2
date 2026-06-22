@@ -129,6 +129,12 @@
                     <Order>1</Order>
                     <RequiresUserInput>false</RequiresUserInput>
                 </SynchronousCommand>
+                <SynchronousCommand wcm:action="add">
+                    <CommandLine>cmd.exe /c shutdown /s /t 10 /c "Unattended setup complete, shutting down for Ansible"</CommandLine>
+                    <Description>Shutdown to signal Ansible</Description>
+                    <Order>2</Order>
+                    <RequiresUserInput>false</RequiresUserInput>
+                </SynchronousCommand>
             </FirstLogonCommands>
         </component>
         <component name="Microsoft-Windows-International-Core"

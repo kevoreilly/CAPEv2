@@ -15,8 +15,8 @@ agent_version: "0.22"
 agent_install_path: "C:\\CAPE\\agent"
 
 # Resource allocation for guest VMs
-vm_cpu: 2
-vm_ram_mb: 4096
+vm_cpu: 4
+vm_ram_mb: 8192
 vm_disk_gb: 64
 vm_os_variant: win10
 vm_wim_index: 6

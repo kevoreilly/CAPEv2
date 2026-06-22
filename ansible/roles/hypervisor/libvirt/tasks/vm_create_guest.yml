@@ -107,6 +107,7 @@
       register: _detach_floppy
       failed_when: 
         - _detach_floppy.rc != 0
+        - "'No disk found' not in _detach_floppy.stderr"
         - "'not found' not in _detach_floppy.stderr"
       changed_when: _detach_floppy.rc == 0
 

@@ -19,7 +19,13 @@
   register: _vm_state
   failed_when: false
   changed_when: false
-  
+
+- name: Check if 'clean' snapshot already exists
+  ansible.builtin.command: "virsh snapshot-info {{ _guest.libvirt_name }} clean"
+  register: _snapshot_check
+  failed_when: false
+  changed_when: false
+
 - name: Check if VM already exists
   ansible.builtin.shell:
     cmd: "virsh dominfo {{ _guest.libvirt_name }} 2>/dev/null"

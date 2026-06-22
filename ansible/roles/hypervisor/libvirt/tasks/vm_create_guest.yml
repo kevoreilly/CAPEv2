@@ -55,7 +55,7 @@
         --machine pc-i440fx-9.2
         --graphics spice,port=-1,listen=0.0.0.0
         --noautoconsole
-        --wait=0
+        --wait=-1
         --check all=off
   when: _dominfo.rc != 0
   register: _vm_create
@@ -69,7 +69,17 @@
     var: _vm_create.stdout_lines
   when: _vm_create is changed
 
-# ── Snapshot (idempotent — skips if already present) ────────────────
+# ── Snapshot Preparation (Offline) ────────────────
+- name: Detach setup floppy disk offline to prevent raw snapshot failure
+  ansible.builtin.command:
+    cmd: "virsh detach-disk {{ _guest.libvirt_name }} fda --config"
+  register: _detach_floppy
+  failed_when: 
+    - _detach_floppy.rc != 0
+    - "'not found' not in _detach_floppy.stderr"
+  changed_when: _detach_floppy.rc == 0
+
+# ── Snapshot Execution (Running State) ────────────────
 - name: Start VM for running-state snapshot
   ansible.builtin.command:
     cmd: "virsh start {{ _guest.libvirt_name }}"
@@ -79,7 +89,7 @@
 
 - name: Wait for VM to boot
   ansible.builtin.pause:
-    seconds: 30
+    seconds: 45
   when: _vm_start is changed
 
 - name: Create libvirt snapshot if not exists

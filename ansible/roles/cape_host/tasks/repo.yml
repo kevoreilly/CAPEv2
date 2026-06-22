@@ -88,6 +88,7 @@
   loop:
     - pytz
     - sflock
+    - sqlalchemy
     - sqlparse
     - txaio
     - werkzeug

@@ -55,7 +55,8 @@
         --machine pc-i440fx-9.2
         --graphics spice,port=-1,listen=0.0.0.0
         --noautoconsole
-        --wait=3600
+        --wait=0
+        --check all=off
   when: _dominfo.rc != 0
   register: _vm_create
   changed_when: "'Domain installation may still be in progress' in _vm_create.stdout or 'Domain created' in _vm_create.stdout"

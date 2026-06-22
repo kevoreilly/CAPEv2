@@ -14,6 +14,12 @@
   ansible.builtin.set_fact:
     _guest: "{{ hostvars[_guest_name] }}"
 
+- name: Check VM state and existence
+  ansible.builtin.command: "virsh domstate {{ _guest.libvirt_name }}"
+  register: _vm_state
+  failed_when: false
+  changed_when: false
+  
 - name: Check if VM already exists
   ansible.builtin.shell:
     cmd: "virsh dominfo {{ _guest.libvirt_name }} 2>/dev/null"

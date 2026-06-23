@@ -56,7 +56,7 @@
         --machine pc-i440fx-9.2
         --graphics spice,port=-1,listen=0.0.0.0
         --noautoconsole
-        --wait=-1
+        --wait=0
         --check all=off
   when: _vm_state.rc != 0
   register: _vm_create

@@ -22,7 +22,7 @@ REST contract (MCRIT 1.4.x), all responses {"status":"successful","data":...}:
 import logging
 import threading
 import time
-from typing import List, Optional
+from typing import List
 
 from lib.cuckoo.common.integrations.similarity.base import (
     FMT_ELF, FMT_MACHO, FMT_PE, EngineResult, MatchRecord, SimilarityEngine, _as_bool,
@@ -187,23 +187,38 @@ class McritEngine(SimilarityEngine):
         return None
 
     def _submit_binary(self, binary, filename, is_dump, base_addr, bitness):
-        params = {"filename": filename}
+        fields = [f"filename={filename}"]
         if is_dump:
-            params["is_dump"] = "1"
+            fields.append("is_dump=1")
         if base_addr is not None:
-            params["base_addr"] = f"{base_addr:#x}"
+            fields.append(f"base_addr={base_addr:#x}")
         if bitness in (32, 64):
-            params["bitness"] = str(bitness)
-        return self._unwrap(self._session.post(f"{self.host}/samples/binary", data=binary, params=params, timeout=30))
+            fields.append(f"bitness={bitness}")
+        qs = "?" + "&".join(fields)
+        return self._unwrap(self._session.post(f"{self.host}/samples/binary{qs}", data=binary, timeout=30))
 
     # -- job polling (threaded deadline) ----------------------------------
 
     def _await_result(self, job_id):
-        start_time = time.time()
-        while True:
-            if time.time() - start_time > self.timeout:
-                raise TimeoutError(f"MCRIT job {job_id} exceeded {self.timeout}s deadline")
+        container = {}
 
+        def _poll():
+            try:
+                container["result"] = self._poll_job(job_id)
+            except Exception as err:
+                container["error"] = err
+
+        t = threading.Thread(target=_poll, daemon=True)
+        t.start()
+        t.join(self.timeout)
+        if t.is_alive():
+            raise TimeoutError(f"MCRIT job {job_id} exceeded {self.timeout}s deadline")
+        if "error" in container:
+            raise container["error"]
+        return container.get("result")
+
+    def _poll_job(self, job_id):
+        while True:
             job = self._unwrap(self._session.get(f"{self.host}/jobs/{job_id}", timeout=15))
             if not isinstance(job, dict):
                 raise RuntimeError(f"unexpected job response for {job_id}")
@@ -215,6 +230,7 @@ class McritEngine(SimilarityEngine):
             if result_id:
                 return self._unwrap(self._session.get(f"{self.host}/results/{result_id}", timeout=30))
             time.sleep(self.poll_interval)
+
     # -- result parsing ---------------------------------------------------
 
     def _parse_matches(self, result_dict) -> List[MatchRecord]:

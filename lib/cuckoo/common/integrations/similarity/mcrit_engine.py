@@ -187,38 +187,23 @@ class McritEngine(SimilarityEngine):
         return None
 
     def _submit_binary(self, binary, filename, is_dump, base_addr, bitness):
-        fields = [f"filename={filename}"]
+        params = {"filename": filename}
         if is_dump:
-            fields.append("is_dump=1")
+            params["is_dump"] = "1"
         if base_addr is not None:
-            fields.append(f"base_addr={base_addr:#x}")
+            params["base_addr"] = f"{base_addr:#x}"
         if bitness in (32, 64):
-            fields.append(f"bitness={bitness}")
-        qs = "?" + "&".join(fields)
-        return self._unwrap(self._session.post(f"{self.host}/samples/binary{qs}", data=binary, timeout=30))
+            params["bitness"] = str(bitness)
+        return self._unwrap(self._session.post(f"{self.host}/samples/binary", data=binary, params=params, timeout=30))
 
     # -- job polling (threaded deadline) ----------------------------------
 
     def _await_result(self, job_id):
-        container = {}
-
-        def _poll():
-            try:
-                container["result"] = self._poll_job(job_id)
-            except Exception as err:
-                container["error"] = err
-
-        t = threading.Thread(target=_poll, daemon=True)
-        t.start()
-        t.join(self.timeout)
-        if t.is_alive():
-            raise TimeoutError(f"MCRIT job {job_id} exceeded {self.timeout}s deadline")
-        if "error" in container:
-            raise container["error"]
-        return container.get("result")
-
-    def _poll_job(self, job_id):
+        start_time = time.time()
         while True:
+            if time.time() - start_time > self.timeout:
+                raise TimeoutError(f"MCRIT job {job_id} exceeded {self.timeout}s deadline")
+
             job = self._unwrap(self._session.get(f"{self.host}/jobs/{job_id}", timeout=15))
             if not isinstance(job, dict):
                 raise RuntimeError(f"unexpected job response for {job_id}")
@@ -230,7 +215,6 @@ class McritEngine(SimilarityEngine):
             if result_id:
                 return self._unwrap(self._session.get(f"{self.host}/results/{result_id}", timeout=30))
             time.sleep(self.poll_interval)
-
     # -- result parsing ---------------------------------------------------
 
     def _parse_matches(self, result_dict) -> List[MatchRecord]:

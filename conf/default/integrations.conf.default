@@ -149,15 +149,11 @@ min_length = 5
 # Download FLOSS signatures from https://github.com/mandiant/flare-floss/tree/master/sigs
 sigs_path = data/flare-signatures
 
-# ============================================================
-# Code-similarity engine(s)
-# ============================================================
-# Pluggable similarity matching. Engines are listed under "Engines" below;
-# each is toggled with a yes/no key and runs independently, so you can enable
-# one, several, or all at once. Additional engines (e.g. binlex, Malcat,
-# Intezer) slot in by registering them in
-# lib/cuckoo/common/integrations/similarity/registry.py and adding a toggle
-# here — no other changes needed. Currently MCRIT is the shipped engine.
+# Code-similarity engines
+# Enable too in processing.conf. 
+# We recommend ensuring local similairty engines such as mcrit are populated with unpacked samples ideally aquired from CAPE payloads/procdumps or are not heavily packed/obfuscated to ensure best matching.
+# Also for accurate matching populate with libraries (i.e. import from https://github.com/danielplohmann/mcrit-data dragging and dropping all the files for each into import, 
+# or importing binaries and then editing them and marking them as libraries once imported).
 [similarity]
 
 # Hard per-job deadline (seconds) so a stuck engine can't stall processing.
@@ -165,17 +161,19 @@ timeout = 120
 
 # ---- Engines ------------------------------------------------
 # Only listed engines are attempted. Each engine only receives files in the
-# formats it supports, so enabling more engines is safe.
+# formats it supports, so enabling more engines is safe. Currently only MCRIT is supported (https://github.com/danielplohmann/mcrit) 
+# although the integration allows adding other performative similairty engines later.
 mcrit = yes
 # Formats sent to MCRIT. MCRIT's SMDA disassembler supports PE, ELF and
-# Mach-O (x86/x64/aarch64), so all three are analysed by default. Narrow
-# this only if your MCRIT server runs an older SMDA: e.g.  mcrit_formats = pe
-mcrit_formats = pe,elf,macho
+# Mach-O (x86/x64/aarch64). Narrow
+# this only if your MCRIT server runs an older SMDA: e.g.  mcrit_formats = pe.
+# As CAPE does not support OSX but only Windows and Linux macho is ommited.
+mcrit_formats = pe,elf
 
-# ---- What to submit -----------------------------------------
+# File sources to submit (default is memory extracted files for unpacked files).
 similarity_payloads = yes
 similarity_procdump = yes
-similarity_dropped = yes
+similarity_dropped = no
 similarity_submittedfile = no
 
 # Skip artifacts already resolved to a known family. Set no to
@@ -207,7 +205,7 @@ best_match = no
 # automatic library-function detection.
 ignore_library_matches = yes
 
-# ---- Family classification (what is PROMOTED) ---------------
+# ---- Family classification (CAPE malfamily detections)
 # When yes, a family match is promoted into CAPE's detections list (main
 # page + report header), acting as a classification engine. Only for
 # artifacts with no existing family; each family added at most once per run.
@@ -222,9 +220,8 @@ malfamily_minimum_similarity = 80
 # Either way each family is added at most once per analysis.
 malfamily_mode = top
 
-# ---- Concurrent submission ----------------------------------
-# Submit all artifacts at once (loader + payload, multi-stage,
-# several unpack stages). max_workers bounds simultaneous jobs.
+# Concurrent submission
+# Submit multiple artifacts simultaneously. max_workers bounds simultaneous jobs.
 concurrent_submissions = no
 max_workers = 4
 

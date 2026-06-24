@@ -4,10 +4,12 @@ import sys
 from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
+
+from lib.cuckoo.common.config import Config as _CapeConfig
+from lib.cuckoo.core.database import init_database
+
 CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
-
-from lib.cuckoo.common.config import Config
 
 # Build paths inside the project like this: BASE_DIR / "subdir".
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -39,8 +41,6 @@ DEBUG = True
 
 LOGGING_CONFIG = None
 
-WEB_AUTHENTICATION = getattr(Config("web"), "web_auth", {}).get("enabled", False)
-
 ALLOWED_HOSTS = [
     "*",
 ]
@@ -58,7 +58,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -173,13 +172,11 @@ logging.config.dictConfig(
     }
 )
 
-from lib.cuckoo.core.database import init_database
-from lib.cuckoo.common.config import Config as _CapeConfig
 
 _db = init_database(exists_ok=True)
 
 # Create guac_sessions table if guacamole is enabled
-if _CapeConfig('web').guacamole.get('enabled', False):
+if _CapeConfig("web").guacamole.get("vnc_console_enabled", False):
     from lib.cuckoo.core.data.guac_session import GuacSession  # noqa: F401
     from lib.cuckoo.core.data.db_common import Base
     Base.metadata.create_all(_db.engine)

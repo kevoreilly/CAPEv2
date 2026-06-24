@@ -45,7 +45,7 @@ if sys.version_info[:2] < (3, 6):
 #if sys.maxsize > 2**32 and sys.platform == "win32":
 #    sys.exit("You should install python3 x86! not x64")
 
-AGENT_VERSION = "0.21"
+AGENT_VERSION = "0.22"
 AGENT_FEATURES = [
     "execpy",
     "execute",
@@ -53,6 +53,7 @@ AGENT_FEATURES = [
     "logs",
     "largefile",
     "unicodepath",
+    "subdir_upload",
 ]
 BASE_64_ENCODING = "base64"
 
@@ -592,6 +593,9 @@ def do_store():
         return json_error(400, "No file has been provided")
 
     try:
+        dirpath = os.path.dirname(request.form["filepath"])
+        if dirpath:
+            os.makedirs(dirpath, exist_ok=True)
         with open(request.form["filepath"], "wb") as f:
             shutil.copyfileobj(request.files["file"], f, 10 * 1024 * 1024)
     except Exception as ex:

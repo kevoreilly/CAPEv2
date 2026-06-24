@@ -193,8 +193,30 @@ except ImportError:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _claims(extra: dict) -> dict:
+    """Flatten allauth's OIDC extra_data to the actual claim dict.
+
+    The openid_connect provider stores extra_data as
+    ``{"id_token": <jwt>, "userinfo": {...claims...}}`` — the OIDC claims
+    (email, groups, preferred_username, sub) live under ``userinfo``, not at the
+    top level. Other providers store the claims flat, so fall back to the dict
+    itself when there's no nested ``userinfo``.
+
+    Gated on ``"id_token"`` (which the openid_connect provider always puts at the
+    top level) so the function is idempotent: calling it on already-flattened
+    claims — or on a flat provider's data — returns them unchanged even if they
+    happen to carry their own ``userinfo`` key.
+    """
+    if isinstance(extra, dict) and "id_token" in extra:
+        ui = extra.get("userinfo")
+        if isinstance(ui, dict) and ui:
+            return ui
+    return extra or {}
+
+
 def _extract_groups(extra: dict) -> set:
     """Return the set of IdP group names from token extra data."""
+    extra = _claims(extra)
     oidc_cfg = getattr(settings, "OIDC_CFG", None) or {}
     claim = oidc_cfg.get("groups_claim") or "groups"
     raw = extra.get(claim) or []
@@ -233,6 +255,7 @@ def _apply_idp_roles_and_email(user, extra: dict) -> bool:
     but empty claim is honoured (the user really is in no groups → demote).
     """
     changed = False
+    extra = _claims(extra)
 
     email = extra.get("email") or ""
     if email and user.email != email:
@@ -303,7 +326,11 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
         Raises ImmediateHttpResponse — caught by allauth's complete_login
         wrapper and rendered as a user-facing error page (a bare
         ValidationError here would bubble up as a 500)."""
-        user_email = sociallogin.account.extra_data.get("email") or ""
+        user_email = (
+            _claims(sociallogin.account.extra_data or {}).get("email")
+            or (sociallogin.user.email if sociallogin.user else "")
+            or ""
+        )
         if settings.SOCIAL_AUTH_EMAIL_DOMAIN:
             if not user_email:
                 # Fail closed: a domain allowlist is configured but the IdP sent
@@ -359,7 +386,7 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
         if no subject is present — is appended to guarantee uniqueness.
         """
         user = super().save_user(request, sociallogin, form)
-        extra = sociallogin.account.extra_data or {}
+        extra = _claims(sociallogin.account.extra_data or {})
 
         # ── username (provisioning only — kept stable across later logins) ──
         identifier = (

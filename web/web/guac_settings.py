@@ -5,6 +5,9 @@ from pathlib import Path
 
 from django.utils.log import DEFAULT_LOGGING
 
+from lib.cuckoo.common.config import Config as _CapeConfig
+from lib.cuckoo.core.database import init_database
+
 CUCKOO_PATH = os.path.join(Path.cwd(), "..")
 sys.path.append(CUCKOO_PATH)
 
@@ -169,14 +172,11 @@ logging.config.dictConfig(
     }
 )
 
-from lib.cuckoo.core.database import init_database
-from lib.cuckoo.common.config import Config as _CapeConfig
 
 _db = init_database(exists_ok=True)
 
 # Create guac_sessions table if guacamole is enabled
-if _CapeConfig('web').guacamole.get('enabled', False):
+if _CapeConfig("web").guacamole.get("vnc_console_enabled", False):
     from lib.cuckoo.core.data.guac_session import GuacSession  # noqa: F401
     from lib.cuckoo.core.data.db_common import Base
     Base.metadata.create_all(_db.engine)
-

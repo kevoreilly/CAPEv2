@@ -56,22 +56,37 @@ class McritEngine(SimilarityEngine):
         # etc.) fall below the threshold and drop out — leaving malware-code
         # matches. Pure-library matches are discarded outright.
         self.ignore_library_matches = _as_bool(self.options.get("ignore_library_matches", True))
-        self._session = None
+        # requests.Session is NOT thread-safe. With concurrent_submissions the
+        # ThreadPoolExecutor calls analyze() from multiple threads, so each
+        # thread gets its own Session via threading.local() (still keeping
+        # HTTP keep-alive per thread). _available records that the server
+        # answered a probe successfully during available().
+        self._thread_local = threading.local()
+        self._available = False
+
+    @property
+    def _session(self):
+        """Per-thread requests.Session (thread-safe, keep-alive preserved)."""
+        session = getattr(self._thread_local, "session", None)
+        if session is None:
+            import requests
+            session = requests.Session()
+            session.headers.update(self._auth_headers())
+            self._thread_local.session = session
+        return session
 
     def available(self) -> bool:
         try:
-            import requests
+            import requests  # noqa: F401  (ensure dependency present)
         except ImportError:
             log.warning("MCRIT engine: 'requests' unavailable (unexpected in CAPE venv).")
             return False
         try:
-            session = requests.Session()
-            session.headers.update(self._auth_headers())
-            resp = session.get(f"{self.host}/version", timeout=10)
+            resp = self._session.get(f"{self.host}/version", timeout=10)
             if self._unwrap(resp) is None:
                 log.warning("MCRIT at %s gave an unexpected /version response.", self.host)
                 return False
-            self._session = session
+            self._available = True
             return True
         except Exception as err:
             log.warning("MCRIT server unreachable at %s: %s", self.host, err)
@@ -79,7 +94,7 @@ class McritEngine(SimilarityEngine):
 
     def analyze(self, file_path, sha256, filename, source,
                 is_dump=False, base_addr=None, bitness=None) -> EngineResult:
-        if self._session is None:
+        if not self._available:
             return EngineResult(status="disabled")
         try:
             with open(file_path, "rb") as fh:

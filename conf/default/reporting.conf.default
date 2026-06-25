@@ -103,6 +103,10 @@ index_hashes = no
 index_detections = no
 index_filenames = no
 
+# Enabling index_hunt will create multiple multikey indexes on large arrays (e.g., registry keys, HTTP URIs).
+# This can severely degrade MongoDB write performance and significantly increase RAM/disk usage.
+index_hunt = no
+
 # Set this value if you are using mongodb with TLS enabled
 # tlscafile =
 

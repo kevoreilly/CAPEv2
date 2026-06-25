@@ -1,4 +1,4 @@
-# Copyright (C) 2010-2015 Cuckoo Foundation, 2016-2024 CAPE developers.
+# Copyright (C) 2010-2015 Cuckoo Foundation, 2016-2026 CAPE developers.
 # This file is part of CAPE Sandbox - http://www.capesandbox.com
 # See the file 'docs/LICENSE' for copying permission.
 

@@ -79,8 +79,9 @@ $(function () {
                         icon = "<i class=\"fa fa-chevron-up\" title=\"Outbound\"></i>";
                     }
 
-                    var li = $("<li class=\"" + tcpclass + "\">" + icon + tuple + "</li>").append("<pre>" + hexy(base64.decode(p.raw)) + "</pre>");
+                    var li = $("<li class=\"" + tcpclass + "\">" + icon + tuple + "</li>").append("<div id='stream-hex-" + i + "'></div>");
                     out.append(li);
+                    CapeHexView.render("stream-hex-" + i, p.raw);
                 }
                 $section.find("div.stream").html(out);
                 console.log(out);

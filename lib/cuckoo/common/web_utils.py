@@ -1452,6 +1452,7 @@ def perform_search(
                 # Stage 7: Unpack the joined doc
                 {"$unwind": "$task_doc"},
                 # Stage 8: Make the task doc the new root
+                {"$match": {"task_doc": {"$exists": True}}},
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
 

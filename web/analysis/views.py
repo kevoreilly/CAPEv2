@@ -1844,7 +1844,7 @@ def load_files(request, task_id, category):
             else:
                 data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
         elif enabledconf["elasticsearchdb"]:
-            if category in ("behavior", "debugger"):
+            if category in ("behavior", "debugger", "strace"):
                 res = elastic_handler.search(
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
@@ -2744,21 +2744,34 @@ def report(request, task_id):
         report = split_signature_calls(report)
 
     if es_as_db:
-        res = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
-        query = res[0] if res else {}
-        report = query.get("_source", {})
-        # Extract out data for Admin tab in the analysis page
-        res_net = es.search(
-            index=get_analysis_index(),
-            query=get_query_by_info_id(task_id),
-            _source=["network.domains", "network.dns", "network.hosts"],
-        )["hits"]["hits"]
-        network_report = res_net[0]["_source"] if res_net else {}
+        try:
+            res = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+            if res:
+                query = res[0]
+                es_report = query.get("_source", {})
 
-        # Extract out data for Admin tab in the analysis page
-        if query:
-            esdata = {"index": query["_index"], "id": query["_id"]}
-            report["es"] = esdata
+                # Merge ES data into existing report (preserving custom fields from MongoDB)
+                if report:
+                    for key, value in es_report.items():
+                        if key not in report or report[key] is None:
+                            report[key] = value
+                else:
+                    report = es_report
+
+                # Extract out data for Admin tab in the analysis page
+                res_net = es.search(
+                    index=get_analysis_index(),
+                    query=get_query_by_info_id(task_id),
+                    _source=["network.domains", "network.dns", "network.hosts"],
+                )["hits"]["hits"]
+                if res_net:
+                    network_report = res_net[0]["_source"]
+
+                # Extract out data for Admin tab in the analysis page
+                esdata = {"index": query["_index"], "id": query["_id"]}
+                report["es"] = esdata
+        except Exception:
+            pass
     if not report:
         if DISABLED_WEB:
             msg = "You need to enable Mongodb/ES to be able to use WEBGUI to see the analysis"

@@ -143,26 +143,26 @@
                         <th width="11%" class="border-top-0">Timestamp</th>
                         <th width="6%" class="border-top-0">Package</th>
                         <th width="18%" class="border-top-0">Filename</th>
-                        <th width="14%" class="border-top-0">Target</th>
+                        <th width="14%" class="border-top-0 no-sort">Target</th>
                         <th width="9%" class="border-top-0">Detections</th>
                         <!-- Same columns but inside id-tagged table -->
                         {% if config.display_task_tags %}
-                        <th width="7%" class="border-top-0">Task tags</th>
+                        <th width="7%" class="border-top-0 no-sort">Task tags</th>
                         {% endif %}
                         {% if settings.WEB_AUTHENTICATION and config.display_submitter %}
-                        <th width="7%" class="border-top-0">Submitter</th>
+                        <th width="7%" class="border-top-0 no-sort">Submitter</th>
                         {% endif %}
                         {% if config.moloch %}
-                        <th width="4%" class="border-top-0">Moloch</th>
+                        <th width="4%" class="border-top-0 no-sort">Moloch</th>
                         {% endif %}
                         {% if config.display_office_martians or config.display_browser_martians %}
-                        <th width="5%" class="border-top-0">Martians</th>
+                        <th width="5%" class="border-top-0 no-sort">Martians</th>
                         {% endif %}
                         {% if config.suricata %}
-                        <th width="10%" class="border-top-0">SuriAlert</th>
+                        <th width="10%" class="border-top-0 no-sort">SuriAlert</th>
                         {% endif %}
                         {% if config.virustotal %}
-                        <th width="4%" class="border-top-0">VT</th>
+                        <th width="4%" class="border-top-0 no-sort">VT</th>
                         {% endif %}
                         {% if config.malscore %}
                         <th width="6%" class="border-top-0">MalScore</th>
@@ -252,7 +252,7 @@
                 $('#search-results-table').DataTable({
                     "pageLength": 50,
                     "order": [[0, "desc"]],
-                    "columnDefs": [ { "orderable": false, "targets": [4, 6, 7, 8, 9, 10, 11] } ]
+                    "columnDefs": [ { "orderable": false, "targets": "no-sort" } ]
                 });
             });
             </script>

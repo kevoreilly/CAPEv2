@@ -3930,7 +3930,6 @@ on_demand_config_mapper = {
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
 def on_demand(request, service: str, task_id: str, category: str, sha256):
-    orig_category = category
     """
     This aux function allows to generate some details on demand, this is specially useful for long running libraries and we don't need them in many cases due to scripted submissions
     @param service: Service for which we want to generate details

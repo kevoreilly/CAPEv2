@@ -1,89 +1,144 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% if report.top_detections %}
-<div class="card bg-dark text-white mb-4 shadow-sm border-secondary">
-    <div class="card-header border-secondary bg-transparent">
-        <h5 class="mb-0"><i class="fas fa-bug me-2 text-danger"></i> Top Detections</h5>
+<div hx-get="/dashboard/" hx-trigger="every 60s" hx-swap="outerHTML">
+    <div class="row mb-4">
+        <!-- Stats Overview -->
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-dark h-100 shadow-sm border-secondary border-start border-4 border-start-primary">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 text-uppercase small mb-1">Total Tasks</h6>
+                            <h2 class="font-weight-bold mb-0 text-primary">{{report.total_tasks}}</h2>
+                        </div>
+                        <i class="fas fa-tasks fa-2x text-white-50 opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 mb-3">
+            <div class="card text-white bg-dark h-100 shadow-sm border-secondary border-start border-4 border-start-success">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 text-uppercase small mb-1">Total Samples</h6>
+                            <h2 class="font-weight-bold mb-0 text-success">{{report.total_samples}}</h2>
+                        </div>
+                        <i class="fas fa-vial fa-2x text-white-50 opacity-25"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-3">
+            <div class="card bg-dark text-white h-100 shadow-sm border-secondary">
+                <div class="card-body d-flex align-items-center justify-content-center">
+                    <i class="fas fa-bolt me-3 text-warning" style="font-size: 1.5rem;"></i>
+                    <div class="text-center">
+                        <span class="text-white-50 small text-uppercase">Throughput Estimate</span><br>
+                        <strong>~{{report.estimate_hour}}</strong>/hr &bull; <strong>{{report.estimate_day}}</strong>/day
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <div class="d-flex flex-wrap justify-content-center align-items-center">
-            {% for block in report.top_detections %}
-            <a href="/analysis/search/detections:{{block.family}}"
-                class="btn btn-outline-secondary m-2 d-flex align-items-center text-light" style="border-color: #444;">
-                <span class="badge bg-danger me-2 p-2">{{block.total}}</span>
-                <span class="font-weight-bold" style="font-size: 1rem;"> {{block.family}}</span>
-            </a>
-            {% endfor %}
+
+    <div class="row">
+        <!-- Top Detections Chart -->
+        <div class="col-lg-8 mb-4">
+            <div class="card bg-dark text-white shadow-sm border-secondary h-100">
+                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-bug me-2 text-danger"></i> Top Detections</h5>
+                    <small class="text-white-50">Most frequent families</small>
+                </div>
+                <div class="card-body">
+                    {% if report.top_detections %}
+                        <div id="detections-chart"></div>
+                    {% else %}
+                        <div class="text-center py-5 text-white-50">
+                            <i class="fas fa-search fa-2x mb-2"></i>
+                            <p>No detections recorded yet.</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Analysis States Chart -->
+        <div class="col-lg-4 mb-4">
+            <div class="card bg-dark text-white shadow-sm border-secondary h-100">
+                <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="fas fa-chart-pie me-2 text-info"></i> Task Distribution</h5>
+                </div>
+                <div class="card-body d-flex flex-column justify-content-center">
+                    <div id="states-chart"></div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
+
+{% if report.top_detections or report.states_count %}
+<script>
+$(document).ready(function() {
+    // Detections Bar Chart
+    {% if report.top_detections %}
+    var detOptions = {
+        series: [{
+            name: 'Total',
+            data: [{% for block in report.top_detections %}{{block.total}}{% if not forloop.last %}, {% endif %}{% endfor %}]
+        }],
+        chart: {
+            type: 'bar',
+            height: 350,
+            background: 'transparent',
+            foreColor: '#ccc',
+            toolbar: { show: false }
+        },
+        plotOptions: {
+            bar: {
+                borderRadius: 4,
+                horizontal: true,
+                distributed: true
+            }
+        },
+        colors: ['#ee1b2f', '#f39c12', '#00bc8c', '#3498db', '#9b59b6', '#34495e'],
+        dataLabels: { enabled: true },
+        xaxis: {
+            categories: [{% for block in report.top_detections %}'{{block.family}}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+        },
+        legend: { show: false },
+        tooltip: { theme: 'dark' }
+    };
+    new ApexCharts(document.querySelector("#detections-chart"), detOptions).render();
+    {% endif %}
+
+    // States Donut Chart
+    {% if report.states_count %}
+    var stateOptions = {
+        series: [{% for state, count in report.states_count.items %}{{count}}{% if not forloop.last %}, {% endif %}{% endfor %}],
+        labels: [{% for state, count in report.states_count.items %}'{{state|title}}'{% if not forloop.last %}, {% endif %}{% endfor %}],
+        chart: {
+            type: 'donut',
+            height: 350,
+            background: 'transparent',
+            foreColor: '#ccc'
+        },
+        colors: ['#3498db', '#f39c12', '#00bc8c', '#ee1b2f', '#9b59b6'],
+        legend: {
+            position: 'bottom',
+            formatter: function(seriesName, opts) {
+                return seriesName + ": " + opts.w.globals.series[opts.seriesIndex]
+            }
+        },
+        dataLabels: { enabled: false },
+        tooltip: { theme: 'dark' },
+        stroke: { show: false }
+    };
+    new ApexCharts(document.querySelector("#states-chart"), stateOptions).render();
+    {% endif %}
+});
+</script>
 {% endif %}
-
-<div class="row mt-4 mb-4">
-    <div class="col-12">
-        <div class="alert alert-primary shadow-sm d-flex align-items-center justify-content-center" style="border: none; color: white;">
-            <i class="fas fa-stopwatch me-3" style="font-size: 1.5rem;"></i>
-            <div class="text-center" style="font-size: 1.1rem;">
-                Estimating ~<b>{{report.estimate_hour}}</b> analysis per hour, <b>{{report.estimate_day}}</b> per day.
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row mb-4">
-    <div class="col-md-6 mx-auto">
-        <div class="row">
-            <div class="col-md-6 mb-3">
-                <div class="card text-white bg-dark h-100 shadow-sm border-secondary">
-                    <div class="card-body text-center d-flex flex-column justify-content-center align-items-center p-4">
-                        <h2 class="font-weight-bold text-primary mb-0">{{report.total_tasks}}</h2>
-                        <small class="text-white-50 text-uppercase letter-spacing-1">Tasks</small>
-                        <i class="fas fa-tasks fa-lg text-white-50 mt-2"></i>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-3">
-                <div class="card text-white bg-dark h-100 shadow-sm border-secondary">
-                    <div class="card-body text-center d-flex flex-column justify-content-center align-items-center p-4">
-                        <h2 class="font-weight-bold text-success mb-0">{{report.total_samples}}</h2>
-                        <small class="text-white-50 text-uppercase letter-spacing-1">Samples</small>
-                        <i class="fas fa-vial fa-lg text-white-50 mt-2"></i>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-<div class="row">
-    <div class="col-md-6 mx-auto">
-        <div class="card bg-dark text-white shadow-sm border-secondary mb-5">
-            <div class="card-header border-secondary bg-transparent text-center">
-                <h5 class="mb-0"><i class="fas fa-chart-bar me-2 text-info"></i> Analysis States</h5>
-            </div>
-            <div class="card-body p-0">
-                <div class="table-responsive">
-                    <table class="table table-dark table-hover table-striped mb-0">
-                        <thead class="thead-dark">
-                        <tr>
-                            <th class="text-uppercase border-top-0 text-end pe-4" width="50%">Count</th>
-                            <th class="text-uppercase border-top-0 ps-4" width="50%">State</th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {% for state, count in report.states_count.items %}
-                            <tr>
-                                <td class="text-end pe-4 border-secondary font-weight-bold text-primary">{{count}}</td>
-                                <td class="ps-4 border-secondary">{{state|title}}</td>
-                            </tr>
-                        {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 
 {% endblock %}

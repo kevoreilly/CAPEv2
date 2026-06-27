@@ -281,12 +281,9 @@
                        href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-swap="outerHTML"
-                       id="btn-flare_capa-{{file.sha256}}"
-                       hx-get="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}"
-                       hx-target="#file-info-{{file.sha256}}"
                        hx-target-4*="#res-flare_capa-{{file.sha256}}"
                        hx-swap="outerHTML"
+                       id="btn-flare_capa-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: CAPA</a>
                 {% elif file.flare_capa %}
                     <a class="btn btn-sm btn-outline-warning me-2 mb-2" data-bs-toggle="collapse" href="#flare_capa_{{file.sha256}}">View CAPA</a>
@@ -299,12 +296,9 @@
                        href="{% url "on_demand" "strings" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "strings" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-swap="outerHTML"
-                       id="btn-strings-{{file.sha256}}"
-                       hx-get="{% url "on_demand" "strings" id tab_name file.sha256 %}"
-                       hx-target="#file-info-{{file.sha256}}"
                        hx-target-4*="#res-strings-{{file.sha256}}"
                        hx-swap="outerHTML"
+                       id="btn-strings-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: Strings</a>
                 {% elif file.strings %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#strings_{{file.sha256}}">Strings</a>
@@ -317,12 +311,9 @@
                        href="{% url "on_demand" "floss" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "floss" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-swap="outerHTML"
-                       id="btn-floss-{{file.sha256}}"
-                       hx-get="{% url "on_demand" "floss" id tab_name file.sha256 %}"
-                       hx-target="#file-info-{{file.sha256}}"
                        hx-target-4*="#res-floss-{{file.sha256}}"
                        hx-swap="outerHTML"
+                       id="btn-floss-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: Floss</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#floss_{{file.sha256}}">Floss</a>
@@ -335,12 +326,9 @@
                        href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "bingraph" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-swap="outerHTML"
-                       id="btn-bingraph-{{file.sha256}}"
-                       hx-get="{% url "on_demand" "bingraph" id tab_name file.sha256 %}"
-                       hx-target="#file-info-{{file.sha256}}"
                        hx-target-4*="#res-bingraph-{{file.sha256}}"
                        hx-swap="outerHTML"
+                       id="btn-bingraph-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: BinGraph</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" href="{% url "file_nl" "bingraph" id file.sha256 %}">BinGraph</a>
@@ -353,12 +341,9 @@
                        href="{% url "on_demand" "vba2graph" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "vba2graph" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-swap="outerHTML"
-                       id="btn-vba2graph-{{file.sha256}}"
-                       hx-get="{% url "on_demand" "vba2graph" id tab_name file.sha256 %}"
-                       hx-target="#file-info-{{file.sha256}}"
                        hx-target-4*="#res-vba2graph-{{file.sha256}}"
                        hx-swap="outerHTML"
+                       id="btn-vba2graph-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: VBA2Graph</a>
                 {% endif %}
             {% endif %}
@@ -369,12 +354,9 @@
                        href="{% url "on_demand" "xlsdeobf" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "xlsdeobf" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-swap="outerHTML"
-                       id="btn-xlsdeobf-{{file.sha256}}"
-                       hx-get="{% url "on_demand" "xlsdeobf" id tab_name file.sha256 %}"
-                       hx-target="#file-info-{{file.sha256}}"
                        hx-target-4*="#res-xlsdeobf-{{file.sha256}}"
                        hx-swap="outerHTML"
+                       id="btn-xlsdeobf-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: XLMDeobf</a>
                 {% endif %}
             {% endif %}
@@ -385,12 +367,9 @@
                        href="{% url "on_demand" "virustotal" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "virustotal" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-swap="outerHTML"
-                       id="btn-virustotal-{{file.sha256}}"
-                       hx-get="{% url "on_demand" "virustotal" id tab_name file.sha256 %}"
-                       hx-target="#file-info-{{file.sha256}}"
                        hx-target-4*="#res-virustotal-{{file.sha256}}"
                        hx-swap="outerHTML"
+                       id="btn-virustotal-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: VT</a>
                 {% endif %}
             {% endif %}

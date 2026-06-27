@@ -119,7 +119,8 @@ function renderDiff(results) {
 function formatCall(call) {
     if (!call) return '<span class="text-muted italic small">(None)</span>';
     
-    let html = `<div><strong class="text-info">${escapeHtml(call.api)}</strong> <span class="text-white-50 small">(${escapeHtml(call.time)})</span></div>`;
+    let timeStr = call.time ? ` <span class="text-white-50 small">(${escapeHtml(call.time)})</span>` : '';
+    let html = `<div><strong class="text-info">${escapeHtml(call.api)}</strong>${timeStr}</div>`;
     if (call.arguments) {
         html += '<div class="ms-2 small">';
         for (const [key, value] of Object.entries(call.arguments)) {
@@ -131,7 +132,8 @@ function formatCall(call) {
 }
 
 function escapeHtml(unsafe) {
-    return unsafe
+    if (unsafe === null || unsafe === undefined) return "";
+    return String(unsafe)
          .replace(/&/g, "&amp;")
          .replace(/</g, "&lt;")
          .replace(/>/g, "&gt;")

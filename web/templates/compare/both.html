@@ -57,12 +57,12 @@ $(document).ready(function() {
     }
 
     var leftData = [
-        {% for cat in ['registry', 'filesystem', 'system', 'network', 'process', 'services', 'synchronization', 'windows'] %}
+        {% for cat in categories %}
             {{ left_counts|get_item:cat|default:0 }}{% if not forloop.last %}, {% endif %}
         {% endfor %}
     ];
     var rightData = [
-        {% for cat in ['registry', 'filesystem', 'system', 'network', 'process', 'services', 'synchronization', 'windows'] %}
+        {% for cat in categories %}
             {{ right_counts|get_item:cat|default:0 }}{% if not forloop.last %}, {% endif %}
         {% endfor %}
     ];

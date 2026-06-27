@@ -130,6 +130,9 @@ def hash(request, left_id, right_hash):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def both(request, left_id, right_id):
+    left, right, counts, summary_compare = None, None, {}, []
+    categories = ['registry', 'filesystem', 'system', 'network', 'process', 'services', 'synchronization', 'windows']
+
     if enabledconf["mongodb"]:
         left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1, "summary": 1})
         right = mongo_find_one("analysis", {"info.id": int(right_id)}, {"target": 1, "info": 1, "summary": 1})
@@ -137,12 +140,10 @@ def both(request, left_id, right_id):
         counts = compare.helper_percentages_mongo(left_id, right_id)
         summary_compare = compare.helper_summary_mongo(left_id, right_id)
     elif es_as_db:
-        left = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id), _source=["target", "info"])["hits"][
-            "hits"
-        ][-1]["_source"]
-        right = es.search(index=get_analysis_index(), query=get_query_by_info_id(right_id), _source=["target", "info"])["hits"][
-            "hits"
-        ][-1]["_source"]
+        left_res = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id), _source=["target", "info"])["hits"]["hits"]
+        right_res = es.search(index=get_analysis_index(), query=get_query_by_info_id(right_id), _source=["target", "info"])["hits"]["hits"]
+        left = left_res[-1]["_source"] if left_res else None
+        right = right_res[-1]["_source"] if right_res else None
         counts = compare.helper_percentages_elastic(es, left_id, right_id)
         summary_compare = compare.helper_summary_elastic(es, left_id, right_id)
 
@@ -152,9 +153,10 @@ def both(request, left_id, right_id):
         {
             "left": left,
             "right": right,
-            "left_counts": counts[left_id],
-            "right_counts": counts[right_id],
+            "left_counts": counts.get(left_id, {}),
+            "right_counts": counts.get(right_id, {}),
             "summary": summary_compare,
+            "categories": categories,
         },
     )
 
@@ -162,6 +164,7 @@ def both(request, left_id, right_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def diff(request, left_id, right_id):
+    left, right = None, None
     if enabledconf["mongodb"]:
         left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1, "behavior.processes": 1})
         right = mongo_find_one("analysis", {"info.id": int(right_id)}, {"target": 1, "info": 1, "behavior.processes": 1})
@@ -188,24 +191,26 @@ def diff_data(request, left_id, right_id):
     left_pid = request.GET.get("left_pid")
     right_pid = request.GET.get("right_pid")
 
-    if not left_pid or not right_pid:
-        return JsonResponse({"error": True, "error_value": "Missing PIDs"}, status=400)
+    if not left_pid or not right_pid or not left_pid.isdigit() or not right_pid.isdigit():
+        return JsonResponse({"error": True, "error_value": "Invalid or missing PIDs"}, status=400)
 
     def fetch_calls(analysis_id, pid):
+        record = None
         if enabledconf["mongodb"]:
             record = mongo_find_one("analysis", {"info.id": int(analysis_id), "behavior.processes.process_id": int(pid)}, {"behavior.processes.calls": 1})
         elif es_as_db:
             es_results = es.search(index=get_analysis_index(), body={"query": {"bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": analysis_id}}]}}}, _source=["behavior.processes"])["hits"]["hits"]
             record = es_results[0]["_source"] if es_results else None
 
-        if not record or "behavior" not in record or "processes" not in record:
+        if not record or "behavior" not in record or "processes" not in record["behavior"]:
             return []
         process = next((p for p in record["behavior"]["processes"] if p["process_id"] == int(pid)), None)
         if not process:
             return []
 
         all_calls = []
-        for coid in process["calls"]:
+        for coid in process.get("calls", []):
+            chunk = None
             if enabledconf["mongodb"]:
                 chunk = mongo_find_one("calls", {"_id": coid})
             elif es_as_db:
@@ -220,14 +225,15 @@ def diff_data(request, left_id, right_id):
     right_calls = fetch_calls(right_id, right_pid)
 
     # Basic Sequence Alignment Heuristic
-    # To keep it fast for PoC, we'll use a simple approach:
-    # 1. Match identical API names
-    # 2. If mismatch, lookahead to find next match
     results = []
     i, j = 0, 0
     limit = 2000 # Limit for safety in PoC
 
-    while i < len(left_calls[:limit]) or j < len(right_calls[:limit]):
+    # Slice once outside loop to avoid O(N^2) copying penalty in condition
+    left_calls = left_calls[:limit]
+    right_calls = right_calls[:limit]
+
+    while i < len(left_calls) or j < len(right_calls):
         l = left_calls[i] if i < len(left_calls) else None
         r = right_calls[j] if j < len(right_calls) else None
 

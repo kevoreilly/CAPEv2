@@ -361,3 +361,7 @@ enabled = no
 # Code-similarity engine(s). See conf/integrations.conf [similarity].
 [similarity]
 enabled = no
+
+# See [threatintelligence] section of integrations.conf.
+[threatintelligence]
+enabled = no

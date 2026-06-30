@@ -58,14 +58,18 @@ class MalpediaProvider(FamilyProvider):
         return True
 
     def _get_session(self):
-        if self._session is None:
+        if not hasattr(self, "_thread_local"):
+            import threading
+            self._thread_local = threading.local()
+        session = getattr(self._thread_local, "session", None)
+        if session is None:
             import requests
-            s = requests.Session()
-            s.headers.update({"Accept": "application/json"})
+            session = requests.Session()
+            session.headers.update({"Accept": "application/json"})
             if self.apitoken:
-                s.headers.update({"Authorization": f"apitoken {self.apitoken}"})
-            self._session = s
-        return self._session
+                session.headers.update({"Authorization": f"apitoken {self.apitoken}"})
+            self._thread_local.session = session
+        return session
 
     # -- HTTP -------------------------------------------------------------
 

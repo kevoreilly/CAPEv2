@@ -265,13 +265,15 @@ class ThreatIntelligence(Processing):
             return cached
         try:
             result = provider.lookup(indicator, indicator_type, ports=ports)
+            if not result:
+                return []
+            match_dicts = [m.to_dict() for m in result.matches]
+            if result.status in ("ok", "no_match"):
+                self.cache.set("indicator", provider.name, ck, match_dicts)
+            return match_dicts
         except Exception:
             log.exception("ThreatIntelligence: %s crashed on %s", provider.name, indicator)
             return []
-        match_dicts = [m.to_dict() for m in result.matches]
-        if result.status in ("ok", "no_match"):
-            self.cache.set("indicator", provider.name, ck, match_dicts)
-        return match_dicts
 
     @staticmethod
     def _dedup_cap(items, max_results):
@@ -471,13 +473,13 @@ class ThreatIntelligence(Processing):
             return cached or None  # {} is a cached miss
         try:
             card = provider.enrich(hint["query"], is_id=hint["is_id"], provenance=hint["provenance"])
+            value = card.to_dict() if card else {}
+            self.cache.set("family", provider.name, key, value)
+            return value or None
         except Exception:
             log.exception("ThreatIntelligence: family provider %s crashed on %s",
                           provider.name, hint["query"])
             return None
-        value = card.to_dict() if card else {}
-        self.cache.set("family", provider.name, key, value)
-        return value or None
 
     # ================================================================
     # Actor phase  (gated; see run())
@@ -549,13 +551,13 @@ class ThreatIntelligence(Processing):
             return cached or None
         try:
             card = provider.enrich(hint["query"], is_id=hint["is_id"], provenance=hint["provenance"])
+            value = card.to_dict() if card else {}
+            self.cache.set("actor", provider.name, key, value)
+            return value or None
         except Exception:
             log.exception("ThreatIntelligence: actor provider %s crashed on %s",
                           provider.name, hint["query"])
             return None
-        value = card.to_dict() if card else {}
-        self.cache.set("actor", provider.name, key, value)
-        return value or None
 
     # ================================================================
     # Shared task runner

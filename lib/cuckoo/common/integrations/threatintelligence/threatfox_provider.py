@@ -122,7 +122,7 @@ class ThreatFoxProvider(IndicatorProvider):
                     attempt += 1
                     continue
                 raise TimeoutError(f"ThreatFox request exceeded {self.timeout}s") from err
-            except requests.exceptions.RequestException as err:
+            except requests.exceptions.RequestException:
                 if attempt < self.retries:
                     self._sleep_backoff(attempt)
                     attempt += 1

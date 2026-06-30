@@ -118,23 +118,22 @@ class MalpediaProvider(FamilyProvider):
 
     @classmethod
     def _harvest_ids(cls, obj) -> List[str]:
-        """Recursively collect Malpedia family ids from a loosely-typed blob."""
+        """Collect Malpedia family ids from a loosely-typed blob iteratively."""
         found = []
-
-        def visit(node):
+        stack = [obj]
+        while stack:
+            node = stack.pop()
             if isinstance(node, str):
                 s = node.strip().lower()
                 if "." in s and s.split(".", 1)[0] in _PLATFORMS and looks_like_malpedia_id(s):
                     found.append(s)
             elif isinstance(node, dict):
-                for k, v in node.items():
-                    visit(k)
-                    visit(v)
+                # push in reverse so pop() visits in document order
+                for k, v in reversed(list(node.items())):
+                    stack.append(v)
+                    stack.append(k)
             elif isinstance(node, (list, tuple, set)):
-                for v in node:
-                    visit(v)
-
-        visit(obj)
+                stack.extend(reversed(list(node)))
         # preserve order, de-dup
         seen, out = set(), []
         for f in found:

@@ -94,10 +94,11 @@ class MalpediaActorProvider(ActorProvider):
 
     @staticmethod
     def _harvest_actor_ids(obj) -> List[str]:
-        """Collect actor-id-like strings from a loosely-typed find/actor blob."""
+        """Collect actor-id-like strings from a loosely-typed find/actor blob iteratively."""
         found = []
-
-        def visit(node):
+        stack = [obj]
+        while stack:
+            node = stack.pop()
             if isinstance(node, str):
                 s = node.strip().lower()
                 # Actor ids are slugs (apt28, sofacy, lazarus_group); accept
@@ -105,14 +106,12 @@ class MalpediaActorProvider(ActorProvider):
                 if s and " " not in s and "/" not in s and "." not in s and len(s) <= 64:
                     found.append(s)
             elif isinstance(node, dict):
-                for k, v in node.items():
-                    visit(k)
-                    visit(v)
+                # push in reverse so pop() visits in document order
+                for k, v in reversed(list(node.items())):
+                    stack.append(v)
+                    stack.append(k)
             elif isinstance(node, (list, tuple, set)):
-                for v in node:
-                    visit(v)
-
-        visit(obj)
+                stack.extend(reversed(list(node)))
         seen, out = set(), []
         for f in found:
             if f not in seen:

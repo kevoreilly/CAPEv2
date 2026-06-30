@@ -68,12 +68,16 @@ class ThreatFoxProvider(IndicatorProvider):
         return True
 
     def _get_session(self):
-        if self._session is None:
+        if not hasattr(self, "_thread_local"):
+            import threading
+            self._thread_local = threading.local()
+        session = getattr(self._thread_local, "session", None)
+        if session is None:
             import requests
-            s = requests.Session()
-            s.headers.update({"Auth-Key": self.apikey, "Accept": "application/json"})
-            self._session = s
-        return self._session
+            session = requests.Session()
+            session.headers.update({"Auth-Key": self.apikey, "Accept": "application/json"})
+            self._thread_local.session = session
+        return session
 
     def lookup(self, indicator, indicator_type, ports=None) -> ProviderResult:
         if not self.apikey:

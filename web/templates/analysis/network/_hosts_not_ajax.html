@@ -25,6 +25,15 @@
                     {% if config.display_pt_portal %}
                         <a href="https://www.passivetotal.org/passive/{{host.ip}}" target="_blank">[PT]</a>
                     {% endif %}
+{# threatintel-host-tags-v1 BEGIN #}
+                    {% if host.threatintel %}
+                        <span class="ms-1">
+                        {% for ti in host.threatintel %}
+                            <span class="badge bg-danger" title="{{ ti.tooltip }}">{{ ti.tag }}</span>{% if ti.indicator_url %}<a href="{{ ti.indicator_url }}" target="_blank" class="small text-muted" title="View this indicator on ThreatFox">[TF]</a>{% endif %}
+                        {% endfor %}
+                        </span>
+                    {% endif %}
+{# threatintel-host-tags-v1 END #}
                     </td>
                     <td>{{host.country_name}}</td>
                     <td>

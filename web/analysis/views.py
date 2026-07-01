@@ -2677,6 +2677,7 @@ def report(request, task_id):
             "virustotal_summary": 1,
             "malware_conf": 1,
             "CAPE.configs": 1,
+            "threatintelligence": 1,
             "capa_summary": 1,
             "curtain": 1,
             "mitre_attck": 1,

@@ -149,92 +149,125 @@ min_length = 5
 # Download FLOSS signatures from https://github.com/mandiant/flare-floss/tree/master/sigs
 sigs_path = data/flare-signatures
 
-# Code-similarity engines
-# Enable too in processing.conf. 
-# We recommend ensuring local similairty engines such as mcrit are populated with unpacked samples ideally aquired from CAPE payloads/procdumps or are not heavily packed/obfuscated to ensure best matching.
-# Also for accurate matching populate with libraries (i.e. import from https://github.com/danielplohmann/mcrit-data dragging and dropping all the files for each into import, 
-# or importing binaries and then editing them and marking them as libraries once imported).
-[similarity]
+[threatintelligence]
+# Ensure to enable in processing.conf. Currently only supports Malpedia for malware family lookups (free and no API key) and threatfox (free but you require an API key). 
+#The intention is more sources will be added and methods of threat intelligence to CAPE such as commercial threat intelligence providers who can provide higher confidence attribution of both malware and threat actors.
 
-# Hard per-job deadline (seconds) so a stuck engine can't stall processing.
-timeout = 120
-
-# ---- Engines ------------------------------------------------
-# Only listed engines are attempted. Each engine only receives files in the
-# formats it supports, so enabling more engines is safe. Currently only MCRIT is supported (https://github.com/danielplohmann/mcrit) 
-# although the integration allows adding other performative similairty engines later.
-mcrit = yes
-# Formats sent to MCRIT. MCRIT's SMDA disassembler supports PE, ELF and
-# Mach-O (x86/x64/aarch64). Narrow
-# this only if your MCRIT server runs an older SMDA: e.g.  mcrit_formats = pe.
-# As CAPE does not support OSX but only Windows and Linux macho is ommited.
-mcrit_formats = pe,elf
-
-# File sources to submit (default is memory extracted files for unpacked files).
-similarity_payloads = yes
-similarity_procdump = yes
-similarity_dropped = no
-similarity_submittedfile = no
-
-# Skip artifacts already resolved to a known family. Set no to
-# submit everything (corpus building / re-checking known files).
-only_unidentified = yes
-
-# ---- Result selection (what is SHOWN) -----------------------
-# Minimum similarity % for a match to appear in the report.
-minimum_similarity = 50
-# Cap the number of matches returned/shown per artifact (top N by
-# score). Tunable limit on samples returned by each engine.
-max_results = 3
-# Include matches that carry a family label.
-match_families = yes
-# Include matches with no family label (shows sha256 + score).
-match_nofamily = yes
-# If nothing clears minimum_similarity, still show the single best
-# hit flagged low-confidence. Off by default.
-best_match = no
-# Comma-separated family substrings to suppress (case-insensitive).
-# exclude_families = msvc,mingw
-
-# Ignore matches that are mostly shared library / runtime code (Go runtime,
-# OpenSSL, the C runtime, etc.) by scoring on MCRIT's non-library-weighted
-# similarity and discarding pure-library matches. This is the robust,
-# list-free way to keep only malware-code matches and is preferred over
-# maintaining a long exclude_families list. Relies on library code in your
-# MCRIT corpus being flagged as library samples (is_library) and/or MCRIT's
-# automatic library-function detection.
-ignore_library_matches = yes
-
-# ---- Family classification (CAPE malfamily detections)
-# When yes, a family match is promoted into CAPE's detections list (main
-# page + report header), acting as a classification engine. Only for
-# artifacts with no existing family; each family added at most once per run.
-update_malfamily = no
-# SEPARATE, higher threshold for promotion. Lets low-confidence matches
-# still appear in the similarity table (minimum_similarity) while only
-# strong matches set the malware family.
-malfamily_minimum_similarity = 80
-# Which matches become the malware family when update_malfamily = yes:
-#   top - only the single highest-similarity family per artifact (default)
-#   all - every family whose match clears malfamily_minimum_similarity
-# Either way each family is added at most once per analysis.
-malfamily_mode = top
-
-# Concurrent submission
-# Submit multiple artifacts simultaneously. max_workers bounds simultaneous jobs.
-concurrent_submissions = no
+# ---- Global behaviour --------------------------------------
+# Per-lookup deadline (seconds).
+timeout = 20
+# Cap matches shown per host/domain (top N by confidence). 0 = no cap.
+max_results = 5
+# Best-effort cross-analysis cache to limit duplicate API calls.
+cache = yes
+cache_ttl = 86400
+# Run lookups concurrently.
+concurrent_lookups = yes
 max_workers = 4
 
-# ---- MCRIT connection ---------------------------------------
-# REST API endpoint - NOT the web UI (5000), the API (8000).
-mcrit_host = http://127.0.0.1:8000
-mcrit_apitoken =
-mcrit_username = cape
-mcrit_poll_interval = 3
+# ---- Indicator lookups (global router gate) ----------------
+# Which indicator types are looked up at all. Each engine only
+# receives the types it supports. Indicators are reconstructed from
+# the analysis artifacts:
+#   ip addresses - contacted host IPs (matches any ip:port ThreatFox
+#                  knows for the IP; restrict with match_ports_only)
+#   domains      - resolved / requested domains
+#   urls         - full URLs reconstructed from HTTP traffic
+#   sha256       - the submitted sample's sha256
+ip addresses = yes
+domains = yes
+urls = no
+sha256 = no
 
-# Persistence:
-#   no  (default) - transient /query: matched on the worker, never
-#       stored. Nothing to delete; labelled samples never touched.
-#   yes - stored via /samples/binary for corpus building. A sha256
-#       pre-check reuses an existing sample instead of re-adding.
-persist_samples = no
+# Accuracy / false-positive control
+# ---------------------------------
+# A ThreatFox `url` IOC also matches a contacted domain/IP by HOST, so a
+# dedicated malicious domain stored as a url (e.g. a Lumma C2 like
+# https://curtainjors.fun/api) still tags. Dead-drop-resolver false positives
+# (a legitimate shared host -- steamcommunity.com, t.me, pastebin, Google
+# Docs -- carrying url IOCs for MANY families) are auto-detected by family
+# multiplicity on a single host and suppressed, so the host is not tagged
+# with all of them. Enable `urls` above to additionally match the exact
+# resolver URL path the sample fetched.
+#
+# strict_ioc_type_match: require same-type matching only (a url IOC then
+# never matches a bare domain/IP). Off by default.
+strict_ioc_type_match = no
+#
+# Secondary safety valve: if a single indicator still resolves to more
+# than this many distinct families (e.g. a shared bulletproof IP), treat
+# it as ambiguous shared infrastructure and suppress its tags. 0 = off.
+max_families_per_indicator = 5
+
+# Engines
+# ---- ThreatFox (abuse.ch) ---------------
+# Threatfox will enrich network traffic with tags of malware type and purpose i.e botnet_cc:lumma or payload_delivery:lumma. It can be used to further attribute malware to a sample and also other stages such as ClickFix domains.
+threatfox = no
+# Auth-Key — REQUIRED by abuse.ch since 2024. Engine reports itself
+# unavailable when blank. Free key: https://auth.abuse.ch/
+threatfox_api =
+# Wildcard (no) vs exact (yes); results are host-exact post-filtered
+# either way, so leave as no.
+threatfox_exact_match = no
+threatfox_host = https://threatfox-api.abuse.ch/api/v1/
+# ip:port precision: restrict ip:port IOC matches to the exact ports
+# observed in the analysis (TCP/UDP destinations). Off = surface any
+# port ThreatFox knows for a contacted IP.
+match_ports_only = no
+# Minimum confidence_level (0-100) for an indicator match to be shown.
+minimum_confidence = 50
+# Rate-limit resilience: retry on HTTP 429 / 5xx / timeout with exponential
+# backoff (honours Retry-After). Prevents a burst of lookups silently
+# dropping enrichment for some hosts.
+threatfox_retries = 3
+threatfox_backoff = 0.5
+
+# ---- Promote ThreatFox hits to CAPE detections -------------
+# Append a CAPE detection for indicator hits. This does NOT set the headline
+# malfamily (it only adds a detection entry the report lists), so ThreatFox
+# infrastructure attribution never overrides CAPE's own classification. The
+# TI card enriches regardless of these settings.
+promote_to_detection = no
+# Promote only C2 (botnet_cc) hits — the high-confidence type. When yes,
+# other threat types (payload_delivery, ...) still enrich the card but are
+# not promoted. Set no to promote all matched threat types.
+promote_c2_only = yes
+# Minimum ThreatFox confidence_level (0-100) required to promote.
+promote_minimum_confidence = 75
+
+# ---- Malpedia (Fraunhofer FKIE) — family engine ------------
+malpedia = yes
+# APIToken — OPTIONAL. get/family and find/family are public; a token
+# (from your Malpedia settings) only raises rate limits. Sent as
+# "Authorization: apitoken <TOKEN>".
+malpedia_api =
+malpedia_host = https://malpedia.caad.fkie.fraunhofer.de/api
+# How many recent reference reports to link per family card.
+malpedia_max_references = 4
+# Also describe families surfaced by ThreatFox infrastructure hits,
+# not only CAPE's own detections.
+malpedia_from_threatfox = yes
+
+# ============================================================
+# Threat actors  (OFF by default — high-confidence attribution only)
+# ============================================================
+# Attributing a sample to a named threat actor is a strong claim. This whole
+# section is gated by the master toggle below and is intended to be driven by
+# an AUTHORITATIVE, high-confidence actor provider. Keep it off unless you
+# have a specific, understood scenario.
+# Please note currently supported threat intelligence does not provide attributed threat actors.
+# This will require commercial providers who attribute threat actors with varying confidences to be added.
+
+# Master gate for the entire threat-actor feature.
+threat actors = no
+
+# Build actor hints from the actors that matched malware families are
+# attributed to. Malpedia's family<->actor links are community/MISP sourced
+# (moderate confidence), so this is opt-in even when the master gate is on.
+actor_attribution_from_families = no
+
+# ---- Malpedia actors (reference engine) --------------------
+# Reference implementation only. Malpedia actor data is community/MISP
+# curated; a dedicated high-confidence provider is preferred for confident
+# attribution. OFF.
+malpedia_actors = no

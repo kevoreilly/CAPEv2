@@ -232,6 +232,32 @@
             </tr>
             {% endif %}
 
+{# similarity-inline-rows BEGIN #}
+{% if file.similarity_matches %}
+            <tr>
+                <th class="text-end text-info" style="width: 15%;">Code Similarity</th>
+                <td>
+                    <ul class="list-unstyled mb-0">
+                    {% for m in file.similarity_matches %}
+                        <li class="mb-1">
+                            {% if m.family %}
+                                <span class="badge bg-danger me-1">{{ m.family }}</span>
+                                {% if m.version %}<span class="badge bg-dark me-1">{{ m.version }}</span>{% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary me-1">unlabelled</span>
+                            {% endif %}
+                            <span class="{% if m.similarity >= 80 %}text-danger{% elif m.similarity >= 50 %}text-warning{% else %}text-muted{% endif %} fw-bold me-2">{{ m.similarity }}%</span>
+                            {% if m.low_confidence %}<span class="badge bg-warning text-dark me-2" title="Below minimum_similarity; best available match">low</span>{% endif %}
+                            <span class="text-muted font-monospace small">{% if m.sample_sha256 %}{{ m.sample_sha256 }}{% endif %}</span>
+                            <span class="badge bg-dark border border-secondary ms-2">{{ m.engine }}</span>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+{% endif %}
+{# similarity-inline-rows END #}
+
             {% if file.trid %}
             <tr>
                 <th class="text-end text-info" style="width: 15%;">TriD</th>
@@ -461,4 +487,3 @@
         {% endif %}
     </div>
 </div>
-

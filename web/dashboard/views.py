@@ -47,12 +47,13 @@ def index(request):
         states_count=states_count,
         estimate_hour=None,
         estimate_day=None,
+        top_detections=[],
     )
 
     # For the following stats we're only interested in completed tasks.
     tasks = states_count.get(TASK_COMPLETED, 0) + states_count.get(TASK_REPORTED, 0)
 
-    data = {"title": "Dashboard", "report": {}}
+    data = {"title": "Dashboard", "report": report}
 
     if tasks:
         # Get the time when the first task started and last one ended.

@@ -10,9 +10,9 @@
         // Don't trigger if user is typing in an input or textarea
         const activeElement = document.activeElement;
         const isInput = activeElement && (
-                        activeElement.tagName === 'INPUT' || 
-                        activeElement.tagName === 'TEXTAREA' || 
-                        activeElement.tagName === 'SELECT' || 
+                        activeElement.tagName === 'INPUT' ||
+                        activeElement.tagName === 'TEXTAREA' ||
+                        activeElement.tagName === 'SELECT' ||
                         activeElement.isContentEditable);
 
         if (isInput && e.key !== 'Escape') {
@@ -52,7 +52,7 @@
             case 'j': // Next Item
                 navigateList(1);
                 break;
-            
+
             case 'k': // Previous Item
                 navigateList(-1);
                 break;
@@ -106,8 +106,8 @@
     // Add visual feedback for keyboard navigation
     const style = document.createElement('style');
     style.innerHTML = `
-        .keyboard-active { 
-            outline: 2px solid #3498db !important; 
+        .keyboard-active {
+            outline: 2px solid #3498db !important;
             outline-offset: -2px;
             background-color: rgba(52, 152, 219, 0.1) !important;
         }

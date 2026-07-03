@@ -37,9 +37,12 @@ def path_safe(path: str) -> bool:
 
 
 def path_exists(path: str, windows: bool = False) -> bool:
-    if not windows:
-        return Path(path_to_ascii(path)).exists()
-    return PureWindowsPath(path_to_ascii(path)).exists()
+    try:
+        if not windows:
+            return Path(path_to_ascii(path)).exists()
+        return PureWindowsPath(path_to_ascii(path)).exists()
+    except (OSError, ValueError):
+        return False
 
 
 def path_get_size(path: str):
@@ -51,11 +54,17 @@ def path_get_date(path: str, value: str = "st_ctime"):
 
 
 def path_is_file(path: str) -> bool:
-    return Path(path_to_ascii(path)).is_file()
+    try:
+        return Path(path_to_ascii(path)).is_file()
+    except (OSError, ValueError):
+        return False
 
 
 def path_is_dir(path: str) -> bool:
-    return Path(path_to_ascii(path)).is_dir()
+    try:
+        return Path(path_to_ascii(path)).is_dir()
+    except (OSError, ValueError):
+        return False
 
 
 def path_read_file(path: str, mode="bytes"):

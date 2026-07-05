@@ -88,7 +88,7 @@
       - cape-rooter
       - cape-processor
       - suricata
-      - "{{ 'cape-web' if mongo_enable else '' }}"
+      - cape-web
 
 - name: Enable and start CAPE services
   ansible.builtin.systemd:

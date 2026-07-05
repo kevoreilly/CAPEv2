@@ -12,7 +12,8 @@ cape_root: /opt/CAPEv2
 # System user for CAPE services
 cape_user: cape
 
-# Package manager: use uv instead of poetry
+# Package manager: use uv instead of poetry.
+# Auto-detected from Python version in common role (uv for >= 3.13).
 use_uv: false
 
 # ────────────────────────────────────────────────────────────────────

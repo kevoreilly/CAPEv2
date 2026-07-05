@@ -1,4 +1,8 @@
 ---
+- name: Auto-detect package manager based on Python version
+  ansible.builtin.set_fact:
+    use_uv: "{{ ansible_facts.python_version is version('3.13', '>=') }}"
+
 - name: Include APT dependencies
   ansible.builtin.import_tasks: dependencies.yml
   tags:

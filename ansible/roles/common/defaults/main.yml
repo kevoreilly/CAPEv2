@@ -1,6 +1,7 @@
 ---
 cape_user: cape
 cape_root: /opt/CAPEv2
+# Auto-detected from Python version in main.yml (uv for >= 3.13)
 use_uv: false
 
 # Debian package architecture mapping

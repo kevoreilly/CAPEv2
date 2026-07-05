@@ -70,10 +70,12 @@
     append: true
 
 - name: Set firewall backend to iptables
-  ansible.builtin.replace:
+  ansible.builtin.lineinfile:
     path: /etc/libvirt/network.conf
-    regexp: '#firewall_backend = "nftables"'
-    replace: 'firewall_backend = "{{ libvirt_firewall_backend }}"'
+    regexp: '^#?firewall_backend ='
+    line: 'firewall_backend = "{{ libvirt_firewall_backend }}"'
+    create: true
+    mode: "0644"
   when: libvirt_firewall_backend != "nftables"
 
 - name: Enable and start libvirt services

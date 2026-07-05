@@ -41,8 +41,9 @@ db_name: "{{ cape_user }}"
 db_host: localhost
 db_port: 5432
 
-# Enable MongoDB (required for web interface)
-mongo_enable: true
+# Enable MongoDB (optional — web UI works without it when [mongodb]
+# enabled = no in reporting.conf)
+mongo_enable: false
 
 # ────────────────────────────────────────────────────────────────────
 # Hypervisor versions

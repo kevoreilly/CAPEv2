@@ -8,7 +8,7 @@
 
 - name: Determine PostgreSQL repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:
-    pg_repo_codename: "{{ 'noble' if ansible_distribution_release == 'resolute' else ansible_distribution_release }}"
+    pg_repo_codename: "{{ {'resolute': 'noble'}.get(ansible_distribution_release, ansible_distribution_release) }}"
 
 - name: Add PostgreSQL APT repository (best-effort; Ubuntu repos used as fallback)
   ansible.builtin.apt_repository:
@@ -100,7 +100,7 @@
 
 - name: Determine MongoDB repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:
-    mongo_repo_codename: "{{ 'noble' if ansible_distribution_release == 'resolute' else ansible_distribution_release }}"
+    mongo_repo_codename: "{{ {'resolute': 'noble'}.get(ansible_distribution_release, ansible_distribution_release) }}"
   when: mongo_enable
 
 - name: Add MongoDB APT repository (best-effort on restricted networks)

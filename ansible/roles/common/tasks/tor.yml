@@ -19,7 +19,7 @@
 
 - name: Determine Tor repo codename (fallback for unsupported releases)
   ansible.builtin.set_fact:
-    tor_repo_codename: "{{ 'jammy' if ansible_distribution_release in ['noble', 'resolute'] else ansible_distribution_release }}"
+    tor_repo_codename: "{{ {'noble': 'jammy', 'resolute': 'jammy'}.get(ansible_distribution_release, ansible_distribution_release) }}"
 
 - name: Add Tor repository
   ansible.builtin.apt_repository:

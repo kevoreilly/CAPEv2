@@ -133,9 +133,16 @@
       - python3-libvirt
     state: present
 
+- name: Detect venv site-packages directory
+  ansible.builtin.command:
+    cmd: "{{ cape_root }}/.venv/bin/python3 -c 'import sysconfig; print(sysconfig.get_path(\"platlib\"))'"
+  register: _venv_platlib_dir
+  changed_when: false
+  when: not use_uv
+
 - name: Create .venv site-packages directory for libvirt .pth
   ansible.builtin.file:
-    path: "{{ cape_root }}/.venv/lib/python3.14/site-packages"
+    path: "{{ _venv_platlib_dir.stdout }}"
     state: directory
     mode: "0755"
   when: not use_uv
@@ -143,7 +150,7 @@
 
 - name: Make libvirt accessible from venv
   ansible.builtin.copy:
-    dest: "{{ cape_root }}/.venv/lib/python3.14/site-packages/libvirt.pth"
+    dest: "{{ _venv_platlib_dir.stdout }}/libvirt.pth"
     content: "/usr/lib/python3/dist-packages\n"
     mode: "0644"
   when: not use_uv

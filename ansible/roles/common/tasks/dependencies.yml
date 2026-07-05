@@ -2,7 +2,7 @@
 - name: Install core APT dependencies for CAPEv2
   ansible.builtin.apt:
     pkg:
-      - python3.14-venv
+      - python3-venv
       - build-essential
       - libssl-dev
       - python3-dev

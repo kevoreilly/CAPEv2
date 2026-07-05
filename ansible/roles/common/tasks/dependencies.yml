@@ -69,13 +69,13 @@
     update_cache: true
     cache_valid_time: 3600
 
-- name: Install de4dot dependencies (resilient to missing packages)
+- name: Install de4dot dependencies (best-effort; mono-libraries unavailable on 24.04+)
   ansible.builtin.apt:
     pkg:
       - libgdiplus
       - mono-devel
-      - mono-libraries
     state: present
+  failed_when: false
 
 - name: Update locate database
   ansible.builtin.command:

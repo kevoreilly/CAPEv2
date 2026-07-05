@@ -380,21 +380,9 @@
 - name: Install IntroVirt
   when: introvirt_enable | default(false)
   block:
-    - name: Get Ubuntu release info
-      ansible.builtin.command:
-        cmd: lsb_release -sc
-      changed_when: false
-      register: ubuntu_codename
-
-    - name: Get Ubuntu version
-      ansible.builtin.command:
-        cmd: lsb_release -sr
-      changed_when: false
-      register: ubuntu_version
-
     - name: Download IntroVirt release
       ansible.builtin.get_url:
-        url: "https://github.com/IntroVirt/IntroVirt/releases/latest/download/Ubuntu-{{ ubuntu_codename.stdout }}-{{ ubuntu_version.stdout }}.tar.xz"
+        url: "https://github.com/IntroVirt/IntroVirt/releases/latest/download/Ubuntu-{{ ansible_distribution_release }}-{{ ansible_distribution_version }}.tar.xz"
         dest: /tmp/introvirt.tar.xz
         timeout: 120
 

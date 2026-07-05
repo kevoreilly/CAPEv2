@@ -9,7 +9,7 @@
 - name: Install Poetry package manager
   ansible.builtin.shell:
     cmd: |
-      curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry python3 -
+      curl -sSL https://install.python-poetry.org | POETRY_HOME=/etc/poetry /usr/bin/python3 -
       /etc/poetry/bin/poetry self add poetry-plugin-shell
   args:
     creates: /etc/poetry/bin/poetry

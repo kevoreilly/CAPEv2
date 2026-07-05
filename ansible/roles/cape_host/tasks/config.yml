@@ -61,7 +61,7 @@
 - name: Download community signatures
   ansible.builtin.command:
     cmd: >
-      python3 utils/community.py -waf -cr
+      {{ cape_root }}/.venv/bin/python3 utils/community.py -waf -cr
     chdir: "{{ cape_root }}"
   become: true
   become_user: "{{ cape_user }}"

@@ -226,22 +226,19 @@ class _Database(TasksMixIn,
 
     def create_guac_session(self, token, task_id, vm_label, guest_ip):
         """Create a new guac session for a task."""
-        session = self.session()
         try:
-            guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
-            session.add(guac)
-            session.commit()
+            with self.session.begin_nested():
+                guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
+                self.session.add(guac)
             return guac
         except Exception:
-            session.rollback()
             raise
 
     def get_guac_session(self, token):
         """Look up a guac session by token. Returns dict or None."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            row = session.query(GuacSession).filter_by(token=str(token)).first()
+            row = self.session.query(GuacSession).filter_by(token=str(token)).first()
             if row:
                 return {"task_id": row.task_id, "vm_label": row.vm_label, "guest_ip": getattr(row, "guest_ip", None)}
             return None

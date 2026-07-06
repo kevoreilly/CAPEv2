@@ -112,6 +112,11 @@ index_filenames = no
 # reporting module or from the jsondump module.
 fix_large_docs = yes
 
+# Default timeout for MongoDB queries in milliseconds
+query_timeout = 20000
+# Stricter timeout for regex queries in milliseconds
+regex_timeout = 10000
+
 # Community
 # Latest known working version is 7.16.2
 # Use ElasticSearch as the "database" which powers Django.

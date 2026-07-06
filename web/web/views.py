@@ -1,4 +1,7 @@
+import os
+
 from django.conf import settings
+from django.http import FileResponse
 from django.shortcuts import redirect, render
 
 try:
@@ -18,3 +21,8 @@ def handler403(request, exception=None):
 
 def handler404(request, exception=None):
     return redirect("/")
+
+
+def serve_agent(request):
+    agent_path = os.path.join(settings.BASE_DIR, "..", "agent", "agent.py")
+    return FileResponse(open(agent_path, "rb"), filename="agent.py", content_type="text/x-python")

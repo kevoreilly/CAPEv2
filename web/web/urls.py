@@ -34,6 +34,8 @@ from audit import urls as audit
 handler403 = "web.views.handler403"
 handler404 = "web.views.handler404"
 
+from web import views as web_views
+
 urlpatterns = [
     re_path(r"^guac/", include("guac.urls")),
     # Per-user API key management (list / create / revoke). Mounted under
@@ -60,4 +62,5 @@ urlpatterns = [
     re_path(r"^dashboard/", include(dashboard)),
     re_path(r"statistics/(?P<days>\d+)/$", analysis_views.statistics_data, name="statistics_data"),
     re_path(r"^audit/", include(audit), name="audit"),
+    re_path(r"^agent/agent.py$", web_views.serve_agent, name="serve_agent"),
 ]

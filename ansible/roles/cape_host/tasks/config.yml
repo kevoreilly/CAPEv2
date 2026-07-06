@@ -132,6 +132,7 @@
       ip = {{ hostvars[item].guest_ip }}
       arch = x86
       snapshot = clean
+      resultserver_ip = {{ iface_ip }}
     insertafter: EOF
   loop: "{{ groups.get('cape_guests', []) }}"
   when:

@@ -42,6 +42,7 @@ cape_worker
 ;
 ; Variables set here are available via hostvars in the playbook:
 ;   - libvirt_name:  libvirt domain name (used as --name in virt-install)
+;   - guest_mac:     MAC address for DHCP reservation (optional, auto-generated if omitted)
 ;   - guest_ip:      static IP assigned to the guest on virbr1
 ;   - vm_ram_mb:     RAM in MB (defaults to 8192 from group_vars)
 ;   - vm_cpu:        vCPUs (defaults to 4 from group_vars)
@@ -51,7 +52,7 @@ cape_worker
 ; ────────────────────────────────────────────────────────────────────
 [cape_guests]
 ; <label> libvirt_name=<name> guest_ip=<ip>
-win10-1 libvirt_name=win10_1 guest_ip=192.168.1.101 vm_ram_mb=4096 vm_cpu=2 vm_disk_gb=64 vm_os_variant=win10 vm_wim_index=6
+win10-1 libvirt_name=win10_1 guest_ip=192.168.1.101 guest_mac=52:54:00:ca:fe:01 vm_ram_mb=4096 vm_cpu=2 vm_disk_gb=64 vm_os_variant=win10 vm_wim_index=6
 ; win10-2 libvirt_name=win10_2 guest_ip=192.168.1.102 vm_ram_mb=4096 vm_cpu=2 vm_disk_gb=64 vm_os_variant=win10 vm_wim_index=6
 
 ; ────────────────────────────────────────────────────────────────────

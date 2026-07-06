@@ -1,5 +1,15 @@
 ---
-- name: Define virbr1 virtual network
+- name: Build DHCP host entries from cape_guests inventory
+  ansible.builtin.set_fact:
+    _dhcp_host_entries: >-
+      {% set hosts = [] %}
+      {% for g in groups.get('cape_guests', []) %}
+      {% set _ = hosts.append('<host mac="' ~ hostvars[g].guest_mac ~ '" ip="' ~ hostvars[g].guest_ip ~ '"/>') %}
+      {% endfor %}
+      {{ hosts | join('\n            ') }}
+  when: groups.get('cape_guests', []) | length > 0
+
+- name: Define virbr1 virtual network with DHCP host reservations
   ansible.builtin.virt_net:
     command: define
     name: virbr1
@@ -20,6 +30,7 @@
         <ip address='{{ virbr1_gateway }}' netmask='{{ virbr1_netmask }}'>
           <dhcp>
             <range start='{{ virbr1_dhcp_start }}' end='{{ virbr1_dhcp_end }}'/>
+            {{ _dhcp_host_entries }}
           </dhcp>
         </ip>
         <route address='0.0.0.0' prefix='24' gateway='{{ virbr1_gateway }}'/>

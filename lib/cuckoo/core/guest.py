@@ -191,13 +191,22 @@ class GuestManager:
 
     def determine_system_drive(self):
         if self.platform == "windows":
-            return f"{self.environ['SYSTEMDRIVE']}/"
+            return f"{self._get_env_ci('SYSTEMDRIVE', 'C:')}/"
         return "/"
 
     def determine_temp_path(self):
         if self.platform == "windows":
-            return self.environ["TEMP"]
+            return self._get_env_ci("TEMP", "C:\\Windows\\Temp")
         return "/tmp"
+
+    def _get_env_ci(self, key, default=None):
+        """Case-insensitive environment variable lookup."""
+        if key in self.environ:
+            return self.environ[key]
+        for k, v in self.environ.items():
+            if k.lower() == key.lower():
+                return v
+        return default
 
     def upload_analyzer(self):
         """Upload the analyzer to the Virtual Machine."""

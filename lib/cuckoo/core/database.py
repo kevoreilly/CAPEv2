@@ -227,7 +227,7 @@ class _Database(TasksMixIn,
     def create_guac_session(self, token, task_id, vm_label, guest_ip):
         """Create a new guac session for a task."""
         try:
-            with self.session.begin_nested():
+            with self.session.begin():
                 guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
                 self.session.add(guac)
             return guac

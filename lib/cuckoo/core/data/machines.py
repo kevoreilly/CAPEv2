@@ -294,7 +294,7 @@ class MachinesMixIn:
         78 | cape2  | win10 | x64  |
         """
         # ToDo do we really need it
-        with self.session.begin_nested():
+        with self.session.begin():
             # with self.session.no_autoflush:
             stmt = select(Machine).options(selectinload(Machine.tags))
 

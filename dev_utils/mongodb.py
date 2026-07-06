@@ -158,8 +158,6 @@ def mongo_hook(mongo_funcs, collection):
 
 @graceful_auto_reconnect
 def mongo_bulk_write(collection: str, requests, **kwargs):
-    if "maxTimeMS" not in kwargs:
-        kwargs["maxTimeMS"] = query_timeout
     return getattr(results_db, collection).bulk_write(requests, **kwargs)
 
 
@@ -223,20 +221,17 @@ def mongo_find_one(collection: str, query, projection=False, sort=None, max_time
 
 @graceful_auto_reconnect
 def mongo_delete_one(collection: str, query):
-    max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
-    return getattr(results_db, collection).delete_one(query, hint=[("_id", 1)], maxTimeMS=max_time_ms)
+    return getattr(results_db, collection).delete_one(query, hint=[("_id", 1)])
 
 
 @graceful_auto_reconnect
 def mongo_delete_many(collection: str, query):
-    max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
-    return getattr(results_db, collection).delete_many(query, maxTimeMS=max_time_ms)
+    return getattr(results_db, collection).delete_many(query)
 
 
 @graceful_auto_reconnect
 def mongo_update_many(collection: str, query, update):
-    max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
-    return getattr(results_db, collection).update_many(query, update, maxTimeMS=max_time_ms)
+    return getattr(results_db, collection).update_many(query, update)
 
 
 @graceful_auto_reconnect
@@ -244,8 +239,7 @@ def mongo_update_one(collection: str, query, update, bypass_document_validation:
     if isinstance(update, dict) and update.get("$set"):
         for hook in hooks[mongo_update_one][collection]:
             update["$set"] = hook(update["$set"])
-    max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
-    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation, hint=[("_id", 1)], maxTimeMS=max_time_ms)
+    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation, hint=[("_id", 1)])
 
 
 @graceful_auto_reconnect

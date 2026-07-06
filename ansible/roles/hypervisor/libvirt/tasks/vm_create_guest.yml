@@ -52,7 +52,7 @@
         --cdrom={{ windows_iso_final }}
         --disk path={{ autounattend_tmp_dir.path }}/autounattend.img,device=floppy
         --os-variant={{ _guest.vm_os_variant | default(vm_os_variant) }}
-        --network bridge={{ _guest.vm_bridge | default(vm_bridge) }}
+        --network network={{ _guest.vm_bridge | default(vm_bridge) }}
         --machine pc-i440fx-9.2
         --graphics spice,port=-1,listen=0.0.0.0
         --noautoconsole

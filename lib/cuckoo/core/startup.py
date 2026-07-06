@@ -426,7 +426,7 @@ def check_snapshot_state():
                 root = ElementTree.fromstring(xml_desc)
                 state_element = root.find("state")
 
-                if state_element is None or state_element.text != "running":
+                if state_element is None or state_element.text not in ("running", "shutoff"):
                     state = state_element.text if state_element is not None else "unknown"
                     raise CuckooStartupError(
                         f"Snapshot '{snapshot_name}' for VM '{machine_name}' is not in a 'running' state (current state: '{state}'). "

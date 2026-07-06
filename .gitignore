@@ -29,6 +29,9 @@ docs/book/src/_build
 /.vs
 .venv
 
+# Go agent compiled binary
+agent/go/agent.exe
+
 # Ansible vault password (local dev only, never commit)
 .vault_pass
 

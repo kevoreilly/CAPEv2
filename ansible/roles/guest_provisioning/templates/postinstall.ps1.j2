@@ -42,7 +42,7 @@ try { powercfg /setactive 8c5e7fda-e8bf-4a96-9a85-a6e23a8c635c } catch { }
 
 # ── Install Python 3 and CAPE agent ──
 Write-Host "Downloading Python installer (best-effort)..."
-$pythonUrl = "https://www.python.org/ftp/python/3.11.9/python-3.11.9-amd64.exe"
+$pythonUrl = "https://www.python.org/ftp/python/{{ agent_python_version }}/python-{{ agent_python_version }}-amd64.exe"
 $pythonInstaller = "C:\python-installer.exe"
 try {
     Invoke-WebRequest -Uri $pythonUrl -OutFile $pythonInstaller -UseBasicParsing -TimeoutSec 30

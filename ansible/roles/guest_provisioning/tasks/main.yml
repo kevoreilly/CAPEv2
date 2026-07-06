@@ -228,7 +228,7 @@
 
       Write-Output "Agent deployment complete."
     mode: "0644"
-  when: agent_py.stat.exists
+  when: agent_py.stat.exists | default(false)
   tags: [guest, agent]
 
 - name: Generate agent uninstall script
@@ -263,7 +263,7 @@
 
       Write-Output "Agent uninstall complete."
     mode: "0644"
-  when: agent_py.stat.exists
+  when: agent_py.stat.exists | default(false)
   tags: [guest, agent]
 
 # ────────────────────────────────────────────────────────────────────

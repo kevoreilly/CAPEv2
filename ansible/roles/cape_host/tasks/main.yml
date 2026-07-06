@@ -1,21 +1,49 @@
 ---
 - name: Include repo tasks (clone, venv, yara-python)
-  ansible.builtin.include_tasks: repo.yml
+  ansible.builtin.include_tasks:
+    file: repo.yml
+    apply:
+      tags: [repo]
+  tags: [repo]
 
 - name: Include config tasks (configs, community, sudoers, rt_tables)
-  ansible.builtin.include_tasks: config.yml
+  ansible.builtin.include_tasks:
+    file: config.yml
+    apply:
+      tags: [config]
+  tags: [config]
 
 - name: Include database tasks (PostgreSQL, MongoDB, Alembic)
-  ansible.builtin.include_tasks: database.yml
+  ansible.builtin.include_tasks:
+    file: database.yml
+    apply:
+      tags: [database]
+  tags: [database]
 
 - name: Include signatures tasks (YARA, Suricata, volatility3, CAPA, crontab)
-  ansible.builtin.include_tasks: signatures.yml
+  ansible.builtin.include_tasks:
+    file: signatures.yml
+    apply:
+      tags: [signatures]
+  tags: [signatures]
 
 - name: Include systemd tasks (unit files, enable, logrotate, jemalloc)
-  ansible.builtin.include_tasks: systemd.yml
+  ansible.builtin.include_tasks:
+    file: systemd.yml
+    apply:
+      tags: [systemd]
+  tags: [systemd]
 
 - name: Include optional tasks (nginx, guacamole, clamav, fail2ban, prometheus, modsecurity, crowdsec)
-  ansible.builtin.include_tasks: optional.yml
+  ansible.builtin.include_tasks:
+    file: optional.yml
+    apply:
+      tags: [optional]
+  tags: [optional]
 
 - name: Include extra optional tasks (elasticsearch, mitmproxy, docker, yarax, etc.)
-  ansible.builtin.include_tasks: optional_extra.yml
+  ansible.builtin.include_tasks:
+    file: optional_extra.yml
+    apply:
+      tags: [optional_extra]
+  tags: [optional_extra]

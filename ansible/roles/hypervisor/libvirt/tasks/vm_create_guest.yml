@@ -70,23 +70,43 @@
     var: _vm_create.stdout_lines
   when: _vm_create is changed
 
-# ── 3. Snapshot State Gathering ────────────────────────────────────
+# ── 3. Wait for Unattended Installation (only for newly created VM) ──
 - name: Check if 'clean' snapshot already exists
   ansible.builtin.command: "virsh snapshot-info {{ _guest.libvirt_name }} clean"
   register: _snapshot_check
   failed_when: false
   changed_when: false
 
-- name: Update VM state fact (in case VM was just created)
+- name: Wait for unattended Windows installation to complete and shut down
   ansible.builtin.command: "virsh domstate {{ _guest.libvirt_name }}"
-  register: _current_vm_state
-  failed_when: false
+  register: _install_wait
+  until: "'shut off' in _install_wait.stdout"
+  retries: 90
+  delay: 30
+  when:
+    - _snapshot_check.rc != 0
+    - _vm_state.rc != 0
   changed_when: false
+
+- name: Force shut down if installation timed out
+  ansible.builtin.command: "virsh destroy {{ _guest.libvirt_name }}"
+  when:
+    - _snapshot_check.rc != 0
+    - _vm_state.rc != 0
+    - _install_wait is defined
+    - "'shut off' not in _install_wait.stdout"
+  failed_when: false
 
 # ── 4. Snapshot Remediation Block (Runs only if snapshot is missing)
 - name: Prepare hardware and create snapshot
   when: _snapshot_check.rc != 0
   block:
+    - name: Gather current VM state
+      ansible.builtin.command: "virsh domstate {{ _guest.libvirt_name }}"
+      register: _current_vm_state
+      failed_when: false
+      changed_when: false
+
     - name: Force VM offline for hardware modification
       ansible.builtin.command: "virsh destroy {{ _guest.libvirt_name }}"
       when: "'shut off' not in _current_vm_state.stdout"
@@ -116,9 +136,15 @@
       register: _vm_start
       changed_when: "'started' in _vm_start.stdout"
 
-    - name: Wait for Windows to boot and load CAPE agent
+    - name: Wait for VM to boot and CAPE agent to initialize
       ansible.builtin.pause:
-        seconds: 45
+        seconds: 120
+
+    - name: Verify VM is reachable before creating snapshot
+      ansible.builtin.command: "virsh domstate {{ _guest.libvirt_name }}"
+      register: _vm_running_check
+      failed_when: "'running' not in _vm_running_check.stdout"
+      changed_when: false
 
     - name: Create 'clean' running-state snapshot
       ansible.builtin.command: >

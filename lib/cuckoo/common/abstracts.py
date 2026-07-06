@@ -510,6 +510,9 @@ class LibVirtMachinery(Machinery):
             raise CuckooMachineError(f"Unable to restore snapshot on virtual machine {label}. Your snapshot MUST BE in running state!") from e
 
         # Check state.
+        if self._status(label) == self.POWEROFF:
+            log.debug("VM %s is still off after snapshot revert, starting VM", label)
+            vm.create()
         self._wait_status(label, self.RUNNING)
 
     def stop(self, label=None):

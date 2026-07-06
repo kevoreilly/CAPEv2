@@ -1,10 +1,11 @@
+//go:build windows
+
 package main
 
 import (
 	"fmt"
 	"net/http"
 	"os/exec"
-	"sync"
 	"syscall"
 	"unsafe"
 )

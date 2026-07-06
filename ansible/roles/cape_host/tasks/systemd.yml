@@ -49,7 +49,7 @@
   ansible.builtin.replace:
     path: "/lib/systemd/system/{{ item }}"
     regexp: "/etc/poetry/bin/poetry run python"
-    replacement: "{{ cape_root }}/.venv/bin/python3"
+    replace: "{{ cape_root }}/.venv/bin/python3"
   loop:
     - cape.service
     - cape-processor.service
@@ -65,7 +65,7 @@
   ansible.builtin.replace:
     path: "/lib/systemd/system/guac-web.service"
     regexp: "/etc/poetry/bin/poetry run gunicorn"
-    replacement: "{{ cape_root }}/.venv/bin/gunicorn"
+    replace: "{{ cape_root }}/.venv/bin/gunicorn"
   failed_when: false
   notify: daemon reload
 
@@ -73,7 +73,7 @@
   ansible.builtin.replace:
     path: "/lib/systemd/system/cape-sigma-update.service"
     regexp: "/etc/poetry/bin/poetry --directory .* run python"
-    replacement: "{{ cape_root }}/.venv/bin/python3"
+    replace: "{{ cape_root }}/.venv/bin/python3"
   failed_when: false
   notify: daemon reload
 

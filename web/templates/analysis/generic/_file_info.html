@@ -238,7 +238,7 @@
                 <th class="text-end text-info" style="width: 15%;">Code Similarity</th>
                 <td>
                     <ul class="list-unstyled mb-0">
-                    {% for m in file.similarity_matches %}
+                    {% for m in file.code_similarity_matches %}
                         <li class="mb-1">
                             {% if m.family %}
                                 <span class="badge bg-danger me-1">{{ m.family }}</span>

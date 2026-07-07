@@ -148,7 +148,7 @@ class Similarity(Processing):
         for cand in unique:
             matches = output["by_sha256"].get(cand["sha256"])
             if matches and isinstance(cand.get("artifact"), dict):
-                cand["artifact"]["similarity_matches"] = matches
+                cand["artifact"]["code_similarity_matches"] = matches
 
         if update_malfamily:
             self._apply_family_classifications(output, malfamily_min_sim, malfamily_mode)

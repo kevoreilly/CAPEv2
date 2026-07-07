@@ -608,7 +608,16 @@ class File:
         try:
             rules = self.yara_rules.get(category)
             if not rules:
-                return []
+                # Category not compiled. This happens when another caller replaced/limited the
+                # class-level yara_rules (e.g. a test injecting a single custom category) or a
+                # prior init only partially compiled: the init_yara() idempotency guard then
+                # short-circuits and leaves this category missing. Force ONE full recompile
+                # before giving up so a live category is never silently skipped (returning []
+                # here would look like "no matches" and hide the misconfiguration).
+                File.init_yara(force=True)
+                rules = self.yara_rules.get(category)
+                if not rules:
+                    return []
 
             if HAVE_YARA_X:
                 yara_results = rules.scan_file(self.file_path)

@@ -201,29 +201,40 @@ def init_worker():
 
     # Avoid fork deadlock: use direct list ops instead of
     # handler.close()/removeHandler()/addHandler() which acquire locks.
-    # Inherited FDs are intentionally leaked: closing them via os.close()
-    # frees the fd number, but the old Python stream still references it;
-    # when GC finalizes that stream it may close a new handler's fd.
-    # Workers are short-lived (max_tasks) so the leak is harmless.
-    log.handlers.clear()
+    # Inherited FDs are intentionally leaked after fork.
+    log.handlers[:] = []
 
+    # Restore Console Handler (no lock-acquiring addHandler)
     ch = ConsoleHandler()
     ch.setFormatter(FORMATTER)
     log.handlers.append(ch)
 
+    # Eagerly compile the YARA ruleset once per worker so the first task
+    # this worker picks up doesn't pay the ~3s compile cost. The result
+    # is cached on the File class for the worker's lifetime; init_yara()
+    # is idempotent (no-op when already initialized) so this is safe to
+    # call here even if some downstream code path also calls it.
+    try:
+        from lib.cuckoo.common.objects import File
+        File.init_yara()
+    except Exception:
+        log.debug("worker init: yara pre-compile skipped", exc_info=True)
+
+    # Restore Syslog Handler if enabled
     if logconf.logger.syslog_process:
         try:
             slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
             slh.setFormatter(FORMATTER)
-            log.handlers.append(slh)
+            log.addHandler(slh)
         except Exception as e:
             log.warning("Failed to restore Syslog handler in worker: %s", e)
 
+    # Restore File Handler using WatchedFileHandler to support rotation
     try:
         path = os.path.join(CUCKOO_ROOT, "log", "process.log")
         fh = logging.handlers.WatchedFileHandler(path)
         fh.setFormatter(FORMATTER)
-        log.handlers.append(fh)
+        log.addHandler(fh)
     except PermissionError as e:
         log.warning("Failed to restore File handler in worker due to permissions: %s", e)
 

@@ -291,10 +291,6 @@ class CAPE(Processing):
                 "category": category,
                 "file": file_info,
             }
-
-            if not os.path.exists(self.task["target"]):
-                log.error("Target file doesn't exist anymore. That will prevent data to be shown on webgui")
-
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
@@ -439,33 +435,37 @@ class CAPE(Processing):
                     "metadata": entry.get("metadata", {}),
                 }
 
+        # Pre-scan ClamAV in parallel for every file we're about to process.
+        # The sequential single-thread `allmatchscan` over 10-20 dropped /
+        # extracted files is the dominant cost in CAPE.run() on heavy tasks
+        # (~58% of total in profiling). clamd is multi-threaded server-side,
+        # so fanning out N parallel scans cuts that wall-clock from
+        # `sum_of_per_file_scans` to roughly `slowest_single_scan`.
+        prefetch_paths = []
+        if self.task["category"] in ("file", "static") and self.file_path:
+            prefetch_paths.append(self.file_path)
+        for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
+            if hasattr(self, folder):
+                for dir_name, _, file_names in os.walk(getattr(self, folder)):
+                    for file_name in file_names:
+                        prefetch_paths.append(os.path.join(dir_name, file_name))
+        if prefetch_paths:
+            try:
+                from lib.cuckoo.common.integrations.clamav import (
+                    clear_clamav_cache, prefetch_clamav,
+                )
+                clear_clamav_cache()
+                prefetch_clamav(prefetch_paths)
+            except Exception:
+                # Don't let a clamav prefetch error block analysis — the
+                # legacy serial fallback inside get_clamav() still works.
+                log.debug("clamav prefetch failed", exc_info=True)
+
         #  Static processing of submitted file
         if self.task["category"] in ("file", "static"):
             self.process_file(
                 self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
             )
-            if "target" not in self.results:
-                target_restored = False
-                try:
-                    db_analysis = mongo_find_one("analysis", {"info.id": int(self.task["id"])}, {"target": 1, "_id": 0})
-                    if db_analysis and "target" in db_analysis:
-                        self.results["target"] = db_analysis["target"]
-                        target_restored = True
-                        log.info("Restored missing target info from MongoDB analysis collection")
-                except Exception as e:
-                    log.error("Failed to restore target info from MongoDB: %s", e)
-
-                if not target_restored:
-                    json_path = os.environ.get("CAPE_REPORT") or os.path.join(self.reports_path, "report.json")
-                    if path_exists(json_path):
-                        try:
-                            with open(json_path, "r", encoding="utf-8") as f:
-                                report_data = json.load(f)
-                                if "target" in report_data:
-                                    self.results["target"] = report_data["target"]
-                                    log.info("Restored missing target info from existing report.json")
-                        except Exception as e:
-                            log.error("Failed to restore target info from existing report: %s", e)
 
         for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
             category = folder.replace("_path", "").replace("_files", "")

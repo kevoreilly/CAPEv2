@@ -5,6 +5,8 @@
 import argparse
 import base64
 import enum
+import hashlib
+import hmac
 import http.server
 import ipaddress
 import json
@@ -24,8 +26,9 @@ import time
 import traceback
 from email.parser import BytesParser
 from email.policy import default as email_policy
+from functools import wraps
 from io import BytesIO, StringIO
-from threading import Lock
+from threading import Lock, local
 from typing import Iterable
 from urllib.parse import parse_qs
 from zipfile import ZipFile
@@ -149,6 +152,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         request.form = {}
         request.files = {}
         request.method = "GET"
+        request.headers = self.headers
 
         self.httpd.handle(self)
 
@@ -156,6 +160,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         request.client_ip, request.client_port = self.client_address
         request.form, request.files = self._parse_form_and_files()
         request.method = "POST"
+        request.headers = self.headers
 
         self.httpd.handle(self)
 
@@ -163,6 +168,7 @@ class MiniHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
         request.client_ip, request.client_port = self.client_address
         request.form, request.files = self._parse_form_and_files()
         request.method = "DELETE"
+        request.headers = self.headers
 
         self.httpd.handle(self)
 
@@ -327,15 +333,23 @@ class send_file:
             obj.send_header("Content-Length", self.length)
 
 
-class request:
-    form: dict = {}
-    files: dict = {}
-    client_ip = None
-    client_port = None
-    method = None
-    environ = {
-        "werkzeug.server.shutdown": lambda: app.shutdown(),
-    }
+# The server is threaded (ThreadingTCPServer spawns a thread per request), so
+# per-request state must be thread-local. Subclassing threading.local gives each
+# request thread its own isolated attributes instead of a shared global.
+class _RequestLocal(local):
+    def __init__(self):
+        self.form: dict = {}
+        self.files: dict = {}
+        self.client_ip = None
+        self.client_port = None
+        self.method = None
+        self.headers: dict = {}
+        self.environ = {
+            "werkzeug.server.shutdown": lambda: app.shutdown(),
+        }
+
+
+request = _RequestLocal()
 
 
 app: MiniHTTPServer = MiniHTTPServer()
@@ -370,6 +384,20 @@ def json_exception(message: str) -> jsonify:
 
 def json_success(message: str, status_code=200, **kwargs) -> jsonify:
     return jsonify(message=message, status_code=status_code, **kwargs)
+
+
+def require_auth(fn):
+    @wraps(fn)
+    def wrapper(*args, **kwargs):
+        expected_token = os.environ.get("X_CAPE_AUTH_TOKEN")
+        # When no token has been provisioned, authentication is disabled.
+        if not expected_token:
+            return fn(*args, **kwargs)
+        token = request.headers.get("X-CAPE-Auth-Token") or ""
+        if not hmac.compare_digest(token, expected_token):
+            return json_error(403, "Unauthorized")
+        return fn(*args, **kwargs)
+    return wrapper
 
 
 @app.route("/")
@@ -494,15 +522,19 @@ def delete_mutex():
 
 
 @app.route("/status", methods=["POST"])
+@require_auth
 def put_status():
     try:
         status = Status(request.form.get("status"))
     except ValueError:
         return json_error(400, "No valid status has been provided")
 
-    # If the new status is terminal, unset the async subprocess so /status reports
-    # the final analysis state rather than the child process state.
+    # Reject in-guest attempts to set terminal statuses; the host derives the
+    # final analysis state from the async subprocess exit, not from HTTP POSTs.
     if status in TERMINAL_STATUSES:
+        if request.client_ip == "127.0.0.1":
+            return json_error(403, "Unauthorized")
+
         state["async_subprocess"] = None
 
     state["status"] = status
@@ -785,6 +817,19 @@ def do_browser_ext():
         AGENT_BROWSER_EXT_PATH = os.path.join(ext_tmpdir, ext_filepath)
     network_data = request.form.get("networkData")
     if network_data:
+        token = os.environ.get("X_CAPE_AUTH_TOKEN", "")
+        if token:
+            # Sign the payload with an HMAC over its content so the guest-side
+            # collector can reject logs it did not originate.
+            try:
+                data = json.loads(network_data)
+                if isinstance(data, dict):
+                    data.pop("signature", None)
+                    canonical = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+                    data["signature"] = hmac.new(token.encode(), canonical, hashlib.sha256).hexdigest()
+                    network_data = json.dumps(data)
+            except Exception as exc:
+                print(f"failed to sign browser extension log: {exc}")
         with open(AGENT_BROWSER_EXT_PATH, "w") as ext_fd:
             ext_fd.write(network_data)
     AGENT_BROWSER_LOCK.release()
@@ -797,6 +842,11 @@ def do_pinning():
         return json_error(500, "Agent has already been pinned to an IP!")
 
     state["client_ip"] = request.client_ip
+    token = request.headers.get("X-CAPE-Auth-Token")
+    if token:
+        os.environ["X_CAPE_AUTH_TOKEN"] = token
+    else:
+        print("no auth token supplied during pinning; agent authentication is disabled")
     return json_success("Successfully pinned Agent", client_ip=request.client_ip)
 
 

@@ -300,7 +300,11 @@ class GuestManager:
         # Pin the Agent to our IP address so that it is not accessible by
         # other Virtual Machines etc.
         if "pinning" in features:
-            self.get("/pinning")
+            headers = {}
+            task_token = getattr(self.analysis_manager.task, "token", None)
+            if task_token:
+                headers["X-CAPE-Auth-Token"] = task_token
+            self.get("/pinning", headers=headers)
 
         # Obtain the environment variables.
         self.query_environ()

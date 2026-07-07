@@ -1,5 +1,9 @@
+import hashlib
+import hmac
 import json
+import logging
 from datetime import datetime
+from functools import lru_cache
 from typing import List, Optional, TYPE_CHECKING
 from lib.cuckoo.common.exceptions import CuckooDependencyError
 if TYPE_CHECKING:
@@ -22,6 +26,29 @@ try:
     )
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
+
+log = logging.getLogger(__name__)
+
+# Fallback used only when no secret_key is configured at all. Both this and the
+# placeholder shipped in cuckoo.conf.default are considered insecure: with a
+# known secret, per-task tokens become predictable.
+DEFAULT_SECRET_KEY = "cape_default_salt"
+INSECURE_SECRET_KEYS = (DEFAULT_SECRET_KEY, "ChangeMeToARandomStringForSecurity")
+
+
+@lru_cache(maxsize=1)
+def _task_secret_key() -> str:
+    """Return the configured token-signing secret, warning once if it is weak."""
+    from lib.cuckoo.common.config import Config
+
+    secret = Config("cuckoo").security.get("secret_key", DEFAULT_SECRET_KEY)
+    if secret in INSECURE_SECRET_KEYS:
+        log.warning(
+            "cuckoo.conf [security] secret_key is unset or left at its default; "
+            "task authentication tokens are predictable. Set secret_key to a random string."
+        )
+    return secret
+
 
 TASK_BANNED = "banned"
 TASK_PENDING = "pending"
@@ -138,6 +165,11 @@ class Task(Base):
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    @property
+    def token(self) -> str:
+        secret = _task_secret_key()
+        message = f"cape-task-{self.id}".encode()
+        return hmac.new(secret.encode(), message, hashlib.sha256).hexdigest()
 
     # The Task is linked to one specific parent/child association event
     association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task", cascade="all, delete-orphan")

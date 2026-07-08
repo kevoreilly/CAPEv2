@@ -87,6 +87,7 @@
     - _snapshot_check.rc != 0
     - _vm_state.rc != 0
   changed_when: false
+  ignore_errors: true
 
 - name: Force shut down if installation timed out
   ansible.builtin.command: "virsh destroy {{ _guest.libvirt_name }}"
@@ -163,7 +164,7 @@
       changed_when: "'Domain snapshot clean created' in _snapshot_create.stdout"
 
 # ── 5. Cleanup ──────────────────────────────────────────────────────
-- name: Remove answer ISO staging directory
+- name: Remove autounattend staging directory
   ansible.builtin.file:
     path: "{{ autounattend_tmp_dir.path }}"
     state: absent

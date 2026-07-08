@@ -61,12 +61,10 @@
                 <AcceptEula>true</AcceptEula>
                 <FullName>CAPE</FullName>
                 <Organization>CAPEv2</Organization>
-                {% if windows_product_key | length > 0 %}
                 <ProductKey>
                     <Key>{{ windows_product_key }}</Key>
                     <WillShowUI>Never</WillShowUI>
                 </ProductKey>
-                {% endif %}
             </UserData>
         </component>
         <component name="Microsoft-Windows-International-Core-WinPE"

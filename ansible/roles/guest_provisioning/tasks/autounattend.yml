@@ -1,11 +1,11 @@
 ---
 # ────────────────────────────────────────────────────────────────────
-# Generate answer floppy for unattended Windows installation
+# Generate answer ISO for unattended Windows installation
 #
 # Renders Autounattend.xml + postinstall.ps1, then packs them into
-# a FAT floppy image. The floppy is attached to the virt-install
-# command in vm_create.yml. Floppy is more reliably detected by
-# Windows setup than a secondary CDROM.
+# a CD-ROM ISO image with the $OEM$ folder structure so that
+# postinstall.ps1 is automatically copied to
+# C:\Windows\Setup\Scripts\postinstall.ps1 on the guest.
 #
 # Variables expected:
 #   ansible_host       — CAPE host IP (for VirtIO drivers download)
@@ -32,20 +32,25 @@
     dest: "{{ autounattend_tmp_dir.path }}/postinstall.ps1"
     mode: "0644"
 
-- name: Create FAT floppy image for Windows answer file
+- name: Create $OEM$ folder structure for script auto-copy
+  ansible.builtin.file:
+    path: "{{ autounattend_tmp_dir.path }}/$OEM$/$$/Setup/Scripts"
+    state: directory
+    mode: "0755"
+
+- name: Copy postinstall.ps1 into $OEM$ structure
+  ansible.builtin.copy:
+    src: "{{ autounattend_tmp_dir.path }}/postinstall.ps1"
+    dest: "{{ autounattend_tmp_dir.path }}/$OEM$/$$/Setup/Scripts/postinstall.ps1"
+    remote_src: true
+    mode: "0644"
+
+- name: Create answer ISO image
   ansible.builtin.shell:
     cmd: >
-      set -e &&
-      dd if=/dev/zero of="{{ autounattend_tmp_dir.path }}/autounattend.img"
-      bs=512 count=2880 status=none &&
-      mkfs.fat "{{ autounattend_tmp_dir.path }}/autounattend.img" >/dev/null &&
-      mount -o loop "{{ autounattend_tmp_dir.path }}/autounattend.img"
-      /mnt &&
-      cp "{{ autounattend_tmp_dir.path }}/Autounattend.xml"
-      /mnt/ &&
-      cp "{{ autounattend_tmp_dir.path }}/postinstall.ps1"
-      /mnt/ &&
-      umount /mnt
+      genisoimage -J -R
+      -o "{{ autounattend_tmp_dir.path }}/autounattend.iso"
+      "{{ autounattend_tmp_dir.path }}"
     executable: /bin/bash
   args:
-    creates: "{{ autounattend_tmp_dir.path }}/autounattend.img"
+    creates: "{{ autounattend_tmp_dir.path }}/autounattend.iso"

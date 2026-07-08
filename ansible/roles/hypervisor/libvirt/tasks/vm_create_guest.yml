@@ -50,7 +50,7 @@
         --vcpus={{ _guest.vm_cpu | default(vm_cpu) }}
         --disk size={{ _guest.vm_disk_gb | default(vm_disk_gb) }}
         --cdrom={{ windows_iso_final }}
-        --disk path={{ autounattend_tmp_dir.path }}/autounattend.img,device=floppy
+        --disk path={{ autounattend_tmp_dir.path }}/autounattend.iso,device=cdrom
         --os-variant={{ _guest.vm_os_variant | default(vm_os_variant) }}
         --network network={{ _guest.vm_bridge | default(vm_bridge) }}
         --machine pc-i440fx-9.2
@@ -122,8 +122,16 @@
       when: "'shut off' not in _current_vm_state.stdout"
       changed_when: false
 
-    - name: Detach setup floppy disk offline
-      ansible.builtin.command: "virsh detach-disk {{ _guest.libvirt_name }} fda --config"
+    - name: Find answer ISO device name
+      ansible.builtin.shell:
+        cmd: >
+          virsh domblklist {{ _guest.libvirt_name }} --details
+          | awk '/autounattend.iso/ {print $3}'
+      register: _answer_iso_device
+      changed_when: false
+
+    - name: Detach setup answer ISO disk offline
+      ansible.builtin.command: "virsh detach-disk {{ _guest.libvirt_name }} {{ _answer_iso_device.stdout }} --config"
       register: _detach_floppy
       failed_when: 
         - _detach_floppy.rc != 0

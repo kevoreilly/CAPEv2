@@ -1,3 +1,10 @@
+### [07.07.2026]
+* Monitor updates:
+    * New hooks for SystemFunction036, SystemFunction040, SystemFunction041 (RtlGenRandom, RtlEncryptMemory, RtlDecryptMemory), Thread32First, Thread32Next, clipboard functions
+    * Enable hooks: MapFileAndCheckSumA, GetVolumeInformationA, GetVolumeInformationW & NtQueryVolumeInformationFile
+    * Crypto hook overhaul
+    * Misc fixes
+
 ### [08.06.2026]
 * Threat Discovery & Hunting Workstation Dashboard:
     * Integrated centralized dynamic multi-faceted database clustering across 12 categories (Domains, IPs, Mutexes, Dropped Files, Commands, Registry Keys, Hashes, ImpHashes, and Signatures).

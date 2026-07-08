@@ -42,3 +42,8 @@ html, body {
     box-shadow: 0 0 30px rgba(220, 53, 69, 0.3);
     color: #fff;
 }
+
+.no-close .ui-dialog-titlebar {
+    display: none !important;
+}
+

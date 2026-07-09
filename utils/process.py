@@ -437,6 +437,18 @@ def autoprocess(
     if not disable_memory_limit:
         memory_limit()
     log.info("Processing analysis data (engine=%s)", engine)
+
+    # Compile the YARA ruleset ONCE in the supervisor, before the engine forks any
+    # workers. Every forked child then inherits the compiled rules via copy-on-write
+    # fork (0s + shared read-only pages), and its init_worker() File.init_yara() call
+    # short-circuits on the idempotency guard. Without this, prefork — which forks a
+    # fresh child per task — would pay the ~3s compile on every single task. Safe to
+    # call here: compilation is single-threaded, so it does not break the prefork
+    # single-threaded-before-fork invariant.
+    from lib.cuckoo.common.objects import File
+
+    File.init_yara()
+
     source = TaskSource(db, failed_processing=failed_processing)
     eng = get_engine(
         engine,

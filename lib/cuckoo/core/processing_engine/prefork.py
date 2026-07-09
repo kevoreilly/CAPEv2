@@ -29,12 +29,14 @@ class _Child:
 
 class PreforkEngine(ProcessingEngine):
     def __init__(self, task_fn, worker_init, source, parallel, timeout,
-                 heartbeat_interval=30, term_grace=5, max_count=0, poll_interval=0.2):
+                 heartbeat_interval=30, term_grace=5, max_count=0, poll_interval=0.2,
+                 idle_poll_interval=5.0):
         super().__init__(task_fn, worker_init, source, parallel, timeout)
         self.heartbeat_interval = heartbeat_interval
         self.term_grace = term_grace
         self.max_count = max_count
         self.poll_interval = poll_interval
+        self.idle_poll_interval = idle_poll_interval
         self._inflight = {}  # pid -> _Child
 
     def _assert_single_threaded(self):
@@ -53,6 +55,14 @@ class PreforkEngine(ProcessingEngine):
 
     def _inflight_task_ids(self):
         return {c.task_id for c in self._inflight.values()}
+
+    def _sleep_interval(self, launched):
+        # Fully idle (no in-flight work and nothing launched this tick) -> back off
+        # to avoid hammering the DB ~5x/sec. Otherwise poll tightly so children are
+        # reaped and timeouts enforced promptly.
+        if not self._inflight and not launched:
+            return self.idle_poll_interval
+        return self.poll_interval
 
     def _heartbeat(self):
         if self._inflight:
@@ -95,16 +105,24 @@ class PreforkEngine(ProcessingEngine):
         log.debug("prefork: launched task %d as pid %d", task.id, pid)
 
     def _reap(self):
-        while True:
-            try:
-                pid, status = os.waitpid(-1, os.WNOHANG)
-            except ChildProcessError:
-                return
-            if pid == 0:
-                return
-            child = self._inflight.pop(pid, None)
+        # Per-pid reap (not waitpid(-1)) so we can hold a timed-out child until its
+        # process group has been SIGKILL-escalated. Reaping it earlier would pop it
+        # from _inflight, so _escalate_kills would never SIGKILL the group and any
+        # surviving grandchildren would orphan.
+        for pid in list(self._inflight.keys()):
+            child = self._inflight.get(pid)
             if child is None:
                 continue
+            if child.timed_out and child.kill_deadline is not None:
+                continue  # SIGTERM sent, escalation pending — don't reap yet
+            try:
+                reaped_pid, status = os.waitpid(pid, os.WNOHANG)
+            except ChildProcessError:
+                self._inflight.pop(pid, None)
+                continue
+            if reaped_pid == 0:
+                continue  # still running
+            self._inflight.pop(pid, None)
             if child.timed_out:
                 continue  # already marked failed during timeout enforcement
             ok = os.WIFEXITED(status) and os.WEXITSTATUS(status) == 0
@@ -133,7 +151,13 @@ class PreforkEngine(ProcessingEngine):
             try:
                 os.killpg(child.pgid, signal.SIGTERM)
             except ProcessLookupError:
-                continue
+                # Group may not exist yet (child hasn't reached os.setsid()) or is
+                # already gone. Fall back to signaling the pid directly so the child
+                # is still killed and escalation still runs.
+                try:
+                    os.kill(child.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    continue  # truly gone; _reap will collect it
             except OSError as e:
                 log.warning("prefork: killpg(SIGTERM) failed for task %d (pid %d): %s",
                             child.task_id, child.pid, e)
@@ -171,13 +195,15 @@ class PreforkEngine(ProcessingEngine):
                 return
             free = self.parallel - len(self._inflight)
             launchable = free if not self.max_count else min(free, self.max_count - count)
+            launched = 0
             if launchable > 0:
                 tasks = self.source.fetch(limit=launchable, exclude_ids=self._inflight_task_ids())
                 for task in tasks[:launchable]:
                     self._launch(task)
                     count += 1
+                    launched += 1
             now = time.monotonic()
             if now - last_hb >= self.heartbeat_interval:
                 self._heartbeat()
                 last_hb = now
-            time.sleep(self.poll_interval)
+            time.sleep(self._sleep_interval(launched))

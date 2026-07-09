@@ -231,3 +231,51 @@ def test_sigterm_teardown_runs_when_configured(rec, monkeypatch):
     rooter.nexthop_teardown_if_configured()
     assert ("ip", "route", "flush", "table", "201") in rec["run"]
     assert ("ip", "route", "flush", "table", "202") in rec["run"]
+
+
+# --- nic_up: gateway liveness must require IFF_UP, not just existence (codex #14 P2) ---
+
+def _fake_ip_link(line):
+    def _co(*a, **k):
+        return line
+    return _co
+
+
+def test_nic_up_true_when_admin_up(monkeypatch):
+    class _S:
+        ip = "ip"
+    monkeypatch.setattr(rooter, "settings", _S, raising=False)
+    monkeypatch.setattr(rooter.subprocess, "check_output",
+                        _fake_ip_link("2: ens6: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 state UP\n"))
+    assert rooter.nic_up("ens6") is True
+
+
+def test_nic_up_false_when_admin_down(monkeypatch):
+    class _S:
+        ip = "ip"
+    monkeypatch.setattr(rooter, "settings", _S, raising=False)
+    monkeypatch.setattr(rooter.subprocess, "check_output",
+                        _fake_ip_link("3: ens7: <BROADCAST,MULTICAST> mtu 1500 state DOWN\n"))
+    assert rooter.nic_up("ens7") is False
+
+
+def test_nic_up_no_false_match_on_lower_up(monkeypatch):
+    # LOWER_UP (carrier) present but IFF_UP absent -> not admin-up; "UP" must be an exact token
+    class _S:
+        ip = "ip"
+    monkeypatch.setattr(rooter, "settings", _S, raising=False)
+    monkeypatch.setattr(rooter.subprocess, "check_output",
+                        _fake_ip_link("4: ens8: <BROADCAST,MULTICAST,LOWER_UP> mtu 1500 state DOWN\n"))
+    assert rooter.nic_up("ens8") is False
+
+
+def test_nic_up_false_when_missing(monkeypatch):
+    class _S:
+        ip = "ip"
+    monkeypatch.setattr(rooter, "settings", _S, raising=False)
+
+    def _raise(*a, **k):
+        raise rooter.subprocess.CalledProcessError(1, "ip")
+
+    monkeypatch.setattr(rooter.subprocess, "check_output", _raise)
+    assert rooter.nic_up("nope0") is False

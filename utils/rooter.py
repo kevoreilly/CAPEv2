@@ -202,6 +202,22 @@ def nic_available(interface):
         return False
 
 
+def nic_up(interface):
+    """Check that the interface exists AND is administratively up (IFF_UP). Unlike nic_available, an
+    existing-but-DOWN link returns False: the nexthop selector must not treat a down gateway NIC as a
+    live egress (round-robin/random would otherwise bind a task to a dead exit)."""
+    try:
+        out = subprocess.check_output(
+            [settings.ip, "-o", "link", "show", interface], stderr=subprocess.PIPE, universal_newlines=True
+        )
+    except subprocess.CalledProcessError:
+        return False
+    # Flags live in the angle-bracket group, e.g. "<BROADCAST,MULTICAST,UP,LOWER_UP>"; IFF_UP == "UP"
+    # (an exact token, so "LOWER_UP" carrier does not false-match).
+    flags = out.split("<", 1)[-1].split(">", 1)[0] if "<" in out else ""
+    return "UP" in flags.split(",")
+
+
 def rt_available(rt_table):
     """Check if specified routing table is defined."""
     try:
@@ -1249,6 +1265,7 @@ def sslproxy_disable(interface, client, proxy_port, resultserver_port, rt_table=
 
 handlers = {
     "nic_available": nic_available,
+    "nic_up": nic_up,
     "rt_available": rt_available,
     "vpn_status": vpn_status,
     "forward_drop": forward_drop,

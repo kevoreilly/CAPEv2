@@ -67,9 +67,11 @@ def rooter(command, *args, **kwargs):
 
 
 def _gw_live(profile):
-    """True if the profile's egress interface exists and is up. Delegates to the rooter
-    nic_available check; overridable in tests."""
-    resp = rooter("nic_available", str(profile.interface))
+    """True if the profile's egress interface exists AND is administratively up. A down gateway NIC
+    must not be selected -- round-robin/random would otherwise bind a task to a dead exit. Delegates
+    to the rooter nic_up check (nic_available only proves existence, incl. DOWN links); overridable
+    in tests."""
+    resp = rooter("nic_up", str(profile.interface))
     return bool(resp and resp.get("output"))
 
 

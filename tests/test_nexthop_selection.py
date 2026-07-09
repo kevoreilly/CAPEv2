@@ -461,3 +461,17 @@ def test_nexthop_enabled_empty_pool_raises(monkeypatch):
     monkeypatch.setattr(startup, "rooter", lambda *a, **k: {}, raising=False)
     with pytest.raises(CuckooStartupError):
         startup.load_nexthop_profiles(_NexthopEmptyPool())
+
+
+def test_gw_live_queries_nic_up(monkeypatch):
+    # _gw_live must consult nic_up (admin-up), NOT nic_available (which is true for DOWN links).
+    calls = []
+
+    def _fake_rooter(cmd, *a):
+        calls.append(cmd)
+        return {"output": (cmd == "nic_up" and a and a[0] == "ens-up")}
+
+    monkeypatch.setattr(core_rooter, "rooter", _fake_rooter)
+    assert core_rooter._gw_live(_Profile("gw1", "ens-up", "201", 0)) is True
+    assert core_rooter._gw_live(_Profile("gw2", "ens-down", "202", 0)) is False
+    assert "nic_up" in calls and "nic_available" not in calls

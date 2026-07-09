@@ -71,6 +71,61 @@ def test_shutdown_is_idempotent_when_no_pool(monkeypatch):
     fx.shutdown_shared_extractor_pool()
 
 
+class _HangingPool:
+    """join(timeout) times out (wedged grandchild); stop()+unbounded join reaps."""
+
+    def __init__(self):
+        self.closed = False
+        self.stopped = False
+        self.join_timeouts = []
+
+    def close(self):
+        self.closed = True
+
+    def join(self, timeout=None):
+        self.join_timeouts.append(timeout)
+        if timeout is not None:
+            raise TimeoutError("pool still draining")
+
+    def stop(self):
+        self.stopped = True
+
+
+class _CleanPool:
+    def __init__(self):
+        self.stopped = False
+        self.joined = False
+
+    def close(self):
+        pass
+
+    def join(self, timeout=None):
+        self.joined = True
+
+    def stop(self):
+        self.stopped = True
+
+
+def test_teardown_force_stops_when_join_times_out():
+    pool = _HangingPool()
+    fx._teardown_extractor_pool(pool)
+    assert pool.closed is True
+    assert pool.stopped is True, "a wedged pool must be force-stopped, not left to hang"
+    assert pool.join_timeouts[0] is not None, "first join must be bounded by a timeout"
+    assert pool.join_timeouts[-1] is None, "after stop() the final reap join is unbounded"
+
+
+def test_teardown_does_not_stop_when_join_succeeds():
+    pool = _CleanPool()
+    fx._teardown_extractor_pool(pool)
+    assert pool.joined is True
+    assert pool.stopped is False, "a cleanly-drained pool must not be force-stopped"
+
+
+def test_teardown_none_is_noop():
+    fx._teardown_extractor_pool(None)  # must not raise
+
+
 class _Task:
     id = 1
     category = "file"

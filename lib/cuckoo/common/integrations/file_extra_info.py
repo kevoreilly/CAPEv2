@@ -430,12 +430,39 @@ from lib.cuckoo.common.integrations.utils import run_tool
 _SHARED_EXTRACTOR_POOL = None
 _USE_SHARED_POOL = False
 
+# Bound extractor-pool teardown. A wedged grandchild (D-state IO, a hung Java
+# decompiler — see the stray hs_err_pid dumps) would otherwise make pool.join()
+# block forever, hanging the whole worker with no external timeout to break it
+# (the pebble task timeout only covers task execution, not teardown). Wait this
+# long for a graceful drain, then force-stop.
+EXTRACTOR_POOL_JOIN_TIMEOUT = 60
+
 
 def _new_extractor_pool():
     """Create a fresh fork-context pebble pool (spike decision: fork from the
     warm child — see docs/superpowers/notes/2026-05-27-extractor-subpool-spike.md)."""
     ctx = multiprocessing.get_context("fork")
     return pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers), context=ctx)
+
+
+def _teardown_extractor_pool(pool):
+    """Close+join a pool with a bounded wait, force-stopping any straggler so a
+    hung extractor can never wedge the worker indefinitely. Exception-safe."""
+    if pool is None:
+        return
+    try:
+        pool.close()
+        try:
+            pool.join(timeout=EXTRACTOR_POOL_JOIN_TIMEOUT)
+        except Exception:
+            log.warning(
+                "extractor pool did not drain within %ss; force-stopping stragglers",
+                EXTRACTOR_POOL_JOIN_TIMEOUT,
+            )
+            pool.stop()
+            pool.join()
+    except Exception:
+        log.debug("_teardown_extractor_pool: teardown raised", exc_info=True)
 
 
 def enable_shared_extractor_pool():
@@ -462,13 +489,7 @@ def shutdown_shared_extractor_pool():
     global _SHARED_EXTRACTOR_POOL
     pool = _SHARED_EXTRACTOR_POOL
     _SHARED_EXTRACTOR_POOL = None
-    if pool is None:
-        return
-    try:
-        pool.close()
-        pool.join()
-    except Exception:
-        log.debug("shutdown_shared_extractor_pool: teardown raised", exc_info=True)
+    _teardown_extractor_pool(pool)
 
 
 def generic_file_extractors(
@@ -588,10 +609,9 @@ def generic_file_extractors(
     finally:
         # A shared pool (prefork) is kept warm for the next file and torn down
         # once by the child via shutdown_shared_extractor_pool(); a per-call
-        # pool (pebble) is closed+joined here so no nested pool outlives the call.
+        # pool (pebble) is torn down here so no nested pool outlives the call.
         if not shared_pool:
-            pool.close()
-            pool.join()
+            _teardown_extractor_pool(pool)
 
 
 def _generic_post_extraction_process(file: str, tool_name: str, decoded: str) -> SuccessfulExtractionReturnType:

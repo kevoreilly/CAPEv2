@@ -17,16 +17,18 @@ class TaskSource:
         """Return up to `limit` tasks needing processing, excluding `exclude_ids`
         (in-flight). Tasks are expunged so they are safe to use after the txn.
 
-        Note: `limit` is applied at the DB level before `exclude_ids` filtering,
-        so the returned list may contain fewer than `limit` tasks even when more
-        eligible tasks exist in the DB (those in `exclude_ids` are still counted
-        against `limit`)."""
+        The DB query fetches `limit + len(exclude_ids)` rows so that, after
+        dropping the in-flight ids, up to `limit` eligible tasks remain. Querying
+        only `limit` would starve workers: if the oldest tasks are all in-flight
+        they'd be filtered out, returning fewer (or zero) tasks while other
+        eligible work waits. The result is sliced back to `limit`."""
         if limit <= 0:
             return []
+        db_limit = limit + len(exclude_ids)
         with self.db.session.begin():
-            tasks = self.db.list_tasks(status=self._status, limit=limit, order_by=Task.completed_on.asc())
+            tasks = self.db.list_tasks(status=self._status, limit=db_limit, order_by=Task.completed_on.asc())
             self.db.session.expunge_all()
-        return [t for t in tasks if t.id not in exclude_ids]
+        return [t for t in tasks if t.id not in exclude_ids][:limit]
 
     def mark_failed(self, task_id):
         # Always writes TASK_FAILED_PROCESSING regardless of which status this

@@ -63,6 +63,15 @@ class PreforkEngine(ProcessingEngine):
 
     def _child_main(self, task):
         os.setsid()  # own session/process group; supervisor killpg sweeps the subtree
+        # This child runs exactly one task then os._exit()s, so a single extractor
+        # pool can be shared across every file in the task and torn down once —
+        # reclaiming the per-file fork cost a per-call pool would pay N times. Safe
+        # here (unlike pebble worker recycling) because the child never has to
+        # cleanly join a persistent nested pool mid-life: it just exits, and any
+        # straggler is swept by the supervisor's process-group kill.
+        from lib.cuckoo.common.integrations import file_extra_info
+
+        file_extra_info.enable_shared_extractor_pool()
         try:
             self.worker_init()
             self.task_fn(task)
@@ -70,6 +79,8 @@ class PreforkEngine(ProcessingEngine):
         except BaseException:
             log.exception("prefork child: task %s crashed", getattr(task, "id", "?"))
             return 1
+        finally:
+            file_extra_info.shutdown_shared_extractor_pool()
 
     def _launch(self, task):
         self._assert_single_threaded()

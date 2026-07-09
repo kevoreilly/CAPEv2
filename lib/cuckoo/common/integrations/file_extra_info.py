@@ -408,6 +408,68 @@ def _extracted_files_metadata(
 
 from lib.cuckoo.common.integrations.utils import run_tool
 
+# Extractor sub-pool lifecycle.
+#
+# `generic_file_extractors` runs once per extracted file, so a task with N
+# payloads calls it N times. Two strategies:
+#
+#   * Per-call (pebble default): create a fork-context pool, use it, then
+#     close+join in a finally. Safe under the pebble A/B control because the
+#     long-lived worker never has to join a persistent nested pool (which is
+#     what deadlocks in multiprocessing `_exit_function` on worker recycle).
+#
+#   * Shared-per-child (prefork): the prefork supervisor forks one child per
+#     task; the child sets its own process group, runs every file, then
+#     `os._exit()`. There it is safe — and much faster — to build ONE pool and
+#     reuse it across all N files, tearing it down a single time when the task
+#     finishes. This reclaims the per-file fork+interpreter-startup cost that a
+#     per-call pool pays N times (~1.2s/file on heavy tasks). The prefork child
+#     opts in via `enable_shared_extractor_pool()` and cleans up via
+#     `shutdown_shared_extractor_pool()`; any stragglers are swept by the
+#     supervisor's process-group kill.
+_SHARED_EXTRACTOR_POOL = None
+_USE_SHARED_POOL = False
+
+
+def _new_extractor_pool():
+    """Create a fresh fork-context pebble pool (spike decision: fork from the
+    warm child — see docs/superpowers/notes/2026-05-27-extractor-subpool-spike.md)."""
+    ctx = multiprocessing.get_context("fork")
+    return pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers), context=ctx)
+
+
+def enable_shared_extractor_pool():
+    """Opt this process into a shared extractor pool reused across every call to
+    `generic_file_extractors`. Called by the prefork child after fork."""
+    global _USE_SHARED_POOL
+    _USE_SHARED_POOL = True
+
+
+def _acquire_extractor_pool():
+    """Return ``(pool, is_shared)``. In shared mode a single process-wide pool is
+    created on first use and reused; otherwise a fresh per-call pool is returned."""
+    global _SHARED_EXTRACTOR_POOL
+    if _USE_SHARED_POOL:
+        if _SHARED_EXTRACTOR_POOL is None:
+            _SHARED_EXTRACTOR_POOL = _new_extractor_pool()
+        return _SHARED_EXTRACTOR_POOL, True
+    return _new_extractor_pool(), False
+
+
+def shutdown_shared_extractor_pool():
+    """Close+join the shared extractor pool once, if one was created. Idempotent
+    and exception-safe; called by the prefork child before it exits."""
+    global _SHARED_EXTRACTOR_POOL
+    pool = _SHARED_EXTRACTOR_POOL
+    _SHARED_EXTRACTOR_POOL = None
+    if pool is None:
+        return
+    try:
+        pool.close()
+        pool.join()
+    except Exception:
+        log.debug("shutdown_shared_extractor_pool: teardown raised", exc_info=True)
+
 
 def generic_file_extractors(
     file: str,
@@ -444,12 +506,10 @@ def generic_file_extractors(
 
     futures = {}
     executed_tools = data_dictionary.setdefault("executed_tools", [])
-    # Per-call pool lifecycle: create, use, then close+join in finally so the
-    # worker processes are torn down before the task child exits.  Using the
-    # "fork" context (Task 9 SPIKE decision: see
-    # docs/superpowers/notes/2026-05-27-extractor-subpool-spike.md).
-    ctx = multiprocessing.get_context("fork")
-    pool = pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers), context=ctx)
+    # Per-call pool (pebble) or shared-per-child pool (prefork) — see the
+    # module-level lifecycle notes. A shared pool is reused across files and torn
+    # down once by the prefork child; a per-call pool is closed+joined here.
+    pool, shared_pool = _acquire_extractor_pool()
     try:
         # Prefer custom modules over the built-in ones, since only 1 is allowed
         # to be the extracted_files_tool.
@@ -526,8 +586,12 @@ def generic_file_extractors(
                     # ToDo doesn't work
                     shutil.rmtree(tempdir, ignore_errors=True)
     finally:
-        pool.close()
-        pool.join()
+        # A shared pool (prefork) is kept warm for the next file and torn down
+        # once by the child via shutdown_shared_extractor_pool(); a per-call
+        # pool (pebble) is closed+joined here so no nested pool outlives the call.
+        if not shared_pool:
+            pool.close()
+            pool.join()
 
 
 def _generic_post_extraction_process(file: str, tool_name: str, decoded: str) -> SuccessfulExtractionReturnType:

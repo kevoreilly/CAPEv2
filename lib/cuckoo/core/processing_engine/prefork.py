@@ -1,7 +1,7 @@
 """Single-threaded prefork supervisor: forks one child per task, each child runs
 exactly one task then os._exit(); the supervisor reaps children and enforces a
 launch-relative wall-clock timeout via process-group kill. No supervisor<->child
-channel exists. See docs/superpowers/specs/2026-05-27-processor-concurrency-redesign-design.md."""
+channel exists."""
 import logging
 import os
 import signal

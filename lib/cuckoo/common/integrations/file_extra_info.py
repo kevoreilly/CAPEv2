@@ -439,8 +439,10 @@ EXTRACTOR_POOL_JOIN_TIMEOUT = 60
 
 
 def _new_extractor_pool():
-    """Create a fresh fork-context pebble pool (spike decision: fork from the
-    warm child — see docs/superpowers/notes/2026-05-27-extractor-subpool-spike.md)."""
+    """Create a fresh fork-context pebble pool. Fork (not forkserver/spawn) is
+    deliberate: the task child is single-threaded when the pool is created, so
+    fork is deadlock-safe here, ~10ms/pool faster than forkserver, and leaves no
+    orphans (workers are swept by the supervisor's process-group kill)."""
     ctx = multiprocessing.get_context("fork")
     return pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers), context=ctx)
 

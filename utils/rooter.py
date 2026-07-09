@@ -697,6 +697,11 @@ def nexthop_init(rt_table, egress_if, next_hop):
         log.error("nexthop_init refusing to flush reserved routing table %r (fix the [gwX] rt_table)", rt_table)
         return
     run(settings.ip, "route", "flush", "table", rt_table)
+    # Fail-closed seed: never leave the table empty. If the real default replace below fails (bad
+    # egress_if/next_hop), this blackhole remains so the VM's policy lookup drops instead of falling
+    # through to `main` and egressing outside the gateway -- true even when [nexthop] fail_closed=no
+    # (codex P2: run() records but does not raise on a failed ip route replace).
+    run(settings.ip, "route", "replace", "blackhole", "default", "table", rt_table)
     if next_hop == "onlink":
         run(settings.ip, "route", "replace", "default", "dev", egress_if, "onlink", "table", rt_table)
     else:

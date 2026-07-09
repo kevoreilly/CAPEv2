@@ -47,6 +47,7 @@ def test_nexthop_init_onlink(rec):
     rooter.nexthop_init("201", "ens6", "onlink")
     assert rec["run"] == [
         ("ip", "route", "flush", "table", "201"),
+        ("ip", "route", "replace", "blackhole", "default", "table", "201"),
         ("ip", "route", "replace", "default", "dev", "ens6", "onlink", "table", "201"),
     ]
 
@@ -55,6 +56,7 @@ def test_nexthop_init_via(rec):
     rooter.nexthop_init("202", "ens7", "10.30.72.1")
     assert rec["run"] == [
         ("ip", "route", "flush", "table", "202"),
+        ("ip", "route", "replace", "blackhole", "default", "table", "202"),
         ("ip", "route", "replace", "default", "via", "10.30.72.1", "dev", "ens7", "table", "202"),
     ]
 

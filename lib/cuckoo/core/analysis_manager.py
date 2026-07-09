@@ -559,6 +559,10 @@ class AnalysisManager(threading.Thread):
         """
         self.interface = None  # nexthop owns enable/disable; skip the generic block
         self.rt_table = None
+        # Clear any binding a PRIOR resolve left, so a failure path here (route -> "drop") cannot
+        # leave a stale self.nexthop_* that _dispatch_nexthop would still install -- fail-open on
+        # route_network re-entry / machine retry (Copilot).
+        self.nexthop_id = self.nexthop_interface = self.nexthop_rt_table = self.nexthop_priority = None
         # Resolve the selector, FAILING CLOSED on a typo'd/unknown route (review B1 + gemini #14):
         #  - an explicit gateway id, or a policy token (roundrobin/random), selects directly;
         #  - ONLY the node's configured DEFAULT route falls back to default_policy;

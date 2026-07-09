@@ -225,3 +225,25 @@ def test_unroute_noop_when_not_nexthop(mgr):
     mgr.nexthop_id = None
     mgr._unroute_nexthop()
     assert [c for c, _ in mgr._calls if c == "nexthop_disable"] == []
+
+
+def test_resolve_clears_stale_binding_on_reentry_failure(mgr, monkeypatch):
+    # route_network re-entry (e.g. machine retry): a first resolve binds a gateway; a later resolve
+    # that fails (empty/all-down pool) must FORCE drop AND clear self.nexthop_* so _dispatch_nexthop
+    # does not install a stale binding despite the drop decision (Copilot fail-open).
+    prof = type("P", (), {"name": "gw1", "interface": "ens6", "rt_table": "201", "priority": 0})()
+    routing = _fake_routing(default_policy="roundrobin", default_route="nexthop")
+    monkeypatch.setattr(am, "_select_gateway", lambda r: prof, raising=False)
+    monkeypatch.setattr(am, "gateways", {"gw1": prof}, raising=False)
+    mgr.route = "gw1"
+    assert mgr._resolve_nexthop(routing) is True
+    assert mgr.nexthop_id == "gw1"
+    # pool now empty -> second resolve fails: drop + stale binding cleared
+    monkeypatch.setattr(am, "_select_gateway", lambda r: None, raising=False)
+    mgr.route = "nexthop"
+    assert mgr._resolve_nexthop(routing) is False
+    assert mgr.route == "drop"
+    assert mgr.nexthop_id is None
+    mgr._calls.clear()
+    mgr._dispatch_nexthop()   # no-op: no stale binding to install
+    assert "nexthop_enable" not in [c for c, _ in mgr._calls]

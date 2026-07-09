@@ -412,7 +412,8 @@ def test_gwx_rt_table_collides_with_dirty_line_raises(monkeypatch):
     class _GwDirtyLineTable(_FakeRouting):
         def __init__(self):
             super().__init__()
-            self.routing = _DictSection(route="none", rt_table="201")  # dirty-line table == gw table
+            # dirty-line ENABLED (internet != none) and its table == the gw table -> collision
+            self.routing = _DictSection(route="internet", internet="ens_wan", rt_table="201")
             self.gw1 = _DictSection(interface="ens6", next_hop="onlink", rt_table=201)
 
     startup.gateways.clear()
@@ -421,6 +422,62 @@ def test_gwx_rt_table_collides_with_dirty_line_raises(monkeypatch):
     with pytest.raises(CuckooStartupError):
         startup.load_nexthop_profiles(_GwDirtyLineTable())
     assert "gw1" not in startup.gateways
+
+
+def test_gwx_rt_table_reused_when_dirty_line_disabled_ok(monkeypatch):
+    # codex P2: when the dirty line is DISABLED (internet = none) its rt_table is never built, so a
+    # [gwX] reusing that id must NOT be rejected -- a nexthop-only node must be able to start.
+    import lib.cuckoo.core.startup as startup
+
+    class _GwDirtyLineDisabled(_FakeRouting):
+        def __init__(self):
+            super().__init__()
+            self.routing = _DictSection(route="none", internet="none", rt_table="201")
+            self.gw1 = _DictSection(interface="ens6", next_hop="onlink", rt_table=201)
+
+    startup.gateways.clear()
+    monkeypatch.setattr(startup, "vpns", {}, raising=False)
+    monkeypatch.setattr(startup, "rooter", lambda *a, **k: {}, raising=False)
+    startup.load_nexthop_profiles(_GwDirtyLineDisabled())   # must NOT raise
+    assert "gw1" in startup.gateways
+
+
+def test_invalid_default_policy_raises(monkeypatch):
+    # codex P2: default_policy that is neither roundrobin/random nor a configured gateway id resolves
+    # to None in _select_gateway -> every pool task silently drops. Reject it at startup.
+    import lib.cuckoo.core.startup as startup
+    from lib.cuckoo.common.exceptions import CuckooStartupError
+
+    class _BadPolicy(_FakeRouting):
+        def __init__(self):
+            super().__init__()
+            self.nexthop = _DictSection(enabled=True, gateways="gw1", default_policy="gw2",
+                                        fail_closed=True, vm_net="192.168.100.0/24")
+            self.gw1 = _DictSection(interface="ens6", next_hop="onlink", rt_table=201)
+
+    startup.gateways.clear()
+    monkeypatch.setattr(startup, "vpns", {}, raising=False)
+    monkeypatch.setattr(startup, "rooter", lambda *a, **k: {}, raising=False)
+    with pytest.raises(CuckooStartupError):
+        startup.load_nexthop_profiles(_BadPolicy())
+
+
+def test_gateway_id_default_policy_ok(monkeypatch):
+    # default_policy may name a configured gateway id (pin the pool default to one exit).
+    import lib.cuckoo.core.startup as startup
+
+    class _GwPolicy(_FakeRouting):
+        def __init__(self):
+            super().__init__()
+            self.nexthop = _DictSection(enabled=True, gateways="gw1", default_policy="gw1",
+                                        fail_closed=True, vm_net="192.168.100.0/24")
+            self.gw1 = _DictSection(interface="ens6", next_hop="onlink", rt_table=201)
+
+    startup.gateways.clear()
+    monkeypatch.setattr(startup, "vpns", {}, raising=False)
+    monkeypatch.setattr(startup, "rooter", lambda *a, **k: {}, raising=False)
+    startup.load_nexthop_profiles(_GwPolicy())   # must NOT raise
+    assert "gw1" in startup.gateways
 
 
 def test_gateway_named_like_policy_token_raises(monkeypatch):

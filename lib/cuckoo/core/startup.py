@@ -115,7 +115,11 @@ def load_nexthop_profiles(routing_cfg):
         if vrt is not None:
             owned_tables[str(vrt)] = f"VPN '{vname}'"
     dirty_rt = getattr(getattr(routing_cfg, "routing", None), "rt_table", None)
-    if dirty_rt is not None and str(dirty_rt):
+    dirty_internet = str(getattr(getattr(routing_cfg, "routing", None), "internet", "none") or "none")
+    # Only reserve the [routing] dirty-line table when the dirty-line route is actually enabled (its
+    # init_rttable runs only when internet != "none"). A nexthop-only node (internet = none) with a
+    # preconfigured rt_table must not falsely reject a [gwX] reusing that id and fail to start (codex P2).
+    if dirty_rt is not None and str(dirty_rt) and dirty_internet != "none":
         owned_tables.setdefault(str(dirty_rt), "the [routing] dirty-line table")
     # Pass 1: parse + validate + register profiles (no rooter side effects yet).
     profiles = []
@@ -188,6 +192,16 @@ def load_nexthop_profiles(routing_cfg):
     # loudly at startup instead (gemini medium).
     if not profiles:
         raise CuckooStartupError("[nexthop] is enabled but no gateways were configured in routing.conf")
+    # default_policy must resolve: a pool selector (roundrobin/random) or one of the configured gateway
+    # ids. Otherwise _select_gateway() returns None for every default/route=nexthop task and they all
+    # silently drop; reject a typo'd/dangling policy at startup instead of shipping a dead pool (codex P2).
+    default_policy = str(getattr(routing_cfg.nexthop, "default_policy", "") or "")
+    gateway_ids = {p.name for p in profiles}
+    if default_policy not in _POLICY_TOKENS and default_policy not in gateway_ids:
+        raise CuckooStartupError(
+            f"[nexthop] default_policy '{default_policy}' must be 'roundrobin', 'random', or a configured "
+            f"gateway id ({', '.join(sorted(gateway_ids))})"
+        )
     vm_net = str(routing_cfg.nexthop.vm_net)
     tables_csv = ",".join(p.rt_table for p in profiles)
     # Record sweep state for SIGTERM, then sweep any STALE state from a prior run

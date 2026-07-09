@@ -82,7 +82,7 @@ def test_nexthop_enable_argv(rec):
     # iproute2 + conntrack go through run(); nat/filter through run_iptables()
     assert rec["run"] == [
         ("conntrack", "-D", "-s", "192.168.100.42"),                                  # pre-bind flush
-        ("ip", "rule", "del", "from", "192.168.100.42", "lookup", "201", "priority", "10042"),  # idempotent pre-clean
+        ("ip", "rule", "del", "from", "192.168.100.42", "priority", "10042"),          # table-agnostic pre-clean (drops a stale old-table rebind rule too)
         ("ip", "rule", "add", "from", "192.168.100.42", "lookup", "201", "priority", "10042"),
     ]
     # Each iptables rule is delete-until-gone (idempotent; Copilot) then added once. The forward

@@ -723,7 +723,11 @@ def nexthop_enable(vm_ip, ingress_if, egress_if, rt_table, priority):
     a retried bind (or route_network called twice) must NOT stack rules, so the ip rule and both
     iptables rules are delete-then-add'd; the iptables deletes loop until gone."""
     run("conntrack", "-D", "-s", vm_ip)  # drop stale flows so a recycled IP starts clean (best-effort)
-    run(settings.ip, "rule", "del", "from", vm_ip, "lookup", rt_table, "priority", priority)  # idempotent
+    # Delete any existing rule for this VM at its (deterministic per-IP) priority -- TABLE-AGNOSTIC,
+    # so a rebind to a DIFFERENT gateway after a crashed/partial unroute removes the stale
+    # `from <vm_ip> priority <P> lookup <old_table>` rule too. A `lookup <new_table>` del would miss
+    # it, leaving it to win by priority and route the task via the previous exit (codex). Then add fresh.
+    run(settings.ip, "rule", "del", "from", vm_ip, "priority", priority)
     run(settings.ip, "rule", "add", "from", vm_ip, "lookup", rt_table, "priority", priority)
     # SNAT the VM out its gateway. Delete-until-gone first so a retry can't stack duplicate NAT rules
     # that nexthop_disable's delete would then leave behind (Copilot).

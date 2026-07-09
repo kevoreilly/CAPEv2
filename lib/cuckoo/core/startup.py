@@ -121,6 +121,14 @@ def load_nexthop_profiles(routing_cfg):
     # preconfigured rt_table must not falsely reject a [gwX] reusing that id and fail to start (codex P2).
     if dirty_rt is not None and str(dirty_rt) and dirty_internet != "none":
         owned_tables.setdefault(str(dirty_rt), "the [routing] dirty-line table")
+    # The fail-closed blackhole is installed into NEXTHOP_FAIL_TABLE; if a VPN or the (enabled)
+    # dirty-line already owns that table, the blackhole would overwrite ITS default route and silently
+    # drop its traffic. Reject at startup -- only relevant when fail_closed is on (codex P2).
+    if routing_cfg.nexthop.fail_closed and str(NEXTHOP_FAIL_TABLE) in owned_tables:
+        raise CuckooStartupError(
+            f"[nexthop] fail_closed uses table '{NEXTHOP_FAIL_TABLE}' which collides with "
+            f"{owned_tables[str(NEXTHOP_FAIL_TABLE)]}; the blackhole would overwrite its default route"
+        )
     # Pass 1: parse + validate + register profiles (no rooter side effects yet).
     profiles = []
     claimed_tables = {}   # rt_table -> gateway id, to reject duplicates (each [gwX] needs its own)

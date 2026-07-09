@@ -532,3 +532,42 @@ def test_gw_live_queries_nic_up(monkeypatch):
     assert core_rooter._gw_live(_Profile("gw1", "ens-up", "201", 0)) is True
     assert core_rooter._gw_live(_Profile("gw2", "ens-down", "202", 0)) is False
     assert "nic_up" in calls and "nic_available" not in calls
+
+
+def test_fail_closed_table_collides_with_vpn_raises(monkeypatch):
+    # codex P2: fail_closed installs a blackhole into NEXTHOP_FAIL_TABLE; if a VPN already uses that
+    # table, the blackhole would overwrite the VPN's default route and drop its traffic. Reject at load.
+    import lib.cuckoo.core.startup as startup
+    from lib.cuckoo.common.exceptions import CuckooStartupError
+
+    class _FailTableVpn(_FakeRouting):
+        def __init__(self):
+            super().__init__()
+            self.nexthop = _DictSection(enabled=True, gateways="gw1", default_policy="roundrobin",
+                                        fail_closed=True, vm_net="192.168.100.0/24")
+            self.gw1 = _DictSection(interface="ens6", next_hop="onlink", rt_table=201)
+
+    startup.gateways.clear()
+    monkeypatch.setattr(startup, "vpns", {"vpn0": type("V", (), {"rt_table": startup.NEXTHOP_FAIL_TABLE})()}, raising=False)
+    monkeypatch.setattr(startup, "rooter", lambda *a, **k: {}, raising=False)
+    with pytest.raises(CuckooStartupError):
+        startup.load_nexthop_profiles(_FailTableVpn())
+
+
+def test_fail_closed_table_collision_ignored_when_fail_closed_off(monkeypatch):
+    # the collision only matters when fail_closed arms the blackhole; with fail_closed=no a VPN on
+    # table 250 is fine (we never write that table), so startup must NOT reject it.
+    import lib.cuckoo.core.startup as startup
+
+    class _FailTableVpnOff(_FakeRouting):
+        def __init__(self):
+            super().__init__()
+            self.nexthop = _DictSection(enabled=True, gateways="gw1", default_policy="roundrobin",
+                                        fail_closed=False, vm_net="192.168.100.0/24")
+            self.gw1 = _DictSection(interface="ens6", next_hop="onlink", rt_table=201)
+
+    startup.gateways.clear()
+    monkeypatch.setattr(startup, "vpns", {"vpn0": type("V", (), {"rt_table": startup.NEXTHOP_FAIL_TABLE})()}, raising=False)
+    monkeypatch.setattr(startup, "rooter", lambda *a, **k: {}, raising=False)
+    startup.load_nexthop_profiles(_FailTableVpnOff())   # must NOT raise
+    assert "gw1" in startup.gateways

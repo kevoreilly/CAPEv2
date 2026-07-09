@@ -56,7 +56,7 @@ from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.task import TASK_FAILED_ANALYSIS, TASK_RUNNING
 from lib.cuckoo.core.log import init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
-from lib.cuckoo.core.rooter import rooter, socks5s, vpns
+from lib.cuckoo.core.rooter import gateways, rooter, socks5s, vpns
 
 log = logging.getLogger()
 
@@ -66,6 +66,172 @@ routing = Config("routing")
 repconf = Config("reporting")
 auxconf = Config("auxiliary")
 dist_conf = Config("distributed")
+
+# ---------------------------------------------------------------------------
+# Next-hop egress primitive — constants used by loader + SIGTERM path
+# ---------------------------------------------------------------------------
+NEXTHOP_FAIL_TABLE = "250"
+NEXTHOP_PRIORITY_LOW = "30000"
+NEXTHOP_BAND_LO = "10000"
+NEXTHOP_BAND_HI = "10255"
+# Route keywords a [gwX] gateway id must never collide with. "nexthop" is the sentinel default
+# route that maps to [nexthop] default_policy (pool selection), so a gateway named "nexthop"
+# would be ambiguous — reserve it too (Copilot).
+_RESERVED_ROUTE_NAMES = {"none", "internet", "tor", "inetsim", "drop", "false", "nexthop"}
+# Pool-policy selector tokens: a task route of roundrobin/random means "pick from the live
+# pool", so a [gwX] must not be *named* one of these (it could never be explicitly selected
+# and would collide with the policy token in _resolve_nexthop/_select_gateway).
+_POLICY_TOKENS = ("roundrobin", "random")
+# Linux reserved/system routing tables. A [gwX] rt_table must never be one of these: it is fed
+# straight into `ip route flush table <rt_table>` and, if it were `main`, the per-task rule would
+# route the VM out the host's own default route (fail-OPEN) instead of the blackhole. Mirrors the
+# defence-in-depth guard in utils.rooter nexthop_init/teardown. Kernel-fixed ids.
+_RESERVED_RT_TABLES = ("local", "main", "default", "0", "253", "254", "255")
+
+
+def load_nexthop_profiles(routing_cfg):
+    """Parse [nexthop]/[gwX] sections into the rooter.gateways global, sweep stale
+    policy-routing state, then arm fail-closed.  No-op when [nexthop] is absent
+    or disabled (review M4 hasattr guard)."""
+    if not hasattr(routing_cfg, "nexthop") or not routing_cfg.nexthop.enabled:
+        return
+    # [nexthop] is enabled: it MUST define gateways + vm_net (gemini #14 MEDIUM). CAPE's config
+    # Dictionary returns None (not AttributeError) for a missing key, so without this a missing
+    # option slips through as None and misbehaves downstream — fail with a clear error instead.
+    for opt in ("gateways", "vm_net"):
+        if getattr(routing_cfg.nexthop, opt, None) is None:
+            raise CuckooStartupError(f"[nexthop] is enabled but missing the required '{opt}' option in routing.conf")
+    # Routing tables already OWNED by another primitive -- a [gwX] must not reuse one. nexthop_init
+    # flush/replaces each gateway table, so a shared table silently clobbers (or is clobbered by) the
+    # other primitive's route, misrouting its traffic with no error. Two sources, both knowable now:
+    #   - VPN tables: init_routing builds vpns[*].rt_table BEFORE calling us, so nexthop_init would
+    #     wipe a just-built VPN table and point its default out the gateway NIC (VPN-isolation break).
+    #   - the [routing] dirty-line table (routing.routing.rt_table): its init_rttable runs AFTER us,
+    #     so it would repopulate a gateway table with the dirty-line interface.
+    # Coerce to str: a VPN rt_table (or the dirty-line one) may be an int or a name in config.
+    owned_tables = {}
+    for vname, ventry in vpns.items():
+        vrt = getattr(ventry, "rt_table", None)
+        if vrt is not None:
+            owned_tables[str(vrt)] = f"VPN '{vname}'"
+    dirty_rt = getattr(getattr(routing_cfg, "routing", None), "rt_table", None)
+    if dirty_rt is not None and str(dirty_rt):
+        owned_tables.setdefault(str(dirty_rt), "the [routing] dirty-line table")
+    # Pass 1: parse + validate + register profiles (no rooter side effects yet).
+    profiles = []
+    claimed_tables = {}   # rt_table -> gateway id, to reject duplicates (each [gwX] needs its own)
+    for name in routing_cfg.nexthop.gateways.split(","):
+        name = name.strip()
+        if not name:
+            continue
+        if name in _RESERVED_ROUTE_NAMES or name in _POLICY_TOKENS or name in vpns or name in socks5s or name[:3] == "tun":
+            raise CuckooStartupError(f"nexthop gateway id '{name}' collides with a reserved/route/policy name")
+        if not hasattr(routing_cfg, name):
+            raise CuckooStartupError(f"nexthop gateway '{name}' has no [{name}] section in routing.conf")
+        entry = routing_cfg.get(name)
+        # A [gwX] section MUST define interface/next_hop/rt_table (gemini #14 MEDIUM). Config
+        # Dictionary returns None for a missing key, so validate explicitly — otherwise None
+        # (or str(None)=="None") would slip into the rooter commands below.
+        for opt in ("interface", "next_hop", "rt_table"):
+            if getattr(entry, opt, None) is None:
+                raise CuckooStartupError(f"nexthop gateway '{name}' is missing the required '{opt}' option in [{name}]")
+        entry.rt_table = str(entry.rt_table)   # coerce: config may produce int (review B3)
+        # A reserved rt_table (main/local/default/...) must be rejected HERE, at load, not just
+        # skipped in nexthop_init: an unbuilt custom table is empty so its per-task rule falls
+        # through to the fail-closed blackhole, but `main` already holds the host default route,
+        # so a per-task `from vm_ip lookup main priority 100xx` (below the 30000 blackhole) would
+        # route the VM straight out the control-plane NIC -- an isolation bypass. Fail loudly.
+        if entry.rt_table in _RESERVED_RT_TABLES:
+            raise CuckooStartupError(
+                f"nexthop gateway '{name}' uses reserved routing table '{entry.rt_table}' in [{name}]; "
+                "pick a dedicated custom table id (e.g. 201)"
+            )
+        # rt_table must not be the fail-closed table: nexthop_init builds the gateway default there,
+        # then nexthop_fail_closed_enable does `ip route replace blackhole default table <fail>`,
+        # overwriting that default with a blackhole -> every task bound to the gateway silently drops.
+        if entry.rt_table == NEXTHOP_FAIL_TABLE:
+            raise CuckooStartupError(
+                f"nexthop gateway '{name}' uses rt_table '{entry.rt_table}' in [{name}], which is the "
+                "reserved fail-closed table; the blackhole would overwrite the gateway's default route. "
+                "Pick a different custom table id."
+            )
+        # rt_table must not be owned by a VPN or the [routing] dirty-line (see owned_tables above):
+        # nexthop_init would clobber that primitive's table and silently misroute its traffic. This
+        # catches DIRECT string collisions; a name<->id alias (a VPN using the name "tun0" mapped to
+        # id 201 in /etc/iproute2/rt_tables while a [gwX] uses 201) resolves to the same kernel table
+        # but different config strings -- that stays the operator's "unique across the system"
+        # responsibility, as documented for VPN rt_table in routing.conf.
+        if entry.rt_table in owned_tables:
+            raise CuckooStartupError(
+                f"nexthop gateway '{name}' rt_table '{entry.rt_table}' in [{name}] collides with "
+                f"{owned_tables[entry.rt_table]}; each routing primitive needs a unique table id"
+            )
+        # rt_table must be UNIQUE across [gwX]: nexthop_init flush/replaces a single table per profile,
+        # so a shared table leaves the last gateway's default winning while the earlier gateway stays
+        # selectable -> its per-task rule looks up a table pointing at the wrong egress interface.
+        if entry.rt_table in claimed_tables:
+            raise CuckooStartupError(
+                f"nexthop gateways '{claimed_tables[entry.rt_table]}' and '{name}' both use rt_table "
+                f"'{entry.rt_table}'; each [gwX] needs a unique routing table id"
+            )
+        claimed_tables[entry.rt_table] = name
+        # [gwX] sections carry no `name =` field (unlike [vpnX]/[socks5]), so config
+        # Dictionary.__getattr__ returns None for entry.name. Carry the section header as
+        # the profile id: analysis_manager._resolve_nexthop reads profile.name into
+        # self.nexthop_id, and a None id makes _dispatch_nexthop silently no-op (the
+        # per-task rule never installs and every task fails closed). Verified live.
+        entry.name = name
+        gateways[name] = entry
+        profiles.append(entry)
+    # [nexthop] enabled but nothing usable parsed (e.g. gateways = "" or all-blank): without
+    # this every analysis task would silently fall through to the fail-closed blackhole. Fail
+    # loudly at startup instead (gemini medium).
+    if not profiles:
+        raise CuckooStartupError("[nexthop] is enabled but no gateways were configured in routing.conf")
+    vm_net = str(routing_cfg.nexthop.vm_net)
+    tables_csv = ",".join(p.rt_table for p in profiles)
+    # Record sweep state for SIGTERM, then sweep any STALE state from a prior run
+    # BEFORE building fresh tables. nexthop_teardown flushes the gateway tables, so it
+    # MUST run before nexthop_init (which builds them) or it wipes the just-built routes.
+    rooter("nexthop_configure", tables_csv, vm_net, NEXTHOP_FAIL_TABLE,
+           NEXTHOP_PRIORITY_LOW, NEXTHOP_BAND_LO, NEXTHOP_BAND_HI)
+    rooter("nexthop_teardown", tables_csv, vm_net, NEXTHOP_FAIL_TABLE,
+           NEXTHOP_PRIORITY_LOW, NEXTHOP_BAND_LO, NEXTHOP_BAND_HI)
+    # Pass 2: build fresh profile tables, then arm the intra-subnet exception + (optionally) fail-closed.
+    for entry in profiles:
+        rooter("nexthop_init", str(entry.rt_table), str(entry.interface), str(entry.next_hop))
+    # The intra-subnet exception (keep guest<->host + guest<->guest vm_net traffic on main) is a
+    # CONNECTIVITY guarantee, independent of the blackhole -- install it whenever nexthop is enabled.
+    # Otherwise, with fail_closed=no, a bound VM's per-task rule would send its intra-vm_net traffic
+    # (siblings / non-host-local services) out the gateway instead of the guest network (codex P2).
+    rooter("nexthop_intra_exception_enable", vm_net, NEXTHOP_BAND_LO)
+    if routing_cfg.nexthop.fail_closed:
+        rooter("nexthop_fail_closed_enable", vm_net, NEXTHOP_FAIL_TABLE, NEXTHOP_PRIORITY_LOW)
+
+
+def validate_default_route(routing_cfg):
+    """Check that the configured default route is valid.  Accepts gateway ids
+    (from gateways global) when nexthop is enabled, bypassing the vpn.enabled gate.
+    Extracted from init_routing so it is independently unit-testable (review H3)."""
+    route = routing_cfg.routing.route
+    if route in ("none", "internet", "tor", "inetsim"):
+        return
+    nexthop_on = hasattr(routing_cfg, "nexthop") and routing_cfg.nexthop.enabled
+    if nexthop_on and (route in gateways or route in _POLICY_TOKENS or route == "nexthop"):
+        # A concrete gateway id, a pool-policy token (roundrobin/random), or the "nexthop" sentinel
+        # is a valid default route when nexthop is on -- _resolve_nexthop maps the token/sentinel to
+        # default_policy and picks from the live pool. Accept it here so the documented pool default
+        # (route = nexthop) works without a VPN; otherwise startup wrongly raises the vpn-not-enabled
+        # error and the default_policy fallback is unreachable in production (codex P2 / Copilot).
+        return  # skip the vpn.enabled gate
+    if not routing_cfg.vpn.enabled:
+        raise CuckooStartupError(
+            "A VPN has been configured as default routing interface for VMs, but VPNs have not been enabled in routing.conf"
+        )
+    if route not in vpns and route not in socks5s:
+        raise CuckooStartupError(
+            "The VPN/Socks5 defined as default routing target has not been configured in routing.conf. You should use name field"
+        )
 
 
 def check_python_version():
@@ -449,12 +615,15 @@ def init_rooter():
     connect to it."""
 
     # The default configuration doesn't require the rooter to be ran.
+    # A nexthop-only node still needs the rooter for forward_drop() + fail-closed arm.
+    _nexthop_enabled = hasattr(routing, "nexthop") and routing.nexthop.enabled
     if (
         not routing.vpn.enabled
         and not routing.tor.enabled
         and not routing.inetsim.enabled
         and not routing.socks5.enabled
         and routing.routing.route == "none"
+        and not _nexthop_enabled
     ):
         return
 
@@ -573,21 +742,15 @@ def init_routing():
                 rooter("flush_rttable", entry.rt_table)
                 rooter("init_rttable", entry.rt_table, entry.interface)
 
+    # Load [gwX] next-hop egress profiles, arm fail-closed (no-op when [nexthop] absent/disabled).
+    load_nexthop_profiles(routing)
+
     # If we are storage and webgui only but using as default route one of the workers exitnodes
     if dist_conf.distributed.master_storage_only:
         return
 
-    # Check whether the default VPN exists if specified.
-    if routing.routing.route not in ("none", "internet", "tor", "inetsim"):
-        if not routing.vpn.enabled:
-            raise CuckooStartupError(
-                "A VPN has been configured as default routing interface for VMs, but VPNs have not been enabled in routing.conf"
-            )
-
-        if routing.routing.route not in vpns and routing.routing.route not in socks5s:
-            raise CuckooStartupError(
-                "The VPN/Socks5 defined as default routing target has not been configured in routing.conf. You should use name field"
-            )
+    # Check whether the default VPN/gateway exists if specified.
+    validate_default_route(routing)
 
     # Check whether the dirty line exists if it has been defined.
     if routing.routing.internet != "none":

@@ -259,6 +259,14 @@
                                         <option value="{{ route_name }}">{{ route_name }} (Auto-pick)</option>
                                         {% endfor %}
                                         {% endif %}
+                                        {% if nexthop_enabled %}
+                                        <option value="nexthop" {% if route == "nexthop" %} selected{% endif %}>nexthop pool
+                                            (default policy)</option>
+                                        {% for gw in gateways %}
+                                        <option value="{{ gw.name }}" {% if route == gw.name %} selected{% endif %}>{{ gw.description }}
+                                            ({{ gw.name }}, nexthop gateway)</option>
+                                        {% endfor %}
+                                        {% endif %}
                                         <option value="none" {% if route == "none" %} selected{% endif %}>Drop all VM
                                             traffic</option>
                                     </select>

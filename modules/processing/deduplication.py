@@ -77,8 +77,8 @@ def reindex_screenshots(shots_path):
 def _qr_decode_zxing(image_path):
     """Decode QR codes using zxing-cpp. Supports multiple barcodes per image."""
     try:
-        img = Image.open(image_path)
-        results = zxingcpp.read_barcodes(img)
+        with Image.open(image_path) as img:
+            results = zxingcpp.read_barcodes(img)
         urls = []
         for result in results:
             text = result.text

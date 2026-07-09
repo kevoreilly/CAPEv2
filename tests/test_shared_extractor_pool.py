@@ -72,7 +72,7 @@ def test_shutdown_is_idempotent_when_no_pool(monkeypatch):
 
 
 class _HangingPool:
-    """join(timeout) times out (wedged grandchild); stop()+unbounded join reaps."""
+    """Graceful join times out (wedged grandchild); after stop() the reap succeeds."""
 
     def __init__(self):
         self.closed = False
@@ -84,8 +84,9 @@ class _HangingPool:
 
     def join(self, timeout=None):
         self.join_timeouts.append(timeout)
-        if timeout is not None:
-            raise TimeoutError("pool still draining")
+        if len(self.join_timeouts) == 1:
+            raise TimeoutError("pool still draining")  # graceful join times out
+        # post-stop reap succeeds (stop() SIGKILLed the workers)
 
     def stop(self):
         self.stopped = True
@@ -111,8 +112,8 @@ def test_teardown_force_stops_when_join_times_out():
     fx._teardown_extractor_pool(pool)
     assert pool.closed is True
     assert pool.stopped is True, "a wedged pool must be force-stopped, not left to hang"
-    assert pool.join_timeouts[0] is not None, "first join must be bounded by a timeout"
-    assert pool.join_timeouts[-1] is None, "after stop() the final reap join is unbounded"
+    # Both the graceful join and the post-stop reap are bounded (no unbounded wait).
+    assert pool.join_timeouts == [fx.EXTRACTOR_POOL_JOIN_TIMEOUT, fx.EXTRACTOR_POOL_STOP_JOIN_TIMEOUT]
 
 
 def test_teardown_does_not_stop_when_join_succeeds():
@@ -124,6 +125,35 @@ def test_teardown_does_not_stop_when_join_succeeds():
 
 def test_teardown_none_is_noop():
     fx._teardown_extractor_pool(None)  # must not raise
+
+
+class _AlwaysHangingPool:
+    """Every join times out — even the post-stop reap (grandchild stuck in D-state).
+    Teardown must still return instead of blocking forever."""
+
+    def __init__(self):
+        self.closed = False
+        self.stopped = False
+        self.join_timeouts = []
+
+    def close(self):
+        self.closed = True
+
+    def join(self, timeout=None):
+        self.join_timeouts.append(timeout)
+        raise TimeoutError("never drains")
+
+    def stop(self):
+        self.stopped = True
+
+
+def test_teardown_bounds_post_stop_join_and_returns():
+    pool = _AlwaysHangingPool()
+    fx._teardown_extractor_pool(pool)  # must return, not hang
+    assert pool.stopped is True
+    # both the initial join AND the post-stop reap must be bounded (no None/unbounded).
+    assert len(pool.join_timeouts) == 2
+    assert all(t is not None for t in pool.join_timeouts)
 
 
 class _Task:

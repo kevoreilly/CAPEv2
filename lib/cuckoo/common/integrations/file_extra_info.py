@@ -436,6 +436,10 @@ _USE_SHARED_POOL = False
 # (the pebble task timeout only covers task execution, not teardown). Wait this
 # long for a graceful drain, then force-stop.
 EXTRACTOR_POOL_JOIN_TIMEOUT = 60
+# Shorter bound for the reap AFTER force-stop; stop() already SIGKILLed the workers,
+# so this only waits for the OS to reap them. Kept finite so a D-state straggler
+# can't wedge the worker even here.
+EXTRACTOR_POOL_STOP_JOIN_TIMEOUT = 5
 
 
 def _new_extractor_pool():
@@ -462,7 +466,13 @@ def _teardown_extractor_pool(pool):
                 EXTRACTOR_POOL_JOIN_TIMEOUT,
             )
             pool.stop()
-            pool.join()
+            # Bound the post-stop reap too: a grandchild wedged in uninterruptible
+            # (D-state) IO survives SIGKILL, so an unbounded join would still hang.
+            # Abandon after the bound — the process-group kill sweeps the rest.
+            try:
+                pool.join(timeout=EXTRACTOR_POOL_STOP_JOIN_TIMEOUT)
+            except Exception:
+                log.error("extractor pool did not reap after force-stop; abandoning (swept by process-group kill)")
     except Exception:
         log.debug("_teardown_extractor_pool: teardown raised", exc_info=True)
 

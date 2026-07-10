@@ -12,7 +12,6 @@ import platform
 import resource
 import signal
 import sys
-import time
 from contextlib import suppress
 
 log = logging.getLogger()
@@ -28,26 +27,21 @@ if sys.version_info[:2] < (3, 8):
     sys.exit(1)
 
 try:
-    import pebble
+    import pebble  # noqa: F401  # fail fast with a clear message if the dep is missing (engines import it)
 except ImportError:
     log.critical("Missed pebble dependency. Run: poetry install")
     sys.exit(1)
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
-from concurrent.futures import TimeoutError
 
-from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import get_options, option_dict_enabled
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.data.task import (
-    TASK_COMPLETED,
-    TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
-    TASK_REPORTED,
-    Task
+    TASK_REPORTED
 )
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules

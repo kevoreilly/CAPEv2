@@ -107,7 +107,8 @@ def test_timeout_kills_process_group_no_orphans(db, temp_pe32):
 
     def task_fn(task):
         # spawn a grandchild that would outlive the worker, then hang
-        import subprocess, sys
+        import subprocess
+        import sys
         subprocess.Popen([sys.executable, "-c",
                           "import time,os;open(%r,'w').close();time.sleep(120)" % marker])
         time.sleep(120)

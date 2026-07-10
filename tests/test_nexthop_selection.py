@@ -126,7 +126,7 @@ def test_gwx_loader_populates_and_coerces(monkeypatch):
     # as core_rooter.gateways unless replaced).  Clear it in place so both refs see the reset.
     startup.gateways.clear()
     monkeypatch.setattr(startup, "rooter", lambda cmd, *a, **k: recorded.append((cmd, a)) or {}, raising=False)
-    startup.load_nexthop_profiles(_FakeRouting())
+    startup.load_nexthop_profiles(_FakeRouting(), apply_rooter_state=True)
     # Check via startup.gateways (the dict the function mutated)
     assert "gw1" in startup.gateways
     assert startup.gateways["gw1"].rt_table == "201"   # coerced to str
@@ -376,7 +376,7 @@ def test_nexthop_intra_exception_installed_even_when_fail_closed_off(monkeypatch
     startup.gateways.clear()
     monkeypatch.setattr(startup, "vpns", {}, raising=False)
     monkeypatch.setattr(startup, "rooter", lambda cmd, *a, **k: recorded.append(cmd) or {}, raising=False)
-    startup.load_nexthop_profiles(_NexthopNoFailClosed())
+    startup.load_nexthop_profiles(_NexthopNoFailClosed(), apply_rooter_state=True)
     assert "nexthop_intra_exception_enable" in recorded
     assert "nexthop_fail_closed_enable" not in recorded
 
@@ -571,3 +571,28 @@ def test_fail_closed_table_collision_ignored_when_fail_closed_off(monkeypatch):
     monkeypatch.setattr(startup, "rooter", lambda *a, **k: {}, raising=False)
     startup.load_nexthop_profiles(_FailTableVpnOff())   # must NOT raise
     assert "gw1" in startup.gateways
+
+
+def test_web_startup_does_not_sweep_live_rules(monkeypatch):
+    # codex P2 (cross-process): the web/API process calls init_routing() -> load_nexthop_profiles with
+    # apply_rooter_state=False. It must parse+validate+populate gateways but issue NO rooter mutations,
+    # so a web/gunicorn restart cannot flush the scheduler's live per-task nexthop rules mid-analysis.
+    import lib.cuckoo.core.startup as startup
+    recorded = []
+    startup.gateways.clear()
+    monkeypatch.setattr(startup, "vpns", {}, raising=False)
+    monkeypatch.setattr(startup, "rooter", lambda cmd, *a, **k: recorded.append(cmd) or {}, raising=False)
+    startup.load_nexthop_profiles(_FakeRouting())   # default apply_rooter_state=False (web/vpncheck path)
+    assert "gw1" in startup.gateways   # parsed + populated (harmless)
+    assert recorded == []              # but NO rooter mutations
+
+
+def test_scheduler_startup_applies_rooter_state(monkeypatch):
+    # counterpart: the scheduler (apply_rooter_state=True) DOES sweep/build/arm.
+    import lib.cuckoo.core.startup as startup
+    recorded = []
+    startup.gateways.clear()
+    monkeypatch.setattr(startup, "vpns", {}, raising=False)
+    monkeypatch.setattr(startup, "rooter", lambda cmd, *a, **k: recorded.append(cmd) or {}, raising=False)
+    startup.load_nexthop_profiles(_FakeRouting(), apply_rooter_state=True)
+    assert "nexthop_teardown" in recorded and "nexthop_init" in recorded

@@ -84,7 +84,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     with Database().session.begin():
         init_tasks()
     init_rooter()
-    init_routing()
+    init_routing(apply_nexthop_state=True)  # scheduler owns the nexthop sweep/build/arm (codex P2)
     check_tcpdump_permissions()
 
     # This is just a temporary hack, we need an actual test suite to integrate with Travis-CI.

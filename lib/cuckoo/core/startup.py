@@ -89,10 +89,13 @@ _POLICY_TOKENS = ("roundrobin", "random")
 _RESERVED_RT_TABLES = ("local", "main", "default", "0", "253", "254", "255")
 
 
-def load_nexthop_profiles(routing_cfg):
-    """Parse [nexthop]/[gwX] sections into the rooter.gateways global, sweep stale
-    policy-routing state, then arm fail-closed.  No-op when [nexthop] is absent
-    or disabled (review M4 hasattr guard)."""
+def load_nexthop_profiles(routing_cfg, apply_rooter_state=False):
+    """Parse [nexthop]/[gwX] sections into the rooter.gateways global and validate them. When
+    apply_rooter_state is True (ONLY the scheduler's init_routing passes this), ALSO sweep stale
+    policy-routing state and build the gateway tables + arm fail-closed. Non-owning callers (the
+    web/API process via web.settings, and vpncheck) leave it False: they must NOT issue the rooter
+    sweep, which flushes the 10000-10255 per-task band and would tear down the egress/fail-closed of
+    analyses currently running under the scheduler (codex P2). No-op when [nexthop] absent/disabled."""
     if not hasattr(routing_cfg, "nexthop") or not routing_cfg.nexthop.enabled:
         return
     # [nexthop] is enabled: it MUST define gateways + vm_net (gemini #14 MEDIUM). CAPE's config
@@ -210,6 +213,11 @@ def load_nexthop_profiles(routing_cfg):
             f"[nexthop] default_policy '{default_policy}' must be 'roundrobin', 'random', or a configured "
             f"gateway id ({', '.join(sorted(gateway_ids))})"
         )
+    if not apply_rooter_state:
+        # Parsed + validated + gateways populated; skip ALL rooter mutations. Only the scheduler
+        # (cuckoo.py -> init_routing(apply_nexthop_state=True)) owns the sweep/build/arm -- doing it
+        # from the web/API startup would flush the per-task band and drop live analyses (codex P2).
+        return
     vm_net = str(routing_cfg.nexthop.vm_net)
     tables_csv = ",".join(p.rt_table for p in profiles)
     # Record sweep state for SIGTERM, then sweep any STALE state from a prior run
@@ -720,8 +728,12 @@ def init_rooter():
 
 
 
-def init_routing():
-    """Initialize and check whether the routing information is correct."""
+def init_routing(apply_nexthop_state=False):
+    """Initialize and check whether the routing information is correct.
+
+    apply_nexthop_state: only the SCHEDULER (cuckoo.py) passes True, to sweep+build+arm the nexthop
+    rooter state. The web/API process and vpncheck call this to populate vpns/socks5s/gateways and
+    validate config, but must leave it False so they don't tear down live analyses (codex P2)."""
 
     # Check whether all VPNs exist if configured and make their configuration
     # available through the vpns variable. Also enable NAT on each interface.
@@ -764,8 +776,9 @@ def init_routing():
                 rooter("flush_rttable", entry.rt_table)
                 rooter("init_rttable", entry.rt_table, entry.interface)
 
-    # Load [gwX] next-hop egress profiles, arm fail-closed (no-op when [nexthop] absent/disabled).
-    load_nexthop_profiles(routing)
+    # Load [gwX] next-hop egress profiles; apply rooter state (sweep/build/arm) only for the scheduler
+    # (no-op when [nexthop] absent/disabled).
+    load_nexthop_profiles(routing, apply_rooter_state=apply_nexthop_state)
 
     # If we are storage and webgui only but using as default route one of the workers exitnodes
     if dist_conf.distributed.master_storage_only:

@@ -6,11 +6,15 @@ is delegated to a pluggable ArtifactStore (lib/cuckoo/common/storage_backend.py)
 mode runs on any S3-compatible store (AWS/MinIO/Ceph) or a shared mount, with AWS purely
 config. Validated live on a CAPE box; the branch/seam logic here is the unit-testable part.
 """
+import logging
 import os
+from collections import OrderedDict
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.central_mode import central_mode_config
 from lib.cuckoo.common.storage_backend import get_artifact_store, ArtifactNotFound
+
+log = logging.getLogger(__name__)
 
 
 def _local_analysis_path(task_id, relpath):
@@ -33,8 +37,9 @@ def _safe_relpath(relpath):
 # the see-all path avoids N identical mongo lookups. We deliberately do NOT cache a tenant-SCOPED
 # resolution: that lookup is authorization-sensitive (a task's tenant/visibility can be reassigned),
 # so a process-lifetime cache could keep serving a job_id the caller may no longer see. Scoped lookups
-# always re-query. Only successful resolutions are cached; bounded so it can't grow unbounded.
-_JOB_ID_CACHE = {}
+# always re-query. Only successful resolutions are cached; a bounded LRU so the hot (recently viewed)
+# tasks stay cached and we evict one-at-a-time instead of dumping the whole cache at the threshold.
+_JOB_ID_CACHE = OrderedDict()  # most-recently-used at the end
 _JOB_ID_CACHE_MAX = 1024
 
 
@@ -57,6 +62,7 @@ def _job_id_for_task(task_id, scope=None):
     if use_cache:
         cached = _JOB_ID_CACHE.get(str(task_id))
         if cached is not None:
+            _JOB_ID_CACHE.move_to_end(str(task_id))  # mark most-recently-used
             return cached
 
     # filereport/full_memory routes capture task_id/analysis_number as \w+ (not \d+),
@@ -76,9 +82,10 @@ def _job_id_for_task(task_id, scope=None):
         raise Http404("no job_id mapping for task")
 
     if use_cache:
-        if len(_JOB_ID_CACHE) >= _JOB_ID_CACHE_MAX:
-            _JOB_ID_CACHE.clear()
         _JOB_ID_CACHE[str(task_id)] = job_id
+        _JOB_ID_CACHE.move_to_end(str(task_id))
+        if len(_JOB_ID_CACHE) > _JOB_ID_CACHE_MAX:
+            _JOB_ID_CACHE.popitem(last=False)  # evict least-recently-used
     return job_id
 
 
@@ -183,6 +190,8 @@ def ensure_local_analysis(task_id, scope=None, exclude_prefixes=("memory/", "mem
         # Everything else stays best-effort: leave whatever staged; the per-file seam still serves.
         if isinstance(e, Http404):
             raise
+        # ...but don't stay SILENT — S3 creds/permission/network failures otherwise vanish.
+        log.warning("central mode: failed to stage analysis %s: %s", task_id, e)
 
 
 def ensure_local_memory(task_id, scope=None):
@@ -199,9 +208,11 @@ def ensure_local_memory(task_id, scope=None):
     except Exception as e:
         from django.http import Http404
 
-        # Let a clean not-found propagate (view -> 404); swallow everything else (best-effort).
+        # Let a clean not-found propagate (view -> 404); log-then-swallow everything else so a
+        # staging failure (S3 creds/permission/network) is diagnosable rather than silent.
         if isinstance(e, Http404):
             raise
+        log.warning("central mode: failed to stage memory for analysis %s: %s", task_id, e)
 
 
 def artifact_exists(task_id, relpath, scope=None):

@@ -185,22 +185,23 @@ class S3Store(ArtifactStore):
             return ""
 
     def materialize(self, container, relpath):
+        # Whole body in one try so a mkstemp OSError (disk full / bad TEMP perms) can't escape and
+        # break the (None, False) contract the caller relies on.
+        tmp = None
         try:
             obj = self._client().get_object(Bucket=self.bucket, Key=self._key(container, relpath))
-        except Exception:
-            return (None, False)
-        fd, tmp = tempfile.mkstemp(prefix="cape_central_")
-        try:
+            fd, tmp = tempfile.mkstemp(prefix="cape_central_")
             with os.fdopen(fd, "wb") as f:
                 for c in obj["Body"].iter_chunks(65536):
                     f.write(c)
+            return (tmp, True)
         except Exception:
-            try:
-                os.unlink(tmp)
-            except OSError:
-                pass
+            if tmp is not None:
+                try:
+                    os.unlink(tmp)
+                except OSError:
+                    pass
             return (None, False)
-        return (tmp, True)
 
     def iter_relpaths(self, container):
         prefix = f"{container}/"

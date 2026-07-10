@@ -56,19 +56,26 @@ def _job_id_for_task(task_id):
             # comma-separated k=v pairs — take ONLY the job_id= value (not the rest of the
             # string), matching centralstore.resolve_job_id; a trailing ',foo=bar' would
             # otherwise corrupt the DynamoDB key / S3 prefix lookup.
-            for part in str(custom).split(","):
+            text = str(custom)
+            for part in text.split(","):
                 part = part.strip()
                 if part.startswith("job_id="):
                     v = part.split("=", 1)[1].strip()
                     if v:
                         return v
+            # Bare-token form (custom is just the job id) — kept in sync with
+            # centralstore.resolve_job_id, which also accepts a bare token for non-bridged tasks.
+            token = text.strip()
+            if token and "=" not in token and "," not in token:
+                return token
     except Exception:
         pass
     try:
         from dev_utils.mongodb import mongo_find_one
 
         doc = mongo_find_one("analysis", {"info.id": int(task_id)}, {"info.job_id": 1})
-        return (doc or {}).get("info", {}).get("job_id")
+        # info may be missing OR explicitly None ({"info": None}); coalesce both before .get.
+        return ((doc or {}).get("info") or {}).get("job_id")
     except Exception:
         return None
 

@@ -33,12 +33,18 @@ def central_job_id_for_task(task_id):
             # take ONLY the job_id= value, not everything to end-of-string — else a
             # 'job_id=ui-5,foo=bar' custom yields 'ui-5,foo=bar' and never matches the
             # S3 prefix / DocumentDB doc the artifacts were keyed under.
-            for part in str(custom).split(","):
+            text = str(custom)
+            for part in text.split(","):
                 part = part.strip()
                 if part.startswith("job_id="):
                     v = part.split("=", 1)[1].strip()
                     if v:
                         return v
+            # Bare-token form (custom is just the job id) — kept in sync with
+            # centralstore.resolve_job_id, which also accepts a bare token for non-bridged tasks.
+            token = text.strip()
+            if token and "=" not in token and "," not in token:
+                return token
     except Exception:
         pass
     return None

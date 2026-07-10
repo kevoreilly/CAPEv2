@@ -38,9 +38,18 @@ def test_web_facade_absent_is_see_all(monkeypatch):
     # ban_all_user_tasks views gate SOLELY on it, so the MT-absent fallback preserves
     # upstream's staff/superuser-only boundary (a see-all True would let any authenticated
     # user ban accounts on a single-node build). Deny a plain user; allow staff/superuser.
-    class _Plain: is_staff = False; is_superuser = False
-    class _Staff: is_staff = True; is_superuser = False
-    class _Super: is_staff = False; is_superuser = True
+    class _Plain:
+        is_staff = False
+        is_superuser = False
+
+    class _Staff:
+        is_staff = True
+        is_superuser = False
+
+    class _Super:
+        is_staff = False
+        is_superuser = True
+
     assert can_ban_user(_Plain(), 1) is False
     assert can_ban_user(_Staff(), 1) is True
     assert can_ban_user(_Super(), 1) is True

@@ -28,6 +28,14 @@ def _safe_relpath(relpath):
     return relpath
 
 
+# task_id -> job_id is immutable once a task is dispatched, and a single report/tab view resolves it
+# several times (each artifact_exists / stream call). Cache the resolution to avoid N identical mongo
+# lookups. Keyed by (task_id, scope) so a viewer's tenant filter can't leak another tenant's mapping.
+# Only successful resolutions are cached (failures re-query); bounded so it can't grow unbounded.
+_JOB_ID_CACHE = {}
+_JOB_ID_CACHE_MAX = 1024
+
+
 def _job_id_for_task(task_id, scope=None):
     """Central mode keys the store by the global job_id (the broker passes it in custom,
     stamped into info.job_id at reporting; centralstore re-keys info.id to the unique
@@ -41,6 +49,11 @@ def _job_id_for_task(task_id, scope=None):
     from dev_utils.mongodb import mongo_find_one
     from django.http import Http404
 
+    cache_key = (str(task_id), str(scope))
+    cached = _JOB_ID_CACHE.get(cache_key)
+    if cached is not None:
+        return cached
+
     # filereport/full_memory routes capture task_id/analysis_number as \w+ (not \d+),
     # so a non-numeric segment must raise Http404 (the views catch it -> clean error),
     # not an uncaught ValueError -> HTTP 500.
@@ -52,9 +65,14 @@ def _job_id_for_task(task_id, scope=None):
     if scope:
         query = {"$and": [query, scope]}
     doc = mongo_find_one("analysis", query, {"info.job_id": 1})
-    job_id = (doc or {}).get("info", {}).get("job_id")
+    # info may be missing OR explicitly None ({"info": None}); coalesce both to {} before .get.
+    job_id = ((doc or {}).get("info") or {}).get("job_id")
     if not job_id:
         raise Http404("no job_id mapping for task")
+
+    if len(_JOB_ID_CACHE) >= _JOB_ID_CACHE_MAX:
+        _JOB_ID_CACHE.clear()
+    _JOB_ID_CACHE[cache_key] = job_id
     return job_id
 
 
@@ -132,7 +150,9 @@ def ensure_local_analysis(task_id, scope=None, exclude_prefixes=("memory/", "mem
     seen, so a listing taken mid-upload isn't cached as complete. Excludes the large on-demand
     memory dumps (memory/ subtree + the root memory.dmp[.zip/.strings] full-RAM image) which
     would otherwise bloat every report view by GBs; they stage on demand via ensure_local_
-    memory / stream via materialize_artifact. No-op single-node. Best-effort: never raises."""
+    memory / stream via materialize_artifact. No-op single-node. Best-effort: swallows transient
+    errors (the per-file seam still serves downloads), but a clean Http404 propagates so a direct
+    view caller returns 404 rather than a broken page."""
     cfg = central_mode_config()
     if not cfg.enabled:
         return
@@ -146,23 +166,33 @@ def ensure_local_analysis(task_id, scope=None, exclude_prefixes=("memory/", "mem
         if complete:
             with open(marker, "w") as f:
                 f.write("staged")
-    except Exception:
-        # leave whatever was staged; the per-file seam still covers downloads
-        pass
+    except Exception as e:
+        from django.http import Http404
+
+        # A clean not-found (bad task id / no job_id mapping / out-of-scope) must propagate so a
+        # direct view caller (report/load_files) returns a 404 instead of rendering a broken page.
+        # Everything else stays best-effort: leave whatever staged; the per-file seam still serves.
+        if isinstance(e, Http404):
+            raise
 
 
 def ensure_local_memory(task_id, scope=None):
     """Central mode: stage the memory dumps (the memory/ per-process subtree AND the root
     memory.dmp[.zip/.strings] full-RAM image) — which ensure_local_analysis EXCLUDES from the
     bulk stage because they are large — to the local analysis dir, on EXPLICIT demand (the
-    memory-download endpoints). Idempotent per-file; not marker-gated. Best-effort."""
+    memory-download endpoints). Idempotent per-file; not marker-gated. Best-effort (a clean Http404
+    propagates so the view 404s; other errors are swallowed)."""
     cfg = central_mode_config()
     if not cfg.enabled:
         return
     try:
         _stage_tree(task_id, scope, want=lambda rel: rel.startswith("memory/") or rel.startswith("memory.dmp"))
-    except Exception:
-        pass
+    except Exception as e:
+        from django.http import Http404
+
+        # Let a clean not-found propagate (view -> 404); swallow everything else (best-effort).
+        if isinstance(e, Http404):
+            raise
 
 
 def artifact_exists(task_id, relpath, scope=None):

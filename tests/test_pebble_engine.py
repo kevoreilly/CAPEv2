@@ -31,6 +31,10 @@ def test_pebble_engine_processes_one_task(db, temp_pe32, tmp_path, monkeypatch):
         tid = db.add_path(temp_pe32)
         db.set_status(tid, TASK_COMPLETED)
 
+    # run() calls free_space_monitor(storage/analyses, ...), which sys.exit()s when
+    # that path doesn't exist (as in CI). Stub it — disk policy isn't under test here.
+    monkeypatch.setattr("lib.cuckoo.common.cleaners_utils.free_space_monitor", lambda *a, **k: None)
+
     sentinel = str(tmp_path / "ran.txt")
     monkeypatch.setenv("_PEBBLE_TEST_SENTINEL", sentinel)
 

@@ -1,4 +1,6 @@
 import os
+import subprocess
+import sys
 import threading
 import time
 
@@ -9,19 +11,32 @@ from lib.cuckoo.core.database import Database, init_database, reset_database_FOR
 from lib.cuckoo.core.processing_engine.prefork import PreforkEngine
 from lib.cuckoo.core.processing_engine.source import TaskSource
 
+_SUBPROC = os.path.join(os.path.dirname(os.path.abspath(__file__)), "_prefork_engine_subproc.py")
+
 
 @pytest.fixture
 def db_file(tmp_path):
     """File-backed SQLite fixture needed for fork tests: in-memory sqlite://
-    is per-connection so cross-process writes are invisible to the parent."""
+    is per-connection so cross-process writes are invisible to the parent.
+    Yields ``(db, dsn)`` so the isolated subprocess can open the same file."""
     dsn = f"sqlite:///{tmp_path}/test.db"
     reset_database_FOR_TESTING_ONLY()
     try:
         init_database(dsn=dsn)
         retval = Database()
-        yield retval
+        yield retval, dsn
     finally:
         reset_database_FOR_TESTING_ONLY()
+
+
+def _run_engine_subprocess(scenario, dsn, tid, aux="", timeout=60):
+    """Run PreforkEngine in a fresh single-threaded interpreter (the pytest process
+    is multi-threaded and cannot satisfy the single-threaded-before-fork invariant
+    nor safely fork). Returns the CompletedProcess."""
+    return subprocess.run(
+        [sys.executable, _SUBPROC, scenario, dsn, str(tid), aux],
+        capture_output=True, text=True, timeout=timeout,
+    )
 
 
 def test_single_threaded_invariant_raises_when_extra_thread(db):
@@ -63,101 +78,68 @@ def test_single_threaded_invariant_raises_on_kernel_thread_count(db, monkeypatch
 
 
 def test_normal_task_runs_and_status_set_by_child(db_file, temp_pe32):
-    with db_file.session.begin():
-        tid = db_file.add_path(temp_pe32)
-        db_file.set_status(tid, TASK_COMPLETED)
-
-    # child runs this; it must set status itself (child sets, supervisor overrides only on failure)
-    def task_fn(task):
-        # fresh DB connection in child (file-backed SQLite so the write is
-        # visible to the parent); must be wrapped in a transaction to commit
-        from lib.cuckoo.core.database import Database
-        db = Database()
-        with db.session.begin():
-            db.set_status(task.id, TASK_REPORTED)
-
-    eng = PreforkEngine(task_fn=task_fn, worker_init=lambda: None,
-                        source=TaskSource(db_file), parallel=2, timeout=30, max_count=1)
-    eng.run()
-    with db_file.session.begin():
-        assert db_file.view_task(tid).status == TASK_REPORTED
-
-
-def test_crashing_task_marked_failed_by_supervisor(db, temp_pe32):
+    db, dsn = db_file
     with db.session.begin():
         tid = db.add_path(temp_pe32)
         db.set_status(tid, TASK_COMPLETED)
 
-    def task_fn(task):
-        os._exit(3)  # simulate abnormal exit / crash
+    r = _run_engine_subprocess("normal", dsn, tid)
+    assert r.returncode == 0, r.stderr
 
-    eng = PreforkEngine(task_fn=task_fn, worker_init=lambda: None,
-                        source=TaskSource(db), parallel=2, timeout=30, max_count=1)
-    eng.run()
+    db.session.expire_all()  # subprocess wrote via a separate connection; drop cached rows
     with db.session.begin():
-        assert db.view_task(tid).status == TASK_FAILED_PROCESSING
+        assert db.view_task(tid).status == TASK_REPORTED
 
 
-def test_timeout_kills_process_group_no_orphans(db, temp_pe32):
+def test_crashing_task_marked_failed_by_supervisor(db_file, temp_pe32):
+    db, dsn = db_file
     with db.session.begin():
         tid = db.add_path(temp_pe32)
         db.set_status(tid, TASK_COMPLETED)
 
-    marker = "/tmp/prefork_orphan_%d" % os.getpid()
+    r = _run_engine_subprocess("crash", dsn, tid)
+    assert r.returncode == 0, r.stderr
 
-    def task_fn(task):
-        # spawn a grandchild that would outlive the worker, then hang
-        import subprocess
-        import sys
-        subprocess.Popen([sys.executable, "-c",
-                          "import time,os;open(%r,'w').close();time.sleep(120)" % marker])
-        time.sleep(120)
-
-    eng = PreforkEngine(task_fn=task_fn, worker_init=lambda: None, source=TaskSource(db),
-                        parallel=1, timeout=1, term_grace=1, max_count=1, poll_interval=0.1)
-    if os.path.exists(marker):
-        os.unlink(marker)
-    eng.run()
-
+    db.session.expire_all()
     with db.session.begin():
         assert db.view_task(tid).status == TASK_FAILED_PROCESSING
 
-    # grandchild must have been swept by killpg (give it a moment)
-    time.sleep(2)
-    # Sanity: the grandchild must have started and written the marker
-    # before being killed; otherwise the pgrep check below would pass vacuously.
+
+def test_timeout_kills_process_group_no_orphans(db_file, temp_pe32, tmp_path):
+    db, dsn = db_file
+    with db.session.begin():
+        tid = db.add_path(temp_pe32)
+        db.set_status(tid, TASK_COMPLETED)
+
+    marker = str(tmp_path / "orphan_marker")
+    r = _run_engine_subprocess("timeout", dsn, tid, aux=marker, timeout=60)
+    assert r.returncode == 0, r.stderr
+
+    db.session.expire_all()
+    with db.session.begin():
+        assert db.view_task(tid).status == TASK_FAILED_PROCESSING
+
+    # Sanity: the grandchild must have started (written the marker) or the orphan
+    # check below would pass vacuously.
     assert os.path.exists(marker), "grandchild never started — test is vacuous"
-    import subprocess
+    time.sleep(2)  # give any survivor a chance to appear
     out = subprocess.run(["pgrep", "-f", marker], capture_output=True, text=True)
     assert out.stdout.strip() == "", "orphaned grandchild survived killpg"
-    if os.path.exists(marker):
-        os.unlink(marker)
 
 
-def test_worker_init_called_in_child(db_file, temp_pe32):
-    with db_file.session.begin():
-        tid = db_file.add_path(temp_pe32)
-        db_file.set_status(tid, TASK_COMPLETED)
-    flag = "/tmp/prefork_winit_ran_%d" % os.getpid()
+def test_worker_init_called_in_child(db_file, temp_pe32, tmp_path):
+    db, dsn = db_file
+    with db.session.begin():
+        tid = db.add_path(temp_pe32)
+        db.set_status(tid, TASK_COMPLETED)
 
-    def worker_init():
-        open(flag, "w").close()
+    flag = str(tmp_path / "winit_flag")
+    # The subprocess's task_fn asserts the flag exists before setting status, so a
+    # REPORTED result proves worker_init ran before task_fn in the child.
+    r = _run_engine_subprocess("worker_init", dsn, tid, aux=flag)
+    assert r.returncode == 0, r.stderr
 
-    def task_fn(task):
-        assert os.path.exists(flag), "worker_init must run before task_fn in child"
-        from lib.cuckoo.core.database import Database
-        db = Database()
-        with db.session.begin():
-            db.set_status(task.id, TASK_REPORTED)
-
-    if os.path.exists(flag):
-        os.unlink(flag)
-    try:
-        eng = PreforkEngine(task_fn=task_fn, worker_init=worker_init, source=TaskSource(db_file),
-                            parallel=1, timeout=30, max_count=1)
-        eng.run()
-        with db_file.session.begin():
-            assert db_file.view_task(tid).status == TASK_REPORTED
-    finally:
-        if os.path.exists(flag):
-            os.unlink(flag)
+    assert os.path.exists(flag), "worker_init did not run"
+    db.session.expire_all()
+    with db.session.begin():
+        assert db.view_task(tid).status == TASK_REPORTED

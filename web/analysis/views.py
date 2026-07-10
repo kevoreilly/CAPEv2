@@ -1726,6 +1726,14 @@ def load_files(request, task_id, category):
     @param task_id: cuckoo task id
     """
     is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    # Central mode: several tab loaders below read the local analysis tree (bingraph /
+    # vba2graph svgs, evtx.zip, ETW aux/*.json). report() stages the S3 tree on first
+    # view, but a deep-link straight to a tab can arrive before any report view — stage
+    # here too so those tabs aren't blank (cheap no-op once .central_staged exists).
+    from lib.cuckoo.common.central_mode import central_mode_config
+    if central_mode_config().enabled:
+        from analysis.central_views import central_stage_local
+        central_stage_local(request, task_id)
     if is_ajax and category in (
         "CAPE",
         "dropped",
@@ -1928,18 +1936,30 @@ def load_files(request, task_id, category):
             ajax_response["suricata"] = data.get("suricata", {})
             ajax_response["cif"] = data.get("cif", [])
             ajax_response["pcapng"] = data.get("pcapng", {})
-            tls_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "tlsdump", "tlsdump.log")
-            if _path_safe(tls_path):
-                ajax_response["tlskeys_exists"] = _path_safe(tls_path)
-            mitmdump_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "mitmdump", "dump.har")
-            if _path_safe(mitmdump_path):
-                ajax_response["mitmdump_exists"] = _path_safe(mitmdump_path)
-            decrypted_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_decrypted.pcap")
-            if _path_safe(decrypted_pcap_path):
-                ajax_response["decrypted_pcap_exists"] = True
-            mixed_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_mixed.pcap")
-            if _path_safe(mixed_pcap_path):
-                ajax_response["mixed_pcap_exists"] = True
+            from lib.cuckoo.common.central_mode import central_mode_config
+            if central_mode_config().enabled:
+                # Central: artifacts live in S3, not the local FS — check existence there
+                # (a local check hides links for files the worker actually produced).
+                from lib.cuckoo.common.artifact_storage import artifact_exists
+                from analysis.central_scope import viewer_scope
+                _sc = viewer_scope(request.user)
+                ajax_response["tlskeys_exists"] = artifact_exists(task_id, "tlsdump/tlsdump.log", scope=_sc)
+                ajax_response["mitmdump_exists"] = artifact_exists(task_id, "mitmdump/dump.har", scope=_sc)
+                ajax_response["decrypted_pcap_exists"] = artifact_exists(task_id, "dump_decrypted.pcap", scope=_sc)
+                ajax_response["mixed_pcap_exists"] = artifact_exists(task_id, "dump_mixed.pcap", scope=_sc)
+            else:
+                tls_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "tlsdump", "tlsdump.log")
+                if _path_safe(tls_path):
+                    ajax_response["tlskeys_exists"] = _path_safe(tls_path)
+                mitmdump_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "mitmdump", "dump.har")
+                if _path_safe(mitmdump_path):
+                    ajax_response["mitmdump_exists"] = _path_safe(mitmdump_path)
+                decrypted_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_decrypted.pcap")
+                if _path_safe(decrypted_pcap_path):
+                    ajax_response["decrypted_pcap_exists"] = True
+                mixed_pcap_path = os.path.join(ANALYSIS_BASE_PATH, "analyses", str(task_id), "dump_mixed.pcap")
+                if _path_safe(mixed_pcap_path):
+                    ajax_response["mixed_pcap_exists"] = True
         elif category == "behavior":
             ajax_response["detections2pid"] = data.get("detections2pid", {})
         return render(request, page, ajax_response)
@@ -2657,6 +2677,15 @@ def split_signature_calls(report):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
+    # Central mode: the analysis tree lives in S3, not on this node's disk. Stage it
+    # locally (once, cached, excluding huge memory dumps) so EVERY report feature that
+    # reads the local filesystem renders against the original UI without porting each
+    # reader to S3. Loaded before the tab AJAX (load_files/load_evtx) fires.
+    from lib.cuckoo.common.central_mode import central_mode_config
+    if central_mode_config().enabled:
+        from lib.cuckoo.common.artifact_storage import ensure_local_analysis
+        from analysis.central_scope import viewer_scope
+        ensure_local_analysis(task_id, scope=viewer_scope(request.user))
     network_report = {}
     report = {}
     if enabledconf["mongodb"]:
@@ -2695,9 +2724,17 @@ def report(request, task_id):
             for service in CUSTOM_SERVICES:
                 projection[service] = 1
 
+        from lib.cuckoo.common.central_mode import central_mode_config
+        if central_mode_config().enabled:
+            from analysis.central_views import central_analysis_query
+            from analysis.central_scope import viewer_scope
+            _analysis_q = central_analysis_query(task_id, scope=viewer_scope(request.user))
+        else:
+            _analysis_q = {"info.id": int(task_id)}
+
         report = mongo_find_one(
             "analysis",
-            {"info.id": int(task_id)},
+            _analysis_q,
             projection,
             sort=[("_id", -1)],
             max_time_ms=10000,
@@ -2708,7 +2745,7 @@ def report(request, task_id):
         # Bypass hooks here too
         existence = mongo_find_one(
             "analysis",
-            {"info.id": int(task_id)},
+            _analysis_q,
             {"sigma": 1, "sysmon": 1, "misp": 1, "classification": 1, "_id": 0},
             no_hooks=True,
         )
@@ -3114,6 +3151,13 @@ def load_evtx_channel_count(request, task_id):
 # under SSO deployments) doesn't 401 the in-browser fetches.
 @authentication_classes([SessionAuthentication])
 def file_nl(request, category, task_id, dlfile):
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_views import central_file_nl
+
+        return central_file_nl(request, category, task_id, dlfile)
+
     base_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
     path = False
     if category == "screenshot":
@@ -3223,6 +3267,33 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
 # of dropped files, payloads, etc. via session cookie auth.
 @authentication_classes([SessionAuthentication])
 def file(request, category, task_id, dlfile):
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_views import central_file, central_stage_local, central_stage_one, _task_sample_sha256
+
+        # Zip-on-the-fly bundles read the local analysis tree and archive it (pyzipper,
+        # optional password, download_all). Rather than duplicate that in the per-file S3
+        # seam, stage the S3 tree locally and fall through to the upstream zip path below
+        # unchanged. Single-file downloads keep the efficient per-file seam.
+        if category in zip_categories:
+            central_stage_local(request, task_id)
+            # Two zip categories read paths the bulk stage does NOT populate: memdumpzip
+            # reads memory/ (excluded — large), staticzip reads the global binaries store
+            # (outside the analysis tree). Stage the one file each needs so the upstream
+            # zip path finds it instead of silently returning "File not found".
+            if category.startswith("memdumpzip"):
+                central_stage_one(request, task_id, f"memory/{dlfile}.dmp",
+                                  os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "memory", f"{dlfile}.dmp"))
+            elif category == "staticzip" and _task_sample_sha256(request, task_id) == str(dlfile).lower():
+                # only the task's OWN sample is in central S3 (<job_id>/binary); stage it
+                # to the binaries path upstream reads, gated to the task's sample hash so
+                # a non-matching hash can't be written under the wrong name (see S2).
+                central_stage_one(request, task_id, "binary",
+                                  os.path.join(CUCKOO_ROOT, "storage", "binaries", str(dlfile)))
+        else:
+            return central_file(request, category, task_id, dlfile)
+
     file_name = dlfile
     cd = "application/octet-stream"
     path = ""
@@ -3436,20 +3507,29 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
     if es_as_db:
         analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
 
-    dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
+    from lib.cuckoo.common.central_mode import central_mode_config
 
-    if not _path_safe(dumpfile):
-        return render(request, "error.html", {"error": f"File not found: {os.path.basename(dumpfile)}"})
+    if central_mode_config().enabled:
+        from analysis.central_views import central_open_procdump
 
-    if not path_exists(dumpfile):
-        dumpfile += ".zip"
-        if not path_exists(dumpfile):
+        dumpfile, tmp_file_path, tmpdir = central_open_procdump(request, task_id, origname)
+        if not dumpfile:
             return render(request, "error.html", {"error": "File not found"})
-        f = zipfile.ZipFile(dumpfile, "r")
-        tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=settings.TEMP_PATH)
-        tmp_file_path = f.extract(origname, path=tmpdir)
-        f.close()
-        dumpfile = tmp_file_path
+    else:
+        dumpfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "memory", origname)
+
+        if not _path_safe(dumpfile):
+            return render(request, "error.html", {"error": f"File not found: {os.path.basename(dumpfile)}"})
+
+        if not path_exists(dumpfile):
+            dumpfile += ".zip"
+            if not path_exists(dumpfile):
+                return render(request, "error.html", {"error": "File not found"})
+            f = zipfile.ZipFile(dumpfile, "r")
+            tmpdir = tempfile.mkdtemp(prefix="capeprocdump_", dir=settings.TEMP_PATH)
+            tmp_file_path = f.extract(origname, path=tmpdir)
+            f.close()
+            dumpfile = tmp_file_path
 
     content_type = "application/octet-stream"
 
@@ -3527,13 +3607,31 @@ def filereport(request, task_id, category):
     }
 
     if category in formats:
-        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports", formats[category])
+        fname = formats[category]
+
+        # Central mode: serve the report file from S3 via the FS->S3 seam. Single-node
+        # path below is unchanged (the seam returns the local file when central is off).
+        from lib.cuckoo.common.central_mode import central_mode_config
+
+        if central_mode_config().enabled:
+            from django.http import Http404
+
+            from analysis.central_scope import viewer_scope
+            from lib.cuckoo.common.artifact_storage import artifact_response
+
+            scope = viewer_scope(request.user)  # tenant-scope the central lookup (audit HIGH)
+            try:
+                return artifact_response(task_id, f"reports/{fname}", "application/octet-stream", f"{task_id}_{fname}", scope=scope)
+            except Http404:
+                return render(request, "error.html", {"error": f"File not found: {fname}"})
+
+        path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "reports", fname)
 
         if not _path_safe(path) or not path_exists(path):
-            return render(request, "error.html", {"error": f"File not found: {formats[category]}"})
+            return render(request, "error.html", {"error": f"File not found: {fname}"})
 
         response = HttpResponse(Path(path).read_bytes(), content_type="application/octet-stream")
-        response["Content-Disposition"] = f"attachment; filename={task_id}_{formats[category]}"
+        response["Content-Disposition"] = f"attachment; filename={task_id}_{fname}"
         return response
 
     return render(request, "error.html", {"error": "File not found"}, status=404)
@@ -3542,6 +3640,13 @@ def filereport(request, task_id, category):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_file(request, analysis_number):
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_views import central_full_memory_dump
+
+        return central_full_memory_dump(request, analysis_number, ("memory.dmp", "memory.dmp.zip"))
+
     filename = False
     for name in ("memory.dmp", "memory.dmp.zip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), name)
@@ -3562,6 +3667,13 @@ def full_memory_dump_file(request, analysis_number):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def full_memory_dump_strings(request, analysis_number):
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_views import central_full_memory_dump
+
+        return central_full_memory_dump(request, analysis_number, ("memory.dmp.strings", "memory.dmp.strings.zip"))
+
     filename = None
     for name in ("memory.dmp.strings", "memory.dmp.strings.zip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(analysis_number), name)
@@ -3755,6 +3867,13 @@ def remove(request, task_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pcapstream(request, task_id, conntuple):
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_views import central_pcapstream
+
+        return central_pcapstream(request)
+
     src, sport, dst, dport, proto = conntuple.split(",")
     sport, dport = int(sport), int(dport)
 
@@ -3844,6 +3963,13 @@ def comments(request, task_id):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def vtupload(request, category, task_id, filename, dlfile):
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_views import central_vtupload
+
+        return central_vtupload(request, category, task_id, filename, dlfile)
+
     if enabledconf["vtupload"] and integrations_cfg.virustotal.apikey:
         try:
             folder_name = False
@@ -3926,6 +4052,12 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     # 3. store results
     # 4. reload page
     """
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_views import central_on_demand
+
+        return central_on_demand(request)
 
     if service in CUSTOM_SERVICES:
         pass
@@ -4196,34 +4328,40 @@ def hunt(request):
         start_date = (datetime.datetime.utcnow() - delta).strftime("%Y-%m-%d %H:%M:%S")
         match_query["info.started"] = {"$gte": start_date}
 
-    # Dynamic multi-category aggregation
-    facet_stages = {}
-    for cat_id, cat_config in HUNT_MAP.items():
-        if categories[cat_id]:
-            stages = []
-            if cat_config["db_unwind"]:
-                stages.append({"$unwind": cat_config["db_unwind"]})
-            stages.extend([
-                {"$group": {"_id": cat_config["db_group"], "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
-                {"$match": cat_config.get("db_match", {"count": {"$gte": min_count}})},
-                {"$sort": {"count": -1}},
-                {"$limit": 100}
-            ])
-            facet_stages[cat_id] = stages
+    # Tenant isolation: restrict the docs the aggregation sees to the viewer's
+    # entitled scopes (no-op for break-glass / shared / multitenancy-disabled).
+    from analysis.central_scope import viewer_scope
+    from lib.cuckoo.common.central_mode import central_mode_config
+    from lib.cuckoo.common.hunt_query import build_hunt_facets
 
-    # MongoDB Pipeline using $facet for multi-category aggregation
-    pipeline = [
-        {"$match": match_query}
-    ]
-    if facet_stages:
-        pipeline.append({"$facet": facet_stages})
+    _scope = viewer_scope(request.user)
+    _match = {"$and": [match_query, _scope]} if _scope else match_query
 
     try:
-        if facet_stages:
-            res = list(mongo_aggregate("analysis", pipeline))
-            facets = res[0] if res else {}
+        if central_mode_config().enabled:
+            # Amazon DocumentDB rejects $facet -> per-category $group loop. Same
+            # result shape as the single-node $facet path below.
+            facets = build_hunt_facets(mongo_aggregate, _match, HUNT_MAP, categories, min_count)
         else:
+            # Single-node: preserve the original single-$facet pipeline byte-for-byte
+            # (only the toggle changes single-node behavior).
+            facet_stages = {}
+            for cat_id, cat_config in HUNT_MAP.items():
+                if categories[cat_id]:
+                    stages = []
+                    if cat_config["db_unwind"]:
+                        stages.append({"$unwind": cat_config["db_unwind"]})
+                    stages.extend([
+                        {"$group": {"_id": cat_config["db_group"], "count": {"$sum": 1}, "task_ids": {"$addToSet": "$info.id"}}},
+                        {"$match": cat_config.get("db_match", {"count": {"$gte": min_count}})},
+                        {"$sort": {"count": -1}},
+                        {"$limit": 100},
+                    ])
+                    facet_stages[cat_id] = stages
             facets = {}
+            if facet_stages:
+                res = list(mongo_aggregate("analysis", [{"$match": _match}, {"$facet": facet_stages}]))
+                facets = res[0] if res else {}
     except Exception as e:
         return render(request, "error.html", {"error": f"Threat hunting aggregation failed: {e}"})
 

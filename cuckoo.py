@@ -83,7 +83,7 @@ def cuckoo_init(quiet=False, debug=False, artwork=False, test=False):
     init_modules()
     with Database().session.begin():
         init_tasks()
-    init_rooter()
+    init_rooter(apply_state=True)  # scheduler owns the rooter state reset (codex P1)
     init_routing(apply_nexthop_state=True)  # scheduler owns the nexthop sweep/build/arm (codex P2)
     check_tcpdump_permissions()
 

@@ -640,9 +640,14 @@ def check_snapshot_state():
             conn.close()
 
 
-def init_rooter():
-    """If required, check whether the rooter is running and whether we can
-    connect to it."""
+def init_rooter(apply_state=False):
+    """If required, check whether the rooter is running and whether we can connect to it.
+
+    apply_state: only the SCHEDULER (cuckoo.py) passes True, to RESET rooter state at its startup
+    (cleanup_rooter / cleanup_vrf / forward_drop / state_*). The web/API process and vpncheck verify
+    the rooter is reachable but must leave it False -- running cleanup_rooter cross-process would
+    remove the live per-task nexthop (and VPN) iptables rules of analyses owned by the scheduler
+    (codex P1). Reachability is still checked for all callers (fail-fast if the rooter is required)."""
 
     # The default configuration doesn't require the rooter to be ran.
     # A nexthop-only node still needs the rooter for forward_drop() + fail-closed arm.
@@ -691,6 +696,12 @@ def init_rooter():
             )
 
         raise CuckooStartupError(f"Unknown rooter error: {e}")
+
+    if not apply_state:
+        # Reachability verified above; do NOT reset rooter state. cleanup_rooter/forward_drop/state_*
+        # would tear down the scheduler's live per-task nexthop (and VPN) rules on a web/API/gunicorn
+        # restart (codex P1). Only the scheduler (init_rooter(apply_state=True)) owns that reset.
+        return
 
     rooter("cleanup_rooter")
     rooter("cleanup_vrf", routing.routing.internet)

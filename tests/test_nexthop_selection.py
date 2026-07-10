@@ -596,3 +596,48 @@ def test_scheduler_startup_applies_rooter_state(monkeypatch):
     monkeypatch.setattr(startup, "rooter", lambda cmd, *a, **k: recorded.append(cmd) or {}, raising=False)
     startup.load_nexthop_profiles(_FakeRouting(), apply_rooter_state=True)
     assert "nexthop_teardown" in recorded and "nexthop_init" in recorded
+
+
+def test_init_rooter_web_does_not_reset_state(monkeypatch):
+    # codex P1: init_rooter() is called by the web/API (web.settings) BEFORE init_routing. On a
+    # nexthop-enabled node it now connects, but must NOT run cleanup_rooter/forward_drop/state_* --
+    # those remove the scheduler's live per-task iptables rules on a web/gunicorn restart. Only the
+    # scheduler (init_rooter(apply_state=True)) resets rooter state.
+    import lib.cuckoo.core.startup as startup
+
+    class _FakeSock:
+        def connect(self, *a):
+            pass
+
+    class _R:
+        class vpn:
+            enabled = False
+
+        class tor:
+            enabled = False
+
+        class inetsim:
+            enabled = False
+
+        class socks5:
+            enabled = False
+
+        class routing:
+            route = "none"
+            internet = "none"
+
+        class nexthop:
+            enabled = True
+
+    monkeypatch.setattr(startup.socket, "socket", lambda *a, **k: _FakeSock())
+    monkeypatch.setattr(startup, "routing", _R, raising=False)
+    monkeypatch.setattr(startup.subprocess, "run",
+                        lambda *a, **k: type("P", (), {"returncode": 1, "stdout": "", "stderr": ""})())
+    recorded = []
+    monkeypatch.setattr(startup, "rooter", lambda cmd, *a, **k: recorded.append(cmd) or {"output": True}, raising=False)
+
+    startup.init_rooter()   # web path (apply_state=False)
+    assert recorded == []   # reachability checked, but NO state-reset mutations
+
+    startup.init_rooter(apply_state=True)   # scheduler path
+    assert "cleanup_rooter" in recorded and "forward_drop" in recorded

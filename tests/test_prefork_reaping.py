@@ -70,3 +70,20 @@ def test_enforce_timeouts_falls_back_to_kill_when_killpg_missing(monkeypatch):
     assert child.timed_out is True
     assert (222, signal.SIGTERM) in killed, "must fall back to os.kill(pid) when killpg raises ProcessLookupError"
     assert child.kill_deadline is not None, "kill_deadline must be set so SIGKILL escalation still runs"
+
+
+def test_escalate_kills_falls_back_to_kill_when_killpg_missing(monkeypatch):
+    eng = _engine()
+    child = _Child(task_id=3, pid=333, start=0.0, pgid=333)
+    child.timed_out = True
+    child.kill_deadline = -1.0  # deadline already passed -> escalate now
+    eng._inflight[333] = child
+
+    killed = []
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: (_ for _ in ()).throw(ProcessLookupError()))
+    monkeypatch.setattr(os, "kill", lambda pid, sig: killed.append((pid, sig)))
+
+    eng._escalate_kills()
+
+    assert (333, signal.SIGKILL) in killed, "SIGKILL must fall back to os.kill(pid) when killpg raises ProcessLookupError"
+    assert child.kill_deadline is None

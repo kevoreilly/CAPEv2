@@ -173,7 +173,12 @@ class PreforkEngine(ProcessingEngine):
                 try:
                     os.killpg(child.pgid, signal.SIGKILL)
                 except ProcessLookupError:
-                    pass
+                    # Group may not exist (child hung before os.setsid()); signal the
+                    # pid directly so a hung child can't leak. Mirrors _enforce_timeouts.
+                    try:
+                        os.kill(child.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
                 except OSError as e:
                     log.warning("prefork: killpg(SIGKILL) failed for task %d (pid %d): %s",
                                 child.task_id, child.pid, e)

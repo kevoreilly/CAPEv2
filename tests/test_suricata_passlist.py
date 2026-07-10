@@ -16,7 +16,7 @@ import os
 import sys
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
-sys.path.append(CUCKOO_ROOT)
+sys.path.insert(0, CUCKOO_ROOT)
 
 from data.safelist.domains import domain_passlist_re
 from modules.processing.suricata import Suricata

@@ -12,7 +12,7 @@ import os
 import sys
 
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
-sys.path.append(CUCKOO_ROOT)
+sys.path.insert(0, CUCKOO_ROOT)
 
 
 def test_network_import_does_not_mutate_shared_passlist():

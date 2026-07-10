@@ -121,15 +121,19 @@ comment_re = re.compile(r"\s*#.*")
 # also removes the per-event recompile cost in the match loops below.
 dns_passlist_re = []
 for pattern in domain_passlist_re:
-    with suppress(re.error):
+    try:
         dns_passlist_re.append(re.compile(pattern))
+    except re.error:
+        log.warning("Network: invalid base passlist regex %r; skipping", pattern)
 if enabled_passlist and passlist_file:
     f = path_read_file(os.path.join(CUCKOO_ROOT, passlist_file), mode="text")
     for domain in f.splitlines():
         domain = comment_re.sub("", domain).strip()
         if domain:
-            with suppress(re.error):
+            try:
                 dns_passlist_re.append(re.compile(domain))
+            except re.error:
+                log.warning("Network: invalid passlist domain regex %r; skipping", domain)
 
 ip_passlist = set()
 network_passlist = []
@@ -1005,6 +1009,7 @@ class Pcap2:
                 for reject in dns_passlist_re:
                     if hostname and reject.search(hostname):
                         included_to_passlist = True
+                        break
 
                 if included_to_passlist:
                     continue

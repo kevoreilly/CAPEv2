@@ -64,7 +64,9 @@ def _worker_init_task(task):
 
 
 def main():
-    scenario, dsn, tid, aux = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
+    # argv[3] is the task id; the engine fetches tasks from the DB itself, so the
+    # helper doesn't use it (it's there for a uniform parent-side call signature).
+    scenario, dsn, _tid, aux = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
     os.environ[_AUX_ENV] = aux
     init_database(dsn=dsn)
     src = TaskSource(Database())

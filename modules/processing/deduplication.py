@@ -60,12 +60,7 @@ from lib.cuckoo.common.path_utils import path_exists
 
 
 def reindex_screenshots(shots_path):
-    # Sort by modification time so interleaved capture sources (guest JPGs
-    # with 4-digit padded names and host PNGs with unpadded integer names)
-    # end up in true chronological order after renumbering.
-    entries = os.listdir(shots_path)
-    entries.sort(key=lambda f: os.path.getmtime(os.path.join(shots_path, f)))
-    for i, cur_basename in enumerate(entries):
+    for i, cur_basename in enumerate(sorted(os.listdir(shots_path))):
         extension = os.path.splitext(cur_basename)[-1]
         new_basename = "%s%s" % (str(i).rjust(4, "0"), extension)
         log.debug("renaming %s to %s", cur_basename, new_basename)

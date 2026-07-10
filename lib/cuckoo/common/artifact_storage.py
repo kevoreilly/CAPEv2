@@ -28,10 +28,12 @@ def _safe_relpath(relpath):
     return relpath
 
 
-# task_id -> job_id is immutable once a task is dispatched, and a single report/tab view resolves it
-# several times (each artifact_exists / stream call). Cache the resolution to avoid N identical mongo
-# lookups. Keyed by (task_id, scope) so a viewer's tenant filter can't leak another tenant's mapping.
-# Only successful resolutions are cached (failures re-query); bounded so it can't grow unbounded.
+# Cache ONLY the unscoped resolution. task_id -> job_id is immutable once a task is dispatched, and a
+# single report/tab view resolves it several times (each artifact_exists / stream call), so caching
+# the see-all path avoids N identical mongo lookups. We deliberately do NOT cache a tenant-SCOPED
+# resolution: that lookup is authorization-sensitive (a task's tenant/visibility can be reassigned),
+# so a process-lifetime cache could keep serving a job_id the caller may no longer see. Scoped lookups
+# always re-query. Only successful resolutions are cached; bounded so it can't grow unbounded.
 _JOB_ID_CACHE = {}
 _JOB_ID_CACHE_MAX = 1024
 
@@ -49,10 +51,13 @@ def _job_id_for_task(task_id, scope=None):
     from dev_utils.mongodb import mongo_find_one
     from django.http import Http404
 
-    cache_key = (str(task_id), str(scope))
-    cached = _JOB_ID_CACHE.get(cache_key)
-    if cached is not None:
-        return cached
+    # Only the unscoped (see-all / MT-absent / break-glass) path is cache-safe — see the note on
+    # _JOB_ID_CACHE. A present scope is authorization-sensitive, so never cache/serve it.
+    use_cache = not scope
+    if use_cache:
+        cached = _JOB_ID_CACHE.get(str(task_id))
+        if cached is not None:
+            return cached
 
     # filereport/full_memory routes capture task_id/analysis_number as \w+ (not \d+),
     # so a non-numeric segment must raise Http404 (the views catch it -> clean error),
@@ -70,9 +75,10 @@ def _job_id_for_task(task_id, scope=None):
     if not job_id:
         raise Http404("no job_id mapping for task")
 
-    if len(_JOB_ID_CACHE) >= _JOB_ID_CACHE_MAX:
-        _JOB_ID_CACHE.clear()
-    _JOB_ID_CACHE[cache_key] = job_id
+    if use_cache:
+        if len(_JOB_ID_CACHE) >= _JOB_ID_CACHE_MAX:
+            _JOB_ID_CACHE.clear()
+        _JOB_ID_CACHE[str(task_id)] = job_id
     return job_id
 
 
@@ -113,7 +119,10 @@ def _stage_tree(task_id, scope, want):
     local storage/analyses/<task_id>/ tree so the MANY report features that read the local
     filesystem work centrally without rewriting each reader. `want(rel) -> bool` selects which
     relpaths to stage. Returns True iff the .centralstore.done completion marker was seen.
-    Best-effort: never raises. No-op single-node (caller guards)."""
+    Per-file copy errors are swallowed (best-effort), BUT _store_and_container() may raise Http404
+    (bad task id / no job_id mapping / out-of-scope) and that PROPAGATES so a caller can return a
+    clean 404; callers that want pure best-effort must catch it (ensure_local_* do). No-op
+    single-node (caller guards)."""
     store, container = _store_and_container(task_id, scope)
     local = _local_analysis_path(task_id, "")
     os.makedirs(local, exist_ok=True)

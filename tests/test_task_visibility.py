@@ -183,8 +183,12 @@ def test_set_task_visibility_syncs_mongo(db, monkeypatch):
     import lib.cuckoo.core.data.tasking as tk
     # Sync only runs when mongo is the enabled report store; force it on for the test.
     monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
-    monkeypatch.setattr(tk, "mongo_update_one",
-                        lambda *a, **k: calls.append((a, k)), raising=False)
+
+    def _rec(*a, **k):
+        calls.append((a, k))
+        return object()  # UpdateResult stand-in — a successful update returns non-None
+
+    monkeypatch.setattr(tk, "mongo_update_one", _rec, raising=False)
     tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
     db.set_task_visibility(tid, "public")
     assert calls and calls[-1][0][0] == "analysis"  # updated the analysis collection
@@ -193,16 +197,15 @@ def test_set_task_visibility_syncs_mongo(db, monkeypatch):
 def test_set_task_visibility_raises_on_persistent_mongo_failure(db, monkeypatch):
     """Finding #10: a persistent mongo-sync failure must be surfaced (raised), not
     swallowed — else a stale public stamp after a private toggle silently keeps the
-    analysis cross-tenant visible in the aggregate/search/stats surfaces."""
+    analysis cross-tenant visible in the aggregate/search/stats surfaces. mongo's
+    graceful_auto_reconnect wrapper swallows AutoReconnect/ServerSelectionTimeoutError
+    and RETURNS None (no re-raise) when mongo stays down, so model that real path
+    (a None return), NOT a raw exception — the latter would never exercise the bug."""
     import lib.cuckoo.core.data.tasking as tk
     from lib.cuckoo.common.exceptions import CuckooOperationalError
 
     monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
-
-    def _boom(*a, **k):
-        raise RuntimeError("mongo down")
-
-    monkeypatch.setattr(tk, "mongo_update_one", _boom, raising=False)
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: None, raising=False)
     tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
     with pytest.raises(CuckooOperationalError):
         db.set_task_visibility(tid, "public")

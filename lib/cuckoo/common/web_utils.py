@@ -1528,7 +1528,8 @@ def perform_search(
 
             # Tenant scope — applied regardless of `privs` (Django is_staff is NOT
             # the tenancy break-glass; only is_local_admin is, handled inside
-            # _viewer_scope_match). No-op when multitenancy is disabled/shared.
+            # _viewer_scope_match). Mode-INDEPENDENT: scopes in shared mode too;
+            # None only when multitenancy is disabled or the viewer is break-glass.
             _scope = _viewer_scope_match(viewer)
             if _scope:
                 pipeline.append({"$match": _scope})
@@ -1578,7 +1579,8 @@ def perform_search(
                     mongo_search_query["info.user_id"] = user_id
 
             # Tenant scope — applied regardless of `privs` (is_staff is not the
-            # tenancy break-glass). No-op when multitenancy disabled/shared.
+            # tenancy break-glass). Mode-INDEPENDENT: scopes in shared mode too;
+            # None only when multitenancy is disabled or the viewer is break-glass.
             _scope = _viewer_scope_match(viewer)
             if _scope:
                 mongo_search_query = {"$and": [mongo_search_query, _scope]}

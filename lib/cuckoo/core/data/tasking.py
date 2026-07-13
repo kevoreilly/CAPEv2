@@ -869,18 +869,23 @@ class TasksMixIn:
         # failure (raise) rather than silently diverging into a stale public stamp
         # after a private toggle. SQL stays authoritative regardless.
         if mongo_update_one is not None and _mongo_reporting_enabled():
-            _synced = False
-            for _attempt in range(3):
-                try:
-                    mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": visibility}})
-                    _synced = True
-                    break
-                except Exception as _e:
-                    log.warning("visibility mongo sync attempt %d/3 failed for task %s: %s", _attempt + 1, task_id, _e)
-            if not _synced:
+            # mongo_update_one is wrapped by graceful_auto_reconnect, which retries
+            # AutoReconnect/ServerSelectionTimeoutError internally (the canonical
+            # mongo-down errors) and RETURNS None with no re-raise when mongo stays
+            # down. So detect a swallowed failure by the None return, not by
+            # catching an exception — a successful update returns an UpdateResult
+            # (even with matched_count=0). Surface a persistent failure so a stale
+            # public stamp after a private toggle can't silently keep the analysis
+            # cross-tenant visible in the aggregate/search/stats surfaces.
+            _res = None
+            try:
+                _res = mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": visibility}})
+            except Exception as _e:  # a non-AutoReconnect error the wrapper does not swallow
+                log.warning("visibility mongo sync errored for task %s: %s", task_id, _e)
+            if _res is None:
                 from lib.cuckoo.common.exceptions import CuckooOperationalError
 
-                log.error("visibility mongo sync FAILED for task %s after retries (SQL=%s, mongo stale)", task_id, visibility)
+                log.error("visibility mongo sync FAILED for task %s (mongo unreachable; SQL=%s, mongo stamp stale)", task_id, visibility)
                 raise CuckooOperationalError(f"task {task_id} visibility set in DB but mongo sync failed")
         return task
 

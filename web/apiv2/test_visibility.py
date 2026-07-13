@@ -591,3 +591,67 @@ def test_byhash_sample_resolution_is_gated():
         f"{offenders}. Gate via can_view_sample / _deny_by_hash / sample_path_by_hash(visible_to=) "
         f"— an attacker-supplied hash must not stream another tenant's sample bytes."
     )
+
+
+@pytest.mark.django_db
+def test_resolve_task_id_regates_recovery_rtid_pivot(cape_db, mt_enabled, monkeypatch):
+    """rtid wrong-object regression: after a Recovery_<N> pivot to a DIFFERENT task,
+    _resolve_task_id must re-gate visibility on the RESOLVED id — the initial
+    _deny_if_hidden only authorized the original task, so serving the resolved
+    task's artifacts without a re-check leaks another tenant's bytes."""
+    import types
+    import apiv2.views as av
+    from django.contrib.auth.models import User
+    from django.test import RequestFactory
+
+    class OwnTask:      # original id 5 — public, readable by anyone
+        id = 5
+        user_id = 0
+        tenant_id = 10
+        visibility = "public"
+
+    class ForeignTask:  # rtid 6 — another tenant's private analysis
+        id = 6
+        user_id = 999
+        tenant_id = 20
+        visibility = "private"
+
+    monkeypatch.setattr(av, "apiconf", types.SimpleNamespace())  # enabled_key -> None -> skip gate
+    monkeypatch.setattr(av.db, "view_task", lambda tid, *a, **k: OwnTask() if int(tid) == 5 else ForeignTask())
+    monkeypatch.setattr(av, "validate_task", lambda tid, *a, **k: {"error": False, "rtid": 6, "tlp": ""})
+
+    req = RequestFactory().get("/x")
+    req.user = User.objects.create_user("rtid_neg", "rtid_neg@x.com", "x")  # tenant-less, non-admin
+    resolved, err = av._resolve_task_id(req, 5, "taskpcap")
+    assert resolved is None and err is not None  # denied on the resolved foreign id
+
+
+@pytest.mark.django_db
+def test_resolve_task_id_allows_readable_rtid_pivot(cape_db, mt_enabled, monkeypatch):
+    """Positive control: a Recovery pivot to a task the requester CAN read resolves
+    normally (the re-gate must not block legitimate recovery)."""
+    import types
+    import apiv2.views as av
+    from django.contrib.auth.models import User
+    from django.test import RequestFactory
+
+    class OwnTask:
+        id = 5
+        user_id = 0
+        tenant_id = 10
+        visibility = "public"
+
+    class OwnTask2:
+        id = 6
+        user_id = 0
+        tenant_id = 10
+        visibility = "public"
+
+    monkeypatch.setattr(av, "apiconf", types.SimpleNamespace())
+    monkeypatch.setattr(av.db, "view_task", lambda tid, *a, **k: OwnTask() if int(tid) == 5 else OwnTask2())
+    monkeypatch.setattr(av, "validate_task", lambda tid, *a, **k: {"error": False, "rtid": 6, "tlp": ""})
+
+    req = RequestFactory().get("/x")
+    req.user = User.objects.create_user("rtid_pos", "rtid_pos@x.com", "x")
+    resolved, err = av._resolve_task_id(req, 5, "taskpcap")
+    assert resolved == 6 and err is None

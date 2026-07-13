@@ -96,7 +96,16 @@ def tasks_set_visibility(request, task_id):
         return Response({"error": True, "error_value": "invalid visibility"}, status=400)
     if not can_toggle_task(request.user, task):
         return Response({"error": True, "error_value": "Access denied"}, status=403)
-    db.set_task_visibility(task_id, vis)
+    try:
+        db.set_task_visibility(task_id, vis)
+    except CuckooOperationalError:
+        # SQL was updated but the mongo-stamp sync failed (mongo unreachable), so
+        # the aggregate/search surfaces would be stale. Report 503 so the caller
+        # retries instead of assuming the change fully propagated.
+        return Response(
+            {"error": True, "error_value": "visibility updated in DB but the report store sync failed; retry"},
+            status=503,
+        )
     return Response({"error": False, "data": {"task_id": int(task_id), "visibility": vis}})
 from rest_framework.response import Response
 
@@ -104,7 +113,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.exceptions import CuckooDemuxError
+from lib.cuckoo.common.exceptions import CuckooDemuxError, CuckooOperationalError
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (
@@ -1317,6 +1326,12 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -1506,6 +1521,12 @@ def tasks_iocs(request, task_id, detail=None):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -1745,6 +1766,12 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -1803,6 +1830,12 @@ def tasks_pcap(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -1844,6 +1877,12 @@ def _resolve_task_id(request, task_id, enabled_key, check_tlp=True):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return None, _rtid_denied
     return task_id, None
 
 
@@ -2128,6 +2167,12 @@ def tasks_evtx(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -2161,6 +2206,12 @@ def tasks_mitmdump(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
     _central_stage(request, task_id)
     harfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "mitmdump", "dump.har")
     if not os.path.normpath(harfile).startswith(ANALYSIS_BASE_PATH):
@@ -2197,6 +2248,12 @@ def tasks_dropped(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -2252,6 +2309,12 @@ def tasks_selfextracted(request, task_id, tool="all"):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -2356,6 +2419,12 @@ def tasks_surifile(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -2446,6 +2515,12 @@ def tasks_procmemory(request, task_id, pid="all"):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id, include_memory=True)
     # Check if any process memory dumps exist
@@ -2528,6 +2603,12 @@ def tasks_fullmemory(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id, include_memory=True)
     filename = ""
@@ -2800,6 +2881,12 @@ def tasks_payloadfiles(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -2842,6 +2929,12 @@ def tasks_procdumpfiles(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 
@@ -2884,6 +2977,12 @@ def tasks_config(request, task_id, cape_name=False):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+        # Recovery_<N> pivots to a DIFFERENT task; the earlier _deny_if_hidden
+        # authorized the ORIGINAL id, so re-gate visibility on the RESOLVED id
+        # before serving its artifacts (wrong-object authorization otherwise).
+        _rtid_denied = _deny_if_hidden(request, db.view_task(task_id))
+        if _rtid_denied is not None:
+            return _rtid_denied
 
     _central_stage(request, task_id)
 

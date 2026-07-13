@@ -3321,19 +3321,28 @@ def _file_search_all_files(search_category: str, search_term: str, request) -> l
         # this, capeyarazipall streams other tenants' artifact bytes for any file
         # matching the supplied YARA rule name.
         records = perform_search(search_category, search_term, projection=projection, viewer=viewer_for(request.user))
+        # Defense-in-depth: keep only records whose owning analysis the requester
+        # may read, BEFORE resolving file paths. The query scope above is the
+        # primary gate, but a content-addressed artifact path
+        # (storage/binaries/<sha256>) has no /analyses/<task_id>/ segment, so a
+        # path-regex backstop misses it and would stream another tenant's private
+        # sample bytes. Gate on info.id (in the projection) for ALL path shapes;
+        # no-op when MT disabled (can_view_task -> is_local_admin).
+        _viewable = []
+        for _rec in records:
+            _rid = (_rec.get("info") or {}).get("id")
+            if _rid is None:
+                continue
+            try:
+                _vt = db.view_task(int(_rid))
+            except (ValueError, TypeError):
+                continue
+            if _vt is not None and can_view_task(request.user, _vt):
+                _viewable.append(_rec)
         search_term = search_term.lower()
-        for _, filepath, _, _ in yara_detected(search_term, records):
+        for _, filepath, _, _ in yara_detected(search_term, _viewable):
             if not path_exists(filepath):
                 continue
-            # Defense-in-depth: drop any artifact whose owning analysis the
-            # requester may not read. The query scope above is the primary gate;
-            # this guards paths under storage/analyses/<task_id>/ regardless of
-            # backend (no-op when MT disabled — can_view_task -> is_local_admin).
-            _m = re.search(r"/analyses/(\d+)/", filepath)
-            if _m:
-                _vt = db.view_task(int(_m.group(1)))
-                if _vt is None or not can_view_task(request.user, _vt):
-                    continue
             path.append(filepath)
     except ValueError as e:
         print("mongodb load", e)

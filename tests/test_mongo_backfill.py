@@ -8,8 +8,12 @@ def test_backfill_stamps_from_task():
     assert update == {"info.tenant_id": 10, "info.user_id": 5, "info.visibility": "tenant"}
 
 
-def test_backfill_orphan_defaults_public():
+def test_backfill_orphan_fails_closed_private():
+    """Finding #8: an orphaned doc (Postgres task pruned, mongo doc retained) must
+    NOT be backfilled world-visible. Fail closed to private so it stays invisible
+    to every tenant — previously defaulted 'public', flipping previously-invisible
+    orphans to globally cross-tenant-readable when MT was first enabled."""
     from utils.db_migration.mongo_backfill_tenant import backfill_doc
     doc = {"info": {"id": 9}}
     update = backfill_doc(doc, lambda tid: None)
-    assert update == {"info.tenant_id": None, "info.user_id": None, "info.visibility": "public"}
+    assert update == {"info.tenant_id": None, "info.user_id": None, "info.visibility": "private"}

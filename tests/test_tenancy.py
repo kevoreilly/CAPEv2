@@ -72,3 +72,89 @@ def test_scope_match_none_viewer():
     assert scope_match("mine", None) == {"info.id": -1}
     assert scope_match("public", None) == {"info.visibility": "public"}
     assert scope_match("global", None) is None
+
+
+# ── Adversarial-review regressions (2026-07-13): mongo-side fail-open ──
+
+def _mtcfg(mode, enabled=True):
+    from lib.cuckoo.common import tenancy
+    return tenancy.MTConfig(enabled=enabled, mode=mode, default_visibility="",
+                            local_admins_manage_all_tenants=True)
+
+
+def test_viewer_scope_match_scopes_in_shared_mode(monkeypatch):
+    """Finding #2: shared mode (the DEFAULT) must still restrict mongo aggregates
+    to public OR own-tenant TENANT OR mine. A private/other-tenant analysis must
+    not leak via search/compare/stats/hunt. Previously shared mode returned None
+    (see-all) while can_read enforced private in all modes."""
+    from lib.cuckoo.common import tenancy
+    monkeypatch.setattr(tenancy, "multitenancy_config", lambda: _mtcfg("shared"))
+    m = tenancy.viewer_scope_match(tenancy.Viewer(user_id=7, tenant_id=10))
+    assert m is not None, "shared mode must scope, not return see-all None"
+    clauses = m["$or"]
+    assert {"info.visibility": "public"} in clauses
+    assert {"info.tenant_id": 10, "info.visibility": "tenant"} in clauses
+    assert {"info.user_id": 7} in clauses
+
+
+def test_viewer_scope_es_filter_scopes_in_shared_mode(monkeypatch):
+    """Finding #2 (ES analogue): shared-mode ES filter must scope, not be None."""
+    from lib.cuckoo.common import tenancy
+    monkeypatch.setattr(tenancy, "multitenancy_config", lambda: _mtcfg("shared"))
+    f = tenancy.viewer_scope_es_filter(tenancy.Viewer(user_id=7, tenant_id=10))
+    assert f is not None, "shared-mode ES filter must scope, not None"
+    assert f["bool"]["minimum_should_match"] == 1
+
+
+def test_viewer_scope_still_scopes_in_locked_mode(monkeypatch):
+    """Locked mode keeps scoping (no regression)."""
+    from lib.cuckoo.common import tenancy
+    monkeypatch.setattr(tenancy, "multitenancy_config", lambda: _mtcfg("locked"))
+    assert tenancy.viewer_scope_match(tenancy.Viewer(user_id=7, tenant_id=10)) is not None
+
+
+def test_viewer_scope_none_when_disabled(monkeypatch):
+    """MT disabled -> no filter (legacy see-all), unchanged."""
+    from lib.cuckoo.common import tenancy
+    monkeypatch.setattr(tenancy, "multitenancy_config", lambda: _mtcfg("shared", enabled=False))
+    assert tenancy.viewer_scope_match(tenancy.Viewer(user_id=7, tenant_id=10)) is None
+
+
+def test_local_admin_breakglass_still_sees_all(monkeypatch):
+    """Break-glass local admin keeps global visibility in any enabled mode."""
+    from lib.cuckoo.common import tenancy
+    monkeypatch.setattr(tenancy, "multitenancy_config", lambda: _mtcfg("shared"))
+    v = tenancy.Viewer(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True)
+    assert tenancy.viewer_scope_match(v) is None
+    assert tenancy.viewer_scope_es_filter(v) is None
+
+
+def _patch_conf(monkeypatch, mode):
+    from lib.cuckoo.common import config as _cfgmod
+
+    class _FakeConf:
+        def __init__(self, name):
+            pass
+
+        def get(self, section):
+            return {"enabled": True, "mode": mode, "default_visibility": "",
+                    "local_admins_manage_all_tenants": True}
+
+    monkeypatch.setattr(_cfgmod, "Config", _FakeConf)
+
+
+def test_unknown_mode_fails_closed_to_locked(monkeypatch):
+    """Finding #6: an invalid/typo mode must not silently disable scoping; it must
+    fail closed to locked (the more restrictive mode)."""
+    from lib.cuckoo.common import tenancy
+    _patch_conf(monkeypatch, "bogusmode")
+    assert tenancy.multitenancy_config().mode == "locked"
+
+
+def test_known_modes_normalized(monkeypatch):
+    """Finding #6: valid modes preserved, case/whitespace-normalized."""
+    from lib.cuckoo.common import tenancy
+    for raw, want in (("shared", "shared"), ("locked", "locked"),
+                      ("LOCKED", "locked"), (" Shared ", "shared")):
+        _patch_conf(monkeypatch, raw)
+        assert tenancy.multitenancy_config().mode == want, f"mode {raw!r}"

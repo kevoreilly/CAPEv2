@@ -96,8 +96,10 @@ def test_tag_tasks_skips_unmanageable_cross_tenant(cape_db, mt_enabled, client):
 def test_file_search_all_files_drops_cross_tenant_paths(cape_db, mt_enabled, monkeypatch):
     """CRITICAL leak regression (capeyarazipall): _file_search_all_files must NOT
     return artifact paths belonging to analyses the requester can't read — else
-    file() streams another tenant's dropped/payload/sample bytes. The per-path
-    owning-task gate drops paths under storage/analyses/<foreign_tid>/."""
+    file() streams another tenant's dropped/payload/sample bytes. The gate now
+    filters RECORDS by owning-task can_view_task BEFORE resolving paths, so it
+    covers ALL path shapes — including content-addressed storage/binaries/<sha256>
+    samples that have no /analyses/<id>/ segment (the shape the old regex missed)."""
     from django.test import RequestFactory
     from django.contrib.auth.models import User
     import analysis.views as av
@@ -115,11 +117,20 @@ def test_file_search_all_files_drops_cross_tenant_paths(cape_db, mt_enabled, mon
         visibility = "private"
 
     monkeypatch.setattr(av, "perform_search", lambda *a, **k: [{"info": {"id": 2}}, {"info": {"id": 3}}])
-    # yara_detected yields (kind, filepath, block, fileobj) — one own, one foreign
-    monkeypatch.setattr(av, "yara_detected", lambda term, recs: [
-        ("dropped", "/opt/CAPEv2/storage/analyses/2/files/own.bin", {}, {}),
-        ("dropped", "/opt/CAPEv2/storage/analyses/3/files/secret.bin", {}, {}),
-    ])
+
+    # Real yara_detected yields file paths for the records it is GIVEN; the gate
+    # filters records before this call, so model that contract. The foreign task's
+    # artifact is a content-addressed sample path (no /analyses/<id>/ segment).
+    def _fake_yara(term, recs):
+        ids = {r["info"]["id"] for r in recs}
+        out = []
+        if 2 in ids:
+            out.append(("dropped", "/opt/CAPEv2/storage/analyses/2/files/own.bin", {}, {}))
+        if 3 in ids:
+            out.append(("target", "/opt/CAPEv2/storage/binaries/deadbeefdeadbeef", {}, {}))
+        return out
+
+    monkeypatch.setattr(av, "yara_detected", _fake_yara)
     monkeypatch.setattr(av, "path_exists", lambda p: True)
     monkeypatch.setattr(av.db, "view_task", lambda tid: OwnTask() if int(tid) == 2 else ForeignTask())
 
@@ -127,5 +138,5 @@ def test_file_search_all_files_drops_cross_tenant_paths(cape_db, mt_enabled, mon
     req.user = User.objects.create_user("fs", "fs@x.com", "x")  # tenant-less, non-admin
 
     paths = av._file_search_all_files("capeyara", "Emotet", req)
-    assert "/opt/CAPEv2/storage/analyses/2/files/own.bin" in paths      # readable kept
-    assert "/opt/CAPEv2/storage/analyses/3/files/secret.bin" not in paths  # foreign dropped
+    assert "/opt/CAPEv2/storage/analyses/2/files/own.bin" in paths            # readable kept
+    assert "/opt/CAPEv2/storage/binaries/deadbeefdeadbeef" not in paths       # foreign content-addressed sample dropped

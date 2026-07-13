@@ -2952,10 +2952,10 @@ def statistics_data(requests, days):
 
         v = viewer_for(requests.user)
         scopes = entitled_scopes(requests.user)
-        # Back-compat: when only the global panel applies (MT disabled / shared /
-        # break-glass) return the legacy FLAT stats dict so existing API clients
-        # reading resp["data"]["signatures"] keep working. The per-scope dict is
-        # only used in locked mode where there are multiple entitled scopes.
+        # Back-compat: when only the global panel applies (MT disabled or
+        # break-glass local-admin) return the legacy FLAT stats dict so existing
+        # API clients reading resp["data"]["signatures"] keep working. Shared and
+        # locked modes both yield scoped panels, so they take the per-scope dict.
         if scopes == ["global"]:
             data = statistics(int(days))
         else:

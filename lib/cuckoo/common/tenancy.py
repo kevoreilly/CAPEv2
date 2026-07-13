@@ -107,9 +107,15 @@ def multitenancy_config() -> MTConfig:
     except Exception:
         sec = {}
     get = sec.get if hasattr(sec, "get") else (lambda k, d=None: d)
+    # Validate/normalize mode: an unknown/typo value must NOT silently disable
+    # scoping. Case/whitespace-normalize and fail closed to the more restrictive
+    # "locked" on anything unrecognized.
+    mode = str(get("mode", "shared") or "shared").strip().lower()
+    if mode not in ("shared", "locked"):
+        mode = "locked"
     return MTConfig(
         enabled=_as_bool(get("enabled", False), False),
-        mode=str(get("mode", "shared") or "shared"),
+        mode=mode,
         default_visibility=str(get("default_visibility", "") or ""),
         local_admins_manage_all_tenants=_as_bool(get("local_admins_manage_all_tenants", True), True),
     )
@@ -125,15 +131,17 @@ def default_visibility(cfg: MTConfig) -> str:
 def viewer_scope_match(viewer):
     """Mongo $match restricting an analysis-collection query to the viewer's
     entitled tenant scopes (public OR own-tenant TENANT OR mine), or None when no
-    filter applies — multitenancy disabled, shared mode, or break-glass
-    (is_local_admin). THE single source of truth (imported by web_utils,
-    cape_utils, …) so the search/dedup/stats by-scope query builders can't drift.
-    Keys target the report's stamped info.* fields.
+    filter applies — multitenancy disabled or break-glass (is_local_admin). THE
+    single source of truth (imported by web_utils, cape_utils, …) so the
+    search/dedup/stats by-scope query builders can't drift. Mode-INDEPENDENT,
+    mirroring can_read and the SQL list_tasks filter: shared mode still hides
+    explicitly-private and other-tenant TENANT analyses (only PUBLIC is the shared
+    pool) — it does NOT mean see-all. Keys target the report's stamped info.*.
     """
     if viewer is None:
         return None
     cfg = multitenancy_config()
-    if not cfg.enabled or cfg.mode != "locked" or getattr(viewer, "is_local_admin", False):
+    if not cfg.enabled or getattr(viewer, "is_local_admin", False):
         return None
     clauses = [m for m in (scope_match(PUBLIC, viewer), scope_match(TENANT, viewer), scope_match(MINE, viewer)) if m is not None]
     # No entitled scope resolved (tenant-less/anon) -> match nothing, never global.
@@ -142,13 +150,14 @@ def viewer_scope_match(viewer):
 
 def viewer_scope_es_filter(viewer):
     """Elasticsearch bool-filter analogue of viewer_scope_match (public OR
-    own-tenant TENANT OR mine), or None when no filter applies. Uses the term/
-    info.* idiom. A tenant-less/anonymous locked-mode viewer sees only public.
+    own-tenant TENANT OR mine), or None when no filter applies (multitenancy
+    disabled or break-glass). Mode-INDEPENDENT, same as viewer_scope_match. Uses
+    the term/info.* idiom. A tenant-less/anonymous viewer sees only public.
     """
     if viewer is None:
         return None
     cfg = multitenancy_config()
-    if not cfg.enabled or cfg.mode != "locked" or getattr(viewer, "is_local_admin", False):
+    if not cfg.enabled or getattr(viewer, "is_local_admin", False):
         return None
     shoulds = [{"term": {"info.visibility": PUBLIC}}]
     if getattr(viewer, "tenant_id", None) is not None:

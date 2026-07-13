@@ -29,15 +29,20 @@ reporting_conf = Config("reporting")
 
 def stamp_tenant_info(info: dict, task) -> None:
     """Write tenant_id/user_id/visibility into the report's info subdict so mongo
-    aggregations can be scoped. Missing task (deleted) -> public/legacy."""
+    aggregations can be scoped. An unresolved task (deleted/orphan, transient DB
+    error, or a distributed main_task_id lookup miss) fails CLOSED to private with
+    no owner/tenant, so the doc matches no cross-tenant scope (public/tenant/mine)
+    and stays invisible to everyone but break-glass — never world-visible."""
     if task is None:
-        info.setdefault("tenant_id", None)
-        info.setdefault("user_id", None)
-        info["visibility"] = "public"
+        info["tenant_id"] = None
+        info["user_id"] = None
+        info["visibility"] = "private"
         return
     info["tenant_id"] = getattr(task, "tenant_id", None)
     info["user_id"] = getattr(task, "user_id", None)
-    info["visibility"] = getattr(task, "visibility", "public") or "public"
+    # Fail closed on a null/blank visibility too (shouldn't happen — the column
+    # has a private server_default — but never default a real task to public).
+    info["visibility"] = getattr(task, "visibility", "private") or "private"
 
 
 def _task_tenant_ctx(task_id):
@@ -195,9 +200,14 @@ class MongoDB(Report):
 
         if multitenancy_config().enabled:
             try:
-                stamp_tenant_info(report["info"], _task_tenant_ctx(int(report["info"]["id"])))
+                # Look up tenant context by the LOCAL task id. report["info"]["id"]
+                # may have been rewritten to the main node's main_task_id above
+                # (distributed path); that id does not exist in this worker's DB and
+                # would resolve to None -> fail-open public stamp. The local task
+                # row carries the authoritative tenant/user/visibility.
+                stamp_tenant_info(report["info"], _task_tenant_ctx(local_task_id))
             except Exception as _db_err:
-                log.warning("Failed to look up task for tenant stamping (task %s): %s", report["info"].get("id"), _db_err)
+                log.warning("Failed to look up task for tenant stamping (task %s): %s", local_task_id, _db_err)
                 stamp_tenant_info(report["info"], None)
 
         # Delete old data just before inserting new one to avoid "missing report" window

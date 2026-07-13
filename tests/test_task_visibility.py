@@ -181,11 +181,46 @@ def test_get_tasks_status_count_scoped_to_visible(db):
 def test_set_task_visibility_syncs_mongo(db, monkeypatch):
     calls = []
     import lib.cuckoo.core.data.tasking as tk
+    # Sync only runs when mongo is the enabled report store; force it on for the test.
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
     monkeypatch.setattr(tk, "mongo_update_one",
                         lambda *a, **k: calls.append((a, k)), raising=False)
     tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
     db.set_task_visibility(tid, "public")
     assert calls and calls[-1][0][0] == "analysis"  # updated the analysis collection
+
+
+def test_set_task_visibility_raises_on_persistent_mongo_failure(db, monkeypatch):
+    """Finding #10: a persistent mongo-sync failure must be surfaced (raised), not
+    swallowed — else a stale public stamp after a private toggle silently keeps the
+    analysis cross-tenant visible in the aggregate/search/stats surfaces."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+
+    def _boom(*a, **k):
+        raise RuntimeError("mongo down")
+
+    monkeypatch.setattr(tk, "mongo_update_one", _boom, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    with pytest.raises(CuckooOperationalError):
+        db.set_task_visibility(tid, "public")
+
+
+def test_set_task_visibility_skips_sync_when_mongo_disabled(db, monkeypatch):
+    """When mongo is NOT the report store, the toggle must succeed without any sync
+    attempt (so an ES/no-mongo install isn't broken by the sync path)."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: False, raising=False)
+
+    def _boom(*a, **k):
+        raise AssertionError("mongo_update_one must not be called when mongo is disabled")
+
+    monkeypatch.setattr(tk, "mongo_update_one", _boom, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    assert db.set_task_visibility(tid, "public") is not None
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")

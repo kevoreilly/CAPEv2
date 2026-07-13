@@ -51,7 +51,11 @@ def entitled_scopes(user):
         return ["global"]
     v = _ut.viewer_for(user)
     cfg = _ut.multitenancy_config()
-    if not cfg.enabled or cfg.mode != "locked" or v.is_local_admin:
+    # Mode-INDEPENDENT, mirroring can_read / viewer_scope_match: the scoped panels
+    # apply in shared mode too (shared still hides other tenants' private/tenant
+    # analyses; only PUBLIC is the shared pool). Only a disabled feature or a
+    # break-glass local-admin collapses to the single see-all 'global' panel.
+    if not cfg.enabled or v.is_local_admin:
         return ["global"]
     scopes = ["public"]
     if v.tenant_id is not None:

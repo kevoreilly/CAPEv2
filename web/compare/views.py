@@ -79,7 +79,23 @@ def left(request, left_id):
     if _scope:
         _and.append(_scope)
     if enabledconf["mongodb"]:
-        records = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
+        _raw = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
+        # Defense-in-depth: post-filter each md5-pivot hit through can_view_task
+        # (SQL-authoritative), symmetric with the ES branch below, so a mongo stamp
+        # gap can't leak another tenant's analysis even if the query-layer scope
+        # regresses. No-op for break-glass / shared / multitenancy disabled.
+        _db = Database()
+        records = []
+        for _rec in _raw:
+            _rid = (_rec.get("info") or {}).get("id")
+            if _rid is None:
+                continue
+            try:
+                _vt = _db.view_task(int(_rid))
+            except (ValueError, TypeError):
+                continue
+            if _vt is not None and can_view_task(request.user, _vt):
+                records.append(_rec)
     if es_as_db:
         records = []
         q = {
@@ -139,7 +155,23 @@ def hash(request, left_id, right_hash):
     if _scope:
         _and.append(_scope)
     if enabledconf["mongodb"]:
-        records = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
+        _raw = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
+        # Defense-in-depth: post-filter each md5-pivot hit through can_view_task
+        # (SQL-authoritative), symmetric with the ES branch below, so a mongo stamp
+        # gap can't leak another tenant's analysis even if the query-layer scope
+        # regresses. No-op for break-glass / shared / multitenancy disabled.
+        _db = Database()
+        records = []
+        for _rec in _raw:
+            _rid = (_rec.get("info") or {}).get("id")
+            if _rid is None:
+                continue
+            try:
+                _vt = _db.view_task(int(_rid))
+            except (ValueError, TypeError):
+                continue
+            if _vt is not None and can_view_task(request.user, _vt):
+                records.append(_rec)
     if es_as_db:
         records = []
         q = {

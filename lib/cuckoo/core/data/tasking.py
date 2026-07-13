@@ -43,6 +43,18 @@ try:
 except Exception:  # mongo optional
     mongo_update_one = None
 
+
+def _mongo_reporting_enabled() -> bool:
+    """True when mongodb is the enabled report store, so a visibility toggle must
+    sync the stamped info.visibility the aggregate/search/stats surfaces read.
+    Isolated (module-level) for testability."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return bool(Config("reporting").mongodb.enabled)
+    except Exception:
+        return False
+
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 distconf = Config("distributed")
@@ -517,7 +529,22 @@ class TasksMixIn:
 
                     config = static_config_lookup(file, viewer=_Viewer(user_id=user_id or None, tenant_id=tenant_id))
                     if config:
-                        task_ids.append(config["id"])
+                        # Defense-in-depth: re-verify against the AUTHORITATIVE SQL
+                        # task (not the mongo stamp the dedup query trusted) that
+                        # this submitter may read the deduped analysis before
+                        # surfacing its task id — so a mongo stamp gap can't leak
+                        # another tenant's task id / config-exists oracle. No-op
+                        # when MT disabled (can_read -> is_local_admin break-glass).
+                        from lib.cuckoo.common.tenancy import can_read as _can_read, Job as _Job
+
+                        _dt = self.session.get(Task, int(config["id"]))
+                        if _dt is not None and _can_read(
+                            _Viewer(user_id=user_id or None, tenant_id=tenant_id),
+                            _Job(owner_id=_dt.user_id, tenant_id=_dt.tenant_id, visibility=_dt.visibility),
+                        ):
+                            task_ids.append(config["id"])
+                        else:
+                            config = static_extraction(file)
                     else:
                         config = static_extraction(file)
                 if config or only_extraction:
@@ -836,11 +863,25 @@ class TasksMixIn:
             return None
         task.visibility = visibility
         self.session.commit()
-        if mongo_update_one is not None:
-            try:
-                mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": visibility}})
-            except Exception:
-                log.warning("failed to sync visibility to mongo for task %s", task_id)
+        # Sync the toggle to the mongo report so the aggregate/search/stats surfaces
+        # (which read the stamped info.visibility) reflect it — but only when mongo
+        # is the enabled report store. Retry transient blips; surface a persistent
+        # failure (raise) rather than silently diverging into a stale public stamp
+        # after a private toggle. SQL stays authoritative regardless.
+        if mongo_update_one is not None and _mongo_reporting_enabled():
+            _synced = False
+            for _attempt in range(3):
+                try:
+                    mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": visibility}})
+                    _synced = True
+                    break
+                except Exception as _e:
+                    log.warning("visibility mongo sync attempt %d/3 failed for task %s: %s", _attempt + 1, task_id, _e)
+            if not _synced:
+                from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+                log.error("visibility mongo sync FAILED for task %s after retries (SQL=%s, mongo stale)", task_id, visibility)
+                raise CuckooOperationalError(f"task {task_id} visibility set in DB but mongo sync failed")
         return task
 
     def fetch_task(self, categories: list = None):

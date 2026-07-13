@@ -181,20 +181,24 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
 
-                # 3b. Defense-in-depth: if the socket carries an authenticated user, confirm they
-                # may view this task. The token is mint-gated (guac index / submission status require
-                # can_view_task), but a leaked/shared cookie must not tunnel into another tenant's VM.
-                ws_user = self.scope.get("user")
-                if ws_user is not None and getattr(ws_user, "is_authenticated", False):
-                    from web.tenancy_optional import can_view_task
+                # 3b. Defense-in-depth: confirm the socket's user may view this task.
+                # The token is mint-gated (guac index / submission status require
+                # can_view_task), but a leaked/replayed cookie must not tunnel into
+                # another tenant's VM. Check UNCONDITIONALLY — do NOT skip for an
+                # anonymous/absent socket user: viewer_for resolves anonymous to a
+                # public-only viewer when MT is on (and break-glass when MT is off),
+                # so an anonymous replay of a token for a private/tenant task is
+                # denied here rather than tunnelling on token possession alone.
+                from web.tenancy_optional import can_view_task
 
-                    if not await sync_to_async(can_view_task)(ws_user, task):
-                        logger.warning(
-                            "WebSocket rejected: user not entitled to task %s", self.guac_task_id
-                        )
-                        await self._delete_guac_session()
-                        await self.close()
-                        return
+                ws_user = self.scope.get("user")
+                if not await sync_to_async(can_view_task)(ws_user, task):
+                    logger.warning(
+                        "WebSocket rejected: user not entitled to task %s", self.guac_task_id
+                    )
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
 
                 # 4. Central mode: a broker-dispatched job's VM lives on a worker, so
                 # resolve that worker's libvirt DSN + IP and look up the VNC port from ITS

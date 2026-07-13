@@ -18,6 +18,30 @@ def test_dashboard_entitled_scopes(cape_db, mt_enabled, monkeypatch):
 
 
 @pytest.mark.django_db
+def test_dashboard_entitled_scopes_shared_mode(cape_db, monkeypatch):
+    """Finding #2: shared mode (the DEFAULT) must still return the scoped panels
+    (public/tenant/mine), NOT the single see-all 'global' panel. Previously shared
+    mode returned ['global'], leaking other tenants' private analyses into the
+    dashboard/statistics aggregates while can_read enforced private in all modes."""
+    from lib.cuckoo.common.tenancy import MTConfig
+    import users.tenancy as ut
+    monkeypatch.setattr(
+        ut, "multitenancy_config",
+        lambda: MTConfig(enabled=True, mode="shared", default_visibility="",
+                         local_admins_manage_all_tenants=True),
+    )
+    from dashboard.views import entitled_scopes
+    from users.models import Tenant, UserProfile
+    t = Tenant.objects.create(slug="acme-shared", name="AcmeShared")
+    u = User.objects.create_user("ash", "ash@x.com", "x")
+    p = UserProfile.objects.get(user=u)
+    p.tenant = t
+    p.save()
+    u = User.objects.get(pk=u.pk)
+    assert entitled_scopes(u) == ["public", "tenant", "mine"]
+
+
+@pytest.mark.django_db
 def test_disabled_shows_single_global_scope():
     """Back-compat: with multitenancy disabled (the default / basic public install),
     every user gets a single Global panel == today's dashboard. No mt_enabled fixture

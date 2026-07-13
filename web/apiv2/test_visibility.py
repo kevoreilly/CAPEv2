@@ -13,8 +13,9 @@ GUARD_MARKERS = (
     "can_toggle_task",
     # scope-filtering primitives for aggregate / mongo surfaces (dashboard,
     # statistics, hunt, compare): restrict an aggregation to the viewer's
-    # entitled scopes instead of gating a single task_id.
-    "scope_match", "entitled_scope_filter",
+    # entitled scopes instead of gating a single task_id. viewer_scope is the
+    # central-mode facade over entitled_scope_filter (hunt() uses it post-#3105).
+    "scope_match", "entitled_scope_filter", "viewer_scope",
 )
 
 # Routed task_id views that legitimately need NO per-task visibility guard.

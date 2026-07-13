@@ -15,7 +15,10 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_REPORTED
-import users.tenancy as _ut
+try:
+    import users.tenancy as _ut
+except ImportError:  # MT layer not deployed -> dashboard degrades to the single "global" view
+    _ut = None
 
 
 # Conditional decorator for web authentication
@@ -44,6 +47,8 @@ def entitled_scopes(user):
     legacy behaviour.  Otherwise returns the per-scope panels appropriate for
     the viewer's tenancy.
     """
+    if _ut is None:  # MT layer absent -> single global panel (legacy behaviour)
+        return ["global"]
     v = _ut.viewer_for(user)
     cfg = _ut.multitenancy_config()
     if not cfg.enabled or cfg.mode != "locked" or v.is_local_admin:
@@ -88,7 +93,7 @@ def entitled_scope_filter(user):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request):
     db: TasksMixIn = Database()
-    v = _ut.viewer_for(request.user)
+    v = _ut.viewer_for(request.user) if _ut is not None else None
 
     panels = []
     for scope in entitled_scopes(request.user):

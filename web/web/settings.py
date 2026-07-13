@@ -314,6 +314,25 @@ if OIDC_CFG is not None and OIDC_CFG.get("enabled", False):
         ],
     }
 
+
+def _users_app_present() -> bool:
+    """True iff the multi-tenant `users` app is deployed (its package dir exists).
+
+    The MT layer is import-optional: an upstream / central-only build simply omits
+    web/users/. This (drop the app from INSTALLED_APPS) and the tenancy_optional facades
+    (ImportError -> see-all) key off the SAME presence signal, so there is ONE source of
+    truth — no separate env flag that could diverge from the import-availability the facades
+    actually see (which previously left a flag-set-but-files-present build hitting non-migrated
+    tables). To run single-tenant WITH the files present, use `[multitenancy] enabled = no`
+    (the existing runtime toggle), not app removal.
+    """
+    return (BASE_DIR / "users").is_dir()
+
+
+# Drop the optional MT `users` app (and its migrations) when its package isn't deployed.
+if not _users_app_present():
+    INSTALLED_APPS = [a for a in INSTALLED_APPS if a != "users"]
+
 AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
 
 if api_cfg.api.token_auth_enabled:

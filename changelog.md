@@ -1,4 +1,4 @@
-### [TBD]
+### [13.07.2026]
 * Major WebGUI Modernization:
     * Switched to modern frontend patterns using HTMX for declarative AJAX and partial page updates
     * Integrated Alpine.js for reactive UI state management (submission form, overlays)
@@ -13,6 +13,13 @@
     * Added global keyboard shortcuts system (discoverable via '?')
     * Internalized all 3rd-party frontend assets for full air-gap compatibility
     * Refactored and unified file information components across the entire interface
+
+### [07.07.2026]
+* Monitor updates:
+    * New hooks for SystemFunction036, SystemFunction040, SystemFunction041 (RtlGenRandom, RtlEncryptMemory, RtlDecryptMemory), Thread32First, Thread32Next, clipboard functions
+    * Enable hooks: MapFileAndCheckSumA, GetVolumeInformationA, GetVolumeInformationW & NtQueryVolumeInformationFile
+    * Crypto hook overhaul
+    * Misc fixes
 
 ### [08.06.2026]
 * Threat Discovery & Hunting Workstation Dashboard:

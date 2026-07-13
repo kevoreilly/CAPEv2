@@ -2,6 +2,7 @@ import concurrent.futures
 import hashlib
 import json
 import logging
+import multiprocessing
 import os
 import re
 import shlex
@@ -407,6 +408,102 @@ def _extracted_files_metadata(
 
 from lib.cuckoo.common.integrations.utils import run_tool
 
+# Extractor sub-pool lifecycle.
+#
+# `generic_file_extractors` runs once per extracted file, so a task with N
+# payloads calls it N times. Two strategies:
+#
+#   * Per-call (pebble default): create a fork-context pool, use it, then
+#     close+join in a finally. Safe under the pebble A/B control because the
+#     long-lived worker never has to join a persistent nested pool (which is
+#     what deadlocks in multiprocessing `_exit_function` on worker recycle).
+#
+#   * Shared-per-child (prefork): the prefork supervisor forks one child per
+#     task; the child sets its own process group, runs every file, then
+#     `os._exit()`. There it is safe — and much faster — to build ONE pool and
+#     reuse it across all N files, tearing it down a single time when the task
+#     finishes. This reclaims the per-file fork+interpreter-startup cost that a
+#     per-call pool pays N times (~1.2s/file on heavy tasks). The prefork child
+#     opts in via `enable_shared_extractor_pool()` and cleans up via
+#     `shutdown_shared_extractor_pool()`; any stragglers are swept by the
+#     supervisor's process-group kill.
+_SHARED_EXTRACTOR_POOL = None
+_USE_SHARED_POOL = False
+
+# Bound extractor-pool teardown. A wedged grandchild (D-state IO, a hung Java
+# decompiler — see the stray hs_err_pid dumps) would otherwise make pool.join()
+# block forever, hanging the whole worker with no external timeout to break it
+# (the pebble task timeout only covers task execution, not teardown). Wait this
+# long for a graceful drain, then force-stop.
+EXTRACTOR_POOL_JOIN_TIMEOUT = 60
+# Shorter bound for the reap AFTER force-stop; stop() already SIGKILLed the workers,
+# so this only waits for the OS to reap them. Kept finite so a D-state straggler
+# can't wedge the worker even here.
+EXTRACTOR_POOL_STOP_JOIN_TIMEOUT = 5
+
+
+def _new_extractor_pool():
+    """Create a fresh fork-context pebble pool. Fork (not forkserver/spawn) is
+    deliberate: the task child is single-threaded when the pool is created, so
+    fork is deadlock-safe here, ~10ms/pool faster than forkserver, and leaves no
+    orphans (workers are swept by the supervisor's process-group kill)."""
+    ctx = multiprocessing.get_context("fork")
+    return pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers), context=ctx)
+
+
+def _teardown_extractor_pool(pool):
+    """Close+join a pool with a bounded wait, force-stopping any straggler so a
+    hung extractor can never wedge the worker indefinitely. Exception-safe."""
+    if pool is None:
+        return
+    try:
+        pool.close()
+        try:
+            pool.join(timeout=EXTRACTOR_POOL_JOIN_TIMEOUT)
+        except Exception:
+            log.warning(
+                "extractor pool did not drain within %ss; force-stopping stragglers",
+                EXTRACTOR_POOL_JOIN_TIMEOUT,
+            )
+            pool.stop()
+            # Bound the post-stop reap too: a grandchild wedged in uninterruptible
+            # (D-state) IO survives SIGKILL, so an unbounded join would still hang.
+            # Abandon after the bound — the process-group kill sweeps the rest.
+            try:
+                pool.join(timeout=EXTRACTOR_POOL_STOP_JOIN_TIMEOUT)
+            except Exception:
+                log.error("extractor pool did not reap after force-stop; abandoning (swept by process-group kill)")
+    except Exception:
+        log.debug("_teardown_extractor_pool: teardown raised", exc_info=True)
+
+
+def enable_shared_extractor_pool():
+    """Opt this process into a shared extractor pool reused across every call to
+    `generic_file_extractors`. Called by the prefork child after fork."""
+    global _USE_SHARED_POOL
+    _USE_SHARED_POOL = True
+
+
+def _acquire_extractor_pool():
+    """Return ``(pool, is_shared)``. In shared mode a single process-wide pool is
+    created on first use and reused; otherwise a fresh per-call pool is returned."""
+    global _SHARED_EXTRACTOR_POOL
+    if _USE_SHARED_POOL:
+        if _SHARED_EXTRACTOR_POOL is None:
+            _SHARED_EXTRACTOR_POOL = _new_extractor_pool()
+        return _SHARED_EXTRACTOR_POOL, True
+    return _new_extractor_pool(), False
+
+
+def shutdown_shared_extractor_pool():
+    """Close+join the shared extractor pool once, if one was created. Idempotent
+    and exception-safe; called by the prefork child before it exits."""
+    global _SHARED_EXTRACTOR_POOL
+    pool = _SHARED_EXTRACTOR_POOL
+    _SHARED_EXTRACTOR_POOL = None
+    _teardown_extractor_pool(pool)
+
+
 def generic_file_extractors(
     file: str,
     destination_folder: str,
@@ -442,7 +539,11 @@ def generic_file_extractors(
 
     futures = {}
     executed_tools = data_dictionary.setdefault("executed_tools", [])
-    with pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers)) as pool:
+    # Per-call pool (pebble) or shared-per-child pool (prefork) — see the
+    # module-level lifecycle notes. A shared pool is reused across files and torn
+    # down once by the prefork child; a per-call pool is closed+joined here.
+    pool, shared_pool = _acquire_extractor_pool()
+    try:
         # Prefer custom modules over the built-in ones, since only 1 is allowed
         # to be the extracted_files_tool.
         if extra_info_modules:
@@ -468,56 +569,61 @@ def generic_file_extractors(
 
             func_timeout = int(getattr(integration_conf, funcname, {}).get("timeout", 60))
             futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
-    pool.join()
 
-    for funcname, future in futures.items():
-        func_result = None
-        try:
-            func_result = future.result()
-        except concurrent.futures.TimeoutError as err:
-            timeout = err.args[0]
-            log.debug("Function: %s took longer than %d seconds", funcname, timeout)
-            continue
-        except TypeError as err:
-            log.debug("TypeError on getting results: %s", str(err))
-        except Exception as err:
-            log.exception("file_extra_info: %s", err)
-            continue
-        if not func_result:
-            continue
-        extraction_result = func_result.get("result")
-        if extraction_result is None:
-            continue
-        tempdir = extraction_result.get("tempdir")
-        if extraction_result.get("data_dictionary"):
-            data_dictionary.update(extraction_result["data_dictionary"])
-            extraction_result.pop("data_dictionary")
-        """
-        if extraction_result.get("parent_sample"):
-            results.setdefault("info", {}).setdefault("parent_sample", {})
-            results["info"]["parent_sample"] = extraction_result["parent_sample"]
-            extraction_result.pop("parent_sample")
-        """
-        try:
-            extracted_files = extraction_result.get("extracted_files", [])
-            if not extracted_files:
+        for funcname, future in futures.items():
+            func_result = None
+            try:
+                func_result = future.result()
+            except concurrent.futures.TimeoutError as err:
+                timeout = err.args[0]
+                log.debug("Function: %s took longer than %d seconds", funcname, timeout)
                 continue
-            old_tool_name = data_dictionary.get("extracted_files_tool")
-            new_tool_name = extraction_result["tool_name"]
-            if old_tool_name:
-                log.debug("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
+            except TypeError as err:
+                log.debug("TypeError on getting results: %s", str(err))
+            except Exception as err:
+                log.exception("file_extra_info: %s", err)
                 continue
-            metadata = _extracted_files_metadata(tempdir, destination_folder, files=extracted_files, results=results)
-            data_dictionary.setdefault("selfextract", {})
-            data_dictionary["selfextract"][new_tool_name] = {
-                "extracted_files": metadata,
-                "extracted_files_time": func_result["took_seconds"],
-                "password": extraction_result.get("password", ""),
-            }
-        finally:
-            if tempdir:
-                # ToDo doesn't work
-                shutil.rmtree(tempdir, ignore_errors=True)
+            if not func_result:
+                continue
+            extraction_result = func_result.get("result")
+            if extraction_result is None:
+                continue
+            tempdir = extraction_result.get("tempdir")
+            if extraction_result.get("data_dictionary"):
+                data_dictionary.update(extraction_result["data_dictionary"])
+                extraction_result.pop("data_dictionary")
+            """
+            if extraction_result.get("parent_sample"):
+                results.setdefault("info", {}).setdefault("parent_sample", {})
+                results["info"]["parent_sample"] = extraction_result["parent_sample"]
+                extraction_result.pop("parent_sample")
+            """
+            try:
+                extracted_files = extraction_result.get("extracted_files", [])
+                if not extracted_files:
+                    continue
+                old_tool_name = data_dictionary.get("extracted_files_tool")
+                new_tool_name = extraction_result["tool_name"]
+                if old_tool_name:
+                    log.debug("Files already extracted from %s by %s. Also extracted with %s", file, old_tool_name, new_tool_name)
+                    continue
+                metadata = _extracted_files_metadata(tempdir, destination_folder, files=extracted_files, results=results)
+                data_dictionary.setdefault("selfextract", {})
+                data_dictionary["selfextract"][new_tool_name] = {
+                    "extracted_files": metadata,
+                    "extracted_files_time": func_result["took_seconds"],
+                    "password": extraction_result.get("password", ""),
+                }
+            finally:
+                if tempdir:
+                    # ToDo doesn't work
+                    shutil.rmtree(tempdir, ignore_errors=True)
+    finally:
+        # A shared pool (prefork) is kept warm for the next file and torn down
+        # once by the child via shutdown_shared_extractor_pool(); a per-call
+        # pool (pebble) is torn down here so no nested pool outlives the call.
+        if not shared_pool:
+            _teardown_extractor_pool(pool)
 
 
 def _generic_post_extraction_process(file: str, tool_name: str, decoded: str) -> SuccessfulExtractionReturnType:

@@ -202,10 +202,67 @@
                                         <label class="form-label text-white-50 small">Task Tags</label>
                                         <input type="text" class="form-control border-secondary bg-dark text-white" name="tags_tasks" placeholder="tag1, tag2" />
                                     </div>
+                                    <div class="mb-3">
+                                        <label for="form_route" class="text-white-50">Network Routing</label>
+                                        <select class="form-select border-secondary" id="form_route"
+                                            name="route">
+                                            {% if internet != "none" %}
+                                            <option value="internet" {% if route == "internet" %} selected{% endif %}>Internet
+                                                (dirty line, {{ internet }})</option>
+                                            {% endif %}
+                                            {% if random_route %}
+                                            {% if random_route.type == "SOCKS5" %}
+                                            <option value="{{ random_route.name }}" selected hidden>[RANDOM] {{
+                                                random_route.name }} -
+                                                {{ random_route.host }}:{{ random_route.port }} ({{ random_route.type }})
+                                            </option>
+                                            {% else %}
+                                            <option value="{{ vpn.name }}" selected hidden>[RANDOM] {{ vpn.description }}
+                                                ({{ vpn.interface }}, {{ vpn.type }})
+                                            </option>
+                                            {% endif %}
+                                            {% endif %}
+                                            {% if inetsim %}
+                                            <option value="inetsim">inetsim/fakenet-ng</option>
+                                            {% endif %}
+                                            {% if tor %}
+                                            <option value="tor">tor</option>
+                                            {% endif %}
+                                            {% for vpn in vpns %}
+                                            <option value="{{ vpn.name }}">{{ vpn.description }} ({{ vpn.interface }}, {{
+                                                vpn.type }})
+                                            </option>
+                                            {% endfor %}
+                                            {% for socks5 in socks5s %}
+                                            <option value="{{ socks5.name }}">{{ socks5.name }} - {{ socks5.host }}:{{
+                                                socks5.port }} ({{ socks5.type }})
+                                            </option>
+                                            {% endfor %}
+                                            {% if all_exitnodes %}
+                                            {% for route_name in all_exitnodes %}
+                                            <option value="{{ route_name }}">{{ route_name }} (Auto-pick)</option>
+                                            {% endfor %}
+                                            {% endif %}
+                                            {% if nexthop_enabled %}
+                                            <option value="nexthop" {% if route == "nexthop" %} selected{% endif %}>nexthop pool
+                                                (default policy)</option>
+                                            {% for gw in gateways %}
+                                            <option value="{{ gw.name }}" {% if route == gw.name %} selected{% endif %}>{{ gw.description }}
+                                                ({{ gw.name }}, nexthop gateway)</option>
+                                            {% endfor %}
+                                            {% endif %}
+                                            <option value="none" {% if route == "none" %} selected{% endif %}>Drop all VM
+                                                traffic</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="form_timeout" class="text-white-50">Timeout (seconds)</label>
+                                        <input type="number" class="form-control border-secondary"
+                                            id="form_timeout" name="timeout" value="{{config.timeout}}" />
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
                     <div class="row g-4 mt-1">
                         <div class="col-md-6" x-show="showAdvanced">

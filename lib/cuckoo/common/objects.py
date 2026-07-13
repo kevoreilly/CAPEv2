@@ -75,16 +75,13 @@ except ImportError:
     print("Missed library. Run: poetry install")
     HAVE_YARA = False
 
-HAVE_YARA_X = False
-yara_x = False
-"""
 try:
     import yara_x
 
     HAVE_YARA_X = True
 except ImportError:
-    # print("Missed library. Run: poetry install pip3 install yara-x")
-"""
+    HAVE_YARA_X = False
+    yara_x = None
 
 log = logging.getLogger(__name__)
 
@@ -436,8 +433,21 @@ class File:
         return new
 
     @classmethod
-    def init_yara(self, raise_exception: bool = False):
-        """Generates index for yara signatures."""
+    def init_yara(cls, raise_exception: bool = False, force: bool = False):
+        """Generates index for yara signatures.
+
+        Idempotent — safe to call multiple times. Compiling the full ruleset
+        is ~3s and the result is cached on the class for the lifetime of the
+        process, so subsequent calls short-circuit unless `force=True` is
+        passed (used after a yara-rule update). Without this guard, repeated
+        callers (e.g. some integration paths that didn't go through the
+        get_yara() wrapper) re-compiled all six categories on every call."""
+
+        if not HAVE_YARA and not HAVE_YARA_X:
+            return
+
+        if cls.yara_initialized and not force:
+            return
 
         categories = ("binaries", "urls", "memory", "CAPE", "macro", "monitor")
         log.debug("Initializing Yara...")
@@ -450,10 +460,10 @@ class File:
         all_rule_files = []
         for category in categories:
             for path in (yara_root, custom_yara_root):
-                category_root = os.path.join(path, category)
-                if not path_exists(category_root):
+                root_path = os.path.join(path, category)
+                if not path_exists(root_path):
                     continue
-                for root, _, filenames in os.walk(category_root, followlinks=True):
+                for root, _, filenames in os.walk(root_path, followlinks=True):
                     if root.endswith("deprecated"):
                         continue
                     for filename in filenames:
@@ -463,33 +473,33 @@ class File:
         hasher = hashlib.sha256()
         for filepath in sorted(all_rule_files):
             hasher.update(Path(filepath).read_bytes())
-        File.yara_rules_hash = hasher.hexdigest()
+        cls.yara_rules_hash = hasher.hexdigest()
 
         # Loop through all categories.
         for category in categories:
             rules, indexed = {}, []
             # Check if there is a directory for the given category.
             for path in (yara_root, custom_yara_root):
-                category_root = os.path.join(path, category)
-                if not path_exists(category_root):
-                    log.warning("Missing Yara directory: %s?", category_root)
+                root_path = os.path.join(path, category)
+                if not path_exists(root_path):
+                    log.warning("Missing Yara directory: %s?", root_path)
                     continue
 
-                for category_root, _, filenames in os.walk(category_root, followlinks=True):
-                    if category_root.endswith("deprecated"):
+                for root, _, filenames in os.walk(root_path, followlinks=True):
+                    if root.endswith("deprecated"):
                         continue
                     for filename in sorted(filenames):
                         if not filename.endswith((".yar", ".yara")):
                             continue
-                        filepath = os.path.join(category_root, filename)
+                        filepath = os.path.join(root, filename)
                         rules[f"rule_{category}_{len(rules)}"] = filepath
                         indexed.append(filename)
 
-                # Need to define each external variable that will be used in the
+            # Need to define each external variable that will be used in the
             # future. Otherwise Yara will complain.
             externals = {"filename": ""}
 
-            while True:
+            for _ in range(len(rules) + 1):
                 if HAVE_YARA_X:
                     compiler = yara_x.Compiler(relaxed_re_syntax=True)
                     for name, path in rules.items():
@@ -499,17 +509,45 @@ class File:
                                 compiler.add_source(f.read())
                         except yara_x.CompileError as err:
                             if raise_exception:
-                                log.error("Yara problem: %s - Error:", name, str(err))
+                                log.error("Yara problem: %s - Error: %s", name, str(err))
                                 raise yara_x.CompileError
-                            print(err, name)
-                            # ToDo bad rule defense
 
-                    File.yara_rules[category] = yara_x.Scanner(compiler.build())
+                            bad_rule_path = rules[name]
+                            bad_rule_name = os.path.basename(bad_rule_path)
+                            log.error("Can't compile YARA rule: %s. Error: %s", bad_rule_path, str(err))
+
+                            del rules[name]
+                            if bad_rule_name in indexed:
+                                indexed.remove(bad_rule_name)
+
+                            # Break the inner for loop to retry with pruned rules
+                            break
+                    else:
+                        # This runs if the inner for loop finishes WITHOUT break (no errors)
+                        compiled_rules = compiler.build()
+                        cls.yara_rules[category] = yara_x.Scanner(compiled_rules)
+                        if category == "memory":
+                            index_memory = os.path.join(yara_root, "index_memory.yarc")
+                            with open(index_memory, "wb") as f:
+                                compiled_rules.serialize_into(f)
+                        break
+                    # If we reached here, it means we hit a 'break' in the inner loop (an error occurred)
+                    # The outer 'for _ in range' will retry.
+                    continue
 
                 elif HAVE_YARA:
                     try:
-                        File.yara_rules[category] = yara.compile(filepaths=rules, externals=externals)
-                        File.yara_initialized = True
+                        compiled_rules = yara.compile(filepaths=rules, externals=externals)
+                        cls.yara_rules[category] = compiled_rules
+                        if category == "memory":
+                            index_memory = os.path.join(yara_root, "index_memory.yarc")
+                            try:
+                                compiled_rules.save(index_memory)
+                            except yara.Error as e:
+                                if "could not open file" in str(e):
+                                    log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
+                                else:
+                                    log.error(e)
                         break
                     except yara.SyntaxError as e:
                         bad_rule = f"{str(e).split('.yar', 1)[0]}.yar"
@@ -529,47 +567,32 @@ class File:
                     except yara.Error as e:
                         log.error("There was a syntax error in one or more Yara rules: %s", e)
                         break
-            if category == "memory":
-                index_memory = os.path.join(yara_root, "index_memory.yarc")
-                if HAVE_YARA_X:
-                    for name, path in rules.items():
-                        try:
-                            with open(path, "r") as f:
-                                compiler.new_namespace(name)
-                                compiler.add_source(f.read())
-                        except yara_x.CompileError as err:
-                            if raise_exception:
-                                log.error("Yara problem: %s - Error:", name, str(err))
-                                raise yara_x.CompileError
-                            print(err, name)
-                    builded = compiler.build()
-                    with open(index_memory, "wb") as f:
-                        builded.serialize_into(f)
-                elif HAVE_YARA:
-                    try:
-                        mem_rules = yara.compile(filepaths=rules, externals=externals)
-                        mem_rules.save(index_memory)
-                    except yara.Error as e:
-                        if "could not open file" in str(e):
-                            log.info("Can't write index_memory.yarc. Did you starting it with correct user?")
-                        else:
-                            log.error(e)
+            else:
+                log.error("Failed to compile any Yara rules for category: %s", category)
 
             indexed = sorted(indexed)
+
             for entry in indexed:
                 if (category, entry) == indexed[-1]:
                     log.debug("\t `-- %s %s", category, entry)
                 else:
                     log.debug("\t |-- %s %s", category, entry)
-        File.yara_rules_hash = hasher.hexdigest()
+        cls.yara_rules_hash = hasher.hexdigest()
+        cls.yara_initialized = True
 
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.
         @return: matched Yara signatures.
         """
-        if not HAVE_YARA_X and HAVE_YARA and float(yara.__version__[:-2]) < 4.3:
-            log.error("You using outdated YARA version. run: poetry run extra/yara_installer.sh")
-            return []
+        if not HAVE_YARA_X and HAVE_YARA:
+            try:
+                # Version check: must be >= 4.3
+                v = yara.__version__.split(".")
+                if int(v[0]) < 4 or (int(v[0]) == 4 and int(v[1]) < 3):
+                    log.error("You using outdated YARA version: %s. run: poetry run extra/yara_installer.sh", yara.__version__)
+                    return []
+            except (ValueError, IndexError):
+                log.warning("Could not parse YARA version: %s", yara.__version__)
 
         if not File.yara_initialized:
             File.init_yara()
@@ -578,26 +601,43 @@ class File:
             log.debug("YARA scan ignored, file is empty: %s", self.file_path)
             return []
 
+        if externals is None:
+            externals = {"filename": os.path.basename(self.file_path)}
+
         results = []
         try:
-            rules = File.yara_rules[category]
+            rules = self.yara_rules.get(category)
+            if not rules:
+                # Category not compiled. This happens when another caller replaced/limited the
+                # class-level yara_rules (e.g. a test injecting a single custom category) or a
+                # prior init only partially compiled: the init_yara() idempotency guard then
+                # short-circuits and leaves this category missing. Force ONE full recompile
+                # before giving up so a live category is never silently skipped (returning []
+                # here would look like "no matches" and hide the misconfiguration).
+                File.init_yara(force=True)
+                rules = self.yara_rules.get(category)
+                if not rules:
+                    return []
+
             if HAVE_YARA_X:
-                for yara_results in rules.scan_file(self.file_path):
-                    for match in yara_results.matching_rules:
-                        strings = []
-                        addresses = {}
-                        for yara_string in match.patterns:
-                            for x in yara_string.matches:
-                                # strings.extend({self._yara_encode_string(x.matched_data)})
-                                addresses.update({yara_string.identifier.strip("$"): x.offset})
-                        results.append(
-                            {
-                                "name": match.identifier,
-                                "meta": dict(match.metadata),
-                                "strings": [],
-                                "addresses": addresses,
-                            }
-                        )
+                yara_results = rules.scan_file(self.file_path)
+                for match in yara_results.matching_rules:
+                    strings = []
+                    addresses = {}
+                    for yara_string in match.patterns:
+                        for x in yara_string.matches:
+                            y_string = self._yara_encode_string(x.data)
+                            if y_string not in strings:
+                                strings.append(y_string)
+                            addresses.update({yara_string.identifier.strip("$"): x.offset})
+                    results.append(
+                        {
+                            "name": match.identifier,
+                            "meta": dict(match.metadata),
+                            "strings": strings,
+                            "addresses": addresses,
+                        }
+                    )
             elif HAVE_YARA:
                 for match in rules.match(self.file_path_ansii, externals=externals):
                     strings = []
@@ -618,12 +658,16 @@ class File:
                         }
                     )
         except Exception as e:
-            errcode = str(e).rsplit(maxsplit=1)[-1]
-            if errcode in yara_error:
-                log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
-
+            if HAVE_YARA and isinstance(e, yara.Error):
+                errcode = str(e).rsplit(maxsplit=1)[-1]
+                if errcode in yara_error:
+                    log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
+                else:
+                    log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
+            elif HAVE_YARA_X and isinstance(e, yara_x.Error):
+                log.exception("Unable to match Yara signatures (yara-x) for %s: %s", self.file_path, e)
             else:
-                log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
+                log.exception("Unable to match Yara signatures for %s: %s", self.file_path, e)
 
         return results
 

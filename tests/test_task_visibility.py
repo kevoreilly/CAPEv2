@@ -209,6 +209,9 @@ def test_set_task_visibility_raises_on_persistent_mongo_failure(db, monkeypatch)
     tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
     with pytest.raises(CuckooOperationalError):
         db.set_task_visibility(tid, "public")
+    # SQL rolled back to the previous value so the two stores can't diverge.
+    from lib.cuckoo.core.data.task import Task
+    assert db.session.get(Task, tid).visibility == "tenant"
 
 
 def test_set_task_visibility_skips_sync_when_mongo_disabled(db, monkeypatch):

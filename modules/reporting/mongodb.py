@@ -65,6 +65,24 @@ def _task_tenant_ctx(task_id):
         })()
 
 
+def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id) -> None:
+    """Stamp tenant context onto a report's info subdict (called only when MT is on).
+
+    On the legacy distributed worker path (``main_task_id`` set — only utils/dist.py
+    sets it, never the broker/central path) the worker-local task does NOT carry the
+    submitter's tenancy, so fail CLOSED to private/invisible rather than leak.
+    Otherwise stamp from the LOCAL task (report["info"]["id"] may have been rewritten
+    to a main id), failing closed to private if that lookup errors."""
+    if main_task_id:
+        stamp_tenant_info(report_info, None)
+        return
+    try:
+        stamp_tenant_info(report_info, _task_tenant_ctx(local_task_id))
+    except Exception as _db_err:
+        log.warning("Failed to look up task for tenant stamping (task %s): %s", local_task_id, _db_err)
+        stamp_tenant_info(report_info, None)
+
+
 class MongoDB(Report):
     """Stores report in MongoDB."""
 
@@ -199,26 +217,11 @@ class MongoDB(Report):
         from lib.cuckoo.common.tenancy import multitenancy_config
 
         if multitenancy_config().enabled:
-            if main_task_id:
-                # Legacy distributed (utils/dist.py) worker path: the worker-local
-                # task does NOT carry the submitter's tenancy (dist.py forwards
-                # none), so it cannot be stamped correctly here. Fail CLOSED to
-                # private (invisible) rather than leak a world-visible stamp.
-                # Multitenancy is supported with the mongo report store + the
-                # broker/central path; legacy distributed (dist.py) is a documented,
-                # not-yet-supported mode — see docs/MULTITENANCY-SUPPORT.md. Our
-                # central/broker path keys by job_id and never sets main_task_id, so
-                # this branch does not affect it.
-                stamp_tenant_info(report["info"], None)
-            else:
-                try:
-                    # Look up tenant context by the LOCAL task id. report["info"]["id"]
-                    # may have been rewritten to a main node's id above; the local
-                    # row carries the authoritative tenant/user/visibility.
-                    stamp_tenant_info(report["info"], _task_tenant_ctx(local_task_id))
-                except Exception as _db_err:
-                    log.warning("Failed to look up task for tenant stamping (task %s): %s", local_task_id, _db_err)
-                    stamp_tenant_info(report["info"], None)
+            # Fail-closed on the legacy distributed worker path (main_task_id set),
+            # else stamp from the LOCAL task. MT is supported on the mongo store +
+            # the broker/central path; legacy dist.py is a documented not-yet-
+            # supported mode (see docs/MULTITENANCY-SUPPORT.md). See _stamp_report_for_task.
+            _stamp_report_for_task(report["info"], main_task_id, local_task_id)
 
         # Delete old data just before inserting new one to avoid "missing report" window
         # or data loss if insertion fails during preparation (e.g. OOM)

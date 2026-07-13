@@ -861,6 +861,7 @@ class TasksMixIn:
         task = self.session.get(Task, task_id)
         if not task:
             return None
+        _prev_visibility = task.visibility
         task.visibility = visibility
         self.session.commit()
         # Sync the toggle to the mongo report so the aggregate/search/stats surfaces
@@ -885,8 +886,15 @@ class TasksMixIn:
             if _res is None:
                 from lib.cuckoo.common.exceptions import CuckooOperationalError
 
-                log.error("visibility mongo sync FAILED for task %s (mongo unreachable; SQL=%s, mongo stamp stale)", task_id, visibility)
-                raise CuckooOperationalError(f"task {task_id} visibility set in DB but mongo sync failed")
+                # Roll the SQL change back so the two stores can't diverge: a stale
+                # public mongo stamp after a private SQL toggle would keep the
+                # analysis cross-tenant visible in the aggregate/search/stats
+                # surfaces. Both stores end at the previous value and the caller
+                # gets a clear failure to retry.
+                task.visibility = _prev_visibility
+                self.session.commit()
+                log.error("visibility mongo sync FAILED for task %s (mongo unreachable); rolled SQL back to %r", task_id, _prev_visibility)
+                raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
         return task
 
     def fetch_task(self, categories: list = None):

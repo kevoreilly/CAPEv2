@@ -733,6 +733,24 @@ def index(request, task_id=None, resubmit_hash=None):
             {"name": v["name"], "description": v["description"], "interface": v["interface"], "type": "vpn"} for v in vpns.values()
         ]
 
+        # nexthop gateway pool: expose the configured [gwX] profiles (and the "nexthop" pool
+        # sentinel) as route options so GUI submissions can select the pool, mirroring vpns_data.
+        # Defensive: a malformed [nexthop] config must never 500 the submission page.
+        nexthop_enabled = False
+        gateways_data = []
+        try:
+            if getattr(routing.nexthop, "enabled", False):
+                nexthop_enabled = True
+                for gw_name in str(getattr(routing.nexthop, "gateways", "") or "").split(","):
+                    gw_name = gw_name.strip()
+                    if not gw_name:
+                        continue
+                    gw = routing.get(gw_name) if hasattr(routing, gw_name) else None
+                    desc = getattr(gw, "description", None) if gw is not None else None
+                    gateways_data.append({"name": gw_name, "description": desc or gw_name})
+        except Exception:
+            nexthop_enabled, gateways_data = False, []
+
         existent_tasks = {}
         if resubmit_hash:
             if web_conf.general.get("existent_tasks", False):
@@ -752,6 +770,8 @@ def index(request, task_id=None, resubmit_hash=None):
                 "vpns": vpns_data,
                 "random_route": random_route,
                 "socks5s": socks5s_data,
+                "gateways": gateways_data,
+                "nexthop_enabled": nexthop_enabled,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,

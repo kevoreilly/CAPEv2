@@ -39,6 +39,17 @@ class ServicePaths:
     ip = None
 
 
+# ---------------------------------------------------------------------------
+# nexthop primitive — module-level state (loader sets these via nexthop_configure)
+# ---------------------------------------------------------------------------
+GATEWAY_TABLES_CSV = ""
+NEXTHOP_VM_NET = "255.255.255.255/32"   # matches nothing if mis-fired before configure
+NEXTHOP_FAIL_TABLE = "250"   # best-effort del is a no-op; table 250 is not kernel-reserved
+NEXTHOP_PRIORITY_LOW = "30000"
+NEXTHOP_BAND_LO = "10000"
+NEXTHOP_BAND_HI = "10255"
+
+
 def run(*args):
     """Wrapper to subprocess.run."""
     log.debug("Running command: %s", " ".join(args))
@@ -189,6 +200,22 @@ def nic_available(interface):
         return True
     except subprocess.CalledProcessError:
         return False
+
+
+def nic_up(interface):
+    """Check that the interface exists AND is administratively up (IFF_UP). Unlike nic_available, an
+    existing-but-DOWN link returns False: the nexthop selector must not treat a down gateway NIC as a
+    live egress (round-robin/random would otherwise bind a task to a dead exit)."""
+    try:
+        out = subprocess.check_output(
+            [settings.ip, "-o", "link", "show", interface], stderr=subprocess.PIPE, universal_newlines=True
+        )
+    except subprocess.CalledProcessError:
+        return False
+    # Flags live in the angle-bracket group, e.g. "<BROADCAST,MULTICAST,UP,LOWER_UP>"; IFF_UP == "UP"
+    # (an exact token, so "LOWER_UP" carrier does not false-match).
+    flags = out.split("<", 1)[-1].split(">", 1)[0] if "<" in out else ""
+    return "UP" in flags.split(",")
 
 
 def rt_available(rt_table):
@@ -650,6 +677,178 @@ def srcroute_disable(rt_table, ipaddr):
     run(settings.ip, "route", "flush", "cache")
 
 
+# ---------------------------------------------------------------------------
+# nexthop primitive — argv builders
+# ---------------------------------------------------------------------------
+
+# Linux reserved/system routing tables that a [gwX] rt_table must never target — flushing any of
+# these would wipe the host's own routing and take the box offline. The startup loader rejects a
+# reserved rt_table up front (fail loud); these guards are defence-in-depth for the rooter path.
+# Kernel-fixed ids.
+RESERVED_RT_TABLES = ("local", "main", "default", "0", "253", "254", "255")
+
+
+def nexthop_init(rt_table, egress_if, next_hop):
+    """Idempotently build a next-hop profile's routing table: one forced default route.
+    next_hop == 'onlink' => default dev egress_if onlink; else default via next_hop dev egress_if.
+    NOTE: deliberately does NOT call init_rttable (that copies main's per-interface routes)."""
+    # NEVER flush a reserved/system routing table (codex P1 / gemini critical). See RESERVED_RT_TABLES.
+    if rt_table in RESERVED_RT_TABLES:
+        log.error("nexthop_init refusing to flush reserved routing table %r (fix the [gwX] rt_table)", rt_table)
+        return
+    run(settings.ip, "route", "flush", "table", rt_table)
+    # Fail-closed seed: never leave the table empty. If the real default replace below fails (bad
+    # egress_if/next_hop), this blackhole remains so the VM's policy lookup drops instead of falling
+    # through to `main` and egressing outside the gateway -- true even when [nexthop] fail_closed=no
+    # (codex P2: run() records but does not raise on a failed ip route replace).
+    run(settings.ip, "route", "replace", "blackhole", "default", "table", rt_table)
+    if next_hop == "onlink":
+        run(settings.ip, "route", "replace", "default", "dev", egress_if, "onlink", "table", rt_table)
+    else:
+        run(settings.ip, "route", "replace", "default", "via", next_hop, "dev", egress_if, "table", rt_table)
+
+
+def _iptables_delete_all(*args):
+    """Best-effort delete an iptables rule until it is no longer present, so a retried bind can't
+    leave stacked duplicates (a single -D would remove only one copy). run_iptables never raises;
+    a non-empty stderr from `-D` means the rule is gone. Bounded so a persistent error can't spin."""
+    for _ in range(32):
+        _, err = run_iptables(*args)
+        if err:
+            break
+
+
+def nexthop_enable(vm_ip, ingress_if, egress_if, rt_table, priority):
+    """Per task: source-route the VM into its profile table and SNAT onto egress_if. Idempotent --
+    a retried bind (or route_network called twice) must NOT stack rules, so the ip rule and both
+    iptables rules are delete-then-add'd; the iptables deletes loop until gone."""
+    run("conntrack", "-D", "-s", vm_ip)  # drop stale flows so a recycled IP starts clean (best-effort)
+    # Delete any existing rule for this VM at its (deterministic per-IP) priority -- TABLE-AGNOSTIC,
+    # so a rebind to a DIFFERENT gateway after a crashed/partial unroute removes the stale
+    # `from <vm_ip> priority <P> lookup <old_table>` rule too. A `lookup <new_table>` del would miss
+    # it, leaving it to win by priority and route the task via the previous exit (codex). Then add fresh.
+    run(settings.ip, "rule", "del", "from", vm_ip, "priority", priority)
+    run(settings.ip, "rule", "add", "from", vm_ip, "lookup", rt_table, "priority", priority)
+    # SNAT the VM out its gateway. Delete-until-gone first so a retry can't stack duplicate NAT rules
+    # that nexthop_disable's delete would then leave behind (Copilot).
+    _iptables_delete_all("-t", "nat", "-D", "POSTROUTING", "-s", vm_ip, "-o", egress_if, "-j", "MASQUERADE")
+    run_iptables("-t", "nat", "-A", "POSTROUTING", "-s", vm_ip, "-o", egress_if, "-j", "MASQUERADE")
+    # Accept the VM's forwarded egress via CAPE_ACCEPTED_SEGMENTS -- the chain FORWARD jumps to FIRST
+    # (cleanup_rooter) -- so it precedes any libvirt default `-i virbr* -j REJECT` still in the raw
+    # FORWARD chain (a tail `-A FORWARD ... ACCEPT` would be shadowed on libvirt guests). Constrain -i
+    # to the guest ingress interface so a spoofed source from another host NIC can't be forwarded and
+    # MASQUERADEd through the gateway -- parity with the legacy forward_enable path (codex). ACCEPT
+    # terminates traversal, so return traffic is covered by the ESTABLISHED,RELATED accept in the same
+    # chain. Delete-until-gone before insert (idempotent, Copilot).
+    _iptables_delete_all("-D", "CAPE_ACCEPTED_SEGMENTS", "-i", ingress_if, "-s", vm_ip, "-o", egress_if, "-j", "ACCEPT")
+    run_iptables("-I", "CAPE_ACCEPTED_SEGMENTS", "-i", ingress_if, "-s", vm_ip, "-o", egress_if, "-j", "ACCEPT")
+
+
+def nexthop_disable(vm_ip, ingress_if, egress_if, rt_table, priority):
+    """Mirror-delete the per-task state from nexthop_enable, then flush conntrack. The iptables
+    deletes loop until gone so any duplicate left by a retried bind is fully removed (no stale egress)."""
+    run(settings.ip, "rule", "del", "from", vm_ip, "lookup", rt_table, "priority", priority)
+    _iptables_delete_all("-t", "nat", "-D", "POSTROUTING", "-s", vm_ip, "-o", egress_if, "-j", "MASQUERADE")
+    _iptables_delete_all("-D", "CAPE_ACCEPTED_SEGMENTS", "-i", ingress_if, "-s", vm_ip, "-o", egress_if, "-j", "ACCEPT")
+    run("conntrack", "-D", "-s", vm_ip)
+
+
+def nexthop_intra_exception_enable(vm_net, band_lo):
+    """Keep intra-vm_net traffic on the main table: `from vm_net to vm_net lookup main`.
+
+    vm_net includes the host's own guest-bridge IP and sibling guests. A bound VM's per-task rule is
+    `from <vm_ip> lookup <gw_table>` and the gateway table holds only a default route, so without this
+    exception a bound VM's traffic to a vm_net address that is NOT the host-local bridge IP (a sibling
+    guest, or a ResultServer that is not the host itself) would be captured by the per-task rule and
+    SNAT'd out the gateway instead of staying on the guest network (codex). Host-local ResultServer
+    already resolves via the kernel priority-0 local table; this covers the non-host-local +
+    guest<->guest cases, for bound and unbound VMs alike.
+
+    Installed at band_lo-1 -- JUST BELOW the per-task band (band_lo..band_hi) -- so it wins over a
+    bound VM's in-band per-task rule. It only matches `to vm_net`, so external egress is unaffected.
+    This is a CONNECTIVITY guarantee, installed whenever nexthop is enabled and independent of
+    fail_closed (which only governs the blackhole). Idempotent (del+add, no stacked duplicates)."""
+    intra_prio = str(int(band_lo) - 1)
+    run(settings.ip, "rule", "del", "from", vm_net, "to", vm_net, "lookup", "main", "priority", intra_prio)
+    run(settings.ip, "rule", "add", "from", vm_net, "to", vm_net, "lookup", "main", "priority", intra_prio)
+
+
+def nexthop_fail_closed_enable(vm_net, fail_table, priority_low):
+    """Arm once at startup (only when fail_closed=yes): any guest-subnet source with no
+    higher-priority per-task rule is blackholed (dropped), never routed by main out the control-plane
+    NIC. `route replace` is idempotent; the rule is del+add'd so a restart does not stack duplicates.
+    The intra-subnet exception is installed separately by nexthop_intra_exception_enable (always),
+    since keeping host<->guest / guest<->guest traffic on main is a connectivity concern, not a
+    fail-closed one -- an unbound external flow still matches no per-task rule and hits this blackhole."""
+    run(settings.ip, "route", "replace", "blackhole", "default", "table", fail_table)
+    run(settings.ip, "rule", "del", "from", vm_net, "lookup", fail_table, "priority", priority_low)
+    run(settings.ip, "rule", "add", "from", vm_net, "lookup", fail_table, "priority", priority_low)
+
+
+def nexthop_teardown(gateway_tables, vm_net, fail_table, priority_low, band_lo, band_hi):
+    """Remove ALL nexthop policy-routing state (cleanup_rooter only sweeps iptables).
+    gateway_tables: comma-joined table ids. Idempotent; every step is a best-effort run()."""
+    for rt in [t for t in gateway_tables.split(",") if t]:
+        # NEVER flush a reserved/system routing table (gemini #14 HIGH). See RESERVED_RT_TABLES.
+        if rt in RESERVED_RT_TABLES:
+            log.error("nexthop_teardown refusing to flush reserved routing table %r (fix the [gwX] rt_table)", rt)
+            continue
+        run(settings.ip, "route", "flush", "table", rt)
+    run(settings.ip, "route", "del", "blackhole", "default", "table", fail_table)
+    run(settings.ip, "rule", "del", "from", vm_net, "lookup", fail_table, "priority", priority_low)
+    # intra-subnet exception is armed at band_lo-1 (just below the per-task band); mirror-delete it
+    run(settings.ip, "rule", "del", "from", vm_net, "to", vm_net, "lookup", "main", "priority", str(int(band_lo) - 1))
+    lo, hi = int(band_lo), int(band_hi)
+    try:
+        vm_network = ipaddress.ip_network(vm_net, strict=False)
+    except ValueError:
+        vm_network = None
+    stdout, _ = run(settings.ip, "rule", "show")
+    for line in stdout.splitlines():
+        head = line.split(":", 1)[0].strip()
+        if not (head.isdigit() and lo <= int(head) <= hi):
+            continue
+        # Only sweep OUR per-task rules -- `from <vm_ip> ...` with vm_ip inside vm_net. Every nexthop
+        # per-task rule matches `from <vm_ip>`, so anything in the 10000-10255 band whose source is
+        # NOT in vm_net is an unrelated host admin rule; leave it alone (codex). Fail-safe: if vm_net
+        # is unparseable or the source can't be confirmed inside it, skip rather than delete.
+        toks = line.split()
+        if vm_network is None or "from" not in toks:
+            continue
+        try:
+            src = toks[toks.index("from") + 1]
+            if ipaddress.ip_address(src.split("/")[0]) not in vm_network:
+                continue
+        except (ValueError, IndexError):
+            continue
+        # Delete by the FULL selector (from <src> + priority), not by priority alone: iproute2 allows
+        # multiple rules at one priority, so `ip rule del priority N` could remove a host admin rule
+        # that happens to share this priority instead of ours. Matching on our confirmed vm_net source
+        # too targets exactly our per-task rule (codex).
+        run(settings.ip, "rule", "del", "from", src, "priority", head)
+
+
+def nexthop_configure(tables_csv, vm_net, fail_table, prio_low, band_lo, band_hi):
+    """Called by the [gwX] loader to set the module globals that nexthop_teardown sweeps."""
+    global GATEWAY_TABLES_CSV, NEXTHOP_VM_NET, NEXTHOP_FAIL_TABLE
+    global NEXTHOP_PRIORITY_LOW, NEXTHOP_BAND_LO, NEXTHOP_BAND_HI
+    GATEWAY_TABLES_CSV, NEXTHOP_VM_NET, NEXTHOP_FAIL_TABLE = tables_csv, vm_net, fail_table
+    NEXTHOP_PRIORITY_LOW, NEXTHOP_BAND_LO, NEXTHOP_BAND_HI = prio_low, band_lo, band_hi
+
+
+def nexthop_teardown_if_configured():
+    """SIGTERM helper: remove nexthop policy-routing state ONLY if the [gwX] loader configured it
+    this session (nexthop_configure sets GATEWAY_TABLES_CSV; it is "" on a node that never enabled
+    [nexthop]). Skipping otherwise honours the disabled=no-op contract -- an unconfigured node must
+    not mutate host routing on shutdown, in particular must not sweep the 10000-10255 priority band
+    (which could delete an unrelated host rule). Module-level + importable so the contract is
+    CI-guarded (the SIGTERM handler itself lives inside __main__ and is not testable)."""
+    if not GATEWAY_TABLES_CSV:
+        return
+    nexthop_teardown(GATEWAY_TABLES_CSV, NEXTHOP_VM_NET, NEXTHOP_FAIL_TABLE,
+                     NEXTHOP_PRIORITY_LOW, NEXTHOP_BAND_LO, NEXTHOP_BAND_HI)
+
+
 def dns_forward(action, vm_ip, dns_ip, dns_port="53"):
     """Route DNS requests from the VM to a custom DNS on a separate network."""
     run_iptables(
@@ -1075,6 +1274,7 @@ def sslproxy_disable(interface, client, proxy_port, resultserver_port, rt_table=
 
 handlers = {
     "nic_available": nic_available,
+    "nic_up": nic_up,
     "rt_available": rt_available,
     "vpn_status": vpn_status,
     "forward_drop": forward_drop,
@@ -1113,6 +1313,13 @@ handlers = {
     "libvirt_fwo_disable": libvirt_fwo_disable,
     "sslproxy_enable": sslproxy_enable,
     "sslproxy_disable": sslproxy_disable,
+    "nexthop_init": nexthop_init,
+    "nexthop_enable": nexthop_enable,
+    "nexthop_disable": nexthop_disable,
+    "nexthop_intra_exception_enable": nexthop_intra_exception_enable,
+    "nexthop_fail_closed_enable": nexthop_fail_closed_enable,
+    "nexthop_teardown": nexthop_teardown,
+    "nexthop_configure": nexthop_configure,
 }
 
 if __name__ == "__main__":
@@ -1193,6 +1400,10 @@ if __name__ == "__main__":
         server.shutdown(socket.SHUT_RDWR)
         server.close()
         cleanup_rooter()
+        # Remove nexthop policy-routing state (cleanup_rooter is iptables-only), but only when the
+        # [gwX] loader actually configured nexthop this session -- see nexthop_teardown_if_configured
+        # (extracted + CI-guarded so the disabled=no-op contract can't silently regress) (Copilot).
+        nexthop_teardown_if_configured()
 
     signal.signal(signal.SIGTERM, handle_sigterm)
 

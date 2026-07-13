@@ -52,7 +52,6 @@
 {% endblock %}
 
 {% block content %}
-{% if statistics %}
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2 class="text-white mb-0"><i class="fas fa-chart-bar me-3 text-info"></i>Operations Dashboard</h2>
@@ -62,6 +61,19 @@
         <a href="/statistics/30/" class="btn btn-outline-secondary btn-sm {% if days == 30 %}active{% endif %}">30d</a>
     </div>
 </div>
+
+{% for p in panels %}
+{% with statistics=p.statistics scope=p.scope label=p.label %}
+
+<div class="mb-5">
+
+{% if panels|length > 1 %}
+<h4 class="text-white-50 text-uppercase letter-spacing-1 mb-3">
+    <i class="fas fa-layer-group me-2"></i>{{ label }}
+</h4>
+{% endif %}
+
+{% if statistics %}
 
 <!-- Hero Metrics -->
 <div class="row mb-4">
@@ -97,7 +109,7 @@
         <div class="stats-card p-4 h-100">
             <h5 class="text-white mb-4"><i class="fas fa-chart-line me-2 text-primary"></i>Task Volume Trend</h5>
             <div class="chart-container">
-                <canvas id="tasksChart"></canvas>
+                <canvas id="tasksChart-{{scope}}"></canvas>
             </div>
         </div>
     </div>
@@ -115,7 +127,7 @@
                 {% endfor %}
             </div>
             <div class="text-center mt-3">
-                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#allDetectionsModal">View All</button>
+                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#allDetectionsModal-{{scope}}">View All</button>
             </div>
             {% else %}
             <p class="text-muted text-center mt-5">No detection data available</p>
@@ -132,7 +144,7 @@
             <h5 class="text-white mb-4"><i class="fas fa-network-wired me-2 text-warning"></i>Top ASNs</h5>
             {% if statistics.asns %}
             <div class="chart-container" style="height: 250px;">
-                <canvas id="asnChart"></canvas>
+                <canvas id="asnChart-{{scope}}"></canvas>
             </div>
             {% else %}
             <p class="text-muted text-center mt-5">No ASN data available</p>
@@ -144,23 +156,23 @@
         <div class="stats-card p-4 h-100">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h5 class="text-white mb-0"><i class="fas fa-cogs me-2 text-success"></i>Module Performance</h5>
-                <ul class="nav nav-tabs nav-tabs-custom border-0" id="performanceTabs" role="tablist">
+                <ul class="nav nav-tabs nav-tabs-custom border-0" id="performanceTabs-{{scope}}" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="processing-tab" data-bs-toggle="tab" data-bs-target="#processing" type="button">Processing</button>
+                        <button class="nav-link active" id="processing-tab-{{scope}}" data-bs-toggle="tab" data-bs-target="#processing-{{scope}}" type="button">Processing</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="signatures-tab" data-bs-toggle="tab" data-bs-target="#signatures" type="button">Signatures</button>
+                        <button class="nav-link" id="signatures-tab-{{scope}}" data-bs-toggle="tab" data-bs-target="#signatures-{{scope}}" type="button">Signatures</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="reporting-tab" data-bs-toggle="tab" data-bs-target="#reporting" type="button">Reporting</button>
+                        <button class="nav-link" id="reporting-tab-{{scope}}" data-bs-toggle="tab" data-bs-target="#reporting-{{scope}}" type="button">Reporting</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="custom-tab" data-bs-toggle="tab" data-bs-target="#custom" type="button">Custom</button>
+                        <button class="nav-link" id="custom-tab-{{scope}}" data-bs-toggle="tab" data-bs-target="#custom-{{scope}}" type="button">Custom</button>
                     </li>
                 </ul>
             </div>
-            <div class="tab-content" id="performanceTabsContent">
-                <div class="tab-pane fade show active" id="processing" role="tabpanel">
+            <div class="tab-content" id="performanceTabsContent-{{scope}}">
+                <div class="tab-pane fade show active" id="processing-{{scope}}" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-dark table-hover mb-0">
                             <thead>
@@ -176,7 +188,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="tab-pane fade" id="signatures" role="tabpanel">
+                <div class="tab-pane fade" id="signatures-{{scope}}" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-dark table-hover mb-0">
                             <thead>
@@ -192,7 +204,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="tab-pane fade" id="reporting" role="tabpanel">
+                <div class="tab-pane fade" id="reporting-{{scope}}" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-dark table-hover mb-0">
                             <thead>
@@ -208,7 +220,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="tab-pane fade" id="custom" role="tabpanel">
+                <div class="tab-pane fade" id="custom-{{scope}}" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-dark table-hover mb-0">
                             <thead>
@@ -300,11 +312,12 @@
 </div>
 
 <!-- Detections Modal -->
-<div class="modal fade" id="allDetectionsModal" tabindex="-1">
+{% if statistics.detections %}
+<div class="modal fade" id="allDetectionsModal-{{scope}}" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content bg-dark text-white border-secondary">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title">All Detections</h5>
+                <h5 class="modal-title">All Detections — {{label}}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -322,80 +335,98 @@
         </div>
     </div>
 </div>
+{% endif %}
+
+</div>{# end panel div #}
+
+{% endwith %}
+{% endfor %}
 
 {% block extra_scripts %}
 <script>
-    // Tasks Chart
-    const tasksCtx = document.getElementById('tasksChart').getContext('2d');
-    new Chart(tasksCtx, {
-        type: 'line',
-        data: {
-            labels: [{% for day, block in statistics.tasks.items %}"{{day}}",{% endfor %}].reverse(),
-            datasets: [
-                {
-                    label: 'Added',
-                    data: [{% for day, block in statistics.tasks.items %}{{block.added}},{% endfor %}].reverse(),
-                    borderColor: '#00bcd4',
-                    backgroundColor: 'rgba(0, 188, 212, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'Reported',
-                    data: [{% for day, block in statistics.tasks.items %}{{block.reported}},{% endfor %}].reverse(),
-                    borderColor: '#4caf50',
-                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                },
-                {
-                    label: 'Failed',
-                    data: [{% for day, block in statistics.tasks.items %}{{block.failed}},{% endfor %}].reverse(),
-                    borderColor: '#f44336',
-                    backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                    fill: true,
-                    tension: 0.4
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { labels: { color: '#fff' } }
+{% for p in panels %}
+{% with statistics=p.statistics scope=p.scope %}
+{% if statistics %}
+    // Tasks Chart — {{scope}}
+    (function() {
+        var ctx = document.getElementById('tasksChart-{{scope}}');
+        if (!ctx) return;
+        new Chart(ctx.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels: [{% for day, block in statistics.tasks.items %}"{{day}}",{% endfor %}].reverse(),
+                datasets: [
+                    {
+                        label: 'Added',
+                        data: [{% for day, block in statistics.tasks.items %}{{block.added}},{% endfor %}].reverse(),
+                        borderColor: '#00bcd4',
+                        backgroundColor: 'rgba(0, 188, 212, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Reported',
+                        data: [{% for day, block in statistics.tasks.items %}{{block.reported}},{% endfor %}].reverse(),
+                        borderColor: '#4caf50',
+                        backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    },
+                    {
+                        label: 'Failed',
+                        data: [{% for day, block in statistics.tasks.items %}{{block.failed}},{% endfor %}].reverse(),
+                        borderColor: '#f44336',
+                        backgroundColor: 'rgba(244, 67, 54, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }
+                ]
             },
-            scales: {
-                y: { grid: { color: '#333' }, ticks: { color: '#888' } },
-                x: { grid: { display: false }, ticks: { color: '#888' } }
-            }
-        }
-    });
-
-    // ASN Chart
-    {% if statistics.asns %}
-    const asnCtx = document.getElementById('asnChart').getContext('2d');
-    new Chart(asnCtx, {
-        type: 'doughnut',
-        data: {
-            labels: [{% for block in statistics.asns|slice:":5" %}"{{block.asn}}",{% endfor %}],
-            datasets: [{
-                data: [{% for block in statistics.asns|slice:":5" %}{{block.total}},{% endfor %}],
-                backgroundColor: ['#ff9800', '#00bcd4', '#4caf50', '#f44336', '#9c27b0'],
-                borderWidth: 0
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    position: 'bottom',
-                    labels: { color: '#fff', boxWidth: 12 }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#fff' } }
+                },
+                scales: {
+                    y: { grid: { color: '#333' }, ticks: { color: '#888' } },
+                    x: { grid: { display: false }, ticks: { color: '#888' } }
                 }
             }
-        }
-    });
+        });
+    })();
+
+    {% if statistics.asns %}
+    // ASN Chart — {{scope}}
+    (function() {
+        var asnCtx = document.getElementById('asnChart-{{scope}}');
+        if (!asnCtx) return;
+        new Chart(asnCtx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: [{% for block in statistics.asns|slice:":5" %}"{{block.asn}}",{% endfor %}],
+                datasets: [{
+                    data: [{% for block in statistics.asns|slice:":5" %}{{block.total}},{% endfor %}],
+                    backgroundColor: ['#ff9800', '#00bcd4', '#4caf50', '#f44336', '#9c27b0'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: '#fff', boxWidth: 12 }
+                    }
+                }
+            }
+        });
+    })();
     {% endif %}
+{% endif %}
+{% endwith %}
+{% endfor %}
 </script>
 {% endblock %}
 

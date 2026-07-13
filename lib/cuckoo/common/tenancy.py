@@ -1,0 +1,161 @@
+"""Pure, dependency-free job-visibility predicate — the single source of truth
+for who may read/manage a task. Imported by the Django web layer, the apiv2
+views, the SQLAlchemy task store, and (separately) validated by the broker.
+No Django, no SQLAlchemy imports here — only plain dataclasses so it stays a
+pure function set testable against tests/tenancy_vectors.py.
+"""
+from dataclasses import dataclass
+from typing import Optional
+
+PUBLIC, TENANT, PRIVATE = "public", "tenant", "private"
+VISIBILITIES = (PUBLIC, TENANT, PRIVATE)
+
+MINE, GLOBAL = "mine", "global"
+SCOPES = (PUBLIC, TENANT, MINE, GLOBAL)
+
+
+@dataclass(frozen=True)
+class Viewer:
+    user_id: Optional[int]
+    tenant_id: Optional[int]
+    is_superuser: bool = False
+    is_tenant_admin: bool = False
+    is_local_admin: bool = False  # superuser AND cuckoo.conf break-glass flag on
+
+
+@dataclass(frozen=True)
+class Job:
+    owner_id: Optional[int]
+    tenant_id: Optional[int]
+    visibility: str
+
+
+def _is_owner(v: Viewer, j: Job) -> bool:
+    return v.user_id is not None and v.user_id == j.owner_id
+
+
+def _same_tenant(v: Viewer, j: Job) -> bool:
+    return j.tenant_id is not None and v.tenant_id == j.tenant_id
+
+
+def can_read(v: Viewer, j: Job) -> bool:
+    if j.visibility == PUBLIC:
+        return True
+    if v.is_local_admin:          # operator break-glass (gated upstream)
+        return True
+    if _is_owner(v, j):
+        return True
+    if j.visibility == TENANT and _same_tenant(v, j):
+        return True
+    return False                  # private => owner/break-glass only
+
+
+def can_toggle(v: Viewer, j: Job) -> bool:
+    if _is_owner(v, j):
+        return True
+    if v.is_local_admin:
+        return True
+    # tenant-admin manages public/tenant jobs in their own tenant, never private
+    if v.is_tenant_admin and _same_tenant(v, j) and j.visibility in (PUBLIC, TENANT):
+        return True
+    return False
+
+
+def scope_match(scope: str, v: "Viewer"):
+    """Mongo $match (dict) selecting the analysis docs in a stat SCOPE for viewer v.
+    Mirrors the can_read branches. Returns None for 'global' (no filter). Keys target
+    the report's info.* (stamped at report time)."""
+    if scope == GLOBAL:
+        return None
+    if scope == PUBLIC:
+        return {"info.visibility": PUBLIC}
+    if scope == TENANT:
+        if v is None or v.tenant_id is None:
+            return {"info.id": -1}  # no viewer / tenant-less -> empty
+        return {"info.tenant_id": v.tenant_id, "info.visibility": TENANT}
+    if scope == MINE:
+        if v is None or v.user_id is None:
+            return {"info.id": -1}
+        return {"info.user_id": v.user_id}
+    raise ValueError(f"unknown scope {scope!r}")
+
+
+@dataclass(frozen=True)
+class MTConfig:
+    enabled: bool
+    mode: str
+    default_visibility: str
+    local_admins_manage_all_tenants: bool
+
+
+def _as_bool(v, default: bool) -> bool:
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        return v.strip().lower() in ("yes", "true", "1", "on")
+    if v is None:
+        return default
+    return bool(v)
+
+
+def multitenancy_config() -> MTConfig:
+    """Read the [multitenancy] section of cuckoo.conf (server-side policy)."""
+    from lib.cuckoo.common.config import Config
+
+    try:
+        sec = Config("cuckoo").get("multitenancy")
+    except Exception:
+        sec = {}
+    get = sec.get if hasattr(sec, "get") else (lambda k, d=None: d)
+    return MTConfig(
+        enabled=_as_bool(get("enabled", False), False),
+        mode=str(get("mode", "shared") or "shared"),
+        default_visibility=str(get("default_visibility", "") or ""),
+        local_admins_manage_all_tenants=_as_bool(get("local_admins_manage_all_tenants", True), True),
+    )
+
+
+def default_visibility(cfg: MTConfig) -> str:
+    """The submit-time default visibility for the configured mode."""
+    if cfg.default_visibility in VISIBILITIES:
+        return cfg.default_visibility
+    return PUBLIC if cfg.mode == "shared" else TENANT
+
+
+def viewer_scope_match(viewer):
+    """Mongo $match restricting an analysis-collection query to the viewer's
+    entitled tenant scopes (public OR own-tenant TENANT OR mine), or None when no
+    filter applies — multitenancy disabled, shared mode, or break-glass
+    (is_local_admin). THE single source of truth (imported by web_utils,
+    cape_utils, …) so the search/dedup/stats by-scope query builders can't drift.
+    Keys target the report's stamped info.* fields.
+    """
+    if viewer is None:
+        return None
+    cfg = multitenancy_config()
+    if not cfg.enabled or cfg.mode != "locked" or getattr(viewer, "is_local_admin", False):
+        return None
+    clauses = [m for m in (scope_match(PUBLIC, viewer), scope_match(TENANT, viewer), scope_match(MINE, viewer)) if m is not None]
+    # No entitled scope resolved (tenant-less/anon) -> match nothing, never global.
+    return {"$or": clauses} if clauses else {"info.id": -1}
+
+
+def viewer_scope_es_filter(viewer):
+    """Elasticsearch bool-filter analogue of viewer_scope_match (public OR
+    own-tenant TENANT OR mine), or None when no filter applies. Uses the term/
+    info.* idiom. A tenant-less/anonymous locked-mode viewer sees only public.
+    """
+    if viewer is None:
+        return None
+    cfg = multitenancy_config()
+    if not cfg.enabled or cfg.mode != "locked" or getattr(viewer, "is_local_admin", False):
+        return None
+    shoulds = [{"term": {"info.visibility": PUBLIC}}]
+    if getattr(viewer, "tenant_id", None) is not None:
+        shoulds.append({"bool": {"filter": [
+            {"term": {"info.tenant_id": viewer.tenant_id}},
+            {"term": {"info.visibility": TENANT}},
+        ]}})
+    if getattr(viewer, "user_id", None) is not None:
+        shoulds.append({"term": {"info.user_id": viewer.user_id}})
+    return {"bool": {"should": shoulds, "minimum_should_match": 1}}

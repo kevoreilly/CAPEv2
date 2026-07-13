@@ -14,6 +14,9 @@ from base64 import urlsafe_b64encode
 from contextlib import suppress
 
 from django.conf import settings
+
+from web.tenancy_optional import submission_scope, can_view_task, can_view_sample, viewer_for
+from web.tenancy_optional import multitenancy_config, default_visibility, PUBLIC, TENANT, PRIVATE
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
@@ -49,6 +52,29 @@ aux_conf = Config("auxiliary")
 web_conf = Config("web")
 
 db = Database()
+
+
+def _scope_existent(request, records):
+    """Tenant isolation for the existent_tasks resubmit-by-hash display:
+    perform_search applies only the legacy TLP/public_searches filter, so in
+    locked mode it would surface other tenants' task id / sha256 / malware-family
+    for a known hash. Drop records the requester may not view — mirroring
+    analysis.search. No-op when MT disabled (can_view_task -> is_local_admin)."""
+    out = []
+    for record in records or []:
+        if not isinstance(record, dict):
+            continue
+        rid = (record.get("info") or {}).get("id")
+        if rid is None:
+            continue
+        try:
+            vt = db.view_task(int(rid))
+        except (ValueError, TypeError):
+            continue
+        if vt is not None and can_view_task(request.user, vt):
+            out.append(record)
+    return out
+
 
 from urllib3 import disable_warnings
 
@@ -268,6 +294,10 @@ def force_int(value):
 def index(request, task_id=None, resubmit_hash=None):
     remote_console = False
     if request.method == "POST":
+        try:
+            _tenant_id, _visibility = submission_scope(request)
+        except ValueError:
+            return render(request, "error.html", {"error": "Invalid visibility value"})
         (
             static,
             package,
@@ -387,6 +417,8 @@ def index(request, task_id=None, resubmit_hash=None):
             "options": options,
             "only_extraction": False,
             "user_id": request.user.id or 0,
+            "tenant_id": _tenant_id,
+            "visibility": _visibility,
             "package": package,
         }
         if opt_apikey:
@@ -448,8 +480,23 @@ def index(request, task_id=None, resubmit_hash=None):
             for hash in samples:
                 paths = []
                 if len(hash) in (32, 40, 64):
+                    # by-hash resubmit hits the global content-addressed store —
+                    # enforce the visible-task-referencing-the-sample boundary
+                    # before touching it, else a tenant exfiltrates another
+                    # tenant's sample bytes AND gets a full fresh analysis they
+                    # own. Deny path is byte-identical to genuinely-missing.
+                    _kw = {"sha256": hash} if len(hash) == 64 else ({"sha1": hash} if len(hash) == 40 else {"md5": hash})
+                    if not can_view_sample(request.user, **_kw):
+                        details["errors"].append({hash: "File not found on hdd for resubmission"})
+                        continue
                     paths = db.sample_path_by_hash(hash)
                 else:
+                    # task_id-based resubmit: the submit view is not task-gated,
+                    # so authorize the source task before reading its binary.
+                    _src = db.view_task(task_id)
+                    if _src is None or not can_view_task(request.user, _src):
+                        details["errors"].append({hash: "Task not found for resubmission"})
+                        continue
                     task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "binary")
                     if path_exists(task_binary):
                         paths.append(task_binary)
@@ -523,7 +570,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     if tasks_details.get("errors"):
                         details["errors"].extend(tasks_details["errors"])
                     if web_conf.web_reporting.get("enabled", False) and web_conf.general.get("existent_tasks", False):
-                        records = perform_search("target_sha256", hash, search_limit=5)
+                        records = _scope_existent(request, perform_search("target_sha256", hash, search_limit=5, viewer=viewer_for(request.user)))
                         if records:
                             for record in records or []:
                                 existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
@@ -544,7 +591,7 @@ def index(request, task_id=None, resubmit_hash=None):
                     if tasks_details.get("errors"):
                         details["errors"].extend(tasks_details["errors"])
                     if web_conf.general.get("existent_tasks", False):
-                        records = perform_search("target_sha256", sha256, search_limit=5)
+                        records = _scope_existent(request, perform_search("target_sha256", sha256, search_limit=5, viewer=viewer_for(request.user)))
                         if records:
                             for record in records:
                                 if record.get("target").get("file", {}).get("sha256"):
@@ -552,7 +599,7 @@ def index(request, task_id=None, resubmit_hash=None):
 
         elif task_category == "static":
             for content, path, sha256 in list_of_tasks:
-                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0)
+                task_id = db.add_static(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0, tenant_id=_tenant_id, visibility=_visibility)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
@@ -569,7 +616,8 @@ def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
                         continue
 
-                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+                task_id = db.add_pcap(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0,
+                                      tenant_id=_tenant_id, visibility=_visibility)
                 if task_id:
                     details["task_ids"].append(task_id)
 
@@ -607,6 +655,8 @@ def index(request, task_id=None, resubmit_hash=None):
                         cape=cape,
                         tags_tasks=tags_tasks,
                         user_id=request.user.id or 0,
+                        tenant_id=_tenant_id,
+                        visibility=_visibility,
                     )
                     details["task_ids"].append(task_id)
 
@@ -625,6 +675,9 @@ def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].extend(tasks_details["errors"])
 
         elif task_category == "downloading_service":
+            # viewer gates local-cache reuse inside download_from_3rdparty (no
+            # cross-tenant bytes via a "Local" hit). No-op when MT disabled.
+            details["viewer"] = viewer_for(request.user)
             details = download_from_3rdparty(samples, opt_filename, details)
 
         if details.get("task_ids"):
@@ -754,7 +807,7 @@ def index(request, task_id=None, resubmit_hash=None):
         existent_tasks = {}
         if resubmit_hash:
             if web_conf.general.get("existent_tasks", False):
-                records = perform_search("target_sha256", resubmit_hash, search_limit=5)
+                records = _scope_existent(request, perform_search("target_sha256", resubmit_hash, search_limit=5, viewer=viewer_for(request.user)))
                 if records:
                     for record in records:
                         existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
@@ -765,6 +818,10 @@ def index(request, task_id=None, resubmit_hash=None):
             "submission/index.html",
             {
                 "title": "Submit",
+                "visibility_levels": (
+                    [PUBLIC, PRIVATE] if multitenancy_config().mode == "shared" else [PUBLIC, TENANT, PRIVATE]
+                ),
+                "default_visibility": default_visibility(multitenancy_config()),
                 "packages": sorted(packages, key=lambda i: i["name"].lower()),
                 "machines": machines,
                 "vpns": vpns_data,
@@ -788,7 +845,8 @@ def index(request, task_id=None, resubmit_hash=None):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
     task = db.view_task(task_id)
-    if not task:
+    # tenant isolation: hidden == missing (also gates the emitted guac session_data)
+    if not task or not can_view_task(request.user, task):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     completed = False
@@ -834,7 +892,8 @@ def status(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def remote_session(request, task_id):
     task = db.view_task(task_id)
-    if not task:
+    # tenant isolation: hidden == missing (also gates the emitted guac session_data)
+    if not task or not can_view_task(request.user, task):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     machine_status = False

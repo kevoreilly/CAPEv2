@@ -284,6 +284,37 @@ def _apply_idp_roles_and_email(user, extra: dict) -> bool:
     return changed
 
 
+def reconcile_tenant(user, user_groups: set) -> None:
+    """Set UserProfile.tenant + is_tenant_admin from the user's IdP groups.
+
+    One-tenant-per-user (v1): exactly one membership match is expected.
+      >1 match -> fail closed (unset + warn; a user mapped to multiple
+                  tenant-groups is a v1 misconfiguration)
+      0 match  -> no tenant
+    The caller skips this entirely when the groups claim is ABSENT (misconfig
+    guard), mirroring role reconciliation; a present-but-empty claim is honoured.
+    """
+    from users.models import Tenant, UserProfile
+
+    matches = [t for t in Tenant.objects.filter(active=True) if user_groups & set(t.idp_groups or [])]
+    prof, _ = UserProfile.objects.get_or_create(user=user)
+    if len(matches) > 1:
+        log.warning(
+            "user %s matches multiple tenants %s; leaving tenant unset",
+            user.username, [t.slug for t in matches],
+        )
+        prof.tenant = None
+        prof.is_tenant_admin = False
+    elif len(matches) == 1:
+        t = matches[0]
+        prof.tenant = t
+        prof.is_tenant_admin = bool(user_groups & set(t.admin_idp_groups or []))
+    else:
+        prof.tenant = None
+        prof.is_tenant_admin = False
+    prof.save(update_fields=["tenant", "is_tenant_admin"])
+
+
 # ── Account adapters ──────────────────────────────────────────────────────────
 
 disposable_domain_list = []
@@ -426,3 +457,9 @@ def _reconcile_sso_user_on_login(sender, request, user, **kwargs):
     extra = getattr(sociallogin.account, "extra_data", None) or {}
     if _apply_idp_roles_and_email(user, extra):
         user.save()
+    # Tenant + tenant-admin reconciliation — same absent-claim guard as roles:
+    # only touch tenant membership when the groups claim is actually present.
+    oidc_cfg = getattr(settings, "OIDC_CFG", None) or {}
+    claim = oidc_cfg.get("groups_claim") or "groups"
+    if claim in extra:
+        reconcile_tenant(user, _extract_groups(extra))

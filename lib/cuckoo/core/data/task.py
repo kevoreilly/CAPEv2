@@ -138,6 +138,8 @@ class Task(Base):
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    tenant_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, server_default="private")
 
     # The Task is linked to one specific parent/child association event
     association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task", cascade="all, delete-orphan")

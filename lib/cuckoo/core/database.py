@@ -49,7 +49,7 @@ except ImportError:  # pragma: no cover
 
 
 
-SCHEMA_VERSION = "2b3c4d5e6f7g"
+SCHEMA_VERSION = "3a1b_tenant_visibility"
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")

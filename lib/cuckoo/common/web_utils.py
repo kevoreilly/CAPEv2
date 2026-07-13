@@ -251,7 +251,7 @@ def load_vms_tags(force: bool = False):
         return _all_vms_tags or []
 
 
-def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
+def top_asn(date_since: datetime = False, results_limit: int = 20, scope_match: dict = None) -> dict:
     """
     Retrieves the top Autonomous System Numbers (ASNs) based on the number of occurrences in the database.
 
@@ -270,8 +270,9 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
 
     t = int(time.time())
 
-    # caches results for 10 minutes
-    if hasattr(top_asn, "cache"):
+    # caches results for 10 minutes; scoped calls bypass the cache entirely to
+    # prevent cross-tenant leaks (cache is shared across all callers).
+    if not scope_match and hasattr(top_asn, "cache"):
         ct, data = top_asn.cache
         if t - ct < 600:
             return data
@@ -295,6 +296,9 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
     if date_since:
         aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
 
+    if scope_match:
+        aggregation_command[0].setdefault("$match", {}).update(scope_match)
+
     if repconf.mongodb.enabled:
         data = mongo_aggregate("analysis", aggregation_command)
     else:
@@ -303,13 +307,14 @@ def top_asn(date_since: datetime = False, results_limit: int = 20) -> dict:
     if data:
         data = list(data)
 
-    # save to cache
-    top_asn.cache = (t, data)
+    # save to cache only for unscoped (global) calls
+    if not scope_match:
+        top_asn.cache = (t, data)
 
     return data
 
 
-def top_detections(date_since: datetime = False, results_limit: int = 20) -> dict:
+def top_detections(date_since: datetime = False, results_limit: int = 20, scope_match: dict = None, viewer=None) -> list:
     """
     Retrieves the top detections from the database, either from MongoDB or Elasticsearch,
     and caches the results for 10 minutes.
@@ -326,8 +331,9 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
 
     t = int(time.time())
 
-    # caches results for 10 minutes
-    if hasattr(top_detections, "cache"):
+    # caches results for 10 minutes; scoped calls bypass the cache entirely to
+    # prevent cross-tenant leaks (cache is shared across all callers).
+    if not scope_match and hasattr(top_detections, "cache"):
         ct, data = top_detections.cache
         if t - ct < 600:
             return data
@@ -351,6 +357,9 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
     if date_since:
         aggregation_command[0]["$match"].setdefault("info.started", {"$gte": date_since.isoformat()})
 
+    if scope_match:
+        aggregation_command[0].setdefault("$match", {}).update(scope_match)
+
     if repconf.mongodb.enabled:
         data = mongo_aggregate("analysis", aggregation_command)
     elif repconf.elasticsearchdb.enabled:
@@ -364,6 +373,14 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
         if date_since:
             q["query"]["bool"]["must"].append({"range": {"info.started": {"gte": date_since.isoformat()}}})
 
+        # Tenant scope (parity with the mongo branch's scope_match): without this
+        # a locked-mode tenant's My-Tenant/Mine stat panels return the GLOBAL
+        # per-family malware landscape on an ES-backed install. No-op for
+        # break-glass / MT-disabled.
+        _esf = _viewer_scope_es_filter(viewer)
+        if _esf:
+            q["query"]["bool"].setdefault("filter", []).append(_esf)
+
         res = es.search(index=get_analysis_index(), body=q)
         data = [{"total": r["doc_count"], "family": r["key"]} for r in res["aggregations"]["family"]["buckets"]]
     else:
@@ -372,14 +389,15 @@ def top_detections(date_since: datetime = False, results_limit: int = 20) -> dic
     if data:
         data = list(data)
 
-    # save to cache
-    top_detections.cache = (t, data)
+    # save to cache only for unscoped (global) calls
+    if not scope_match:
+        top_detections.cache = (t, data)
 
     return data
 
 
 # ToDo extend this to directly extract per day
-def get_stats_per_category(category: str, date_since: datetime) -> List[Dict[str, int]]:
+def get_stats_per_category(category: str, date_since: datetime, scope_match: dict = None) -> List[Dict[str, int]]:
     """
     Retrieves statistical data for a given category from the MongoDB collection "analysis"
     starting from a specified date.
@@ -430,15 +448,21 @@ def get_stats_per_category(category: str, date_since: datetime) -> List[Dict[str
         },
         {"$limit": 20},
     ]
+    if scope_match:
+        aggregation_command[0].setdefault("$match", {}).update(scope_match)
     return mongo_aggregate("analysis", aggregation_command)
 
 
-def statistics(s_days: int) -> dict:
+def statistics(s_days: int, scope=None, viewer=None) -> dict:
     """
     Generate statistics for the given number of days.
 
     Args:
         s_days (int): The number of days to generate statistics for.
+        scope (str, optional): Tenancy scope string (e.g. 'global', 'public', 'tenant', 'mine').
+            When None or 'global', all tasks are included (backward-compatible default).
+        viewer: Viewer object for per-tenant/per-user scoping. Required when scope is
+            'tenant' or 'mine'; ignored when scope is None/'global'.
 
     Returns:
         dict: A dictionary containing various statistics including:
@@ -454,6 +478,11 @@ def statistics(s_days: int) -> dict:
             - distributed_tasks: Statistics related to distributed tasks (if applicable).
             - asns: Top Autonomous System Numbers (ASNs).
     """
+    from lib.cuckoo.common.tenancy_optional import scope_match as _scope_match_fn
+
+    # Derive the mongo $match dict from scope+viewer; None → no filter (global, backward-compat).
+    sm = _scope_match_fn(scope, viewer) if scope and scope != "global" else None
+
     date_since = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=s_days)
     date_till = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -489,21 +518,26 @@ def statistics(s_days: int) -> dict:
         return details
 
     for module_name in ("statistics.signatures", "statistics.processing", "statistics.reporting", "custom_statistics"):
-        module_data = get_stats_per_category(module_name, date_since)
+        module_data = get_stats_per_category(module_name, date_since, scope_match=sm)
         for entry in module_data or []:
             name = entry["name"]
             details[module_name.split(".")[-1]].setdefault(name, entry)
 
     top_samples = {}
-    added_tasks = (
-        db.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till)).all()
+    added_tasks_q = (
+        db.session.query(Task).join(Sample, Task.sample_id == Sample.id).filter(Task.added_on.between(date_since, date_till))
     )
-    tasks = (
+    tasks_q = (
         db.session.query(Task)
         .join(Sample, Task.sample_id == Sample.id)
         .filter(Task.completed_on.between(date_since, date_till))
-        .all()
     )
+    # Apply SQL scope filter when scope/viewer are provided; empty list = no-op (global path unchanged).
+    for cond in db._scope_where(scope, viewer):
+        added_tasks_q = added_tasks_q.filter(cond)
+        tasks_q = tasks_q.filter(cond)
+    added_tasks = added_tasks_q.all()
+    tasks = tasks_q.all()
     details["total"] = len(tasks)
     details["average"] = f"{round(details['total'] / s_days, 2):.2f}"
     details["tasks"] = {}
@@ -535,25 +569,39 @@ def statistics(s_days: int) -> dict:
         sorted(details["tasks"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
     )
 
-    if HAVE_DIST and dist_conf.distributed.enabled:
+    # The distributed-tasks panel runs against a separate dist DB whose Task
+    # schema has no tenant_id/visibility column, so it cannot be scope-filtered.
+    # Until that schema gains tenancy columns, only populate it for the GLOBAL
+    # scope (MT disabled / shared / break-glass) — never for a locked-mode
+    # tenant/mine panel, where per-node-per-day counts would leak other tenants'
+    # submission volumes.
+    if HAVE_DIST and dist_conf.distributed.enabled and (scope is None or scope == "global"):
+        # A dist DB that's down/misconfigured must not 500 the whole dashboard —
+        # just omit the panel.
         details["distributed_tasks"] = {}
-        dist_db = dist_session()
-        dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()
-        id2name = {}
-        # load node names
-        for node in dist_db.query(Node).all() or []:
-            id2name.setdefault(node.id, node.name)
+        dist_db = None
+        try:
+            dist_db = dist_session()
+            dist_tasks = dist_db.query(DTask).filter(DTask.clock.between(date_since, date_till)).all()
+            id2name = {}
+            # load node names
+            for node in dist_db.query(Node).all() or []:
+                id2name.setdefault(node.id, node.name)
 
-        for task in dist_tasks or []:
-            day = task.clock.strftime("%Y-%m-%d")
-            if day not in details["distributed_tasks"]:
-                details["distributed_tasks"].setdefault(day, {})
-            if id2name.get(task.node_id) not in details["distributed_tasks"][day]:
-                details["distributed_tasks"][day].setdefault(id2name[task.node_id], 0)
-            details["distributed_tasks"][day][id2name[task.node_id]] += 1
-        dist_db.close()
+            for task in dist_tasks or []:
+                day = task.clock.strftime("%Y-%m-%d")
+                if day not in details["distributed_tasks"]:
+                    details["distributed_tasks"].setdefault(day, {})
+                if id2name.get(task.node_id) not in details["distributed_tasks"][day]:
+                    details["distributed_tasks"][day].setdefault(id2name[task.node_id], 0)
+                details["distributed_tasks"][day][id2name[task.node_id]] += 1
 
-        details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[0], reverse=True))
+            details["distributed_tasks"] = OrderedDict(sorted(details["distributed_tasks"].items(), key=lambda x: x[0], reverse=True))
+        except Exception as dist_err:
+            log.warning("Could not load distributed_tasks panel: %s", dist_err)
+        finally:
+            if dist_db is not None:
+                dist_db.close()
 
     # Get top15 of samples per day and seen more than once
     for day in top_samples:
@@ -568,8 +616,8 @@ def statistics(s_days: int) -> dict:
         sorted(details["top_samples"].items(), key=lambda x: datetime.strptime(x[0], "%Y-%m-%d"), reverse=True)
     )
 
-    details["detections"] = top_detections(date_since=date_since)
-    details["asns"] = top_asn(date_since=date_since)
+    details["detections"] = top_detections(date_since=date_since, scope_match=sm, viewer=viewer)
+    details["asns"] = top_asn(date_since=date_since, scope_match=sm)
 
     return details
 
@@ -639,7 +687,11 @@ def download_from_3rdparty(samples: str, opt_filename: str, details: dict) -> di
         # clean old content
         if "content" in details:
             del details["content"]
-        paths = db.sample_path_by_hash(h)
+        # Only reuse a locally-cached copy if the requester is entitled to the
+        # sample (visible-task boundary). Otherwise fall through to the external
+        # downloader exactly as if uncached — so a non-entitled tenant can neither
+        # obtain another tenant's bytes nor learn the hash was present locally.
+        paths = db.sample_path_by_hash(h, visible_to=details.get("viewer"))
         if paths:
             details["content"] = get_file_content(paths)
             details["service"] = "Local"
@@ -955,6 +1007,8 @@ def download_file(**kwargs):
             route=route,
             cape=cape,
             user_id=kwargs.get("user_id"),
+            tenant_id=kwargs.get("tenant_id"),
+            visibility=kwargs.get("visibility", "private"),
             source_url=kwargs.get("source_url", False),
         )
 
@@ -1336,8 +1390,16 @@ def _build_es_user_filter(privs: bool, user_id: int):
     return user_filter
 
 
+# The viewer-scope query builders live in the pure tenancy module (single source
+# of truth, shared with cape_utils & co); keep the _-prefixed local aliases so the
+# in-module callers (perform_search, top_detections) are unchanged.
+from lib.cuckoo.common.tenancy_optional import viewer_scope_match as _viewer_scope_match  # noqa: E402
+from lib.cuckoo.common.tenancy_optional import viewer_scope_es_filter as _viewer_scope_es_filter  # noqa: E402
+
+
 def perform_search(
-    term: str, value: str, search_limit: int = 0, user_id: int = 0, privs: bool = False, web: bool = True, projection: dict = None
+    term: str, value: str, search_limit: int = 0, user_id: int = 0, privs: bool = False, web: bool = True, projection: dict = None,
+    viewer=None,
 ):
     """
     Perform a search based on the provided term and value.
@@ -1356,10 +1418,18 @@ def perform_search(
     """
     if repconf.mongodb.enabled and repconf.elasticsearchdb.enabled and essearch and not term:
         multi_match_search = {"query": {"multi_match": {"query": value, "fields": ["*"]}}}
+        # Legacy TLP/user filter (skipped for privs) + tenant scope (applied
+        # regardless of privs — is_staff is not the tenancy break-glass).
+        es_filters = []
         if not privs:
-            user_filter = _build_es_user_filter(privs, user_id)
-            if user_filter:
-                multi_match_search = {"query": {"bool": {"must": [{"multi_match": {"query": value, "fields": ["*"]}}], "filter": [user_filter]}}}
+            uf = _build_es_user_filter(privs, user_id)
+            if uf:
+                es_filters.append(uf)
+        sf = _viewer_scope_es_filter(viewer)
+        if sf:
+            es_filters.append(sf)
+        if es_filters:
+            multi_match_search = {"query": {"bool": {"must": [{"multi_match": {"query": value, "fields": ["*"]}}], "filter": es_filters}}}
         numhits = es.search(index=get_analysis_index(), body=multi_match_search, size=0)["hits"]["total"]
         return [
             d["_source"]
@@ -1440,20 +1510,28 @@ def perform_search(
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
             split_by = "," if "," in query_val else " "
             query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            # The files collection is NOT tenant-stamped, so we $lookup back to
+            # the analysis doc (which IS stamped) and filter THERE. The tenant
+            # $match and the $limit are applied AFTER the join — limiting before
+            # the scope filter would let other tenants' hits crowd out / truncate
+            # the viewer's own visible results.
             pipeline = [
-                # Stages 1-5: Find, unwind, group, sort, limit IDs
                 {"$match": {hash_searches[term]: query_filter_list}},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
-                {"$limit": search_limit},
-                # Stage 6: Join with the tasks collection
+                # Join with the analysis collection
                 {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
-                # Stage 7: Unpack the joined doc
                 {"$unwind": "$task_doc"},
-                # Stage 8: Make the task doc the new root
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
+
+            # Tenant scope — applied regardless of `privs` (Django is_staff is NOT
+            # the tenancy break-glass; only is_local_admin is, handled inside
+            # _viewer_scope_match). No-op when multitenancy is disabled/shared.
+            _scope = _viewer_scope_match(viewer)
+            if _scope:
+                pipeline.append({"$match": _scope})
 
             if not privs:
                 if force_bool(web_cfg.general.get("public_searches", True)):
@@ -1462,7 +1540,8 @@ def perform_search(
                 else:
                     pipeline.append({"$match": {"info.user_id": user_id}})
 
-            # Stage 9: Add your custom projection
+            # Limit AFTER scoping, then project.
+            pipeline.append({"$limit": search_limit})
             pipeline.append({"$project": projection or perform_search_filters})
 
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
@@ -1498,6 +1577,12 @@ def perform_search(
                 else:
                     mongo_search_query["info.user_id"] = user_id
 
+            # Tenant scope — applied regardless of `privs` (is_staff is not the
+            # tenancy break-glass). No-op when multitenancy disabled/shared.
+            _scope = _viewer_scope_match(viewer)
+            if _scope:
+                mongo_search_query = {"$and": [mongo_search_query, _scope]}
+
             retval = list(mongo_find("analysis", mongo_search_query, projection, limit=search_limit))
 
         for doc in retval:
@@ -1509,18 +1594,26 @@ def perform_search(
     if es_as_db:
         _source_fields = list((projection or perform_search_filters).keys())[:-1]
 
+        # Legacy TLP/user filter (skipped for privs) + tenant scope (applied
+        # regardless of privs — is_staff is not the tenancy break-glass).
+        es_filters = []
         user_filter = _build_es_user_filter(privs, user_id)
+        if user_filter:
+            es_filters.append(user_filter)
+        scope_filter = _viewer_scope_es_filter(viewer)
+        if scope_filter:
+            es_filters.append(scope_filter)
 
         if isinstance(search_term_map[term], str):
             q = {"query": {"match": {search_term_map[term]: value}}}
-            if user_filter:
-                q = {"query": {"bool": {"must": [q["query"]], "filter": [user_filter]}}}
+            if es_filters:
+                q = {"query": {"bool": {"must": [q["query"]], "filter": es_filters}}}
             return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
         else:
             queries = [{"match": {search_term: value}} for search_term in search_term_map[term]]
             q = {"query": {"bool": {"should": queries, "minimum_should_match": 1}}}
-            if user_filter:
-                q["query"]["bool"]["filter"] = [user_filter]
+            if es_filters:
+                q["query"]["bool"]["filter"] = es_filters
             return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
 
 
@@ -1712,10 +1805,12 @@ def process_new_task_files(request, samples: list, details: dict, opt_filename: 
                 )
                 continue
 
+            from lib.cuckoo.common.tenancy_optional import viewer_for as _viewer_for
+
             if (
                 not request.user.is_staff
                 and (web_cfg.uniq_submission.enabled or unique)
-                and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours)
+                and db.check_file_uniq(sha256, hours=web_cfg.uniq_submission.hours, visible_to=_viewer_for(request.user))
             ):
                 details["errors"].append(
                     {filename: "Duplicated file, disable unique option on submit or in conf/web.conf to force submission"}

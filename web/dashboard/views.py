@@ -15,6 +15,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_REPORTED
+import users.tenancy as _ut
 
 
 # Conditional decorator for web authentication
@@ -35,39 +36,86 @@ def format_number_with_space(number):
     return f"{number:,}".replace(",", " ")
 
 
+def entitled_scopes(user):
+    """Return the list of scope keys this user is entitled to see.
+
+    When multitenancy is disabled or the user is a local-admin (break-glass),
+    returns ["global"] — the single panel that shows everything, preserving
+    legacy behaviour.  Otherwise returns the per-scope panels appropriate for
+    the viewer's tenancy.
+    """
+    v = _ut.viewer_for(user)
+    cfg = _ut.multitenancy_config()
+    if not cfg.enabled or cfg.mode != "locked" or v.is_local_admin:
+        return ["global"]
+    scopes = ["public"]
+    if v.tenant_id is not None:
+        scopes.append("tenant")
+    if v.user_id is not None:   # anonymous/unauth has no "mine" — skip the empty panel
+        scopes.append("mine")
+    return scopes
+
+
+_SCOPE_LABEL = {
+    "public": "Public",
+    "tenant": "My Tenant",
+    "mine": "Mine",
+    "global": "Global",
+}
+
+
+def entitled_scope_filter(user):
+    """Combined mongo ``$match`` (over the report's ``info.*``) restricting results
+    to the analyses ``user`` may read across all their entitled scopes. Returns
+    ``None`` when no filter applies (global / break-glass / multitenancy disabled)
+    so callers can leave their query unchanged, preserving the public install."""
+    scopes = entitled_scopes(user)
+    if "global" in scopes:
+        return None
+    from lib.cuckoo.common.tenancy import scope_match
+
+    v = _ut.viewer_for(user)
+    clauses = []
+    for s in scopes:
+        sm = scope_match(s, v)
+        if sm is not None:
+            clauses.append(sm)
+    # No entitled scope resolved (e.g. tenant-less, unauth) -> match nothing.
+    return {"$or": clauses} if clauses else {"info.id": -1}
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request):
     db: TasksMixIn = Database()
+    v = _ut.viewer_for(request.user)
 
-    states_count = db.get_tasks_status_count()
-    report = dict(
-        total_samples=format_number_with_space(db.count_samples()),
-        total_tasks=format_number_with_space(db.count_tasks()),
-        states_count=states_count,
-        estimate_hour=None,
-        estimate_day=None,
-    )
+    panels = []
+    for scope in entitled_scopes(request.user):
+        states = db.get_tasks_status_count(scope=scope, viewer=v)
+        total_tasks = db.count_tasks(scope=scope, viewer=v) or 0
+        total_samples = db.count_samples(scope=scope, viewer=v) or 0
 
-    # For the following stats we're only interested in completed tasks.
-    tasks = states_count.get(TASK_COMPLETED, 0) + states_count.get(TASK_REPORTED, 0)
+        # Estimate throughput for completed/reported tasks in this scope.
+        tasks_done = states.get(TASK_COMPLETED, 0) + states.get(TASK_REPORTED, 0)
+        estimate_hour = None
+        estimate_day = None
+        if tasks_done:
+            started, completed = db.minmax_tasks(scope=scope, viewer=v)
+            if started and completed and int(completed - started):
+                hourly = 60 * 60 * tasks_done / (completed - started)
+                estimate_hour = format_number_with_space(int(hourly))
+                estimate_day = format_number_with_space(int(24 * hourly))
 
-    data = {"title": "Dashboard", "report": {}}
+        panels.append({
+            "scope": scope,
+            "label": _SCOPE_LABEL[scope],
+            "total_tasks": format_number_with_space(total_tasks),
+            "total_samples": format_number_with_space(total_samples),
+            "states_count": states,
+            "estimate_hour": estimate_hour,
+            "estimate_day": estimate_day,
+        })
 
-    if tasks:
-        # Get the time when the first task started and last one ended.
-        started, completed = db.minmax_tasks()
-
-        # It has happened that for unknown reasons completed and started were
-        # equal in which case an exception is thrown, avoid this.
-        if started and completed and int(completed - started):
-            hourly = 60 * 60 * tasks / (completed - started)
-        else:
-            hourly = 0
-
-        report["estimate_hour"] = format_number_with_space(int(hourly))
-        report["estimate_day"] = format_number_with_space(int(24 * hourly))
-        # report["top_detections"] = top_detections()
-
-        data["report"] = report
+    data = {"title": "Dashboard", "panels": panels}
     return render(request, "dashboard/index.html", data)

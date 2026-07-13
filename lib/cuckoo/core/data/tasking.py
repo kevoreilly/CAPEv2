@@ -26,9 +26,11 @@ from sflock.ident import identify as sflock_identify
 try:
     from sqlalchemy.exc import SQLAlchemyError
     from sqlalchemy import (
+        and_,
         delete,
         func,
         not_,
+        or_,
         select,
         update,
     )
@@ -36,6 +38,10 @@ try:
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
+try:
+    from dev_utils.mongodb import mongo_update_one
+except Exception:  # mongo optional
+    mongo_update_one = None
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
@@ -122,6 +128,8 @@ class TasksMixIn:
         cape=False,
         tags_tasks=False,
         user_id=0,
+        tenant_id=None,
+        visibility="private",
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -249,6 +257,8 @@ class TasksMixIn:
             task.clock = datetime.fromtimestamp(0, timezone.utc).replace(tzinfo=None)
 
         task.user_id = user_id
+        task.tenant_id = tenant_id
+        task.visibility = visibility or "private"
 
         if parent_sample:
             association = SampleAssociation(
@@ -281,6 +291,8 @@ class TasksMixIn:
         cape=False,
         tags_tasks=False,
         user_id=0,
+        tenant_id=None,
+        visibility="private",
         parent_sample = None,
     ):
         """Add a task to database from file path.
@@ -336,7 +348,7 @@ class TasksMixIn:
             route=route,
             cape=cape,
             tags_tasks=tags_tasks,
-            user_id=user_id,
+            user_id=user_id, tenant_id=tenant_id, visibility=visibility,
             parent_sample=parent_sample,
         )
 
@@ -386,6 +398,8 @@ class TasksMixIn:
         route=None,
         cape=False,
         user_id=0,
+        tenant_id=None,
+        visibility="private",
         category=None,
     ):
         """
@@ -447,7 +461,7 @@ class TasksMixIn:
                 file_path=file_path,
                 priority=priority,
                 tlp=tlp,
-                user_id=user_id,
+                user_id=user_id, tenant_id=tenant_id, visibility=visibility,
                 options=options,
                 package=package,
             )
@@ -486,7 +500,7 @@ class TasksMixIn:
                     file_path=file_path,
                     priority=priority,
                     tlp=tlp,
-                    user_id=user_id,
+                    user_id=user_id, tenant_id=tenant_id, visibility=visibility,
                     options=options,
                     package=package,
                     parent_sample=parent_sample,
@@ -496,14 +510,19 @@ class TasksMixIn:
                 # On huge loads this just become a bottleneck
                 config = False
                 if web_conf.general.check_config_exists:
-                    config = static_config_lookup(file)
+                    # Scope the dedup lookup to the submitter's entitled analyses
+                    # so it can't return another tenant's task id / config-exists
+                    # inference for a known hash. No-op for MT-disabled / shared.
+                    from lib.cuckoo.common.tenancy import Viewer as _Viewer
+
+                    config = static_config_lookup(file, viewer=_Viewer(user_id=user_id or None, tenant_id=tenant_id))
                     if config:
                         task_ids.append(config["id"])
                     else:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, options=options, parent_sample=parent_sample,
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, tenant_id=tenant_id, visibility=visibility, options=options, parent_sample=parent_sample,
                     )
 
             if not config and not only_extraction:
@@ -552,7 +571,7 @@ class TasksMixIn:
                     route=route,
                     tags_tasks=tags_tasks,
                     cape=cape,
-                    user_id=user_id,
+                    user_id=user_id, tenant_id=tenant_id, visibility=visibility,
                     parent_sample=parent_sample,
                 )
                 package = None
@@ -582,6 +601,8 @@ class TasksMixIn:
         clock=None,
         tlp=None,
         user_id=0,
+        tenant_id=None,
+        visibility="private",
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -597,7 +618,7 @@ class TasksMixIn:
             enforce_timeout=enforce_timeout,
             clock=clock,
             tlp=tlp,
-            user_id=user_id,
+            user_id=user_id, tenant_id=tenant_id, visibility=visibility,
         )
 
     def add_static(
@@ -617,6 +638,8 @@ class TasksMixIn:
         tlp=None,
         static=True,
         user_id=0,
+        tenant_id=None,
+        visibility="private",
         parent_sample=None,
     ):
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
@@ -654,7 +677,7 @@ class TasksMixIn:
                 tlp=tlp,
                 static=static,
                 parent_sample=parent_sample,
-                user_id=user_id,
+                user_id=user_id, tenant_id=tenant_id, visibility=visibility,
             )
             if task_id:
                 task_ids.append(task_id)
@@ -680,6 +703,8 @@ class TasksMixIn:
         cape=False,
         tags_tasks=False,
         user_id=0,
+        tenant_id=None,
+        visibility="private",
     ):
         """Add a task to database from url.
         @param url: url.
@@ -726,7 +751,7 @@ class TasksMixIn:
             route=route,
             cape=cape,
             tags_tasks=tags_tasks,
-            user_id=user_id,
+            user_id=user_id, tenant_id=tenant_id, visibility=visibility,
         )
 
     def set_vnc_port(self, task_id: int, port: int):
@@ -792,6 +817,31 @@ class TasksMixIn:
             return None
 
         return self.set_task_status(task, status)
+
+    def set_task_visibility(self, task_id: int, visibility: str) -> Optional[Task]:
+        """Set a task's visibility (public/tenant/private).
+        @param task_id: task identifier
+        @param visibility: one of public|tenant|private
+        @return: the Task, or None if not found
+        @raise ValueError: if visibility is not a known level — defense in depth
+            so no caller (web, broker, or future) can persist a bogus value even
+            if it skips the view-layer check.
+        """
+        from lib.cuckoo.common.tenancy import VISIBILITIES
+
+        if visibility not in VISIBILITIES:
+            raise ValueError(f"invalid visibility: {visibility!r}")
+        task = self.session.get(Task, task_id)
+        if not task:
+            return None
+        task.visibility = visibility
+        self.session.commit()
+        if mongo_update_one is not None:
+            try:
+                mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": visibility}})
+            except Exception:
+                log.warning("failed to sync visibility to mongo for task %s", task_id)
+        return task
 
     def fetch_task(self, categories: list = None):
         """Fetches a task waiting to be processed and locks it for running.
@@ -895,6 +945,9 @@ class TasksMixIn:
                 task.clock,
                 tlp=task.tlp,
                 route=task.route,
+                user_id=task.user_id,
+                tenant_id=task.tenant_id,
+                visibility=task.visibility,
             )
         elif task.category in ("pcap", "static"):
             new_task_id = add(
@@ -911,17 +964,24 @@ class TasksMixIn:
                 task.enforce_timeout,
                 task.clock,
                 tlp=task.tlp,
+                user_id=task.user_id,
+                tenant_id=task.tenant_id,
+                visibility=task.visibility,
             )
 
         self.session.get(Task, task_id).custom = f"Recovery_{new_task_id}"
 
         return new_task_id
 
-    def count_matching_tasks(self, category=None, status=None, not_status=None):
+    def count_matching_tasks(self, category=None, status=None, not_status=None, visible_to=None):
         """Retrieve list of task.
         @param category: filter by category
         @param status: filter by task status
         @param not_status: exclude this task status from filter
+        @param visible_to: a tenancy Viewer; when set (and not a break-glass
+            admin), restrict the count to tasks the viewer may read — mirrors
+            list_tasks / can_read so pagination counts don't leak the volume of
+            other tenants' submissions.
         @return: number of tasks.
         """
         stmt = select(func.count(Task.id))
@@ -932,6 +992,16 @@ class TasksMixIn:
             stmt = stmt.where(Task.status != not_status)
         if category:
             stmt = stmt.where(Task.category == category)
+        if visible_to is not None and not visible_to.is_local_admin:
+            # Same visibility predicate as list_tasks (lib.cuckoo.common.tenancy.can_read).
+            from lib.cuckoo.common.tenancy import PUBLIC, TENANT
+
+            conds = [Task.visibility == PUBLIC]
+            if visible_to.user_id is not None:
+                conds.append(Task.user_id == visible_to.user_id)  # owner
+            if visible_to.tenant_id is not None:
+                conds.append(and_(Task.visibility == TENANT, Task.tenant_id == visible_to.tenant_id))
+            stmt = stmt.where(or_(*conds))
 
         # 2. Execute the statement and return the single integer result.
         return self.session.scalar(stmt)
@@ -957,6 +1027,7 @@ class TasksMixIn:
         task_ids=False,
         include_hashes=False,
         user_id=None,
+        visible_to=None,
         for_update=False,
     ) -> List[Task]:
         """Retrieve list of task.
@@ -1017,6 +1088,17 @@ class TasksMixIn:
             stmt = stmt.where(Task.id.in_(task_ids))
         if user_id is not None:
             stmt = stmt.where(Task.user_id == user_id)
+        if visible_to is not None and not visible_to.is_local_admin:
+            # Visibility filter — mirrors lib.cuckoo.common.tenancy.can_read.
+            # Break-glass (is_local_admin) skips the filter entirely (sees all).
+            from lib.cuckoo.common.tenancy import PUBLIC, TENANT
+
+            conds = [Task.visibility == PUBLIC]
+            if visible_to.user_id is not None:
+                conds.append(Task.user_id == visible_to.user_id)  # owner
+            if visible_to.tenant_id is not None:
+                conds.append(and_(Task.visibility == TENANT, Task.tenant_id == visible_to.tenant_id))
+            stmt = stmt.where(or_(*conds))
 
         # 3. Chaining for ordering, pagination, and locking remains the same
         if order_by is not None and isinstance(order_by, tuple):
@@ -1166,10 +1248,31 @@ class TasksMixIn:
         if result.rowcount > 0:
             log.info("Deleted %d timed-out PENDING tasks.", result.rowcount)
 
-    def minmax_tasks(self) -> Tuple[int, int]:
+    def _scope_where(self, scope, viewer):
+        """Return a list of SQLAlchemy conditions selecting tasks in `scope` for `viewer`,
+        mirroring lib.cuckoo.common.tenancy.scope_match. Empty list => no extra filter."""
+        from lib.cuckoo.common.tenancy import PUBLIC, TENANT, MINE, GLOBAL
+
+        if scope == GLOBAL or scope is None:
+            return []
+        if scope == PUBLIC:
+            return [Task.visibility == PUBLIC]
+        if scope == TENANT:
+            if viewer is None or viewer.tenant_id is None:
+                return [Task.id == -1]
+            return [and_(Task.tenant_id == viewer.tenant_id, Task.visibility == TENANT)]
+        if scope == MINE:
+            if viewer is None or viewer.user_id is None:
+                return [Task.id == -1]
+            return [Task.user_id == viewer.user_id]
+        raise ValueError(f"unknown scope {scope!r}")
+
+    def minmax_tasks(self, scope=None, viewer=None) -> Tuple[int, int]:
         """Finds the minimum start time and maximum completion time for all tasks."""
         # A single query is more efficient than two separate ones.
         stmt = select(func.min(Task.started_on), func.max(Task.completed_on))
+        for cond in self._scope_where(scope, viewer):
+            stmt = stmt.where(cond)
         min_val, max_val = self.session.execute(stmt).one()
 
         if min_val and max_val:
@@ -1187,13 +1290,34 @@ class TasksMixIn:
 
 
 
-    def get_tasks_status_count(self) -> Dict[str, int]:
-        """Counts tasks, grouped by status."""
+    def get_tasks_status_count(self, scope=None, viewer=None, visible_to=None) -> Dict[str, int]:
+        """Counts tasks, grouped by status.
+
+        When `visible_to` is set (and the viewer is not a break-glass admin),
+        applies the SAME can_read union filter as count_matching_tasks so the
+        status counts reflect only tasks the caller may see — preventing global
+        submission-volume leaks in multi-tenant deployments.  When both `scope`
+        and `visible_to` are given, `visible_to` takes precedence.
+        When MT is disabled / break-glass (is_local_admin=True), no extra filter
+        is applied (public-install behavior unchanged)."""
         stmt = select(Task.status, func.count(Task.status)).group_by(Task.status)
+        if visible_to is not None and not visible_to.is_local_admin:
+            # Same visibility predicate as list_tasks / count_matching_tasks.
+            from lib.cuckoo.common.tenancy import PUBLIC, TENANT
+
+            conds = [Task.visibility == PUBLIC]
+            if visible_to.user_id is not None:
+                conds.append(Task.user_id == visible_to.user_id)  # owner
+            if visible_to.tenant_id is not None:
+                conds.append(and_(Task.visibility == TENANT, Task.tenant_id == visible_to.tenant_id))
+            stmt = stmt.where(or_(*conds))
+        else:
+            for cond in self._scope_where(scope, viewer):
+                stmt = stmt.where(cond)
         # .execute() returns rows, which can be directly converted to a dict.
         return dict(self.session.execute(stmt).all())
 
-    def count_tasks(self, status: str = None, mid: int = None) -> int:
+    def count_tasks(self, status: str = None, mid: int = None, scope=None, viewer=None) -> int:
         """Counts tasks in the database, with optional filters."""
         # Build a `SELECT COUNT(...)` query from the start for efficiency.
         stmt = select(func.count(Task.id))
@@ -1201,6 +1325,8 @@ class TasksMixIn:
             stmt = stmt.where(Task.machine_id == mid)
         if status:
             stmt = stmt.where(Task.status == status)
+        for cond in self._scope_where(scope, viewer):
+            stmt = stmt.where(cond)
 
         # .scalar() executes the query and returns the single integer result.
         return self.session.scalar(stmt)

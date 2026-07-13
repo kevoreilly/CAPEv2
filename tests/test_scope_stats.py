@@ -48,6 +48,7 @@ def test_top_detections_scoped_bypasses_cache(monkeypatch):
 
     # Second scoped call: scoped path must not have populated the cache, so aggregation runs again.
     result2 = wu.top_detections(date_since=False, scope_match=scope)
+    assert result2 != stale_data, "second scoped call returned stale cached data from the shared cache"
     assert call_count["n"] == 2, "expected aggregation to run again (scoped calls must not populate cache)"
 
     # The shared cache must still hold the original sentinel (scoped calls never overwrite it).

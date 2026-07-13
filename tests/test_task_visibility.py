@@ -99,10 +99,15 @@ def test_count_tasks_scope(db):
     from lib.cuckoo.common.tenancy import Viewer
 
     def mk(owner, tenant, vis):
-        t = _mk_task(); t.user_id, t.tenant_id, t.visibility = owner, tenant, vis
-        db.session.add(t); db.session.commit()
+        t = _mk_task()
+        t.user_id, t.tenant_id, t.visibility = owner, tenant, vis
+        db.session.add(t)
+        db.session.commit()
 
-    mk(1, 10, "public"); mk(1, 10, "tenant"); mk(2, 10, "private"); mk(3, 20, "public")
+    mk(1, 10, "public")
+    mk(1, 10, "tenant")
+    mk(2, 10, "private")
+    mk(3, 20, "public")
     v = Viewer(user_id=2, tenant_id=10)
     assert db.count_tasks(scope="public", viewer=v) == 2     # the two public ones
     assert db.count_tasks(scope="tenant", viewer=v) == 1     # tenant-vis in tenant 10
@@ -257,7 +262,6 @@ def test_check_file_uniq_scoped_even_with_hours_zero(db):
     ALL hours values — incl. hours=0 (all-time) — else it's a cross-tenant
     existence oracle. A tenant-B-only private hash must read 'not duplicate' for a
     tenant-A viewer; break-glass still sees it."""
-    from lib.cuckoo.core.data.task import Task
     from lib.cuckoo.core.data.samples import Sample
     from lib.cuckoo.common.tenancy import Viewer
 

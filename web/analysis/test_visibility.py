@@ -103,10 +103,16 @@ def test_file_search_all_files_drops_cross_tenant_paths(cape_db, mt_enabled, mon
     import analysis.views as av
 
     class OwnTask:      # task 2 — visible to the requester (public)
-        id = 2; user_id = 0; tenant_id = 10; visibility = "public"
+        id = 2
+        user_id = 0
+        tenant_id = 10
+        visibility = "public"
 
     class ForeignTask:  # task 3 — another tenant's private analysis
-        id = 3; user_id = 999; tenant_id = 20; visibility = "private"
+        id = 3
+        user_id = 999
+        tenant_id = 20
+        visibility = "private"
 
     monkeypatch.setattr(av, "perform_search", lambda *a, **k: [{"info": {"id": 2}}, {"info": {"id": 3}}])
     # yara_detected yields (kind, filepath, block, fileobj) — one own, one foreign

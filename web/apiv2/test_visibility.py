@@ -65,9 +65,14 @@ def _func_source(views_module, name):
 
 
 def _all_task_views():
-    import apiv2.views, apiv2.urls, analysis.views, analysis.urls
-    import compare.views, compare.urls
-    import guac.views, guac.urls
+    import apiv2.views
+    import apiv2.urls
+    import analysis.views
+    import analysis.urls
+    import compare.views
+    import compare.urls
+    import guac.views
+    import guac.urls
     from web import urls as web_urls
 
     # (urls module, views module the matched names resolve to, alias used there).
@@ -118,7 +123,8 @@ def test_aggregate_feed_filters_by_viewer(name):
     must reference a visibility guard, or it leaks cross-tenant task data/ids
     (the routed-task_id gate cannot catch these — no task_id in the route).
     Scans BOTH apiv2.views and analysis.views since feeds live in either."""
-    import apiv2.views, analysis.views
+    import apiv2.views
+    import analysis.views
 
     src = _func_source(apiv2.views, name) or _func_source(analysis.views, name)
     assert src is not None, f"{name} not found in apiv2.views or analysis.views"
@@ -330,7 +336,8 @@ def _hash_routed_views(urls_module):
 
 
 def _all_hash_views():
-    import apiv2.urls, apiv2.views
+    import apiv2.urls
+    import apiv2.views
     discovered = _hash_routed_views(apiv2.urls)
     # Explicitly pin tasks_search (it filters via visible_to= in list_tasks,
     # which is in GUARD_MARKERS) so it remains covered even if its URL pattern
@@ -373,7 +380,7 @@ def test_hash_routed_discovery_catches_unguarded(tmp_path, monkeypatch):
         '    ),\n'
         ']\n'
     )
-    import types, importlib.util
+    import importlib.util
     spec = importlib.util.spec_from_file_location("fake_urls", fake_urls)
     fake_mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(fake_mod)

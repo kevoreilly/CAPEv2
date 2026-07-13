@@ -8,7 +8,9 @@ def test_dashboard_entitled_scopes(cape_db, mt_enabled, monkeypatch):
     from users.models import Tenant, UserProfile
     t = Tenant.objects.create(slug="acme", name="Acme")
     u = User.objects.create_user("a", "a@x.com", "x")
-    p = UserProfile.objects.get(user=u); p.tenant = t; p.save()
+    p = UserProfile.objects.get(user=u)
+    p.tenant = t
+    p.save()
     u = User.objects.get(pk=u.pk)
     assert entitled_scopes(u) == ["public", "tenant", "mine"]
     tl = User.objects.create_user("b", "b@x.com", "x")  # tenant-less
@@ -35,7 +37,9 @@ def test_entitled_scope_filter_builds_viewer_mongo_match(cape_db, mt_enabled):
 
     t = Tenant.objects.create(slug="acme", name="Acme")
     u = User.objects.create_user("sf", "sf@x.com", "x")
-    p = UserProfile.objects.get(user=u); p.tenant = t; p.save()
+    p = UserProfile.objects.get(user=u)
+    p.tenant = t
+    p.save()
     u = User.objects.get(pk=u.pk)
 
     f = entitled_scope_filter(u)

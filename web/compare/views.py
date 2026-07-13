@@ -14,7 +14,7 @@ sys.path.append(settings.CUCKOO_PATH)
 import lib.cuckoo.common.compare as compare
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
-from web.tenancy_optional import can_view_task
+from web.tenancy_optional import can_view_task, viewer_for
 
 enabledconf = {}
 confdata = Config("reporting").get_config()
@@ -85,17 +85,25 @@ def left(request, left_id):
         # gap can't leak another tenant's analysis even if the query-layer scope
         # regresses. No-op for break-glass / shared / multitenancy disabled.
         _db = Database()
+        _rids = []
+        for _rec in _raw:
+            _rid = (_rec.get("info") or {}).get("id")
+            if _rid is not None:
+                try:
+                    _rids.append(int(_rid))
+                except (ValueError, TypeError):
+                    pass
+        # Batch the visibility check in ONE SQL query (avoid an N+1 view_task per
+        # md5-pivot record); list_tasks(visible_to=) returns only readable tasks.
+        _visible = {t.id for t in _db.list_tasks(task_ids=_rids, visible_to=viewer_for(request.user))} if _rids else set()
         records = []
         for _rec in _raw:
             _rid = (_rec.get("info") or {}).get("id")
-            if _rid is None:
-                continue
             try:
-                _vt = _db.view_task(int(_rid))
+                if _rid is not None and int(_rid) in _visible:
+                    records.append(_rec)
             except (ValueError, TypeError):
                 continue
-            if _vt is not None and can_view_task(request.user, _vt):
-                records.append(_rec)
     if es_as_db:
         records = []
         q = {
@@ -161,17 +169,25 @@ def hash(request, left_id, right_hash):
         # gap can't leak another tenant's analysis even if the query-layer scope
         # regresses. No-op for break-glass / shared / multitenancy disabled.
         _db = Database()
+        _rids = []
+        for _rec in _raw:
+            _rid = (_rec.get("info") or {}).get("id")
+            if _rid is not None:
+                try:
+                    _rids.append(int(_rid))
+                except (ValueError, TypeError):
+                    pass
+        # Batch the visibility check in ONE SQL query (avoid an N+1 view_task per
+        # md5-pivot record); list_tasks(visible_to=) returns only readable tasks.
+        _visible = {t.id for t in _db.list_tasks(task_ids=_rids, visible_to=viewer_for(request.user))} if _rids else set()
         records = []
         for _rec in _raw:
             _rid = (_rec.get("info") or {}).get("id")
-            if _rid is None:
-                continue
             try:
-                _vt = _db.view_task(int(_rid))
+                if _rid is not None and int(_rid) in _visible:
+                    records.append(_rec)
             except (ValueError, TypeError):
                 continue
-            if _vt is not None and can_view_task(request.user, _vt):
-                records.append(_rec)
     if es_as_db:
         records = []
         q = {

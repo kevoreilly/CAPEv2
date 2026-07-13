@@ -299,13 +299,21 @@ class SamplesMixIn:
 
         if visible_to is not None and not getattr(visible_to, "is_local_admin", False):
             if task_id:
-                # task_id already gives us the Sample via the join — no extra query.
+                # A specific task_id must itself be visible to the caller. Checking
+                # only "any visible task for this sample" would leak whether ANOTHER
+                # tenant's task_id analyzed a sample the caller also has (an
+                # existence oracle) — so gate the task_id directly, then resolve
+                # its sample.
+                if not self.list_tasks(task_ids=[task_id], visible_to=visible_to, limit=1):
+                    return []
                 _samp = self.session.scalar(select(Sample).join(Task, Sample.id == Task.sample_id).where(Task.id == task_id))
+                if _samp is None:
+                    return []
             elif sample_hash and sizes.get(len(sample_hash)):
                 _samp = self.session.scalar(select(Sample).where(sizes[len(sample_hash)] == sample_hash))
+                if _samp is None or not self.list_tasks(sample_id=_samp.id, visible_to=visible_to, limit=1):
+                    return []
             else:
-                _samp = None
-            if _samp is None or not self.list_tasks(sample_id=_samp.id, visible_to=visible_to, limit=1):
                 return []
 
         hashlib_sizes = {

@@ -132,7 +132,9 @@ def test_file_search_all_files_drops_cross_tenant_paths(cape_db, mt_enabled, mon
 
     monkeypatch.setattr(av, "yara_detected", _fake_yara)
     monkeypatch.setattr(av, "path_exists", lambda p: True)
-    monkeypatch.setattr(av.db, "view_task", lambda tid: OwnTask() if int(tid) == 2 else ForeignTask())
+    # The gate batch-resolves visible tasks via list_tasks (one query, no N+1);
+    # only task 2 (own/public) is visible, task 3 (foreign/private) is not.
+    monkeypatch.setattr(av.db, "list_tasks", lambda *a, **k: [OwnTask()])
 
     req = RequestFactory().get("/file/capeyarazipall/2/Emotet/")
     req.user = User.objects.create_user("fs", "fs@x.com", "x")  # tenant-less, non-admin

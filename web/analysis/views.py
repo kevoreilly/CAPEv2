@@ -3328,17 +3328,25 @@ def _file_search_all_files(search_category: str, search_term: str, request) -> l
         # path-regex backstop misses it and would stream another tenant's private
         # sample bytes. Gate on info.id (in the projection) for ALL path shapes;
         # no-op when MT disabled (can_view_task -> is_local_admin).
+        _rids = []
+        for _rec in records:
+            _rid = (_rec.get("info") or {}).get("id")
+            if _rid is not None:
+                try:
+                    _rids.append(int(_rid))
+                except (ValueError, TypeError):
+                    pass
+        # Batch the visibility check in ONE SQL query (avoid an N+1 view_task per
+        # search record); list_tasks(visible_to=) returns only readable tasks.
+        _visible = {t.id for t in db.list_tasks(task_ids=_rids, visible_to=viewer_for(request.user))} if _rids else set()
         _viewable = []
         for _rec in records:
             _rid = (_rec.get("info") or {}).get("id")
-            if _rid is None:
-                continue
             try:
-                _vt = db.view_task(int(_rid))
+                if _rid is not None and int(_rid) in _visible:
+                    _viewable.append(_rec)
             except (ValueError, TypeError):
                 continue
-            if _vt is not None and can_view_task(request.user, _vt):
-                _viewable.append(_rec)
         search_term = search_term.lower()
         for _, filepath, _, _ in yara_detected(search_term, _viewable):
             if not path_exists(filepath):
@@ -3880,28 +3888,33 @@ def search(request, searched=""):
                     {"title": "Search", "analyses": None, "term": None, "error": "Unable to recognize the search syntax"},
                 )
 
+        def _result_task_id(result):
+            if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
+                tid = (result.get("_source") or {}).get("task_id")
+            elif enabledconf["mongodb"] and term and "info" in result:
+                tid = (result.get("info") or {}).get("id")
+            elif es_as_db:
+                tid = (result.get("info") or {}).get("id")
+            else:
+                tid = None
+            if tid is None:
+                return None
+            try:
+                return int(tid)
+            except (ValueError, TypeError):
+                return None
+
+        # tenant isolation: batch-resolve the caller's visible tasks in ONE SQL
+        # query (avoid an N+1 view_task per result) and gate BEFORE the heavy
+        # get_analysis_info(); reuse the resolved Task so it doesn't re-query.
+        _tids = [t for t in (_result_task_id(r) for r in (records or [])) if t is not None]
+        _visible = {t.id: t for t in db.list_tasks(task_ids=_tids, visible_to=viewer_for(request.user))} if _tids else {}
         analyses = []
         for result in records or []:
-            task_id = None
-            if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
-                task_id = (result.get("_source") or {}).get("task_id")
-            elif enabledconf["mongodb"] and term and "info" in result:
-                task_id = (result.get("info") or {}).get("id")
-            elif es_as_db:
-                task_id = (result.get("info") or {}).get("id")
-            if task_id is None:
+            tid = _result_task_id(result)
+            if tid is None or tid not in _visible:
                 continue
-            try:
-                task_id = int(task_id)
-            except (ValueError, TypeError):
-                continue  # malformed id in a corrupt report — skip, don't 500
-            # tenant isolation: gate BEFORE the heavy get_analysis_info() (mongo/es
-            # lookups + processing) — skip unauthorized tasks cheaply and reuse the
-            # resolved task so get_analysis_info doesn't re-query Postgres.
-            _vt = db.view_task(task_id)
-            if _vt is None or not can_view_task(request.user, _vt):
-                continue
-            new = get_analysis_info(db, task=_vt)
+            new = get_analysis_info(db, task=_visible[tid])
             if not new:
                 continue
             analyses.append(new)

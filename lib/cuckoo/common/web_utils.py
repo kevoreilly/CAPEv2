@@ -332,8 +332,11 @@ def top_detections(date_since: datetime = False, results_limit: int = 20, scope_
     t = int(time.time())
 
     # caches results for 10 minutes; scoped calls bypass the cache entirely to
-    # prevent cross-tenant leaks (cache is shared across all callers).
-    if not scope_match and hasattr(top_detections, "cache"):
+    # prevent cross-tenant leaks (cache is shared across all callers). Bypass when
+    # EITHER scope_match OR viewer is set — the ES branch scopes via `viewer`
+    # (not scope_match), so keying only on scope_match would serve/poison the
+    # shared global cache with tenant-scoped data.
+    if not scope_match and not viewer and hasattr(top_detections, "cache"):
         ct, data = top_detections.cache
         if t - ct < 600:
             return data
@@ -389,8 +392,9 @@ def top_detections(date_since: datetime = False, results_limit: int = 20, scope_
     if data:
         data = list(data)
 
-    # save to cache only for unscoped (global) calls
-    if not scope_match:
+    # save to cache only for unscoped (global) calls — never when scope_match OR
+    # viewer is set, or a tenant-scoped result would poison the shared cache.
+    if not scope_match and not viewer:
         top_detections.cache = (t, data)
 
     return data

@@ -52,9 +52,9 @@
         if ($('#' + id).hasClass('active')) {
             typeof callback === 'function' && callback();
         } else {
-            $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
+            $('a[data-bs-toggle]').on('shown.bs.tab', function (e) {
                 if ($(e.target).attr('href') == '#' + id) {
-                    $('a[data-bs-toggle="pill"]').off('shown.bs.tab');
+                    $('a[data-bs-toggle]').off('shown.bs.tab');
                     typeof callback === 'function' && callback();
                 }
             });
@@ -133,9 +133,9 @@
             <div class="tab-pane fade {% if forloop.counter == 1%}show active{% endif %}" id="process_{{process.process_id}}" role="tabpanel" aria-labelledby="process-{{process.process_id}}-tab" data-pid="{{process.process_id}}" data-length="{{process.calls|length}}">
 
                 <div class="alert alert-primary text-info border-primary text-center shadow-sm mb-4">
-                    <h5 class="alert-heading fw-bold">{{process.process_name}}</h5>
+                    <h5 class="alert-heading fw-bold" data-pivot="name">{{process.process_name}}</h5>
                     <p class="mb-0">
-                        PID: <strong>{{process.process_id}}</strong> | Parent PID: <strong>{{process.parent_id}}</strong>
+                        PID: <strong data-pivot="pid">{{process.process_id}}</strong> | Parent PID: <strong data-pivot="pid">{{process.parent_id}}</strong>
                         <br>Path: <code class="text-white">{{process.module_path}}</code>
                         {% if process.environ.CommandLine %}<br>Cmd: <code class="text-white">{{ process.environ.CommandLine }}</code>{% endif %}
                         <br>Image Base: <strong>{% if process.environ.MainExeBase %}{{ process.environ.MainExeBase }}{% else %}{{process.image_base}}{% endif %}</strong> |

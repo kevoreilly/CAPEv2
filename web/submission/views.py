@@ -788,11 +788,24 @@ def status(request, task_id):
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
     if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1":
-        machine = db.view_machine_by_label(task.machine)
-        if machine:
-            guest_ip = machine.ip
+        machine = db.view_machine_by_label(task.machine) if task.machine else None
+        vm_label, guest_ip = (task.machine, machine.ip) if machine else (None, None)
+        if not machine:
+            # Central mode ONLY: the VM lives on a worker, so it's not in the central machines
+            # table — resolve the worker's VM label via the broker record + worker API. Gated on
+            # central mode so single-node behaves exactly as upstream (no session_data unless a
+            # real machine record resolved — never a degenerate empty-guest_ip session).
+            from lib.cuckoo.common.central_mode import central_mode_config
+
+            if central_mode_config().enabled:
+                from lib.cuckoo.common.central_guac import worker_vm_for_task
+
+                w_label, w_ip = worker_vm_for_task(task_id)
+                if w_label:
+                    vm_label, guest_ip = w_label, (w_ip or "")
+        if vm_label:
             session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-            session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+            session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip or ''}".encode("utf8")).decode("utf8")
             response["session_data"] = session_data
 
     return render(request, "submission/status.html", response)
@@ -808,13 +821,25 @@ def remote_session(request, task_id):
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine_by_label(task.machine)
+        machine = db.view_machine_by_label(task.machine) if task.machine else None
+        vm_label, guest_ip = (machine.label, machine.ip) if machine else (None, None)
         if not machine:
+            # Central mode ONLY: the VM lives on a worker (not in the central machines table) —
+            # resolve it via the broker record + worker API. Gated on central mode so single-node
+            # is byte-for-byte upstream: no machine record -> the "Machine is not set" error below.
+            from lib.cuckoo.common.central_mode import central_mode_config
+
+            if central_mode_config().enabled:
+                from lib.cuckoo.common.central_guac import worker_vm_for_task
+
+                w_label, w_ip = worker_vm_for_task(task_id)
+                if w_label:
+                    vm_label, guest_ip = w_label, (w_ip or "")
+        if not vm_label:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
-        guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-        session_data = urlsafe_b64encode(f"{session_id}|{machine.label}|{guest_ip}".encode("utf8")).decode("utf8")
+        session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip or ''}".encode("utf8")).decode("utf8")
 
     return render(
         request,

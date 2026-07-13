@@ -199,16 +199,26 @@ class MongoDB(Report):
         from lib.cuckoo.common.tenancy import multitenancy_config
 
         if multitenancy_config().enabled:
-            try:
-                # Look up tenant context by the LOCAL task id. report["info"]["id"]
-                # may have been rewritten to the main node's main_task_id above
-                # (distributed path); that id does not exist in this worker's DB and
-                # would resolve to None -> fail-open public stamp. The local task
-                # row carries the authoritative tenant/user/visibility.
-                stamp_tenant_info(report["info"], _task_tenant_ctx(local_task_id))
-            except Exception as _db_err:
-                log.warning("Failed to look up task for tenant stamping (task %s): %s", local_task_id, _db_err)
+            if main_task_id:
+                # Legacy distributed (utils/dist.py) worker path: the worker-local
+                # task does NOT carry the submitter's tenancy (dist.py forwards
+                # none), so it cannot be stamped correctly here. Fail CLOSED to
+                # private (invisible) rather than leak a world-visible stamp.
+                # Multitenancy is supported with the mongo report store + the
+                # broker/central path; legacy distributed (dist.py) is a documented,
+                # not-yet-supported mode — see docs/MULTITENANCY-SUPPORT.md. Our
+                # central/broker path keys by job_id and never sets main_task_id, so
+                # this branch does not affect it.
                 stamp_tenant_info(report["info"], None)
+            else:
+                try:
+                    # Look up tenant context by the LOCAL task id. report["info"]["id"]
+                    # may have been rewritten to a main node's id above; the local
+                    # row carries the authoritative tenant/user/visibility.
+                    stamp_tenant_info(report["info"], _task_tenant_ctx(local_task_id))
+                except Exception as _db_err:
+                    log.warning("Failed to look up task for tenant stamping (task %s): %s", local_task_id, _db_err)
+                    stamp_tenant_info(report["info"], None)
 
         # Delete old data just before inserting new one to avoid "missing report" window
         # or data loss if insertion fails during preparation (e.g. OOM)

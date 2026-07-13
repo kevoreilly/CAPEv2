@@ -163,6 +163,12 @@ def index(request, task_id, session_data):
 def direct_vnc_host_port(request, host, port):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
+    # Direct VNC opens a raw tunnel to a caller-chosen host:port with no task/tenant
+    # scoping (task_id=0). Restrict to superusers — it is an operator console, never
+    # a tenant-user surface; without this a logged-in tenant user could reach any
+    # reachable host:port. Config-gated + admin-gated.
+    if not getattr(request.user, "is_superuser", False):
+        return _error(request, 0, "VNC Console is restricted to administrators")
 
     token = uuid.uuid4()
     try:

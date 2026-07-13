@@ -99,11 +99,11 @@ def tasks_set_visibility(request, task_id):
     try:
         db.set_task_visibility(task_id, vis)
     except CuckooOperationalError:
-        # SQL was updated but the mongo-stamp sync failed (mongo unreachable), so
-        # the aggregate/search surfaces would be stale. Report 503 so the caller
-        # retries instead of assuming the change fully propagated.
+        # The report store (mongo) was unreachable, so set_task_visibility rolled
+        # the SQL change back to keep the two stores consistent — NOTHING changed.
+        # Report 503 so the caller retries; the task is still at its prior visibility.
         return Response(
-            {"error": True, "error_value": "visibility updated in DB but the report store sync failed; retry"},
+            {"error": True, "error_value": "visibility change aborted (report store unreachable); no change made, retry"},
             status=503,
         )
     return Response({"error": False, "data": {"task_id": int(task_id), "visibility": vis}})

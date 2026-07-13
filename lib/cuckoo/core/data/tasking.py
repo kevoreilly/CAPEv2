@@ -866,9 +866,10 @@ class TasksMixIn:
         self.session.commit()
         # Sync the toggle to the mongo report so the aggregate/search/stats surfaces
         # (which read the stamped info.visibility) reflect it — but only when mongo
-        # is the enabled report store. Retry transient blips; surface a persistent
-        # failure (raise) rather than silently diverging into a stale public stamp
-        # after a private toggle. SQL stays authoritative regardless.
+        # is the enabled report store. mongo_update_one retries transient blips
+        # internally (graceful_auto_reconnect); on a persistent failure we roll the
+        # SQL change back (below) so the two stores never diverge into a stale public
+        # stamp after a private toggle, and raise so the caller can retry.
         if mongo_update_one is not None and _mongo_reporting_enabled():
             # mongo_update_one is wrapped by graceful_auto_reconnect, which retries
             # AutoReconnect/ServerSelectionTimeoutError internally (the canonical

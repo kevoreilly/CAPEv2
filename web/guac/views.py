@@ -164,9 +164,10 @@ def direct_vnc_host_port(request, host, port):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
     # Direct VNC opens a raw tunnel to a caller-chosen host:port with no task/tenant
-    # scoping (task_id=0). Restrict to superusers — it is an operator console, never
-    # a tenant-user surface; without this a logged-in tenant user could reach any
-    # reachable host:port. Config-gated + admin-gated.
+    # scoping (task_id=0). Restrict to break-glass admins (viewer_for().is_local_admin
+    # — config-aware: a plain tenant user or non-break-glass superuser is denied) —
+    # it is an operator console, never a tenant-user surface; without this a logged-in
+    # tenant user could reach any reachable host:port. Config-gated + admin-gated.
     if not viewer_for(request.user).is_local_admin:
         return _error(request, 0, "VNC Console is restricted to administrators")
 

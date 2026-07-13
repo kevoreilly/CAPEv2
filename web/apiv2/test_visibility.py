@@ -655,3 +655,52 @@ def test_resolve_task_id_allows_readable_rtid_pivot(cape_db, mt_enabled, monkeyp
     req.user = User.objects.create_user("rtid_pos", "rtid_pos@x.com", "x")
     resolved, err = av._resolve_task_id(req, 5, "taskpcap")
     assert resolved == 6 and err is None
+
+
+@pytest.mark.django_db
+def test_tasks_view_regates_recovery_pivot(cape_db, mt_enabled, monkeypatch):
+    """rtid wrong-object (tasks_view INLINE pivot, separate from _resolve_task_id):
+    a TASK_RECOVERED task whose `custom` points Recovery_<N> at another tenant's
+    task must NOT serve that task's data — re-gate on the resolved id."""
+    import types
+    import apiv2.views as av
+    from django.contrib.auth.models import User
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    class OwnRecovered:      # id 5 — public + readable; recovers to id 6
+        id = 5
+        user_id = 0
+        tenant_id = 10
+        visibility = "public"
+        status = av.TASK_RECOVERED
+        custom = "Recovery_6"
+        guest = None
+        errors = []
+        sample_id = None
+
+        def to_dict(self):
+            return {"category": "file", "target": "/tmp/own"}
+
+    class ForeignTask:      # id 6 — another tenant's private analysis
+        id = 6
+        user_id = 999
+        tenant_id = 20
+        visibility = "private"
+        status = av.TASK_RECOVERED
+        custom = None
+        guest = None
+        errors = []
+        sample_id = None
+
+        def to_dict(self):
+            return {"category": "file", "target": "/tmp/secret"}
+
+    monkeypatch.setattr(av, "apiconf", types.SimpleNamespace(taskview={"enabled": True}))
+    monkeypatch.setattr(av.db, "view_task", lambda tid, **k: OwnRecovered() if int(tid) == 5 else ForeignTask())
+
+    req = APIRequestFactory().get("/apiv2/tasks/view/5/")
+    u = User.objects.create_user("tv_neg", "tv_neg@x.com", "x")  # tenant-less, non-admin
+    force_authenticate(req, user=u)
+    req.user = u
+    resp = av.tasks_view(req, 5)
+    assert resp.status_code == 404  # denied on the resolved foreign task, not served

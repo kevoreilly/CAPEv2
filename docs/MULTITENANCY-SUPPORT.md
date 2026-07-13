@@ -48,8 +48,17 @@ will simply not be visible. Adding real support is tracked as future work.
   change for API clients that assumed the flat shape on an MT-shared install.
   Multitenancy-disabled installs and break-glass local-admins still receive the
   flat dict.
-- **Direct VNC console.** The direct host:port VNC console (`task_id=0`, not tied
-  to a task) is an operator tool with no tenant scoping; it is restricted to
-  **superusers** (in addition to the existing config gate).
+- **Direct VNC / VM operator console.** The task-less direct-console endpoints
+  (`task_id=0`: raw host:port VNC, plus VM console/start/shutdown/route/snapshot
+  by name) have no tenant scoping and mint sessions the per-task tunnel gate does
+  not cover, so **all** of them are restricted to break-glass admins
+  (`viewer_for(user).is_local_admin`) in addition to the existing config gate —
+  never a tenant user. (On an MT-disabled / no-auth install every principal is a
+  local-admin, so the operator console stays usable.)
+- **Threat-hunt facets.** `hunt()` scopes its aggregation by the viewer's entitled
+  scopes (`viewer_scope` `$match`); its facet `task_ids` rely on that stamp-based
+  `$match` with no per-id SQL backstop (a `$facet` count can't be post-filtered
+  per task). This is safe because the report tenant stamp is written fail-closed
+  on every path, so a doc can't carry a spoofed cross-tenant stamp.
 - **Modes:** `shared` (public pool + own tenant + own tasks) and `locked`
   (tenant-isolated). An unknown/typo `mode` fails closed to `locked`.

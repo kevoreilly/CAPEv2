@@ -4471,8 +4471,14 @@ def hunt(request):
         match_query["info.started"] = {"$gte": start_date}
 
     # Tenant isolation: restrict the docs the aggregation sees to the viewer's entitled scopes
-    # (no-op for break-glass / shared / multitenancy-disabled). viewer_scope wraps the MT predicate
-    # and degrades to None (see-all) when the MT layer is absent.
+    # (mode-independent; None only for break-glass / multitenancy-disabled). viewer_scope wraps
+    # the MT predicate and degrades to None (see-all) when the MT layer is absent.
+    # NOTE: the facet task_ids ($addToSet $info.id) are scoped SOLELY by this $match on the
+    # stamped info.* — unlike the per-record surfaces (search/compare/capeyara) there is no
+    # per-id can_view_task SQL backstop here, because a $facet count can't be post-filtered
+    # per task without changing its semantics. This is safe given the report stamp is written
+    # fail-closed on every path (see modules/reporting/mongodb.py stamp_tenant_info + the
+    # backfill), so a doc can never carry a spoofed cross-tenant stamp. See docs/MULTITENANCY-SUPPORT.md.
     from analysis.central_scope import viewer_scope
     from lib.cuckoo.common.central_mode import central_mode_config
     from lib.cuckoo.common.hunt_query import build_hunt_facets

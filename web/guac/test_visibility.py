@@ -25,3 +25,39 @@ def test_guac_index_denies_cross_tenant(cape_db, mt_enabled, monkeypatch, client
     r = client.get("/guac/1/AAAA/")
     assert minted == []              # no session token minted for a non-viewable task
     assert r.status_code == 200      # rendered the guac error page, not the session page
+
+
+@pytest.mark.django_db
+def test_direct_vnc_endpoints_deny_non_superuser(cape_db, mt_enabled, monkeypatch):
+    """Direct VNC/VM operator endpoints mint task_id=0 sessions that bypass the
+    per-task can_view_task tunnel gate (consumers.py gates only guac_task_id>0),
+    and control arbitrary live VMs by name. They must be break-glass-admin only —
+    a tenant user must not reach them, or they could VNC into / shut down / delete
+    snapshots of another tenant's live VM."""
+    import guac.views as gv
+    from django.contrib.auth.models import User
+    from django.test import RequestFactory
+
+    monkeypatch.setattr(gv, "is_vnc_console_enabled", lambda: True)
+    monkeypatch.setattr(gv, "_error", lambda request, tid, msg: ("ERR", msg))
+    created = []
+    monkeypatch.setattr(gv.db, "create_guac_session", lambda **k: created.append(k) or object())
+
+    req = RequestFactory().get("/guac/vnc/vm/somevm/")
+    req.user = User.objects.create_user("vncdeny", "vncdeny@x.com", "x")  # tenant-less, non-admin
+
+    # _error-style endpoint (HTML)
+    assert gv.direct_vnc_vm(req, "somevm") == ("ERR", "VNC Console is restricted to administrators")
+    # JSON-style mutating endpoint
+    resp = gv.direct_vnc_vm_shutdown(req, "somevm")
+    assert getattr(resp, "status_code", None) == 403
+    assert not created  # no session minted for a non-admin
+
+    # positive control: a superuser (break-glass) passes the admin gate
+    su = User.objects.create_user("vncadmin", "vncadmin@x.com", "x")
+    su.is_superuser = True
+    su.save()
+    su = User.objects.get(pk=su.pk)
+    req2 = RequestFactory().get("/guac/vnc/vm/somevm/")
+    req2.user = su
+    assert gv.direct_vnc_vm(req2, "somevm") != ("ERR", "VNC Console is restricted to administrators")

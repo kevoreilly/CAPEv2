@@ -1046,6 +1046,12 @@ def tasks_view(request, task_id):
         if m:
             task_id = int(m.group("taskid"))
             task = db.view_task(task_id, details=True)
+            # Recovery_<N> can point at another tenant's task; re-gate the RESOLVED
+            # task before rebuilding/serving its data, sample, and mongo doc — the
+            # gate at the top only authorized the originally-requested id.
+            _denied = _deny_if_hidden(request, task)
+            if _denied is not None:
+                return _denied
             resp["error"] = []
             if task:
                 entry = task.to_dict()

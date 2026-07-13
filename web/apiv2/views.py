@@ -29,6 +29,75 @@ try:
     from apikey.authentication import ApiKeyAuthentication
 except ImportError:
     ApiKeyAuthentication = None
+
+from web.tenancy_optional import submission_scope, can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for
+from web.tenancy_optional import VISIBILITIES
+
+
+def _deny_if_hidden(request, task):
+    """Return a Response (to be returned by the caller) if request.user may not
+    see `task`, else None. Every per-task READ endpoint must route through this
+    (enforced by the endpoint-coverage test) to prevent cross-tenant leaks.
+
+    A non-existent task and a hidden task return the SAME generic 404 response so
+    an attacker cannot enumerate which task IDs / states exist in other tenants.
+    Callers must invoke this BEFORE validate_task()/status/TLP checks so those
+    don't leak existence either."""
+    if task is None or not can_view_task(request.user, task):
+        return Response({"error": True, "error_value": "Task not found"}, status=404)
+    return None
+
+
+def _deny_task(request, task_id):
+    """Convenience: load the task and apply _deny_if_hidden. Used by endpoints
+    that don't otherwise hold the Task object."""
+    return _deny_if_hidden(request, db.view_task(task_id))
+
+
+def _deny_manage(request, task_id):
+    """Like _deny_task but for MUTATIONS — requires can_manage (owner/tenant-admin/
+    break-glass). Returns a generic 404 Response if not allowed, else None."""
+    task = db.view_task(task_id)
+    if task is None or not can_manage_task(request.user, task):
+        return Response({"error": True, "error_value": "Task not found"}, status=404)
+    return None
+
+
+def _deny_by_hash(request, *, sha256=None, sha1=None, md5=None, sample_id=None):
+    """Indistinguishable 404 unless the caller has >=1 VISIBLE task referencing the
+    sample identified by the hash/id. A sample can be shared across tenants, so access
+    follows the union of the caller's visible tasks.
+
+    When multitenancy is DISABLED (or for a break-glass admin), viewer_for returns
+    is_local_admin=True and this function is a no-op — it must NOT gate the public
+    install, and must NOT 404 dropped/procdump payloads that have no Sample row."""
+    # Delegate the entitlement decision to the shared tenancy.can_view_sample so
+    # this gate, web file()'s sample/static branch, and the submission resubmit /
+    # download-services paths all enforce the SAME by-hash boundary and can't
+    # drift (no-op for break-glass / MT-disabled — handled inside the helper).
+    if can_view_sample(request.user, sha256=sha256, sha1=sha1, md5=md5, sample_id=sample_id):
+        return None
+    return Response({"error": True, "error_value": "Sample not found"}, status=404)
+
+
+@api_view(["PATCH"])
+def tasks_set_visibility(request, task_id):
+    """Owner (or tenant-admin for public/tenant jobs, or superuser) re-toggles a
+    task's visibility. Mirrors the can_toggle predicate."""
+    task = db.view_task(task_id)
+    # Indistinguishable response (H3): a caller who can't even SEE the task gets
+    # the SAME generic 404 as a missing one, so this endpoint can't be used to
+    # enumerate other tenants' task IDs. A 403 below is only reachable once the
+    # caller can read the task (so it leaks nothing they don't already see).
+    if task is None or not can_view_task(request.user, task):
+        return Response({"error": True, "error_value": "Task not found"}, status=404)
+    vis = request.data.get("visibility")
+    if vis not in VISIBILITIES:
+        return Response({"error": True, "error_value": "invalid visibility"}, status=400)
+    if not can_toggle_task(request.user, task):
+        return Response({"error": True, "error_value": "Access denied"}, status=403)
+    db.set_task_visibility(task_id, vis)
+    return Response({"error": False, "data": {"task_id": int(task_id), "visibility": vis}})
 from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
@@ -234,6 +303,10 @@ def tasks_create_static(request):
     priority = force_int(request.data.get("priority"))
 
     resp["error"] = []
+    try:
+        _tenant_id, _visibility = submission_scope(request)
+    except ValueError:
+        return Response({"error": True, "error_value": "invalid visibility"})
     files = request.FILES.getlist("file")
     extra_details = {}
     task_ids = []
@@ -248,6 +321,8 @@ def tasks_create_static(request):
                     static=1,
                     only_extraction=True,
                     user_id=request.user.id or 0,
+                    tenant_id=_tenant_id,
+                    visibility=_visibility,
                 )
                 task_ids.extend(task_id)
                 if extra_details.get("erros"):
@@ -296,6 +371,10 @@ def tasks_create_file(request):
             resp = {"error": True, "error_value": "No file was submitted"}
             return Response(resp)
         resp["error"] = []
+        try:
+            _tenant_id, _visibility = submission_scope(request)
+        except ValueError:
+            return Response({"error": True, "error_value": "invalid visibility"})
         # Parse potential POST options (see submission/views.py)
         pcap = request.data.get("pcap", "")
 
@@ -332,6 +411,8 @@ def tasks_create_file(request):
             "options": options,
             "only_extraction": False,
             "user_id": request.user.id or 0,
+            "tenant_id": _tenant_id,
+            "visibility": _visibility,
         }
 
         task_machines = []
@@ -382,7 +463,7 @@ def tasks_create_file(request):
                 details["task_ids"].append(task_id)
                 continue
             if static:
-                task_id = db.add_static(file_path=tmp_path, priority=priority, user_id=request.user.id or 0)
+                task_id = db.add_static(file_path=tmp_path, priority=priority, user_id=request.user.id or 0, tenant_id=_tenant_id, visibility=_visibility)
                 details["task_ids"].append(task_id)
                 continue
             if tmp_path:
@@ -434,6 +515,10 @@ def tasks_create_url(request):
     resp = {}
     if request.method == "POST":
         resp["error"] = []
+        try:
+            _tenant_id, _visibility = submission_scope(request)
+        except ValueError:
+            return Response({"error": True, "error_value": "invalid visibility"})
 
         url = request.data.get("url")
         (
@@ -507,6 +592,8 @@ def tasks_create_url(request):
                 tlp=tlp,
                 tags_tasks=tags_tasks,
                 user_id=request.user.id or 0,
+                tenant_id=_tenant_id,
+                visibility=_visibility,
             )
             if task_id:
                 task_ids.append(task_id)
@@ -535,6 +622,10 @@ def tasks_create_dlnexec(request):
             return Response(resp)
 
         resp["error"] = []
+        try:
+            _tenant_id, _visibility = submission_scope(request)
+        except ValueError:
+            return Response({"error": True, "error_value": "invalid visibility"})
         url = request.data.get("dlnexec")
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
@@ -601,6 +692,8 @@ def tasks_create_dlnexec(request):
             "options": options,
             "only_extraction": False,
             "user_id": request.user.id or 0,
+            "tenant_id": _tenant_id,
+            "visibility": _visibility,
         }
 
         status, tasks_details = download_file(**details)
@@ -640,6 +733,10 @@ def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
     if not apiconf.fileview.get("enabled"):
         resp = {"error": True, "error_value": "File View API is Disabled"}
         return Response(resp)
+
+    _denied = _deny_by_hash(request, md5=md5, sha1=sha1, sha256=sha256, sample_id=sample_id)
+    if _denied is not None:
+        return _denied
 
     resp = {}
     if md5 or sha1 or sha256 or sample_id:
@@ -721,7 +818,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
                 sids = [sample.to_dict()["id"]]
             resp["data"] = []
             for sid in sids:
-                tasks = db.list_tasks(sample_id=sid, include_hashes=True)
+                tasks = db.list_tasks(sample_id=sid, include_hashes=True, visible_to=viewer_for(request.user))
                 for task in tasks:
                     buf = task.to_dict()
                     # Remove path information, just grab the file name
@@ -729,6 +826,12 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
                     if task.sample:
                         buf["sample"] = task.sample.to_dict()
                     resp["data"].append(buf)
+            # No visible task for this sample => respond byte-identically to
+            # "sample absent" so the error-field doesn't become a cross-tenant
+            # existence oracle (mirror _deny_by_hash). Break-glass / MT-disabled
+            # keeps the {"error": []} shape (back-compat, no-op).
+            if not resp["data"] and not viewer_for(request.user).is_local_admin:
+                resp = {"data": [], "error": False}
         else:
             resp = {"data": [], "error": False}
 
@@ -758,10 +861,10 @@ def ext_tasks_search(request):
             return Response(resp)
 
         if term == "tags_tasks":
-            value = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=int(search_limit))]
+            value = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=int(search_limit), visible_to=viewer_for(request.user))]
             term = "ids"
         elif term == "options":
-            value = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
+            value = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit, visible_to=viewer_for(request.user))]
             term = "ids"
         elif term == "ids":
             if all([v.strip().isdigit() for v in value.split(",")]):
@@ -769,7 +872,7 @@ def ext_tasks_search(request):
             else:
                 return Response({"error": True, "error_value": "Not all values are integers"})
             tmp_value = []
-            for task in db.list_tasks(task_ids=value) or []:
+            for task in db.list_tasks(task_ids=value, visible_to=viewer_for(request.user)) or []:
                 if task.status == "reported":
                     tmp_value.append(task.id)
                 else:
@@ -778,7 +881,7 @@ def ext_tasks_search(request):
             del tmp_value
         try:
             projection = lean_search_filters if request.data.get("lean") else None
-            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False, projection=projection)
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, web=False, projection=projection, viewer=viewer_for(request.user))
         except ValueError:
             if not term:
                 resp = {"error": True, "error_value": "No option provided."}
@@ -789,6 +892,13 @@ def ext_tasks_search(request):
 
         if records:
             for results in records:
+                # Visibility filter: the mongo/ES report rows don't carry tenant
+                # info, so resolve each task and drop ones the viewer can't see.
+                _doc = results.get("_source", results) if es_as_db else results
+                _tid = (_doc.get("info") or {}).get("id") if isinstance(_doc, dict) else None
+                _t = db.view_task(_tid) if _tid is not None else None
+                if _t is None or not can_view_task(request.user, _t):
+                    continue
                 if repconf.mongodb.enabled:
                     return_data.append(results)
                 if es_as_db:
@@ -860,6 +970,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
         options_like=option,
         order_by=Task.completed_on.desc(),
         include_hashes=True,
+        visible_to=viewer_for(request.user),
     )
 
     if not tasks:
@@ -900,9 +1011,9 @@ def tasks_view(request, task_id):
         return Response(resp)
 
     task = db.view_task(task_id, details=True)
-    if not task:
-        resp = {"error": True, "error_value": "Task not found in database"}
-        return Response(resp)
+    _denied = _deny_if_hidden(request, task)
+    if _denied is not None:
+        return _denied
 
     resp = {"error": False}
     entry = task.to_dict()
@@ -1043,9 +1154,9 @@ def tasks_reschedule(request, task_id):
         resp = {"error": True, "error_value": "Task Reschedule API is Disabled"}
         return Response(resp)
 
-    if not db.view_task(task_id):
-        resp = {"error": True, "error_value": "Task ID does not exist in the database"}
-        return Response(resp)
+    _denied = _deny_manage(request, task_id)
+    if _denied is not None:
+        return _denied
 
     resp = {}
     new_task_id = db.reschedule(task_id)
@@ -1071,6 +1182,10 @@ def tasks_reprocess(request, task_id):
         resp["error"] = True
         resp["error_value"] = "Task Reprocess API is Disabled"
         return Response(resp)
+
+    _denied = _deny_manage(request, task_id)
+    if _denied is not None:
+        return _denied
 
     error, msg, task_status = db.tasks_reprocess(task_id)
     if error:
@@ -1111,6 +1226,10 @@ def tasks_delete(request, task_id, status=False):
         if check["error"]:
             f_deleted.append(str(task))
             continue
+        # tenant isolation: only delete tasks the caller may manage
+        if not can_manage_task(request.user, db.view_task(task)):
+            f_deleted.append(str(task))
+            continue
 
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
@@ -1142,9 +1261,9 @@ def tasks_status(request, task_id):
 
     resp = {}
     task = db.view_task(task_id)
-    if not task:
-        resp = {"error": True, "error_value": "Task does not exist"}
-        return Response(resp)
+    _denied = _deny_if_hidden(request, task)
+    if _denied is not None:
+        return _denied
     if request.method == "GET":
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
@@ -1184,6 +1303,9 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             {"error": "You don't have permissions to download reports. Ask admin to enable it for you in user profile."},
         )
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -1370,6 +1492,9 @@ def tasks_iocs(request, task_id, detail=None):
         resp = {"error": True, "error_value": "IOC download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -1606,6 +1731,9 @@ def tasks_screenshot(request, task_id, screenshot="all"):
         resp = {"error": True, "error_value": "Screenshot download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -1661,6 +1789,9 @@ def tasks_pcap(request, task_id):
         resp = {"error": True, "error_value": "PCAP download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -1690,17 +1821,21 @@ def tasks_pcap(request, task_id):
         return Response(resp)
 
 
-def _resolve_task_id(task_id, enabled_key, check_tlp=True):
+def _resolve_task_id(request, task_id, enabled_key, check_tlp=True):
     """Shared preamble for artifact-download endpoints.
 
     Returns ((task_id, None)) on success or ((None, Response(error))) on failure.
     `enabled_key` names the apiconf section that gates the endpoint; callers
     that want to share a gate (e.g. all pcap variants under [taskpcap]) reuse
     the same key. TLP:RED checks are skipped only for endpoints that need
-    to serve regardless (none at present)."""
+    to serve regardless (none at present). Enforces job visibility via
+    _deny_if_hidden so all artifact endpoints honor tenant boundaries."""
     section = getattr(apiconf, enabled_key, None)
     if section is not None and not section.get("enabled"):
         return None, Response({"error": True, "error_value": "%s download API is disabled" % enabled_key})
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return None, _denied
     check = validate_task(task_id)
     if check["error"]:
         return None, Response(check)
@@ -1801,7 +1936,7 @@ def tasks_tlspcap(request, task_id):
     """Back-compat endpoint: originally served PolarProxy's tls.pcap. We've
     since moved to SSLproxy + GoGoRoboCap which produces dump_decrypted.pcap;
     prefer that, but fall back to the legacy path for old analyses."""
-    task_id, err = _resolve_task_id(task_id, "tasktlspcap", check_tlp=False)
+    task_id, err = _resolve_task_id(request, task_id, "tasktlspcap", check_tlp=False)
     if err:
         return err
 
@@ -1907,7 +2042,7 @@ def tasks_pcap_variant(request, task_id, variant):
     """Alternate PCAP artifacts for <task_id>. variant ∈
     {decrypted, mixed, sslproxy, zip, pcapng}. The bare tasks/get/pcap/<id>/
     remains for back-compat with existing callers (serves dump.pcap)."""
-    task_id, err = _resolve_task_id(task_id, "taskpcap")
+    task_id, err = _resolve_task_id(request, task_id, "taskpcap")
     if err:
         return err
     _central_stage(request, task_id)
@@ -1929,7 +2064,7 @@ def tasks_keys(request, task_id, kind):
     different hook source (tls: MockSSL → tlsdump.log; ssl: bcrypt/NCrypt →
     aux/sslkeylogfile/sslkeys.log; master: SSLproxy → master_keys.log).
     All three are NSS-format keylogs."""
-    task_id, err = _resolve_task_id(task_id, "tasktlskeys")
+    task_id, err = _resolve_task_id(request, task_id, "tasktlskeys")
     if err:
         return err
     k = (kind or "").lower()
@@ -1944,7 +2079,7 @@ def tasks_keys(request, task_id, kind):
 def tasks_etw(request, task_id, kind):
     """ETW telemetry downloads. kind ∈ {dns, network, wmi} each map to an
     NDJSON stream; kind == amsi zips the per-buffer AMSI script captures."""
-    task_id, err = _resolve_task_id(task_id, "tasketw")
+    task_id, err = _resolve_task_id(request, task_id, "tasketw")
     if err:
         return err
     k = (kind or "").lower()
@@ -1963,7 +2098,7 @@ def tasks_bulkzip(request, task_id, folder):
     to {logs, network, memory, selfextracted}. Archive is AES-encrypted
     with ZIP_PWD for parity with tasks_dropped / tasks_payloadfiles /
     tasks_procdumpfiles."""
-    task_id, err = _resolve_task_id(task_id, "taskbulkzip")
+    task_id, err = _resolve_task_id(request, task_id, "taskbulkzip")
     if err:
         return err
     f = (folder or "").lower()
@@ -1979,6 +2114,9 @@ def tasks_evtx(request, task_id):
         resp = {"error": True, "error_value": "EVTX download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2014,6 +2152,9 @@ def tasks_mitmdump(request, task_id):
     if not apiconf.mitmdump.get("enabled"):
         resp = {"error": True, "error_value": "Mitmdump HAR download API is disabled"}
         return Response(resp)
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2042,6 +2183,9 @@ def tasks_dropped(request, task_id):
         resp = {"error": True, "error_value": "Dropped File download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2095,6 +2239,9 @@ def tasks_selfextracted(request, task_id, tool="all"):
         resp = {"error": True, "error_value": "Self Extracted File download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2195,6 +2342,9 @@ def tasks_surifile(request, task_id):
         resp = {"error": True, "error_value": "Suricata File download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2246,10 +2396,30 @@ def tasks_rollingsuri(request, window=60):
             {"suricata.alerts": 1, "info.id": 1},
         )
     )
+
+    # Tenant isolation: this is an aggregate feed across ALL recent analyses, so
+    # it must drop alerts (and task ids) for tasks the caller may not see — the
+    # task_id coverage gate can't catch this endpoint (no task_id in its route).
+    # When multitenancy is disabled, viewer.is_local_admin short-circuits to
+    # see-all, so this is a no-op and behavior is unchanged.
+    viewer = viewer_for(request.user)
+    _seen = {}
+
+    def _can_see(tid):
+        if viewer.is_local_admin:
+            return True
+        if tid not in _seen:
+            t = db.view_task(tid)
+            _seen[tid] = bool(t) and can_view_task(request.user, t)
+        return _seen[tid]
+
     resp = []
     for e in result:
+        tid = e["info"]["id"]
+        if not _can_see(tid):
+            continue
         for alert in e["suricata"]["alerts"]:
-            alert["id"] = e["info"]["id"]
+            alert["id"] = tid
             resp.append(alert)
 
     return Response(resp)
@@ -2262,6 +2432,9 @@ def tasks_procmemory(request, task_id, pid="all"):
         resp = {"error": True, "error_value": "Process memory download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2341,6 +2514,9 @@ def tasks_fullmemory(request, task_id):
         resp = {"error": True, "error_value": "Full memory download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2382,6 +2558,18 @@ def file(request, stype, value):
     if not apiconf.sampledl.get("enabled", False):
         resp = {"error": True, "error_value": "Sample download API is disabled"}
         return Response(resp)
+
+    if stype in ("md5", "sha1", "sha256"):
+        _denied = _deny_by_hash(request, **{stype: value})
+    else:  # stype == "task" — value is a string from the URL; coerce so the
+        # int task_id column comparison doesn't error on PostgreSQL.
+        try:
+            value = int(value)
+        except (ValueError, TypeError):
+            return Response({"error": True, "error_value": "Invalid task ID"}, status=400)
+        _denied = _deny_task(request, value)
+    if _denied is not None:
+        return _denied
 
     # This Func is not Synced with views.py "def file()"
 
@@ -2512,7 +2700,7 @@ def cuckoo_status(request):
         resp["error_value"] = "Cuckoo Status API is disabled"
     else:
         resp["error"] = []
-        tasks_dict_with_counts = db.get_tasks_status_count()
+        tasks_dict_with_counts = db.get_tasks_status_count(visible_to=viewer_for(request.user))
         total_sum = 0
         if isinstance(tasks_dict_with_counts, dict):
             total_sum = sum(tasks_dict_with_counts.values())
@@ -2558,18 +2746,26 @@ def cuckoo_status(request):
 @api_view(["GET"])
 def task_x_hours(request):
     session = db.Session()
-    res = (
-        session.query(Task)
-        .filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
-        .all()
-    )
-    results = {}
-    if res:
-        for date, samples in res:
-            results.setdefault(date.strftime("%Y-%m-%eT%H:%M:00"), samples)
-    session.close()
-    resp = {"error": False, "stats": results}
-    return Response(resp)
+    try:
+        # Query the bounded last-24h window FIRST (a small set), then filter by
+        # visibility in Python — avoids loading the whole visible set into memory
+        # (OOM). Tenant isolation via can_view_task is a no-op when multitenancy
+        # is disabled / break-glass. (Also fixes the pre-existing reversed
+        # between() args, which made this always return empty.)
+        tasks = (
+            session.query(Task)
+            .filter(Task.added_on.between(datetime.datetime.now() - datetime.timedelta(days=1), datetime.datetime.now()))
+            .all()
+        )
+        results = {}
+        for t in tasks:
+            if not can_view_task(request.user, t):
+                continue
+            bucket = t.added_on.strftime("%Y-%m-%eT%H:%M:00")
+            results[bucket] = results.get(bucket, 0) + 1
+    finally:
+        session.close()
+    return Response({"error": False, "stats": results})
 
 
 @csrf_exempt
@@ -2578,7 +2774,7 @@ def tasks_latest(request, hours):
     resp = {}
     resp["error"] = []
     timestamp = datetime.now() - timedelta(hours=int(hours))
-    ids = db.list_tasks(completed_after=timestamp)
+    ids = db.list_tasks(completed_after=timestamp, visible_to=viewer_for(request.user))
     resp["ids"] = [id.to_dict() for id in ids]
     return Response(resp)
 
@@ -2590,6 +2786,9 @@ def tasks_payloadfiles(request, task_id):
         resp = {"error": True, "error_value": "CAPE payload file download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2629,6 +2828,9 @@ def tasks_procdumpfiles(request, task_id):
         resp = {"error": True, "error_value": "Procdump file download API is disabled"}
         return Response(resp)
 
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
     if check["error"]:
         return Response(check)
@@ -2667,6 +2869,9 @@ def tasks_config(request, task_id, cape_name=False):
     if not apiconf.capeconfig.get("enabled"):
         resp = {"error": True, "error_value": "Config download API is disabled"}
         return Response(resp)
+    _denied = _deny_if_hidden(request, db.view_task(task_id))
+    if _denied is not None:
+        return _denied
     check = validate_task(task_id)
 
     if check["error"]:
@@ -2743,8 +2948,19 @@ def post_processing(request, category, task_id):
 def statistics_data(requests, days):
     resp = {}
     if days.isdigit():
-        details = statistics(int(days))
-        resp = {"Error": False, "data": details}
+        from dashboard.views import entitled_scopes
+
+        v = viewer_for(requests.user)
+        scopes = entitled_scopes(requests.user)
+        # Back-compat: when only the global panel applies (MT disabled / shared /
+        # break-glass) return the legacy FLAT stats dict so existing API clients
+        # reading resp["data"]["signatures"] keep working. The per-scope dict is
+        # only used in locked mode where there are multiple entitled scopes.
+        if scopes == ["global"]:
+            data = statistics(int(days))
+        else:
+            data = {scope: statistics(int(days), scope=scope, viewer=v) for scope in scopes}
+        resp = {"Error": False, "data": data}
     else:
         resp = {"Error": True, "error_value": "Provide days as number"}
     return Response(resp)
@@ -2758,6 +2974,10 @@ def tasks_delete_many(request):
         task_id = int(task_id)
         task = db.view_task(task_id)
         if task:
+            if not can_manage_task(request.user, task):
+                # hidden == missing: no cross-tenant enumeration, no unauthorized delete
+                response.setdefault(task_id, "not exists")
+                continue
             if task.status == TASK_RUNNING:
                 response.setdefault(task_id, "running")
                 continue
@@ -2792,6 +3012,10 @@ def tasks_download_services(request):
     if not hashes:
         return Response({"error": True, "error_value": "hashes value is empty"})
     resp["error"] = []
+    try:
+        _tenant_id, _visibility = submission_scope(request)
+    except ValueError:
+        return Response({"error": True, "error_value": "invalid visibility"})
     # Parse potential POST options (see submission/views.py)
     options = request.POST.get("options", "")
     custom = request.POST.get("custom", "")
@@ -2839,12 +3063,17 @@ def tasks_download_services(request):
         "options": options,
         "only_extraction": False,
         "service": "",
+        "tenant_id": _tenant_id,
+        "visibility": _visibility,
         "user_id": request.user.id or 0,
     }
 
     if opt_apikey:
         details["apikey"] = opt_apikey
 
+    # viewer gates the local-cache reuse inside download_from_3rdparty (no
+    # cross-tenant sample-bytes via a "Local" cache hit). No-op when MT disabled.
+    details["viewer"] = viewer_for(request.user)
     details = download_from_3rdparty(hashes, opt_filename, details)
     if isinstance(details.get("task_ids"), list):
         tasks_count = len(details["task_ids"])
@@ -2892,9 +3121,9 @@ def tasks_file_stream(request, task_id):
         return Response(resp)
     resp = {}
     task = db.view_task(task_id)
-    if not task:
-        resp = {"error": True, "error_value": "Task does not exist"}
-        return Response(resp)
+    _denied = _deny_if_hidden(request, task)
+    if _denied is not None:
+        return _denied
     machine = db.view_machine(task.guest.name)
     if machine.status != "running":
         resp = {"error": True, "error_value": "Machine is not running", "errors": machine.status}

@@ -296,23 +296,30 @@ def reconcile_tenant(user, user_groups: set) -> None:
     """
     from users.models import Tenant, UserProfile
 
-    matches = [t for t in Tenant.objects.filter(active=True) if user_groups & set(t.idp_groups or [])]
+    def _g(vals):
+        # A tenant's idp_groups/admin_idp_groups come from a JSONField; keep only
+        # hashable strings so a malformed config (e.g. a nested dict) can't
+        # TypeError the set intersection and 500 the login.
+        return {g for g in (vals or []) if isinstance(g, str)}
+
+    matches = [t for t in Tenant.objects.filter(active=True) if user_groups & _g(t.idp_groups)]
     prof, _ = UserProfile.objects.get_or_create(user=user)
-    if len(matches) > 1:
-        log.warning(
-            "user %s matches multiple tenants %s; leaving tenant unset",
-            user.username, [t.slug for t in matches],
-        )
-        prof.tenant = None
-        prof.is_tenant_admin = False
-    elif len(matches) == 1:
+    if len(matches) == 1:
         t = matches[0]
-        prof.tenant = t
-        prof.is_tenant_admin = bool(user_groups & set(t.admin_idp_groups or []))
+        new_tenant, new_admin = t, bool(user_groups & _g(t.admin_idp_groups))
     else:
-        prof.tenant = None
-        prof.is_tenant_admin = False
-    prof.save(update_fields=["tenant", "is_tenant_admin"])
+        if len(matches) > 1:
+            log.warning(
+                "user %s matches multiple tenants %s; leaving tenant unset",
+                user.username, [t.slug for t in matches],
+            )
+        new_tenant, new_admin = None, False
+    # Only write when something actually changed — avoid a needless UPDATE on
+    # every SSO login.
+    if prof.tenant_id != getattr(new_tenant, "id", None) or bool(prof.is_tenant_admin) != new_admin:
+        prof.tenant = new_tenant
+        prof.is_tenant_admin = new_admin
+        prof.save(update_fields=["tenant", "is_tenant_admin"])
 
 
 # ── Account adapters ──────────────────────────────────────────────────────────
@@ -461,5 +468,9 @@ def _reconcile_sso_user_on_login(sender, request, user, **kwargs):
     # only touch tenant membership when the groups claim is actually present.
     oidc_cfg = getattr(settings, "OIDC_CFG", None) or {}
     claim = oidc_cfg.get("groups_claim") or "groups"
-    if claim in extra:
+    # Normalize first: the openid_connect provider nests claims under
+    # extra["userinfo"], so checking the raw wrapper would treat the groups claim
+    # as absent and skip tenant reconciliation entirely — SSO users would log in
+    # with no tenant/tenant-admin membership. _extract_groups already normalizes.
+    if claim in _claims(extra):
         reconcile_tenant(user, _extract_groups(extra))

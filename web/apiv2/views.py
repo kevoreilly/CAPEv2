@@ -468,7 +468,16 @@ def tasks_create_file(request):
                     else:
                         details["error"].append({os.path.basename(tmp_path): "Failed to convert SAZ to PCAP"})
                         continue
-                task_id = db.add_pcap(file_path=tmp_path)
+                # Carry the submitter's tenancy (same scope the other create
+                # branches use via details) — otherwise add_pcap's defaults
+                # (user_id=0, tenant_id=None, visibility=private) make a tenant
+                # user's own PCAP task invisible to them in locked mode.
+                task_id = db.add_pcap(
+                    file_path=tmp_path,
+                    user_id=details["user_id"],
+                    tenant_id=details["tenant_id"],
+                    visibility=details["visibility"],
+                )
                 details["task_ids"].append(task_id)
                 continue
             if static:
@@ -1283,6 +1292,11 @@ def tasks_status(request, task_id):
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
     elif request.method == "POST" and apiconf.user_stop.enabled and request.data.get("status", "") == "finish":
+        # Stopping/finishing a running analysis is a MUTATION — require manage
+        # rights (owner / tenant-admin / break-glass), not just read visibility,
+        # so a same-tenant read-only user can't end another user's analysis.
+        if not can_manage_task(request.user, task):
+            return Response({"error": True, "error_value": "Access denied"}, status=403)
         machine = db.view_machine(task.guest.name)
         # Todo probably add task status if pending
         if machine.status == "running":

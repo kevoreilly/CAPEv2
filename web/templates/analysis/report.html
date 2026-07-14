@@ -3,7 +3,7 @@
 {% if can_toggle_visibility %}
 <div class="visibility-toggle mb-2" data-task-id="{{ id }}">
     <label class="text-white-50 me-2">Visibility</label>
-    <select class="form-select form-select-sm d-inline-block w-auto" id="report_visibility" onchange="setReportVisibility(this)">
+    <select class="form-select form-select-sm d-inline-block w-auto" id="report_visibility" data-prev="{{ task_visibility }}" onchange="setReportVisibility(this)">
         <option value="public" {% if task_visibility == 'public' %}selected{% endif %}>public</option>
         <option value="tenant" {% if task_visibility == 'tenant' %}selected{% endif %}>tenant</option>
         <option value="private" {% if task_visibility == 'private' %}selected{% endif %}>private</option>

@@ -219,3 +219,40 @@ def test_submission_scope(mt_enabled, monkeypatch):
     r3.data = {"visibility": "bogus"}
     with _pytest.raises(ValueError):
         ut.submission_scope(r3)
+
+
+@pytest.mark.django_db
+def test_reconcile_tenant_tolerates_non_string_groups():
+    """Copilot: a tenant's idp_groups JSONField may contain non-string junk; the
+    set intersection must not TypeError (and must still match on the valid names)."""
+    from web.allauth_adapters import reconcile_tenant
+    from users.models import Tenant, UserProfile
+    from django.contrib.auth.models import User
+
+    Tenant.objects.create(slug="acme", name="Acme", idp_groups=["acme-soc", {"bad": 1}, None])
+    u = User.objects.create_user("ns", "ns@x.com", "x")
+    reconcile_tenant(u, {"acme-soc"})  # must not raise despite the non-string entries
+    assert UserProfile.objects.get(user=u).tenant.slug == "acme"
+
+
+@pytest.mark.django_db
+def test_sso_login_reconciles_tenant_from_userinfo_claims(monkeypatch, settings):
+    """Codex/Copilot: the openid_connect provider nests claims under
+    extra['userinfo']; the login guard must normalize (via _claims) before deciding
+    the groups claim is absent, else SSO users get no tenant/admin membership."""
+    import types
+    from web import allauth_adapters as aa
+    from users.models import Tenant, UserProfile
+    from django.contrib.auth.models import User
+
+    Tenant.objects.create(slug="acme", name="Acme", idp_groups=["acme-soc"])
+    settings.OIDC_CFG = {"groups_claim": "groups"}
+    # isolate the tenant path (role/email reconciliation is tested elsewhere)
+    monkeypatch.setattr(aa, "_apply_idp_roles_and_email", lambda user, extra: False)
+
+    u = User.objects.create_user("sso", "sso@x.com", "x")
+    extra = {"id_token": "jwt", "userinfo": {"groups": ["acme-soc"]}}  # nested claim shape
+    sl = types.SimpleNamespace(account=types.SimpleNamespace(extra_data=extra))
+    aa._reconcile_sso_user_on_login(sender=None, request=None, user=u, sociallogin=sl)
+
+    assert UserProfile.objects.get(user=u).tenant.slug == "acme"

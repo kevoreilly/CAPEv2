@@ -704,3 +704,16 @@ def test_tasks_view_regates_recovery_pivot(cape_db, mt_enabled, monkeypatch):
     req.user = u
     resp = av.tasks_view(req, 5)
     assert resp.status_code == 404  # denied on the resolved foreign task, not served
+
+
+def test_visibility_endpoint_opts_into_session_auth():
+    """Codex: the report-page visibility toggle authenticates with a browser
+    session; SessionAuthentication is dropped from the DRF default in SSO mode, so
+    the endpoint must opt back into it (while keeping API-token auth)."""
+    import apiv2.views as av
+    from rest_framework.authentication import SessionAuthentication
+
+    cls = getattr(av.tasks_set_visibility, "cls", None)
+    assert cls is not None, "tasks_set_visibility should be a DRF @api_view"
+    assert SessionAuthentication in cls.authentication_classes, \
+        "visibility toggle must accept browser session auth (SSO drops it from the default)"

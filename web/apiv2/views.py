@@ -24,11 +24,19 @@ from django.http import StreamingHttpResponse
 from django.shortcuts import render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, authentication_classes
+from rest_framework.authentication import SessionAuthentication
 try:
     from apikey.authentication import ApiKeyAuthentication
 except ImportError:
     ApiKeyAuthentication = None
+
+# Auth chain for UI-internal DRF endpoints (e.g. the report-page visibility
+# toggle): SessionAuthentication is dropped from the DRF default in SSO/OIDC
+# mode (see settings.py), so a browser session + CSRF can't hit /apiv2/. Opt
+# these endpoints back into session auth WHILE keeping API-token auth, so both
+# the in-browser control and scripted API clients work.
+_UI_INTERNAL_AUTH = [SessionAuthentication] + ([ApiKeyAuthentication] if ApiKeyAuthentication else [])
 
 from web.tenancy_optional import submission_scope, can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for
 from web.tenancy_optional import VISIBILITIES
@@ -81,6 +89,7 @@ def _deny_by_hash(request, *, sha256=None, sha1=None, md5=None, sample_id=None):
 
 
 @api_view(["PATCH"])
+@authentication_classes(_UI_INTERNAL_AUTH)
 def tasks_set_visibility(request, task_id):
     """Owner (or tenant-admin for public/tenant jobs, or superuser) re-toggles a
     task's visibility. Mirrors the can_toggle predicate."""

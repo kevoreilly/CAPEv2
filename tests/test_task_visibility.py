@@ -214,6 +214,46 @@ def test_set_task_visibility_raises_on_persistent_mongo_failure(db, monkeypatch)
     assert db.session.get(Task, tid).visibility == "tenant"
 
 
+def test_set_task_visibility_reverts_mongo_when_sql_commit_fails(db, monkeypatch):
+    """Complementary to the mongo-fail case: if the SQL commit fails AFTER a
+    successful mongo sync, the stores would disagree in the leaky direction (mongo
+    already shows the new, possibly more-permissive, visibility while SQL keeps the
+    old). The setter must best-effort revert the mongo stamp to the previous value
+    and raise, so the aggregate/search surfaces never read more permissively than
+    SQL authorizes."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    calls = []
+
+    def _rec(coll, q, upd, *a, **k):
+        calls.append(upd["$set"]["info.visibility"])
+        return object()  # UpdateResult stand-in (success)
+
+    monkeypatch.setattr(tk, "mongo_update_one", _rec, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="private")
+
+    # make ONLY the new-value commit inside set_task_visibility fail (add_url above
+    # already committed the task with the real commit).
+    orig_commit = db.session.commit
+    state = {"boom": True}
+
+    def _commit():
+        if state["boom"]:
+            state["boom"] = False
+            raise RuntimeError("transient SQL commit failure")
+        return orig_commit()
+
+    monkeypatch.setattr(db.session, "commit", _commit)
+
+    with pytest.raises(CuckooOperationalError):
+        db.set_task_visibility(tid, "public")
+
+    # forward sync to 'public', then a best-effort revert back to 'private'
+    assert calls == ["public", "private"]
+
+
 def test_set_task_visibility_skips_sync_when_mongo_disabled(db, monkeypatch):
     """When mongo is NOT the report store, the toggle must succeed without any sync
     attempt (so an ES/no-mongo install isn't broken by the sync path)."""

@@ -871,6 +871,7 @@ class TasksMixIn:
         # that (leaving both stores at the old value), then raise so the caller
         # retries. We revert in-place rather than session.rollback() so we don't
         # discard unrelated pending work in a shared/scoped session.
+        _synced_mongo = False
         if mongo_update_one is not None and _mongo_reporting_enabled():
             # mongo_update_one is wrapped by graceful_auto_reconnect, which retries
             # AutoReconnect/ServerSelectionTimeoutError internally and RETURNS None
@@ -888,7 +889,32 @@ class TasksMixIn:
                 self.session.commit()
                 log.error("visibility mongo sync FAILED for task %s (mongo unreachable); left at %r", task_id, _prev_visibility)
                 raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
-        self.session.commit()
+            _synced_mongo = True
+        # Commit the SQL change. If THIS fails after a successful mongo sync, the two
+        # stores would disagree in the leaky direction (mongo already shows the new,
+        # possibly more-permissive, visibility while SQL rolls back to the old value).
+        # Best-effort revert the mongo stamp to the previous value, roll back the
+        # poisoned session, and raise so the caller retries — never leave a committed
+        # window where the aggregate/search surfaces are more permissive than SQL.
+        try:
+            self.session.commit()
+        except Exception as _ce:
+            from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+            try:
+                self.session.rollback()
+            except Exception:
+                pass
+            if _synced_mongo:
+                try:
+                    mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": _prev_visibility}})
+                    log.error("visibility SQL commit failed for task %s; reverted mongo stamp to %r", task_id, _prev_visibility)
+                except Exception as _re:
+                    log.error(
+                        "visibility SQL commit failed AND mongo revert FAILED for task %s (stores may disagree): %s",
+                        task_id, _re,
+                    )
+            raise CuckooOperationalError(f"task {task_id} visibility change aborted: SQL commit failed") from _ce
         return task
 
     def fetch_task(self, categories: list = None):

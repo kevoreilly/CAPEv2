@@ -16,6 +16,33 @@ def test_submit_form_renders_visibility_control(cape_db, client):
     assert b'name="visibility"' in r.content
 
 
+@pytest.mark.django_db
+def test_submit_form_tenant_option_matches_membership(cape_db, mt_enabled, client):
+    """The submit form must offer the 'tenant' visibility option iff the user has a
+    tenant — matching submission_scope (which honors explicit 'tenant' for a tenant
+    member and rejects it for a tenant-less user). Prevents UI/API divergence."""
+    from users.models import Tenant, UserProfile
+    try:
+        from django.urls import reverse
+        url = reverse("submission")
+    except Exception:
+        url = "/submit/"
+
+    # tenant-less user -> no 'tenant' option
+    tl = User.objects.create_user("tl2", "tl2@x.com", "x")
+    client.force_login(tl)
+    assert b'value="tenant"' not in client.get(url).content
+
+    # tenant member -> 'tenant' option present
+    t = Tenant.objects.create(slug="acmez", name="AcmeZ")
+    tu = User.objects.create_user("tu2", "tu2@x.com", "x")
+    p = UserProfile.objects.get(user=tu)
+    p.tenant = t
+    p.save()
+    client.force_login(User.objects.get(pk=tu.pk))
+    assert b'value="tenant"' in client.get(url).content
+
+
 class PublicRunningTask:
     id = 1
     user_id = 999          # owned by someone else

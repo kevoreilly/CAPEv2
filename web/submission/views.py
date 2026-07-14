@@ -820,8 +820,13 @@ def index(request, task_id=None, resubmit_hash=None):
             "submission/index.html",
             {
                 "title": "Submit",
+                # Offer TENANT iff the submitter actually has a tenant — this matches
+                # submission_scope, which honors an explicit 'tenant' for a tenant
+                # member (in BOTH modes) and rejects it for a tenant-less user. Keying
+                # on mode instead diverged the UI from the API (a tenant member could
+                # pick 'tenant' via the API but not the form in shared mode).
                 "visibility_levels": (
-                    [PUBLIC, PRIVATE] if multitenancy_config().mode == "shared" else [PUBLIC, TENANT, PRIVATE]
+                    [PUBLIC, TENANT, PRIVATE] if viewer_for(request.user).tenant_id is not None else [PUBLIC, PRIVATE]
                 ),
                 "default_visibility": default_visibility(multitenancy_config()),
                 "packages": sorted(packages, key=lambda i: i["name"].lower()),

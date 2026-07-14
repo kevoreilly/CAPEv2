@@ -91,8 +91,9 @@ def _deny_by_hash(request, *, sha256=None, sha1=None, md5=None, sample_id=None):
 @api_view(["PATCH"])
 @authentication_classes(_UI_INTERNAL_AUTH)
 def tasks_set_visibility(request, task_id):
-    """Owner (or tenant-admin for public/tenant jobs, or superuser) re-toggles a
-    task's visibility. Mirrors the can_toggle predicate."""
+    """Owner (or tenant-admin for public/tenant jobs, or a break-glass admin)
+    re-toggles a task's visibility. Mirrors the can_toggle predicate (break-glass =
+    viewer.is_local_admin, i.e. a superuser gated by cuckoo.conf, not any superuser)."""
     # Parse once so view_task() and set_task_visibility() get a consistent int and
     # a non-numeric id fails as the same generic 404 (no implicit-coercion no-op).
     try:

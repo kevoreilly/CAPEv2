@@ -17,8 +17,11 @@ support is added.
 - **Central control plane + broker workers** (the "central mode" path): the
   central UI serves artifacts staged from workers, keyed by the broker `job_id`.
   Tenant stamping and scoping work across this path.
-- **Guacamole interactive sessions** for task-backed analyses: the live-VM tunnel
-  is gated by `can_view_task`, so a token cannot tunnel into another tenant's VM.
+- **Guacamole interactive sessions** for task-backed analyses: minting a live-VM
+  session (and the WebSocket tunnel re-check) is gated by `can_manage_task`
+  (owner / tenant-admin / break-glass), NOT mere read visibility — live keyboard/
+  mouse/framebuffer control is a task action, so a read-only viewer of a public/
+  tenant task cannot tunnel into another user's or tenant's VM.
 
 ## Not yet supported (fail-closed — safe, but limited)
 

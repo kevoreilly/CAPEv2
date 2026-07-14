@@ -3161,6 +3161,10 @@ def report(request, task_id):
             "title": "Analysis Report",
             "can_toggle_visibility": can_toggle_visibility,
             "task_visibility": getattr(_task, "visibility", "private"),
+            # Only offer the 'tenant' toggle for a task that actually belongs to a
+            # tenant — 'tenant' on a tenant_id=NULL task makes it readable by nobody
+            # but owner/break-glass (can_read's tenant branch needs a non-null tenant).
+            "task_has_tenant": getattr(_task, "tenant_id", None) is not None,
             "analysis": report,
             # ToDo test
             "file": report.get("target", {}).get("file", {}),

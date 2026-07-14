@@ -74,3 +74,24 @@ def test_remote_session_denies_readonly_viewer(cape_db, mt_enabled, monkeypatch,
     assert b"ERROR :-(" in r.content          # error.html marker
     assert b"seem to exist" in r.content       # "...task doesn't seem to exist."
     assert b"session_data" not in r.content    # no live-VM token handed to a non-manager
+
+
+@pytest.mark.django_db
+def test_submit_form_tenantless_locked_default_is_private(cape_db, mt_enabled, monkeypatch, client):
+    """A tenant-less user in locked mode must see 'private' preselected (not public):
+    the form default must match submission_scope's fail-closed downgrade AND be a
+    level that's actually offered — else the browser submits the first option (public)
+    on an unchanged form, silently creating a public job."""
+    import submission.views as sv
+    from lib.cuckoo.common.tenancy import MTConfig
+
+    monkeypatch.setattr(sv, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+    client.force_login(User.objects.create_user("tll", "tll@x.com", "x"))  # tenant-less
+    try:
+        from django.urls import reverse
+        url = reverse("submission")
+    except Exception:
+        url = "/submit/"
+    content = client.get(url).content
+    assert b'value="tenant"' not in content            # tenant not offered to a tenant-less user
+    assert b'value="private" selected' in content       # private preselected (not public)

@@ -718,3 +718,41 @@ def test_visibility_endpoint_opts_into_session_auth():
     assert cls is not None, "tasks_set_visibility should be a DRF @api_view"
     assert SessionAuthentication in cls.authentication_classes, \
         "visibility toggle must accept browser session auth (SSO drops it from the default)"
+
+
+@pytest.mark.django_db
+def test_toggle_visibility_rejects_tenant_for_tenantless_task(cape_db, mt_enabled, monkeypatch):
+    """A task with tenant_id=None cannot be 'tenant'-visible (can_read's tenant branch
+    needs a non-null job tenant) — the toggle API must reject that transition with a
+    400 rather than persist an owner/break-glass-only invisible state."""
+    from rest_framework.test import APIClient
+    import apiv2.views as views
+
+    owner = User.objects.create_user("ownt", "ownt@x.com", "x")  # tenant-less owner
+    state = {"vis": "private"}
+
+    class T:
+        id = 1
+
+        def __init__(self):
+            self.user_id = owner.id
+            self.tenant_id = None
+
+        @property
+        def visibility(self):
+            return state["vis"]
+
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: T())
+    monkeypatch.setattr(views.db, "set_task_visibility",
+                        lambda tid, vis: state.__setitem__("vis", vis), raising=False)
+
+    c = APIClient()
+    c.force_authenticate(user=owner)
+    r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "tenant"}, format="json")
+    assert r.status_code == 400 and r.json().get("error") is True
+    assert state["vis"] == "private"  # unchanged — set_task_visibility never invoked with tenant
+
+    # sanity: the owner can still set public/private on their tenantless task
+    r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "public"}, format="json")
+    assert r.status_code == 200, r.content
+    assert state["vis"] == "public"

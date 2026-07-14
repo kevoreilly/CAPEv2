@@ -820,20 +820,27 @@ def index(request, task_id=None, resubmit_hash=None):
                         existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                         existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
+        # Offer TENANT iff the submitter actually has a tenant — this matches
+        # submission_scope, which honors an explicit 'tenant' for a tenant member (in
+        # BOTH modes) and rejects it for a tenant-less user. The default must also be
+        # a level that is actually OFFERED and must match what submission_scope would
+        # persist for an unchanged form: a tenant-less user in locked mode resolves to
+        # 'tenant' (not offered), so the browser would select the first option (public)
+        # and submit it explicitly — bypassing submission_scope's fail-closed private
+        # downgrade. Downgrade that default to PRIVATE here to keep the two in sync.
+        _sub_viewer = viewer_for(request.user)
+        _has_tenant = _sub_viewer.tenant_id is not None
+        _visibility_levels = [PUBLIC, TENANT, PRIVATE] if _has_tenant else [PUBLIC, PRIVATE]
+        _form_default_visibility = default_visibility(multitenancy_config())
+        if _form_default_visibility == TENANT and not _has_tenant:
+            _form_default_visibility = PRIVATE
         return render(
             request,
             "submission/index.html",
             {
                 "title": "Submit",
-                # Offer TENANT iff the submitter actually has a tenant — this matches
-                # submission_scope, which honors an explicit 'tenant' for a tenant
-                # member (in BOTH modes) and rejects it for a tenant-less user. Keying
-                # on mode instead diverged the UI from the API (a tenant member could
-                # pick 'tenant' via the API but not the form in shared mode).
-                "visibility_levels": (
-                    [PUBLIC, TENANT, PRIVATE] if viewer_for(request.user).tenant_id is not None else [PUBLIC, PRIVATE]
-                ),
-                "default_visibility": default_visibility(multitenancy_config()),
+                "visibility_levels": _visibility_levels,
+                "default_visibility": _form_default_visibility,
                 "packages": sorted(packages, key=lambda i: i["name"].lower()),
                 "machines": machines,
                 "vpns": vpns_data,

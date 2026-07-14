@@ -39,7 +39,7 @@ except ImportError:
 _UI_INTERNAL_AUTH = [SessionAuthentication] + ([ApiKeyAuthentication] if ApiKeyAuthentication else [])
 
 from web.tenancy_optional import submission_scope, can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for
-from web.tenancy_optional import VISIBILITIES
+from web.tenancy_optional import VISIBILITIES, TENANT
 
 
 def _deny_if_hidden(request, task):
@@ -112,6 +112,14 @@ def tasks_set_visibility(request, task_id):
         return Response({"error": True, "error_value": "invalid visibility"}, status=400)
     if not can_toggle_task(request.user, task):
         return Response({"error": True, "error_value": "Access denied"}, status=403)
+    # A task with no tenant can't be 'tenant'-visible: can_read's tenant branch
+    # requires a non-null job tenant, so this would make the task readable by nobody
+    # but its owner / break-glass (a broken, invisible state). Reject the transition.
+    if vis == TENANT and getattr(task, "tenant_id", None) is None:
+        return Response(
+            {"error": True, "error_value": "tenant visibility requires the task to belong to a tenant"},
+            status=400,
+        )
     try:
         db.set_task_visibility(task_id, vis)
     except CuckooOperationalError:

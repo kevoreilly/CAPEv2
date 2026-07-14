@@ -57,6 +57,28 @@ def test_resolve_tenant_multi_match_fails_closed():
 
 
 @pytest.mark.django_db
+def test_resolve_tenant_string_idp_groups_not_char_matched():
+    """A misconfigured idp_groups stored as a bare STRING (e.g. "acme-soc" instead of
+    ["acme-soc"]) must be treated as ONE group, not iterated character-by-character —
+    else a user in group 'a'/'c'/… would spuriously match and get the wrong tenant."""
+    from users.models import Tenant, UserProfile
+    from web.allauth_adapters import reconcile_tenant
+
+    t = Tenant.objects.create(slug="acmestr", name="AcmeStr", idp_groups="acme-soc")  # bare string (misconfig)
+    u = User.objects.create_user("astr", "astr@x.com", "x")
+
+    # a single-character group must NOT char-match the string
+    reconcile_tenant(u, {"a"})
+    p = UserProfile.objects.get(user=u)
+    assert p.tenant_id is None
+
+    # the whole string, treated as one group, matches
+    reconcile_tenant(u, {"acme-soc"})
+    p.refresh_from_db()
+    assert p.tenant_id == t.id
+
+
+@pytest.mark.django_db
 def test_viewer_for_maps_user(mt_enabled):
     from users.models import Tenant, UserProfile
     from users.tenancy import viewer_for

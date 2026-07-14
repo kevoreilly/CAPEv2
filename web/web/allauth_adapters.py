@@ -297,10 +297,17 @@ def reconcile_tenant(user, user_groups: set) -> None:
     from users.models import Tenant, UserProfile
 
     def _g(vals):
-        # A tenant's idp_groups/admin_idp_groups come from a JSONField; keep only
-        # hashable strings so a malformed config (e.g. a nested dict) can't
-        # TypeError the set intersection and 500 the login.
-        return {g for g in (vals or []) if isinstance(g, str)}
+        # A tenant's idp_groups/admin_idp_groups come from a JSONField. Normalize
+        # defensively so a MALFORMED config can't mis-match a tenant: a bare string is
+        # ONE group (NOT an iterable of characters — else a member of group "a"/"c"/…
+        # would spuriously match), a list/tuple/set is filtered to hashable strings (so
+        # a nested dict can't TypeError the set intersection and 500 the login), and any
+        # other type fails closed to the empty set.
+        if isinstance(vals, str):
+            return {vals}
+        if isinstance(vals, (list, tuple, set)):
+            return {g for g in vals if isinstance(g, str)}
+        return set()
 
     # Filter in Python rather than an idp_groups__contains query: the Django auth
     # DB is sqlite, where JSONField contains/contained_by lookups are unsupported

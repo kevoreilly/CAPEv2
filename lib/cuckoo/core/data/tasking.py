@@ -915,8 +915,12 @@ class TasksMixIn:
         # consistent), then raise so the caller retries. Revert in-place rather than
         # session.rollback() so unrelated pending work in a shared session survives.
         if _mongo_on and not _sync_mongo(visibility):
+            # Abort WITHOUT committing or rolling back: revert only our in-memory change
+            # (no SQL was committed, so SQL stays at the old value) and raise. Do NOT
+            # commit here — this is a shared/scoped session and a commit could persist
+            # unrelated pending work; and no rollback is needed (there's no failed commit
+            # to recover from), which would instead DISCARD that unrelated pending work.
             task.visibility = _prev_visibility
-            self.session.commit()
             log.error("visibility mongo sync FAILED for task %s (mongo unreachable); left at %r", task_id, _prev_visibility)
             raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
         # Commit SQL; if THIS fails after a successful sync, best-effort revert the

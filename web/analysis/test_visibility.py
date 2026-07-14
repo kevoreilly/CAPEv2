@@ -157,3 +157,30 @@ def test_file_search_all_files_drops_cross_tenant_paths(cape_db, mt_enabled, mon
     paths = av._file_search_all_files("capeyara", "Emotet", req)
     assert "/opt/CAPEv2/storage/analyses/2/files/own.bin" in paths            # readable kept
     assert "/opt/CAPEv2/storage/binaries/deadbeefdeadbeef" not in paths       # foreign content-addressed sample dropped
+
+
+@pytest.mark.django_db
+def test_perform_search_tags_scopes_prequery_by_viewer(cape_db, monkeypatch):
+    """Codex: the tags_tasks/options SQL prequery must scope by visible_to BEFORE
+    the search_limit — else other tenants' matches fill the limit and the tenant-
+    scoped mongo query returns none of the viewer's own (older) visible matches."""
+    import lib.cuckoo.common.web_utils as wu
+    from lib.cuckoo.common.tenancy import Viewer
+
+    captured = {}
+
+    class _T:
+        def __init__(self, i):
+            self.id = i
+
+    def _list_tasks(*a, **k):
+        captured.update(k)
+        return [_T(1), _T(2)]
+
+    monkeypatch.setattr(wu.db, "list_tasks", _list_tasks)
+    monkeypatch.setattr(wu, "mongo_find", lambda *a, **k: [], raising=False)
+    monkeypatch.setattr(wu, "es_as_db", False, raising=False)
+
+    v = Viewer(user_id=2, tenant_id=10)
+    wu.perform_search("tags_tasks", "sometag", viewer=v)
+    assert captured.get("visible_to") is v  # prequery scoped by the viewer before the limit

@@ -1462,15 +1462,20 @@ def perform_search(
             if term == "ids":
                 ids = value
             elif term == "tags_tasks":
-                ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=search_limit)]
+                # Scope the SQL prequery to the viewer's VISIBLE tasks BEFORE the
+                # limit — otherwise other tenants' matches fill search_limit and the
+                # (tenant-scoped) mongo query below returns nothing even when the
+                # viewer has older visible matches. visible_to=None is a no-op
+                # (multitenancy disabled / break-glass), preserving legacy behavior.
+                ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=search_limit, visible_to=viewer)]
             elif term == "user_tasks":
                 if not user_id:
                     ids = 0
                 else:
                     # ToDo allow to admin search by user tasks
-                    ids = [int(v.id) for v in db.list_tasks(user_id=user_id, limit=search_limit)]
+                    ids = [int(v.id) for v in db.list_tasks(user_id=user_id, limit=search_limit, visible_to=viewer)]
             else:
-                ids = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit)]
+                ids = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit, visible_to=viewer)]
             if ids:
                 if len(ids) > 1:
                     term = "ids"

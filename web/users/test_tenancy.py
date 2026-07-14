@@ -337,3 +337,27 @@ def test_viewer_for_inactive_tenant_fails_closed(mt_enabled):
     t.save()
     v = viewer_for(User.objects.get(pk=u.pk))  # fresh load
     assert v.tenant_id is None and v.is_tenant_admin is False  # inactive -> fail closed
+
+
+@pytest.mark.django_db
+def test_submission_scope_ignores_visibility_when_mt_disabled(monkeypatch):
+    """With MT disabled the real submission_scope must IGNORE a caller-supplied
+    visibility and return the legacy (None, public) scope — persisting private/tenant
+    would plant a backfill landmine and contradict the disabled-MT toggle guard."""
+    from lib.cuckoo.common import tenancy as core_ten
+    from lib.cuckoo.common.tenancy import MTConfig
+    import users.tenancy as ut
+
+    def _off():
+        return MTConfig(False, "shared", "", True)
+
+    monkeypatch.setattr(ut, "multitenancy_config", _off)          # viewer_for (not reached)
+    monkeypatch.setattr(core_ten, "multitenancy_config", _off)    # submission_scope in-func import
+
+    class Req:
+        pass
+
+    r = Req()
+    r.user = User.objects.create_user("mtoffsub", "mtoffsub@x.com", "x")
+    r.data = {"visibility": "private"}  # explicit request must be IGNORED when MT is off
+    assert ut.submission_scope(r) == (None, "public")

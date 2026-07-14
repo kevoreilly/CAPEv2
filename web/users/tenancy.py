@@ -121,7 +121,19 @@ def submission_scope(request):
     ``visibility`` param when valid, else the per-mode default. Raises
     ValueError on an invalid explicit visibility so the view can 400.
     """
-    from lib.cuckoo.common.tenancy import multitenancy_config, default_visibility, VISIBILITIES, TENANT, PRIVATE
+    from lib.cuckoo.common.tenancy import default_visibility, VISIBILITIES, TENANT, PRIVATE, PUBLIC
+
+    # Multitenancy OFF (default/legacy): visibility is meaningless (every principal is
+    # a break-glass local-admin). IGNORE any caller-supplied value and return the
+    # legacy (no tenant, public) scope. Persisting private/tenant here would plant a
+    # backfill landmine (the migration skips already-stamped docs, so those rows would
+    # unexpectedly hide analyses when MT is later enabled) and contradict the
+    # visibility-toggle endpoint's disabled-MT guard. Use the MODULE-LEVEL
+    # multitenancy_config (the same binding viewer_for uses and the test fixtures
+    # patch) — an in-function re-import from the core module would bypass those.
+    cfg = multitenancy_config()
+    if not cfg.enabled:
+        return None, PUBLIC
 
     v = viewer_for(request.user)
     data = getattr(request, "data", None)
@@ -133,7 +145,7 @@ def submission_scope(request):
             raise ValueError("invalid visibility")
         visibility = requested
     else:
-        visibility = default_visibility(multitenancy_config())
+        visibility = default_visibility(cfg)
     # A 'tenant'-visibility job needs a tenant to scope to. With tenant_id=None it
     # is readable only by its owner (or nobody, for an anonymous submitter) — never
     # the intended tenant pool (can_read's _same_tenant requires a non-None tenant).

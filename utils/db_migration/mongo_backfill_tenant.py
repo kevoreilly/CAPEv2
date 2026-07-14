@@ -5,12 +5,18 @@ import sys
 
 
 def backfill_doc(doc, view_task) -> dict:
-    task = view_task(int(doc.get("info", {}).get("id", 0)))
+    # Orphan / corrupt: the Postgres task was pruned (or the doc has a missing or
+    # non-numeric info.id) — fail CLOSED to private (no owner/tenant) so it matches
+    # no cross-tenant scope and stays invisible to everyone but break-glass, never
+    # world-visible. A bad id must NOT abort the whole one-shot backfill run.
+    _orphan = {"info.tenant_id": None, "info.user_id": None, "info.visibility": "private"}
+    try:
+        _rid = int(doc.get("info", {}).get("id", 0))
+    except (TypeError, ValueError):
+        return _orphan
+    task = view_task(_rid)
     if task is None:
-        # Orphan: the Postgres task was pruned but the mongo doc remains. Fail
-        # CLOSED to private (no owner/tenant) so it matches no cross-tenant scope
-        # and stays invisible to everyone but break-glass — never world-visible.
-        return {"info.tenant_id": None, "info.user_id": None, "info.visibility": "private"}
+        return _orphan
     return {
         "info.tenant_id": getattr(task, "tenant_id", None),
         "info.user_id": getattr(task, "user_id", None),

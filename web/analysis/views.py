@@ -3134,8 +3134,14 @@ def report(request, task_id):
             viewer=viewer_for(request.user),
         )
         for record in records:
-            rid = (record.get("info") or {}).get("id")
-            if rid is None or rid == report["info"]["id"]:
+            # rid comes from a mongo/ES record; a corrupt non-numeric id would raise
+            # in db.view_task's SQL parameter bind (-> 500). Coerce and skip on
+            # failure (also covers a missing/None id).
+            try:
+                rid = int((record.get("info") or {}).get("id"))
+            except (TypeError, ValueError):
+                continue
+            if rid == report["info"]["id"]:
                 continue
             # tenant isolation: only surface other analyses of this sample that
             # the requester may read (no-op when MT disabled). Without this, the

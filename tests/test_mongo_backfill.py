@@ -17,3 +17,23 @@ def test_backfill_orphan_fails_closed_private():
     doc = {"info": {"id": 9}}
     update = backfill_doc(doc, lambda tid: None)
     assert update == {"info.tenant_id": None, "info.user_id": None, "info.visibility": "private"}
+
+
+def test_backfill_corrupt_id_fails_closed_private():
+    """Copilot: a doc with a missing or non-numeric info.id (corrupt/partial data)
+    must fail CLOSED to private rather than raise and abort the whole backfill run.
+    A non-numeric id must be rejected BEFORE view_task (which would raise on bind)."""
+    from utils.db_migration.mongo_backfill_tenant import backfill_doc
+
+    private = {"info.tenant_id": None, "info.user_id": None, "info.visibility": "private"}
+
+    # non-numeric id -> int() raises -> orphan WITHOUT ever calling view_task
+    def _boom(tid):
+        raise AssertionError("view_task must not be called for a non-numeric id")
+
+    assert backfill_doc({"info": {"id": "abc"}}, _boom) == private
+    assert backfill_doc({"info": {"id": None}}, _boom) == private
+
+    # missing id defaults to 0 -> view_task(0) -> None (pruned) -> orphan
+    assert backfill_doc({"info": {}}, lambda t: None) == private
+    assert backfill_doc({}, lambda t: None) == private

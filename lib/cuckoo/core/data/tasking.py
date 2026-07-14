@@ -60,37 +60,54 @@ log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 
 
+_LOCK_ENGINE = None
+
+
+def _lock_engine(app_engine):
+    """A dedicated NullPool engine for advisory-lock connections, kept SEPARATE from the
+    application's shared QueuePool. The lock connection is held across the (possibly
+    slow) mongo round-trip; during a mongo outage graceful_auto_reconnect can pin it for
+    tens of seconds, so sourcing it from the app pool would let a burst of concurrent
+    toggles exhaust the pool and stall unrelated DB work (scheduling, web queries).
+    NullPool = one fresh physical connection per lock, fully closed on release (which
+    also releases the advisory lock via backend termination). Cached module-level;
+    rebuilt only if the app engine URL changes."""
+    global _LOCK_ENGINE
+    if _LOCK_ENGINE is None or str(_LOCK_ENGINE.url) != str(app_engine.url):
+        from sqlalchemy import create_engine
+        from sqlalchemy.pool import NullPool
+
+        _LOCK_ENGINE = create_engine(app_engine.url, poolclass=NullPool)
+    return _LOCK_ENGINE
+
+
 def _advisory_lock(session, key):
     """Best-effort cross-process serialization of per-task visibility toggles.
 
-    Acquires a Postgres SESSION-level advisory lock on a DEDICATED connection (its own
-    backend) — NOT the pooled ORM session's connection. set_task_visibility commit()s
-    mid-operation, which returns the ORM session's connection to the QueuePool; a lock
-    taken through that session would then (a) be re-entrant if the pool later hands the
-    same physical connection to a concurrent toggle of the same key (returns
-    immediately -> NO serialization) and (b) leak if the finally-unlock runs on a
-    different pooled connection (the lock stays held on the idle one -> next toggle
-    hangs). Holding a dedicated connection for the whole critical section pins the lock
-    to one backend so lock+unlock always land together. A session-level (not xact) lock
-    is required because it must outlive the mid-operation commit.
+    Acquires a Postgres SESSION-level advisory lock on a DEDICATED connection from a
+    separate NullPool engine (_lock_engine): NOT the pooled ORM session (whose
+    connection the mid-operation commit returns to the pool — that would make the lock
+    re-entrant on a reused connection or leak on a different one) and NOT the shared app
+    QueuePool (which the lock, held across the slow mongo round-trip, could otherwise
+    starve). The connection is pinned for the whole critical section so lock+unlock land
+    on one backend. Session-level (not xact) is required because it must outlive the
+    mid-operation commit.
 
     Returns the held Connection (release + close via _advisory_unlock), or None on
-    non-Postgres backends (sqlite tests are single-writer — no serialization needed)."""
-    try:
-        engine = session.get_bind()
-        engine = getattr(engine, "engine", engine)
-        if engine.dialect.name != "postgresql":
-            return None
-        conn = engine.connect()
-        try:
-            conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": int(key)})
-            return conn
-        except Exception:
-            conn.close()
-            raise
-    except Exception as _e:
-        log.warning("advisory lock unavailable for task %s: %s", key, _e)
+    non-Postgres backends (sqlite tests are single-writer — no serialization needed). On
+    Postgres a failure to acquire the lock is RAISED (fail closed — the caller must
+    abort rather than proceed unserialized), NOT swallowed to None."""
+    engine = session.get_bind()
+    engine = getattr(engine, "engine", engine)
+    if engine.dialect.name != "postgresql":
         return None
+    conn = _lock_engine(engine).connect()
+    try:
+        conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": int(key)})
+        return conn
+    except Exception:
+        conn.close()
+        raise
 
 
 def _advisory_unlock(conn, key) -> None:
@@ -943,7 +960,16 @@ class TasksMixIn:
                 log.warning("visibility mongo sync errored for task %s: %s", task_id, _e)
                 return False
 
-        _lock_conn = _advisory_lock(self.session, task_id)
+        try:
+            _lock_conn = _advisory_lock(self.session, task_id)
+        except Exception as _le:
+            # Postgres and the serialization lock could NOT be acquired (e.g. pool /
+            # connection exhaustion): fail CLOSED rather than proceed unserialized,
+            # which would reopen the concurrent-toggle race this lock exists to close.
+            log.error("visibility serialization lock unavailable for task %s: %s", task_id, _le)
+            raise CuckooOperationalError(
+                f"task {task_id} visibility change aborted: serialization lock unavailable"
+            ) from _le
         try:
             if _lock_conn is not None:
                 # Re-read the latest committed value now that we hold the lock — a

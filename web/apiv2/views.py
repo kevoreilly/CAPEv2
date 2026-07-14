@@ -40,7 +40,7 @@ except ImportError:
 _UI_INTERNAL_AUTH = [SessionAuthentication] + ([ApiKeyAuthentication] if ApiKeyAuthentication else [])
 
 from web.tenancy_optional import submission_scope, can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for
-from web.tenancy_optional import VISIBILITIES, TENANT
+from web.tenancy_optional import VISIBILITIES, TENANT, multitenancy_config
 
 
 def _deny_if_hidden(request, task):
@@ -95,6 +95,12 @@ def tasks_set_visibility(request, task_id):
     """Owner (or tenant-admin for public/tenant jobs, or a break-glass admin)
     re-toggles a task's visibility. Mirrors the can_toggle predicate (break-glass =
     viewer.is_local_admin, i.e. a superuser gated by cuckoo.conf, not any superuser)."""
+    # Visibility is a multitenancy feature. With MT OFF, viewer_for marks every
+    # principal is_local_admin, so can_toggle would authorize ANY caller to write a
+    # value that is ignored now but can hide/expose LEGACY analyses if MT is later
+    # enabled (the mongo backfill skips already-stamped docs). Reject when disabled.
+    if not multitenancy_config().enabled:
+        return Response({"error": True, "error_value": "multitenancy is not enabled"}, status=400)
     # Parse once so view_task() and set_task_visibility() get a consistent int and
     # a non-numeric id fails as the same generic 404 (no implicit-coercion no-op).
     try:

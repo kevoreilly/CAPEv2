@@ -192,7 +192,7 @@ if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
 
 db: TasksMixIn = Database()
 
-from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for
+from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for, multitenancy_config
 
 
 def _coerce_task_id(tid):
@@ -2755,7 +2755,11 @@ def report(request, task_id):
     _task = db.view_task(task_id)
     if _task is None or not can_view_task(request.user, _task):
         return render(request, "error.html", {"error": "No analysis found with specified ID"})
-    can_toggle_visibility = can_toggle_task(request.user, _task)
+    # Only show the visibility toggle when multitenancy is ON. With MT off every
+    # principal is a break-glass local-admin (can_toggle == True), but the control
+    # would be meaningless and writing a value could plant a backfill landmine if MT
+    # is later enabled — the apiv2 endpoint also rejects the write when disabled.
+    can_toggle_visibility = multitenancy_config().enabled and can_toggle_task(request.user, _task)
 
     # Central mode: the analysis tree lives in S3, not on this node's disk. Stage it
     # locally (once, cached, excluding huge memory dumps) so EVERY report feature that

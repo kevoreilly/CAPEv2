@@ -756,3 +756,37 @@ def test_toggle_visibility_rejects_tenant_for_tenantless_task(cape_db, mt_enable
     r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "public"}, format="json")
     assert r.status_code == 200, r.content
     assert state["vis"] == "public"
+
+
+@pytest.mark.django_db
+def test_toggle_visibility_rejected_when_mt_disabled(cape_db, monkeypatch):
+    """Visibility is an MT feature: with MT disabled the toggle endpoint must reject
+    (400) and never write — with MT off every principal is is_local_admin, so
+    can_toggle would otherwise authorize a write whose value could become a backfill
+    landmine (hide/expose legacy analyses) if MT is later enabled."""
+    from rest_framework.test import APIClient
+    import apiv2.views as views
+    import users.tenancy as ut
+    from lib.cuckoo.common.tenancy import MTConfig
+
+    # force MT OFF deterministically (the facade delegates to users.tenancy)
+    monkeypatch.setattr(ut, "multitenancy_config", lambda: MTConfig(False, "shared", "", True))
+
+    wrote = {"set": False}
+    monkeypatch.setattr(views.db, "set_task_visibility",
+                        lambda *a, **k: wrote.__setitem__("set", True), raising=False)
+
+    class T:
+        id = 1
+        user_id = 1
+        tenant_id = None
+        visibility = "public"
+
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: T())
+
+    u = User.objects.create_user("mtoff", "mtoff@x.com", "x")
+    c = APIClient()
+    c.force_authenticate(user=u)
+    r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "private"}, format="json")
+    assert r.status_code == 400 and r.json().get("error") is True
+    assert wrote["set"] is False  # never wrote SQL/mongo while MT off

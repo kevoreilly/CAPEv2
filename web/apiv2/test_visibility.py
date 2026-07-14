@@ -183,13 +183,14 @@ def test_guac_session_view_enforces_visibility(modname, name):
 
 def test_guac_websocket_consumer_rechecks_visibility():
     """SECURITY GATE (websocket): the guac tunnel consumer is not URL-routed, so
-    the routed gates can't see it. It must re-check task visibility (defense in
-    depth behind the mint-time gate)."""
+    the routed gates can't see it. Opening the tunnel is live-VM control (a task
+    ACTION), so it must re-check MANAGE rights (defense in depth behind the
+    manage-gated mint), not mere read visibility."""
     import guac.consumers
 
     src = open(guac.consumers.__file__).read()
-    assert "can_view_task" in src, \
-        "guac websocket consumer must re-check task visibility (can_view_task) — defense-in-depth for the live-VM tunnel"
+    assert "can_manage_task" in src, \
+        "guac websocket consumer must re-check manage rights (can_manage_task) — defense-in-depth for the live-VM tunnel"
 
 
 class FakeTask:

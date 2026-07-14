@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
-from web.tenancy_optional import can_view_task, viewer_for
+from web.tenancy_optional import can_manage_task, viewer_for
 
 logger = logging.getLogger("guac-session")
 
@@ -54,10 +54,13 @@ def _error(request, task_id, msg):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id, session_data):
-    # tenant isolation: only mint a live-VM session token for a task the caller
-    # may view (hidden == "not found" — no cross-tenant enumeration).
+    # tenant isolation: minting a live-VM session grants keyboard/mouse/framebuffer
+    # control of the running analysis VM — a task ACTION, not passive report viewing.
+    # Gate it on can_manage_task (owner / tenant-admin / break-glass), NOT mere read
+    # visibility, so a read-only viewer of a public/tenant task can't tunnel into the
+    # live VM. hidden == "not found" (no cross-tenant enumeration).
     _task = db.view_task(int(task_id))
-    if _task is None or not can_view_task(request.user, _task):
+    if _task is None or not can_manage_task(request.user, _task):
         return _error(request, task_id, "No analysis found with specified ID")
 
     if not LIBVIRT_AVAILABLE:

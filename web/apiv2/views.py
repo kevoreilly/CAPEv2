@@ -3242,10 +3242,14 @@ def tasks_file_stream(request, task_id):
         resp = {"error": True, "error_value": "Task status API is disabled"}
         return Response(resp)
     resp = {}
-    task = db.view_task(task_id)
-    _denied = _deny_if_hidden(request, task)
+    # Pulling a file off the RUNNING guest (or its live analysis dir) is a task
+    # ACTION, not passive report viewing — a read-only viewer of a public/tenant
+    # task must not fetch arbitrary live-VM files. Require manage rights (owner /
+    # tenant-admin / break-glass); hidden == generic 404 (no enumeration).
+    _denied = _deny_manage(request, task_id)
     if _denied is not None:
         return _denied
+    task = db.view_task(task_id)
     machine = db.view_machine(task.guest.name)
     if machine.status != "running":
         resp = {"error": True, "error_value": "Machine is not running", "errors": machine.status}

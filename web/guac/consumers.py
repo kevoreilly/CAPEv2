@@ -181,18 +181,20 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
 
-                # 3b. Defense-in-depth: confirm the socket's user may view this task.
-                # The token is mint-gated (guac index / submission status require
-                # can_view_task), but a leaked/replayed cookie must not tunnel into
-                # another tenant's VM. Check UNCONDITIONALLY — do NOT skip for an
-                # anonymous/absent socket user: viewer_for resolves anonymous to a
-                # public-only viewer when MT is on (and break-glass when MT is off),
-                # so an anonymous replay of a token for a private/tenant task is
-                # denied here rather than tunnelling on token possession alone.
-                from web.tenancy_optional import can_view_task
+                # 3b. Defense-in-depth: confirm the socket's user may MANAGE this task.
+                # Opening the tunnel grants live keyboard/mouse/framebuffer control, a
+                # task ACTION — so it follows the same owner/tenant-admin/break-glass
+                # boundary as the mint (guac index / submission status), NOT mere read
+                # visibility. A leaked/replayed cookie must not tunnel into another
+                # tenant's (or another user's public) VM. Check UNCONDITIONALLY — do
+                # NOT skip for an anonymous/absent socket user: viewer_for resolves
+                # anonymous to a non-manager when MT is on (and break-glass when MT is
+                # off), so a replay is denied here rather than tunnelling on token
+                # possession alone.
+                from web.tenancy_optional import can_manage_task
 
                 ws_user = self.scope.get("user")
-                if not await sync_to_async(can_view_task)(ws_user, task):
+                if not await sync_to_async(can_manage_task)(ws_user, task):
                     logger.warning(
                         "WebSocket rejected: user not entitled to task %s", self.guac_task_id
                     )

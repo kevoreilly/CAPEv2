@@ -9,6 +9,13 @@ class ForeignTask:
     visibility = "private"
 
 
+class PublicForeignTask:
+    id = 1
+    user_id = 999      # owned by someone else, but PUBLIC (readable by everyone)
+    tenant_id = 10
+    visibility = "public"
+
+
 @pytest.mark.django_db
 def test_guac_index_denies_cross_tenant(cape_db, mt_enabled, monkeypatch, client):
     """guac.index mints a live-VM session token from task_id. A cross-tenant
@@ -25,6 +32,25 @@ def test_guac_index_denies_cross_tenant(cape_db, mt_enabled, monkeypatch, client
     r = client.get("/guac/1/AAAA/")
     assert minted == []              # no session token minted for a non-viewable task
     assert r.status_code == 200      # rendered the guac error page, not the session page
+
+
+@pytest.mark.django_db
+def test_guac_index_denies_readonly_viewer(cape_db, mt_enabled, monkeypatch, client):
+    """A read-only VIEWER of a PUBLIC task (can_view_task=True) is NOT a manager,
+    so must be denied the live-VM mint: keyboard/mouse/framebuffer control is a
+    task action, gated on can_manage_task (owner/tenant-admin/break-glass), not
+    passive report visibility."""
+    import guac.views as gv
+
+    minted = []
+    monkeypatch.setattr(gv.db, "view_task", lambda *a, **k: PublicForeignTask())
+    monkeypatch.setattr(gv.db, "create_guac_session",
+                        lambda **k: minted.append(k) or object(), raising=False)
+    client.force_login(User.objects.create_user("ro", "ro@x.com", "x"))  # can read public, can't manage
+
+    r = client.get("/guac/1/AAAA/")
+    assert minted == []              # a viewer who can SEE but not MANAGE mints nothing
+    assert r.status_code == 200      # guac error page, not a live session
 
 
 @pytest.mark.django_db

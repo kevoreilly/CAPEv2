@@ -15,7 +15,7 @@ from contextlib import suppress
 
 from django.conf import settings
 
-from web.tenancy_optional import submission_scope, can_view_task, can_view_sample, viewer_for
+from web.tenancy_optional import submission_scope, can_view_task, can_manage_task, can_view_sample, viewer_for
 from web.tenancy_optional import multitenancy_config, default_visibility, PUBLIC, TENANT, PRIVATE
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
@@ -847,7 +847,8 @@ def index(request, task_id=None, resubmit_hash=None):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
     task = db.view_task(task_id)
-    # tenant isolation: hidden == missing (also gates the emitted guac session_data)
+    # tenant isolation: hidden == missing. The status body is a READ (can_view_task);
+    # the live-VM guac session_data is emitted only to a MANAGER below.
     if not task or not can_view_task(request.user, task):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
@@ -867,7 +868,10 @@ def status(request, task_id):
         "session_data": "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
-    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1":
+    # Live-VM session token: only for a caller who may MANAGE the task (owner /
+    # tenant-admin / break-glass). A read-only viewer sees status but no session_data,
+    # so they can't drive another user's/tenant's live VM.
+    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1" and can_manage_task(request.user, task):
         machine = db.view_machine_by_label(task.machine) if task.machine else None
         vm_label, guest_ip = (task.machine, machine.ip) if machine else (None, None)
         if not machine:
@@ -894,8 +898,10 @@ def status(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def remote_session(request, task_id):
     task = db.view_task(task_id)
-    # tenant isolation: hidden == missing (also gates the emitted guac session_data)
-    if not task or not can_view_task(request.user, task):
+    # This endpoint exists only to mint the live-VM guac session_data, i.e. keyboard/
+    # mouse/framebuffer control — a task ACTION. Gate it on can_manage_task (owner /
+    # tenant-admin / break-glass), not read visibility; hidden == missing.
+    if not task or not can_manage_task(request.user, task):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     machine_status = False

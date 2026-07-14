@@ -216,6 +216,22 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
             else:
+                # Direct VNC connection (task_id=0): no per-task gate applies and
+                # the mint endpoints are break-glass-admin-only, so re-validate that
+                # here too — a replayed direct-VNC guac_session cookie from a tenant
+                # or anonymous socket must not open the raw VM/host console on token
+                # possession alone. viewer_for resolves anonymous to non-admin when
+                # MT is on, and to local-admin when MT is off (legacy console works).
+                from web.tenancy_optional import viewer_for as _viewer_for
+
+                ws_user = self.scope.get("user")
+                _is_admin = await sync_to_async(lambda: _viewer_for(ws_user).is_local_admin)()
+                if not _is_admin:
+                    logger.warning("WebSocket rejected: direct VNC requires a break-glass admin")
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
+
                 # Direct VNC connection
                 guest_ip = session_data.get("guest_ip")
                 if not guest_ip:

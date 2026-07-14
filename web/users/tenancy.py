@@ -42,11 +42,22 @@ def viewer_for(user) -> Viewer:
             is_local = user.socialaccount_set.exists()
         except Exception:
             is_local = False
+    tenant_id = getattr(prof, "tenant_id", None)
+    is_tenant_admin = bool(getattr(prof, "is_tenant_admin", False))
+    # Fail closed for a deactivated tenant: once a Tenant is marked inactive its
+    # members must NOT keep tenant-scoped read/submit access until the next SSO
+    # login reconciles (reconcile_tenant already filters active=True). Drop the
+    # tenant from the viewer if its Tenant row is inactive.
+    if tenant_id is not None and prof is not None:
+        _t = getattr(prof, "tenant", None)
+        if _t is not None and not getattr(_t, "active", True):
+            tenant_id = None
+            is_tenant_admin = False
     return Viewer(
         user_id=user.id,
-        tenant_id=getattr(prof, "tenant_id", None),
+        tenant_id=tenant_id,
         is_superuser=is_super,
-        is_tenant_admin=bool(getattr(prof, "is_tenant_admin", False)),
+        is_tenant_admin=is_tenant_admin,
         is_local_admin=is_local,
     )
 

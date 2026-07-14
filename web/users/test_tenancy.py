@@ -256,3 +256,25 @@ def test_sso_login_reconciles_tenant_from_userinfo_claims(monkeypatch, settings)
     aa._reconcile_sso_user_on_login(sender=None, request=None, user=u, sociallogin=sl)
 
     assert UserProfile.objects.get(user=u).tenant.slug == "acme"
+
+
+@pytest.mark.django_db
+def test_viewer_for_inactive_tenant_fails_closed(mt_enabled):
+    """Codex: a deactivated Tenant must drop from the viewer immediately (not wait
+    for the next SSO login) — else its members keep tenant-scoped read/submit
+    access via the stale profile until reconcile."""
+    from users.models import Tenant, UserProfile
+    from users.tenancy import viewer_for
+
+    t = Tenant.objects.create(slug="acme-inact", name="AcmeInact")
+    u = User.objects.create_user("iat", "iat@x.com", "x")
+    p = UserProfile.objects.get(user=u)
+    p.tenant = t
+    p.is_tenant_admin = True
+    p.save()
+
+    assert viewer_for(User.objects.get(pk=u.pk)).tenant_id == t.id  # active -> tenant present
+    t.active = False
+    t.save()
+    v = viewer_for(User.objects.get(pk=u.pk))  # fresh load
+    assert v.tenant_id is None and v.is_tenant_admin is False  # inactive -> fail closed

@@ -7,6 +7,27 @@ sessions. This document states exactly which deployment modes that guarantee
 covers today, and what is intentionally **fail-closed** (safe but limited) until
 support is added.
 
+## Enabling on an existing (populated) install — run the backfill
+
+Turning `enabled = yes` stamps tenant/visibility onto **new** analyses only. Reports
+already in MongoDB have no `info.tenant_id` / `info.user_id` / `info.visibility`
+stamp, so the scoped search / statistics / compare surfaces treat them as
+**fail-closed / invisible** to every tenant (no leak, but the history disappears
+from those views) until they are stamped. Run the one-shot backfill once, after
+flipping the flag:
+
+```
+python utils/db_migration/mongo_backfill_tenant.py
+```
+
+It reads each un-stamped `analysis` doc's Postgres task and writes
+`info.tenant_id` / `info.user_id` / `info.visibility` (orphans whose task was pruned
+fail closed to `private`), and creates the `tenant_scope_idx` index. It is
+idempotent (it only touches docs missing `info.visibility`) and safe to re-run. The
+Alembic migration backfills the **SQL** columns only — the mongo stamp is this
+separate step. A fresh install needs no backfill (every report is stamped at
+creation).
+
 ## Supported (isolation enforced end-to-end)
 
 - **Report store: MongoDB.** MT scoping of the aggregate/search/statistics/

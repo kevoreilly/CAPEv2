@@ -286,6 +286,12 @@ worker_ssh_keyfile = /home/cape/.ssh/id_ed25519
 
 [multitenancy]
 # Multi-tenant identity & job-visibility (off = current single-tenant behavior).
+# IMPORTANT: enabling this on an EXISTING populated install stamps NEW analyses only.
+# Pre-existing mongo reports have no tenant/visibility stamp and stay invisible to
+# every tenant (fail-closed) on the search/statistics/compare surfaces until you run
+# the one-shot backfill: `python utils/db_migration/mongo_backfill_tenant.py`
+# (stamps tenant_id/user_id/visibility from each report's Postgres task). See
+# docs/MULTITENANCY-SUPPORT.md.
 enabled = no
 # shared = tenant-less collaborative pool (submit default public);
 # locked = per-tenant isolation (submit default tenant).

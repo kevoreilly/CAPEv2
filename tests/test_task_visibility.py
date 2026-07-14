@@ -419,3 +419,38 @@ def test_check_file_uniq_scoped_even_with_hours_zero(db):
     # break-glass sees it (no-op); also the unscoped call (no viewer) preserves legacy behavior
     assert db.check_file_uniq(h, hours=0, visible_to=admin) is True
     assert db.check_file_uniq(h, hours=0) is True
+
+
+def test_advisory_lock_noop_on_sqlite_and_serializes_on_postgres():
+    """Concurrent-toggle serialization: a Postgres session-level advisory lock is
+    taken/released around the two-store write; a NO-OP on sqlite (single-writer,
+    tests) so it never alters single-node/legacy behavior."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    calls = []
+
+    class _Bind:
+        def __init__(self, name):
+            self.dialect = type("D", (), {"name": name})()
+
+    class _Sess:
+        def __init__(self, name):
+            self._name = name
+
+        def get_bind(self):
+            return _Bind(self._name)
+
+        def execute(self, stmt, params=None):
+            calls.append((str(stmt), params))
+
+    # sqlite -> no-op, no SQL issued
+    assert tk._advisory_lock(_Sess("sqlite"), 7) is False
+    assert calls == []
+
+    # postgres -> lock taken (True) + lock/unlock SQL issued, keyed by task id
+    s_pg = _Sess("postgresql")
+    assert tk._advisory_lock(s_pg, 7) is True
+    tk._advisory_unlock(s_pg, 7)
+    assert any("pg_advisory_lock" in c[0] for c in calls)
+    assert any("pg_advisory_unlock" in c[0] for c in calls)
+    assert all(c[1] == {"k": 7} for c in calls)

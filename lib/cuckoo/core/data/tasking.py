@@ -32,6 +32,7 @@ try:
         not_,
         or_,
         select,
+        text,
         update,
     )
     from sqlalchemy.orm import joinedload, subqueryload
@@ -57,6 +58,34 @@ def _mongo_reporting_enabled() -> bool:
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
+
+
+def _advisory_lock(session, key) -> bool:
+    """Best-effort cross-process serialization of per-task visibility toggles.
+
+    Postgres SESSION-level advisory lock: unlike a transaction (xact) lock it survives
+    the mid-operation SQL commit, so it brackets BOTH the SQL commit and the mongo
+    publish — the window a concurrent toggle would otherwise interleave to leave mongo
+    more permissive than SQL. Returns True if a lock was taken (caller MUST unlock in a
+    finally). No-op (returns False) on backends without advisory locks — sqlite (tests)
+    is single-writer, so serialization isn't needed there."""
+    try:
+        if session.get_bind().dialect.name != "postgresql":
+            return False
+        session.execute(text("SELECT pg_advisory_lock(:k)"), {"k": int(key)})
+        return True
+    except Exception as _e:
+        log.warning("advisory lock unavailable for task %s: %s", key, _e)
+        return False
+
+
+def _advisory_unlock(session, key) -> None:
+    """Release the session-level advisory lock taken by _advisory_lock (best effort —
+    a missed release is bounded: the lock auto-releases when the connection closes)."""
+    try:
+        session.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": int(key)})
+    except Exception as _e:
+        log.warning("advisory unlock failed for task %s: %s", key, _e)
 distconf = Config("distributed")
 web_conf = Config("web")
 
@@ -861,15 +890,16 @@ class TasksMixIn:
         task = self.session.get(Task, task_id)
         if not task:
             return None
-        _prev_visibility = task.visibility
-        task.visibility = visibility
-
         # Two-store (SQL + mongo) consistency without a distributed transaction. The
         # ONE invariant we must never violate is "mongo more permissive than SQL" —
         # the cross-tenant leak, since the mongo aggregate/search/stats surfaces scope
-        # on the info.visibility stamp. So we order the two writes by the DIRECTION of
-        # the change: make the RESTRICTIVE change first and the PERMISSIVE change last,
-        # so a crash / concurrent read in the window fails CLOSED either way.
+        # on the info.visibility stamp. Per request we order the two writes by the
+        # DIRECTION of the change (RESTRICTIVE first, PERMISSIVE last) so a crash /
+        # concurrent READ in the window fails CLOSED. Concurrent WRITES to the SAME
+        # task are serialized by a session-level advisory lock held across BOTH the SQL
+        # commit and the mongo publish, so two interleaved toggles (A commits SQL and
+        # stalls; B writes both stores; A resumes publishing its STALE mongo value)
+        # can't leave mongo more permissive than SQL either.
         from lib.cuckoo.common.exceptions import CuckooOperationalError
 
         _RANK = {"private": 0, "tenant": 1, "public": 2}
@@ -886,13 +916,51 @@ class TasksMixIn:
                 log.warning("visibility mongo sync errored for task %s: %s", task_id, _e)
                 return False
 
-        if _RANK.get(visibility, 0) > _RANK.get(_prev_visibility, 0):
-            # MORE PERMISSIVE (e.g. private->public): make SQL durable FIRST, then
-            # publish the mongo stamp. A crash or concurrent aggregate in the window
-            # sees mongo still at the OLD, less-permissive value -> fail closed. If the
-            # mongo publish then fails, the stores are momentarily inconsistent but
-            # STILL fail closed (mongo less permissive than SQL); it reconciles on
-            # reprocess, so log rather than roll back a durable, authorized change.
+        _locked = _advisory_lock(self.session, task_id)
+        try:
+            if _locked:
+                # Re-read the latest committed value now that we hold the lock — a
+                # concurrent toggle may have changed it between load and lock, and both
+                # the direction decision and _prev must reflect the CURRENT truth.
+                self.session.refresh(task)
+            _prev_visibility = task.visibility
+            task.visibility = visibility
+
+            if _RANK.get(visibility, 0) > _RANK.get(_prev_visibility, 0):
+                # MORE PERMISSIVE (e.g. private->public): make SQL durable FIRST, then
+                # publish the mongo stamp. A crash or concurrent aggregate in the window
+                # sees mongo still at the OLD, less-permissive value -> fail closed. If
+                # the mongo publish then fails, the stores are momentarily inconsistent
+                # but STILL fail closed (mongo less permissive than SQL); it reconciles
+                # on reprocess, so log rather than roll back a durable authorized change.
+                try:
+                    self.session.commit()
+                except Exception as _ce:
+                    try:
+                        self.session.rollback()
+                    except Exception:
+                        pass
+                    raise CuckooOperationalError(f"task {task_id} visibility change aborted: SQL commit failed") from _ce
+                if _mongo_on and not _sync_mongo(visibility):
+                    log.error(
+                        "visibility mongo publish lagging for task %s (SQL committed %r, mongo still %r); "
+                        "fail-closed, reconciles on reprocess", task_id, visibility, _prev_visibility,
+                    )
+                return task
+
+            # MORE RESTRICTIVE or unchanged (e.g. public->private): update the mongo
+            # stamp FIRST (still uncommitted in SQL) so the restrictive value reaches
+            # the mongo surfaces before SQL drops the restriction. If the sync fails,
+            # revert the in-memory SQL change and raise WITHOUT committing (no SQL was
+            # committed; a commit could persist unrelated pending work, a rollback would
+            # discard it).
+            if _mongo_on and not _sync_mongo(visibility):
+                task.visibility = _prev_visibility
+                log.error("visibility mongo sync FAILED for task %s (mongo unreachable); left at %r", task_id, _prev_visibility)
+                raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
+            # Commit SQL; if THIS fails after a successful sync, best-effort revert the
+            # mongo stamp to the previous value (so mongo is never left more permissive
+            # than the un-committed SQL), roll back the poisoned session, and raise.
             try:
                 self.session.commit()
             except Exception as _ce:
@@ -900,45 +968,15 @@ class TasksMixIn:
                     self.session.rollback()
                 except Exception:
                     pass
+                if _mongo_on and not _sync_mongo(_prev_visibility):
+                    log.error("visibility SQL commit failed AND mongo revert FAILED for task %s (stores may disagree)", task_id)
+                elif _mongo_on:
+                    log.error("visibility SQL commit failed for task %s; reverted mongo stamp to %r", task_id, _prev_visibility)
                 raise CuckooOperationalError(f"task {task_id} visibility change aborted: SQL commit failed") from _ce
-            if _mongo_on and not _sync_mongo(visibility):
-                log.error(
-                    "visibility mongo publish lagging for task %s (SQL committed %r, mongo still %r); "
-                    "fail-closed, reconciles on reprocess", task_id, visibility, _prev_visibility,
-                )
             return task
-
-        # MORE RESTRICTIVE or unchanged (e.g. public->private): update the mongo stamp
-        # FIRST (still uncommitted in SQL) so the restrictive value reaches the mongo
-        # surfaces before SQL drops the restriction. If the sync fails, revert the
-        # in-memory SQL change to the previous value and commit that (both stores stay
-        # consistent), then raise so the caller retries. Revert in-place rather than
-        # session.rollback() so unrelated pending work in a shared session survives.
-        if _mongo_on and not _sync_mongo(visibility):
-            # Abort WITHOUT committing or rolling back: revert only our in-memory change
-            # (no SQL was committed, so SQL stays at the old value) and raise. Do NOT
-            # commit here — this is a shared/scoped session and a commit could persist
-            # unrelated pending work; and no rollback is needed (there's no failed commit
-            # to recover from), which would instead DISCARD that unrelated pending work.
-            task.visibility = _prev_visibility
-            log.error("visibility mongo sync FAILED for task %s (mongo unreachable); left at %r", task_id, _prev_visibility)
-            raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
-        # Commit SQL; if THIS fails after a successful sync, best-effort revert the
-        # mongo stamp to the previous value (so mongo is never left more permissive
-        # than the un-committed SQL), roll back the poisoned session, and raise.
-        try:
-            self.session.commit()
-        except Exception as _ce:
-            try:
-                self.session.rollback()
-            except Exception:
-                pass
-            if _mongo_on and not _sync_mongo(_prev_visibility):
-                log.error("visibility SQL commit failed AND mongo revert FAILED for task %s (stores may disagree)", task_id)
-            elif _mongo_on:
-                log.error("visibility SQL commit failed for task %s; reverted mongo stamp to %r", task_id, _prev_visibility)
-            raise CuckooOperationalError(f"task {task_id} visibility change aborted: SQL commit failed") from _ce
-        return task
+        finally:
+            if _locked:
+                _advisory_unlock(self.session, task_id)
 
     def fetch_task(self, categories: list = None):
         """Fetches a task waiting to be processed and locks it for running.

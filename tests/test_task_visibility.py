@@ -195,32 +195,31 @@ def test_set_task_visibility_syncs_mongo(db, monkeypatch):
 
 
 def test_set_task_visibility_raises_on_persistent_mongo_failure(db, monkeypatch):
-    """Finding #10: a persistent mongo-sync failure must be surfaced (raised), not
-    swallowed — else a stale public stamp after a private toggle silently keeps the
-    analysis cross-tenant visible in the aggregate/search/stats surfaces. mongo's
-    graceful_auto_reconnect wrapper swallows AutoReconnect/ServerSelectionTimeoutError
-    and RETURNS None (no re-raise) when mongo stays down, so model that real path
-    (a None return), NOT a raw exception — the latter would never exercise the bug."""
+    """Finding #10: on the RESTRICTIVE path (public->private, mongo-first) a persistent
+    mongo-sync failure must be surfaced (raised), not swallowed — else a stale public
+    stamp after a private toggle silently keeps the analysis cross-tenant visible in
+    the aggregate/search/stats surfaces. mongo's graceful_auto_reconnect wrapper
+    swallows AutoReconnect/ServerSelectionTimeoutError and RETURNS None (no re-raise)
+    when mongo stays down, so model that real path (a None return), NOT a raw
+    exception — the latter would never exercise the bug."""
     import lib.cuckoo.core.data.tasking as tk
     from lib.cuckoo.common.exceptions import CuckooOperationalError
 
     monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
     monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: None, raising=False)
-    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="public")
     with pytest.raises(CuckooOperationalError):
-        db.set_task_visibility(tid, "public")
+        db.set_task_visibility(tid, "private")
     # SQL rolled back to the previous value so the two stores can't diverge.
     from lib.cuckoo.core.data.task import Task
-    assert db.session.get(Task, tid).visibility == "tenant"
+    assert db.session.get(Task, tid).visibility == "public"
 
 
 def test_set_task_visibility_reverts_mongo_when_sql_commit_fails(db, monkeypatch):
-    """Complementary to the mongo-fail case: if the SQL commit fails AFTER a
-    successful mongo sync, the stores would disagree in the leaky direction (mongo
-    already shows the new, possibly more-permissive, visibility while SQL keeps the
-    old). The setter must best-effort revert the mongo stamp to the previous value
-    and raise, so the aggregate/search surfaces never read more permissively than
-    SQL authorizes."""
+    """RESTRICTIVE path (public->private, mongo-first): if the SQL commit fails AFTER a
+    successful mongo sync, mongo would be left MORE RESTRICTIVE than the un-committed
+    SQL — the setter must best-effort revert the mongo stamp to the previous value and
+    raise, so the two stores stay consistent."""
     import lib.cuckoo.core.data.tasking as tk
     from lib.cuckoo.common.exceptions import CuckooOperationalError
 
@@ -232,7 +231,7 @@ def test_set_task_visibility_reverts_mongo_when_sql_commit_fails(db, monkeypatch
         return object()  # UpdateResult stand-in (success)
 
     monkeypatch.setattr(tk, "mongo_update_one", _rec, raising=False)
-    tid = db.add_url("http://example.com", tenant_id=10, visibility="private")
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="public")
 
     # make ONLY the new-value commit inside set_task_visibility fail (add_url above
     # already committed the task with the real commit).
@@ -248,10 +247,66 @@ def test_set_task_visibility_reverts_mongo_when_sql_commit_fails(db, monkeypatch
     monkeypatch.setattr(db.session, "commit", _commit)
 
     with pytest.raises(CuckooOperationalError):
-        db.set_task_visibility(tid, "public")
+        db.set_task_visibility(tid, "private")
 
-    # forward sync to 'public', then a best-effort revert back to 'private'
-    assert calls == ["public", "private"]
+    # forward sync to 'private', then a best-effort revert back to 'public'
+    assert calls == ["private", "public"]
+
+
+def test_set_task_visibility_permissive_commits_sql_before_mongo(db, monkeypatch):
+    """Codex P1: a MORE-permissive change (private->public) must make SQL durable
+    BEFORE publishing the mongo stamp — so a crash / concurrent aggregate in the
+    window can never see mongo more permissive than committed SQL. A mongo publish
+    lag must NOT roll back the durable, authorized SQL change."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.core.data.task import Task
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    order = []
+    # publish "lags" (returns None) AND records that it ran after the commit
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: order.append("mongo") or None, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="private")
+
+    orig_commit = db.session.commit
+
+    def _commit():
+        order.append("commit")
+        return orig_commit()
+
+    monkeypatch.setattr(db.session, "commit", _commit)
+
+    # a permissive change must NOT raise on a mongo lag (SQL is authoritative + durable)
+    assert db.set_task_visibility(tid, "public") is not None
+    assert order[:2] == ["commit", "mongo"]  # SQL durable BEFORE mongo published
+    db.session.expire_all()
+    assert db.session.get(Task, tid).visibility == "public"  # durable despite mongo lag
+
+
+def test_set_task_visibility_permissive_sql_fail_never_publishes_mongo(db, monkeypatch):
+    """A permissive change whose SQL commit fails must raise and NEVER publish the
+    mongo stamp — nothing becomes more permissive if SQL didn't commit."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    mongo_calls = []
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: mongo_calls.append(a) or object(), raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="private")
+
+    orig_commit = db.session.commit
+    state = {"boom": True}
+
+    def _commit():
+        if state["boom"]:
+            state["boom"] = False
+            raise RuntimeError("transient SQL commit failure")
+        return orig_commit()
+
+    monkeypatch.setattr(db.session, "commit", _commit)
+
+    with pytest.raises(CuckooOperationalError):
+        db.set_task_visibility(tid, "public")
+    assert mongo_calls == []  # never published the more-permissive stamp
 
 
 def test_set_task_visibility_skips_sync_when_mongo_disabled(db, monkeypatch):

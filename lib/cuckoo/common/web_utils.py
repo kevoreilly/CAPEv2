@@ -251,7 +251,7 @@ def load_vms_tags(force: bool = False):
         return _all_vms_tags or []
 
 
-def top_asn(date_since: datetime = False, results_limit: int = 20, scope_match: dict = None) -> dict:
+def top_asn(date_since: datetime = False, results_limit: int = 20, scope_match: dict = None) -> "list | bool":
     """
     Retrieves the top Autonomous System Numbers (ASNs) based on the number of occurrences in the database.
 
@@ -261,9 +261,10 @@ def top_asn(date_since: datetime = False, results_limit: int = 20, scope_match: 
     Args:
         date_since (datetime, optional): A datetime object to filter results starting from this date. Defaults to False.
         results_limit (int, optional): The maximum number of ASNs to return. Defaults to 20.
+        scope_match (dict, optional): A mongo $match restricting the aggregation to the caller's entitled tenant scope (multitenancy). Defaults to None (no scoping / break-glass).
 
     Returns:
-        dict: A dictionary containing the top ASNs and their counts. Returns False if the MongoDB is not enabled or if the "top_asn" configuration is disabled.
+        list | bool: A list of {"total": count, "asn": asn} rows, or False if MongoDB is not enabled or the "top_asn" configuration is disabled.
     """
     if web_cfg.general.get("top_asn", False) is False:
         return False

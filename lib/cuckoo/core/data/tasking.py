@@ -863,57 +863,76 @@ class TasksMixIn:
             return None
         _prev_visibility = task.visibility
         task.visibility = visibility
-        # Two-store consistency: sync the mongo stamp FIRST (still uncommitted in
-        # SQL), then commit — so there's never a COMMITTED window where SQL reads
-        # "private" while the mongo aggregate/search/stats surfaces still read
-        # "public" (the leaky direction). If mongo is the enabled store and the sync
-        # fails, revert the in-memory SQL change to the previous value and commit
-        # that (leaving both stores at the old value), then raise so the caller
-        # retries. We revert in-place rather than session.rollback() so we don't
-        # discard unrelated pending work in a shared/scoped session.
-        _synced_mongo = False
-        if mongo_update_one is not None and _mongo_reporting_enabled():
-            # mongo_update_one is wrapped by graceful_auto_reconnect, which retries
-            # AutoReconnect/ServerSelectionTimeoutError internally and RETURNS None
-            # with no re-raise when mongo stays down. Detect a swallowed failure by
-            # the None return (a success returns an UpdateResult, even matched_count=0).
-            _res = None
-            try:
-                _res = mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": visibility}})
-            except Exception as _e:  # a non-AutoReconnect error the wrapper does not swallow
-                log.warning("visibility mongo sync errored for task %s: %s", task_id, _e)
-            if _res is None:
-                from lib.cuckoo.common.exceptions import CuckooOperationalError
 
-                task.visibility = _prev_visibility
+        # Two-store (SQL + mongo) consistency without a distributed transaction. The
+        # ONE invariant we must never violate is "mongo more permissive than SQL" —
+        # the cross-tenant leak, since the mongo aggregate/search/stats surfaces scope
+        # on the info.visibility stamp. So we order the two writes by the DIRECTION of
+        # the change: make the RESTRICTIVE change first and the PERMISSIVE change last,
+        # so a crash / concurrent read in the window fails CLOSED either way.
+        from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+        _RANK = {"private": 0, "tenant": 1, "public": 2}
+        _mongo_on = mongo_update_one is not None and _mongo_reporting_enabled()
+
+        def _sync_mongo(_vis):
+            # mongo_update_one is wrapped by graceful_auto_reconnect, which swallows
+            # AutoReconnect/ServerSelectionTimeoutError and RETURNS None (no re-raise)
+            # when mongo stays down; a success returns an UpdateResult (even
+            # matched_count=0). Treat None or a raised error as failure.
+            try:
+                return mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": _vis}}) is not None
+            except Exception as _e:
+                log.warning("visibility mongo sync errored for task %s: %s", task_id, _e)
+                return False
+
+        if _RANK.get(visibility, 0) > _RANK.get(_prev_visibility, 0):
+            # MORE PERMISSIVE (e.g. private->public): make SQL durable FIRST, then
+            # publish the mongo stamp. A crash or concurrent aggregate in the window
+            # sees mongo still at the OLD, less-permissive value -> fail closed. If the
+            # mongo publish then fails, the stores are momentarily inconsistent but
+            # STILL fail closed (mongo less permissive than SQL); it reconciles on
+            # reprocess, so log rather than roll back a durable, authorized change.
+            try:
                 self.session.commit()
-                log.error("visibility mongo sync FAILED for task %s (mongo unreachable); left at %r", task_id, _prev_visibility)
-                raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
-            _synced_mongo = True
-        # Commit the SQL change. If THIS fails after a successful mongo sync, the two
-        # stores would disagree in the leaky direction (mongo already shows the new,
-        # possibly more-permissive, visibility while SQL rolls back to the old value).
-        # Best-effort revert the mongo stamp to the previous value, roll back the
-        # poisoned session, and raise so the caller retries — never leave a committed
-        # window where the aggregate/search surfaces are more permissive than SQL.
+            except Exception as _ce:
+                try:
+                    self.session.rollback()
+                except Exception:
+                    pass
+                raise CuckooOperationalError(f"task {task_id} visibility change aborted: SQL commit failed") from _ce
+            if _mongo_on and not _sync_mongo(visibility):
+                log.error(
+                    "visibility mongo publish lagging for task %s (SQL committed %r, mongo still %r); "
+                    "fail-closed, reconciles on reprocess", task_id, visibility, _prev_visibility,
+                )
+            return task
+
+        # MORE RESTRICTIVE or unchanged (e.g. public->private): update the mongo stamp
+        # FIRST (still uncommitted in SQL) so the restrictive value reaches the mongo
+        # surfaces before SQL drops the restriction. If the sync fails, revert the
+        # in-memory SQL change to the previous value and commit that (both stores stay
+        # consistent), then raise so the caller retries. Revert in-place rather than
+        # session.rollback() so unrelated pending work in a shared session survives.
+        if _mongo_on and not _sync_mongo(visibility):
+            task.visibility = _prev_visibility
+            self.session.commit()
+            log.error("visibility mongo sync FAILED for task %s (mongo unreachable); left at %r", task_id, _prev_visibility)
+            raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
+        # Commit SQL; if THIS fails after a successful sync, best-effort revert the
+        # mongo stamp to the previous value (so mongo is never left more permissive
+        # than the un-committed SQL), roll back the poisoned session, and raise.
         try:
             self.session.commit()
         except Exception as _ce:
-            from lib.cuckoo.common.exceptions import CuckooOperationalError
-
             try:
                 self.session.rollback()
             except Exception:
                 pass
-            if _synced_mongo:
-                try:
-                    mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": _prev_visibility}})
-                    log.error("visibility SQL commit failed for task %s; reverted mongo stamp to %r", task_id, _prev_visibility)
-                except Exception as _re:
-                    log.error(
-                        "visibility SQL commit failed AND mongo revert FAILED for task %s (stores may disagree): %s",
-                        task_id, _re,
-                    )
+            if _mongo_on and not _sync_mongo(_prev_visibility):
+                log.error("visibility SQL commit failed AND mongo revert FAILED for task %s (stores may disagree)", task_id)
+            elif _mongo_on:
+                log.error("visibility SQL commit failed for task %s; reverted mongo stamp to %r", task_id, _prev_visibility)
             raise CuckooOperationalError(f"task {task_id} visibility change aborted: SQL commit failed") from _ce
         return task
 

@@ -26,6 +26,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_safe
 from rest_framework.decorators import api_view, authentication_classes
 from rest_framework.authentication import SessionAuthentication
+from rest_framework.response import Response
 try:
     from apikey.authentication import ApiKeyAuthentication
 except ImportError:
@@ -131,7 +132,6 @@ def tasks_set_visibility(request, task_id):
             status=503,
         )
     return Response({"error": False, "data": {"task_id": int(task_id), "visibility": vis}})
-from rest_framework.response import Response
 
 sys.path.append(settings.CUCKOO_PATH)
 

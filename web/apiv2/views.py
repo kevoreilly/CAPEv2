@@ -84,6 +84,12 @@ def _deny_by_hash(request, *, sha256=None, sha1=None, md5=None, sample_id=None):
 def tasks_set_visibility(request, task_id):
     """Owner (or tenant-admin for public/tenant jobs, or superuser) re-toggles a
     task's visibility. Mirrors the can_toggle predicate."""
+    # Parse once so view_task() and set_task_visibility() get a consistent int and
+    # a non-numeric id fails as the same generic 404 (no implicit-coercion no-op).
+    try:
+        task_id = int(task_id)
+    except (ValueError, TypeError):
+        return Response({"error": True, "error_value": "Task not found"}, status=404)
     task = db.view_task(task_id)
     # Indistinguishable response (H3): a caller who can't even SEE the task gets
     # the SAME generic 404 as a missing one, so this endpoint can't be used to

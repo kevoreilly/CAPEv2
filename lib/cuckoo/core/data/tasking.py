@@ -861,24 +861,18 @@ class TasksMixIn:
         task = self.session.get(Task, task_id)
         if not task:
             return None
-        _prev_visibility = task.visibility
         task.visibility = visibility
-        self.session.commit()
-        # Sync the toggle to the mongo report so the aggregate/search/stats surfaces
-        # (which read the stamped info.visibility) reflect it — but only when mongo
-        # is the enabled report store. mongo_update_one retries transient blips
-        # internally (graceful_auto_reconnect); on a persistent failure we roll the
-        # SQL change back (below) so the two stores never diverge into a stale public
-        # stamp after a private toggle, and raise so the caller can retry.
+        # Two-store consistency: FLUSH (don't commit) the SQL change, sync the mongo
+        # stamp, then commit only if mongo succeeded — so there is no window where
+        # SQL reads "private" while the mongo aggregate/search/stats surfaces still
+        # read "public", and no commit-then-rollback churn when mongo is down. When
+        # mongo isn't the enabled report store, just commit the SQL change.
+        self.session.flush()
         if mongo_update_one is not None and _mongo_reporting_enabled():
             # mongo_update_one is wrapped by graceful_auto_reconnect, which retries
-            # AutoReconnect/ServerSelectionTimeoutError internally (the canonical
-            # mongo-down errors) and RETURNS None with no re-raise when mongo stays
-            # down. So detect a swallowed failure by the None return, not by
-            # catching an exception — a successful update returns an UpdateResult
-            # (even with matched_count=0). Surface a persistent failure so a stale
-            # public stamp after a private toggle can't silently keep the analysis
-            # cross-tenant visible in the aggregate/search/stats surfaces.
+            # AutoReconnect/ServerSelectionTimeoutError internally and RETURNS None
+            # with no re-raise when mongo stays down. Detect a swallowed failure by
+            # the None return (a success returns an UpdateResult, even matched_count=0).
             _res = None
             try:
                 _res = mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": visibility}})
@@ -887,15 +881,12 @@ class TasksMixIn:
             if _res is None:
                 from lib.cuckoo.common.exceptions import CuckooOperationalError
 
-                # Roll the SQL change back so the two stores can't diverge: a stale
-                # public mongo stamp after a private SQL toggle would keep the
-                # analysis cross-tenant visible in the aggregate/search/stats
-                # surfaces. Both stores end at the previous value and the caller
-                # gets a clear failure to retry.
-                task.visibility = _prev_visibility
-                self.session.commit()
-                log.error("visibility mongo sync FAILED for task %s (mongo unreachable); rolled SQL back to %r", task_id, _prev_visibility)
+                # Mongo unreachable — roll back the (uncommitted) SQL change so the
+                # two stores never diverge, and surface it so the caller retries.
+                self.session.rollback()
+                log.error("visibility mongo sync FAILED for task %s (mongo unreachable); rolled back", task_id)
                 raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
+        self.session.commit()
         return task
 
     def fetch_task(self, categories: list = None):

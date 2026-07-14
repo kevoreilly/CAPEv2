@@ -79,7 +79,10 @@ def left(request, left_id):
     if _scope:
         _and.append(_scope)
     if enabledconf["mongodb"]:
-        _raw = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
+        # Materialize the cursor: it is iterated TWICE below (collect ids, then
+        # build records), and a PyMongo cursor is single-pass — leaving it lazy
+        # exhausts it in the first loop and yields an always-empty `records`.
+        _raw = list(mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1}))
         # Defense-in-depth: post-filter each md5-pivot hit through can_view_task
         # (SQL-authoritative), symmetric with the ES branch below, so a mongo stamp
         # gap can't leak another tenant's analysis even if the query-layer scope
@@ -163,7 +166,10 @@ def hash(request, left_id, right_hash):
     if _scope:
         _and.append(_scope)
     if enabledconf["mongodb"]:
-        _raw = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
+        # Materialize the cursor: it is iterated TWICE below (collect ids, then
+        # build records), and a PyMongo cursor is single-pass — leaving it lazy
+        # exhausts it in the first loop and yields an always-empty `records`.
+        _raw = list(mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1}))
         # Defense-in-depth: post-filter each md5-pivot hit through can_view_task
         # (SQL-authoritative), symmetric with the ES branch below, so a mongo stamp
         # gap can't leak another tenant's analysis even if the query-layer scope

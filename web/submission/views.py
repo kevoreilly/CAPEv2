@@ -546,11 +546,16 @@ def index(request, task_id=None, resubmit_hash=None):
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
-                    # Try to recover the original filename from the task
+                    # Try to recover the original filename from the task. This runs
+                    # for the by-HASH branch too, where the route task_id is NOT
+                    # can_view_task-gated — so require read access before trusting it,
+                    # else a by-hash resubmit carrying another tenant's task_id in the
+                    # URL would leak that hidden task's target basename into the new
+                    # submission. No read access -> fall back to the hash.
                     original_filename = ""
                     if task_id:
                         task = db.view_task(task_id)
-                        if task and task.target:
+                        if task and task.target and can_view_task(request.user, task):
                             original_filename = sanitize_filename(os.path.basename(task.target))
                     filename = base_dir + "/" + (original_filename or sanitize_filename(hash))
                 path = store_temp_file(content, filename)

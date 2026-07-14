@@ -297,7 +297,9 @@ def index(request, task_id=None, resubmit_hash=None):
         try:
             _tenant_id, _visibility = submission_scope(request)
         except ValueError:
-            return render(request, "error.html", {"error": "Invalid visibility value"})
+            # Client input validation failure -> 400 (machine-detectable), per the
+            # submission_scope() contract that the view turns the bad value into a 400.
+            return render(request, "error.html", {"error": "Invalid visibility value"}, status=400)
         (
             static,
             package,

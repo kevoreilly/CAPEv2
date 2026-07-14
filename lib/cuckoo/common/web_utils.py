@@ -376,10 +376,15 @@ def top_detections(date_since: datetime = False, results_limit: int = 20, scope_
         if date_since:
             q["query"]["bool"]["must"].append({"range": {"info.started": {"gte": date_since.isoformat()}}})
 
-        # Tenant scope (parity with the mongo branch's scope_match): without this
-        # a locked-mode tenant's My-Tenant/Mine stat panels return the GLOBAL
-        # per-family malware landscape on an ES-backed install. No-op for
-        # break-glass / MT-disabled.
+        # Tenant scope on Elasticsearch: apply the viewer's ENTITLED-UNION filter
+        # (public OR own-tenant OR mine) so an ES-backed install doesn't return the
+        # GLOBAL per-family landscape. NOTE: unlike the mongo branch (which applies
+        # the per-scope scope_match), this is the union, so per-scope stat panels on
+        # ES show the viewer's union rather than strictly public/tenant/mine. It
+        # never exposes another tenant's data (it is the viewer's own entitled
+        # union), and ES + multitenancy is a documented not-yet-supported combo
+        # (see docs/MULTITENANCY-SUPPORT.md) — mongo is the supported store. No-op
+        # for break-glass / MT-disabled.
         _esf = _viewer_scope_es_filter(viewer)
         if _esf:
             q["query"]["bool"].setdefault("filter", []).append(_esf)

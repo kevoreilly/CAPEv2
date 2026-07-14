@@ -14,7 +14,7 @@ function setReportVisibility(sel) {
     var tid = sel.closest('.visibility-toggle').dataset.taskId;
     // Use Django's template token, not document.cookie — the cookie read fails
     // when CSRF_COOKIE_HTTPONLY is on.
-    var csrf = '{{ csrf_token }}';
+    var csrf = '{{ csrf_token|escapejs }}';
     var prev = sel.dataset.prev || sel.value;
     fetch('/apiv2/tasks/visibility/' + tid + '/', {
         method: 'PATCH',

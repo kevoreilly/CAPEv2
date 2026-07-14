@@ -861,13 +861,16 @@ class TasksMixIn:
         task = self.session.get(Task, task_id)
         if not task:
             return None
+        _prev_visibility = task.visibility
         task.visibility = visibility
-        # Two-store consistency: FLUSH (don't commit) the SQL change, sync the mongo
-        # stamp, then commit only if mongo succeeded — so there is no window where
-        # SQL reads "private" while the mongo aggregate/search/stats surfaces still
-        # read "public", and no commit-then-rollback churn when mongo is down. When
-        # mongo isn't the enabled report store, just commit the SQL change.
-        self.session.flush()
+        # Two-store consistency: sync the mongo stamp FIRST (still uncommitted in
+        # SQL), then commit — so there's never a COMMITTED window where SQL reads
+        # "private" while the mongo aggregate/search/stats surfaces still read
+        # "public" (the leaky direction). If mongo is the enabled store and the sync
+        # fails, revert the in-memory SQL change to the previous value and commit
+        # that (leaving both stores at the old value), then raise so the caller
+        # retries. We revert in-place rather than session.rollback() so we don't
+        # discard unrelated pending work in a shared/scoped session.
         if mongo_update_one is not None and _mongo_reporting_enabled():
             # mongo_update_one is wrapped by graceful_auto_reconnect, which retries
             # AutoReconnect/ServerSelectionTimeoutError internally and RETURNS None
@@ -881,10 +884,9 @@ class TasksMixIn:
             if _res is None:
                 from lib.cuckoo.common.exceptions import CuckooOperationalError
 
-                # Mongo unreachable — roll back the (uncommitted) SQL change so the
-                # two stores never diverge, and surface it so the caller retries.
-                self.session.rollback()
-                log.error("visibility mongo sync FAILED for task %s (mongo unreachable); rolled back", task_id)
+                task.visibility = _prev_visibility
+                self.session.commit()
+                log.error("visibility mongo sync FAILED for task %s (mongo unreachable); left at %r", task_id, _prev_visibility)
                 raise CuckooOperationalError(f"task {task_id} visibility change aborted: report store sync failed")
         self.session.commit()
         return task

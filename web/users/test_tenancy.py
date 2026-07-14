@@ -222,6 +222,43 @@ def test_submission_scope(mt_enabled, monkeypatch):
 
 
 @pytest.mark.django_db
+def test_submission_scope_tenant_without_tenant_fails_closed(mt_enabled, monkeypatch):
+    """A tenant-less submitter must never mint a ('tenant', tenant_id=None) job — it
+    would be readable only by its owner (or nobody, for anon), never a tenant pool.
+    Explicit 'tenant' -> ValueError (400); a per-mode default resolving to 'tenant'
+    downgrades to 'private' (owner still reads via _is_owner; fail closed, not
+    world-public in locked mode)."""
+    import pytest as _pytest
+    from lib.cuckoo.common import tenancy as core_ten
+    from lib.cuckoo.common.tenancy import MTConfig
+    import users.tenancy as ut
+
+    u = User.objects.create_user("nt", "nt@x.com", "x")  # tenant-less
+    u = User.objects.get(pk=u.pk)
+
+    class Req:
+        pass
+
+    # explicit 'tenant' from a tenant-less user -> 400 (ValueError)
+    r = Req()
+    r.user = u
+    r.data = {"visibility": "tenant"}
+    with _pytest.raises(ValueError):
+        ut.submission_scope(r)
+
+    # locked-mode default resolves to 'tenant' but user has no tenant -> downgrade to private
+    def locked():
+        return MTConfig(True, "locked", "", True)
+
+    monkeypatch.setattr(ut, "multitenancy_config", locked)          # viewer_for (module-level name)
+    monkeypatch.setattr(core_ten, "multitenancy_config", locked)    # submission_scope (in-func import)
+    r2 = Req()
+    r2.user = u
+    r2.data = {}
+    assert ut.submission_scope(r2) == (None, "private")
+
+
+@pytest.mark.django_db
 def test_reconcile_tenant_tolerates_non_string_groups():
     """Copilot: a tenant's idp_groups JSONField may contain non-string junk; the
     set intersection must not TypeError (and must still match on the valid names)."""

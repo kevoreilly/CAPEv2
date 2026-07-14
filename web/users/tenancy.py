@@ -121,7 +121,7 @@ def submission_scope(request):
     ``visibility`` param when valid, else the per-mode default. Raises
     ValueError on an invalid explicit visibility so the view can 400.
     """
-    from lib.cuckoo.common.tenancy import multitenancy_config, default_visibility, VISIBILITIES
+    from lib.cuckoo.common.tenancy import multitenancy_config, default_visibility, VISIBILITIES, TENANT, PRIVATE
 
     v = viewer_for(request.user)
     data = getattr(request, "data", None)
@@ -134,4 +134,14 @@ def submission_scope(request):
         visibility = requested
     else:
         visibility = default_visibility(multitenancy_config())
+    # A 'tenant'-visibility job needs a tenant to scope to. With tenant_id=None it
+    # is readable only by its owner (or nobody, for an anonymous submitter) — never
+    # the intended tenant pool (can_read's _same_tenant requires a non-None tenant).
+    # Refuse an explicit request (the caller turns ValueError into a 400) and
+    # downgrade a per-mode default to PRIVATE: the owner still reads via _is_owner,
+    # and it fails closed rather than world-exposing an anon job in locked mode.
+    if visibility == TENANT and v.tenant_id is None:
+        if requested:
+            raise ValueError("tenant visibility requires tenant membership")
+        visibility = PRIVATE
     return v.tenant_id, visibility

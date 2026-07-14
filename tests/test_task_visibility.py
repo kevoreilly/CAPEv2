@@ -421,36 +421,55 @@ def test_check_file_uniq_scoped_even_with_hours_zero(db):
     assert db.check_file_uniq(h, hours=0) is True
 
 
-def test_advisory_lock_noop_on_sqlite_and_serializes_on_postgres():
-    """Concurrent-toggle serialization: a Postgres session-level advisory lock is
-    taken/released around the two-store write; a NO-OP on sqlite (single-writer,
-    tests) so it never alters single-node/legacy behavior."""
+def test_advisory_lock_noop_on_sqlite():
+    """No-op on sqlite (single-writer, tests) so single-node/legacy behavior is
+    unchanged: _advisory_lock returns None and issues no SQL."""
     import lib.cuckoo.core.data.tasking as tk
 
-    calls = []
+    class _Sess:
+        def get_bind(self):
+            return type("E", (), {"dialect": type("D", (), {"name": "sqlite"})()})()
 
-    class _Bind:
-        def __init__(self, name):
-            self.dialect = type("D", (), {"name": name})()
+    assert tk._advisory_lock(_Sess(), 7) is None
+
+
+def test_advisory_lock_uses_dedicated_connection_on_postgres():
+    """The concurrent-toggle lock must be taken on a DEDICATED connection (engine.
+    connect()), NOT the pooled ORM session whose connection the mid-method commit
+    returns to the pool — otherwise the lock is re-entrant on a reused connection (no
+    serialization) or leaks on a different one (hang). The SAME connection must be
+    locked, unlocked, and closed."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    events = []
+
+    class _Conn:
+        def execute(self, stmt, params=None):
+            events.append(("execute", str(stmt), params))
+
+        def close(self):
+            events.append(("close", None, None))
+
+        def invalidate(self):
+            events.append(("invalidate", None, None))
+
+    the_conn = _Conn()
+
+    class _Engine:
+        dialect = type("D", (), {"name": "postgresql"})()
+
+        def connect(self):
+            events.append(("connect", None, None))
+            return the_conn
 
     class _Sess:
-        def __init__(self, name):
-            self._name = name
-
         def get_bind(self):
-            return _Bind(self._name)
+            return _Engine()
 
-        def execute(self, stmt, params=None):
-            calls.append((str(stmt), params))
+    conn = tk._advisory_lock(_Sess(), 42)
+    assert conn is the_conn                      # a DEDICATED connection, not the session
+    tk._advisory_unlock(conn, 42)
 
-    # sqlite -> no-op, no SQL issued
-    assert tk._advisory_lock(_Sess("sqlite"), 7) is False
-    assert calls == []
-
-    # postgres -> lock taken (True) + lock/unlock SQL issued, keyed by task id
-    s_pg = _Sess("postgresql")
-    assert tk._advisory_lock(s_pg, 7) is True
-    tk._advisory_unlock(s_pg, 7)
-    assert any("pg_advisory_lock" in c[0] for c in calls)
-    assert any("pg_advisory_unlock" in c[0] for c in calls)
-    assert all(c[1] == {"k": 7} for c in calls)
+    assert [e[0] for e in events] == ["connect", "execute", "execute", "close"]
+    assert "pg_advisory_lock" in events[1][1] and events[1][2] == {"k": 42}    # lock on that conn
+    assert "pg_advisory_unlock" in events[2][1] and events[2][2] == {"k": 42}  # unlock on the SAME conn

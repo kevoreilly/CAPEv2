@@ -60,32 +60,59 @@ log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 
 
-def _advisory_lock(session, key) -> bool:
+def _advisory_lock(session, key):
     """Best-effort cross-process serialization of per-task visibility toggles.
 
-    Postgres SESSION-level advisory lock: unlike a transaction (xact) lock it survives
-    the mid-operation SQL commit, so it brackets BOTH the SQL commit and the mongo
-    publish — the window a concurrent toggle would otherwise interleave to leave mongo
-    more permissive than SQL. Returns True if a lock was taken (caller MUST unlock in a
-    finally). No-op (returns False) on backends without advisory locks — sqlite (tests)
-    is single-writer, so serialization isn't needed there."""
+    Acquires a Postgres SESSION-level advisory lock on a DEDICATED connection (its own
+    backend) — NOT the pooled ORM session's connection. set_task_visibility commit()s
+    mid-operation, which returns the ORM session's connection to the QueuePool; a lock
+    taken through that session would then (a) be re-entrant if the pool later hands the
+    same physical connection to a concurrent toggle of the same key (returns
+    immediately -> NO serialization) and (b) leak if the finally-unlock runs on a
+    different pooled connection (the lock stays held on the idle one -> next toggle
+    hangs). Holding a dedicated connection for the whole critical section pins the lock
+    to one backend so lock+unlock always land together. A session-level (not xact) lock
+    is required because it must outlive the mid-operation commit.
+
+    Returns the held Connection (release + close via _advisory_unlock), or None on
+    non-Postgres backends (sqlite tests are single-writer — no serialization needed)."""
     try:
-        if session.get_bind().dialect.name != "postgresql":
-            return False
-        session.execute(text("SELECT pg_advisory_lock(:k)"), {"k": int(key)})
-        return True
+        engine = session.get_bind()
+        engine = getattr(engine, "engine", engine)
+        if engine.dialect.name != "postgresql":
+            return None
+        conn = engine.connect()
+        try:
+            conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": int(key)})
+            return conn
+        except Exception:
+            conn.close()
+            raise
     except Exception as _e:
         log.warning("advisory lock unavailable for task %s: %s", key, _e)
-        return False
+        return None
 
 
-def _advisory_unlock(session, key) -> None:
-    """Release the session-level advisory lock taken by _advisory_lock (best effort —
-    a missed release is bounded: the lock auto-releases when the connection closes)."""
+def _advisory_unlock(conn, key) -> None:
+    """Release + close the dedicated connection taken by _advisory_lock. Returning a
+    still-locked physical connection to the pool would leak the lock (pooling keeps the
+    backend alive), so if the explicit unlock can't run, invalidate the connection to
+    force backend termination (which releases the session-level lock)."""
+    if conn is None:
+        return
     try:
-        session.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": int(key)})
+        conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": int(key)})
     except Exception as _e:
-        log.warning("advisory unlock failed for task %s: %s", key, _e)
+        log.warning("advisory unlock failed for task %s (invalidating connection): %s", key, _e)
+        try:
+            conn.invalidate()
+        except Exception:
+            pass
+    finally:
+        try:
+            conn.close()
+        except Exception:
+            pass
 distconf = Config("distributed")
 web_conf = Config("web")
 
@@ -916,9 +943,9 @@ class TasksMixIn:
                 log.warning("visibility mongo sync errored for task %s: %s", task_id, _e)
                 return False
 
-        _locked = _advisory_lock(self.session, task_id)
+        _lock_conn = _advisory_lock(self.session, task_id)
         try:
-            if _locked:
+            if _lock_conn is not None:
                 # Re-read the latest committed value now that we hold the lock — a
                 # concurrent toggle may have changed it between load and lock, and both
                 # the direction decision and _prev must reflect the CURRENT truth.
@@ -975,8 +1002,7 @@ class TasksMixIn:
                 raise CuckooOperationalError(f"task {task_id} visibility change aborted: SQL commit failed") from _ce
             return task
         finally:
-            if _locked:
-                _advisory_unlock(self.session, task_id)
+            _advisory_unlock(_lock_conn, task_id)
 
     def fetch_task(self, categories: list = None):
         """Fetches a task waiting to be processed and locks it for running.

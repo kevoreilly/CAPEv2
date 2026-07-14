@@ -302,6 +302,10 @@ def reconcile_tenant(user, user_groups: set) -> None:
         # TypeError the set intersection and 500 the login.
         return {g for g in (vals or []) if isinstance(g, str)}
 
+    # Filter in Python rather than an idp_groups__contains query: the Django auth
+    # DB is sqlite, where JSONField contains/contained_by lookups are unsupported
+    # (supports_json_field_contains=False -> NotSupportedError). Tenant counts are
+    # small per deployment, so this O(n) scan is negligible.
     matches = [t for t in Tenant.objects.filter(active=True) if user_groups & _g(t.idp_groups)]
     prof, _ = UserProfile.objects.get_or_create(user=user)
     if len(matches) == 1:

@@ -58,6 +58,21 @@ def test_full_memory_denies_cross_tenant(cape_db, mt_enabled, monkeypatch, clien
 
 
 @pytest.mark.django_db
+def test_non_numeric_task_id_denied_before_db(cape_db, monkeypatch, client):
+    """A non-numeric id on a \\w+ analysis route (full_memory) is coerced-and-denied
+    (403) BEFORE db.view_task runs — so a bad id can't raise a DB DataError -> 500
+    (which would also leak a task-vs-no-task signal). Mode-independent hardening."""
+    import analysis.views as av
+
+    def _boom(*a, **k):
+        raise AssertionError("db.view_task must not be called for a non-numeric id")
+
+    monkeypatch.setattr(av.db, "view_task", _boom)
+    client.force_login(User.objects.create_user("nn", "nn@x.com", "x"))
+    assert client.get("/full_memory/abc/").status_code == 403
+
+
+@pytest.mark.django_db
 def test_vtupload_denies_cross_tenant(cape_db, mt_enabled, monkeypatch, client):
     """vtupload reads + exfiltrates a sample to VirusTotal — require_task_manage."""
     import analysis.views as av

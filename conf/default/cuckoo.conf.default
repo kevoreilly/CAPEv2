@@ -290,8 +290,6 @@ enabled = no
 # shared = tenant-less collaborative pool (submit default public);
 # locked = per-tenant isolation (submit default tenant).
 mode = shared
-# Which OIDC claim drives tenant membership (reuses the groups claim from SSO).
-tenant_claim_source = groups
 # Blank = per-mode default (shared->public, locked->tenant). Override with one
 # of: public | tenant | private.
 default_visibility =

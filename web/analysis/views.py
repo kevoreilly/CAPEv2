@@ -195,6 +195,22 @@ db: TasksMixIn = Database()
 from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for
 
 
+def _coerce_task_id(tid):
+    """Coerce a URL-supplied task id to int, or None if it isn't numeric.
+
+    Task.id is an integer PK, so a non-numeric id can never match a real task.
+    Some analysis routes capture the id as ``\\w+`` (e.g. filereport, full_memory),
+    so a request like ``/full_memory/abc/`` would otherwise forward ``"abc"`` to
+    db.view_task() and raise a DB DataError -> an uncaught 500 that also leaks a
+    task-vs-no-task signal. Returning None lets the task-scoped decorators fail
+    closed with the same generic 403 as a missing/hidden task (no enumeration).
+    """
+    try:
+        return int(tid)
+    except (TypeError, ValueError):
+        return None
+
+
 def require_task_manage(view):
     """Decorator for task-scoped MUTATION views (remove/comment/reprocess/etc.):
     403 (generic) unless the user may MANAGE the task (owner / tenant-admin for
@@ -206,6 +222,9 @@ def require_task_manage(view):
         tid = kwargs.get("task_id") or kwargs.get("analysis_number")
         if tid is None and args:
             tid = args[0]
+        tid = _coerce_task_id(tid)
+        if tid is None:
+            return HttpResponseForbidden("Not found")
         task = db.view_task(tid)
         if task is None or not can_manage_task(request.user, task):
             return HttpResponseForbidden("Not found")
@@ -227,6 +246,9 @@ def require_task_visibility(view):
         tid = kwargs.get("task_id") or kwargs.get("analysis_number")
         if tid is None and args:
             tid = args[0]
+        tid = _coerce_task_id(tid)
+        if tid is None:
+            return HttpResponseForbidden("Not found")
         task = db.view_task(tid)
         if task is None or not can_view_task(request.user, task):
             return HttpResponseForbidden("Not found")

@@ -1,6 +1,10 @@
 import pytest
 from django.contrib.auth.models import User
 
+pytest_plugins = ("mt_test_fixtures",)  # fixtures live in web/mt_test_fixtures.py (not a conftest,
+# which would shadow tests/conftest.py under pythonpath=web + --import-mode=append)
+
+
 
 class _Req:
     def __init__(self, user):

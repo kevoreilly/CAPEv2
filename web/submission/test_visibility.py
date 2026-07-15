@@ -1,6 +1,10 @@
 import pytest
 from django.contrib.auth.models import User
 
+pytest_plugins = ("mt_test_fixtures",)  # fixtures live in web/mt_test_fixtures.py (not a conftest,
+# which would shadow tests/conftest.py under pythonpath=web + --import-mode=append)
+
+
 
 @pytest.mark.django_db
 def test_submit_form_renders_visibility_control(cape_db, client):

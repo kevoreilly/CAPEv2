@@ -1086,6 +1086,12 @@ def tasks_view(request, task_id):
     _denied = _deny_if_hidden(request, task)
     if _denied is not None:
         return _denied
+    # Missing task: with MT off _deny_if_hidden defers (returns None), so restore
+    # upstream's explicit missing-task response here. No-op under MT, where the
+    # helper already returned the generic 404 for a missing/hidden task.
+    if not task:
+        resp = {"error": True, "error_value": "Task not found in database"}
+        return Response(resp)
 
     resp = {"error": False}
     entry = task.to_dict()
@@ -1342,6 +1348,11 @@ def tasks_status(request, task_id):
     _denied = _deny_if_hidden(request, task)
     if _denied is not None:
         return _denied
+    # MT off: _deny_if_hidden defers on a missing task -> restore upstream's
+    # explicit response (no-op under MT, which already 404'd missing/hidden).
+    if not task:
+        resp = {"error": True, "error_value": "Task does not exist"}
+        return Response(resp)
     if request.method == "GET":
         status = task.to_dict()["status"]
         resp = {"error": False, "data": status}
@@ -3288,6 +3299,11 @@ def tasks_file_stream(request, task_id):
     if _denied is not None:
         return _denied
     task = db.view_task(task_id)
+    # MT off: _deny_manage defers on a missing task -> restore upstream's explicit
+    # response (no-op under MT, which already 404'd missing/hidden).
+    if not task:
+        resp = {"error": True, "error_value": "Task does not exist"}
+        return Response(resp)
     machine = db.view_machine(task.guest.name)
     if machine.status != "running":
         resp = {"error": True, "error_value": "Machine is not running", "errors": machine.status}

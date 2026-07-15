@@ -495,6 +495,98 @@ def test_ext_tasks_search_drops_cross_tenant_rows(cape_db, mt_enabled, monkeypat
     assert ids == [2]  # foreign task 3 dropped by the batch visibility filter
 
 
+# --- missing-task regression: the MT gate deleted upstream's `if not task:` guard
+# in these 3 endpoints; with MT off _deny_* defers on a missing task, so without
+# the restored guard they fall through to task.to_dict()/task.guest -> HTTP 500.
+# MT off MUST reproduce upstream's 200 error body; MT on stays the generic 404.
+def _apiget(views, u, path):
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    req = APIRequestFactory().get(path)
+    force_authenticate(req, user=u)
+    req.user = u
+    return req
+
+
+@pytest.mark.django_db
+def test_tasks_view_missing_mt_off_restores_upstream(cape_db, monkeypatch):
+    import types
+    import apiv2.views as views
+    _force_mt_off(monkeypatch)
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskview={"enabled": True}))
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: None)
+    u = User.objects.create_user("tv_off", "tv_off@x.com", "x")
+    resp = views.tasks_view(_apiget(views, u, "/apiv2/tasks/view/999/"), 999)
+    assert resp.status_code == 200
+    assert resp.data == {"error": True, "error_value": "Task not found in database"}
+
+
+@pytest.mark.django_db
+def test_tasks_view_missing_mt_on_generic_404(cape_db, mt_enabled, monkeypatch):
+    import types
+    import apiv2.views as views
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskview={"enabled": True}))
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: None)
+    u = User.objects.create_user("tv_on", "tv_on@x.com", "x")
+    resp = views.tasks_view(_apiget(views, u, "/apiv2/tasks/view/999/"), 999)
+    assert resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_tasks_status_missing_mt_off_restores_upstream(cape_db, monkeypatch):
+    import types
+    import apiv2.views as views
+    _force_mt_off(monkeypatch)
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskstatus={"enabled": True}))
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: None)
+    u = User.objects.create_user("ts_off", "ts_off@x.com", "x")
+    resp = views.tasks_status(_apiget(views, u, "/apiv2/tasks/status/999/"), 999)
+    assert resp.status_code == 200
+    assert resp.data == {"error": True, "error_value": "Task does not exist"}
+
+
+@pytest.mark.django_db
+def test_tasks_status_missing_mt_on_generic_404(cape_db, mt_enabled, monkeypatch):
+    import types
+    import apiv2.views as views
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskstatus={"enabled": True}))
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: None)
+    u = User.objects.create_user("ts_on", "ts_on@x.com", "x")
+    resp = views.tasks_status(_apiget(views, u, "/apiv2/tasks/status/999/"), 999)
+    assert resp.status_code == 404
+
+
+def _apipost(views, u, path):
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    req = APIRequestFactory().post(path)  # tasks_file_stream is @api_view(["POST"])
+    force_authenticate(req, user=u)
+    req.user = u
+    return req
+
+
+@pytest.mark.django_db
+def test_tasks_file_stream_missing_mt_off_restores_upstream(cape_db, monkeypatch):
+    import types
+    import apiv2.views as views
+    _force_mt_off(monkeypatch)
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskstatus={"enabled": True}))
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: None)
+    u = User.objects.create_user("fs_off", "fs_off@x.com", "x")
+    resp = views.tasks_file_stream(_apipost(views, u, "/apiv2/tasks/get/stream/999/"), 999)
+    assert resp.status_code == 200
+    assert resp.data == {"error": True, "error_value": "Task does not exist"}
+
+
+@pytest.mark.django_db
+def test_tasks_file_stream_missing_mt_on_generic_404(cape_db, mt_enabled, monkeypatch):
+    import types
+    import apiv2.views as views
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskstatus={"enabled": True}))
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: None)
+    u = User.objects.create_user("fs_on", "fs_on@x.com", "x")
+    resp = views.tasks_file_stream(_apipost(views, u, "/apiv2/tasks/get/stream/999/"), 999)
+    assert resp.status_code == 404
+
+
 def test_every_perform_search_caller_passes_viewer():
     """SECURITY GATE: perform_search() is unscoped by default (no tenant filter
     at the mongo/ES layer). Every web caller MUST pass viewer= so the query is

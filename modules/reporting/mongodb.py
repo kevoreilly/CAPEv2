@@ -83,38 +83,74 @@ def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id) -> No
         stamp_tenant_info(report_info, None)
 
 
-def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete) -> None:
-    """Close the stamp-vs-toggle TOCTOU. run() stamps info.visibility from SQL at the
-    TOP, then does slow work before writing the mongo doc; a concurrent
-    set_task_visibility toggle in that window would leave the doc with a stale (more
-    permissive) visibility than SQL — a cross-tenant leak, since the aggregate/search/
-    stats surfaces scope on info.visibility. Re-stamp the written doc from the
-    AUTHORITATIVE SQL row under the SAME per-task advisory lock the toggle holds, so
-    the two can't interleave and mongo ends == SQL. No-op when MT is disabled."""
-    from lib.cuckoo.common.tenancy import multitenancy_config
+_warned_no_lock_engine = False
 
-    if not multitenancy_config().enabled or mongo_update_one is None:
-        return
-    from lib.cuckoo.core.database import Database
-    from lib.cuckoo.core.data.tasking import task_visibility_lock
 
-    info = {}
-    with task_visibility_lock(getattr(Database(), "lock_engine", None), local_task_id):
-        # Re-read the current SQL tenancy (same fail-closed rules as the initial stamp).
-        _stamp_report_for_task(info, main_task_id, local_task_id)
-        try:
-            ids = [int(x) for x in ids_to_delete]
-        except (TypeError, ValueError):
-            ids = [local_task_id]
-        mongo_update_one(
-            "analysis",
-            {"info.id": {"$in": ids}},
-            {"$set": {
-                "info.tenant_id": info.get("tenant_id"),
-                "info.user_id": info.get("user_id"),
-                "info.visibility": info.get("visibility", "private"),
-            }},
+def _warn_no_lock_engine_once():
+    global _warned_no_lock_engine
+    if not _warned_no_lock_engine:
+        _warned_no_lock_engine = True
+        log.warning(
+            "multitenancy enabled but no Postgres advisory-lock engine (non-postgres backend): the "
+            "report-visibility reconcile runs UNSERIALIZED against visibility toggles; the fail-closed "
+            "insert keeps this window safe (doc is private until upgraded) but a narrow re-widen remains."
         )
+
+
+def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete) -> None:
+    """Raise the just-written mongo analysis doc's tenancy to the AUTHORITATIVE SQL value
+    under the SAME per-task advisory lock set_task_visibility holds, closing the
+    stamp-vs-toggle TOCTOU. run() inserts the doc FAIL-CLOSED (private), so it is never
+    permissive before this upgrade; if the upgrade can't complete the doc stays private
+    (safe), never stale-permissive.
+
+    No-op when MT is disabled, on the legacy distributed path (main_task_id set — that
+    doc stays fail-closed private, and its lock/id domain differs from the central
+    toggle's, so serializing here is neither possible nor needed), or when mongo is
+    unavailable. NEVER raises: it runs from run()'s finally, where an escape would flip a
+    fully-stored report to failed_reporting or mask the storage block's own exception."""
+    try:
+        from lib.cuckoo.common.tenancy import multitenancy_config
+
+        if main_task_id or not multitenancy_config().enabled or mongo_update_one is None:
+            return
+        from lib.cuckoo.core.database import Database
+        from lib.cuckoo.core.data.tasking import task_visibility_lock
+
+        lock_engine = getattr(Database(), "lock_engine", None)
+        if lock_engine is None:
+            _warn_no_lock_engine_once()
+        info = {}
+        with task_visibility_lock(lock_engine, local_task_id):
+            # Re-read the current SQL tenancy under the lock (authoritative; a toggle
+            # can't commit + sync mongo while we hold it).
+            _stamp_report_for_task(info, None, local_task_id)
+            try:
+                ids = [int(x) for x in ids_to_delete]
+            except (TypeError, ValueError):
+                ids = [local_task_id]
+            res = mongo_update_one(
+                "analysis",
+                {"info.id": {"$in": ids}},
+                {"$set": {
+                    "info.tenant_id": info.get("tenant_id"),
+                    "info.user_id": info.get("user_id"),
+                    "info.visibility": info.get("visibility", "private"),
+                }},
+            )
+            # graceful_auto_reconnect returns None after exhausting AutoReconnect retries
+            # (no raise): the upgrade silently no-op'd. The doc is still fail-closed
+            # private (safe), but surface it loudly — this is the sole corrector.
+            if res is None:
+                log.error(
+                    "visibility reconcile mongo write FAILED for task %s (mongo unreachable, "
+                    "graceful_auto_reconnect exhausted); doc stays fail-closed private until reprocess",
+                    local_task_id,
+                )
+    except Exception:
+        # Contain: the fail-closed insert means a failed upgrade is safe (doc stays
+        # private). Never propagate out of run()'s finally.
+        log.exception("visibility reconcile failed for task %s (doc remains fail-closed private)", local_task_id)
 
 
 class MongoDB(Report):
@@ -251,11 +287,14 @@ class MongoDB(Report):
         from lib.cuckoo.common.tenancy import multitenancy_config
 
         if multitenancy_config().enabled:
-            # Fail-closed on the legacy distributed worker path (main_task_id set),
-            # else stamp from the LOCAL task. MT is supported on the mongo store +
-            # the broker/central path; legacy dist.py is a documented not-yet-
-            # supported mode (see docs/MULTITENANCY-SUPPORT.md). See _stamp_report_for_task.
-            _stamp_report_for_task(report["info"], main_task_id, local_task_id)
+            # Insert FAIL-CLOSED: stamp private (no owner/tenant) so the doc is never
+            # world/tenant-visible before _reconcile_report_visibility (run()'s finally)
+            # raises it to the authoritative value UNDER the advisory lock. A failed or
+            # late reconcile then leaves the doc private (safe), never stale-permissive,
+            # and partially-built loop_saver docs stay private during the per-key loop.
+            # (The legacy distributed path — main_task_id set — has no submitter tenancy
+            # and stays private; the reconcile is a no-op there.)
+            stamp_tenant_info(report["info"], None)
 
         # Delete old data just before inserting new one to avoid "missing report" window
         # or data loss if insertion fails during preparation (e.g. OOM)
@@ -346,8 +385,10 @@ class MongoDB(Report):
         except Exception as e:
             log.exception("Failed to store report in MongoDB for Task %s: %s", report["info"]["id"], e)
         finally:
-            # Serialize the visibility (re)stamp with set_task_visibility so a toggle
-            # that raced this report run can't leave mongo more permissive than SQL.
-            # Runs on every exit path (incl. the loop_saver / fix_large_docs returns).
-            # No-op when MT is off / non-postgres.
+            # Raise the fail-closed-private doc to the authoritative visibility under
+            # set_task_visibility's advisory lock, so a toggle that raced this report
+            # can't leave mongo more permissive than SQL. Runs on every exit path (incl.
+            # the loop_saver / fix_large_docs returns) and NEVER raises. MT-off and the
+            # legacy-dist path are no-ops; on non-postgres the mongo write still runs but
+            # unserialized (the fail-closed insert keeps that window safe).
             _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete)

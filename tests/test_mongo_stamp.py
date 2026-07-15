@@ -97,6 +97,7 @@ def test_reconcile_visibility_restamps_from_sql_under_lock(monkeypatch):
     def fake_update(coll, flt, upd, **k):
         events.append(("update", flt))
         captured.update(upd)
+        return object()  # a successful mongo write (not None)
     monkeypatch.setattr(m, "mongo_update_one", fake_update, raising=False)
 
     m._reconcile_report_visibility(main_task_id=None, local_task_id=5, ids_to_delete={5, 5})
@@ -106,6 +107,76 @@ def test_reconcile_visibility_restamps_from_sql_under_lock(monkeypatch):
     # and it wrote the authoritative (current) SQL tenancy, not a stale value
     assert captured["$set"]["info.visibility"] == "private"
     assert captured["$set"]["info.tenant_id"] == 10 and captured["$set"]["info.user_id"] == 7
+
+
+def test_reconcile_skips_distributed_path(monkeypatch):
+    """Legacy-dist path (main_task_id set): the doc is already fail-closed private and
+    the lock/id domain differs from the central toggle, so the reconcile must NOT run
+    a mongo write (which could strip tenancy off an unrelated doc via the $in filter)."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    from lib.cuckoo.common.tenancy import MTConfig
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+    called = []
+    monkeypatch.setattr(m, "mongo_update_one", lambda *a, **k: called.append(1), raising=False)
+    m._reconcile_report_visibility(main_task_id=99, local_task_id=5, ids_to_delete={5})
+    assert called == []  # distributed path is a no-op (stays fail-closed private)
+
+
+def test_reconcile_write_failure_is_not_silent(monkeypatch, caplog):
+    """mongo_update_one returns None when graceful_auto_reconnect exhausts its retries
+    (no raise). Since the reconcile is the SOLE corrector of the fail-closed stamp, that
+    silent no-op must be logged loudly."""
+    import logging
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+
+    class NowPrivate:
+        user_id, tenant_id, visibility = 7, 10, "private"
+    monkeypatch.setattr(m, "_task_tenant_ctx", lambda tid: NowPrivate())
+
+    class _FakeDB:
+        lock_engine = None
+    monkeypatch.setattr(dbmod, "Database", lambda: _FakeDB())
+    monkeypatch.setattr(m, "mongo_update_one", lambda *a, **k: None, raising=False)  # exhausted -> None
+
+    with caplog.at_level(logging.ERROR, logger="modules.reporting.mongodb"):
+        m._reconcile_report_visibility(main_task_id=None, local_task_id=5, ids_to_delete={5})
+
+    assert any(r.levelno >= logging.ERROR and "5" in r.getMessage() for r in caplog.records)
+
+
+def test_reconcile_contains_failure_never_propagates(monkeypatch):
+    """The reconcile runs in run()'s finally; an escape would flip a fully-stored report
+    to failed_reporting / mask the storage block's exception. A lock-acquire failure
+    (e.g. Postgres connection exhaustion) must be contained, not raised."""
+    from contextlib import contextmanager
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.data.tasking as tasking
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+
+    class _FakeDB:
+        lock_engine = object()
+    monkeypatch.setattr(dbmod, "Database", lambda: _FakeDB())
+    monkeypatch.setattr(m, "mongo_update_one", lambda *a, **k: object(), raising=False)
+
+    @contextmanager
+    def failing_lock(lock_engine, task_id):
+        raise RuntimeError("FATAL: sorry, too many clients already")
+        yield
+    monkeypatch.setattr(tasking, "task_visibility_lock", failing_lock)
+
+    # must NOT raise (contained + logged)
+    m._reconcile_report_visibility(main_task_id=None, local_task_id=5, ids_to_delete={5})
 
 
 def test_task_visibility_lock_noop_without_engine():

@@ -421,24 +421,26 @@ def test_check_file_uniq_scoped_even_with_hours_zero(db):
     assert db.check_file_uniq(h, hours=0) is True
 
 
-def test_advisory_lock_noop_on_sqlite():
-    """No-op on sqlite (single-writer, tests) so single-node/legacy behavior is
-    unchanged: _advisory_lock returns None and issues no SQL."""
+def test_advisory_lock_noop_without_lock_engine():
+    """No-op when there is no lock engine (non-Postgres / sqlite is single-writer):
+    _advisory_lock returns None and issues no SQL."""
     import lib.cuckoo.core.data.tasking as tk
 
-    class _Sess:
-        def get_bind(self):
-            return type("E", (), {"dialect": type("D", (), {"name": "sqlite"})()})()
-
-    assert tk._advisory_lock(_Sess(), 7) is None
+    assert tk._advisory_lock(None, 7) is None
 
 
-def test_advisory_lock_uses_dedicated_pool_connection_on_postgres(monkeypatch):
-    """The concurrent-toggle lock must be taken on a DEDICATED connection from a
-    SEPARATE pool (_lock_engine), NOT the pooled ORM session (re-entrant/leak across
-    the mid-method commit) and NOT the shared app pool (which the lock, held across the
-    slow mongo round-trip, could starve). The SAME connection is locked, unlocked, and
-    closed."""
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_sqlite_database_has_no_lock_engine(db):
+    """On sqlite the Database builds NO dedicated lock engine (advisory locks are a
+    no-op there), so set_task_visibility runs its unserialized-but-single-writer path."""
+    assert getattr(db, "lock_engine", "missing") is None
+
+
+def test_advisory_lock_uses_dedicated_engine_connection_on_postgres():
+    """The concurrent-toggle lock must be taken on a DEDICATED connection from the
+    dedicated lock ENGINE (NullPool, off the app pool), NOT the pooled ORM session
+    (re-entrant/leak across the mid-method commit). The SAME connection is locked,
+    unlocked, and closed."""
     import lib.cuckoo.core.data.tasking as tk
 
     events = []
@@ -455,18 +457,12 @@ def test_advisory_lock_uses_dedicated_pool_connection_on_postgres(monkeypatch):
 
     the_conn = _Conn()
 
-    class _LockEngine:  # the SEPARATE lock-engine (NullPool) source
+    class _LockEngine:  # the dedicated NullPool lock engine (Database.lock_engine)
         def connect(self):
             events.append(("connect", None, None))
             return the_conn
 
-    class _Sess:
-        def get_bind(self):
-            return type("E", (), {"dialect": type("D", (), {"name": "postgresql"})()})()
-
-    monkeypatch.setattr(tk, "_lock_engine", lambda app_engine: _LockEngine())
-
-    conn = tk._advisory_lock(_Sess(), 42)
+    conn = tk._advisory_lock(_LockEngine(), 42)
     assert conn is the_conn                      # dedicated connection from the lock engine
     tk._advisory_unlock(conn, 42)
 
@@ -475,23 +471,18 @@ def test_advisory_lock_uses_dedicated_pool_connection_on_postgres(monkeypatch):
     assert "pg_advisory_unlock" in events[2][1] and events[2][2] == {"k": 42}  # unlock on the SAME conn
 
 
-def test_advisory_lock_fails_closed_on_postgres_acquire_failure(monkeypatch):
-    """Pool/connection exhaustion on Postgres must FAIL CLOSED (raise), never return
-    None and proceed unserialized (which would reopen the concurrent-toggle race)."""
+def test_advisory_lock_fails_closed_on_acquire_failure():
+    """Pool/connection exhaustion must FAIL CLOSED (raise), never return None and
+    proceed unserialized (which would reopen the concurrent-toggle race)."""
     import pytest as _pytest
     import lib.cuckoo.core.data.tasking as tk
-
-    class _Sess:
-        def get_bind(self):
-            return type("E", (), {"dialect": type("D", (), {"name": "postgresql"})()})()
 
     class _BoomEngine:
         def connect(self):
             raise RuntimeError("pool exhausted")
 
-    monkeypatch.setattr(tk, "_lock_engine", lambda app_engine: _BoomEngine())
     with _pytest.raises(RuntimeError):
-        tk._advisory_lock(_Sess(), 7)
+        tk._advisory_lock(_BoomEngine(), 7)
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")

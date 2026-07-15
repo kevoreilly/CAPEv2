@@ -60,48 +60,26 @@ log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 
 
-_LOCK_ENGINE = None
-
-
-def _lock_engine(app_engine):
-    """A dedicated NullPool engine for advisory-lock connections, kept SEPARATE from the
-    application's shared QueuePool. The lock connection is held across the (possibly
-    slow) mongo round-trip; during a mongo outage graceful_auto_reconnect can pin it for
-    tens of seconds, so sourcing it from the app pool would let a burst of concurrent
-    toggles exhaust the pool and stall unrelated DB work (scheduling, web queries).
-    NullPool = one fresh physical connection per lock, fully closed on release (which
-    also releases the advisory lock via backend termination). Cached module-level;
-    rebuilt only if the app engine URL changes."""
-    global _LOCK_ENGINE
-    if _LOCK_ENGINE is None or str(_LOCK_ENGINE.url) != str(app_engine.url):
-        from sqlalchemy import create_engine
-        from sqlalchemy.pool import NullPool
-
-        _LOCK_ENGINE = create_engine(app_engine.url, poolclass=NullPool)
-    return _LOCK_ENGINE
-
-
-def _advisory_lock(session, key):
+def _advisory_lock(lock_engine, key):
     """Best-effort cross-process serialization of per-task visibility toggles.
 
-    Acquires a Postgres SESSION-level advisory lock on a DEDICATED connection from a
-    separate NullPool engine (_lock_engine): NOT the pooled ORM session (whose
-    connection the mid-operation commit returns to the pool — that would make the lock
-    re-entrant on a reused connection or leak on a different one) and NOT the shared app
-    QueuePool (which the lock, held across the slow mongo round-trip, could otherwise
-    starve). The connection is pinned for the whole critical section so lock+unlock land
-    on one backend. Session-level (not xact) is required because it must outlive the
-    mid-operation commit.
+    Acquires a Postgres SESSION-level advisory lock on a DEDICATED connection from
+    ``lock_engine`` — the Database's dedicated NullPool engine (built in database.py
+    alongside the app engine, carrying the same connect_args). It is deliberately NOT
+    the pooled ORM session (whose connection the mid-operation commit returns to the
+    pool — that would make the lock re-entrant on a reused connection or leak on a
+    different one) and NOT the shared app QueuePool (which the lock, held across the slow
+    mongo round-trip, could otherwise starve). The connection is pinned for the whole
+    critical section so lock+unlock land on one backend. Session-level (not xact) is
+    required because it must outlive the mid-operation commit.
 
-    Returns the held Connection (release + close via _advisory_unlock), or None on
-    non-Postgres backends (sqlite tests are single-writer — no serialization needed). On
-    Postgres a failure to acquire the lock is RAISED (fail closed — the caller must
-    abort rather than proceed unserialized), NOT swallowed to None."""
-    engine = session.get_bind()
-    engine = getattr(engine, "engine", engine)
-    if engine.dialect.name != "postgresql":
+    ``lock_engine`` is None on non-Postgres backends (sqlite is single-writer — no
+    serialization needed) -> returns None. On Postgres a failure to acquire the lock is
+    RAISED (fail closed — the caller must abort rather than proceed unserialized), NOT
+    swallowed to None."""
+    if lock_engine is None:
         return None
-    conn = _lock_engine(engine).connect()
+    conn = lock_engine.connect()
     try:
         conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": int(key)})
         return conn
@@ -961,7 +939,7 @@ class TasksMixIn:
                 return False
 
         try:
-            _lock_conn = _advisory_lock(self.session, task_id)
+            _lock_conn = _advisory_lock(getattr(self, "lock_engine", None), task_id)
         except Exception as _le:
             # Postgres and the serialization lock could NOT be acquired (e.g. pool /
             # connection exhaustion): fail CLOSED rather than proceed unserialized,

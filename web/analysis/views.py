@@ -219,6 +219,11 @@ def require_task_manage(view):
 
     @wraps(view)
     def _wrapped(request, *args, **kwargs):
+        # TRUE NO-OP when multitenancy is disabled: pass straight through so the
+        # view renders exactly as upstream (off disk/mongo, ~200) — including the
+        # mode-independent non-numeric-id hardening, which only applies when MT is on.
+        if not multitenancy_config().enabled:
+            return view(request, *args, **kwargs)
         tid = kwargs.get("task_id") or kwargs.get("analysis_number")
         if tid is None and args:
             tid = args[0]
@@ -243,6 +248,11 @@ def require_task_visibility(view):
 
     @wraps(view)
     def _wrapped(request, *args, **kwargs):
+        # TRUE NO-OP when multitenancy is disabled: pass straight through so the
+        # view renders exactly as upstream (off disk/mongo, ~200) — including the
+        # mode-independent non-numeric-id hardening, which only applies when MT is on.
+        if not multitenancy_config().enabled:
+            return view(request, *args, **kwargs)
         tid = kwargs.get("task_id") or kwargs.get("analysis_number")
         if tid is None and args:
             tid = args[0]
@@ -2751,10 +2761,14 @@ def report(request, task_id):
     # Tenant/visibility enforcement — deny BEFORE any (expensive) report loading OR central staging
     # (never stage another tenant's S3 tree). A hidden task and a missing/deleted task are
     # INDISTINGUISHABLE (no cross-tenant enumeration) and both render the generic "no analysis found"
-    # page — a true no-op when multitenancy is disabled (can_view_task is always True then).
-    _task = db.view_task(task_id)
-    if _task is None or not can_view_task(request.user, _task):
-        return render(request, "error.html", {"error": "No analysis found with specified ID"})
+    # page. TRUE NO-OP when multitenancy is disabled: the entire SQL-existence pre-check is skipped
+    # so a mongo/ES-only analysis (no SQL Task row) falls through to upstream's original mongo/ES
+    # 'if not report:' path with its unchanged message/rendering.
+    _task = None
+    if multitenancy_config().enabled:
+        _task = db.view_task(task_id)
+        if _task is None or not can_view_task(request.user, _task):
+            return render(request, "error.html", {"error": "No analysis found with specified ID"})
     # Only show the visibility toggle when multitenancy is ON. With MT off every
     # principal is a break-glass local-admin (can_toggle == True), but the control
     # would be meaningless and writing a value could plant a backfill landmine if MT
@@ -3144,11 +3158,14 @@ def report(request, task_id):
             if rid == report["info"]["id"]:
                 continue
             # tenant isolation: only surface other analyses of this sample that
-            # the requester may read (no-op when MT disabled). Without this, the
-            # report page leaks other tenants' task ids + detections for the hash.
-            _vt = db.view_task(rid)
-            if _vt is None or not can_view_task(request.user, _vt):
-                continue
+            # the requester may read. TRUE NO-OP when MT disabled — the SQL-existence
+            # intersection is skipped entirely so a mongo/ES-only record (no SQL Task
+            # row) is surfaced exactly as upstream did. Without this, when MT is ON the
+            # report page would leak other tenants' task ids + detections for the hash.
+            if multitenancy_config().enabled:
+                _vt = db.view_task(rid)
+                if _vt is None or not can_view_task(request.user, _vt):
+                    continue
             existent_tasks[rid] = record.get("detections")
 
     # process log per task if enabled:
@@ -4191,13 +4208,20 @@ def statistics_data(request, days=7):
 
         v = viewer_for(request.user)
         try:
+            _scopes = list(entitled_scopes(request.user))
+            # TRUE NO-OP when multitenancy is disabled: entitled_scopes() -> ["global"],
+            # so the sole panel gets an EMPTY element-id/target suffix and the template
+            # collapses the multi-panel header/title so the rendered markup is byte-for-byte
+            # identical to upstream (bare 'tasksChart', 'All Detections', no '-global').
+            _single_global = len(_scopes) == 1 and _scopes[0] == "global"
             panels = [
                 {
                     "scope": scope,
                     "label": _SCOPE_LABEL[scope],
+                    "suffix": "" if _single_global else "-" + scope,
                     "statistics": statistics(int(days), scope=scope, viewer=v),
                 }
-                for scope in entitled_scopes(request.user)
+                for scope in _scopes
             ]
         except Exception as e:
             # psycopg2.OperationalError

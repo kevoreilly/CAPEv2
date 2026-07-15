@@ -38,9 +38,10 @@ def test_report_denies_cross_tenant_private(cape_db, mt_enabled, monkeypatch, cl
 
 
 @pytest.mark.django_db
-def test_report_missing_task_renders_error_200(cape_db, monkeypatch, client):
-    """A missing/deleted task renders the same generic error page at HTTP 200 as
-    a hidden task (upstream parity + indistinguishability) — not a 403."""
+def test_report_missing_task_renders_error_200_mt_on(cape_db, mt_enabled, monkeypatch, client):
+    """With MT ON, a missing/deleted task renders the same generic "No analysis
+    found" error page at HTTP 200 as a hidden task (indistinguishability) — not a
+    403 — so cross-tenant task IDs can't be enumerated by status/message."""
     import analysis.views as av
     monkeypatch.setattr(av.db, "view_task", lambda *a, **k: None)
     u = User.objects.create_user("c", "c@x.com", "x")
@@ -48,6 +49,32 @@ def test_report_missing_task_renders_error_200(cape_db, monkeypatch, client):
     r = client.get(_report_url())
     assert r.status_code == 200
     assert b"No analysis found" in r.content
+
+
+@pytest.mark.django_db
+def test_report_mt_off_falls_through_to_upstream_error(cape_db, mt_disabled, monkeypatch, client):
+    """HARD INVARIANT: with MT OFF the whole SQL-existence pre-check is a NO-OP.
+    A task with no SQL Task row (e.g. a mongo/ES-only analysis, or a fresh/empty
+    DB) must NOT hit the new "No analysis found with specified ID" page; it falls
+    straight through to upstream's original mongo/ES 'if not report:' path with its
+    unchanged message and HTTP 200. (view_task is made to blow up to prove the
+    pre-check never touches the DB when MT is disabled.)"""
+    import analysis.views as av
+
+    def _boom(*a, **k):
+        raise AssertionError("report() must not run the SQL-existence pre-check when MT is off")
+
+    monkeypatch.setattr(av.db, "view_task", _boom)
+    u = User.objects.create_user("c", "c@x.com", "x")
+    client.force_login(u)
+    r = client.get(_report_url())
+    assert r.status_code == 200
+    # Upstream message, NOT the MT "No analysis found with specified ID" string.
+    assert b"No analysis found with specified ID" not in r.content
+    assert (
+        b"The specified analysis does not exist or not finished yet." in r.content
+        or b"enable Mongodb/ES" in r.content
+    )
 
 
 @pytest.mark.django_db
@@ -62,10 +89,13 @@ def test_full_memory_denies_cross_tenant(cape_db, mt_enabled, monkeypatch, clien
 
 
 @pytest.mark.django_db
-def test_non_numeric_task_id_denied_before_db(cape_db, monkeypatch, client):
-    """A non-numeric id on a \\w+ analysis route (full_memory) is coerced-and-denied
-    (403) BEFORE db.view_task runs — so a bad id can't raise a DB DataError -> 500
-    (which would also leak a task-vs-no-task signal). Mode-independent hardening."""
+def test_non_numeric_task_id_denied_before_db(cape_db, mt_enabled, monkeypatch, client):
+    """With MT ON, a non-numeric id on a \\w+ analysis route (full_memory) is
+    coerced-and-denied (403) BEFORE db.view_task runs — so a bad id can't raise a
+    DB DataError -> 500 (which would also leak a task-vs-no-task signal). This
+    hardening only runs when MT is enabled; with MT off the decorator is a pure
+    pass-through so the view keeps upstream's behavior (see
+    test_require_visibility_mt_off_passthrough)."""
     import analysis.views as av
 
     def _boom(*a, **k):
@@ -74,6 +104,37 @@ def test_non_numeric_task_id_denied_before_db(cape_db, monkeypatch, client):
     monkeypatch.setattr(av.db, "view_task", _boom)
     client.force_login(User.objects.create_user("nn", "nn@x.com", "x"))
     assert client.get("/full_memory/abc/").status_code == 403
+
+
+@pytest.mark.django_db
+def test_require_visibility_mt_off_passthrough(cape_db, mt_disabled, monkeypatch):
+    """HARD INVARIANT: with MT OFF, require_task_visibility / require_task_manage
+    are PURE pass-throughs — they must NOT coerce the id, call db.view_task, or
+    return a 403. The wrapped view runs exactly as upstream (which then renders off
+    disk/mongo, ~200)."""
+    from django.test import RequestFactory
+    import analysis.views as av
+
+    def _boom(*a, **k):
+        raise AssertionError("decorators must not touch the DB when MT is off")
+
+    monkeypatch.setattr(av.db, "view_task", _boom)
+
+    sentinel = object()
+
+    @av.require_task_visibility
+    def _vis_view(request, task_id):
+        return sentinel
+
+    @av.require_task_manage
+    def _mng_view(request, task_id):
+        return sentinel
+
+    req = RequestFactory().get("/x/")
+    req.user = User.objects.create_user("pt", "pt@x.com", "x")
+    # even a non-numeric id passes straight through untouched when MT is off
+    assert _vis_view(req, task_id="abc") is sentinel
+    assert _mng_view(req, task_id="abc") is sentinel
 
 
 @pytest.mark.django_db
@@ -161,6 +222,75 @@ def test_file_search_all_files_drops_cross_tenant_paths(cape_db, mt_enabled, mon
     paths = av._file_search_all_files("capeyara", "Emotet", req)
     assert "/opt/CAPEv2/storage/analyses/2/files/own.bin" in paths            # readable kept
     assert "/opt/CAPEv2/storage/binaries/deadbeefdeadbeef" not in paths       # foreign content-addressed sample dropped
+
+
+_STATS = {
+    "total": 3,
+    "average": 1,
+    "tasks": {},
+    "detections": {"Emotet": {"family": "Emotet", "total": 2}},
+    "asns": [],
+    "signatures": {},
+    "processing": {},
+    "reporting": {},
+    "custom_statistics": {},
+}
+
+
+@pytest.mark.django_db
+def test_statistics_mt_off_renders_upstream_markup(cape_db, mt_disabled, monkeypatch, client):
+    """HARD INVARIANT: with MT OFF, entitled_scopes()->['global'] and the single
+    panel must render BYTE-FOR-BYTE upstream markup — bare element ids (no
+    '-global' suffix), a plain 'All Detections' modal title (no '— Global'), and
+    no per-scope header."""
+    import analysis.views as av
+    import dashboard.views as dv
+
+    monkeypatch.setattr(av, "statistics", lambda *a, **k: dict(_STATS))
+    monkeypatch.setattr(dv, "entitled_scopes", lambda user: ["global"])
+    client.force_login(User.objects.create_user("st", "st@x.com", "x"))
+
+    r = client.get("/statistics/7/")
+    assert r.status_code == 200
+    body = r.content
+    # bare upstream ids, no scope suffix
+    assert b'id="tasksChart"' in body
+    assert b'id="allDetectionsModal"' in body
+    assert b'id="performanceTabs"' in body
+    assert b'data-bs-target="#processing"' in body
+    assert b"tasksChart-global" not in body
+    assert b"allDetectionsModal-global" not in body
+    # upstream modal title, no label suffix, and no per-scope header
+    assert b"All Detections" in body
+    assert b"All Detections \xe2\x80\x94" not in body  # no " — " suffix
+    assert b"fa-layer-group" not in body
+
+
+@pytest.mark.django_db
+def test_statistics_mt_on_multiscope_suffixes_ids_and_labels(cape_db, mt_enabled, monkeypatch, client):
+    """With MT ON and multiple entitled scopes, each panel's ids/targets are
+    suffixed with '-<scope>' and the modal title carries the '— <label>' suffix
+    plus a per-scope header, so the panels don't collide in the DOM."""
+    import analysis.views as av
+    import dashboard.views as dv
+
+    monkeypatch.setattr(av, "statistics", lambda *a, **k: dict(_STATS))
+    monkeypatch.setattr(dv, "entitled_scopes", lambda user: ["public", "mine"])
+    client.force_login(User.objects.create_user("st2", "st2@x.com", "x"))
+
+    r = client.get("/statistics/7/")
+    assert r.status_code == 200
+    body = r.content
+    # per-scope suffixed ids for BOTH panels
+    assert b'id="tasksChart-public"' in body
+    assert b'id="tasksChart-mine"' in body
+    assert b'id="allDetectionsModal-public"' in body
+    # label-suffixed modal titles + per-scope headers
+    assert b"All Detections \xe2\x80\x94 Public" in body
+    assert b"All Detections \xe2\x80\x94 Mine" in body
+    assert b"fa-layer-group" in body
+    # the bare (unsuffixed) upstream ids must NOT appear in multi-panel mode
+    assert b'id="tasksChart"' not in body
 
 
 @pytest.mark.django_db

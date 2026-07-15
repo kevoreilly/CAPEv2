@@ -963,3 +963,310 @@ def test_toggle_visibility_rejected_when_mt_disabled(cape_db, monkeypatch):
     r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "private"}, format="json")
     assert r.status_code == 400 and r.json().get("error") is True
     assert wrote["set"] is False  # never wrote SQL/mongo while MT off
+
+
+# ---------------------------------------------------------------------------
+# Finding (1): ext_tasks_search — the batch record filter must NOT drop records
+# whose info.id has no live SQL Task row when MT is off / break-glass. A
+# non-admin (MT on) still drops rows outside the visible set.
+# ---------------------------------------------------------------------------
+
+
+class _Viewer:
+    def __init__(self, is_local_admin):
+        self.is_local_admin = is_local_admin
+
+
+class _RowTask:
+    def __init__(self, tid):
+        self.id = tid
+
+
+def _run_ext_search_filter(monkeypatch, viewer, mongo_records, visible_ids):
+    """Drive ext_tasks_search's post-perform_search record loop in isolation:
+    stub apiconf (enabled), perform_search (returns mongo_records), viewer_for,
+    the SQL visibility query (list_tasks -> rows with visible_ids), and force the
+    mongo (not ES) branch. Returns the resp['data'] list the view would emit."""
+    import apiv2.views as views
+    from rest_framework.test import APIClient
+
+    # enabled endpoint + valid term/value so we reach the records branch
+    monkeypatch.setattr(views.apiconf, "extendedtasksearch",
+                        {"enabled": True}, raising=False)
+    monkeypatch.setattr(views, "es_as_db", False, raising=False)
+
+    class _Mongo:
+        enabled = True
+
+    class _RepConf:
+        mongodb = _Mongo()
+
+    monkeypatch.setattr(views, "repconf", _RepConf(), raising=False)
+    monkeypatch.setattr(views, "viewer_for", lambda user: viewer, raising=False)
+    monkeypatch.setattr(views, "perform_search",
+                        lambda *a, **k: mongo_records, raising=False)
+    # SQL visibility resolution — only the "visible" ids come back as rows
+    monkeypatch.setattr(
+        views.db, "list_tasks",
+        lambda *a, **k: [_RowTask(t) for t in visible_ids], raising=False,
+    )
+    # "malscore" is a valid term that skips the tags/options/ids preamble
+    c = APIClient()
+    u = User.objects.create_user("extsearch", "extsearch@x.com", "x")
+    c.force_authenticate(user=u)
+    r = c.post("/apiv2/tasks/extendedsearch/",
+               {"option": "malscore", "argument": "5"}, format="json")
+    assert r.status_code == 200, r.content
+    return r.json()
+
+
+@pytest.mark.django_db
+def test_ext_search_mt_off_keeps_records_without_sql_row(cape_db, monkeypatch):
+    """MT off / break-glass (is_local_admin): every record is returned even when
+    NO record's info.id maps to a live SQL Task row (list_tasks -> []). This is
+    the upstream default-install behavior; the new MT drop must be a no-op."""
+    records = [{"info": {"id": 111}}, {"info": {"id": 222}}]
+    out = _run_ext_search_filter(monkeypatch, _Viewer(True), records, visible_ids=[])
+    assert out.get("error") is False
+    assert out["data"] == records  # nothing dropped despite empty SQL visible set
+
+
+@pytest.mark.django_db
+def test_ext_search_mt_on_drops_invisible_records(cape_db, monkeypatch):
+    """MT on, non-admin viewer: records whose info.id is not in the caller's
+    visible set are dropped; visible ones are kept."""
+    records = [{"info": {"id": 111}}, {"info": {"id": 222}}]
+    out = _run_ext_search_filter(monkeypatch, _Viewer(False), records, visible_ids=[111])
+    assert out.get("error") is False
+    assert out["data"] == [{"info": {"id": 111}}]  # 222 not visible -> dropped
+
+
+# ---------------------------------------------------------------------------
+# Finding (2): task_x_hours — MT off must reproduce upstream's reversed-bounds
+# (always-empty) query verbatim; only MT on uses the corrected 24h window.
+# ---------------------------------------------------------------------------
+
+
+# NOTE on task_x_hours + `datetime`: the view uses `datetime.datetime.now()`,
+# but apiv2/views.py imports only `from datetime import datetime` (a pre-existing
+# quirk carried verbatim from upstream base into BOTH the MT-off and MT-on
+# branches). To exercise the BEHAVIORAL difference between the two branches
+# (reversed-bounds + (date, samples) tuple-unpack for MT-off vs corrected-bounds
+# + per-Task can_view count for MT-on) without tripping that name resolution, the
+# tests inject a shim exposing `.datetime`/`.timedelta` and capture the between()
+# bounds so we can assert which query the branch built.
+
+
+class _FakeQuery:
+    def __init__(self, recorder, rows):
+        self._recorder = recorder
+        self._rows = rows
+
+    def filter(self, criterion):
+        return self
+
+    def all(self):
+        return self._rows
+
+
+class _FakeSession:
+    def __init__(self, recorder, rows):
+        self._recorder = recorder
+        self._rows = rows
+
+    def query(self, *a, **k):
+        return _FakeQuery(self._recorder, self._rows)
+
+    def close(self):
+        self._recorder["closed"] = True
+
+
+def _install_datetime_shim(monkeypatch, views, recorder):
+    """Give the module a `datetime.datetime`/`datetime.timedelta` so the view's
+    `datetime.datetime.now()` resolves, and capture the between() bounds order so
+    tests can prove reversed (MT-off/upstream) vs corrected (MT-on)."""
+    import datetime as _real
+
+    class _Col:
+        def between(self, lo, hi):
+            recorder["bounds"] = (lo, hi)
+            return object()  # opaque criterion
+
+    monkeypatch.setattr(views.Task, "added_on", _Col(), raising=False)
+
+    class _DTShim:
+        datetime = _real.datetime
+        timedelta = _real.timedelta
+
+    monkeypatch.setattr(views, "datetime", _DTShim, raising=False)
+
+
+@pytest.mark.django_db
+def test_task_x_hours_mt_off_uses_reversed_bounds_and_tuple_unpack(cape_db, monkeypatch, mt_disabled):
+    """MT disabled => upstream verbatim: reversed between(now, now-1day) bounds
+    AND `for date, samples in res` tuple-unpack. Feed (date, count) 2-tuples so
+    the upstream unpack succeeds and the result matches upstream's shape; assert
+    the bounds are REVERSED (lo > hi) — i.e. NOT the corrected MT-on window."""
+    import datetime as _dt
+    import apiv2.views as views
+    from rest_framework.test import APIClient
+
+    rec = {}
+    _install_datetime_shim(monkeypatch, views, rec)
+    d1 = _dt.datetime(2026, 1, 1, 12, 0, 0)
+    # upstream shape: rows are (date, samples) tuples
+    monkeypatch.setattr(views.db, "Session",
+                        lambda *a, **k: _FakeSession(rec, [(d1, 3)]), raising=False)
+
+    u = User.objects.create_user("txh_off", "txh_off@x.com", "x")
+    c = APIClient()
+    c.force_authenticate(user=u)
+    r = c.get("/apiv2/tasks/stats/")
+    assert r.status_code == 200, r.content
+    body = r.json()
+    assert body["error"] is False
+    # upstream setdefault(date, samples) -> the raw `samples` value, NOT a count
+    assert list(body["stats"].values()) == [3]
+    # reversed bounds (upstream bug preserved): lo (now) > hi (now - 1 day)
+    lo, hi = rec["bounds"]
+    assert lo > hi
+    assert rec.get("closed") is True
+
+
+@pytest.mark.django_db
+def test_task_x_hours_mt_off_tuple_unpack_rejects_plain_task(cape_db, monkeypatch, mt_disabled):
+    """Extra proof the MT-off branch is upstream verbatim: it unpacks each row as
+    `for date, samples in res`. A single Task object (the MT-on row shape) is not
+    a 2-tuple, so the upstream unpack raises -> 500. This distinguishes the branch
+    from the new per-Task count loop."""
+    import apiv2.views as views
+    from rest_framework.test import APIClient
+
+    rec = {}
+    _install_datetime_shim(monkeypatch, views, rec)
+
+    class _NotATuple:
+        added_on = None  # single object, NOT iterable into (date, samples)
+
+    monkeypatch.setattr(views.db, "Session",
+                        lambda *a, **k: _FakeSession(rec, [_NotATuple()]), raising=False)
+
+    u = User.objects.create_user("txh_off2", "txh_off2@x.com", "x")
+    # raise_request_exception=False so the unhandled unpack TypeError surfaces as a
+    # 500 response instead of the test client re-raising it.
+    c = APIClient(raise_request_exception=False)
+    c.force_authenticate(user=u)
+    r = c.get("/apiv2/tasks/stats/")
+    assert r.status_code == 500
+
+
+@pytest.mark.django_db
+def test_task_x_hours_mt_on_corrected_bounds_and_visibility_count(cape_db, monkeypatch, mt_enabled):
+    """MT enabled => corrected 24h window (lo < hi) AND the new Python path that
+    iterates single Task objects, counting one per bucket, filtered by
+    can_view_task. Invisible tasks are skipped."""
+    import datetime as _dt
+    import apiv2.views as views
+    from rest_framework.test import APIClient
+
+    rec = {}
+    _install_datetime_shim(monkeypatch, views, rec)
+
+    class _T:
+        def __init__(self, tid, view):
+            self.id = tid
+            self._view = view
+            self.added_on = _dt.datetime(2026, 1, 1, 12, 0, 0)
+
+    rows = [_T(1, True), _T(2, False), _T(3, True)]
+    monkeypatch.setattr(views.db, "Session",
+                        lambda *a, **k: _FakeSession(rec, rows), raising=False)
+    monkeypatch.setattr(views, "can_view_task",
+                        lambda user, t: t._view, raising=False)
+
+    u = User.objects.create_user("txh_on", "txh_on@x.com", "x")
+    c = APIClient()
+    c.force_authenticate(user=u)
+    r = c.get("/apiv2/tasks/stats/")
+    assert r.status_code == 200, r.content
+    body = r.json()
+    assert body["error"] is False
+    # 2 visible tasks in the same minute bucket -> count 2 (invisible skipped).
+    assert sum(body["stats"].values()) == 2
+    # corrected bounds (MT-on): lo (now - 1 day) < hi (now)
+    lo, hi = rec["bounds"]
+    assert lo < hi
+
+
+# ---------------------------------------------------------------------------
+# Finding (3): _strip_mt_task_fields — Task.to_dict() now carries tenant_id +
+# visibility. MT off => strip (upstream-identical output). MT on => preserved.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+def test_strip_mt_task_fields_mt_off_removes_keys(monkeypatch, mt_disabled):
+    import apiv2.views as views
+    d = {"id": 1, "target": "x", "tenant_id": 7, "visibility": "private"}
+    out = views._strip_mt_task_fields(d)
+    assert "tenant_id" not in out
+    assert "visibility" not in out
+    assert out["id"] == 1 and out["target"] == "x"
+
+
+@pytest.mark.django_db
+def test_strip_mt_task_fields_mt_on_preserves_keys(monkeypatch, mt_enabled):
+    import apiv2.views as views
+    d = {"id": 1, "target": "x", "tenant_id": 7, "visibility": "private"}
+    out = views._strip_mt_task_fields(d)
+    assert out["tenant_id"] == 7
+    assert out["visibility"] == "private"
+
+
+@pytest.mark.django_db
+def test_tasks_view_response_strips_mt_keys_when_off(cape_db, monkeypatch, mt_disabled):
+    """End-to-end: tasks_view must not leak tenant_id/visibility on a default
+    (MT-off) install; with MT on it does."""
+    from rest_framework.test import APIClient
+    import apiv2.views as views
+
+    class _Task:
+        def __init__(self):
+            self.id = 1
+            self.category = "file"
+            self.guest = None
+            self.sample_id = None
+            self.errors = []
+            self.status = "reported"
+            self.custom = None
+
+        def to_dict(self):
+            return {
+                "id": 1,
+                "category": "file",
+                "target": "/tmp/a.bin",
+                "status": "reported",
+                "tenant_id": 5,
+                "visibility": "private",
+            }
+
+    monkeypatch.setattr(views.apiconf, "taskview", {"enabled": True}, raising=False)
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: _Task(), raising=False)
+
+    class _Mongo:
+        enabled = False
+
+    class _RepConf:
+        mongodb = _Mongo()
+
+    monkeypatch.setattr(views, "repconf", _RepConf(), raising=False)
+    monkeypatch.setattr(views, "es_as_db", False, raising=False)
+
+    u = User.objects.create_user("tv_off", "tv_off@x.com", "x")
+    c = APIClient()
+    c.force_authenticate(user=u)
+    r = c.get("/apiv2/tasks/view/1/")
+    assert r.status_code == 200, r.content
+    data = r.json()["data"]
+    assert "tenant_id" not in data
+    assert "visibility" not in data

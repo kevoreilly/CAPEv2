@@ -356,13 +356,24 @@ def static_config_lookup(file_path: str, sha256: str = False, viewer=None) -> di
             "analysis", _q, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", -1)]
         )
     elif repconf.elasticsearchdb.enabled:
-        _esmust = [{"term": {"target.file.sha256": sha256}}]  # exact hash -> term, not analyzed match
-        _esbody = {"query": {"bool": {"must": _esmust}}, "_source": ["CAPE.configs", "info.id"], "sort": {"_id": {"order": "desc"}}}
         _esf = _config_lookup_es_filter(viewer)
         if _esf:
-            _esbody["query"]["bool"]["filter"] = [_esf]
-        _hits = es.search(index=get_analysis_index(), body=_esbody)["hits"]["hits"]
-        document_dict = _hits[0]["_source"] if _hits else None
+            # MT on: scope-restricted, exact-hash term query; None on no hits.
+            _esbody = {
+                "query": {"bool": {"must": [{"term": {"target.file.sha256": sha256}}], "filter": [_esf]}},
+                "_source": ["CAPE.configs", "info.id"],
+                "sort": {"_id": {"order": "desc"}},
+            }
+            _hits = es.search(index=get_analysis_index(), body=_esbody)["hits"]["hits"]
+            document_dict = _hits[0]["_source"] if _hits else None
+        else:
+            # MT off / break-glass: behave byte-for-byte like upstream base.
+            document_dict = es.search(
+                index=get_analysis_index(),
+                body={"query": {"match": {"target.file.sha256": sha256}}},
+                _source=["CAPE.configs", "info.id"],
+                sort={"_id": {"order": "desc"}},
+            )["hits"]["hits"][0]["_source"]
     else:
         document_dict = None
 

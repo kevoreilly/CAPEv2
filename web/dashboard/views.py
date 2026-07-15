@@ -99,14 +99,46 @@ def index(request):
     db: TasksMixIn = Database()
     v = _ut.viewer_for(request.user) if _ut is not None else None
 
+    scopes = entitled_scopes(request.user)
+    # Single global panel (multitenancy disabled / break-glass local-admin) must be
+    # byte-for-byte identical to upstream: build the legacy "report" dict, which is
+    # left empty ({}) unless there are completed/reported tasks, and let the template
+    # collapse the per-scope chrome. Only the genuinely-multi-panel (MT-on scoped)
+    # case gets the per-scope labelled layout.
+    single_global = scopes == ["global"]
+
     panels = []
-    for scope in entitled_scopes(request.user):
+    for scope in scopes:
         states = db.get_tasks_status_count(scope=scope, viewer=v)
         total_tasks = db.count_tasks(scope=scope, viewer=v) or 0
         total_samples = db.count_samples(scope=scope, viewer=v) or 0
 
-        # Estimate throughput for completed/reported tasks in this scope.
+        # For the following stats we're only interested in completed tasks.
         tasks_done = states.get(TASK_COMPLETED, 0) + states.get(TASK_REPORTED, 0)
+
+        if single_global:
+            # Upstream: report stays {} unless there are completed/reported tasks.
+            report = {}
+            if tasks_done:
+                # Get the time when the first task started and last one ended.
+                started, completed = db.minmax_tasks(scope=scope, viewer=v)
+                # It has happened that for unknown reasons completed and started were
+                # equal in which case an exception is thrown, avoid this.
+                if started and completed and int(completed - started):
+                    hourly = 60 * 60 * tasks_done / (completed - started)
+                else:
+                    hourly = 0
+                report = dict(
+                    total_samples=format_number_with_space(total_samples),
+                    total_tasks=format_number_with_space(total_tasks),
+                    states_count=states,
+                    estimate_hour=format_number_with_space(int(hourly)),
+                    estimate_day=format_number_with_space(int(24 * hourly)),
+                )
+            panels.append({"scope": scope, "label": _SCOPE_LABEL[scope], **report})
+            continue
+
+        # Estimate throughput for completed/reported tasks in this scope.
         estimate_hour = None
         estimate_day = None
         if tasks_done:

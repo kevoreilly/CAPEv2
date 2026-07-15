@@ -11,7 +11,7 @@ from django.shortcuts import render, redirect
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
-from web.tenancy_optional import can_manage_task, viewer_for
+from web.tenancy_optional import can_manage_task, multitenancy_config, viewer_for
 
 logger = logging.getLogger("guac-session")
 
@@ -59,9 +59,15 @@ def index(request, task_id, session_data):
     # Gate it on can_manage_task (owner / tenant-admin / break-glass), NOT mere read
     # visibility, so a read-only viewer of a public/tenant task can't tunnel into the
     # live VM. hidden == "not found" (no cross-tenant enumeration).
-    _task = db.view_task(int(task_id))
-    if _task is None or not can_manage_task(request.user, _task):
-        return _error(request, task_id, "No analysis found with specified ID")
+    #
+    # MT-OFF INVARIANT: this gate is ADDITIVE. When multitenancy is disabled we skip it
+    # entirely and fall through to upstream's original ordering (libvirt/machinery checks
+    # first, then the existence check + exact "The specified task doesn't seem to exist"
+    # message below) so MT-off behavior is byte-for-byte identical to upstream.
+    if multitenancy_config().enabled:
+        _task = db.view_task(int(task_id))
+        if _task is None or not can_manage_task(request.user, _task):
+            return _error(request, task_id, "No analysis found with specified ID")
 
     if not LIBVIRT_AVAILABLE:
         return _error(request, task_id, "Libvirt not available")

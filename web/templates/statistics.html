@@ -63,7 +63,7 @@
 </div>
 
 {% for p in panels %}
-{% with statistics=p.statistics scope=p.scope label=p.label %}
+{% with statistics=p.statistics scope=p.scope label=p.label suffix=p.suffix %}
 
 <div class="mb-5">
 
@@ -109,7 +109,7 @@
         <div class="stats-card p-4 h-100">
             <h5 class="text-white mb-4"><i class="fas fa-chart-line me-2 text-primary"></i>Task Volume Trend</h5>
             <div class="chart-container">
-                <canvas id="tasksChart-{{scope}}"></canvas>
+                <canvas id="tasksChart{{suffix}}"></canvas>
             </div>
         </div>
     </div>
@@ -127,7 +127,7 @@
                 {% endfor %}
             </div>
             <div class="text-center mt-3">
-                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#allDetectionsModal-{{scope}}">View All</button>
+                <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#allDetectionsModal{{suffix}}">View All</button>
             </div>
             {% else %}
             <p class="text-muted text-center mt-5">No detection data available</p>
@@ -144,7 +144,7 @@
             <h5 class="text-white mb-4"><i class="fas fa-network-wired me-2 text-warning"></i>Top ASNs</h5>
             {% if statistics.asns %}
             <div class="chart-container" style="height: 250px;">
-                <canvas id="asnChart-{{scope}}"></canvas>
+                <canvas id="asnChart{{suffix}}"></canvas>
             </div>
             {% else %}
             <p class="text-muted text-center mt-5">No ASN data available</p>
@@ -156,23 +156,23 @@
         <div class="stats-card p-4 h-100">
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h5 class="text-white mb-0"><i class="fas fa-cogs me-2 text-success"></i>Module Performance</h5>
-                <ul class="nav nav-tabs nav-tabs-custom border-0" id="performanceTabs-{{scope}}" role="tablist">
+                <ul class="nav nav-tabs nav-tabs-custom border-0" id="performanceTabs{{suffix}}" role="tablist">
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link active" id="processing-tab-{{scope}}" data-bs-toggle="tab" data-bs-target="#processing-{{scope}}" type="button">Processing</button>
+                        <button class="nav-link active" id="processing-tab{{suffix}}" data-bs-toggle="tab" data-bs-target="#processing{{suffix}}" type="button">Processing</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="signatures-tab-{{scope}}" data-bs-toggle="tab" data-bs-target="#signatures-{{scope}}" type="button">Signatures</button>
+                        <button class="nav-link" id="signatures-tab{{suffix}}" data-bs-toggle="tab" data-bs-target="#signatures{{suffix}}" type="button">Signatures</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="reporting-tab-{{scope}}" data-bs-toggle="tab" data-bs-target="#reporting-{{scope}}" type="button">Reporting</button>
+                        <button class="nav-link" id="reporting-tab{{suffix}}" data-bs-toggle="tab" data-bs-target="#reporting{{suffix}}" type="button">Reporting</button>
                     </li>
                     <li class="nav-item" role="presentation">
-                        <button class="nav-link" id="custom-tab-{{scope}}" data-bs-toggle="tab" data-bs-target="#custom-{{scope}}" type="button">Custom</button>
+                        <button class="nav-link" id="custom-tab{{suffix}}" data-bs-toggle="tab" data-bs-target="#custom{{suffix}}" type="button">Custom</button>
                     </li>
                 </ul>
             </div>
-            <div class="tab-content" id="performanceTabsContent-{{scope}}">
-                <div class="tab-pane fade show active" id="processing-{{scope}}" role="tabpanel">
+            <div class="tab-content" id="performanceTabsContent{{suffix}}">
+                <div class="tab-pane fade show active" id="processing{{suffix}}" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-dark table-hover mb-0">
                             <thead>
@@ -188,7 +188,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="tab-pane fade" id="signatures-{{scope}}" role="tabpanel">
+                <div class="tab-pane fade" id="signatures{{suffix}}" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-dark table-hover mb-0">
                             <thead>
@@ -204,7 +204,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="tab-pane fade" id="reporting-{{scope}}" role="tabpanel">
+                <div class="tab-pane fade" id="reporting{{suffix}}" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-dark table-hover mb-0">
                             <thead>
@@ -220,7 +220,7 @@
                         </table>
                     </div>
                 </div>
-                <div class="tab-pane fade" id="custom-{{scope}}" role="tabpanel">
+                <div class="tab-pane fade" id="custom{{suffix}}" role="tabpanel">
                     <div class="table-responsive">
                         <table class="table table-dark table-hover mb-0">
                             <thead>
@@ -313,11 +313,11 @@
 
 <!-- Detections Modal -->
 {% if statistics.detections %}
-<div class="modal fade" id="allDetectionsModal-{{scope}}" tabindex="-1">
+<div class="modal fade" id="allDetectionsModal{{suffix}}" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered">
         <div class="modal-content bg-dark text-white border-secondary">
             <div class="modal-header border-secondary">
-                <h5 class="modal-title">All Detections — {{label}}</h5>
+                <h5 class="modal-title">All Detections{% if panels|length > 1 %} — {{label}}{% endif %}</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
@@ -345,11 +345,11 @@
 {% block extra_scripts %}
 <script>
 {% for p in panels %}
-{% with statistics=p.statistics scope=p.scope %}
+{% with statistics=p.statistics scope=p.scope suffix=p.suffix %}
 {% if statistics %}
-    // Tasks Chart — {{scope}}
+    // Tasks Chart{{suffix}}
     (function() {
-        var ctx = document.getElementById('tasksChart-{{scope}}');
+        var ctx = document.getElementById('tasksChart{{suffix}}');
         if (!ctx) return;
         new Chart(ctx.getContext('2d'), {
             type: 'line',
@@ -397,9 +397,9 @@
     })();
 
     {% if statistics.asns %}
-    // ASN Chart — {{scope}}
+    // ASN Chart{{suffix}}
     (function() {
-        var asnCtx = document.getElementById('asnChart-{{scope}}');
+        var asnCtx = document.getElementById('asnChart{{suffix}}');
         if (!asnCtx) return;
         new Chart(asnCtx.getContext('2d'), {
             type: 'doughnut',

@@ -83,6 +83,18 @@ def _deny_manage(request, task_id):
     return None
 
 
+def _strip_mt_task_fields(d):
+    """Task.to_dict() now emits the multitenancy columns ("tenant_id",
+    "visibility"). On a DEFAULT (multitenancy-disabled) install these keys did
+    not exist upstream, so drop them from any api response payload to keep the
+    output byte-identical to upstream base. When MT is enabled the keys are part
+    of the tenant model and are preserved untouched."""
+    if not multitenancy_config().enabled and isinstance(d, dict):
+        d.pop("tenant_id", None)
+        d.pop("visibility", None)
+    return d
+
+
 def _deny_by_hash(request, *, sha256=None, sha1=None, md5=None, sample_id=None):
     """Indistinguishable 404 unless the caller has >=1 VISIBLE task referencing the
     sample identified by the hash/id. A sample can be shared across tenants, so access
@@ -879,7 +891,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
             for sid in sids:
                 tasks = db.list_tasks(sample_id=sid, include_hashes=True, visible_to=viewer_for(request.user))
                 for task in tasks:
-                    buf = task.to_dict()
+                    buf = _strip_mt_task_fields(task.to_dict())
                     # Remove path information, just grab the file name
                     buf["target"] = buf["target"].rsplit("/", 1)[-1]
                     if task.sample:
@@ -950,31 +962,42 @@ def ext_tasks_search(request):
                 resp = {"error": True, "error_value": "No option or argument provided."}
 
         if records:
-            # Visibility filter: the mongo/ES report rows don't carry tenant info,
-            # so resolve the visible set in ONE query (list_tasks(visible_to=))
-            # instead of a view_task() per row, then drop rows the viewer can't see.
-            _tids = set()
-            for results in records:
-                _doc = results.get("_source", results) if es_as_db else results
-                _tid = (_doc.get("info") or {}).get("id") if isinstance(_doc, dict) else None
-                if _tid is not None:
+            _viewer = viewer_for(request.user)
+            if _viewer.is_local_admin:
+                # Break-glass / multitenancy-disabled: no isolation to enforce, so
+                # append every record exactly as upstream did (no _visible build,
+                # no per-record drop). Keeps default-install output byte-identical.
+                for results in records:
+                    if repconf.mongodb.enabled:
+                        return_data.append(results)
+                    if es_as_db:
+                        return_data.append(results["_source"])
+            else:
+                # Visibility filter: the mongo/ES report rows don't carry tenant info,
+                # so resolve the visible set in ONE query (list_tasks(visible_to=))
+                # instead of a view_task() per row, then drop rows the viewer can't see.
+                _tids = set()
+                for results in records:
+                    _doc = results.get("_source", results) if es_as_db else results
+                    _tid = (_doc.get("info") or {}).get("id") if isinstance(_doc, dict) else None
+                    if _tid is not None:
+                        try:
+                            _tids.add(int(_tid))
+                        except (ValueError, TypeError):
+                            pass
+                _visible = {t.id for t in db.list_tasks(task_ids=list(_tids), visible_to=_viewer)} if _tids else set()
+                for results in records:
+                    _doc = results.get("_source", results) if es_as_db else results
+                    _tid = (_doc.get("info") or {}).get("id") if isinstance(_doc, dict) else None
                     try:
-                        _tids.add(int(_tid))
+                        if _tid is None or int(_tid) not in _visible:
+                            continue
                     except (ValueError, TypeError):
-                        pass
-            _visible = {t.id for t in db.list_tasks(task_ids=list(_tids), visible_to=viewer_for(request.user))} if _tids else set()
-            for results in records:
-                _doc = results.get("_source", results) if es_as_db else results
-                _tid = (_doc.get("info") or {}).get("id") if isinstance(_doc, dict) else None
-                try:
-                    if _tid is None or int(_tid) not in _visible:
                         continue
-                except (ValueError, TypeError):
-                    continue
-                if repconf.mongodb.enabled:
-                    return_data.append(results)
-                if es_as_db:
-                    return_data.append(results["_source"])
+                    if repconf.mongodb.enabled:
+                        return_data.append(results)
+                    if es_as_db:
+                        return_data.append(results["_source"])
 
             resp = {"error": False, "data": return_data}
         else:
@@ -1054,7 +1077,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
     else:
         for row in tasks:
             resp["buf"] += 1
-            task = row.to_dict()
+            task = _strip_mt_task_fields(row.to_dict())
             task["guest"] = {}
             if row.guest:
                 task["guest"] = row.guest.to_dict()
@@ -1094,7 +1117,7 @@ def tasks_view(request, task_id):
         return Response(resp)
 
     resp = {"error": False}
-    entry = task.to_dict()
+    entry = _strip_mt_task_fields(task.to_dict())
     if entry["category"] != "url":
         entry["target"] = entry["target"].rsplit("/", 1)[-1]
     entry["guest"] = {}
@@ -1123,7 +1146,7 @@ def tasks_view(request, task_id):
                 return _denied
             resp["error"] = []
             if task:
-                entry = task.to_dict()
+                entry = _strip_mt_task_fields(task.to_dict())
                 if entry["category"] != "url":
                     entry["target"] = entry["target"].rsplit("/", 1)[-1]
                     entry["guest"] = {}
@@ -2902,6 +2925,25 @@ def cuckoo_status(request):
 @api_view(["GET"])
 def task_x_hours(request):
     session = db.Session()
+    if not multitenancy_config().enabled:
+        # Multitenancy disabled: reproduce upstream verbatim, including the
+        # pre-existing reversed between() args (now, now-1day) that make this
+        # window always empty. Fixing the bounds here would change the default
+        # install's output (from {} to real data), which must stay identical to
+        # upstream base. The corrected bounds + visibility filter apply only when
+        # multitenancy is enabled (below).
+        res = (
+            session.query(Task)
+            .filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
+            .all()
+        )
+        results = {}
+        if res:
+            for date, samples in res:
+                results.setdefault(date.strftime("%Y-%m-%eT%H:%M:00"), samples)
+        session.close()
+        resp = {"error": False, "stats": results}
+        return Response(resp)
     try:
         # Query the bounded last-24h window FIRST (a small set), then filter by
         # visibility in Python — avoids loading the whole visible set into memory
@@ -2931,7 +2973,7 @@ def tasks_latest(request, hours):
     resp["error"] = []
     timestamp = datetime.now() - timedelta(hours=int(hours))
     ids = db.list_tasks(completed_after=timestamp, visible_to=viewer_for(request.user))
-    resp["ids"] = [id.to_dict() for id in ids]
+    resp["ids"] = [_strip_mt_task_fields(id.to_dict()) for id in ids]
     return Response(resp)
 
 

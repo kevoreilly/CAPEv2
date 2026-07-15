@@ -20,6 +20,22 @@ def mt_enabled(monkeypatch):
 
 
 @pytest.fixture
+def mt_disabled(monkeypatch):
+    """Force multitenancy OFF explicitly (the default) so MT-off invariant tests are
+    robust to any ambient config: new MT gates must be true no-ops and views must fall
+    through to upstream behavior byte-for-byte."""
+    from lib.cuckoo.common.tenancy import MTConfig
+    import users.tenancy as ut
+
+    monkeypatch.setattr(
+        ut, "multitenancy_config",
+        lambda: MTConfig(enabled=False, mode="shared", default_visibility="",
+                         local_admins_manage_all_tenants=True),
+    )
+    yield
+
+
+@pytest.fixture
 def cape_db():
     """Initialize the SQLAlchemy CAPE database (in-memory) for web-view tests
     that exercise the global `db` proxy (e.g. report/submit views). Named

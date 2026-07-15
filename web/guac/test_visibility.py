@@ -1,5 +1,6 @@
 import pytest
 from django.contrib.auth.models import User
+from django.http import HttpResponse
 
 pytest_plugins = ("mt_test_fixtures",)  # fixtures live in web/mt_test_fixtures.py (not a conftest,
 # which would shadow tests/conftest.py under pythonpath=web + --import-mode=append)
@@ -55,6 +56,56 @@ def test_guac_index_denies_readonly_viewer(cape_db, mt_enabled, monkeypatch, cli
     r = client.get("/guac/1/AAAA/")
     assert minted == []              # a viewer who can SEE but not MANAGE mints nothing
     assert r.status_code == 200      # guac error page, not a live session
+
+
+@pytest.mark.django_db
+def test_guac_index_mt_off_does_not_apply_manage_gate(cape_db, mt_disabled, monkeypatch, client):
+    """MT-OFF INVARIANT: with multitenancy disabled the new can_manage_task early gate
+    is a NO-OP. guac.index must fall through to upstream's original ordering — the new
+    'No analysis found with specified ID' early-return must NOT fire. A foreign/private
+    task is treated exactly as upstream would (no top-of-view denial)."""
+    import guac.views as gv
+
+    # If the new gate leaked into MT-off it would call can_manage_task; make that explode
+    # so any accidental invocation fails loudly rather than silently passing.
+    def _boom(*a, **k):
+        raise AssertionError("can_manage_task must not run when multitenancy is disabled")
+
+    monkeypatch.setattr(gv, "can_manage_task", _boom)
+    monkeypatch.setattr(gv.db, "view_task", lambda *a, **k: ForeignTask())
+    # Force the upstream flow to a deterministic, early, MT-independent branch.
+    monkeypatch.setattr(gv, "LIBVIRT_AVAILABLE", False)
+    seen = {}
+    monkeypatch.setattr(gv, "_error", lambda request, tid, msg: seen.update(msg=msg) or HttpResponse("ERR"))
+    client.force_login(User.objects.create_user("mtoff", "mtoff@x.com", "x"))
+
+    r = client.get("/guac/1/AAAA/")
+    # Upstream ordering: libvirt check runs FIRST (the new gate did not short-circuit it),
+    # so we get the upstream "Libvirt not available" message, NOT the MT denial message.
+    assert seen.get("msg") == "Libvirt not available"
+    assert r.content == b"ERR"
+
+
+@pytest.mark.django_db
+def test_guac_index_mt_off_missing_task_uses_upstream_message(cape_db, mt_disabled, monkeypatch, client):
+    """MT-OFF: a genuinely missing task must surface upstream's exact existence message
+    ('The specified task doesn't seem to exist'), reached via the upstream ordering
+    (after libvirt + machinery checks), never the MT gate's message."""
+    import guac.views as gv
+
+    monkeypatch.setattr(gv, "can_manage_task",
+                        lambda *a, **k: (_ for _ in ()).throw(AssertionError("gate ran MT-off")))
+    monkeypatch.setattr(gv, "LIBVIRT_AVAILABLE", True)
+    monkeypatch.setattr(gv, "machinery", "kvm")
+    monkeypatch.setattr(gv, "machinery_available", ["kvm", "qemu"])
+    monkeypatch.setattr(gv.db, "view_task", lambda *a, **k: None)  # task does not exist
+    seen = {}
+    monkeypatch.setattr(gv, "_error", lambda request, tid, msg: seen.update(msg=msg) or HttpResponse("ERR"))
+    client.force_login(User.objects.create_user("mtoff2", "mtoff2@x.com", "x"))
+
+    r = client.get("/guac/1/AAAA/")
+    assert seen.get("msg") == "The specified task doesn't seem to exist"
+    assert r.content == b"ERR"
 
 
 @pytest.mark.django_db

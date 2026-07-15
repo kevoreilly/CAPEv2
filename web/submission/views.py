@@ -60,6 +60,11 @@ def _scope_existent(request, records):
     locked mode it would surface other tenants' task id / sha256 / malware-family
     for a known hash. Drop records the requester may not view — mirroring
     analysis.search. No-op when MT disabled (can_view_task -> is_local_admin)."""
+    if not multitenancy_config().enabled:
+        # Upstream showed every search record verbatim (no per-task SQL-existence
+        # intersection). Return them unchanged so a record whose SQL Task was
+        # purged is still displayed = upstream byte-for-byte.
+        return records or []
     out = []
     for record in records or []:
         if not isinstance(record, dict):
@@ -820,20 +825,27 @@ def index(request, task_id=None, resubmit_hash=None):
                         existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                         existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
-        # Offer TENANT iff the submitter actually has a tenant — this matches
-        # submission_scope, which honors an explicit 'tenant' for a tenant member (in
-        # BOTH modes) and rejects it for a tenant-less user. The default must also be
-        # a level that is actually OFFERED and must match what submission_scope would
-        # persist for an unchanged form: a tenant-less user in locked mode resolves to
-        # 'tenant' (not offered), so the browser would select the first option (public)
-        # and submit it explicitly — bypassing submission_scope's fail-closed private
-        # downgrade. Downgrade that default to PRIVATE here to keep the two in sync.
-        _sub_viewer = viewer_for(request.user)
-        _has_tenant = _sub_viewer.tenant_id is not None
-        _visibility_levels = [PUBLIC, TENANT, PRIVATE] if _has_tenant else [PUBLIC, PRIVATE]
-        _form_default_visibility = default_visibility(multitenancy_config())
-        if _form_default_visibility == TENANT and not _has_tenant:
-            _form_default_visibility = PRIVATE
+        # Visibility control is a MT-only addition. When MT is disabled, leave the
+        # context keys empty so the template "{% if visibility_levels %}" block
+        # collapses = upstream byte-for-byte (no new <select> rendered, and the
+        # value would be ignored by submission_scope anyway).
+        _visibility_levels = []
+        _form_default_visibility = None
+        if multitenancy_config().enabled:
+            # Offer TENANT iff the submitter actually has a tenant — this matches
+            # submission_scope, which honors an explicit 'tenant' for a tenant member (in
+            # BOTH modes) and rejects it for a tenant-less user. The default must also be
+            # a level that is actually OFFERED and must match what submission_scope would
+            # persist for an unchanged form: a tenant-less user in locked mode resolves to
+            # 'tenant' (not offered), so the browser would select the first option (public)
+            # and submit it explicitly — bypassing submission_scope's fail-closed private
+            # downgrade. Downgrade that default to PRIVATE here to keep the two in sync.
+            _sub_viewer = viewer_for(request.user)
+            _has_tenant = _sub_viewer.tenant_id is not None
+            _visibility_levels = [PUBLIC, TENANT, PRIVATE] if _has_tenant else [PUBLIC, PRIVATE]
+            _form_default_visibility = default_visibility(multitenancy_config())
+            if _form_default_visibility == TENANT and not _has_tenant:
+                _form_default_visibility = PRIVATE
         return render(
             request,
             "submission/index.html",

@@ -950,13 +950,26 @@ def ext_tasks_search(request):
                 resp = {"error": True, "error_value": "No option or argument provided."}
 
         if records:
+            # Visibility filter: the mongo/ES report rows don't carry tenant info,
+            # so resolve the visible set in ONE query (list_tasks(visible_to=))
+            # instead of a view_task() per row, then drop rows the viewer can't see.
+            _tids = set()
             for results in records:
-                # Visibility filter: the mongo/ES report rows don't carry tenant
-                # info, so resolve each task and drop ones the viewer can't see.
                 _doc = results.get("_source", results) if es_as_db else results
                 _tid = (_doc.get("info") or {}).get("id") if isinstance(_doc, dict) else None
-                _t = db.view_task(_tid) if _tid is not None else None
-                if _t is None or not can_view_task(request.user, _t):
+                if _tid is not None:
+                    try:
+                        _tids.add(int(_tid))
+                    except (ValueError, TypeError):
+                        pass
+            _visible = {t.id for t in db.list_tasks(task_ids=list(_tids), visible_to=viewer_for(request.user))} if _tids else set()
+            for results in records:
+                _doc = results.get("_source", results) if es_as_db else results
+                _tid = (_doc.get("info") or {}).get("id") if isinstance(_doc, dict) else None
+                try:
+                    if _tid is None or int(_tid) not in _visible:
+                        continue
+                except (ValueError, TypeError):
                     continue
                 if repconf.mongodb.enabled:
                     return_data.append(results)
@@ -2525,21 +2538,20 @@ def tasks_rollingsuri(request, window=60):
     # task_id coverage gate can't catch this endpoint (no task_id in its route).
     # When multitenancy is disabled, viewer.is_local_admin short-circuits to
     # see-all, so this is a no-op and behavior is unchanged.
+    # Break-glass (is_local_admin, incl. MT-disabled) sees all -> no filter.
+    # Otherwise batch-resolve the visible set in ONE query instead of a
+    # view_task() per row.
     viewer = viewer_for(request.user)
-    _seen = {}
-
-    def _can_see(tid):
-        if viewer.is_local_admin:
-            return True
-        if tid not in _seen:
-            t = db.view_task(tid)
-            _seen[tid] = bool(t) and can_view_task(request.user, t)
-        return _seen[tid]
+    if viewer.is_local_admin:
+        _visible = None
+    else:
+        _tids = {e["info"]["id"] for e in result if "info" in e and "id" in e.get("info", {})}
+        _visible = {t.id for t in db.list_tasks(task_ids=list(_tids), visible_to=viewer)} if _tids else set()
 
     resp = []
     for e in result:
         tid = e["info"]["id"]
-        if not _can_see(tid):
+        if _visible is not None and tid not in _visible:
             continue
         for alert in e["suricata"]["alerts"]:
             alert["id"] = tid

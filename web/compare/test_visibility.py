@@ -109,6 +109,12 @@ def test_compare_left_es_backend_filters_cross_tenant(cape_db, mt_enabled, monke
     class FakeDB:
         view_task = staticmethod(_view)
 
+        def list_tasks(self, task_ids=None, visible_to=None, **k):
+            # SoT emulation: the ES path now batches visibility via
+            # list_tasks(visible_to=). For this tenant-less viewer only PUBLIC
+            # tasks are visible, so the foreign private pivot (task 2) is dropped.
+            return [_view(t) for t in (task_ids or []) if getattr(_view(t), "visibility", None) == "public"]
+
     class FakeES:
         def search(self, index=None, query=None, body=None):
             if body is not None:  # md5 pivot

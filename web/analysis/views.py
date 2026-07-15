@@ -596,25 +596,25 @@ def index(request, page=1):
     # than re-querying for the id (halves the DB round-trips).
     buf = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc(), visible_to=_visible)
     if buf:
-        first_file = buf[0].to_dict()["id"]
+        first_file = buf[0].id
         paging["show_file_prev"] = "show"
     else:
         paging["show_file_prev"] = "hide"
     buf = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc(), visible_to=_visible)
     if buf:
-        first_static = buf[0].to_dict()["id"]
+        first_static = buf[0].id
         paging["show_static_prev"] = "show"
     else:
         paging["show_static_prev"] = "hide"
     buf = db.list_tasks(limit=1, category="url", not_status=TASK_PENDING, order_by=Task.added_on.asc(), visible_to=_visible)
     if buf:
-        first_url = buf[0].to_dict()["id"]
+        first_url = buf[0].id
         paging["show_url_prev"] = "show"
     else:
         paging["show_url_prev"] = "hide"
     buf = db.list_tasks(limit=1, category="pcap", not_status=TASK_PENDING, order_by=Task.added_on.asc(), visible_to=_visible)
     if buf:
-        first_pcap = buf[0].to_dict()["id"]
+        first_pcap = buf[0].id
         paging["show_pcap_prev"] = "show"
     else:
         paging["show_pcap_prev"] = "hide"

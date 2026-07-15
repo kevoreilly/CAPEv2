@@ -465,6 +465,36 @@ def test_tasks_delete_many_skips_unmanageable_cross_tenant(cape_db, mt_enabled, 
     assert resp.data.get(1) == "not exists"    # indistinguishable from missing
 
 
+@pytest.mark.django_db
+def test_ext_tasks_search_drops_cross_tenant_rows(cape_db, mt_enabled, monkeypatch):
+    """ext_tasks_search batch-filters perform_search rows through
+    list_tasks(visible_to=viewer) in ONE query: a report row for a task the caller
+    can't see (foreign/private) must be dropped from the response. Locks the N+1 ->
+    batch rewrite so it can't regress into a cross-tenant leak."""
+    import types
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    class _T:
+        def __init__(self, i):
+            self.id = i
+
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(extendedtasksearch={"enabled": True}))
+    monkeypatch.setattr(views, "repconf", types.SimpleNamespace(mongodb=types.SimpleNamespace(enabled=True)), raising=False)
+    monkeypatch.setattr(views, "es_as_db", False, raising=False)
+    monkeypatch.setattr(views, "perform_search", lambda *a, **k: [{"info": {"id": 2}}, {"info": {"id": 3}}])
+    # only task 2 is visible to this viewer; task 3 (foreign/private) is not
+    monkeypatch.setattr(views.db, "list_tasks", lambda *a, **k: [_T(2)])
+
+    req = APIRequestFactory().post("/apiv2/tasks/extendedsearch/", {"option": "malscore", "argument": "5"})
+    u = User.objects.create_user("ext", "ext@x.com", "x")  # tenant-less, non-admin
+    force_authenticate(req, user=u)
+    req.user = u
+    resp = views.ext_tasks_search(req)
+    ids = [r["info"]["id"] for r in resp.data.get("data", [])]
+    assert ids == [2]  # foreign task 3 dropped by the batch visibility filter
+
+
 def test_every_perform_search_caller_passes_viewer():
     """SECURITY GATE: perform_search() is unscoped by default (no tenant filter
     at the mongo/ES layer). Every web caller MUST pass viewer= so the query is
@@ -553,7 +583,7 @@ REVIEWED_MONGO_PIVOTS = {
     "analysis.views:search_behavior": "mongo_find('calls', _id $in) — ObjectIds from the gated task's own behavior doc",
     "analysis.views:report": "mongo_aggregate $match info.id == the can_view_task-gated task_id",
     "analysis.views:hunt": "mongo_aggregate $facet pinned by entitled_scope_filter()",
-    "apiv2.views:tasks_rollingsuri": "mongo_find then per-row can_view_task (+ is_local_admin fast-path)",
+    "apiv2.views:tasks_rollingsuri": "mongo_find then batch list_tasks(visible_to=) membership (+ is_local_admin fast-path)",
     "compare.views:left": "mongo_find md5-pivot AND-ed with entitled_scope_filter()",
     "compare.views:hash": "mongo_find md5-pivot AND-ed with entitled_scope_filter()",
 }

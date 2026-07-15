@@ -121,18 +121,27 @@ def left(request, left_id):
         # tenant isolation: the mongo path filters via entitled_scope_filter; the
         # ES backend can't take that $match, so post-filter each hit through
         # can_view_task (no-op for break-glass / shared / multitenancy disabled).
+        # Batch-resolve the visible set in ONE query (list_tasks(visible_to=))
+        # instead of a view_task() per hit — same contract the mongo md5-pivot
+        # path above uses.
         _db = Database()
+        _tids = set()
+        for item in results:
+            _tid = (item["_source"].get("info") or {}).get("id")
+            if _tid is not None:
+                try:
+                    _tids.add(int(_tid))
+                except (ValueError, TypeError):
+                    pass  # malformed id in a corrupt ES doc — skip, don't 500
+        _visible = {t.id for t in _db.list_tasks(task_ids=list(_tids), visible_to=viewer_for(request.user))} if _tids else set()
         for item in results:
             _source = item["_source"]
             _tid = (_source.get("info") or {}).get("id")
-            if _tid is None:
-                continue
             try:
-                _vt = _db.view_task(int(_tid))
+                if _tid is not None and int(_tid) in _visible:
+                    records.append(_source)
             except (ValueError, TypeError):
-                continue  # malformed id in a corrupt ES doc — skip, don't 500
-            if _vt is not None and can_view_task(request.user, _vt):
-                records.append(_source)
+                continue
 
     data = {"title": "Compare", "left": left, "records": records}
     return render(request, "compare/left.html", data)
@@ -208,18 +217,27 @@ def hash(request, left_id, right_hash):
         # tenant isolation: the mongo path filters via entitled_scope_filter; the
         # ES backend can't take that $match, so post-filter each hit through
         # can_view_task (no-op for break-glass / shared / multitenancy disabled).
+        # Batch-resolve the visible set in ONE query (list_tasks(visible_to=))
+        # instead of a view_task() per hit — same contract the mongo md5-pivot
+        # path above uses.
         _db = Database()
+        _tids = set()
+        for item in results:
+            _tid = (item["_source"].get("info") or {}).get("id")
+            if _tid is not None:
+                try:
+                    _tids.add(int(_tid))
+                except (ValueError, TypeError):
+                    pass  # malformed id in a corrupt ES doc — skip, don't 500
+        _visible = {t.id for t in _db.list_tasks(task_ids=list(_tids), visible_to=viewer_for(request.user))} if _tids else set()
         for item in results:
             _source = item["_source"]
             _tid = (_source.get("info") or {}).get("id")
-            if _tid is None:
-                continue
             try:
-                _vt = _db.view_task(int(_tid))
+                if _tid is not None and int(_tid) in _visible:
+                    records.append(_source)
             except (ValueError, TypeError):
-                continue  # malformed id in a corrupt ES doc — skip, don't 500
-            if _vt is not None and can_view_task(request.user, _vt):
-                records.append(_source)
+                continue
 
     # Select all analyses with specified file hash.
     return render(request, "compare/hash.html", {"left": left, "records": records, "hash": right_hash})

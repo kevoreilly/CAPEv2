@@ -44,3 +44,74 @@ def test_stamp_report_local_path_uses_local_task(monkeypatch):
     info = {"id": 5}
     m._stamp_report_for_task(info, main_task_id=None, local_task_id=5)
     assert info["visibility"] == "tenant" and info["tenant_id"] == 10 and info["user_id"] == 7
+
+
+def test_reconcile_visibility_noop_when_mt_disabled(monkeypatch):
+    """MT off: the report-visibility reconcile must not touch mongo (upstream shape)."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    from lib.cuckoo.common.tenancy import MTConfig
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(False, "shared", "", True))
+    called = []
+    monkeypatch.setattr(m, "mongo_update_one", lambda *a, **k: called.append((a, k)), raising=False)
+    m._reconcile_report_visibility(main_task_id=None, local_task_id=5, ids_to_delete={5})
+    assert called == []  # no mongo write when MT disabled
+
+
+def test_reconcile_visibility_restamps_from_sql_under_lock(monkeypatch):
+    """MT on: the TOCTOU fix — the reconcile re-reads the AUTHORITATIVE SQL tenancy and
+    updates the mongo doc UNDER the per-task advisory lock, so the value written is what
+    SQL says NOW (e.g. after a toggle committed post-initial-stamp), not the stale value."""
+    from contextlib import contextmanager
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.data.tasking as tasking
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+
+    # SQL now says 'private' (a toggle committed after run() stamped the report public).
+    class NowPrivate:
+        user_id, tenant_id, visibility = 7, 10, "private"
+    monkeypatch.setattr(m, "_task_tenant_ctx", lambda tid: NowPrivate())
+
+    class _FakeDB:
+        lock_engine = None
+    monkeypatch.setattr(dbmod, "Database", lambda: _FakeDB())
+
+    events = []
+
+    @contextmanager
+    def fake_lock(lock_engine, task_id):
+        events.append(("lock", task_id))
+        try:
+            yield
+        finally:
+            events.append(("unlock", task_id))
+    monkeypatch.setattr(tasking, "task_visibility_lock", fake_lock)
+
+    captured = {}
+
+    def fake_update(coll, flt, upd, **k):
+        events.append(("update", flt))
+        captured.update(upd)
+    monkeypatch.setattr(m, "mongo_update_one", fake_update, raising=False)
+
+    m._reconcile_report_visibility(main_task_id=None, local_task_id=5, ids_to_delete={5, 5})
+
+    # the mongo update ran BETWEEN lock acquire and release
+    assert [e[0] for e in events] == ["lock", "update", "unlock"]
+    # and it wrote the authoritative (current) SQL tenancy, not a stale value
+    assert captured["$set"]["info.visibility"] == "private"
+    assert captured["$set"]["info.tenant_id"] == 10 and captured["$set"]["info.user_id"] == 7
+
+
+def test_task_visibility_lock_noop_without_engine():
+    """task_visibility_lock is a no-op context when lock_engine is None (sqlite / MT off)."""
+    from lib.cuckoo.core.data.tasking import task_visibility_lock
+    ran = []
+    with task_visibility_lock(None, 5):
+        ran.append(True)
+    assert ran == [True]

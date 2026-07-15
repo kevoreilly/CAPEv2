@@ -1,5 +1,6 @@
 from .db_common import _utcnow_naive
 import logging
+from contextlib import contextmanager
 from typing import List, Optional, Tuple, Dict
 from datetime import datetime, timedelta, timezone
 
@@ -108,6 +109,22 @@ def _advisory_unlock(conn, key) -> None:
             conn.close()
         except Exception:
             pass
+
+
+@contextmanager
+def task_visibility_lock(lock_engine, task_id):
+    """Hold the per-task visibility advisory lock for the duration of the block, so
+    a second writer of info.visibility (the mongo report stamper) can't interleave
+    with a set_task_visibility toggle and leave the mongo store more permissive than
+    SQL. Mirrors set_task_visibility's serialization (same key = task_id, same
+    lock_engine). No-op when lock_engine is None (non-Postgres / sqlite / MT off)."""
+    conn = _advisory_lock(lock_engine, task_id)
+    try:
+        yield
+    finally:
+        _advisory_unlock(conn, task_id)
+
+
 distconf = Config("distributed")
 web_conf = Config("web")
 

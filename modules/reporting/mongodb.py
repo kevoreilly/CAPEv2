@@ -83,6 +83,40 @@ def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id) -> No
         stamp_tenant_info(report_info, None)
 
 
+def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete) -> None:
+    """Close the stamp-vs-toggle TOCTOU. run() stamps info.visibility from SQL at the
+    TOP, then does slow work before writing the mongo doc; a concurrent
+    set_task_visibility toggle in that window would leave the doc with a stale (more
+    permissive) visibility than SQL — a cross-tenant leak, since the aggregate/search/
+    stats surfaces scope on info.visibility. Re-stamp the written doc from the
+    AUTHORITATIVE SQL row under the SAME per-task advisory lock the toggle holds, so
+    the two can't interleave and mongo ends == SQL. No-op when MT is disabled."""
+    from lib.cuckoo.common.tenancy import multitenancy_config
+
+    if not multitenancy_config().enabled or mongo_update_one is None:
+        return
+    from lib.cuckoo.core.database import Database
+    from lib.cuckoo.core.data.tasking import task_visibility_lock
+
+    info = {}
+    with task_visibility_lock(getattr(Database(), "lock_engine", None), local_task_id):
+        # Re-read the current SQL tenancy (same fail-closed rules as the initial stamp).
+        _stamp_report_for_task(info, main_task_id, local_task_id)
+        try:
+            ids = [int(x) for x in ids_to_delete]
+        except (TypeError, ValueError):
+            ids = [local_task_id]
+        mongo_update_one(
+            "analysis",
+            {"info.id": {"$in": ids}},
+            {"$set": {
+                "info.tenant_id": info.get("tenant_id"),
+                "info.user_id": info.get("user_id"),
+                "info.visibility": info.get("visibility", "private"),
+            }},
+        )
+
+
 class MongoDB(Report):
     """Stores report in MongoDB."""
 
@@ -311,3 +345,9 @@ class MongoDB(Report):
                     log.error("Failed to insert report into MongoDB even after attempting to fix large documents for Task %s", report["info"]["id"])
         except Exception as e:
             log.exception("Failed to store report in MongoDB for Task %s: %s", report["info"]["id"], e)
+        finally:
+            # Serialize the visibility (re)stamp with set_task_visibility so a toggle
+            # that raced this report run can't leave mongo more permissive than SQL.
+            # Runs on every exit path (incl. the loop_saver / fix_large_docs returns).
+            # No-op when MT is off / non-postgres.
+            _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete)

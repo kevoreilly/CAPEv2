@@ -46,9 +46,19 @@ def test_stamp_report_local_path_uses_local_task(monkeypatch):
     assert info["visibility"] == "tenant" and info["tenant_id"] == 10 and info["user_id"] == 7
 
 
+def test_is_central_rewritten_id_discriminates_id_space():
+    from modules.reporting.mongodb import _is_central_rewritten_id
+    assert _is_central_rewritten_id("ui-42") is True
+    assert _is_central_rewritten_id("ui-999") is True
+    assert _is_central_rewritten_id("local-42") is False   # direct submit -> worker-local id
+    assert _is_central_rewritten_id("") is False
+    assert _is_central_rewritten_id(None) is False
+    assert _is_central_rewritten_id("ui-abc") is False
+
+
 def test_stamp_report_central_mode_uses_central_ctx(monkeypatch):
-    """Central mode: stamp from the CENTRAL RDS (_task_tenant_ctx_central) keyed by the
-    central id, NEVER the worker-local DB (_task_tenant_ctx) whose id space is different."""
+    """Central mode + a REWRITTEN (ui-*) id: stamp from the CENTRAL RDS
+    (_task_tenant_ctx_central) keyed by the central id, NEVER the worker-local DB."""
     from modules.reporting import mongodb as m
     import lib.cuckoo.common.central_mode as cm
 
@@ -61,12 +71,38 @@ def test_stamp_report_central_mode_uses_central_ctx(monkeypatch):
     monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: Central() if int(cid) == 42 else None)
 
     def _boom(_):
-        raise AssertionError("must NOT read the worker-local DB in central mode")
+        raise AssertionError("must NOT read the worker-local DB for a rewritten ui-* id")
     monkeypatch.setattr(m, "_task_tenant_ctx", _boom)
 
-    info = {"id": 42}
+    info = {"id": 42, "job_id": "ui-42"}
     m._stamp_report_for_task(info, main_task_id=None, local_task_id=42)
     assert info["tenant_id"] == 10 and info["user_id"] == 7 and info["visibility"] == "tenant"
+
+
+def test_stamp_report_central_direct_submit_uses_local_db_not_central(monkeypatch):
+    """HIGH regression: a CENTRAL-mode DIRECT submission (job_id NOT ui-*) keeps its
+    WORKER-LOCAL info.id, so it must be resolved against the worker-local DB — resolving
+    it against the central RDS would hit a COLLIDING central-id-space row (cross-tenant
+    leak). Worker-local task #7 is tenant A; central task #7 is a different tenant B."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.central_mode as cm
+
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url="postgresql://central"))
+
+    class CentralTenantB:
+        tenant_id, user_id, visibility = 99, 66, "public"
+
+    class LocalTenantA:
+        tenant_id, user_id, visibility = 10, 7, "tenant"
+
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: CentralTenantB())  # must NOT be used
+    monkeypatch.setattr(m, "_task_tenant_ctx", lambda tid: LocalTenantA() if int(tid) == 7 else None)
+
+    info = {"id": 7, "job_id": "local-7"}   # direct submit: id NOT rewritten
+    m._stamp_report_for_task(info, main_task_id=None, local_task_id=7)
+    # stamped from the LOCAL row (tenant A), NOT the colliding central row (tenant B)
+    assert (info["tenant_id"], info["user_id"], info["visibility"]) == (10, 7, "tenant")
 
 
 def test_stamp_report_central_mode_fail_closed_when_unresolved(monkeypatch):

@@ -1,7 +1,29 @@
 """One-shot backfill: stamp tenant_id/user_id/visibility into existing mongo analysis
-docs from their Postgres task. Run once when enabling multitenancy on a populated DB."""
+docs from their Postgres task. Run once (quiesced) when enabling multitenancy on a
+populated DB. In a central deployment run it on the CENTRAL node — it only touches docs
+whose id space matches the node it runs on (see _is_central_id / the id-space guard)."""
 import os
+import re
 import sys
+
+
+def _is_central_id(job_id) -> bool:
+    """A doc whose broker job_id is 'ui-<N>' has had info.id rewritten to the CENTRAL
+    task id (central RDS id space); anything else keeps a WORKER-LOCAL info.id. Used to
+    only restamp docs whose id space matches the DB this script talks to."""
+    return bool(job_id) and re.match(r"^ui-(\d+)$", str(job_id)) is not None
+
+
+def _needs_backfill_filter() -> dict:
+    """Mongo selector for docs to (re)stamp: un-stamped (no info.visibility, first-enable)
+    OR the EXACT reporter fail-closed crash-orphan shape (private + null owner AND tenant).
+    Deliberately NOT a bare {info.user_id: null} arm — that also matches every stamped
+    anonymous/CLI doc (nullable owner; Mongo null matches missing too), so a rerun could
+    silently downgrade a legitimately-public doc whose task was later pruned."""
+    return {"$or": [
+        {"info.visibility": {"$exists": False}},
+        {"info.user_id": None, "info.tenant_id": None, "info.visibility": "private"},
+    ]}
 
 
 def backfill_doc(doc, view_task) -> dict:
@@ -48,18 +70,34 @@ def main():
     except Exception as idx_err:
         print(f"warning: could not create tenant_scope_idx: {idx_err}")
     n = 0
-    # Repair BOTH un-stamped docs (no info.visibility — first-enable) AND unowned docs
-    # (info.user_id null — e.g. a doc orphaned by a crash between the reporter's
-    # fail-closed insert and its reconcile). The latter carry a visibility but no owner,
-    # so a visibility-only toggle can't fix them; re-stamp ownership from their task here.
-    _needs_backfill = {"$or": [
-        {"info.visibility": {"$exists": False}},
-        {"info.user_id": None},
-    ]}
-    for doc in mongo_find("analysis", _needs_backfill, {"info.id": 1}):
+    skipped = 0
+    # Repair BOTH un-stamped docs (no info.visibility — first-enable) AND crash-orphaned
+    # docs. Match the EXACT reporter fail-closed shape (private + null owner AND tenant),
+    # NOT just user_id:null: Task.user_id is nullable (CLI/anon submits), and Mongo null
+    # matches missing too, so a bare user_id:null arm would re-touch every anonymous doc
+    # on each run and could silently downgrade a legitimately-public doc whose task was
+    # later pruned. The narrow shape keeps the tool idempotent + off live permissive docs.
+    _needs_backfill = _needs_backfill_filter()
+    _central = False
+    try:
+        from lib.cuckoo.common.central_mode import central_mode_config
+
+        _central = central_mode_config().enabled
+    except Exception:
+        _central = False
+    for doc in mongo_find("analysis", _needs_backfill, {"info.id": 1, "info.job_id": 1}):
+        # Id-space guard: backfill_doc resolves info.id via view_task against THIS node's
+        # DB. A ui-* doc's info.id is a CENTRAL id (central RDS); a non-ui-* doc's is a
+        # worker-LOCAL id. Only restamp docs whose id space matches the node running the
+        # script — resolving a foreign id against the wrong DB would hit a colliding row
+        # and mis-stamp another tenant's scope onto the doc.
+        _jid = (doc.get("info") or {}).get("job_id")
+        if _is_central_id(_jid) != _central:
+            skipped += 1
+            continue
         mongo_update_one("analysis", {"_id": doc["_id"]}, {"$set": backfill_doc(doc, db.view_task)})
         n += 1
-    print(f"backfilled {n} docs")
+    print(f"backfilled {n} docs ({skipped} skipped: info.id id-space != this node)")
 
 
 if __name__ == "__main__":

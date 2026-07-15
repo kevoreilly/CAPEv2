@@ -83,7 +83,11 @@ def _central_engine():
         return _CENTRAL_ENGINE
     from sqlalchemy import create_engine
 
-    _CENTRAL_ENGINE = create_engine(url, pool_pre_ping=True)
+    # Bounded connect: this engine is reached from run()'s finally while holding the
+    # per-task lock; a black-holed central RDS (network partition, no RST) would
+    # otherwise stall every report for ~2 min of TCP SYN retries. Fail closed in
+    # seconds via the caller's except path instead (postgres is the documented backend).
+    _CENTRAL_ENGINE = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 5})
     _CENTRAL_ENGINE_URL = url
     return _CENTRAL_ENGINE
 
@@ -111,6 +115,17 @@ def _task_tenant_ctx_central(central_task_id):
         })()
 
 
+def _is_central_rewritten_id(job_id) -> bool:
+    """centralstore rewrites info.id to the CENTRAL task id ONLY for broker jobs whose
+    job_id matches 'ui-<N>' (centralstore.py). Direct submissions (job_id 'local-<id>')
+    and bare-token jobs keep the WORKER-LOCAL info.id — a DIFFERENT id space. This is the
+    discriminator: only a rewritten (ui-*) id may be resolved against the central RDS;
+    everything else resolves against the worker-local DB (or fails closed)."""
+    import re
+
+    return bool(job_id) and re.match(r"^ui-(\d+)$", str(job_id)) is not None
+
+
 def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id) -> None:
     """Stamp tenant context onto a report's info subdict (called only when MT is on).
 
@@ -118,22 +133,26 @@ def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id) -> No
     sets it, never the broker/central path) the worker-local task does NOT carry the
     submitter's tenancy, so fail CLOSED to private/invisible rather than leak.
 
-    In CENTRAL mode, ``local_task_id`` is the CENTRAL task id (centralstore rewrote
-    info.id) and the submitter's tenancy lives in the central RDS, NOT the worker-local
-    DB — resolve it there. Otherwise (single-node) stamp from the LOCAL task. Any
-    lookup error fails closed to private."""
+    In CENTRAL mode, info.id is rewritten to the CENTRAL task id ONLY for broker ui-*
+    jobs; for those, resolve the submitter's tenancy from the central RDS. For a central
+    DIRECT submission (job_id not ui-*), info.id is still the WORKER-LOCAL id, so resolve
+    it against the worker-local DB — resolving it against the central RDS would hit a
+    COLLIDING central-id-space row (cross-tenant leak). Single-node also uses the local
+    DB. Any lookup error fails closed to private."""
     if main_task_id:
         stamp_tenant_info(report_info, None)
         return
     try:
         from lib.cuckoo.common.central_mode import central_mode_config
 
-        if central_mode_config().enabled:
-            # Authoritative central tenancy (fail-closed to private if the central DB
-            # URL is unset or the task is missing). NOT the user-influenceable custom
-            # envelope (spoofable) and NOT the worker-local DB (wrong id space).
+        if central_mode_config().enabled and _is_central_rewritten_id(report_info.get("job_id")):
+            # info.id was rewritten to the CENTRAL id (ui-<N>): resolve from the central
+            # RDS (fail-closed if the URL is unset or the task is missing). NOT the
+            # worker-local DB (wrong id space) and NOT the user-influenceable custom
+            # envelope (spoofable).
             stamp_tenant_info(report_info, _task_tenant_ctx_central(local_task_id))
             return
+        # Single-node OR central direct-submit: info.id is a WORKER-LOCAL id -> local DB.
         stamp_tenant_info(report_info, _task_tenant_ctx(local_task_id))
     except Exception as _db_err:
         log.warning("Failed to look up task for tenant stamping (task %s): %s", local_task_id, _db_err)
@@ -154,7 +173,7 @@ def _warn_no_lock_engine_once():
         )
 
 
-def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete) -> None:
+def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job_id=None) -> None:
     """Raise the just-written mongo analysis doc's tenancy to the AUTHORITATIVE SQL value
     under the SAME per-task advisory lock set_task_visibility holds, closing the
     stamp-vs-toggle TOCTOU. run() inserts the doc FAIL-CLOSED (private), so it is never
@@ -177,7 +196,10 @@ def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete) -> 
         lock_engine = getattr(Database(), "lock_engine", None)
         if lock_engine is None:
             _warn_no_lock_engine_once()
-        info = {}
+        # Seed job_id so _stamp_report_for_task can tell a rewritten central id (ui-*,
+        # resolve from the central RDS) from a worker-local id (resolve locally) — it is
+        # otherwise blind to the id space here.
+        info = {"job_id": job_id}
         with task_visibility_lock(lock_engine, local_task_id):
             # Re-read the current SQL tenancy under the lock (authoritative; a toggle
             # can't commit + sync mongo while we hold it).
@@ -448,4 +470,4 @@ class MongoDB(Report):
             # the loop_saver / fix_large_docs returns) and NEVER raises. MT-off and the
             # legacy-dist path are no-ops; on non-postgres the mongo write still runs but
             # unserialized (the fail-closed insert keeps that window safe).
-            _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete)
+            _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, report["info"].get("job_id"))

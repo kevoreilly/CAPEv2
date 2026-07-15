@@ -20,11 +20,16 @@ flipping the flag:
 python utils/db_migration/mongo_backfill_tenant.py
 ```
 
-It reads each un-stamped `analysis` doc's Postgres task and writes
+It reads each selected `analysis` doc's Postgres task and writes
 `info.tenant_id` / `info.user_id` / `info.visibility` (orphans whose task was pruned
-fail closed to `private`), and creates the `tenant_scope_idx` index. It is
-idempotent (it only touches docs missing `info.visibility`) and safe to re-run. The
-Alembic migration backfills the **SQL** columns only — the mongo stamp is this
+fail closed to `private`), and creates the `tenant_scope_idx` index. It touches only
+(a) un-stamped docs (missing `info.visibility`, first-enable) and (b) crash-orphans in
+the exact reporter fail-closed shape (`visibility=private` + null `tenant_id` AND
+`user_id`) — never a stamped permissive doc — so it stays idempotent and safe to re-run.
+In a **central** deployment run it on the CENTRAL node **while quiesced**: it only
+restamps docs whose id space matches the node (broker `ui-*` ids ⇔ central RDS;
+worker-local ids ⇔ single-node), and it is not lock-serialized against a live toggle.
+The Alembic migration backfills the **SQL** columns only — the mongo stamp is this
 separate step. A fresh install needs no backfill (every report is stamped at
 creation).
 

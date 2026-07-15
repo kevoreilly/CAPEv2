@@ -2934,7 +2934,7 @@ def task_x_hours(request):
         # multitenancy is enabled (below).
         res = (
             session.query(Task)
-            .filter(Task.added_on.between(datetime.datetime.now(), datetime.datetime.now() - datetime.timedelta(days=1)))
+            .filter(Task.added_on.between(datetime.now(), datetime.now() - timedelta(days=1)))
             .all()
         )
         results = {}
@@ -2952,7 +2952,7 @@ def task_x_hours(request):
         # between() args, which made this always return empty.)
         tasks = (
             session.query(Task)
-            .filter(Task.added_on.between(datetime.datetime.now() - datetime.timedelta(days=1), datetime.datetime.now()))
+            .filter(Task.added_on.between(datetime.now() - timedelta(days=1), datetime.now()))
             .all()
         )
         results = {}

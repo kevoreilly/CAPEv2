@@ -1082,23 +1082,17 @@ class _FakeSession:
 
 
 def _install_datetime_shim(monkeypatch, views, recorder):
-    """Give the module a `datetime.datetime`/`datetime.timedelta` so the view's
-    `datetime.datetime.now()` resolves, and capture the between() bounds order so
-    tests can prove reversed (MT-off/upstream) vs corrected (MT-on)."""
-    import datetime as _real
-
+    """Capture the Task.added_on.between() bounds order so tests can prove reversed
+    (MT-off/upstream) vs corrected (MT-on). Uses the REAL datetime (NO shim): the
+    view must call the imported names datetime.now()/timedelta() directly — a
+    regression to the datetime.datetime.now() typo would raise here (module imports
+    `from datetime import datetime`), instead of being masked by a fake module."""
     class _Col:
         def between(self, lo, hi):
             recorder["bounds"] = (lo, hi)
             return object()  # opaque criterion
 
     monkeypatch.setattr(views.Task, "added_on", _Col(), raising=False)
-
-    class _DTShim:
-        datetime = _real.datetime
-        timedelta = _real.timedelta
-
-    monkeypatch.setattr(views, "datetime", _DTShim, raising=False)
 
 
 @pytest.mark.django_db

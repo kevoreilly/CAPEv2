@@ -37,7 +37,16 @@ creation).
 - **Single-node CAPE** (one host running web + processing + analysis).
 - **Central control plane + broker workers** (the "central mode" path): the
   central UI serves artifacts staged from workers, keyed by the broker `job_id`.
-  Tenant stamping and scoping work across this path.
+  Tenant stamping works across this path **only when workers can resolve the
+  submitter's tenancy from the central control-plane DB**: a worker's own
+  `[database]` is its LOCAL per-worker task DB (a different id space), and
+  `centralstore` rewrites `info.id` to the CENTRAL task id, so the worker resolves
+  and stamps tenancy against the central RDS via `[central_mode] central_database_url`
+  (read-only). If that URL is unset, central-mode analyses stamp **fail-closed**
+  (private / unowned — invisible to everyone but break-glass), never leaked. The
+  visibility toggle serializes with the worker's report write via a per-task advisory
+  lock only within a single DB; a toggle issued on the central node concurrently with
+  a worker reprocess is not cross-node serialized (narrow, documented residual).
 - **Guacamole interactive sessions** for task-backed analyses: minting a live-VM
   session (and the WebSocket tunnel re-check) is gated by `can_manage_task`
   (owner / tenant-admin / break-glass), NOT mere read visibility — live keyboard/

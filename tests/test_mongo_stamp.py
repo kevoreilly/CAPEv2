@@ -46,6 +46,56 @@ def test_stamp_report_local_path_uses_local_task(monkeypatch):
     assert info["visibility"] == "tenant" and info["tenant_id"] == 10 and info["user_id"] == 7
 
 
+def test_stamp_report_central_mode_uses_central_ctx(monkeypatch):
+    """Central mode: stamp from the CENTRAL RDS (_task_tenant_ctx_central) keyed by the
+    central id, NEVER the worker-local DB (_task_tenant_ctx) whose id space is different."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.central_mode as cm
+
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url="postgresql://x"))
+
+    class Central:
+        tenant_id, user_id, visibility = 10, 7, "tenant"
+
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: Central() if int(cid) == 42 else None)
+
+    def _boom(_):
+        raise AssertionError("must NOT read the worker-local DB in central mode")
+    monkeypatch.setattr(m, "_task_tenant_ctx", _boom)
+
+    info = {"id": 42}
+    m._stamp_report_for_task(info, main_task_id=None, local_task_id=42)
+    assert info["tenant_id"] == 10 and info["user_id"] == 7 and info["visibility"] == "tenant"
+
+
+def test_stamp_report_central_mode_fail_closed_when_unresolved(monkeypatch):
+    """Central mode but the central task can't be resolved (URL unset / not found) ->
+    fail closed to private/unowned, never a wrong-tenant or public stamp."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.central_mode as cm
+
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url=""))
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: None)  # unresolved
+
+    info = {"id": 42}
+    m._stamp_report_for_task(info, main_task_id=None, local_task_id=42)
+    assert info["visibility"] == "private" and info["tenant_id"] is None and info["user_id"] is None
+
+
+def test_task_tenant_ctx_central_none_when_url_unset(monkeypatch):
+    """No central_database_url -> no engine -> None (fail-closed), no crash."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.central_mode as cm
+
+    monkeypatch.setattr(m, "_CENTRAL_ENGINE", None, raising=False)
+    monkeypatch.setattr(m, "_CENTRAL_ENGINE_URL", None, raising=False)
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url=""))
+    assert m._task_tenant_ctx_central(42) is None
+
+
 def test_reconcile_visibility_noop_when_mt_disabled(monkeypatch):
     """MT off: the report-visibility reconcile must not touch mongo (upstream shape)."""
     from modules.reporting import mongodb as m

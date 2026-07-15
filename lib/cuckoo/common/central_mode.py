@@ -108,6 +108,15 @@ class CentralModeConfig:
     # The report doc -> central DocumentDB write is the NATIVE mongodb.py reporting module
     # pointed at DocumentDB via [mongodb] (tls=yes, retrywrites=no); central_mode therefore
     # only carries the FS->S3 artifact location.
+    #
+    # Read-only SQLAlchemy URL of the CENTRAL control-plane RDS, used by workers ONLY to
+    # resolve a central task's authoritative tenancy (tenant_id/user_id/visibility) when
+    # stamping the shared DocumentDB analysis doc. A worker's own [database] is its LOCAL
+    # per-worker task DB (a different id space), and centralstore rewrites info.id to the
+    # CENTRAL task id — so the stamp must be resolved against the central RDS, not locally.
+    # Empty (default) => the worker cannot resolve central tenancy and stamps FAIL-CLOSED
+    # (private/unowned). Set this (read-only creds) on workers in a central+MT deployment.
+    central_database_url: str = ""
 
 
 def _parse(sec) -> "CentralModeConfig":
@@ -131,6 +140,7 @@ def _parse(sec) -> "CentralModeConfig":
         worker_api_port=_as_port(get("worker_api_port", 8000), 8000),
         worker_ssh_user=str(get("worker_ssh_user", "cape") or "cape"),
         worker_ssh_keyfile=str(get("worker_ssh_keyfile", "/home/cape/.ssh/id_ed25519") or "/home/cape/.ssh/id_ed25519"),
+        central_database_url=str(get("central_database_url", "") or ""),
     )
 
 

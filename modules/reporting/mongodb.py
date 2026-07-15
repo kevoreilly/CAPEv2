@@ -65,18 +65,75 @@ def _task_tenant_ctx(task_id):
         })()
 
 
+_CENTRAL_ENGINE = None
+_CENTRAL_ENGINE_URL = None
+
+
+def _central_engine():
+    """Lazily build + cache a read-only SQLAlchemy engine to the CENTRAL control-plane
+    RDS ([central_mode] central_database_url). Returns None when unset (worker can't
+    resolve central tenancy -> stamp fail-closed). Rebuilds if the config URL changes."""
+    global _CENTRAL_ENGINE, _CENTRAL_ENGINE_URL
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    url = central_mode_config().central_database_url
+    if not url:
+        return None
+    if _CENTRAL_ENGINE is not None and url == _CENTRAL_ENGINE_URL:
+        return _CENTRAL_ENGINE
+    from sqlalchemy import create_engine
+
+    _CENTRAL_ENGINE = create_engine(url, pool_pre_ping=True)
+    _CENTRAL_ENGINE_URL = url
+    return _CENTRAL_ENGINE
+
+
+def _task_tenant_ctx_central(central_task_id):
+    """Resolve a CENTRAL task's authoritative tenancy from the central control-plane
+    RDS. In central mode the worker's LOCAL task DB is a different (per-worker) id
+    space and centralstore rewrote info.id to the CENTRAL id, so the stamp MUST be
+    resolved here, not against Database() (the worker-local DB). Returns a detached
+    holder with tenant_id/user_id/visibility, or None (fail-closed) when the central
+    DB URL is unset or the task isn't found."""
+    from sqlalchemy.orm import Session
+
+    from lib.cuckoo.core.data.task import Task
+
+    eng = _central_engine()
+    if eng is None:
+        return None
+    with Session(eng) as s:
+        t = s.get(Task, int(central_task_id))
+        if t is None:
+            return None
+        return type("_TaskCtx", (), {
+            "tenant_id": t.tenant_id, "user_id": t.user_id, "visibility": t.visibility,
+        })()
+
+
 def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id) -> None:
     """Stamp tenant context onto a report's info subdict (called only when MT is on).
 
     On the legacy distributed worker path (``main_task_id`` set — only utils/dist.py
     sets it, never the broker/central path) the worker-local task does NOT carry the
     submitter's tenancy, so fail CLOSED to private/invisible rather than leak.
-    Otherwise stamp from the LOCAL task (report["info"]["id"] may have been rewritten
-    to a main id), failing closed to private if that lookup errors."""
+
+    In CENTRAL mode, ``local_task_id`` is the CENTRAL task id (centralstore rewrote
+    info.id) and the submitter's tenancy lives in the central RDS, NOT the worker-local
+    DB — resolve it there. Otherwise (single-node) stamp from the LOCAL task. Any
+    lookup error fails closed to private."""
     if main_task_id:
         stamp_tenant_info(report_info, None)
         return
     try:
+        from lib.cuckoo.common.central_mode import central_mode_config
+
+        if central_mode_config().enabled:
+            # Authoritative central tenancy (fail-closed to private if the central DB
+            # URL is unset or the task is missing). NOT the user-influenceable custom
+            # envelope (spoofable) and NOT the worker-local DB (wrong id space).
+            stamp_tenant_info(report_info, _task_tenant_ctx_central(local_task_id))
+            return
         stamp_tenant_info(report_info, _task_tenant_ctx(local_task_id))
     except Exception as _db_err:
         log.warning("Failed to look up task for tenant stamping (task %s): %s", local_task_id, _db_err)

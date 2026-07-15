@@ -52,7 +52,13 @@ def _deny_if_hidden(request, task):
     an attacker cannot enumerate which task IDs / states exist in other tenants.
     Callers must invoke this BEFORE validate_task()/status/TLP checks so those
     don't leak existence either."""
-    if task is None or not can_view_task(request.user, task):
+    if task is None:
+        # Missing task: under MT this returns the SAME generic 404 as a hidden
+        # task so other tenants' task ids can't be enumerated. With MT DISABLED
+        # there is no isolation to enforce, so defer to the caller's own
+        # missing-task handling (upstream behavior; default-off changes nothing).
+        return Response({"error": True, "error_value": "Task not found"}, status=404) if multitenancy_config().enabled else None
+    if not can_view_task(request.user, task):
         return Response({"error": True, "error_value": "Task not found"}, status=404)
     return None
 
@@ -67,7 +73,12 @@ def _deny_manage(request, task_id):
     """Like _deny_task but for MUTATIONS — requires can_manage (owner/tenant-admin/
     break-glass). Returns a generic 404 Response if not allowed, else None."""
     task = db.view_task(task_id)
-    if task is None or not can_manage_task(request.user, task):
+    if task is None:
+        # Missing task: generic 404 under MT (no cross-tenant id enumeration);
+        # with MT disabled, defer to the caller's own missing-task handling so a
+        # default (non-MT) install keeps its existing responses.
+        return Response({"error": True, "error_value": "Task not found"}, status=404) if multitenancy_config().enabled else None
+    if not can_manage_task(request.user, task):
         return Response({"error": True, "error_value": "Task not found"}, status=404)
     return None
 

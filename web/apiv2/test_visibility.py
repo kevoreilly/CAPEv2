@@ -223,11 +223,58 @@ def test_deny_if_hidden_blocks_cross_tenant_private(mt_enabled):
     assert resp.status_code == 404
 
 
+def _force_mt_off(monkeypatch):
+    """Deterministically disable MT for the apiv2 deny helpers (the facade
+    delegates to users.tenancy.multitenancy_config at call time)."""
+    import users.tenancy as ut
+    from lib.cuckoo.common.tenancy import MTConfig
+    monkeypatch.setattr(ut, "multitenancy_config", lambda: MTConfig(False, "shared", "", True))
+
+
 @pytest.mark.django_db
-def test_deny_if_hidden_missing_task():
+def test_deny_if_hidden_missing_task_mt_on(mt_enabled):
+    """Under MT a MISSING task returns the SAME generic 404 as a hidden task, so
+    another tenant's task ids can't be enumerated by status code."""
     import apiv2.views as views
     other = User.objects.create_user("b", "b@x.com", "x")
-    assert views._deny_if_hidden(FakeReq(other), None) is not None  # not found
+    resp = views._deny_if_hidden(FakeReq(other), None)
+    assert resp is not None and resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_deny_if_hidden_missing_task_mt_off_defers(monkeypatch):
+    """With MT DISABLED there is no isolation to enforce, so the gate must NOT turn
+    a missing task into a 404 — it defers (None) to the caller's own missing-task
+    handling. This preserves upstream's default-install contract (e.g. reprocess of
+    a nonexistent task returns 200 with an error body — the CI regression this
+    fixes: tests/web/test_apiv2.py::ReprocessTask.test_task_does_not_exist)."""
+    import apiv2.views as views
+    _force_mt_off(monkeypatch)
+    other = User.objects.create_user("b", "b@x.com", "x")
+    assert views._deny_if_hidden(FakeReq(other), None) is None
+
+
+@pytest.mark.django_db
+def test_deny_manage_missing_task_mt_on(cape_db, mt_enabled, monkeypatch):
+    """_deny_manage mirrors _deny_if_hidden for a missing task: generic 404 under MT.
+    (cape_db initializes the CAPE db singleton that views.db.view_task binds to —
+    same fixture the other views.db-patching tests in this file use.)"""
+    import apiv2.views as views
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: None)
+    other = User.objects.create_user("b", "b@x.com", "x")
+    resp = views._deny_manage(FakeReq(other), 1)
+    assert resp is not None and resp.status_code == 404
+
+
+@pytest.mark.django_db
+def test_deny_manage_missing_task_mt_off_defers(cape_db, monkeypatch):
+    """_deny_manage defers (None) on a missing task when MT is off — same
+    default-install back-compat as _deny_if_hidden."""
+    import apiv2.views as views
+    _force_mt_off(monkeypatch)
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: None)
+    other = User.objects.create_user("b", "b@x.com", "x")
+    assert views._deny_manage(FakeReq(other), 1) is None
 
 
 @pytest.mark.django_db

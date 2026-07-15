@@ -253,6 +253,28 @@ def test_set_task_visibility_reverts_mongo_when_sql_commit_fails(db, monkeypatch
     assert calls == ["private", "public"]
 
 
+def test_set_task_visibility_syncs_ownership_not_just_visibility(db, monkeypatch):
+    """A visibility toggle re-stamps info.tenant_id/user_id (not just visibility), so a
+    doc orphaned by a crash between the reporter's fail-closed insert and its reconcile
+    (unowned: tenant_id/user_id null) is repaired on the next toggle instead of becoming
+    {visibility: tenant, tenant_id: null} — which matches no viewer scope."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    captured = {}
+    monkeypatch.setattr(
+        tk, "mongo_update_one",
+        lambda coll, q, upd, *a, **k: captured.update(upd["$set"]) or object(), raising=False,
+    )
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="private")
+    task = db.session.get(tk.Task, tid)
+
+    assert db.set_task_visibility(tid, "public") is not None
+    assert captured["info.visibility"] == "public"
+    assert captured["info.tenant_id"] == task.tenant_id == 10   # ownership synced, not just visibility
+    assert captured["info.user_id"] == task.user_id
+
+
 def test_set_task_visibility_permissive_commits_sql_before_mongo(db, monkeypatch):
     """Codex P1: a MORE-permissive change (private->public) must make SQL durable
     BEFORE publishing the mongo stamp — so a crash / concurrent aggregate in the

@@ -949,8 +949,22 @@ class TasksMixIn:
             # AutoReconnect/ServerSelectionTimeoutError and RETURNS None (no re-raise)
             # when mongo stays down; a success returns an UpdateResult (even
             # matched_count=0). Treat None or a raised error as failure.
+            #
+            # Also (re)assert tenant_id/user_id from the task, not just visibility: a doc
+            # orphaned by a crash between the fail-closed insert and the reporter's
+            # reconcile is left unowned (tenant_id/user_id null); a visibility-only sync
+            # would then make it {visibility: tenant, tenant_id: null} — matching NO
+            # viewer scope (invisible even to the owner). Restamping ownership here is
+            # idempotent for a normal toggle and repairs that orphan.
             try:
-                return mongo_update_one("analysis", {"info.id": task_id}, {"$set": {"info.visibility": _vis}}) is not None
+                return mongo_update_one(
+                    "analysis", {"info.id": task_id},
+                    {"$set": {
+                        "info.visibility": _vis,
+                        "info.tenant_id": getattr(task, "tenant_id", None),
+                        "info.user_id": getattr(task, "user_id", None),
+                    }},
+                ) is not None
             except Exception as _e:
                 log.warning("visibility mongo sync errored for task %s: %s", task_id, _e)
                 return False

@@ -48,7 +48,15 @@ def main():
     except Exception as idx_err:
         print(f"warning: could not create tenant_scope_idx: {idx_err}")
     n = 0
-    for doc in mongo_find("analysis", {"info.visibility": {"$exists": False}}, {"info.id": 1}):
+    # Repair BOTH un-stamped docs (no info.visibility — first-enable) AND unowned docs
+    # (info.user_id null — e.g. a doc orphaned by a crash between the reporter's
+    # fail-closed insert and its reconcile). The latter carry a visibility but no owner,
+    # so a visibility-only toggle can't fix them; re-stamp ownership from their task here.
+    _needs_backfill = {"$or": [
+        {"info.visibility": {"$exists": False}},
+        {"info.user_id": None},
+    ]}
+    for doc in mongo_find("analysis", _needs_backfill, {"info.id": 1}):
         mongo_update_one("analysis", {"_id": doc["_id"]}, {"$set": backfill_doc(doc, db.view_task)})
         n += 1
     print(f"backfilled {n} docs")

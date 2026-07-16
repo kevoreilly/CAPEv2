@@ -336,6 +336,9 @@ def tasks_create_file(request):
 
         task_machines = []
         vm_list = [vm.label for vm in db.list_machines()]
+        explicit_vm_list = [
+            vm.label for vm in db.list_machines(include_reserved=True)
+        ]
 
         if machine.lower() == "all":
             if not apiconf.filecreate.get("allmachines"):
@@ -345,12 +348,12 @@ def tasks_create_file(request):
                 task_machines.append(entry)
         else:
             # Check if VM is in our machines table
-            if machine == "" or machine in vm_list:
+            if machine == "" or machine in explicit_vm_list:
                 task_machines.append(machine)
             else:
                 resp = {
                     "error": True,
-                    "error_value": f"Machine '{machine}' does not exist. Available: {', '.join(vm_list)}",
+                    "error_value": f"Machine '{machine}' does not exist. Available: {', '.join(explicit_vm_list)}",
                 }
                 return Response(resp)
 
@@ -460,6 +463,9 @@ def tasks_create_url(request):
         task_ids = []
         task_machines = []
         vm_list = [vm.label for vm in db.list_machines()]
+        explicit_vm_list = [
+            vm.label for vm in db.list_machines(include_reserved=True)
+        ]
 
         if not url:
             resp = {"error": True, "error_value": "URL value is empty"}
@@ -473,13 +479,16 @@ def tasks_create_url(request):
                 task_machines.append(entry)
         else:
             # Check if VM is in our machines table
-            if machine == "" or machine in vm_list:
+            if machine == "" or machine in explicit_vm_list:
                 task_machines.append(machine)
             # Error if its not
             else:
                 resp = {
                     "error": True,
-                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
+                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(
+                        machine,
+                        ", ".join(explicit_vm_list),
+                    ),
                 }
                 return Response(resp)
 
@@ -564,6 +573,9 @@ def tasks_create_dlnexec(request):
         details = {}
         task_machines = []
         vm_list = [vm.label for vm in db.list_machines()]
+        explicit_vm_list = [
+            vm.label for vm in db.list_machines(include_reserved=True)
+        ]
 
         if machine.lower() == "all":
             if not apiconf.dlnexeccreate.get("allmachines"):
@@ -573,13 +585,13 @@ def tasks_create_dlnexec(request):
                 task_machines.append(entry)
         else:
             # Check if VM is in our machines table
-            if machine == "" or machine in vm_list:
+            if machine == "" or machine in explicit_vm_list:
                 task_machines.append(machine)
             # Error if its not
             else:
                 resp = {
                     "error": True,
-                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(vm_list)),
+                    "error_value": "Machine '{0}' does not exist. Available: {1}".format(machine, ", ".join(explicit_vm_list)),
                 }
                 return Response(resp)
 

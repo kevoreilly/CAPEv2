@@ -95,6 +95,20 @@ def _strip_mt_task_fields(d):
     return d
 
 
+def _strip_mt_sample_fields(d):
+    """The `samples` row is GLOBALLY hash-deduplicated (one row per sha256, no
+    owner/tenant column), but `source_url` is per-submission provenance written by
+    whoever FIRST registered the hash. Under multitenancy, returning it from a
+    hash-addressed / cross-referenced sample serialization leaks the first
+    registrant's source (e.g. another tenant's internal URL or a C2 they track) to
+    any tenant that later submits the same file. Strip it when MT is enabled. The
+    remaining fields are intrinsic file properties (hashes/size/type), derivable
+    from the file the caller already holds. MT-off keeps upstream output verbatim."""
+    if multitenancy_config().enabled and isinstance(d, dict):
+        d.pop("source_url", None)
+    return d
+
+
 def _deny_by_hash(request, *, sha256=None, sha1=None, md5=None, sample_id=None):
     """Indistinguishable 404 unless the caller has >=1 VISIBLE task referencing the
     sample identified by the hash/id. A sample can be shared across tenants, so access
@@ -844,7 +858,7 @@ def files_view(request, md5=None, sha1=None, sha256=None, sample_id=None):
 
             sample = db.view_sample(sample_id)
         if sample:
-            resp["data"] = sample.to_dict()
+            resp["data"] = _strip_mt_sample_fields(sample.to_dict())
         else:
             resp = {"error": True, "error_value": "Sample not found in database"}
 
@@ -895,7 +909,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
                     # Remove path information, just grab the file name
                     buf["target"] = buf["target"].rsplit("/", 1)[-1]
                     if task.sample:
-                        buf["sample"] = task.sample.to_dict()
+                        buf["sample"] = _strip_mt_sample_fields(task.sample.to_dict())
                     resp["data"].append(buf)
             # No visible task for this sample => respond byte-identically to
             # "sample absent" so the error-field doesn't become a cross-tenant
@@ -1088,7 +1102,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
 
             task["sample"] = {}
             if row.sample:
-                task["sample"] = row.sample.to_dict()
+                task["sample"] = _strip_mt_sample_fields(row.sample.to_dict())
 
             if task.get("target"):
                 task["target"] = convert_to_printable(task["target"])
@@ -1131,7 +1145,7 @@ def tasks_view(request, task_id):
     entry["sample"] = {}
     if task.sample_id:
         sample = db.view_sample(task.sample_id)
-        entry["sample"] = sample.to_dict()
+        entry["sample"] = _strip_mt_sample_fields(sample.to_dict())
 
     if task.status == TASK_RECOVERED and task.custom:
         m = re.match(r"^Recovery_(?P<taskid>\d+)$", task.custom)
@@ -1158,7 +1172,7 @@ def tasks_view(request, task_id):
                 entry["sample"] = {}
                 if task.sample_id:
                     sample = db.view_sample(task.sample_id)
-                    entry["sample"] = sample.to_dict()
+                    entry["sample"] = _strip_mt_sample_fields(sample.to_dict())
 
     if repconf.mongodb.enabled:
         rtmp = mongo_find_one(

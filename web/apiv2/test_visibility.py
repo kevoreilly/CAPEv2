@@ -1218,6 +1218,26 @@ def test_strip_mt_task_fields_mt_on_preserves_keys(monkeypatch, mt_enabled):
 
 
 @pytest.mark.django_db
+def test_strip_mt_sample_fields_drops_source_url_when_mt_on(mt_enabled):
+    """The global (hash-deduped, ownerless) samples row's source_url is the FIRST
+    registrant's provenance -> strip it from hash-addressed / embedded sample responses
+    under MT so it can't leak to a tenant that later submits the same file."""
+    import apiv2.views as views
+    d = {"id": 1, "sha256": "a" * 64, "source_url": "https://intranet.bcorp/loader.bin"}
+    out = views._strip_mt_sample_fields(dict(d))
+    assert "source_url" not in out           # cross-tenant provenance stripped
+    assert out["sha256"] == "a" * 64          # intrinsic file fields kept
+
+
+def test_strip_mt_sample_fields_keeps_source_url_when_mt_off(monkeypatch):
+    """MT off (single-tenant): no cross-tenant concern -> upstream output verbatim."""
+    import apiv2.views as views
+    _force_mt_off(monkeypatch)
+    d = {"id": 1, "source_url": "https://x"}
+    assert views._strip_mt_sample_fields(dict(d))["source_url"] == "https://x"
+
+
+@pytest.mark.django_db
 def test_tasks_view_response_strips_mt_keys_when_off(cape_db, monkeypatch, mt_disabled):
     """End-to-end: tasks_view must not leak tenant_id/visibility on a default
     (MT-off) install; with MT on it does."""

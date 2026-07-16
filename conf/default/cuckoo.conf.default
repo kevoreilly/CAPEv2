@@ -283,13 +283,17 @@ worker_api_port = 8000
 # The central node's libvirt-over-SSH identity onto workers (must be authorized on the workers).
 worker_ssh_user = cape
 worker_ssh_keyfile = /home/cape/.ssh/id_ed25519
-# Read-only SQLAlchemy URL of the CENTRAL control-plane RDS, used by WORKERS only to resolve a
-# central task's tenancy (tenant_id/user_id/visibility) when stamping the shared DocumentDB analysis
-# doc under multitenancy. A worker's own [database] is its LOCAL per-worker task DB (different id
-# space) and centralstore rewrites info.id to the central task id, so the stamp must be resolved
-# here. Blank (default) => central-mode analyses stamp fail-closed (private/unowned) rather than
-# leak. Set to read-only creds on workers in a central + multitenancy deployment. Single-node and
-# non-MT installs ignore this.
+# SQLAlchemy URL of the CENTRAL control-plane RDS, used by WORKERS only to resolve a central task's
+# tenancy (tenant_id/user_id/visibility) when stamping the shared DocumentDB analysis doc under
+# multitenancy. A worker's own [database] is its LOCAL per-worker task DB (different id space) and
+# centralstore rewrites info.id to the central task id, so the stamp must be resolved here. Blank
+# (default) => central-mode analyses stamp fail-closed (private/unowned) rather than leak.
+# IMPORTANT: point this at the WRITER/PRIMARY endpoint (the same Postgres the central node uses as
+# its [database]), NOT a read replica/standby. Read-only credentials on the primary are fine, but a
+# reader endpoint breaks the reconcile's cross-node advisory-lock serialization (pg_advisory_lock on
+# a standby doesn't exclude the primary) and the under-lock re-read would be replication-lag-stale;
+# the worker detects pg_is_in_recovery() and warns + runs unserialized-but-fail-closed in that case.
+# Set on workers in a central + multitenancy deployment. Single-node and non-MT installs ignore this.
 central_database_url =
 
 [multitenancy]

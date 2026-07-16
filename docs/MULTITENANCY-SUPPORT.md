@@ -46,12 +46,18 @@ creation).
   submitter's tenancy from the central control-plane DB**: a worker's own
   `[database]` is its LOCAL per-worker task DB (a different id space), and
   `centralstore` rewrites `info.id` to the CENTRAL task id, so the worker resolves
-  and stamps tenancy against the central RDS via `[central_mode] central_database_url`
-  (read-only). If that URL is unset, central-mode analyses stamp **fail-closed**
-  (private / unowned — invisible to everyone but break-glass), never leaked. The
-  visibility toggle serializes with the worker's report write via a per-task advisory
-  lock only within a single DB; a toggle issued on the central node concurrently with
-  a worker reprocess is not cross-node serialized (narrow, documented residual).
+  and stamps tenancy against the central RDS via `[central_mode] central_database_url`.
+  If that URL is unset, central-mode analyses stamp **fail-closed** (private / unowned
+  — invisible to everyone but break-glass), never leaked. Point `central_database_url`
+  at the **writer/primary** endpoint (the same Postgres the central node uses as its
+  `[database]`), NOT a read replica: the worker's post-write reconcile takes its
+  per-task advisory lock there to serialize with the central node's visibility toggle
+  (advisory locks are cluster-wide, so same-key locks on the same primary mutually
+  exclude). If it points at a standby, `pg_advisory_lock` wouldn't exclude the primary
+  and the re-read would be replication-lag stale — the worker detects
+  `pg_is_in_recovery()`, warns, and runs unserialized-but-fail-closed, leaving a narrow
+  reprocess-during-toggle re-widen window (still no persistent leak: the fail-closed
+  insert + backfill keep it safe).
 - **Guacamole interactive sessions** for task-backed analyses: minting a live-VM
   session (and the WebSocket tunnel re-check) is gated by `can_manage_task`
   (owner / tenant-admin / break-glass), NOT mere read visibility — live keyboard/

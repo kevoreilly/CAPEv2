@@ -148,7 +148,7 @@ def test_reconcile_central_uses_central_engine_lock(monkeypatch):
     monkeypatch.setattr(cm, "central_mode_config",
                         lambda: cm.CentralModeConfig(enabled=True, central_database_url="postgresql://central"))
     _CENTRAL = object()
-    monkeypatch.setattr(m, "_central_engine", lambda: _CENTRAL)
+    monkeypatch.setattr(m, "_central_lock_engine", lambda: _CENTRAL)  # primary-validated central engine
 
     class _LocalDB:
         lock_engine = object()  # the WRONG engine to lock on for a central id
@@ -166,6 +166,52 @@ def test_reconcile_central_uses_central_engine_lock(monkeypatch):
 
     m._reconcile_report_visibility(main_task_id=None, local_task_id=42, ids_to_delete={42}, job_id="ui-42")
     assert seen["engine"] is _CENTRAL   # locked the central engine, not _LocalDB.lock_engine
+
+
+class _FakeConn:
+    def __init__(self, in_recovery):
+        self._r = in_recovery
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def execute(self, *a, **k):
+        r = self._r
+
+        class _Res:
+            def scalar(self):
+                return r
+        return _Res()
+
+
+def test_central_lock_engine_refuses_standby(monkeypatch):
+    """A read replica/standby (pg_is_in_recovery=True) can't serialize with the central
+    toggle -> _central_lock_engine returns None (reconcile runs unserialized/fail-closed)."""
+    from modules.reporting import mongodb as m
+
+    class _Eng:
+        def connect(self):
+            return _FakeConn(True)
+    monkeypatch.setattr(m, "_central_engine", lambda: _Eng())
+    monkeypatch.setattr(m, "_CENTRAL_PRIMARY", None, raising=False)
+    monkeypatch.setattr(m, "_CENTRAL_LOCK_WARNED", False, raising=False)
+    assert m._central_lock_engine() is None
+
+
+def test_central_lock_engine_uses_primary(monkeypatch):
+    """A writer primary (pg_is_in_recovery=False) is used for the reconcile lock."""
+    from modules.reporting import mongodb as m
+
+    class _Eng:
+        def connect(self):
+            return _FakeConn(False)
+    eng = _Eng()
+    monkeypatch.setattr(m, "_central_engine", lambda: eng)
+    monkeypatch.setattr(m, "_CENTRAL_PRIMARY", None, raising=False)
+    assert m._central_lock_engine() is eng
 
 
 def test_reconcile_visibility_noop_when_mt_disabled(monkeypatch):

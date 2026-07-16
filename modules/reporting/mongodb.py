@@ -67,13 +67,15 @@ def _task_tenant_ctx(task_id):
 
 _CENTRAL_ENGINE = None
 _CENTRAL_ENGINE_URL = None
+_CENTRAL_PRIMARY = None  # tri-state cache: None=unchecked, True=writer primary, False=standby
+_CENTRAL_LOCK_WARNED = False
 
 
 def _central_engine():
     """Lazily build + cache a read-only SQLAlchemy engine to the CENTRAL control-plane
     RDS ([central_mode] central_database_url). Returns None when unset (worker can't
     resolve central tenancy -> stamp fail-closed). Rebuilds if the config URL changes."""
-    global _CENTRAL_ENGINE, _CENTRAL_ENGINE_URL
+    global _CENTRAL_ENGINE, _CENTRAL_ENGINE_URL, _CENTRAL_PRIMARY
     from lib.cuckoo.common.central_mode import central_mode_config
 
     url = central_mode_config().central_database_url
@@ -82,14 +84,51 @@ def _central_engine():
     if _CENTRAL_ENGINE is not None and url == _CENTRAL_ENGINE_URL:
         return _CENTRAL_ENGINE
     from sqlalchemy import create_engine
+    from sqlalchemy.pool import NullPool
 
-    # Bounded connect: this engine is reached from run()'s finally while holding the
-    # per-task lock; a black-holed central RDS (network partition, no RST) would
-    # otherwise stall every report for ~2 min of TCP SYN retries. Fail closed in
-    # seconds via the caller's except path instead (postgres is the documented backend).
-    _CENTRAL_ENGINE = create_engine(url, pool_pre_ping=True, connect_args={"connect_timeout": 5})
+    # NullPool (like Database.lock_engine): the reconcile holds an advisory-lock
+    # connection across the read while opening a SECOND connection for that read, so a
+    # bounded shared pool would deadlock/exhaust under concurrent reconciles (fail
+    # closed = doc invisible). Bounded connect too: this runs in run()'s finally under
+    # the lock; a black-holed central RDS would otherwise stall reporting ~2 min on TCP
+    # SYN retries -> fail closed in seconds via the caller's except path instead.
+    _CENTRAL_ENGINE = create_engine(url, poolclass=NullPool, connect_args={"connect_timeout": 5})
     _CENTRAL_ENGINE_URL = url
+    _CENTRAL_PRIMARY = None  # re-check on the new engine
     return _CENTRAL_ENGINE
+
+
+def _central_lock_engine():
+    """The central engine to take the reconcile's advisory lock on — but ONLY if it is the
+    WRITER PRIMARY. pg_advisory_lock on a hot standby acquires locally and excludes
+    nothing on the primary (where the central node's set_task_visibility locks), so it
+    would look serialized while the TOCTOU quietly reopens (and the under-lock re-read
+    would be replication-lag stale). On a standby (or if the role can't be determined)
+    return None -> the reconcile runs UNSERIALIZED but still fail-closed, rather than
+    falsely 'serialized'. Point central_database_url at the primary to close this."""
+    global _CENTRAL_PRIMARY, _CENTRAL_LOCK_WARNED
+    eng = _central_engine()
+    if eng is None:
+        return None
+    if _CENTRAL_PRIMARY is None:
+        try:
+            from sqlalchemy import text
+
+            with eng.connect() as c:
+                _CENTRAL_PRIMARY = not bool(c.execute(text("SELECT pg_is_in_recovery()")).scalar())
+        except Exception:
+            _CENTRAL_PRIMARY = False  # can't tell -> don't claim serialization
+    if not _CENTRAL_PRIMARY:
+        if not _CENTRAL_LOCK_WARNED:
+            _CENTRAL_LOCK_WARNED = True
+            log.warning(
+                "central_database_url is a read replica/standby (pg_is_in_recovery) or unreachable: the "
+                "report-visibility reconcile CANNOT serialize with the central-node toggle there (advisory "
+                "locks don't cross to the primary). Running unserialized but fail-closed; point "
+                "central_database_url at the WRITER/PRIMARY endpoint to fully close the cross-node race."
+            )
+        return None
+    return eng
 
 
 def _task_tenant_ctx_central(central_task_id):
@@ -209,8 +248,11 @@ def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job
             _central_id = central_mode_config().enabled and _is_central_rewritten_id(job_id)
         except Exception:
             _central_id = False
-        lock_engine = _central_engine() if _central_id else getattr(Database(), "lock_engine", None)
-        if lock_engine is None:
+        # Central lock must be on the WRITER PRIMARY (validated) to actually serialize with
+        # the central toggle; _central_lock_engine() returns None on a standby (-> run
+        # unserialized-but-fail-closed) rather than pretend.
+        lock_engine = _central_lock_engine() if _central_id else getattr(Database(), "lock_engine", None)
+        if lock_engine is None and not _central_id:
             _warn_no_lock_engine_once()
         # Seed job_id so _stamp_report_for_task can tell a rewritten central id (ui-*,
         # resolve from the central RDS) from a worker-local id (resolve locally) — it is

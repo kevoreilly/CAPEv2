@@ -67,7 +67,6 @@ def _task_tenant_ctx(task_id):
 
 _CENTRAL_ENGINE = None
 _CENTRAL_ENGINE_URL = None
-_CENTRAL_PRIMARY = None  # tri-state cache: None=unchecked, True=writer primary, False=standby
 _CENTRAL_LOCK_WARNED = False
 
 
@@ -75,7 +74,7 @@ def _central_engine():
     """Lazily build + cache a read-only SQLAlchemy engine to the CENTRAL control-plane
     RDS ([central_mode] central_database_url). Returns None when unset (worker can't
     resolve central tenancy -> stamp fail-closed). Rebuilds if the config URL changes."""
-    global _CENTRAL_ENGINE, _CENTRAL_ENGINE_URL, _CENTRAL_PRIMARY
+    global _CENTRAL_ENGINE, _CENTRAL_ENGINE_URL
     from lib.cuckoo.common.central_mode import central_mode_config
 
     url = central_mode_config().central_database_url
@@ -94,39 +93,46 @@ def _central_engine():
     # SYN retries -> fail closed in seconds via the caller's except path instead.
     _CENTRAL_ENGINE = create_engine(url, poolclass=NullPool, connect_args={"connect_timeout": 5})
     _CENTRAL_ENGINE_URL = url
-    _CENTRAL_PRIMARY = None  # re-check on the new engine
     return _CENTRAL_ENGINE
 
 
+def _warn_central_lock_once(reason):
+    global _CENTRAL_LOCK_WARNED
+    if not _CENTRAL_LOCK_WARNED:
+        _CENTRAL_LOCK_WARNED = True
+        log.warning(
+            "central-mode report-visibility reconcile cannot take a validated writer-primary lock (%s): "
+            "central (ui-*) analyses will NOT be visibility-upgraded and stay fail-closed private until "
+            "central_database_url points at the WRITER/PRIMARY endpoint.", reason,
+        )
+
+
 def _central_lock_engine():
-    """The central engine to take the reconcile's advisory lock on — but ONLY if it is the
-    WRITER PRIMARY. pg_advisory_lock on a hot standby acquires locally and excludes
-    nothing on the primary (where the central node's set_task_visibility locks), so it
-    would look serialized while the TOCTOU quietly reopens (and the under-lock re-read
-    would be replication-lag stale). On a standby (or if the role can't be determined)
-    return None -> the reconcile runs UNSERIALIZED but still fail-closed, rather than
-    falsely 'serialized'. Point central_database_url at the primary to close this."""
-    global _CENTRAL_PRIMARY, _CENTRAL_LOCK_WARNED
+    """The central engine to take the reconcile's advisory lock on — but ONLY if it is a
+    validated WRITER PRIMARY. pg_advisory_lock on a hot standby acquires locally and
+    excludes nothing on the primary (where set_task_visibility locks), so it would look
+    serialized while the TOCTOU quietly reopens.
+
+    Probe pg_is_in_recovery() FRESH on every call — NO cache: a transient probe failure
+    must re-probe on the next reconcile (not disable serialization for the process
+    lifetime), and an in-place RDS failover (same URL, endpoint now a standby) must be
+    detected (not keep locking a demoted server). NullPool means the extra round-trip has
+    no warm-pool cost. Returns None on unset URL / standby / probe failure — the caller
+    must then NOT upgrade the doc (leave the fail-closed private stamp), and we warn once."""
     eng = _central_engine()
     if eng is None:
+        _warn_central_lock_once("central_database_url is unset")
         return None
-    if _CENTRAL_PRIMARY is None:
-        try:
-            from sqlalchemy import text
+    try:
+        from sqlalchemy import text
 
-            with eng.connect() as c:
-                _CENTRAL_PRIMARY = not bool(c.execute(text("SELECT pg_is_in_recovery()")).scalar())
-        except Exception:
-            _CENTRAL_PRIMARY = False  # can't tell -> don't claim serialization
-    if not _CENTRAL_PRIMARY:
-        if not _CENTRAL_LOCK_WARNED:
-            _CENTRAL_LOCK_WARNED = True
-            log.warning(
-                "central_database_url is a read replica/standby (pg_is_in_recovery) or unreachable: the "
-                "report-visibility reconcile CANNOT serialize with the central-node toggle there (advisory "
-                "locks don't cross to the primary). Running unserialized but fail-closed; point "
-                "central_database_url at the WRITER/PRIMARY endpoint to fully close the cross-node race."
-            )
+        with eng.connect() as c:
+            in_recovery = bool(c.execute(text("SELECT pg_is_in_recovery()")).scalar())
+    except Exception as _e:
+        _warn_central_lock_once(f"writer-primary probe failed ({_e})")
+        return None
+    if in_recovery:
+        _warn_central_lock_once("central_database_url is a read replica/standby")
         return None
     return eng
 
@@ -248,12 +254,22 @@ def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job
             _central_id = central_mode_config().enabled and _is_central_rewritten_id(job_id)
         except Exception:
             _central_id = False
-        # Central lock must be on the WRITER PRIMARY (validated) to actually serialize with
-        # the central toggle; _central_lock_engine() returns None on a standby (-> run
-        # unserialized-but-fail-closed) rather than pretend.
-        lock_engine = _central_lock_engine() if _central_id else getattr(Database(), "lock_engine", None)
-        if lock_engine is None and not _central_id:
-            _warn_no_lock_engine_once()
+        if _central_id:
+            # The central upgrade REQUIRES a validated writer-primary lock. Without it
+            # (unset URL / standby / probe failure) reading tenancy from a lagging standby
+            # and $set-ing it verbatim could re-widen the doc (a stale 'public' over a
+            # committed private). So skip the upgrade entirely and leave run()'s fail-closed
+            # private stamp — genuinely fail-closed (invisible-until-fixed), matching every
+            # other central failure mode. _central_lock_engine() already warned once.
+            lock_engine = _central_lock_engine()
+            if lock_engine is None:
+                return
+        else:
+            # Single-node: the local DB is authoritative; a missing lock_engine (sqlite,
+            # single-writer) is safe to proceed unserialized.
+            lock_engine = getattr(Database(), "lock_engine", None)
+            if lock_engine is None:
+                _warn_no_lock_engine_once()
         # Seed job_id so _stamp_report_for_task can tell a rewritten central id (ui-*,
         # resolve from the central RDS) from a worker-local id (resolve locally) — it is
         # otherwise blind to the id space here.

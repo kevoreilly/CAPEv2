@@ -210,8 +210,100 @@ def test_central_lock_engine_uses_primary(monkeypatch):
             return _FakeConn(False)
     eng = _Eng()
     monkeypatch.setattr(m, "_central_engine", lambda: eng)
-    monkeypatch.setattr(m, "_CENTRAL_PRIMARY", None, raising=False)
     assert m._central_lock_engine() is eng
+
+
+def test_central_lock_engine_reprobes_after_transient_failure(monkeypatch):
+    """A transient probe failure must NOT be cached as a permanent verdict: the next
+    reconcile re-probes and serializes again against a recovered primary."""
+    from modules.reporting import mongodb as m
+    calls = {"n": 0}
+
+    class _Eng:
+        def connect(self):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                raise RuntimeError("transient: RDS restarting")
+            return _FakeConn(False)  # healthy primary from the 2nd call on
+    eng = _Eng()
+    monkeypatch.setattr(m, "_central_engine", lambda: eng)
+    monkeypatch.setattr(m, "_CENTRAL_LOCK_WARNED", False, raising=False)
+    assert m._central_lock_engine() is None   # the blip: refuse this call
+    assert m._central_lock_engine() is eng    # recovered: serialize again (no sticky cache)
+
+
+def test_central_lock_engine_detects_demotion_to_standby(monkeypatch):
+    """An in-place failover (same URL, endpoint now a standby) must be detected — a cached
+    True would keep locking a demoted server that excludes nothing on the new primary."""
+    from modules.reporting import mongodb as m
+    state = {"in_recovery": False}
+
+    class _Eng:
+        def connect(self):
+            return _FakeConn(state["in_recovery"])
+    eng = _Eng()
+    monkeypatch.setattr(m, "_central_engine", lambda: eng)
+    monkeypatch.setattr(m, "_CENTRAL_LOCK_WARNED", False, raising=False)
+    assert m._central_lock_engine() is eng    # primary: serialize
+    state["in_recovery"] = True               # demoted in place
+    assert m._central_lock_engine() is None    # re-probed: refuse
+
+
+def test_reconcile_unserialized_central_path_does_not_widen(monkeypatch):
+    """Standby (no validated primary lock): the central reconcile must NOT upgrade — a read
+    from the lagging standby could re-widen a just-committed private. Leave run()'s stamp."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    import lib.cuckoo.common.central_mode as cm
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url="postgresql://standby"))
+    monkeypatch.setattr(m, "_central_lock_engine", lambda: None)  # standby -> no primary lock
+
+    class _StaleRow:  # the public->private toggle hasn't replicated to the standby yet
+        tenant_id, user_id, visibility = 10, 7, "public"
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: _StaleRow())
+
+    class _LocalDB:
+        lock_engine = None
+    monkeypatch.setattr(dbmod, "Database", lambda: _LocalDB())
+
+    seen = {}
+    monkeypatch.setattr(m, "mongo_update_one",
+                        lambda coll, flt, upd: seen.update(upd["$set"]) or object(), raising=False)
+
+    m._reconcile_report_visibility(main_task_id=None, local_task_id=42, ids_to_delete={42}, job_id="ui-42")
+    assert seen == {}   # no upgrade written -> run()'s fail-closed private stamp survives
+
+
+def test_reconcile_central_url_unset_still_warns(monkeypatch, caplog):
+    """A central+MT worker with no central_database_url must still log a warning (the
+    diagnostic that reports are staying fail-closed private), not go silent."""
+    import logging
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    import lib.cuckoo.common.central_mode as cm
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url=""))
+    monkeypatch.setattr(m, "_CENTRAL_ENGINE", None, raising=False)
+    monkeypatch.setattr(m, "_CENTRAL_ENGINE_URL", None, raising=False)
+    monkeypatch.setattr(m, "_CENTRAL_LOCK_WARNED", False, raising=False)
+
+    class _LocalDB:
+        lock_engine = None
+    monkeypatch.setattr(dbmod, "Database", lambda: _LocalDB())
+    monkeypatch.setattr(m, "mongo_update_one", lambda *a, **k: object(), raising=False)
+
+    with caplog.at_level(logging.WARNING, logger="modules.reporting.mongodb"):
+        m._reconcile_report_visibility(main_task_id=None, local_task_id=42, ids_to_delete={42}, job_id="ui-42")
+    assert any(r.levelno >= logging.WARNING for r in caplog.records)
 
 
 def test_reconcile_visibility_noop_when_mt_disabled(monkeypatch):

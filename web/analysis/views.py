@@ -3943,7 +3943,10 @@ def search(request, searched=""):
 
         def _result_task_id(result):
             if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
-                tid = (result.get("_source") or {}).get("task_id")
+                # perform_search's ES branch already unwraps _source (returns d["_source"]),
+                # so `result` IS the source dict — read task_id off it directly (a nested
+                # _source lookup is always None here -> would drop every row).
+                tid = (result or {}).get("task_id")
             elif enabledconf["mongodb"] and term and "info" in result:
                 tid = (result.get("info") or {}).get("id")
             elif es_as_db:

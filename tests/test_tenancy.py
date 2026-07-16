@@ -158,3 +158,41 @@ def test_known_modes_normalized(monkeypatch):
                       ("LOCKED", "locked"), (" Shared ", "shared")):
         _patch_conf(monkeypatch, raw)
         assert tenancy.multitenancy_config().mode == want, f"mode {raw!r}"
+
+
+def test_absent_section_is_mt_off(monkeypatch):
+    """A merely-absent [multitenancy] section (Config.get raises CuckooOperationalError)
+    is the legitimate single-tenant default: MT OFF. Must NOT fail closed / lock out a
+    single-tenant deployment that never configured the section."""
+    from lib.cuckoo.common import config as _cfgmod
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+    from lib.cuckoo.common import tenancy
+
+    class _AbsentConf:
+        def __init__(self, name):
+            pass
+
+        def get(self, section):
+            raise CuckooOperationalError("Option multitenancy is not found in configuration")
+    monkeypatch.setattr(_cfgmod, "Config", _AbsentConf)
+    assert tenancy.multitenancy_config().enabled is False
+
+
+def test_config_read_error_fails_closed(monkeypatch):
+    """A genuinely unreadable [multitenancy] (parse/IO error — NOT a merely-absent
+    section) must fail CLOSED: MT enabled + locked, never silently disable isolation.
+    Mirrors test_unknown_mode_fails_closed_to_locked + the backfill node-role guard —
+    an unreadable policy config never degrades to the permissive (MT-off) branch."""
+    from lib.cuckoo.common import config as _cfgmod
+    from lib.cuckoo.common import tenancy
+
+    class _BoomConf:
+        def __init__(self, name):
+            pass
+
+        def get(self, section):
+            raise RuntimeError("cuckoo.conf parse error")
+    monkeypatch.setattr(_cfgmod, "Config", _BoomConf)
+    cfg = tenancy.multitenancy_config()
+    assert cfg.enabled is True and cfg.mode == "locked", (
+        f"config-read error must fail closed (enabled+locked), got {cfg}")

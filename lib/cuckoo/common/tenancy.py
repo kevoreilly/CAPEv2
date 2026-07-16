@@ -4,8 +4,11 @@ views, the SQLAlchemy task store, and (separately) validated by the broker.
 No Django, no SQLAlchemy imports here — only plain dataclasses so it stays a
 pure function set testable against tests/tenancy_vectors.py.
 """
+import logging
 from dataclasses import dataclass
 from typing import Optional
+
+log = logging.getLogger(__name__)
 
 PUBLIC, TENANT, PRIVATE = "public", "tenant", "private"
 VISIBILITIES = (PUBLIC, TENANT, PRIVATE)
@@ -101,11 +104,29 @@ def _as_bool(v, default: bool) -> bool:
 def multitenancy_config() -> MTConfig:
     """Read the [multitenancy] section of cuckoo.conf (server-side policy)."""
     from lib.cuckoo.common.config import Config
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
 
     try:
         sec = Config("cuckoo").get("multitenancy")
-    except Exception:
+    except CuckooOperationalError:
+        # [multitenancy] section absent => not configured => MT off. The legitimate
+        # single-tenant default, NOT an error (Config.get raises this on a missing
+        # section). This branch keeps single-tenant deployments working.
         sec = {}
+    except Exception:
+        # A malformed/unreadable cuckoo.conf (parse/IO error — NOT a merely-absent
+        # section, which is the CuckooOperationalError branch above) must NOT silently
+        # drop tenant isolation. Fail CLOSED — assume MT ON + the most restrictive
+        # mode until the config reads cleanly — mirroring the mode normalization below
+        # and the backfill node-role guard, which fail closed on the same class of
+        # error rather than defaulting to the permissive branch. Log loudly so an
+        # operator sees isolation was preserved defensively.
+        log.exception(
+            "multitenancy_config: [multitenancy] unreadable; failing CLOSED "
+            "(MT enabled, mode=locked) to preserve tenant isolation"
+        )
+        return MTConfig(enabled=True, mode="locked", default_visibility="",
+                        local_admins_manage_all_tenants=True)
     get = sec.get if hasattr(sec, "get") else (lambda k, d=None: d)
     # Validate/normalize mode: an unknown/typo value must NOT silently disable
     # scoping. Case/whitespace-normalize and fail closed to the more restrictive

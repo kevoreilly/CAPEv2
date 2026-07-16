@@ -125,8 +125,12 @@ def multitenancy_config() -> MTConfig:
             "multitenancy_config: [multitenancy] unreadable; failing CLOSED "
             "(MT enabled, mode=locked) to preserve tenant isolation"
         )
+        # Fail closed on EVERY knob, not just enabled/mode: local_admins_manage_all_tenants
+        # False is the RESTRICTIVE value (a deployment that set it 'no' must not have a
+        # local Django superuser regain full break-glass on the fail-closed path; IdP
+        # superusers still keep reach via viewer_for's socialaccount branch).
         return MTConfig(enabled=True, mode="locked", default_visibility="",
-                        local_admins_manage_all_tenants=True)
+                        local_admins_manage_all_tenants=False)
     get = sec.get if hasattr(sec, "get") else (lambda k, d=None: d)
     # Validate/normalize mode: an unknown/typo value must NOT silently disable
     # scoping. Case/whitespace-normalize and fail closed to the more restrictive
@@ -137,7 +141,11 @@ def multitenancy_config() -> MTConfig:
     return MTConfig(
         enabled=_as_bool(get("enabled", False), False),
         mode=mode,
-        default_visibility=str(get("default_visibility", "") or ""),
+        # Normalize like `mode` above: an un-normalized "Private"/" private " fails the
+        # exact `in VISIBILITIES` check in default_visibility() and silently falls back to
+        # the per-mode default (PUBLIC in shared) — the one knob whose misparse WIDENS
+        # exposure, so strip/lowercase it too.
+        default_visibility=str(get("default_visibility", "") or "").strip().lower(),
         local_admins_manage_all_tenants=_as_bool(get("local_admins_manage_all_tenants", True), True),
     )
 

@@ -196,3 +196,29 @@ def test_config_read_error_fails_closed(monkeypatch):
     cfg = tenancy.multitenancy_config()
     assert cfg.enabled is True and cfg.mode == "locked", (
         f"config-read error must fail closed (enabled+locked), got {cfg}")
+    # fail closed on EVERY knob: local_admins_manage_all_tenants=False is the restrictive
+    # value (don't hand a local superuser full break-glass on the fail-closed path).
+    assert cfg.local_admins_manage_all_tenants is False, (
+        f"fail-closed must be restrictive on local_admins_manage_all_tenants, got {cfg}")
+
+
+def test_default_visibility_normalized(monkeypatch):
+    """default_visibility must be case/whitespace-normalized like `mode` — otherwise a
+    'Private'/' private ' misparse fails the exact `in VISIBILITIES` check and silently
+    WIDENS to the per-mode default (PUBLIC in shared)."""
+    from lib.cuckoo.common import config as _cfgmod
+    from lib.cuckoo.common import tenancy
+
+    for raw, want in ((" Private ", "private"), ("PUBLIC", "public"), ("Tenant", "tenant")):
+        class _Conf:
+            def __init__(self, name):
+                pass
+
+            def get(self, section):
+                return {"enabled": True, "mode": "shared", "default_visibility": raw,
+                        "local_admins_manage_all_tenants": True}
+        monkeypatch.setattr(_cfgmod, "Config", _Conf)
+        cfg = tenancy.multitenancy_config()
+        assert cfg.default_visibility == want, f"default_visibility {raw!r} -> {cfg.default_visibility!r}"
+        # and it now resolves through default_visibility() instead of falling back
+        assert tenancy.default_visibility(cfg) == want

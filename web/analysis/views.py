@@ -2782,8 +2782,13 @@ def report(request, task_id):
     from lib.cuckoo.common.central_mode import central_mode_config
     if central_mode_config().enabled:
         from lib.cuckoo.common.artifact_storage import ensure_local_analysis
-        from analysis.central_scope import viewer_scope
-        ensure_local_analysis(task_id, scope=viewer_scope(request.user))
+        # can_view_task (above) is the AUTHORITATIVE gate for this task; stage THIS
+        # task's tree without re-applying the viewer scope. Re-scoping on the doc's
+        # stamped tenancy would lock an authorized OWNER out of a fail-closed /
+        # not-yet-reconciled / unstamped doc. Safe here because report() is gated;
+        # the artifact SERVERS (central_file/central_filereport/…) are NOT
+        # can_view_task-gated, so THEY keep their viewer scope as primary isolation.
+        ensure_local_analysis(task_id, scope=None)
     network_report = {}
     report = {}
     if enabledconf["mongodb"]:
@@ -2825,8 +2830,13 @@ def report(request, task_id):
         from lib.cuckoo.common.central_mode import central_mode_config
         if central_mode_config().enabled:
             from analysis.central_views import central_analysis_query
-            from analysis.central_scope import viewer_scope
-            _analysis_q = central_analysis_query(task_id, scope=viewer_scope(request.user))
+            # No viewer scope: can_view_task (above) already authorized this task, and
+            # central_analysis_query resolves it by the globally-unique job_id. Re-scoping
+            # on the doc's stamped tenancy would 404 an authorized OWNER on a fail-closed /
+            # not-yet-reconciled / unstamped doc (the reported bug). The shared
+            # central_analysis_query default + the artifact servers keep scope — they run
+            # without a can_view_task gate, so there the scope is primary isolation.
+            _analysis_q = central_analysis_query(task_id)
         else:
             _analysis_q = {"info.id": int(task_id)}
 

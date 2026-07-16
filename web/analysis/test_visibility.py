@@ -22,6 +22,56 @@ def _report_url():
 
 
 @pytest.mark.django_db
+def test_report_central_read_is_unscoped_post_gate(cape_db, mt_enabled, monkeypatch, client):
+    """Regression: in central mode report() authorizes the task via can_view_task (RDS,
+    authoritative) and MUST then read the analysis doc UNSCOPED (resolved by the unique
+    job_id). Re-applying the viewer scope on the read would 404 an authorized OWNER on a
+    fail-closed / not-yet-reconciled / unstamped doc (info.* not stamped). Assert report()
+    calls central_analysis_query WITHOUT a viewer scope."""
+    import analysis.views as av
+    import analysis.central_views as cv
+    import lib.cuckoo.common.central_mode as cm
+
+    monkeypatch.setattr(cm, "central_mode_config", lambda: cm.CentralModeConfig(enabled=True))
+    # the central read lives inside `if enabledconf["mongodb"]:` — enable it so the spy fires
+    monkeypatch.setitem(av.enabledconf, "mongodb", True)
+
+    class _OwnTask:
+        id = 1
+        user_id = 1
+        tenant_id = 10
+        visibility = "tenant"
+    monkeypatch.setattr(av.db, "view_task", lambda *a, **k: _OwnTask())
+    monkeypatch.setattr(av, "can_view_task", lambda *a, **k: True)
+    # staging is a no-op for the test; it must NOT re-scope either (same reasoning)
+    import lib.cuckoo.common.artifact_storage as astor
+    staged = {}
+    monkeypatch.setattr(astor, "ensure_local_analysis",
+                        lambda tid, scope="__unset__": staged.update(scope=scope), raising=False)
+    # spy the central read; capture the scope kwarg then stop the (large) view early
+    seen = {}
+
+    class _Stop(Exception):
+        pass
+
+    def spy(task_id, scope=None):
+        seen["scope"] = scope
+        raise _Stop()
+    monkeypatch.setattr(cv, "central_analysis_query", spy)
+
+    u = User.objects.create_user("owner", "o@x.com", "x")
+    client.force_login(u)
+    try:
+        client.get(_report_url())
+    except _Stop:
+        pass
+    assert "scope" in seen and seen["scope"] is None, (
+        f"report() must read the central doc UNSCOPED post-gate; got scope={seen.get('scope')!r}")
+    assert staged.get("scope") is None, (
+        f"report() staging must not re-scope post-gate; got scope={staged.get('scope')!r}")
+
+
+@pytest.mark.django_db
 def test_report_denies_cross_tenant_private(cape_db, mt_enabled, monkeypatch, client):
     """A cross-tenant private task is not shown. The denial is the generic
     "no analysis found" page (HTTP 200), INDISTINGUISHABLE from a missing task,

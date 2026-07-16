@@ -175,16 +175,22 @@ def _warn_no_lock_engine_once():
 
 def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job_id=None) -> None:
     """Raise the just-written mongo analysis doc's tenancy to the AUTHORITATIVE SQL value
-    under the SAME per-task advisory lock set_task_visibility holds, closing the
-    stamp-vs-toggle TOCTOU. run() inserts the doc FAIL-CLOSED (private), so it is never
-    permissive before this upgrade; if the upgrade can't complete the doc stays private
-    (safe), never stale-permissive.
+    under the per-task advisory lock set_task_visibility holds, closing the stamp-vs-toggle
+    TOCTOU. run() inserts the doc FAIL-CLOSED (private), so it is never permissive before
+    this upgrade; if the upgrade can't complete the doc stays private (safe), never
+    stale-permissive.
 
-    No-op when MT is disabled, on the legacy distributed path (main_task_id set — that
-    doc stays fail-closed private, and its lock/id domain differs from the central
-    toggle's, so serializing here is neither possible nor needed), or when mongo is
-    unavailable. NEVER raises: it runs from run()'s finally, where an escape would flip a
-    fully-stored report to failed_reporting or mask the storage block's own exception."""
+    The lock must be on the SAME Postgres as the authoritative toggle: for a rewritten
+    central id (ui-*) that is the CENTRAL RDS (set_task_visibility runs on the central
+    node), so lock the central engine there; otherwise the worker-local engine. A
+    worker-local lock would NOT mutually exclude a central-node toggle (locks on different
+    servers don't serialize).
+
+    No-op when MT is disabled, on the legacy distributed path (main_task_id set — that doc
+    stays fail-closed private, and its lock/id domain differs from the central toggle's, so
+    serializing here is neither possible nor needed), or when mongo is unavailable. NEVER
+    raises: it runs from run()'s finally, where an escape would flip a fully-stored report
+    to failed_reporting or mask the storage block's own exception."""
     try:
         from lib.cuckoo.common.tenancy import multitenancy_config
 
@@ -193,7 +199,17 @@ def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job
         from lib.cuckoo.core.database import Database
         from lib.cuckoo.core.data.tasking import task_visibility_lock
 
-        lock_engine = getattr(Database(), "lock_engine", None)
+        # Serialize with the AUTHORITATIVE toggle. In central mode a rewritten (ui-*) id's
+        # toggle runs on the central node against the central RDS, so lock the central
+        # engine (same DB + key); else the worker-local engine.
+        _central_id = False
+        try:
+            from lib.cuckoo.common.central_mode import central_mode_config
+
+            _central_id = central_mode_config().enabled and _is_central_rewritten_id(job_id)
+        except Exception:
+            _central_id = False
+        lock_engine = _central_engine() if _central_id else getattr(Database(), "lock_engine", None)
         if lock_engine is None:
             _warn_no_lock_engine_once()
         # Seed job_id so _stamp_report_for_task can tell a rewritten central id (ui-*,

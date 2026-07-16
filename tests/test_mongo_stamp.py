@@ -132,6 +132,42 @@ def test_task_tenant_ctx_central_none_when_url_unset(monkeypatch):
     assert m._task_tenant_ctx_central(42) is None
 
 
+def test_reconcile_central_uses_central_engine_lock(monkeypatch):
+    """Central + ui-* id: the reconcile must take its advisory lock on the CENTRAL engine
+    (same Postgres as set_task_visibility on the central node), not the worker-local
+    engine — a worker-local lock wouldn't mutually exclude a central-node toggle."""
+    from contextlib import contextmanager
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    import lib.cuckoo.common.central_mode as cm
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.data.tasking as tasking
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url="postgresql://central"))
+    _CENTRAL = object()
+    monkeypatch.setattr(m, "_central_engine", lambda: _CENTRAL)
+
+    class _LocalDB:
+        lock_engine = object()  # the WRONG engine to lock on for a central id
+    monkeypatch.setattr(dbmod, "Database", lambda: _LocalDB())
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: None)
+    monkeypatch.setattr(m, "mongo_update_one", lambda *a, **k: object(), raising=False)
+
+    seen = {}
+
+    @contextmanager
+    def fake_lock(lock_engine, task_id):
+        seen["engine"] = lock_engine
+        yield
+    monkeypatch.setattr(tasking, "task_visibility_lock", fake_lock)
+
+    m._reconcile_report_visibility(main_task_id=None, local_task_id=42, ids_to_delete={42}, job_id="ui-42")
+    assert seen["engine"] is _CENTRAL   # locked the central engine, not _LocalDB.lock_engine
+
+
 def test_reconcile_visibility_noop_when_mt_disabled(monkeypatch):
     """MT off: the report-visibility reconcile must not touch mongo (upstream shape)."""
     from modules.reporting import mongodb as m

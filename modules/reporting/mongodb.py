@@ -137,27 +137,65 @@ def _central_lock_engine():
     return eng
 
 
-def _task_tenant_ctx_central(central_task_id):
+def _task_tenant_ctx_central(central_task_id, conn=None):
     """Resolve a CENTRAL task's authoritative tenancy from the central control-plane
     RDS. In central mode the worker's LOCAL task DB is a different (per-worker) id
     space and centralstore rewrote info.id to the CENTRAL id, so the stamp MUST be
     resolved here, not against Database() (the worker-local DB). Returns a detached
     holder with tenant_id/user_id/visibility, or None (fail-closed) when the central
-    DB URL is unset or the task isn't found."""
+    DB URL is unset or the task isn't found.
+
+    When ``conn`` is given (the pinned advisory-lock connection), read on THAT
+    connection so the writer-primary verdict, the lock, and this read all share one
+    backend and cannot disagree under an in-place failover / multi-host URL; otherwise
+    open a fresh central connection."""
     from sqlalchemy.orm import Session
 
     from lib.cuckoo.core.data.task import Task
 
-    eng = _central_engine()
-    if eng is None:
-        return None
-    with Session(eng) as s:
+    if conn is not None:
+        session_ctx = Session(bind=conn)
+    else:
+        eng = _central_engine()
+        if eng is None:
+            return None
+        session_ctx = Session(eng)
+    with session_ctx as s:
         t = s.get(Task, int(central_task_id))
         if t is None:
             return None
         return type("_TaskCtx", (), {
             "tenant_id": t.tenant_id, "user_id": t.user_id, "visibility": t.visibility,
         })()
+
+
+def _connection_in_recovery(conn) -> bool:
+    """True if ``conn`` — the pinned advisory-lock connection — talks to a server in
+    recovery (a hot standby), so the reconcile must NOT upgrade (a lagging standby row
+    would re-widen the committed private doc). None-safe: returns False when there is no
+    lock connection (non-Postgres / sqlite path), where recovery status is irrelevant. A
+    probe error is treated as unsafe (returns True, fail closed) — we cannot confirm the
+    lock landed on the primary, so leave the doc fail-closed private."""
+    if conn is None:
+        return False
+    from sqlalchemy import text
+
+    try:
+        return bool(conn.execute(text("SELECT pg_is_in_recovery()")).scalar())
+    except Exception as _e:
+        _warn_central_lock_once(f"in-lock writer-primary re-check failed ({_e})")
+        return True
+
+
+def _warn_central_reconcile_skipped(task_id, reason) -> None:
+    """Per-task diagnostic when the central reconcile skips the visibility upgrade (leaving
+    the doc fail-closed private). The mongo-write-failure path logs the same way for the
+    same 'sole corrector no-op'd' situation; operators enumerate stranded central tasks from
+    these lines instead of scanning mongo for info.tenant_id:null."""
+    log.warning(
+        "visibility reconcile SKIPPED for central task %s (%s); doc stays fail-closed "
+        "private until reprocess", task_id, reason,
+    )
 
 
 def _is_central_rewritten_id(job_id) -> bool:
@@ -171,7 +209,7 @@ def _is_central_rewritten_id(job_id) -> bool:
     return bool(job_id) and re.match(r"^ui-(\d+)$", str(job_id)) is not None
 
 
-def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id) -> None:
+def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id, central_conn=None) -> None:
     """Stamp tenant context onto a report's info subdict (called only when MT is on).
 
     On the legacy distributed worker path (``main_task_id`` set — only utils/dist.py
@@ -195,7 +233,7 @@ def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id) -> No
             # RDS (fail-closed if the URL is unset or the task is missing). NOT the
             # worker-local DB (wrong id space) and NOT the user-influenceable custom
             # envelope (spoofable).
-            stamp_tenant_info(report_info, _task_tenant_ctx_central(local_task_id))
+            stamp_tenant_info(report_info, _task_tenant_ctx_central(local_task_id, conn=central_conn))
             return
         # Single-node OR central direct-submit: info.id is a WORKER-LOCAL id -> local DB.
         stamp_tenant_info(report_info, _task_tenant_ctx(local_task_id))
@@ -260,9 +298,11 @@ def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job
             # and $set-ing it verbatim could re-widen the doc (a stale 'public' over a
             # committed private). So skip the upgrade entirely and leave run()'s fail-closed
             # private stamp — genuinely fail-closed (invisible-until-fixed), matching every
-            # other central failure mode. _central_lock_engine() already warned once.
+            # other central failure mode. _central_lock_engine() already warned once; add a
+            # per-task line so operators can enumerate the stranded docs from logs.
             lock_engine = _central_lock_engine()
             if lock_engine is None:
+                _warn_central_reconcile_skipped(local_task_id, "no validated writer-primary lock")
                 return
         else:
             # Single-node: the local DB is authoritative; a missing lock_engine (sqlite,
@@ -274,10 +314,25 @@ def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job
         # resolve from the central RDS) from a worker-local id (resolve locally) — it is
         # otherwise blind to the id space here.
         info = {"job_id": job_id}
-        with task_visibility_lock(lock_engine, local_task_id):
-            # Re-read the current SQL tenancy under the lock (authoritative; a toggle
-            # can't commit + sync mongo while we hold it).
-            _stamp_report_for_task(info, None, local_task_id)
+        with task_visibility_lock(lock_engine, local_task_id) as lock_conn:
+            if _central_id:
+                # Bind the writer-primary verdict AND the tenancy re-read to the SAME
+                # connection that holds the advisory lock. _central_lock_engine()'s probe
+                # ran on a throwaway NullPool connection; an in-place failover landing
+                # between that probe and the lock — or a multi-host central_database_url
+                # (NullPool re-resolves on every connect) — could acquire the lock on a
+                # demoted standby whose replication-lag-stale row would re-widen the
+                # committed private doc. Re-validate + read on the pinned connection so
+                # probe, lock, and read cannot disagree.
+                if _connection_in_recovery(lock_conn):
+                    _warn_central_reconcile_skipped(
+                        local_task_id, "lock connection is a standby / in-lock primary re-check failed")
+                    return
+                _stamp_report_for_task(info, None, local_task_id, central_conn=lock_conn)
+            else:
+                # Re-read the current SQL tenancy under the lock (authoritative; a toggle
+                # can't commit + sync mongo while we hold it).
+                _stamp_report_for_task(info, None, local_task_id)
             try:
                 ids = [int(x) for x in ids_to_delete]
             except (TypeError, ValueError):

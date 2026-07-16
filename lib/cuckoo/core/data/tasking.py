@@ -117,10 +117,15 @@ def task_visibility_lock(lock_engine, task_id):
     a second writer of info.visibility (the mongo report stamper) can't interleave
     with a set_task_visibility toggle and leave the mongo store more permissive than
     SQL. Mirrors set_task_visibility's serialization (same key = task_id, same
-    lock_engine). No-op when lock_engine is None (non-Postgres / sqlite / MT off)."""
+    lock_engine). No-op when lock_engine is None (non-Postgres / sqlite / MT off).
+
+    Yields the pinned advisory-lock connection (None on the no-op path) so the caller can
+    run its writer-primary re-check and the authoritative tenancy re-read on the SAME
+    backend that holds the lock — probe, lock, and read then cannot disagree under an
+    in-place failover or a multi-host URL."""
     conn = _advisory_lock(lock_engine, task_id)
     try:
-        yield
+        yield conn
     finally:
         _advisory_unlock(conn, task_id)
 

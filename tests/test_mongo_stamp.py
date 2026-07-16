@@ -68,7 +68,7 @@ def test_stamp_report_central_mode_uses_central_ctx(monkeypatch):
     class Central:
         tenant_id, user_id, visibility = 10, 7, "tenant"
 
-    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: Central() if int(cid) == 42 else None)
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid, conn=None: Central() if int(cid) == 42 else None)
 
     def _boom(_):
         raise AssertionError("must NOT read the worker-local DB for a rewritten ui-* id")
@@ -96,7 +96,7 @@ def test_stamp_report_central_direct_submit_uses_local_db_not_central(monkeypatc
     class LocalTenantA:
         tenant_id, user_id, visibility = 10, 7, "tenant"
 
-    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: CentralTenantB())  # must NOT be used
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid, conn=None: CentralTenantB())  # must NOT be used
     monkeypatch.setattr(m, "_task_tenant_ctx", lambda tid: LocalTenantA() if int(tid) == 7 else None)
 
     info = {"id": 7, "job_id": "local-7"}   # direct submit: id NOT rewritten
@@ -113,7 +113,7 @@ def test_stamp_report_central_mode_fail_closed_when_unresolved(monkeypatch):
 
     monkeypatch.setattr(cm, "central_mode_config",
                         lambda: cm.CentralModeConfig(enabled=True, central_database_url=""))
-    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: None)  # unresolved
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid, conn=None: None)  # unresolved
 
     info = {"id": 42}
     m._stamp_report_for_task(info, main_task_id=None, local_task_id=42)
@@ -153,7 +153,7 @@ def test_reconcile_central_uses_central_engine_lock(monkeypatch):
     class _LocalDB:
         lock_engine = object()  # the WRONG engine to lock on for a central id
     monkeypatch.setattr(dbmod, "Database", lambda: _LocalDB())
-    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: None)
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid, conn=None: None)
     monkeypatch.setattr(m, "mongo_update_one", lambda *a, **k: object(), raising=False)
 
     seen = {}
@@ -265,7 +265,7 @@ def test_reconcile_unserialized_central_path_does_not_widen(monkeypatch):
 
     class _StaleRow:  # the public->private toggle hasn't replicated to the standby yet
         tenant_id, user_id, visibility = 10, 7, "public"
-    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid: _StaleRow())
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid, conn=None: _StaleRow())
 
     class _LocalDB:
         lock_engine = None
@@ -446,3 +446,175 @@ def test_task_visibility_lock_noop_without_engine():
     with task_visibility_lock(None, 5):
         ran.append(True)
     assert ran == [True]
+
+
+def test_task_visibility_lock_yields_lock_connection(monkeypatch):
+    """task_visibility_lock yields the pinned advisory-lock connection so the caller can run
+    its writer-primary re-check + tenancy re-read on the SAME backend that holds the lock."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    sentinel = object()
+    monkeypatch.setattr(tk, "_advisory_lock", lambda eng, key: sentinel)
+    monkeypatch.setattr(tk, "_advisory_unlock", lambda conn, key: None)
+    with tk.task_visibility_lock(object(), 9) as conn:
+        assert conn is sentinel
+
+
+class _RecoveryConn:
+    """A pinned advisory-lock connection stub: answers pg_advisory_lock/unlock AND the
+    in-lock pg_is_in_recovery() re-check with the configured recovery state."""
+
+    def __init__(self, in_recovery):
+        self._r = in_recovery
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *a):
+        return False
+
+    def execute(self, *a, **k):
+        r = self._r
+
+        class _Res:
+            def scalar(self_inner):
+                return r
+        return _Res()
+
+    def close(self):
+        pass
+
+    def invalidate(self):
+        pass
+
+
+def test_reconcile_central_revalidates_primary_on_lock_connection(monkeypatch):
+    """Bind the writer-primary verdict to the SAME connection that holds the advisory lock.
+    In-place failover between the pre-lock probe and the lock (or a multi-host URL): the
+    probe connection is the old primary (connect #1), but the lock connection lands on a
+    demoted, lagging standby (connect #2) whose stale 'public' would re-widen the committed
+    private doc. The under-lock re-probe must catch it and skip fail-closed."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    import lib.cuckoo.common.central_mode as cm
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url="postgresql://writer"))
+
+    state = {"connects": 0}
+
+    class _Eng:
+        def connect(self):
+            state["connects"] += 1
+            # connect #1 = _central_lock_engine()'s pre-lock probe: old primary.
+            # connects #2+ = demoted in place right after: every new NullPool connection
+            # is a lagging hot standby (pg_advisory_lock still acquires there, locally).
+            return _RecoveryConn(state["connects"] > 1)
+    monkeypatch.setattr(m, "_central_engine", lambda: _Eng())
+    monkeypatch.setattr(m, "_CENTRAL_LOCK_WARNED", False, raising=False)
+
+    class _StaleRow:  # replication-lag-stale: the public->private toggle hasn't shipped
+        tenant_id, user_id, visibility = 10, 7, "public"
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", lambda cid, conn=None: _StaleRow())
+
+    class _LocalDB:
+        lock_engine = None
+    monkeypatch.setattr(dbmod, "Database", lambda: _LocalDB())
+
+    seen = {}
+    monkeypatch.setattr(m, "mongo_update_one",
+                        lambda coll, flt, upd: seen.update(upd["$set"]) or object(), raising=False)
+
+    m._reconcile_report_visibility(main_task_id=None, local_task_id=42, ids_to_delete={42}, job_id="ui-42")
+    assert seen == {}  # under-lock re-probe saw the standby -> skipped -> no re-widen
+
+
+def test_reconcile_central_reads_tenancy_on_lock_connection(monkeypatch):
+    """On the primary path the under-lock tenancy re-read must run on the SAME pinned
+    connection that holds the advisory lock (probe + lock + read share one backend), and
+    write the authoritative primary value."""
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    import lib.cuckoo.common.central_mode as cm
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url="postgresql://writer"))
+
+    the_conn = _RecoveryConn(False)  # a writer primary
+
+    class _Eng:
+        def connect(self):
+            return the_conn
+    eng = _Eng()
+    monkeypatch.setattr(m, "_central_lock_engine", lambda: eng)
+
+    class _Row:
+        tenant_id, user_id, visibility = 3, 4, "private"
+    captured = {}
+
+    def _read(cid, conn=None):
+        captured["conn"] = conn
+        return _Row()
+    monkeypatch.setattr(m, "_task_tenant_ctx_central", _read)
+
+    class _LocalDB:
+        lock_engine = None
+    monkeypatch.setattr(dbmod, "Database", lambda: _LocalDB())
+
+    seen = {}
+    monkeypatch.setattr(m, "mongo_update_one",
+                        lambda coll, flt, upd: seen.update(upd["$set"]) or object(), raising=False)
+
+    m._reconcile_report_visibility(main_task_id=None, local_task_id=42, ids_to_delete={42}, job_id="ui-42")
+    assert captured["conn"] is the_conn          # read bound to the pinned lock connection
+    assert seen["info.visibility"] == "private"  # authoritative primary value written
+
+
+def test_reconcile_central_no_primary_logs_per_task(monkeypatch, caplog):
+    """When there is no validated writer-primary lock the reconcile skips the upgrade — and
+    logs a PER-TASK line (not just the once-per-process warn) so operators can enumerate the
+    stranded fail-closed-private central docs from logs."""
+    import logging
+    from modules.reporting import mongodb as m
+    import lib.cuckoo.common.tenancy as t
+    import lib.cuckoo.common.central_mode as cm
+    from lib.cuckoo.common.tenancy import MTConfig
+    import lib.cuckoo.core.database as dbmod
+
+    monkeypatch.setattr(t, "multitenancy_config", lambda: MTConfig(True, "locked", "", True))
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: cm.CentralModeConfig(enabled=True, central_database_url="postgresql://standby"))
+    monkeypatch.setattr(m, "_central_lock_engine", lambda: None)  # no validated primary
+
+    class _LocalDB:
+        lock_engine = None
+    monkeypatch.setattr(dbmod, "Database", lambda: _LocalDB())
+    called = []
+    monkeypatch.setattr(m, "mongo_update_one", lambda *a, **k: called.append(1) or object(), raising=False)
+
+    with caplog.at_level(logging.WARNING, logger="modules.reporting.mongodb"):
+        m._reconcile_report_visibility(main_task_id=None, local_task_id=77, ids_to_delete={77}, job_id="ui-77")
+    assert called == []  # skipped, no widen
+    assert any("77" in r.getMessage() for r in caplog.records)  # per-task diagnostic
+
+
+def test_connection_in_recovery_none_safe_and_fail_closed(monkeypatch):
+    """_connection_in_recovery: None conn -> False (no-op path); a probe error -> True
+    (fail closed, can't confirm primary on the lock connection)."""
+    from modules.reporting import mongodb as m
+
+    assert m._connection_in_recovery(None) is False
+    assert m._connection_in_recovery(_RecoveryConn(True)) is True
+    assert m._connection_in_recovery(_RecoveryConn(False)) is False
+
+    class _BoomConn:
+        def execute(self, *a, **k):
+            raise RuntimeError("connection reset")
+    monkeypatch.setattr(m, "_CENTRAL_LOCK_WARNED", False, raising=False)
+    assert m._connection_in_recovery(_BoomConn()) is True  # probe error -> fail closed

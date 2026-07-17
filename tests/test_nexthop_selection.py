@@ -641,3 +641,58 @@ def test_init_rooter_web_does_not_reset_state(monkeypatch):
 
     startup.init_rooter(apply_state=True)   # scheduler path
     assert "cleanup_rooter" in recorded and "forward_drop" in recorded
+
+
+def test_init_rooter_central_ui_tolerates_missing_rooter(monkeypatch):
+    # Central-mode UI/management node: cape-web/apiv2 run init_rooter() at import, but the UI has
+    # NO rooter (that is a worker service) yet must still advertise route options on the submission
+    # form. So when routes are enabled but the rooter socket is unreachable, the web/API path
+    # (apply_state=False) warns and continues rather than CuckooStartupError-ing. The scheduler
+    # (apply_state=True) still fails fast, and with central mode OFF the web path still raises.
+    import lib.cuckoo.core.startup as startup
+    from lib.cuckoo.common.exceptions import CuckooStartupError
+
+    class _FailSock:
+        def connect(self, *a):
+            raise FileNotFoundError(2, "No such file or directory")
+
+    class _R:
+        class vpn:
+            enabled = True   # a route is enabled -> rooter would normally be required
+
+        class tor:
+            enabled = False
+
+        class inetsim:
+            enabled = False
+
+        class socks5:
+            enabled = False
+
+        class routing:
+            route = "none"
+            internet = "none"
+
+        class nexthop:
+            enabled = False
+
+    monkeypatch.setattr(startup.socket, "socket", lambda *a, **k: _FailSock())
+    monkeypatch.setattr(startup, "routing", _R, raising=False)
+
+    import lib.cuckoo.common.central_mode as cm
+
+    # central mode ON: web/API tolerates the missing rooter (warns, returns) ...
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: type("C", (), {"enabled": True})(), raising=False)
+    startup.init_rooter(apply_state=False)   # must NOT raise
+
+    # ... but the scheduler still fails fast even in central mode.
+    import pytest
+    with pytest.raises(CuckooStartupError):
+        startup.init_rooter(apply_state=True)
+
+    # central mode OFF: single-node web path is unchanged -> still fails fast.
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: type("C", (), {"enabled": False})(), raising=False)
+    with pytest.raises(CuckooStartupError):
+        startup.init_rooter(apply_state=False)

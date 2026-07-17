@@ -667,6 +667,25 @@ def init_rooter(apply_state=False):
     try:
         s.connect(cuckoo.cuckoo.rooter)
     except socket.error as e:
+        # Central-mode management node (e.g. the UI): the web/API process advertises the fleet's
+        # route options on the submission form but never routes traffic itself -- only the worker's
+        # scheduler does. A missing/unreachable rooter here is expected, so warn and continue instead
+        # of blocking UI startup. The scheduler (apply_state=True) still fails fast, and non-central
+        # single-node behaviour is unchanged (central mode off -> this branch is never taken).
+        if not apply_state:
+            try:
+                from lib.cuckoo.common.central_mode import central_mode_config
+
+                _central_enabled = central_mode_config().enabled
+            except Exception:
+                _central_enabled = False
+            if _central_enabled:
+                log.warning(
+                    "rooter unreachable (%s); central-mode web/API advertises routes but does not "
+                    "route -- the worker's rooter enforces them",
+                    e,
+                )
+                return
         if e.strerror == "No such file or directory":
             raise CuckooStartupError(
                 "The rooter is required but it is either not running or it "

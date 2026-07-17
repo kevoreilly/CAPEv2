@@ -49,3 +49,15 @@ def test_alter_column_existing_type_is_load_bearing_on_mysql():
     _mysql_op().alter_column(
         "tasks", "visibility", existing_type=sa.String(length=16), nullable=False, server_default="private"
     )
+
+
+def test_task_model_declares_tenant_id_index():
+    """Fresh installs build the schema from the ORM (Base.metadata.create_all(), which skips Alembic),
+    so the Task model MUST declare the tenant_id index that migration 3 creates -- else fresh MT
+    installs seq-scan the tenant-scoped list_tasks/count_* filters. Guards the two provisioning paths
+    (create_all vs alembic) from diverging."""
+    from lib.cuckoo.core.data.task import Task
+
+    col = Task.__table__.c.tenant_id
+    index_cols = {tuple(c.name for c in ix.columns) for ix in Task.__table__.indexes}
+    assert col.index or ("tenant_id",) in index_cols, f"tenant_id index missing on the model; indexes={index_cols}"

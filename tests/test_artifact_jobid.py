@@ -18,6 +18,28 @@ def test_job_id_from_custom():
     assert job_id_from_custom("") is None
 
 
+def test_rds_job_id_nonnumeric_not_logged_as_rds_failure(monkeypatch, caplog):
+    """A non-numeric task_id (the filereport/full_memory \\w+ routes) is bad INPUT, not an
+    RDS error: _rds_job_id returns None silently and must NOT emit the ERROR-level
+    "RDS lookup failed" traceback (which would flood logs + mask real pool-exhaustion)."""
+    import logging
+    import sys
+    import types
+    import lib.cuckoo.common.artifact_storage as a
+
+    fake = types.ModuleType("lib.cuckoo.core.database")
+
+    class _DB:
+        def view_task(self, tid):
+            return types.SimpleNamespace(custom="job_id=ui-1")
+    fake.Database = _DB
+    monkeypatch.setitem(sys.modules, "lib.cuckoo.core.database", fake)
+    with caplog.at_level(logging.ERROR, logger=a.log.name):
+        assert a._rds_job_id("abc") is None
+    assert not [r for r in caplog.records if "RDS lookup failed" in r.getMessage()], \
+        [r.getMessage() for r in caplog.records]
+
+
 def test_job_id_for_task_rds_no_scope_skips_mongo(monkeypatch):
     """RDS job_id + no scope (see-all/break-glass): return it directly, no mongo verify."""
     import lib.cuckoo.common.artifact_storage as a

@@ -69,17 +69,24 @@ def _rds_job_id(task_id):
     id-lookup), so it's collision-free AND independent of the tenancy reconcile (custom is
     stamped by the submit-bridge, present even when info.tenant_id/visibility aren't yet).
     None for a non-bridged task (caller falls back to the scoped info.id lookup)."""
+    # Resolve int() BEFORE the DB try: a non-numeric id (the filereport/full_memory \w+
+    # routes) is bad INPUT, not an RDS error — return None silently so it doesn't get
+    # mislabeled as a DB failure in the log below (the fallback's own int() 404s it).
+    try:
+        tid = int(task_id)
+    except (TypeError, ValueError):
+        return None
     try:
         from lib.cuckoo.core.database import Database
 
-        t = Database().view_task(int(task_id))
+        t = Database().view_task(tid)
         return job_id_from_custom(getattr(t, "custom", None) if t else None)
     except Exception:
         # A genuine non-bridged task returns None WITHOUT an exception (job_id_from_custom).
         # This except is a real RDS error (pool exhaustion / timeout) — log it so a bridged
         # OWNER silently degraded to the scoped info.id fallback (and possibly 404'd on their
         # own artifact during a DB blip) leaves a signal, not a mystery.
-        log.exception("_rds_job_id: RDS lookup failed for task %s; falling back to scoped resolution", task_id)
+        log.exception("_rds_job_id: RDS lookup failed for task %s; falling back to scoped resolution", tid)
         return None
 
 

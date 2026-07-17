@@ -40,8 +40,12 @@ ANALYSIS_INDEX_MAPPING_SETTINGS = {
         "properties": {
             "info": {
                 "properties": {
-                    "started": {"type": "date"},
-                    "machine": {"properties": {"started_on": {"type": "date"}, "shutdown_on": {"type": "date"}}},
+                    "started": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"},
+                    "ended": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"},
+                    "machine": {"properties": {
+                        "started_on": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"},
+                        "shutdown_on": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"},
+                    }},
                 }
             },
             "network": {"properties": {"dead_hosts": {"type": "keyword"}}},

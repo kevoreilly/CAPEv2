@@ -700,13 +700,16 @@ def test_init_rooter_central_ui_tolerates_missing_rooter(monkeypatch):
 
 
 def test_init_routing_central_ui_tolerates_missing_rooter(monkeypatch):
-    # Regression for the adversarial review of d4cbcea0: web/settings runs init_rooter() THEN
-    # init_routing() at import. On an opted-in management node with an advertised VPN and the default
-    # verify_rt_table=yes, init_routing must NOT die with `TypeError: 'NoneType' object is not
-    # subscriptable` on rooter("rt_available", ...)["output"] when the rooter is absent -- it skips the
-    # rooter verification/NAT round-trips but STILL populates vpns for the submission form. Flag OFF ->
-    # the pre-fix crash still fires (fail fast), proving the tolerance is gated on the explicit flag.
+    # Regression for the adversarial review of d4cbcea0 AND the poc2 live-validation follow-up:
+    # web/settings runs init_rooter() THEN init_routing() at import. On an opted-in management node
+    # (tolerate_missing_rooter=yes) with an advertised VPN and the default verify_rt_table=yes,
+    # init_routing must NOT raise -- it skips rooter verification/NAT but STILL populates vpns for the
+    # form. The REALISTIC central-UI case (caught live on poc2): a rooter IS running but has no tun0,
+    # so rooter("rt_available", ...) answers {"output": False} -> CuckooStartupError("routing table ...
+    # not available"), NOT the TypeError of a truly-absent rooter. The tolerance is gated on the FLAG
+    # ALONE (not socket reachability), so it must skip in BOTH cases. Flag OFF -> still raises (gated).
     import lib.cuckoo.core.startup as startup
+    from lib.cuckoo.common.exceptions import CuckooStartupError
     import lib.cuckoo.common.central_mode as cm
     import pytest
 
@@ -752,20 +755,20 @@ def test_init_routing_central_ui_tolerates_missing_rooter(monkeypatch):
 
     monkeypatch.setattr(startup.socket, "socket", lambda *a, **k: _FailSock())
     monkeypatch.setattr(startup, "routing", _R, raising=False)
-    # simulate the absent rooter: rooter() returns None (as send_socket_command does with no socket),
-    # so any rooter(...)["output"] subscript would TypeError unless skipped.
-    monkeypatch.setattr(startup, "rooter", lambda *a, **k: None, raising=False)
+    # realistic central-UI: a rooter IS reachable but has no tun0 -> rt_available answers
+    # {"output": False} (NOT None). Without the flag this raises CuckooStartupError.
+    monkeypatch.setattr(startup, "rooter", lambda *a, **k: {"output": False}, raising=False)
 
-    # opted-in management node: init_routing tolerates the missing rooter (no TypeError) + advertises vpn0
+    # opted-in management node: init_routing skips verification (no raise) + advertises vpn0
     monkeypatch.setattr(cm, "central_mode_config",
                         lambda: type("C", (), {"tolerate_missing_rooter": True})(), raising=False)
     startup.vpns.clear()
     startup.init_routing()             # must NOT raise
     assert "vpn0" in startup.vpns      # still advertised for the submission form
 
-    # flag OFF: the pre-fix TypeError still fires -> fails fast (tolerance is gated).
+    # flag OFF: verification runs -> rt_available {"output": False} -> CuckooStartupError (gated).
     startup.vpns.clear()
     monkeypatch.setattr(cm, "central_mode_config",
                         lambda: type("C", (), {"tolerate_missing_rooter": False})(), raising=False)
-    with pytest.raises(TypeError):
+    with pytest.raises(CuckooStartupError):
         startup.init_routing()

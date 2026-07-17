@@ -641,30 +641,21 @@ def check_snapshot_state():
 
 
 def _tolerate_missing_rooter():
-    """A central management/UI node advertises the fleet's route options on the submission form but
-    runs NO rooter (only workers route traffic). Returns True only when this node opted in via
-    [central_mode] tolerate_missing_rooter AND the rooter socket is genuinely unreachable -- callers
-    (init_rooter / init_routing) then skip rooter reachability + route verification/NAT setup while
-    still populating vpns/socks5s for the form. Default off, and a REACHABLE rooter returns False, so
-    single-node and workers (central mode on, flag off) keep failing fast on a missing rooter."""
+    """True when this node is a central MANAGEMENT node ([central_mode] tolerate_missing_rooter=yes):
+    it advertises the fleet's route options on the submission form but never routes guest traffic
+    itself -- only workers route. Callers (init_rooter / init_routing) then skip the rooter
+    reachability check + all route verification/NAT setup, while still populating vpns/socks5s for the
+    form. This is gated on the FLAG ALONE, NOT on whether the rooter socket is reachable: a central UI
+    built from the worker AMI may have cape-rooter running but no tun0/VPN infra, so rt_available/
+    nic_available would answer 'not available' and raise CuckooStartupError even though a rooter is
+    up. Default off, so single-node and workers (central mode on, flag off) verify their routing and
+    fail fast normally."""
     try:
         from lib.cuckoo.common.central_mode import central_mode_config
 
-        if not central_mode_config().tolerate_missing_rooter:
-            return False
+        return bool(central_mode_config().tolerate_missing_rooter)
     except Exception:
         return False
-    s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-    try:
-        s.connect(cuckoo.cuckoo.rooter)
-        return False  # rooter present -> verify/setup normally even on a tolerant node
-    except socket.error:
-        return True
-    finally:
-        try:
-            s.close()
-        except Exception:
-            pass
 
 
 def init_rooter(apply_state=False):
@@ -790,11 +781,13 @@ def init_routing(apply_nexthop_state=False):
     # Check whether all VPNs exist if configured and make their configuration
     # available through the vpns variable. Also enable NAT on each interface.
 
-    # Central management/UI node (opted in, rooter genuinely absent): still populate the
-    # vpns/socks5s/gateways dicts so the submission form can advertise the fleet's routes, but
-    # SKIP every rooter round-trip (rt_available/nic_available verification + NAT setup) -- with
-    # no rooter socket those calls return None and `rooter(...)["output"]` would TypeError, killing
-    # the UI at import. The worker's rooter does the real verification + routing (codex).
+    # Central management/UI node (opted in via tolerate_missing_rooter): still populate the
+    # vpns/socks5s/gateways dicts so the submission form can advertise the fleet's routes, but SKIP
+    # every rooter round-trip (rt_available/nic_available verification + NAT setup). The UI never
+    # routes -- only workers do -- and it has no VPN infra (tun0), so those checks would raise
+    # CuckooStartupError ("routing table ... not available") when a rooter IS running, or TypeError
+    # on rooter(...)["output"] when none is, either way killing the UI at import. The worker's rooter
+    # does the real verification + routing (codex).
     _skip_rooter = _tolerate_missing_rooter()
 
     if routing.socks5.enabled:

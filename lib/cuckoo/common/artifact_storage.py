@@ -43,27 +43,72 @@ _JOB_ID_CACHE = OrderedDict()  # most-recently-used at the end
 _JOB_ID_CACHE_MAX = 1024
 
 
+def job_id_from_custom(custom):
+    """Parse the broker job_id out of a task's RDS `custom` field. The submit-bridge
+    stamps custom='job_id=ui-<id>' (comma-separated k=v pairs); a bare token is also
+    accepted for non-bridged tasks. Returns the job_id or None. Pure (no DB) so both the
+    lib staging resolver and web.analysis.central_views.central_job_id_for_task share one
+    parse and can't drift."""
+    if not custom:
+        return None
+    text = str(custom)
+    for part in text.split(","):
+        part = part.strip()
+        if part.startswith("job_id="):
+            v = part.split("=", 1)[1].strip()
+            if v:
+                return v
+    token = text.strip()
+    if token and "=" not in token and "," not in token:
+        return token
+    return None
+
+
+def _rds_job_id(task_id):
+    """The AUTHORIZED job_id from the RDS task row's custom field — RDS-derived (no mongo
+    id-lookup), so it's collision-free AND independent of the tenancy reconcile (custom is
+    stamped by the submit-bridge, present even when info.tenant_id/visibility aren't yet).
+    None for a non-bridged task (caller falls back to the scoped info.id lookup)."""
+    try:
+        from lib.cuckoo.core.database import Database
+
+        t = Database().view_task(int(task_id))
+        return job_id_from_custom(getattr(t, "custom", None) if t else None)
+    except Exception:
+        return None
+
+
 def _job_id_for_task(task_id, scope=None):
     """Central mode keys the store by the global job_id (the broker passes it in custom,
     stamped into info.job_id at reporting; centralstore re-keys info.id to the unique
-    central task id). Resolve task_id -> job_id via mongo.
+    central task id). Resolve task_id -> job_id.
 
-    `scope` is the requesting viewer's tenant filter (e.g. entitled_scope_filter):
-    info.id is a per-worker sequence and collides across workers in a central
-    deployment, so the lookup is ANDed with the viewer's scope to guarantee the
-    resolved doc is one the viewer may actually see — not another tenant's analysis
-    that happens to share the numeric id (audit HIGH: cross-store id collision)."""
+    PREFER the RDS-authorized job_id (_rds_job_id): callers gate access via
+    can_view_task/require_task_visibility on the RDS task BEFORE this, so its custom-stamped
+    job_id already identifies the authorized doc — collision-free and stamping-independent
+    (an authorized OWNER isn't locked out of a fail-closed / not-yet-reconciled doc). Only
+    a NON-bridged task (no RDS job_id) falls back to the mongo info.id lookup, where info.id
+    is a per-worker sequence that can collide across workers — so THAT lookup is ANDed with
+    the viewer's `scope` as defence-in-depth (audit HIGH: cross-store id collision)."""
     from dev_utils.mongodb import mongo_find_one
     from django.http import Http404
 
-    # Only the unscoped (see-all / MT-absent / break-glass) path is cache-safe — see the note on
-    # _JOB_ID_CACHE. A present scope is authorization-sensitive, so never cache/serve it.
+    # RDS-authorized job_id is cache-safe (it's the task's OWN id, not scope-sensitive).
+    cached = _JOB_ID_CACHE.get(str(task_id))
+    if cached is not None:
+        _JOB_ID_CACHE.move_to_end(str(task_id))
+        return cached
+    rds_jid = _rds_job_id(task_id)
+    if rds_jid:
+        _JOB_ID_CACHE[str(task_id)] = rds_jid
+        _JOB_ID_CACHE.move_to_end(str(task_id))
+        if len(_JOB_ID_CACHE) > _JOB_ID_CACHE_MAX:
+            _JOB_ID_CACHE.popitem(last=False)
+        return rds_jid
+
+    # Non-bridged fallback: only the unscoped (see-all / MT-absent / break-glass) path is
+    # cache-safe. A present scope is authorization-sensitive, so never cache/serve it.
     use_cache = not scope
-    if use_cache:
-        cached = _JOB_ID_CACHE.get(str(task_id))
-        if cached is not None:
-            _JOB_ID_CACHE.move_to_end(str(task_id))  # mark most-recently-used
-            return cached
 
     # filereport/full_memory routes capture task_id/analysis_number as \w+ (not \d+),
     # so a non-numeric segment must raise Http404 (the views catch it -> clean error),

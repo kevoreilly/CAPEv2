@@ -26,28 +26,15 @@ def central_job_id_for_task(task_id):
     non-bridged task (caller falls back to info.id keying for seeded/single-node docs)."""
     try:
         from analysis.views import db
+        from lib.cuckoo.common.artifact_storage import job_id_from_custom
+
         t = db.view_task(int(task_id))
-        custom = getattr(t, "custom", None) if t else None
-        if custom:
-            # custom is comma-separated k=v pairs (matches centralstore.resolve_job_id);
-            # take ONLY the job_id= value, not everything to end-of-string — else a
-            # 'job_id=ui-5,foo=bar' custom yields 'ui-5,foo=bar' and never matches the
-            # S3 prefix / DocumentDB doc the artifacts were keyed under.
-            text = str(custom)
-            for part in text.split(","):
-                part = part.strip()
-                if part.startswith("job_id="):
-                    v = part.split("=", 1)[1].strip()
-                    if v:
-                        return v
-            # Bare-token form (custom is just the job id) — kept in sync with
-            # centralstore.resolve_job_id, which also accepts a bare token for non-bridged tasks.
-            token = text.strip()
-            if token and "=" not in token and "," not in token:
-                return token
+        # Shared parser (lib.cuckoo.common.artifact_storage.job_id_from_custom) so the
+        # web read seam and the lib staging resolver can't drift on the custom format
+        # (job_id=ui-5,foo=bar -> "ui-5"; bare token accepted for non-bridged tasks).
+        return job_id_from_custom(getattr(t, "custom", None) if t else None)
     except Exception:
-        pass
-    return None
+        return None
 
 
 def central_analysis_query(task_id, scope=None):
@@ -62,7 +49,19 @@ def central_analysis_query(task_id, scope=None):
     collide across workers) is ANDed with the viewer's `scope` (entitled_scope_filter)
     as defence-in-depth so a collision can't surface another tenant's doc (audit HIGH)."""
     jid = central_job_id_for_task(task_id)
-    q = {"info.job_id": jid} if jid else {"info.id": int(task_id)}
+    if jid:
+        # Bridged: info.job_id is globally unique AND RDS-derived (central_job_id_for_task
+        # reads the authorized task's custom, no mongo id-lookup). Callers gate via
+        # can_view_task/require_task_visibility on the RDS task BEFORE this, so the job_id
+        # already identifies the authorized doc — NO viewer scope. Re-scoping on the doc's
+        # stamped info.* would lock an authorized OWNER out of a fail-closed /
+        # not-yet-reconciled / unstamped doc (info.job_id is stamped by centralstore
+        # independently of the tenancy reconcile, so it's present even when tenancy isn't).
+        return {"info.job_id": jid}
+    # Non-bridged FALLBACK (seeded/single-node/worker-local docs): info.id can collide
+    # across workers, so AND the viewer scope as defence-in-depth against surfacing another
+    # tenant's colliding doc (audit HIGH: cross-store id collision).
+    q = {"info.id": int(task_id)}
     if scope:
         q = {"$and": [q, scope]}
     return q

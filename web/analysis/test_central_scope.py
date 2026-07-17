@@ -56,6 +56,25 @@ def test_viewer_scope_fail_closed_on_runtime_error(monkeypatch):
         viewer_scope(object())
 
 
+def test_central_analysis_query_bridged_is_unscoped(monkeypatch):
+    """Bridged task (has an RDS-derived job_id): the mongo filter keys off the unique
+    info.job_id and does NOT AND the viewer scope — so an authorized owner isn't 404'd on
+    a fail-closed/unstamped doc. Callers gate via can_view_task before this."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-5")
+    q = cv.central_analysis_query(7, scope={"info.tenant_id": 10})
+    assert q == {"info.job_id": "ui-5"}, q
+
+
+def test_central_analysis_query_nonbridged_is_scoped(monkeypatch):
+    """Non-bridged task (no RDS job_id): fall back to info.id ANDed with the viewer scope
+    (defence-in-depth against cross-store id collision)."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: None)
+    scope = {"info.tenant_id": 10}
+    assert cv.central_analysis_query(7, scope=scope) == {"$and": [{"info.id": 7}, scope]}
+
+
 def test_viewer_can_view_sample_mt_layer_absent_is_true(monkeypatch):
     _hide(monkeypatch, "users.tenancy")
     assert viewer_can_view_sample(object(), sha256="abc") is True

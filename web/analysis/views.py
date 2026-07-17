@@ -2782,13 +2782,14 @@ def report(request, task_id):
     from lib.cuckoo.common.central_mode import central_mode_config
     if central_mode_config().enabled:
         from lib.cuckoo.common.artifact_storage import ensure_local_analysis
-        # can_view_task (above) is the AUTHORITATIVE gate for this task; stage THIS
-        # task's tree without re-applying the viewer scope. Re-scoping on the doc's
-        # stamped tenancy would lock an authorized OWNER out of a fail-closed /
-        # not-yet-reconciled / unstamped doc. Safe here because report() is gated;
-        # the artifact SERVERS (central_file/central_filereport/…) are NOT
-        # can_view_task-gated, so THEY keep their viewer scope as primary isolation.
-        ensure_local_analysis(task_id, scope=None)
+        from analysis.central_scope import viewer_scope
+        # Pass the viewer scope like every other central surface. The shared resolvers
+        # (_job_id_for_task / central_analysis_query) PREFER the RDS-authorized job_id and
+        # apply this scope ONLY on the non-bridged info.id fallback — so an authorized
+        # OWNER isn't locked out of a fail-closed / not-yet-reconciled / unstamped doc
+        # (job_id resolves it), while the non-bridged cross-store collision defence-in-depth
+        # is preserved. (report() is gated by can_view_task above, same as its siblings.)
+        ensure_local_analysis(task_id, scope=viewer_scope(request.user))
     network_report = {}
     report = {}
     if enabledconf["mongodb"]:
@@ -2830,13 +2831,12 @@ def report(request, task_id):
         from lib.cuckoo.common.central_mode import central_mode_config
         if central_mode_config().enabled:
             from analysis.central_views import central_analysis_query
-            # No viewer scope: can_view_task (above) already authorized this task, and
-            # central_analysis_query resolves it by the globally-unique job_id. Re-scoping
-            # on the doc's stamped tenancy would 404 an authorized OWNER on a fail-closed /
-            # not-yet-reconciled / unstamped doc (the reported bug). The shared
-            # central_analysis_query default + the artifact servers keep scope — they run
-            # without a can_view_task gate, so there the scope is primary isolation.
-            _analysis_q = central_analysis_query(task_id)
+            from analysis.central_scope import viewer_scope
+            # Pass the viewer scope like every other central surface; central_analysis_query
+            # prefers the RDS-authorized (unique) job_id and applies the scope only on the
+            # non-bridged info.id fallback (so an authorized OWNER isn't 404'd on a
+            # fail-closed/unstamped doc, and the fallback collision defence is preserved).
+            _analysis_q = central_analysis_query(task_id, scope=viewer_scope(request.user))
         else:
             _analysis_q = {"info.id": int(task_id)}
 

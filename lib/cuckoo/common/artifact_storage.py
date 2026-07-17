@@ -75,6 +75,11 @@ def _rds_job_id(task_id):
         t = Database().view_task(int(task_id))
         return job_id_from_custom(getattr(t, "custom", None) if t else None)
     except Exception:
+        # A genuine non-bridged task returns None WITHOUT an exception (job_id_from_custom).
+        # This except is a real RDS error (pool exhaustion / timeout) — log it so a bridged
+        # OWNER silently degraded to the scoped info.id fallback (and possibly 404'd on their
+        # own artifact during a DB blip) leaves a signal, not a mystery.
+        log.exception("_rds_job_id: RDS lookup failed for task %s; falling back to scoped resolution", task_id)
         return None
 
 
@@ -83,36 +88,54 @@ def _job_id_for_task(task_id, scope=None):
     stamped into info.job_id at reporting; centralstore re-keys info.id to the unique
     central task id). Resolve task_id -> job_id.
 
-    PREFER the RDS-authorized job_id (_rds_job_id): callers gate access via
-    can_view_task/require_task_visibility on the RDS task BEFORE this, so its custom-stamped
-    job_id already identifies the authorized doc — collision-free and stamping-independent
-    (an authorized OWNER isn't locked out of a fail-closed / not-yet-reconciled doc). Only
-    a NON-bridged task (no RDS job_id) falls back to the mongo info.id lookup, where info.id
-    is a per-worker sequence that can collide across workers — so THAT lookup is ANDed with
-    the viewer's `scope` as defence-in-depth (audit HIGH: cross-store id collision)."""
+    PREFER the RDS-derived job_id (_rds_job_id) to identify WHICH doc, then AUTHORIZE it
+    per-call against the viewer scope: callers gate can_view_task on the RDS task, but the
+    job_id itself comes from the task's user-supplied `custom` — so it is NOT an
+    unforgeable authorization token. The doc it resolves to must be in the viewer's `scope`
+    OR unstamped (info.tenant_id null = authorized owner's not-yet-reconciled doc). A forged
+    custom job_id pointing at another tenant's STAMPED doc fails that check -> Http404. Only
+    the RDS task_id->job_id MAPPING is cached (scope-independent); the authorization is
+    re-checked every call. A NON-bridged task (no RDS job_id) falls back to the scoped
+    info.id lookup (never cached across scopes — cross-store id collision, audit HIGH)."""
     from dev_utils.mongodb import mongo_find_one
     from django.http import Http404
 
-    # RDS-authorized job_id is cache-safe (it's the task's OWN id, not scope-sensitive).
-    cached = _JOB_ID_CACHE.get(str(task_id))
-    if cached is not None:
-        _JOB_ID_CACHE.move_to_end(str(task_id))
-        return cached
-    rds_jid = _rds_job_id(task_id)
-    if rds_jid:
-        _JOB_ID_CACHE[str(task_id)] = rds_jid
-        _JOB_ID_CACHE.move_to_end(str(task_id))
-        if len(_JOB_ID_CACHE) > _JOB_ID_CACHE_MAX:
-            _JOB_ID_CACHE.popitem(last=False)
-        return rds_jid
+    # Resolve the candidate job_id. ONLY the RDS-derived mapping is cached: it's scope-
+    # INDEPENDENT (from the task's own custom), so serving it to any viewer is safe as long
+    # as the per-call authorization below still runs. The non-bridged info.id fallback is
+    # scope-sensitive, so it is never cached / served cross-scope.
+    jid = _JOB_ID_CACHE.get(str(task_id))
+    if jid is not None:
+        try:
+            _JOB_ID_CACHE.move_to_end(str(task_id))  # mark MRU; another thread may have evicted it
+        except KeyError:
+            pass
+    else:
+        jid = _rds_job_id(task_id)
+        if jid:
+            _JOB_ID_CACHE[str(task_id)] = jid
+            try:
+                _JOB_ID_CACHE.move_to_end(str(task_id))
+                if len(_JOB_ID_CACHE) > _JOB_ID_CACHE_MAX:
+                    _JOB_ID_CACHE.popitem(last=False)  # evict LRU
+            except KeyError:
+                pass
 
-    # Non-bridged fallback: only the unscoped (see-all / MT-absent / break-glass) path is
-    # cache-safe. A present scope is authorization-sensitive, so never cache/serve it.
-    use_cache = not scope
+    if jid:
+        # Per-call AUTHORIZATION (not cached — scope-sensitive). scope None = see-all /
+        # break-glass / MT-off -> no restriction. Else the doc for this job_id must be in
+        # scope OR unstamped; a forged custom job_id -> another tenant's stamped doc -> denied.
+        if scope is not None:
+            authq = {"$and": [{"info.job_id": jid}, {"$or": [scope, {"info.tenant_id": None}]}]}
+            if not mongo_find_one("analysis", authq, {"_id": 1}):
+                raise Http404("task not visible")
+        return jid
 
-    # filereport/full_memory routes capture task_id/analysis_number as \w+ (not \d+),
-    # so a non-numeric segment must raise Http404 (the views catch it -> clean error),
-    # not an uncaught ValueError -> HTTP 500.
+    # Non-bridged fallback: info.id can collide across workers, so AND the viewer scope
+    # (defence-in-depth, audit HIGH). NOT cached — a scope-specific resolution must never be
+    # served to a different-scope caller.
+    # filereport/full_memory routes capture task_id as \w+ (not \d+), so a non-numeric
+    # segment must raise Http404 (views catch it -> clean error), not an uncaught ValueError.
     try:
         tid = int(task_id)
     except (TypeError, ValueError):
@@ -125,12 +148,6 @@ def _job_id_for_task(task_id, scope=None):
     job_id = ((doc or {}).get("info") or {}).get("job_id")
     if not job_id:
         raise Http404("no job_id mapping for task")
-
-    if use_cache:
-        _JOB_ID_CACHE[str(task_id)] = job_id
-        _JOB_ID_CACHE.move_to_end(str(task_id))
-        if len(_JOB_ID_CACHE) > _JOB_ID_CACHE_MAX:
-            _JOB_ID_CACHE.popitem(last=False)  # evict least-recently-used
     return job_id
 
 

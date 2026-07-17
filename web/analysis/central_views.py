@@ -50,14 +50,16 @@ def central_analysis_query(task_id, scope=None):
     as defence-in-depth so a collision can't surface another tenant's doc (audit HIGH)."""
     jid = central_job_id_for_task(task_id)
     if jid:
-        # Bridged: info.job_id is globally unique AND RDS-derived (central_job_id_for_task
-        # reads the authorized task's custom, no mongo id-lookup). Callers gate via
-        # can_view_task/require_task_visibility on the RDS task BEFORE this, so the job_id
-        # already identifies the authorized doc — NO viewer scope. Re-scoping on the doc's
-        # stamped info.* would lock an authorized OWNER out of a fail-closed /
-        # not-yet-reconciled / unstamped doc (info.job_id is stamped by centralstore
-        # independently of the tenancy reconcile, so it's present even when tenancy isn't).
-        return {"info.job_id": jid}
+        # Bridged: key on the globally-unique info.job_id (RDS-derived from the authorized
+        # task's custom). But job_id comes from user-supplied `custom`, so it is NOT an
+        # unforgeable authz token — AUTHORIZE the resolved doc against the viewer scope OR
+        # unstamped (info.tenant_id null = authorized owner's not-yet-reconciled doc, so no
+        # owner-lockout). A forged custom job_id -> another tenant's STAMPED doc -> not in
+        # scope -> no doc -> denied. scope None (see-all / break-glass / MT-off) = no restriction.
+        q = {"info.job_id": jid}
+        if scope:
+            q = {"$and": [q, {"$or": [scope, {"info.tenant_id": None}]}]}
+        return q
     # Non-bridged FALLBACK (seeded/single-node/worker-local docs): info.id can collide
     # across workers, so AND the viewer scope as defence-in-depth against surfacing another
     # tenant's colliding doc (audit HIGH: cross-store id collision).

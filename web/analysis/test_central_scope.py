@@ -56,14 +56,23 @@ def test_viewer_scope_fail_closed_on_runtime_error(monkeypatch):
         viewer_scope(object())
 
 
-def test_central_analysis_query_bridged_is_unscoped(monkeypatch):
-    """Bridged task (has an RDS-derived job_id): the mongo filter keys off the unique
-    info.job_id and does NOT AND the viewer scope — so an authorized owner isn't 404'd on
-    a fail-closed/unstamped doc. Callers gate via can_view_task before this."""
+def test_central_analysis_query_bridged_authorizes(monkeypatch):
+    """Bridged task (RDS-derived job_id): key off unique info.job_id, but AUTHORIZE against
+    the viewer scope OR unstamped (info.tenant_id null = authorized owner's not-yet-reconciled
+    doc). job_id comes from user-supplied custom, so a forged one -> another tenant's STAMPED
+    doc -> not in scope -> denied; the owner's own unstamped doc still resolves."""
     import analysis.central_views as cv
     monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-5")
-    q = cv.central_analysis_query(7, scope={"info.tenant_id": 10})
-    assert q == {"info.job_id": "ui-5"}, q
+    scope = {"info.tenant_id": 10}
+    q = cv.central_analysis_query(7, scope=scope)
+    assert q == {"$and": [{"info.job_id": "ui-5"}, {"$or": [scope, {"info.tenant_id": None}]}]}, q
+
+
+def test_central_analysis_query_bridged_no_scope_is_bare(monkeypatch):
+    """No scope (see-all / break-glass / MT-off): bare info.job_id, no restriction."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-5")
+    assert cv.central_analysis_query(7, scope=None) == {"info.job_id": "ui-5"}
 
 
 def test_central_analysis_query_nonbridged_is_scoped(monkeypatch):

@@ -18,17 +18,46 @@ def test_job_id_from_custom():
     assert job_id_from_custom("") is None
 
 
-def test_job_id_for_task_prefers_rds(monkeypatch):
-    """RDS-authorized job_id resolves WITHOUT any mongo lookup (collision-free +
-    stamping-independent) — mongo must not be consulted when it's present."""
+def test_job_id_for_task_rds_no_scope_skips_mongo(monkeypatch):
+    """RDS job_id + no scope (see-all/break-glass): return it directly, no mongo verify."""
     import lib.cuckoo.common.artifact_storage as a
     a._JOB_ID_CACHE.clear()
     monkeypatch.setattr(a, "_rds_job_id", lambda tid: "ui-42")
 
     def boom(*x, **k):
-        raise AssertionError("mongo consulted despite an RDS-authorized job_id")
+        raise AssertionError("mongo consulted on the unscoped RDS path")
     monkeypatch.setattr("dev_utils.mongodb.mongo_find_one", boom, raising=False)
-    assert a._job_id_for_task(42, scope={"info.tenant_id": 1}) == "ui-42"
+    assert a._job_id_for_task(42, scope=None) == "ui-42"
+
+
+def test_job_id_for_task_rds_scoped_authorizes(monkeypatch):
+    """RDS job_id + scope: the resolved doc must pass a per-call authorization (in scope OR
+    unstamped). job_id is from user custom, so it is NOT trusted blindly."""
+    import lib.cuckoo.common.artifact_storage as a
+    a._JOB_ID_CACHE.clear()
+    monkeypatch.setattr(a, "_rds_job_id", lambda tid: "ui-42")
+    seen = {}
+
+    def find(coll, q, proj):
+        seen["q"] = q
+        return {"_id": 1}  # authorized: doc in scope-or-unstamped
+    monkeypatch.setattr("dev_utils.mongodb.mongo_find_one", find, raising=False)
+    scope = {"info.tenant_id": 7}
+    assert a._job_id_for_task(42, scope=scope) == "ui-42"
+    assert seen["q"] == {"$and": [{"info.job_id": "ui-42"}, {"$or": [scope, {"info.tenant_id": None}]}]}
+
+
+def test_job_id_for_task_rds_forged_denied(monkeypatch):
+    """A FORGED custom job_id pointing at another tenant's STAMPED doc fails the per-call
+    authorization (the authq matches nothing) -> Http404, not a cross-tenant serve."""
+    import lib.cuckoo.common.artifact_storage as a
+    a._JOB_ID_CACHE.clear()
+    monkeypatch.setattr(a, "_rds_job_id", lambda tid: "ui-victim")
+    monkeypatch.setattr("dev_utils.mongodb.mongo_find_one", lambda *x, **k: None, raising=False)
+    import pytest
+    from django.http import Http404
+    with pytest.raises(Http404):
+        a._job_id_for_task(9, scope={"info.tenant_id": 7})
 
 
 def test_job_id_for_task_fallback_scoped(monkeypatch):

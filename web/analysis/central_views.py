@@ -52,13 +52,22 @@ def central_analysis_query(task_id, scope=None):
     if jid:
         # Bridged: key on the globally-unique info.job_id (RDS-derived from the authorized
         # task's custom). But job_id comes from user-supplied `custom`, so it is NOT an
-        # unforgeable authz token — AUTHORIZE the resolved doc against the viewer scope OR
-        # unstamped (info.tenant_id null = authorized owner's not-yet-reconciled doc, so no
-        # owner-lockout). A forged custom job_id -> another tenant's STAMPED doc -> not in
-        # scope -> no doc -> denied. scope None (see-all / break-glass / MT-off) = no restriction.
+        # unforgeable authz token — AUTHORIZE the resolved doc against the viewer scope OR the
+        # authorized owner's not-yet-reconciled doc. The unstamped arm (info.tenant_id null) MUST
+        # be constrained to THIS task (info.id == the decorator-authorized task_id): every doc is
+        # inserted unstamped and stamped later by the reconcile (and stranded on reconcile-skip),
+        # so an UNCONSTRAINED null arm lets a forged custom job_id (ui-<victimN>) read a DIFFERENT
+        # task's unstamped doc cross-tenant (adversarial-review HIGH). A bridged owner's doc is
+        # re-keyed to its central id, so info.id == task_id still resolves the legit owner; a forged
+        # job_id at another task's unstamped doc does not. A forged job_id -> another tenant's
+        # STAMPED doc fails the scope arm too. scope None (see-all/break-glass/MT-off) = unrestricted.
         q = {"info.job_id": jid}
         if scope:
-            q = {"$and": [q, {"$or": [scope, {"info.tenant_id": None}]}]}
+            try:
+                _own_unstamped = {"$and": [{"info.tenant_id": None}, {"info.id": int(task_id)}]}
+                q = {"$and": [q, {"$or": [scope, _own_unstamped]}]}
+            except (TypeError, ValueError):
+                q = {"$and": [q, scope]}  # non-numeric task id: drop the null arm (fail-closed)
         return q
     # Non-bridged FALLBACK (seeded/single-node/worker-local docs): info.id can collide
     # across workers, so AND the viewer scope as defence-in-depth against surfacing another

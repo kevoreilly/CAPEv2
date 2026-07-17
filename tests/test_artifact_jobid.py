@@ -66,7 +66,50 @@ def test_job_id_for_task_rds_scoped_authorizes(monkeypatch):
     monkeypatch.setattr("dev_utils.mongodb.mongo_find_one", find, raising=False)
     scope = {"info.tenant_id": 7}
     assert a._job_id_for_task(42, scope=scope) == "ui-42"
-    assert seen["q"] == {"$and": [{"info.job_id": "ui-42"}, {"$or": [scope, {"info.tenant_id": None}]}]}
+    # the unstamped OR-arm is constrained to THIS task (info.id == 42), not a bare tenant_id:null
+    assert seen["q"] == {"$and": [{"info.job_id": "ui-42"},
+                                  {"$or": [scope, {"$and": [{"info.tenant_id": None}, {"info.id": 42}]}]}]}
+
+
+def _matches(doc, flt):
+    """Minimal Mongo-filter evaluator ($and/$or/dotted equality, None=null) so the test can assert
+    which doc the authorization query actually returns."""
+    if "$and" in flt:
+        return all(_matches(doc, s) for s in flt["$and"])
+    if "$or" in flt:
+        return any(_matches(doc, s) for s in flt["$or"])
+    for key, want in flt.items():
+        cur = doc
+        for part in key.split("."):
+            cur = cur.get(part) if isinstance(cur, dict) else None
+        if cur != want:
+            return False
+    return True
+
+
+def test_job_id_for_task_forged_unstamped_cross_task_denied(monkeypatch):
+    """Adversarial-review HIGH (artifact path): a forged custom job_id (ui-42) whose victim doc is
+    UNSTAMPED but belongs to a DIFFERENT task (info.id=42) than the attacker's authorized task (999)
+    must NOT authorize -> Http404. The owner's OWN unstamped doc (info.id == task_id) still resolves."""
+    import lib.cuckoo.common.artifact_storage as a
+    import pytest
+    from django.http import Http404
+    a._JOB_ID_CACHE.clear()
+    monkeypatch.setattr(a, "_rds_job_id", lambda tid: "ui-42")
+
+    victim = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}}   # different task, unstamped
+
+    def find(coll, q, proj):
+        return {"_id": 1} if _matches(victim, q) else None
+    monkeypatch.setattr("dev_utils.mongodb.mongo_find_one", find, raising=False)
+
+    # attacker's authorized task is 999 -> info.id==999 arm can't match the victim's info.id==42
+    with pytest.raises(Http404):
+        a._job_id_for_task(999, scope={"info.tenant_id": "A"})
+
+    # the legit owner viewing their own task 42 (doc re-keyed to 42) still resolves
+    a._JOB_ID_CACHE.clear()
+    assert a._job_id_for_task(42, scope={"info.tenant_id": "A"}) == "ui-42"
 
 
 def test_job_id_for_task_rds_forged_denied(monkeypatch):

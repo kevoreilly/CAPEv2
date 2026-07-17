@@ -56,16 +56,65 @@ def test_viewer_scope_fail_closed_on_runtime_error(monkeypatch):
         viewer_scope(object())
 
 
+def _matches(doc, flt):
+    """Minimal MongoDB-filter evaluator: $and / $or / dotted-key equality (None = null).
+    Lets the tests assert the SEMANTICS of central_analysis_query (which docs it returns)
+    rather than a brittle structural match."""
+    if "$and" in flt:
+        return all(_matches(doc, s) for s in flt["$and"])
+    if "$or" in flt:
+        return any(_matches(doc, s) for s in flt["$or"])
+    for key, want in flt.items():
+        cur = doc
+        for part in key.split("."):
+            cur = cur.get(part) if isinstance(cur, dict) else None
+        if cur != want:
+            return False
+    return True
+
+
 def test_central_analysis_query_bridged_authorizes(monkeypatch):
-    """Bridged task (RDS-derived job_id): key off unique info.job_id, but AUTHORIZE against
-    the viewer scope OR unstamped (info.tenant_id null = authorized owner's not-yet-reconciled
-    doc). job_id comes from user-supplied custom, so a forged one -> another tenant's STAMPED
-    doc -> not in scope -> denied; the owner's own unstamped doc still resolves."""
+    """Bridged task (RDS-derived job_id): key off unique info.job_id, but AUTHORIZE against the
+    viewer scope OR the authorized owner's not-yet-reconciled doc. The unstamped arm is constrained
+    to THIS task (info.id == task_id) so a forged job_id can't ride it to another task's doc."""
     import analysis.central_views as cv
     monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-5")
     scope = {"info.tenant_id": 10}
     q = cv.central_analysis_query(7, scope=scope)
-    assert q == {"$and": [{"info.job_id": "ui-5"}, {"$or": [scope, {"info.tenant_id": None}]}]}, q
+    assert q == {"$and": [{"info.job_id": "ui-5"},
+                          {"$or": [scope, {"$and": [{"info.tenant_id": None}, {"info.id": 7}]}]}]}, q
+
+
+def test_central_analysis_query_forged_jobid_cannot_read_unstamped_cross_tenant(monkeypatch):
+    """Adversarial-review HIGH: attacker in tenant A forges the victim's job_id via their own
+    task's `custom`. The victim's doc is UNSTAMPED (tenant_id null, not-yet-reconciled) and belongs
+    to a DIFFERENT task (info.id=42) than the attacker's authorized task (999). The constrained
+    null arm (info.id == 999) must NOT match the victim doc -> no cross-tenant leak."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    q = cv.central_analysis_query(999, scope={"info.tenant_id": "A"})
+    victim = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None},
+              "signatures": ["victim-secret-behaviour"]}
+    assert not _matches(victim, q), "forged job_id read a different task's unstamped cross-tenant doc"
+
+
+def test_central_analysis_query_owner_unstamped_still_resolves(monkeypatch):
+    """No owner-lockout: the legit owner viewing their OWN not-yet-reconciled bridged task (doc
+    re-keyed to the central id, so info.id == task_id) still resolves via the constrained null arm."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    q = cv.central_analysis_query(42, scope={"info.tenant_id": "A"})
+    own = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}}
+    assert _matches(own, q), "owner locked out of their own not-yet-reconciled doc"
+
+
+def test_central_analysis_query_forged_jobid_stamped_denied(monkeypatch):
+    """Control: a forged job_id at another tenant's STAMPED doc fails the scope arm too."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    q = cv.central_analysis_query(999, scope={"info.tenant_id": "A"})
+    victim_stamped = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": "B"}}
+    assert not _matches(victim_stamped, q), "forged job_id read another tenant's stamped doc"
 
 
 def test_central_analysis_query_bridged_no_scope_is_bare(monkeypatch):

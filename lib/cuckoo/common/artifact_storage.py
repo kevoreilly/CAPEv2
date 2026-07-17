@@ -130,10 +130,21 @@ def _job_id_for_task(task_id, scope=None):
 
     if jid:
         # Per-call AUTHORIZATION (not cached — scope-sensitive). scope None = see-all /
-        # break-glass / MT-off -> no restriction. Else the doc for this job_id must be in
-        # scope OR unstamped; a forged custom job_id -> another tenant's stamped doc -> denied.
+        # break-glass / MT-off -> no restriction. Else the doc for this job_id must be in scope
+        # OR be the authorized owner's not-yet-reconciled doc. The unstamped arm (info.tenant_id
+        # null) MUST be constrained to THIS task (info.id == the decorator-authorized task_id):
+        # every doc is inserted unstamped and stamped later (and stranded on reconcile-skip), so an
+        # UNCONSTRAINED null arm lets a forged custom job_id (ui-<victimN>) read a DIFFERENT task's
+        # unstamped doc + its S3 artifacts cross-tenant (adversarial-review HIGH). A bridged owner's
+        # doc is re-keyed to its central id, so info.id == task_id resolves the legit owner; a forged
+        # job_id at another task's unstamped doc does not. A forged job_id -> a STAMPED doc fails the
+        # scope arm too -> Http404.
         if scope is not None:
-            authq = {"$and": [{"info.job_id": jid}, {"$or": [scope, {"info.tenant_id": None}]}]}
+            try:
+                _own_unstamped = {"$and": [{"info.tenant_id": None}, {"info.id": int(task_id)}]}
+                authq = {"$and": [{"info.job_id": jid}, {"$or": [scope, _own_unstamped]}]}
+            except (TypeError, ValueError):
+                authq = {"$and": [{"info.job_id": jid}, scope]}  # non-numeric task id: no null arm
             if not mongo_find_one("analysis", authq, {"_id": 1}):
                 raise Http404("task not visible")
         return jid

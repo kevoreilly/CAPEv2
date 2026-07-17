@@ -30,7 +30,11 @@ def upgrade():
     # 'private' default for any NEW row that omits it.
     op.add_column("tasks", sa.Column("visibility", sa.String(length=16), nullable=True))
     op.execute("UPDATE tasks SET visibility = 'public' WHERE visibility IS NULL")
-    op.alter_column("tasks", "visibility", nullable=False, server_default="private")
+    # existing_type is REQUIRED for MySQL/MariaDB: they rebuild the column via MODIFY COLUMN, which
+    # Alembic cannot render without the type (Postgres renders SET NOT NULL/DEFAULT independently and
+    # doesn't need it). Omitting it aborts `alembic upgrade` mid-migration on a MySQL-backed CAPE
+    # (the add_columns auto-commit first -> wedged half-applied). Matches sibling "2. Database cleanup.py".
+    op.alter_column("tasks", "visibility", existing_type=sa.String(length=16), nullable=False, server_default="private")
     op.create_index("ix_tasks_tenant_id", "tasks", ["tenant_id"])
 
 

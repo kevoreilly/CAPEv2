@@ -644,13 +644,15 @@ def test_init_rooter_web_does_not_reset_state(monkeypatch):
 
 
 def test_init_rooter_central_ui_tolerates_missing_rooter(monkeypatch):
-    # Central-mode UI/management node: cape-web/apiv2 run init_rooter() at import, but the UI has
-    # NO rooter (that is a worker service) yet must still advertise route options on the submission
-    # form. So when routes are enabled but the rooter socket is unreachable, the web/API path
-    # (apply_state=False) warns and continues rather than CuckooStartupError-ing. The scheduler
-    # (apply_state=True) still fails fast, and with central mode OFF the web path still raises.
+    # Central-mode UI/management node opted in via [central_mode] tolerate_missing_rooter: cape-web/
+    # apiv2 run init_rooter() at import, but the UI has NO rooter (that is a worker service) yet must
+    # still advertise route options on the submission form. So when routes are enabled but the rooter
+    # socket is unreachable, the web/API path (apply_state=False) warns and continues rather than
+    # CuckooStartupError-ing. The scheduler (apply_state=True) still fails fast. Gated on the EXPLICIT
+    # flag, NOT central_mode.enabled -- so a WORKER (central mode on, flag off) keeps failing fast.
     import lib.cuckoo.core.startup as startup
     from lib.cuckoo.common.exceptions import CuckooStartupError
+    import pytest
 
     class _FailSock:
         def connect(self, *a):
@@ -681,18 +683,89 @@ def test_init_rooter_central_ui_tolerates_missing_rooter(monkeypatch):
 
     import lib.cuckoo.common.central_mode as cm
 
-    # central mode ON: web/API tolerates the missing rooter (warns, returns) ...
+    # opted-in management node: web/API tolerates the missing rooter (warns, returns) ...
     monkeypatch.setattr(cm, "central_mode_config",
-                        lambda: type("C", (), {"enabled": True})(), raising=False)
+                        lambda: type("C", (), {"tolerate_missing_rooter": True})(), raising=False)
     startup.init_rooter(apply_state=False)   # must NOT raise
 
-    # ... but the scheduler still fails fast even in central mode.
-    import pytest
+    # ... but the scheduler still fails fast even on a tolerant node.
     with pytest.raises(CuckooStartupError):
         startup.init_rooter(apply_state=True)
 
-    # central mode OFF: single-node web path is unchanged -> still fails fast.
+    # flag OFF (a WORKER running central mode, or single-node): web path still fails fast.
     monkeypatch.setattr(cm, "central_mode_config",
-                        lambda: type("C", (), {"enabled": False})(), raising=False)
+                        lambda: type("C", (), {"tolerate_missing_rooter": False})(), raising=False)
     with pytest.raises(CuckooStartupError):
         startup.init_rooter(apply_state=False)
+
+
+def test_init_routing_central_ui_tolerates_missing_rooter(monkeypatch):
+    # Regression for the adversarial review of d4cbcea0: web/settings runs init_rooter() THEN
+    # init_routing() at import. On an opted-in management node with an advertised VPN and the default
+    # verify_rt_table=yes, init_routing must NOT die with `TypeError: 'NoneType' object is not
+    # subscriptable` on rooter("rt_available", ...)["output"] when the rooter is absent -- it skips the
+    # rooter verification/NAT round-trips but STILL populates vpns for the submission form. Flag OFF ->
+    # the pre-fix crash still fires (fail fast), proving the tolerance is gated on the explicit flag.
+    import lib.cuckoo.core.startup as startup
+    import lib.cuckoo.common.central_mode as cm
+    import pytest
+
+    class _FailSock:
+        def connect(self, *a):
+            raise FileNotFoundError(2, "No such file or directory")
+
+    class _Vpn0:
+        name = "vpn0"
+        interface = "tun0"
+        rt_table = "tun0"
+
+    class _R:
+        class vpn:
+            enabled = True
+            vpns = "vpn0"
+
+        class tor:
+            enabled = False
+            interface = ""
+
+        class inetsim:
+            enabled = False
+            interface = ""
+
+        class socks5:
+            enabled = False
+
+        class routing:
+            route = "none"
+            internet = "none"
+            verify_rt_table = True   # shipped default -- the crashing path
+            auto_rt = False
+
+        class nexthop:
+            enabled = False
+
+        vpn0 = _Vpn0
+
+        @staticmethod
+        def get(name):
+            return getattr(_R, name)
+
+    monkeypatch.setattr(startup.socket, "socket", lambda *a, **k: _FailSock())
+    monkeypatch.setattr(startup, "routing", _R, raising=False)
+    # simulate the absent rooter: rooter() returns None (as send_socket_command does with no socket),
+    # so any rooter(...)["output"] subscript would TypeError unless skipped.
+    monkeypatch.setattr(startup, "rooter", lambda *a, **k: None, raising=False)
+
+    # opted-in management node: init_routing tolerates the missing rooter (no TypeError) + advertises vpn0
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: type("C", (), {"tolerate_missing_rooter": True})(), raising=False)
+    startup.vpns.clear()
+    startup.init_routing()             # must NOT raise
+    assert "vpn0" in startup.vpns      # still advertised for the submission form
+
+    # flag OFF: the pre-fix TypeError still fires -> fails fast (tolerance is gated).
+    startup.vpns.clear()
+    monkeypatch.setattr(cm, "central_mode_config",
+                        lambda: type("C", (), {"tolerate_missing_rooter": False})(), raising=False)
+    with pytest.raises(TypeError):
+        startup.init_routing()

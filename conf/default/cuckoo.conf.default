@@ -295,6 +295,12 @@ worker_ssh_keyfile = /home/cape/.ssh/id_ed25519
 # the worker detects pg_is_in_recovery() and warns + runs unserialized-but-fail-closed in that case.
 # Set on workers in a central + multitenancy deployment. Single-node and non-MT installs ignore this.
 central_database_url =
+# Management/UI node opt-in. A central UI node advertises the fleet's route options on the submission
+# form but runs NO rooter (only workers route traffic). When yes, init_rooter/init_routing tolerate an
+# unreachable rooter (warn + skip route verification/NAT while still populating the VPN list for the
+# form) instead of raising CuckooStartupError at web import. Default no, so single-node AND workers
+# keep failing fast on a missing rooter. Set yes ONLY on the central UI node, never on a worker.
+tolerate_missing_rooter = no
 
 [multitenancy]
 # Multi-tenant identity & job-visibility (off = current single-tenant behavior).

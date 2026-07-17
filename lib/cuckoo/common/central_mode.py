@@ -117,6 +117,13 @@ class CentralModeConfig:
     # Empty (default) => the worker cannot resolve central tenancy and stamps FAIL-CLOSED
     # (private/unowned). Set this (read-only creds) on workers in a central+MT deployment.
     central_database_url: str = ""
+    # Management/UI node opt-in: this node advertises the fleet's route options on the
+    # submission form but runs NO rooter (only workers route traffic). When yes, init_rooter
+    # and init_routing tolerate an unreachable rooter (warn + skip route verification/NAT while
+    # still populating vpns/socks5s for the form) instead of raising CuckooStartupError. Default
+    # no, so single-node AND workers keep failing fast on a missing rooter. Set yes ONLY on the
+    # central UI node.
+    tolerate_missing_rooter: bool = False
 
 
 def _parse(sec) -> "CentralModeConfig":
@@ -141,6 +148,7 @@ def _parse(sec) -> "CentralModeConfig":
         worker_ssh_user=str(get("worker_ssh_user", "cape") or "cape"),
         worker_ssh_keyfile=str(get("worker_ssh_keyfile", "/home/cape/.ssh/id_ed25519") or "/home/cape/.ssh/id_ed25519"),
         central_database_url=str(get("central_database_url", "") or ""),
+        tolerate_missing_rooter=_as_bool(get("tolerate_missing_rooter", False), False),
     )
 
 

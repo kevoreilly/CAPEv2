@@ -202,6 +202,43 @@ def test_config_read_error_fails_closed(monkeypatch):
         f"fail-closed must be restrictive on local_admins_manage_all_tenants, got {cfg}")
 
 
+def test_failclosed_default_visibility_is_private(monkeypatch):
+    """Fail-closed sentinel (unreadable config) must resolve the submit default to the
+    MOST restrictive PRIVATE — default_visibility="" would fall through to TENANT under
+    mode=locked, widening exposure during a config outage."""
+    from lib.cuckoo.common import config as _cfgmod
+    from lib.cuckoo.common import tenancy
+
+    class _Boom:
+        def __init__(self, name):
+            raise ValueError("simulated corrupt cuckoo.conf")
+    monkeypatch.setattr(_cfgmod, "Config", _Boom)
+    cfg = tenancy.multitenancy_config()
+    assert cfg.enabled is True and cfg.mode == "locked"
+    assert tenancy.default_visibility(cfg) == tenancy.PRIVATE, (
+        f"fail-closed submit default should be PRIVATE (owner-only), got {tenancy.default_visibility(cfg)!r}")
+
+
+def test_typo_default_visibility_fails_closed(monkeypatch):
+    """An explicitly-set but unrecognized default_visibility (typo/artifact) must fail
+    CLOSED to private — never fall open to the widest per-mode default (PUBLIC in shared),
+    which is what the sibling `mode` knob already does on unknown values."""
+    from lib.cuckoo.common import config as _cfgmod
+    from lib.cuckoo.common import tenancy
+
+    class _Conf:
+        def __init__(self, name):
+            pass
+
+        def get(self, section):
+            return {"enabled": True, "mode": "shared", "default_visibility": "privte",
+                    "local_admins_manage_all_tenants": True}
+    monkeypatch.setattr(_cfgmod, "Config", _Conf)
+    cfg = tenancy.multitenancy_config()
+    assert tenancy.default_visibility(cfg) == tenancy.PRIVATE, (
+        f"unrecognized default_visibility must fail closed to private, got {tenancy.default_visibility(cfg)!r}")
+
+
 def test_default_visibility_normalized(monkeypatch):
     """default_visibility must be case/whitespace-normalized like `mode` — otherwise a
     'Private'/' private ' misparse fails the exact `in VISIBILITIES` check and silently

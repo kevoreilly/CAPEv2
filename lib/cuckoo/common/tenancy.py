@@ -129,7 +129,11 @@ def multitenancy_config() -> MTConfig:
         # False is the RESTRICTIVE value (a deployment that set it 'no' must not have a
         # local Django superuser regain full break-glass on the fail-closed path; IdP
         # superusers still keep reach via viewer_for's socialaccount branch).
-        return MTConfig(enabled=True, mode="locked", default_visibility="",
+        # default_visibility="private" (NOT "" — which would resolve through
+        # default_visibility()'s per-mode fallback to TENANT under mode=locked, widening
+        # submit-time exposure during a config outage). private is the most restrictive
+        # VISIBILITIES member, so pin it directly on the fail-closed path.
+        return MTConfig(enabled=True, mode="locked", default_visibility="private",
                         local_admins_manage_all_tenants=False)
     get = sec.get if hasattr(sec, "get") else (lambda k, d=None: d)
     # Validate/normalize mode: an unknown/typo value must NOT silently disable
@@ -154,6 +158,13 @@ def default_visibility(cfg: MTConfig) -> str:
     """The submit-time default visibility for the configured mode."""
     if cfg.default_visibility in VISIBILITIES:
         return cfg.default_visibility
+    if cfg.default_visibility:
+        # Explicitly set but unrecognized (typo like "privte" / templating artifact):
+        # fail CLOSED like the `mode` knob does, never fall open to the widest per-mode
+        # default. Blank stays the documented per-mode-default sentinel below.
+        log.warning("default_visibility %r unrecognized; failing closed to private",
+                    cfg.default_visibility)
+        return PRIVATE
     return PUBLIC if cfg.mode == "shared" else TENANT
 
 

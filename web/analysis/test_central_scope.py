@@ -133,6 +133,37 @@ def test_central_analysis_query_nonbridged_is_scoped(monkeypatch):
     assert cv.central_analysis_query(7, scope=scope) == {"$and": [{"info.id": 7}, scope]}
 
 
+def test_central_job_id_nonnumeric_returns_none_silently(monkeypatch, caplog):
+    """Non-numeric task_id (filereport/full_memory \\w+ routes) is bad INPUT, not an RDS error:
+    int() resolves before the DB try -> None silently, no 'RDS lookup failed' log. Mirrors
+    _rds_job_id (the missing companion fix from 3fa6fdb8/576d8a95)."""
+    import logging
+    import analysis.central_views as cv
+
+    with caplog.at_level(logging.ERROR, logger=cv.log.name):
+        assert cv.central_job_id_for_task("abc") is None
+    assert not [r for r in caplog.records if "RDS lookup failed" in r.getMessage()], \
+        [r.getMessage() for r in caplog.records]
+
+
+def test_central_job_id_rds_error_is_logged(monkeypatch, caplog):
+    """A REAL RDS error (pool exhaustion/timeout) on a bridged task must be LOGGED (not swallowed),
+    so a bridged owner silently degraded to the scoped fallback leaves a signal. Mirrors _rds_job_id."""
+    import logging
+    import analysis.central_views as cv
+    import analysis.views as av
+
+    class _DB:
+        def view_task(self, tid):
+            raise RuntimeError("central RDS pool exhausted")
+
+    monkeypatch.setattr(av, "db", _DB(), raising=False)
+    with caplog.at_level(logging.ERROR, logger=cv.log.name):
+        assert cv.central_job_id_for_task(42) is None
+    assert any("RDS lookup failed" in r.getMessage() for r in caplog.records), \
+        [r.getMessage() for r in caplog.records]
+
+
 def test_viewer_can_view_sample_mt_layer_absent_is_true(monkeypatch):
     _hide(monkeypatch, "users.tenancy")
     assert viewer_can_view_sample(object(), sha256="abc") is True

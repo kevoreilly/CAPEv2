@@ -13,9 +13,12 @@ decorator stack (require_task_visibility, ratelimit, auth, …) has already run 
 relational task is authorized before we touch the central data plane. Single-node
 behavior is entirely in views.py and is never reached through this module.
 """
+import logging
 import os
 
 from django.shortcuts import render
+
+log = logging.getLogger(__name__)
 
 
 def central_job_id_for_task(task_id):
@@ -24,16 +27,30 @@ def central_job_id_for_task(task_id):
     the worker assigns its OWN local info.id (collides across workers), so the
     universal key for DocumentDB/S3 is info.job_id — NOT info.id. Returns None for a
     non-bridged task (caller falls back to info.id keying for seeded/single-node docs)."""
+    # Resolve int() BEFORE the DB try: a non-numeric id (the filereport/full_memory \w+
+    # routes) is bad INPUT, not an RDS error -- return None silently so it isn't logged as a
+    # DB failure below. Mirrors the sibling _rds_job_id (artifact_storage.py, fixed in 3fa6fdb8/
+    # 576d8a95); the two resolvers share job_id_from_custom and must not drift.
+    try:
+        tid = int(task_id)
+    except (TypeError, ValueError):
+        return None
     try:
         from analysis.views import db
         from lib.cuckoo.common.artifact_storage import job_id_from_custom
 
-        t = db.view_task(int(task_id))
+        t = db.view_task(tid)
         # Shared parser (lib.cuckoo.common.artifact_storage.job_id_from_custom) so the
         # web read seam and the lib staging resolver can't drift on the custom format
         # (job_id=ui-5,foo=bar -> "ui-5"; bare token accepted for non-bridged tasks).
         return job_id_from_custom(getattr(t, "custom", None) if t else None)
     except Exception:
+        # A genuine non-bridged task returns None WITHOUT an exception (job_id_from_custom).
+        # This except is a real RDS error (pool exhaustion / timeout) -- log it so a bridged
+        # OWNER silently degraded to the scoped info.id fallback (their own not-yet-reconciled
+        # doc lacks the unstamped arm there -> a brief owner-lockout during a DB blip) leaves a
+        # signal, not a mystery. Matches _rds_job_id's log.exception on the artifact path.
+        log.exception("central_job_id_for_task: RDS lookup failed for task %s; falling back to scoped resolution", tid)
         return None
 
 

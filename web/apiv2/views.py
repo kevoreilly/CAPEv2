@@ -1177,7 +1177,7 @@ def tasks_view(request, task_id):
     if repconf.mongodb.enabled:
         rtmp = mongo_find_one(
             "analysis",
-            {"info.id": int(task.id)},
+            _analysis_filter(request, task.id),
             {
                 "info": 1,
                 "virustotal_summary": 1,
@@ -1652,7 +1652,7 @@ def tasks_iocs(request, task_id, detail=None):
 
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"behavior.calls": 0})
+        buf = mongo_find_one("analysis", _analysis_filter(request, task_id), {"behavior.calls": 0})
     if es_as_db and not buf:
         tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if tmp:
@@ -2002,6 +2002,25 @@ def _resolve_task_id(request, task_id, enabled_key, check_tlp=True):
     if check_tlp and (check.get("tlp") or "").lower() == "red":
         return None, Response({"error": True, "error_value": "Task has a TLP of RED"})
     return task_id, None
+
+
+def _analysis_filter(request, task_id):
+    """Mongo analysis filter for the apiv2 report-family reads (iocs/config/view/selfextract).
+
+    In central mode a colliding worker-local info.id (reconcile-skipped / direct-submit / seeded
+    doc) can shadow another tenant's central task id in the shared DocumentDB (audit-HIGH cross-store
+    collision), so key on central_analysis_query -- which ANDs the viewer scope onto the non-bridged
+    info.id fallback -- exactly as the web report() view does (web/analysis/views.py). Single-node /
+    non-central: the bare info.id (behaviour unchanged). viewer_scope() fails CLOSED on a real
+    resolution error, and this deliberately does NOT swallow that into an unscoped read."""
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_scope import viewer_scope
+        from analysis.central_views import central_analysis_query
+
+        return central_analysis_query(task_id, scope=viewer_scope(request.user))
+    return {"info.id": int(task_id)}
 
 
 def _central_stage(request, task_id, include_memory=False):
@@ -2445,7 +2464,7 @@ def tasks_selfextracted(request, task_id, tool="all"):
     selfextract_data = {}
 
     if repconf.mongodb.enabled:
-        tmp = mongo_find_one("analysis", {"info.id": int(task_id)}, {"selfextract": 1})
+        tmp = mongo_find_one("analysis", _analysis_filter(request, task_id), {"selfextract": 1})
         if tmp and "selfextract" in tmp:
             selfextract_data = tmp["selfextract"]
     elif es_as_db:
@@ -3116,7 +3135,7 @@ def tasks_config(request, task_id, cape_name=False):
 
     buf = {}
     if repconf.mongodb.get("enabled"):
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"CAPE.configs": 1}, sort=[("_id", -1)])
+        buf = mongo_find_one("analysis", _analysis_filter(request, task_id), {"CAPE.configs": 1}, sort=[("_id", -1)])
     if es_as_db and not buf:
         tmp = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(tmp) > 1:

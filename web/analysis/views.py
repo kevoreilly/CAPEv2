@@ -323,6 +323,32 @@ def get_task_package(task_id: int) -> str:
     return task_dict.get("package", "")
 
 
+def _scoped_analysis_query(request, task_id, extra=None):
+    """Central-mode-scoped filter for a per-task read of the shared 'analysis' collection.
+
+    In central mode a colliding worker-local info.id (reconcile-skipped / direct-submit / seeded doc)
+    can shadow another tenant's central task id in the shared DocumentDB (audit-HIGH cross-store
+    collision), so key on central_analysis_query -- which ANDs the viewer scope onto the non-bridged
+    info.id fallback -- exactly as report() does. Single-node / non-central: the bare info.id
+    (behaviour unchanged). viewer_scope() fails CLOSED on a real resolution error, and this
+    deliberately does NOT swallow that into an unscoped read.
+
+    extra: additional AND constraints for reads that key on more than info.id (e.g.
+    {"behavior.processes.process_id": pid}); merged with $and so the scoped filter still targets the
+    right sub-document without dropping the collision defence.
+    """
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_scope import viewer_scope
+        from analysis.central_views import central_analysis_query
+
+        q = central_analysis_query(task_id, scope=viewer_scope(request.user))
+    else:
+        q = {"info.id": int(task_id)}
+    return {"$and": [q, extra]} if extra else q
+
+
 def get_analysis_info(db, id=-1, task=None, rtmp=None):
     if not task:
         task = db.view_task(id)
@@ -870,7 +896,7 @@ def _filetime_to_iso(ft):
         return ""
 
 
-def _build_pid_name_map(task_id):
+def _build_pid_name_map(request, task_id):
     """PID → process-name lookup. Used by the ETW renderer to turn raw
     PIDs (which is all most ETW providers expose) into ``file.exe
     (4660)``-style display strings.
@@ -890,7 +916,7 @@ def _build_pid_name_map(task_id):
     try:
         rec = mongo_find_one(
             "analysis",
-            {"info.id": int(task_id)},
+            _scoped_analysis_query(request, task_id),
             {
                 "behavior.processes.process_id": 1,
                 "behavior.processes.process_name": 1,
@@ -924,7 +950,7 @@ def _build_pid_name_map(task_id):
     return out
 
 
-def _load_etw_telemetry(task_id):
+def _load_etw_telemetry(request, task_id):
     """Read every ETW NDJSON / directory we collect in aux/ and project
     each into a per-source row shape suitable for tabular rendering.
 
@@ -947,7 +973,7 @@ def _load_etw_telemetry(task_id):
         "threatintel_alloc_summary": [],
         "amsi": [],
     }
-    pid_map = _build_pid_name_map(task_id)
+    pid_map = _build_pid_name_map(request, task_id)
 
     def _attach_proc(row, pid_field="pid"):
         pid = row.get(pid_field)
@@ -1829,7 +1855,7 @@ def load_files(request, task_id, category):
             if category in ("behavior", "debugger", "strace"):
                 data = mongo_find_one(
                     "analysis",
-                    {"info.id": int(task_id)},
+                    _scoped_analysis_query(request, task_id),
                     {"behavior.processes": 1, "behavior.processtree": 1, "detections2pid": 1, "info.tlp": 1, "_id": 0},
                 )
                 if category == "debugger":
@@ -1837,7 +1863,7 @@ def load_files(request, task_id, category):
                 if category == "strace":
                     data["strace"] = data["behavior"]
             elif category == "tracee":
-                data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
+                data = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {category: 1, "info.tlp": 1, "_id": 0})
                 tmp = data["tracee"]
                 data["tracee"] = {}
                 data["tracee"]["rawData"] = tmp
@@ -1912,17 +1938,17 @@ def load_files(request, task_id, category):
             elif category == "network":
                 data = mongo_find_one(
                     "analysis",
-                    {"info.id": int(task_id)},
+                    _scoped_analysis_query(request, task_id),
                     {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "pcapng": 1, "_id": 0},
                 )
             elif category == "eventlogs":
                 data = mongo_find_one(
                     "analysis",
-                    {"info.id": int(task_id)},
+                    _scoped_analysis_query(request, task_id),
                     {"sigma": 1, "sysmon": 1, "info.tlp": 1, "info.id": 1, "_id": 0},
                 )
             else:
-                data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
+                data = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {category: 1, "info.tlp": 1, "_id": 0})
         elif enabledconf["elasticsearchdb"]:
             if category in ("behavior", "debugger"):
                 data = elastic_handler.search(
@@ -1986,7 +2012,7 @@ def load_files(request, task_id, category):
                 "evtx_channels": evtx_channels,
             }
         elif category == "etw":
-            category_data = _load_etw_telemetry(task_id)
+            category_data = _load_etw_telemetry(request, task_id)
 
         ajax_response = {
             category: category_data,
@@ -2040,7 +2066,7 @@ def load_files(request, task_id, category):
         raise PermissionDenied
 
 
-def fetch_signature_call_data(task_id, requested_calls):
+def fetch_signature_call_data(request, task_id, requested_calls):
     try:
         requested_calls_by_pid = collections.defaultdict(lambda: collections.defaultdict(set))
         for requested_call in requested_calls:
@@ -2061,7 +2087,7 @@ def fetch_signature_call_data(task_id, requested_calls):
         # First, get the list of ObjectID's for call chunks for each process.
         process_data = mongo_find_one(
             "analysis",
-            {"info.id": task_id},
+            _scoped_analysis_query(request, task_id),
             {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
         )
     elif es_as_db:
@@ -2124,7 +2150,7 @@ def signature_calls(request, task_id):
         if "call" in requested_calls[0]:
             calls_to_return = [requested_call["call"] for requested_call in requested_calls]
         else:
-            calls_to_return = fetch_signature_call_data(int(task_id), requested_calls)
+            calls_to_return = fetch_signature_call_data(request, int(task_id), requested_calls)
     except (AttributeError, IndexError, TypeError):
         raise BadRequest
 
@@ -2145,7 +2171,7 @@ def chunk(request, task_id, pid, pagenum):
         if enabledconf["mongodb"]:
             record = mongo_find_one(
                 "analysis",
-                {"info.id": int(task_id), "behavior.processes.process_id": pid},
+                _scoped_analysis_query(request, task_id, {"behavior.processes.process_id": pid}),
                 {"info.machine.platform": 1, "behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
 
@@ -2208,7 +2234,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
         if enabledconf["mongodb"]:
             record = mongo_find_one(
                 "analysis",
-                {"info.id": int(task_id), "behavior.processes.process_id": int(pid)},
+                _scoped_analysis_query(request, task_id, {"behavior.processes.process_id": int(pid)}),
                 {"info.machine.platform": 1, "behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
         if es_as_db:
@@ -2472,7 +2498,7 @@ def antivirus(request, task_id):
     if enabledconf["mongodb"]:
         rtmp = mongo_find_one(
             "analysis",
-            {"info.id": int(task_id)},
+            _scoped_analysis_query(request, task_id),
             {"target.file.virustotal": 1, "url.virustotal": 1, "info.category": 1, "_id": 0},
             sort=[("_id", -1)],
         )
@@ -2513,7 +2539,7 @@ def antivirus(request, task_id):
 @require_task_visibility
 def surialert(request, task_id):
     if enabledconf["mongodb"]:
-        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0}, sort=[("_id", -1)])
+        report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"suricata.alerts": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
         report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.alerts"])["hits"][
             "hits"
@@ -2542,7 +2568,7 @@ def surialert(request, task_id):
 @require_task_visibility
 def surihttp(request, task_id):
     if enabledconf["mongodb"]:
-        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.http": 1, "_id": 0}, sort=[("_id", -1)])
+        report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"suricata.http": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
         report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.http"])["hits"][
             "hits"
@@ -2573,7 +2599,7 @@ def surihttp(request, task_id):
 @require_task_visibility
 def suritls(request, task_id):
     if enabledconf["mongodb"]:
-        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.tls": 1, "_id": 0}, sort=[("_id", -1)])
+        report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"suricata.tls": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
         report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.tls"])["hits"][
             "hits"
@@ -2605,7 +2631,7 @@ def suritls(request, task_id):
 def surifiles(request, task_id):
     if enabledconf["mongodb"]:
         report = mongo_find_one(
-            "analysis", {"info.id": int(task_id)}, {"info.id": 1, "suricata.files": 1, "_id": 0}, sort=[("_id", -1)]
+            "analysis", _scoped_analysis_query(request, task_id), {"info.id": 1, "suricata.files": 1, "_id": 0}, sort=[("_id", -1)]
         )
     elif es_as_db:
         report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.files"])["hits"][
@@ -2678,7 +2704,7 @@ def search_behavior(request, task_id):
 
         # Fetch anaylsis report
         if enabledconf["mongodb"]:
-            record = mongo_find_one("analysis", {"info.id": int(task_id)}, {"behavior.processes": 1, "_id": 0})
+            record = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"behavior.processes": 1, "_id": 0})
         if es_as_db:
             esquery = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
             esidx = esquery["_index"]
@@ -2828,17 +2854,11 @@ def report(request, task_id):
             for service in CUSTOM_SERVICES:
                 projection[service] = 1
 
-        from lib.cuckoo.common.central_mode import central_mode_config
-        if central_mode_config().enabled:
-            from analysis.central_views import central_analysis_query
-            from analysis.central_scope import viewer_scope
-            # Pass the viewer scope like every other central surface; central_analysis_query
-            # prefers the RDS-authorized (unique) job_id and applies the scope only on the
-            # non-bridged info.id fallback (so an authorized OWNER isn't 404'd on a
-            # fail-closed/unstamped doc, and the fallback collision defence is preserved).
-            _analysis_q = central_analysis_query(task_id, scope=viewer_scope(request.user))
-        else:
-            _analysis_q = {"info.id": int(task_id)}
+        # Central-mode cross-store collision defence + viewer scope (central_analysis_query prefers the
+        # RDS-authorized unique job_id and applies the scope only on the non-bridged info.id fallback, so
+        # an authorized OWNER isn't 404'd on a fail-closed/unstamped doc while the collision defence
+        # holds); single-node keeps the bare info.id. See _scoped_analysis_query.
+        _analysis_q = _scoped_analysis_query(request, task_id)
 
         report = mongo_find_one(
             "analysis",
@@ -2939,7 +2959,7 @@ def report(request, task_id):
                 mongo_aggregate(
                     "analysis",
                     [
-                        {"$match": {"info.id": int(task_id)}},
+                        {"$match": _analysis_q},
                         {
                             "$project": {
                                 "_id": 0,
@@ -2993,7 +3013,7 @@ def report(request, task_id):
     try:
         if enabledconf["mongodb"]:
             # Optimization: Use mongo_find_one with projection to avoid loading massive documents just to check for field existence
-            tmp_data = mongo_find_one("analysis", {"info.id": int(task_id), "memory": {"$exists": True}}, {"_id": 1})
+            tmp_data = mongo_find_one("analysis", {"$and": [_analysis_q, {"memory": {"$exists": True}}]}, {"_id": 1})
             if tmp_data:
                 report["memory"] = tmp_data["_id"] or 0
         elif es_as_db:
@@ -3677,7 +3697,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
     tmp_file_path = None
     response = False
     if enabledconf["mongodb"]:
-        analysis = mongo_find_one("analysis", {"info.id": int(task_id)}, {"procmemory": 1, "_id": 0}, sort=[("_id", -1)])
+        analysis = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"procmemory": 1, "_id": 0}, sort=[("_id", -1)])
     if es_as_db:
         analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
 
@@ -4129,7 +4149,7 @@ def comments(request, task_id):
             return render(request, "error.html", {"error": "No comment provided."})
 
         if enabledconf["mongodb"]:
-            report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
+            report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
         if es_as_db:
             query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
             report = query["_source"]
@@ -4154,7 +4174,7 @@ def comments(request, task_id):
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
         if enabledconf["mongodb"]:
-            mongo_update_one("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}})
+            mongo_update_one("analysis", _scoped_analysis_query(request, task_id), {"$set": {"info.comments": curcomments}})
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
@@ -4390,7 +4410,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     if details is not False:
         # Use no_hooks=True to avoid running heavy hooks just to get the _id for update
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1}, no_hooks=True)
+        buf = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"_id": 1, category: 1}, no_hooks=True)
         if not buf:
             return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
 

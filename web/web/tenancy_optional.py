@@ -12,6 +12,7 @@ from lib.cuckoo.common.tenancy_optional import (  # noqa: F401
     TENANT,
     VISIBILITIES,
     Viewer,
+    _mt_enabled,
     default_visibility,
     scope_match,
     viewer_scope_es_filter,
@@ -25,10 +26,17 @@ from lib.cuckoo.common.tenancy_optional import (  # noqa: F401
 # read a different binding (e.g. test fixtures patch users.tenancy.multitenancy_config), silently
 # changing scoping. In production both bindings point at the same object; this preserves the
 # web layer's exact resolution.
+# FAIL-CLOSED contract for every arm below: when the users.tenancy MT layer can't be imported, tell
+# 'MT genuinely absent' (single-tenant / upstream -> the MT-disabled-equivalent value: see-all) from
+# 'MT enabled but its import chain broke' via _mt_enabled() (pure lib config). In the latter case NEVER
+# degrade this -- the sole isolation gate -- to see-all; deny instead. (The lib facade's Viewer docstring
+# records this exact ImportError-fail-open class already caused a cross-tenant see-all leak once.)
 def viewer_for(user):
     try:
         from users.tenancy import viewer_for as real
     except ImportError:
+        if _mt_enabled():
+            return Viewer(user_id=0, tenant_id=0, is_tenant_admin=False, is_local_admin=False)
         return Viewer()
     return real(user)
 
@@ -37,7 +45,12 @@ def multitenancy_config():
     try:
         from users.tenancy import multitenancy_config as real
     except ImportError:
-        return MTConfig()
+        # users.tenancy (web MT layer) absent/broken: fall back to the PURE lib config, not a hardcoded
+        # MTConfig(enabled=False) -- claiming MT-off when it's actually enabled would silently see-all
+        # every gate below. The lib facade reads lib.cuckoo.common.tenancy (independent import path).
+        from lib.cuckoo.common.tenancy_optional import multitenancy_config as _libmt
+
+        return _libmt()
     return real()
 
 
@@ -45,7 +58,7 @@ def can_view_task(user, task):
     try:
         from users.tenancy import can_view_task as real
     except ImportError:
-        return True
+        return not _mt_enabled()  # MT enabled+broken -> deny; genuinely absent -> allow (single-tenant)
     return real(user, task)
 
 
@@ -53,7 +66,7 @@ def can_toggle_task(user, task):
     try:
         from users.tenancy import can_toggle_task as real
     except ImportError:
-        return True
+        return not _mt_enabled()
     return real(user, task)
 
 
@@ -61,7 +74,7 @@ def can_manage_task(user, task):
     try:
         from users.tenancy import can_manage_task as real
     except ImportError:
-        return True
+        return not _mt_enabled()
     return real(user, task)
 
 
@@ -69,7 +82,7 @@ def can_view_sample(user, *, sha256=None, sha1=None, md5=None, sample_id=None):
     try:
         from users.tenancy import can_view_sample as real
     except ImportError:
-        return True
+        return not _mt_enabled()
     return real(user, sha256=sha256, sha1=sha1, md5=md5, sample_id=sample_id)
 
 
@@ -92,7 +105,9 @@ def submission_scope(request):
     try:
         from users.tenancy import submission_scope as real
     except ImportError:
-        return (None, PUBLIC)
+        # MT enabled+broken -> owner-only PRIVATE (never mint a cross-tenant-visible PUBLIC task);
+        # genuinely absent -> upstream single-tenant PUBLIC default.
+        return (None, PRIVATE) if _mt_enabled() else (None, PUBLIC)
     return real(request)
 
 
@@ -101,7 +116,9 @@ def viewer_scope_filter(user):
     try:
         from dashboard.views import entitled_scope_filter as real
     except ImportError:
-        return None
+        # None = see-all: safe only when MT is genuinely absent. MT enabled+broken -> a deny-all filter
+        # (matches no doc) so the aggregate/search surfaces can't leak cross-tenant.
+        return {"_id": {"$in": []}} if _mt_enabled() else None
     return real(user)
 
 
@@ -109,5 +126,7 @@ def entitled_scopes(user):
     try:
         from dashboard.views import entitled_scopes as real
     except ImportError:
-        return ("global",)
+        # ("global",) = see-all scope: safe only when MT is genuinely absent. MT enabled+broken -> no
+        # scopes (deny) rather than global.
+        return () if _mt_enabled() else ("global",)
     return real(user)

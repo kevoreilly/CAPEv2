@@ -46,6 +46,10 @@ from web.tenancy_optional import VISIBILITIES, TENANT, multitenancy_config
 # see analysis.central_views. The apiv2 report-family passes no `extra` (extra defaults to None).
 from analysis.central_views import scoped_analysis_query as _analysis_filter
 
+# Central-aware task delete: scopes the analysis+calls delete to the caller in central mode so a colliding
+# tenant's docs aren't destroyed; single-node delegates to mongo_delete_data unchanged.
+from analysis.central_views import central_delete_analysis
+
 
 def _deny_if_hidden(request, task):
     """Return a Response (to be returned by the caller) if request.user may not
@@ -269,7 +273,6 @@ if reporting_conf.compression.compressiontool.strip() == "7zip":
 
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import (
-        mongo_delete_data,
         mongo_find,
         mongo_find_one,
         mongo_find_one_and_update,
@@ -1359,7 +1362,7 @@ def tasks_delete(request, task_id, status=False):
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
             if web_conf.web_reporting.get("enabled", True):
-                mongo_delete_data(task)
+                central_delete_analysis(request, task)
 
             s_deleted.append(str(task))
         else:
@@ -3229,7 +3232,7 @@ def tasks_delete_many(request):
             if db.delete_task(task_id):
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
             if delete_mongo:
-                mongo_delete_data(task_id)
+                central_delete_analysis(request, task_id)
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"

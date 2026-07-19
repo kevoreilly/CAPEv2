@@ -172,7 +172,7 @@ for cfile in ("integrations", "reporting", "processing", "auxiliary", "web", "di
 if enabledconf["mongodb"]:
     from bson.objectid import ObjectId
 
-    from dev_utils.mongodb import mongo_aggregate, mongo_delete_data, mongo_find, mongo_find_one, mongo_update_one
+    from dev_utils.mongodb import mongo_aggregate, mongo_find, mongo_find_one, mongo_update_one
 
 es_as_db = False
 essearch = False
@@ -197,6 +197,8 @@ from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task
 # Shared central-mode cross-store info.id collision seam (report(), report-tab loaders, apiv2 report-family,
 # compare seeds all route their per-task analysis reads through this) -- see analysis.central_views.
 from analysis.central_views import scoped_analysis_query as _scoped_analysis_query
+# Central-aware task delete: scopes the analysis+calls delete to the caller in central mode.
+from analysis.central_views import central_delete_analysis
 
 
 def _coerce_task_id(tid):
@@ -4011,7 +4013,7 @@ def remove(request, task_id):
         return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
     if enabledconf["mongodb"]:
-        mongo_delete_data(int(task_id))
+        central_delete_analysis(request, int(task_id))
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
         if path_exists(analyses_path):
             delete_folder(analyses_path)

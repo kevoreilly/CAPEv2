@@ -121,6 +121,48 @@ def scoped_analysis_query(request, task_id, extra=None):
     return {"$and": [q, extra]} if extra else q
 
 
+def central_delete_analysis(request, task_id):
+    """Delete a task's Mongo analysis + call chunks, tenant-scoped in central mode.
+
+    Single-node / non-central: delegates to the upstream mongo_delete_data(task_id) (unchanged).
+
+    Central mode: a colliding worker-local / direct-submit / reconcile-skipped doc for another tenant can
+    share this task's bare info.id (analysis) and task_id (calls) in the shared DocumentDB, so an unscoped
+    mongo_delete_data would DESTROY that tenant's docs (audit MEDIUM cross-tenant destructive write). Instead
+    resolve ONLY the caller's scope-matched analysis doc (scoped_analysis_query -> bridged info.job_id, else
+    info.id AND viewer_scope) and delete it by _id plus its OWN call chunks by their ObjectIds (from
+    behavior.processes[].calls) -- never by the bare task_id, which a colliding tenant's calls also carry.
+    FAIL-CLOSED: if no scope-matched doc resolves, delete nothing on the Mongo side (the caller still removes
+    the SQL row + the local storage tree).
+
+    Documented residual: the upstream mongo_delete_data 'analysis' hook (remove_task_references_from_files)
+    $pullAll's the bare task_id from the shared files collection's task-id backrefs; it is intentionally NOT
+    run on this scoped path because keying on the bare task_id would re-introduce the same cross-tenant
+    collision (pulling the id from a colliding tenant's file backrefs -> eventual GC of shared bytes).
+    Precisely scoping it needs a tenant-qualified backref key (a files data-model change, tracked
+    separately). The residual is a caller-side stale backref on the caller's OWN deleted task -- fail-safe,
+    it never touches another tenant."""
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if not central_mode_config().enabled:
+        from dev_utils.mongodb import mongo_delete_data
+
+        mongo_delete_data(task_id)
+        return
+
+    from dev_utils.mongodb import mongo_delete_many, mongo_find_one
+
+    doc = mongo_find_one("analysis", scoped_analysis_query(request, task_id), {"_id": 1, "behavior.processes.calls": 1})
+    if not doc:
+        return  # fail-closed: no scope-matched doc for this caller
+    call_ids = []
+    for proc in (doc.get("behavior") or {}).get("processes", []) or []:
+        call_ids.extend(proc.get("calls") or [])
+    if call_ids:
+        mongo_delete_many("calls", {"_id": {"$in": call_ids}})
+    mongo_delete_many("analysis", {"_id": doc["_id"]})
+
+
 def _task_sample_sha256(request, task_id):
     """The sha256 of THIS task's submitted sample (mongo target.file.sha256), scoped to
     the viewer. central S3 stores only this binary (key <job_id>/binary), not a by-hash

@@ -194,6 +194,10 @@ db: TasksMixIn = Database()
 
 from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for, multitenancy_config
 
+# Shared central-mode cross-store info.id collision seam (report(), report-tab loaders, apiv2 report-family,
+# compare seeds all route their per-task analysis reads through this) -- see analysis.central_views.
+from analysis.central_views import scoped_analysis_query as _scoped_analysis_query
+
 
 def _coerce_task_id(tid):
     """Coerce a URL-supplied task id to int, or None if it isn't numeric.
@@ -321,32 +325,6 @@ def get_task_package(task_id: int) -> str:
     task = db.view_task(task_id)
     task_dict = task.to_dict()
     return task_dict.get("package", "")
-
-
-def _scoped_analysis_query(request, task_id, extra=None):
-    """Central-mode-scoped filter for a per-task read of the shared 'analysis' collection.
-
-    In central mode a colliding worker-local info.id (reconcile-skipped / direct-submit / seeded doc)
-    can shadow another tenant's central task id in the shared DocumentDB (audit-HIGH cross-store
-    collision), so key on central_analysis_query -- which ANDs the viewer scope onto the non-bridged
-    info.id fallback -- exactly as report() does. Single-node / non-central: the bare info.id
-    (behaviour unchanged). viewer_scope() fails CLOSED on a real resolution error, and this
-    deliberately does NOT swallow that into an unscoped read.
-
-    extra: additional AND constraints for reads that key on more than info.id (e.g.
-    {"behavior.processes.process_id": pid}); merged with $and so the scoped filter still targets the
-    right sub-document without dropping the collision defence.
-    """
-    from lib.cuckoo.common.central_mode import central_mode_config
-
-    if central_mode_config().enabled:
-        from analysis.central_scope import viewer_scope
-        from analysis.central_views import central_analysis_query
-
-        q = central_analysis_query(task_id, scope=viewer_scope(request.user))
-    else:
-        q = {"info.id": int(task_id)}
-    return {"$and": [q, extra]} if extra else q
 
 
 def get_analysis_info(db, id=-1, task=None, rtmp=None):
@@ -3510,7 +3488,10 @@ def file(request, category, task_id, dlfile):
         if web_cfg.zipped_download.download_all:
             sub_cat = category.replace("zipall", "")
             path = category_all_files(
-                task_id, sub_cat, os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), category_map[sub_cat])
+                task_id,
+                sub_cat,
+                os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), category_map[sub_cat]),
+                analysis_filter=_scoped_analysis_query(request, task_id),
             )
             file_name = f"{task_id}_{category}"
     elif category.startswith("CAPE"):

@@ -1156,7 +1156,7 @@ def _download_file(route: str, url: str, options: str):
     return response
 
 
-def category_all_files(task_id: str, category: str, base_path: str):
+def category_all_files(task_id: str, category: str, base_path: str, analysis_filter=None):
     """
     Retrieve all file paths for a given task and category.
 
@@ -1178,8 +1178,11 @@ def category_all_files(task_id: str, category: str, base_path: str):
     if category == "CAPE":
         category = "CAPE.payloads"
     if repconf.mongodb.enabled:
+        # analysis_filter: caller-supplied central-mode-scoped filter (web layer's scoped_analysis_query,
+        # not importable here -- lib->web). None -> bare {info.id}. Prevents the returned sha256 membership
+        # list being derived from a colliding tenant's doc in central mode (audit MEDIUM metadata leak).
         analysis = mongo_find_one(
-            "analysis", {"info.id": int(task_id)}, {f"{category}.{FILE_REF_KEY}": 1, "_id": 0}, sort=[("_id", -1)]
+            "analysis", analysis_filter or {"info.id": int(task_id)}, {f"{category}.{FILE_REF_KEY}": 1, "_id": 0}, sort=[("_id", -1)]
         )
     # if es_as_db:
     #    # ToDo missed category

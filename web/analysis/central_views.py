@@ -95,6 +95,32 @@ def central_analysis_query(task_id, scope=None):
     return q
 
 
+def scoped_analysis_query(request, task_id, extra=None):
+    """Central-mode-scoped Mongo filter for a per-task read of the shared 'analysis' collection.
+
+    Shared seam for report(), the apiv2 report-family, the web report-tab loaders, and the compare
+    seed reads. In central mode a colliding worker-local info.id (reconcile-skipped / direct-submit /
+    seeded doc) can shadow another tenant's central task id in the shared DocumentDB (audit HIGH
+    cross-store collision), so key on central_analysis_query -- which ANDs the viewer scope onto the
+    non-bridged info.id fallback. Single-node / non-central: the bare info.id (behaviour unchanged).
+    viewer_scope() fails CLOSED on a real resolution error, and this deliberately does NOT swallow
+    that into an unscoped read.
+
+    extra: additional AND constraints for reads that key on more than info.id (e.g.
+    {"behavior.processes.process_id": pid}); merged with $and so the scoped filter still targets the
+    right sub-document without dropping the collision defence.
+    """
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_scope import viewer_scope
+
+        q = central_analysis_query(task_id, scope=viewer_scope(request.user))
+    else:
+        q = {"info.id": int(task_id)}
+    return {"$and": [q, extra]} if extra else q
+
+
 def _task_sample_sha256(request, task_id):
     """The sha256 of THIS task's submitted sample (mongo target.file.sha256), scoped to
     the viewer. central S3 stores only this binary (key <job_id>/binary), not a by-hash

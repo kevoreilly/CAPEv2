@@ -16,6 +16,12 @@ from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
 from web.tenancy_optional import can_view_task, multitenancy_config, viewer_for
 
+# Shared central-mode cross-store info.id collision seam: the compare SEED reads authorize the SQL task
+# (can_view_task) but must not resolve the Mongo doc by a bare info.id in central mode, where a colliding
+# worker-local doc for another tenant can shadow the seed (audit MEDIUM). Same seam report() uses; the
+# md5-pivot below is already tenant-scoped via entitled_scope_filter + can_view_task post-filter.
+from analysis.central_views import scoped_analysis_query
+
 enabledconf = {}
 confdata = Config("reporting").get_config()
 for item in confdata:
@@ -63,7 +69,7 @@ def left(request, left_id):
             return render(request, "error.html", {"error": "No analysis found with specified ID"})
 
     if enabledconf["mongodb"]:
-        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1})
+        left = mongo_find_one("analysis", scoped_analysis_query(request, left_id), {"target": 1, "info": 1})
     if es_as_db:
         hits = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id))["hits"]["hits"]
         if hits:
@@ -177,7 +183,7 @@ def hash(request, left_id, right_hash):
             return render(request, "error.html", {"error": "No analysis found with specified ID"})
 
     if enabledconf["mongodb"]:
-        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1})
+        left = mongo_find_one("analysis", scoped_analysis_query(request, left_id), {"target": 1, "info": 1})
     if es_as_db:
         hits = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id))["hits"]["hits"]
         if hits:
@@ -293,11 +299,15 @@ def both(request, left_id, right_id):
                 return render(request, "error.html", {"error": "No analysis found with specified ID"})
 
     if enabledconf["mongodb"]:
-        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1, "summary": 1})
-        right = mongo_find_one("analysis", {"info.id": int(right_id)}, {"target": 1, "info": 1, "summary": 1})
-        # Execute comparison.
-        counts = compare.helper_percentages_mongo(left_id, right_id)
-        summary_compare = compare.helper_summary_mongo(left_id, right_id)
+        _lf = scoped_analysis_query(request, left_id)
+        _rf = scoped_analysis_query(request, right_id)
+        left = mongo_find_one("analysis", _lf, {"target": 1, "info": 1, "summary": 1})
+        right = mongo_find_one("analysis", _rf, {"target": 1, "info": 1, "summary": 1})
+        # Execute comparison. Thread the SAME central-scoped filters into the percentage/summary helpers
+        # (lib/cuckoo/common/compare.py) so their bare {info.id} reads can't surface a colliding tenant's
+        # doc in central mode (audit MEDIUM); None-safe -> bare {info.id} single-node.
+        counts = compare.helper_percentages_mongo(left_id, right_id, filter1=_lf, filter2=_rf)
+        summary_compare = compare.helper_summary_mongo(left_id, right_id, filter1=_lf, filter2=_rf)
     elif es_as_db:
         left = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id), _source=["target", "info"])["hits"][
             "hits"

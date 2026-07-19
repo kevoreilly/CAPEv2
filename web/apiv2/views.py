@@ -42,6 +42,10 @@ _UI_INTERNAL_AUTH = [SessionAuthentication] + ([ApiKeyAuthentication] if ApiKeyA
 from web.tenancy_optional import submission_scope, can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for
 from web.tenancy_optional import VISIBILITIES, TENANT, multitenancy_config
 
+# Shared central-mode cross-store info.id collision seam (report-family reads route through it) --
+# see analysis.central_views. The apiv2 report-family passes no `extra` (extra defaults to None).
+from analysis.central_views import scoped_analysis_query as _analysis_filter
+
 
 def _deny_if_hidden(request, task):
     """Return a Response (to be returned by the caller) if request.user may not
@@ -2004,25 +2008,6 @@ def _resolve_task_id(request, task_id, enabled_key, check_tlp=True):
     return task_id, None
 
 
-def _analysis_filter(request, task_id):
-    """Mongo analysis filter for the apiv2 report-family reads (iocs/config/view/selfextract).
-
-    In central mode a colliding worker-local info.id (reconcile-skipped / direct-submit / seeded
-    doc) can shadow another tenant's central task id in the shared DocumentDB (audit-HIGH cross-store
-    collision), so key on central_analysis_query -- which ANDs the viewer scope onto the non-bridged
-    info.id fallback -- exactly as the web report() view does (web/analysis/views.py). Single-node /
-    non-central: the bare info.id (behaviour unchanged). viewer_scope() fails CLOSED on a real
-    resolution error, and this deliberately does NOT swallow that into an unscoped read."""
-    from lib.cuckoo.common.central_mode import central_mode_config
-
-    if central_mode_config().enabled:
-        from analysis.central_scope import viewer_scope
-        from analysis.central_views import central_analysis_query
-
-        return central_analysis_query(task_id, scope=viewer_scope(request.user))
-    return {"info.id": int(task_id)}
-
-
 def _central_stage(request, task_id, include_memory=False):
     """Central mode: stage the S3 results/<job_id>/ tree to the local
     storage/analyses/<task_id>/ dir so the local-FS artifact reads in the apiv2
@@ -2592,10 +2577,24 @@ def tasks_rollingsuri(request, window=60):
 
     gen_time = datetime.now() - timedelta(minutes=window)
     dummy_id = ObjectId.from_datetime(gen_time)
+    # Central mode: this aggregate feed keeps rows by NUMERIC SQL-task-id membership below, which does
+    # NOT prove a returned Mongo doc belongs to that SQL task -- a colliding worker-local doc for another
+    # tenant (same info.id) would ride the caller's visible-id set and leak its alerts (audit MEDIUM).
+    # Constrain the Mongo query to the viewer's tenant stamp so foreign-tenant (and not-yet-reconciled,
+    # tenant_id-null) docs are dropped at the DB. No-op for single-node / break-glass (viewer_scope None).
+    _feed_q = {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}}
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_scope import viewer_scope
+
+        _scope = viewer_scope(request.user)
+        if _scope:
+            _feed_q = {"$and": [_feed_q, _scope]}
     result = list(
         mongo_find(
             "analysis",
-            {"suricata.alerts": {"$exists": True}, "_id": {"$gte": dummy_id}},
+            _feed_q,
             {"suricata.alerts": 1, "info.id": 1},
         )
     )

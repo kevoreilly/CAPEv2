@@ -256,8 +256,8 @@ def test_compare_both_mt_off_mongo_only_analysis_renders(cape_db, mt_disabled, m
                         lambda coll, q, proj=None: {"info": {"id": q["info.id"]}, "target": {"file": {"md5": "abc"}}, "summary": {}},
                         raising=False)
     monkeypatch.setattr(cv.compare, "helper_percentages_mongo",
-                        lambda l, r: {l: {}, r: {}}, raising=False)
-    monkeypatch.setattr(cv.compare, "helper_summary_mongo", lambda l, r: {}, raising=False)
+                        lambda l, r, **k: {l: {}, r: {}}, raising=False)
+    monkeypatch.setattr(cv.compare, "helper_summary_mongo", lambda l, r, **k: {}, raising=False)
 
     client.force_login(User.objects.create_user("bmo", "bmo@x.com", "x"))
 

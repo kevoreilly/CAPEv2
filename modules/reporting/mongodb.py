@@ -209,6 +209,16 @@ def _is_central_rewritten_id(job_id) -> bool:
     return bool(job_id) and re.match(r"^ui-(\d+)$", str(job_id)) is not None
 
 
+def _reconcile_write_filter(central_id, job_id, ids):
+    """Mongo filter for the reconcile tenancy stamp. A CENTRAL bridged doc is keyed by its
+    globally-unique info.job_id -- a colliding worker-local doc sharing an info.id, reconciled under a
+    DIFFERENT (worker) lock domain, must not be relabeled with this task's tenancy (audit HIGH, write
+    side). Single-node / non-bridged: the local DB is authoritative, so key on the info.id $in set."""
+    if central_id and job_id:
+        return {"info.job_id": job_id}
+    return {"info.id": {"$in": ids}}
+
+
 def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id, central_conn=None) -> None:
     """Stamp tenant context onto a report's info subdict (called only when MT is on).
 
@@ -339,7 +349,7 @@ def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job
                 ids = [local_task_id]
             res = mongo_update_one(
                 "analysis",
-                {"info.id": {"$in": ids}},
+                _reconcile_write_filter(_central_id, job_id, ids),
                 {"$set": {
                     "info.tenant_id": info.get("tenant_id"),
                     "info.user_id": info.get("user_id"),

@@ -521,3 +521,49 @@ def test_set_task_visibility_fails_closed_when_lock_unavailable(db, monkeypatch)
     tid = db.add_url("http://example.com", tenant_id=10, visibility="public")
     with pytest.raises(CuckooOperationalError):
         db.set_task_visibility(tid, "private")
+
+
+def test_job_id_from_custom_parses():
+    from lib.cuckoo.core.data.tasking import _job_id_from_custom
+    assert _job_id_from_custom("job_id=ui-5,foo=bar") == "ui-5"
+    assert _job_id_from_custom("foo=bar,job_id=ui-9") == "ui-9"
+    assert _job_id_from_custom("ui-42") == "ui-42"   # bare token
+    assert _job_id_from_custom("foo=bar") is None
+    assert _job_id_from_custom("") is None
+    assert _job_id_from_custom(None) is None
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_central_keys_write_on_job_id(db, monkeypatch):
+    """Central mode: the mongo visibility/ownership write keys on the task's own globally-unique
+    info.job_id, NOT bare info.id -- else a colliding worker-local doc sharing the id could be relabeled
+    / re-owned by this toggle (adversarial-review HIGH, write side)."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.core.data.task import Task
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": True})())
+    calls = []
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: (calls.append(a), object())[1], raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    t = db.session.get(Task, tid)
+    t.custom = "job_id=ui-77"
+    db.session.commit()
+    db.set_task_visibility(tid, "public")
+    assert calls and calls[-1][1] == {"info.job_id": "ui-77"}, calls[-1]
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_single_node_keys_on_info_id(db, monkeypatch):
+    """Single-node / non-central: unchanged bare info.id filter."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": False})())
+    calls = []
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: (calls.append(a), object())[1], raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")
+    assert calls and calls[-1][1] == {"info.id": tid}, calls[-1]

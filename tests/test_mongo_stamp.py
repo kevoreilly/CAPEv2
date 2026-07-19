@@ -618,3 +618,12 @@ def test_connection_in_recovery_none_safe_and_fail_closed(monkeypatch):
             raise RuntimeError("connection reset")
     monkeypatch.setattr(m, "_CENTRAL_LOCK_WARNED", False, raising=False)
     assert m._connection_in_recovery(_BoomConn()) is True  # probe error -> fail closed
+
+
+def test_reconcile_write_filter_central_uses_job_id():
+    """Reconcile tenancy stamp: central bridged -> unique info.job_id (a colliding worker-local doc
+    sharing an info.id across lock domains must not be relabeled); single-node / no job_id -> info.id $in."""
+    from modules.reporting.mongodb import _reconcile_write_filter
+    assert _reconcile_write_filter(True, "ui-42", [42]) == {"info.job_id": "ui-42"}
+    assert _reconcile_write_filter(False, "local-7", [7]) == {"info.id": {"$in": [7]}}   # single-node/direct
+    assert _reconcile_write_filter(True, None, [9]) == {"info.id": {"$in": [9]}}          # no job_id -> fallback

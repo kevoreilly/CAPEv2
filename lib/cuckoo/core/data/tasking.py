@@ -58,6 +58,25 @@ def _mongo_reporting_enabled() -> bool:
         return False
 
 log = logging.getLogger(__name__)
+
+
+def _job_id_from_custom(custom):
+    """Parse the broker job_id from a task's `custom` ('job_id=<v>' among optional other k=v pairs, or a
+    bare token) -- mirrors centralstore.resolve_job_id / central_guac. Central mode keys the shared
+    analysis doc by info.job_id (globally unique), so a WRITE scoped to it can't land on a colliding
+    worker-local doc that shares this task's info.id (audit HIGH cross-store collision, write side)."""
+    if not custom:
+        return None
+    text = str(custom)
+    for part in text.split(","):
+        part = part.strip()
+        if part.startswith("job_id="):
+            v = part.split("=", 1)[1].strip()
+            return v or None
+    token = text.strip()
+    if token and "=" not in token and "," not in token:
+        return token
+    return None
 conf = Config("cuckoo")
 
 
@@ -608,13 +627,21 @@ class TasksMixIn:
                         # surfacing its task id — so a mongo stamp gap can't leak
                         # another tenant's task id / config-exists oracle. No-op
                         # when MT disabled (can_read -> is_local_admin break-glass).
-                        from lib.cuckoo.common.tenancy import can_read as _can_read, Job as _Job
+                        from lib.cuckoo.common.tenancy import can_read as _can_read, Job as _Job, multitenancy_config as _mtc
 
                         _dt = self.session.get(Task, int(config["id"]))
-                        if _dt is not None and _can_read(
+                        # MT disabled -> restore the documented see-all dedup: can_read alone would reject
+                        # a different-user's task even MT-off (visibility defaults 'private'), forcing a
+                        # needless re-extraction. If MT-state can't be confirmed, fall through to can_read
+                        # (fail-safe, no see-all).
+                        try:
+                            _mt_off = not _mtc().enabled
+                        except Exception:
+                            _mt_off = False
+                        if _dt is not None and (_mt_off or _can_read(
                             _Viewer(user_id=user_id or None, tenant_id=tenant_id),
                             _Job(owner_id=_dt.user_id, tenant_id=_dt.tenant_id, visibility=_dt.visibility),
-                        ):
+                        )):
                             task_ids.append(config["id"])
                         else:
                             config = static_extraction(file)
@@ -961,9 +988,22 @@ class TasksMixIn:
             # would then make it {visibility: tenant, tenant_id: null} — matching NO
             # viewer scope (invisible even to the owner). Restamping ownership here is
             # idempotent for a normal toggle and repairs that orphan.
+            # Central mode: key the write on the task's own globally-unique info.job_id so a colliding
+            # worker-local doc that shares this task's info.id can't be the doc we relabel/re-own
+            # (audit HIGH cross-store collision, write side). Non-central / non-bridged: bare info.id.
+            _filt = {"info.id": task_id}
+            try:
+                from lib.cuckoo.common.central_mode import central_mode_config
+
+                if central_mode_config().enabled:
+                    _jid = _job_id_from_custom(getattr(task, "custom", None))
+                    if _jid:
+                        _filt = {"info.job_id": _jid}
+            except Exception:
+                pass
             try:
                 return mongo_update_one(
-                    "analysis", {"info.id": task_id},
+                    "analysis", _filt,
                     {"$set": {
                         "info.visibility": _vis,
                         "info.tenant_id": getattr(task, "tenant_id", None),

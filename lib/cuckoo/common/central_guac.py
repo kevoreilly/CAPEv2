@@ -42,41 +42,22 @@ def _libvirt_ssh_dsn(ip, ssh_user, keyfile):
 
 
 def _job_id_for_task(task_id):
-    """Resolve the broker job_id for a task. Prefer the RDS task.custom stamp
-    ('job_id=ui-<id>', set by the submit-bridge at enqueue) — it exists DURING the
-    live run, which is exactly when interactive guac is needed. The DocumentDB
-    analysis doc is only written at reporting (after the VM is gone), so it can't be
-    relied on here; fall back to it only for non-bridged/seeded tasks."""
-    try:
-        from lib.cuckoo.core.database import Database
+    """Resolve the broker job_id for a live interactive task's VM, for the guac tunnel.
 
-        t = Database().view_task(int(task_id))
-        custom = getattr(t, "custom", None) if t else None
-        if custom:
-            # comma-separated k=v pairs — take ONLY the job_id= value (not the rest of the
-            # string), matching centralstore.resolve_job_id; a trailing ',foo=bar' would
-            # otherwise corrupt the DynamoDB key / S3 prefix lookup.
-            text = str(custom)
-            for part in text.split(","):
-                part = part.strip()
-                if part.startswith("job_id="):
-                    v = part.split("=", 1)[1].strip()
-                    if v:
-                        return v
-            # Bare-token form (custom is just the job id) — kept in sync with
-            # centralstore.resolve_job_id, which also accepts a bare token for non-bridged tasks.
-            token = text.strip()
-            if token and "=" not in token and "," not in token:
-                return token
-    except Exception:
-        pass
+    DERIVE it deterministically from the caller's AUTHORIZED task_id -- 'ui-<task_id>' -- NEVER from
+    the forgeable task.custom. The central submit-bridge assigns job_id='ui-<rds_task_id>' and stamps
+    it into custom (central-submit-bridge.py; its docstring: "job_id is deterministic 'ui-<rds_task_id>'
+    so the central read seam can resolve rds_task_id -> job_id"). custom is a user-supplied submission
+    field, and the bridge SKIPS a task whose custom is already 'job_id=%%' -- so a user who submits
+    custom='job_id=ui-<victim>' keeps that forged value, and reading it here resolved ANOTHER tenant's
+    worker/VM (adversarial-review HIGH: cross-tenant live-VM tunnel). Deriving binds the tunnel to the
+    caller's OWN task (can_manage_task already authorized it in the guac view/consumer); a forged custom
+    cannot redirect it, and a non-bridged / not-running task simply misses the broker directory
+    (-> no worker_ip -> local DSN). The DocumentDB doc can't help here anyway (written only at reporting,
+    after the VM is gone)."""
     try:
-        from dev_utils.mongodb import mongo_find_one
-
-        doc = mongo_find_one("analysis", {"info.id": int(task_id)}, {"info.job_id": 1})
-        # info may be missing OR explicitly None ({"info": None}); coalesce both before .get.
-        return ((doc or {}).get("info") or {}).get("job_id")
-    except Exception:
+        return f"ui-{int(task_id)}"
+    except (TypeError, ValueError):
         return None
 
 

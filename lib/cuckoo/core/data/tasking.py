@@ -1003,9 +1003,13 @@ class TasksMixIn:
                 _own_filter = central_own_analysis_filter
                 _central = central_mode_config().enabled
             except Exception:
-                # Can't determine mode / the central_mode import itself failed -> assume central and FAIL
-                # CLOSED, but do NOT re-run the failed import (it would raise ImportError out of _sync_mongo,
-                # leaving the SQL toggle un-reverted): derive a filter inline as the fallback.
+                # Can't determine mode -> assume central and sync SOMETHING (never skip the mongo sync on a
+                # restrictive toggle), but do NOT re-run the failed import (it would raise out of _sync_mongo,
+                # leaving the SQL toggle un-reverted). TWO sub-cases with DIFFERENT filters, both handled below:
+                # (a) the config PROBE raised but the import succeeded -> _own_filter is already set (line 1003)
+                #     -> the shared helper is used (ui-only fail-CLOSED under bridge-required);
+                # (b) the IMPORT itself failed -> _own_filter is None -> the inline three-arm (permissive) form.
+                # So this path is NOT uniformly "fail closed"; see the per-branch note on _filt below.
                 _central = True
             if _central:
                 # Inline fallback ONLY when the central_mode import itself failed -> the mode is genuinely

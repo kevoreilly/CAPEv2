@@ -621,12 +621,17 @@ def test_connection_in_recovery_none_safe_and_fail_closed(monkeypatch):
 
 
 def test_reconcile_write_filter_central_uses_job_id():
-    """Reconcile tenancy stamp: central bridged -> unique info.job_id ANDed with unstamped-or-own (never
-    re-own a doc already stamped for another tenant, even if job_id traced to a forgeable custom);
-    single-node / no job_id -> info.id $in."""
+    """Reconcile tenancy stamp: central bridged -> unique info.job_id; non-ui fallback -> info.id $in. BOTH
+    arms are ANDed with unstamped-or-own so the $set can never re-own a doc already stamped for another
+    tenant -- the fallback needs it too, since a central direct-submit (local-<id>) keys on info.id against
+    the shared central collection where a bridged doc may have been re-keyed to a colliding central id."""
     from modules.reporting.mongodb import _reconcile_write_filter
-    assert _reconcile_write_filter(True, "ui-42", [42], 7) == {
-        "$and": [{"info.job_id": "ui-42"}, {"$or": [{"info.tenant_id": None}, {"info.tenant_id": 7}]}]
+    _own7 = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": 7}]}
+    assert _reconcile_write_filter(True, "ui-42", [42], 7) == {"$and": [{"info.job_id": "ui-42"}, _own7]}
+    # fallback (central direct-submit / no job_id) is ALSO tenant-guarded now, not a bare info.id write.
+    assert _reconcile_write_filter(False, "local-7", [7], 7) == {"$and": [{"info.id": {"$in": [7]}}, _own7]}
+    assert _reconcile_write_filter(True, None, [9], 7) == {"$and": [{"info.id": {"$in": [9]}}, _own7]}
+    # unstamped (tenant_id None) fallback: guard becomes null-or-null -> still matches null/missing docs.
+    assert _reconcile_write_filter(False, "local-7", [7]) == {
+        "$and": [{"info.id": {"$in": [7]}}, {"$or": [{"info.tenant_id": None}, {"info.tenant_id": None}]}]
     }
-    assert _reconcile_write_filter(False, "local-7", [7]) == {"info.id": {"$in": [7]}}   # single-node/direct
-    assert _reconcile_write_filter(True, None, [9]) == {"info.id": {"$in": [9]}}          # no job_id -> fallback

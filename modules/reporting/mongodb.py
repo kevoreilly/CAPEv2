@@ -215,13 +215,18 @@ def _reconcile_write_filter(central_id, job_id, ids, tenant_id=None):
     DIFFERENT (worker) lock domain, must not be relabeled with this task's tenancy (audit HIGH, write
     side). Single-node / non-bridged: the local DB is authoritative, so key on the info.id $in set.
 
-    Defence-in-depth: the central write ALSO requires the target doc to be UNSTAMPED (info.tenant_id null
-    = the fail-closed insert this reconcile exists to repair) OR already this tenant's -- so even if the
-    report's info.job_id ever traced to a forgeable custom, the reconcile can never RE-OWN a doc already
-    stamped for another tenant (companion to the set_task_visibility forgery fix)."""
+    Defence-in-depth: BOTH arms also require the target doc to be UNSTAMPED (info.tenant_id null = the
+    fail-closed insert this reconcile exists to repair) OR already this tenant's -- so the reconcile can
+    never RE-OWN a doc already stamped for another tenant (companion to the set_task_visibility forgery
+    fix). This matters on the fallback (non-ui) arm too: a central DIRECT submission (job_id 'local-<id>')
+    keys on info.id against the SHARED central collection, where a bridged doc may have been re-keyed to a
+    colliding central id -- without the guard the $set could relabel that other tenant's doc. This function
+    is only reached with MT enabled (reconcile early-returns otherwise), and a single-node/unstamped doc
+    has tenant_id null, so the guard is a no-op there (null == null/missing)."""
+    _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]}
     if central_id and job_id:
-        return {"$and": [{"info.job_id": job_id}, {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]}]}
-    return {"info.id": {"$in": ids}}
+        return {"$and": [{"info.job_id": job_id}, _own]}
+    return {"$and": [{"info.id": {"$in": ids}}, _own]}
 
 
 def _stamp_report_for_task(report_info: dict, main_task_id, local_task_id, central_conn=None) -> None:
@@ -535,6 +540,11 @@ class MongoDB(Report):
             # Delete ONLY that doc (+ its own call chunks by ObjectId) -- a bare info.id $in over the
             # re-keyed central id would, in the shared DocumentDB, also destroy a colliding worker-local
             # doc for ANOTHER tenant (adversarial-review HIGH, write side). Mirrors central_delete_analysis.
+            # What makes info.job_id trustworthy here is NOT this scoped delete on its own but the root fix:
+            # add() strips a client-supplied job_id from `custom` at ingest (_sanitize_submitted_custom), so
+            # resolve_job_id can no longer be steered to a victim's ui-<id>. This delete + the reconcile's
+            # unstamped-or-own guard are defence-in-depth layered ON TOP of that root fix, not a substitute
+            # for it -- a reader should not treat either as closing the forgery class by itself.
             try:
                 _old = mongo_find_one("analysis", {"info.job_id": _pre_job_id}, {"_id": 1, "behavior.processes.calls": 1})
                 if _old:

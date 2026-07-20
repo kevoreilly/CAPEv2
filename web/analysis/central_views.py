@@ -128,12 +128,19 @@ def central_delete_analysis(request, task_id):
 
     Central mode: a colliding worker-local / direct-submit / reconcile-skipped doc for another tenant can
     share this task's bare info.id (analysis) and task_id (calls) in the shared DocumentDB, so an unscoped
-    mongo_delete_data would DESTROY that tenant's docs (audit MEDIUM cross-tenant destructive write). Instead
-    resolve ONLY the caller's scope-matched analysis doc (scoped_analysis_query -> bridged info.job_id, else
-    info.id AND viewer_scope) and delete it by _id plus its OWN call chunks by their ObjectIds (from
+    mongo_delete_data would DESTROY that tenant's docs (audit MEDIUM cross-tenant destructive write). Resolve
+    ONLY the caller's OWN doc and delete it by _id plus its OWN call chunks by their ObjectIds (from
     behavior.processes[].calls) -- never by the bare task_id, which a colliding tenant's calls also carry.
-    FAIL-CLOSED: if no scope-matched doc resolves, delete nothing on the Mongo side (the caller still removes
-    the SQL row + the local storage tree).
+
+    The own-doc key is DERIVED from the authorized task_id (mirroring set_task_visibility's write filter) --
+    NOT read from task.custom and NOT gated on the READ viewer_scope. A destructive delete must not reuse the
+    read scope: scope_match's PUBLIC/TENANT arms match docs owned by OTHER users/tenants, so keying the delete
+    on a forgeable custom job_id + the read scope let a caller destroy any PUBLIC (or same-tenant) analysis by
+    submitting their own task with custom='job_id=ui-<victim>' (adversarial-review HIGH). The caller already
+    passed can_manage_task on the relational task, so we target that task's doc: the derived bridged key
+    'ui-<task_id>' OR info.id==task_id with a null/not-yet-stamped or 'ui-<task_id>' job_id OR the direct-submit
+    'local-<task_id>' carrying the task's OWN tenant, ANDed with unstamped-or-own. FAIL-CLOSED: if no own doc
+    resolves, delete nothing Mongo-side (the caller still removes the SQL row + the local storage tree).
 
     Documented residual: the upstream mongo_delete_data 'analysis' hook (remove_task_references_from_files)
     $pullAll's the bare task_id from the shared files collection's task-id backrefs; it is intentionally NOT
@@ -152,9 +159,25 @@ def central_delete_analysis(request, task_id):
 
     from dev_utils.mongodb import mongo_delete_many, mongo_find_one
 
-    doc = mongo_find_one("analysis", scoped_analysis_query(request, task_id), {"_id": 1, "behavior.processes.calls": 1})
+    try:
+        _tid = int(task_id)
+    except (TypeError, ValueError):
+        return  # non-numeric id: nothing to delete Mongo-side (caller still removes SQL + local tree)
+    # Derive the own-doc filter from the AUTHORIZED task_id (mirrors set_task_visibility) -- the task's own
+    # tenant gates the local- arm + the unstamped-or-own layer so a foreign colliding doc can't be deleted.
+    from lib.cuckoo.core.database import Database
+
+    _task = Database().view_task(task_id)
+    _mine = getattr(_task, "tenant_id", None) if _task else None
+    _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": _mine}]}
+    _filt = {"$and": [{"$or": [
+        {"info.job_id": f"ui-{_tid}"},
+        {"$and": [{"info.id": _tid}, {"info.job_id": {"$in": [None, f"ui-{_tid}"]}}]},
+        {"$and": [{"info.id": _tid}, {"info.job_id": f"local-{_tid}"}, {"info.tenant_id": _mine}]},
+    ]}, _own]}
+    doc = mongo_find_one("analysis", _filt, {"_id": 1, "behavior.processes.calls": 1})
     if not doc:
-        return  # fail-closed: no scope-matched doc for this caller
+        return  # fail-closed: no own doc for this caller
     call_ids = []
     for proc in (doc.get("behavior") or {}).get("processes", []) or []:
         call_ids.extend(proc.get("calls") or [])

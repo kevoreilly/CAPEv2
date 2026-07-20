@@ -164,6 +164,33 @@ def central_mode_config() -> "CentralModeConfig":
     return _parse(sec)
 
 
+def central_bridge_required():
+    """True when tenant isolation REQUIRES the submit-bridge: central mode AND multitenancy are both enabled.
+
+    In that mode only a bridged 'ui-<central_id>' doc has a globally-unique, tenant-resolvable identity (the
+    bridge assigns it, centralstore stamps it, the reconcile maps it to a tenant via the central RDS). A
+    non-bridged / direct-submit 'local-<id>' doc has NO tenancy by construction -- the worker never knew a
+    tenant, there is no central RDS row for the reconcile to map, so its info.tenant_id stays null forever and
+    its worker-local info.id collides across workers. So when the bridge is required the own-doc read/write/
+    delete filters MUST refuse the ambiguous info.id arms and key ONLY on the ui- id; a non-bridged doc is
+    single-tenant only. Fail-closed on BOTH probes: if the central config read RAISES we can't rule out
+    central+MT, so assume bridge-required (the MOST restrictive own-doc filter -- a ui-only key that can never
+    match a foreign collision); _mt_enabled() is itself fail-closed (assumes enabled if its config layer is
+    present but unreadable). This MUST NOT propagate an exception -- its callers build a Mongo filter inline
+    (e.g. set_task_visibility's except arm) and can't handle a raise."""
+    try:
+        if not central_mode_config().enabled:
+            return False
+    except Exception:
+        return True  # mode indeterminate -> fail closed (ui-only own-doc filter)
+    try:
+        from lib.cuckoo.common.tenancy_optional import _mt_enabled
+
+        return _mt_enabled()
+    except Exception:
+        return True  # MT layer indeterminate -> fail closed
+
+
 def central_own_analysis_filter(task_id, tenant_id):
     """The Mongo filter identifying the caller's OWN analysis doc for a central task, DERIVED from the
     authorized task_id. The SINGLE key used by every central WRITE that mutates a task's own doc -- the
@@ -196,11 +223,19 @@ def central_own_analysis_filter(task_id, tenant_id):
     viewer_scope); it is the WRITE-side own-doc key, deliberately tenant-guarded. A 0-match is a safe no-op
     (no own doc yet; reconcile stamps it from the authoritative SQL value on report).
 
-    RESIDUAL (documented follow-up, see docs/superpowers/plans): a FOREIGN doc inserted but NOT YET keyed
-    (info.job_id absent) that collides on info.id still passes the second arm during that transient window --
-    fully closing it needs a positive node/store discriminator (info.origin_id) stamped at insert (data-model
-    change), which also removes the own-non-bridged no-op above."""
+    BRIDGE-REQUIRED (central + MT, central_bridge_required()): the info.id arms are DROPPED entirely -- only a
+    bridged 'ui-<tid>' doc is a tenant-isolated own doc, so the filter is {info.job_id: ui-<tid>} AND the
+    tenant guard. This fully closes the residual below (no bare info.id surface at all); a non-bridged doc is
+    single-tenant only in that mode. See docs/superpowers/plans/2026-07-20-central-owndoc-residual-decision.md.
+
+    NON-bridge-required (single-node / MT-off): the three-arm form supports direct-submit docs. RESIDUAL there:
+    a FOREIGN doc inserted but NOT YET keyed (info.job_id absent) that collides on info.id still passes the
+    second arm during that transient window -- acceptable when MT is off (no tenant boundary to cross)."""
     _tid = int(task_id)
+    _tenant_guard = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]}
+    if central_bridge_required():
+        # Only a globally-unique bridged id is a tenant-isolated own doc; no ambiguous info.id arm.
+        return {"$and": [{"info.job_id": f"ui-{_tid}"}, _tenant_guard]}
     return {"$and": [
         {"$or": [
             {"info.job_id": f"ui-{_tid}"},
@@ -209,5 +244,5 @@ def central_own_analysis_filter(task_id, tenant_id):
             # own direct-submit doc: 'local-<tid>' is OURS only once it carries OUR tenant stamp
             {"$and": [{"info.id": _tid}, {"info.job_id": f"local-{_tid}"}, {"info.tenant_id": tenant_id}]},
         ]},
-        {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]},
+        _tenant_guard,
     ]}

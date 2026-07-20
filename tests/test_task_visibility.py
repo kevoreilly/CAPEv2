@@ -702,6 +702,33 @@ def test_central_own_analysis_filter_excludes_foreign_unstamped_collision():
         "the filter must select EXACTLY the caller's own doc, so a single-doc find_one/update_one is unambiguous"
 
 
+def test_central_bridge_required(monkeypatch):
+    """central_bridge_required() = central_mode.enabled AND MT enabled. Off unless BOTH hold."""
+    import lib.cuckoo.common.central_mode as cm
+    import lib.cuckoo.common.tenancy_optional as topt
+    monkeypatch.setattr(cm, "central_mode_config", lambda: type("C", (), {"enabled": False})())
+    monkeypatch.setattr(topt, "_mt_enabled", lambda: True)
+    assert cm.central_bridge_required() is False                 # central off -> never
+    monkeypatch.setattr(cm, "central_mode_config", lambda: type("C", (), {"enabled": True})())
+    assert cm.central_bridge_required() is True                  # central + MT -> required
+    monkeypatch.setattr(topt, "_mt_enabled", lambda: False)
+    assert cm.central_bridge_required() is False                 # central, MT off -> not required
+
+
+def test_own_filter_bridge_required_is_ui_only(monkeypatch):
+    """Option A: when the bridge is required (central+MT), the own-doc filter is ui-only -- the ambiguous
+    info.id arms are dropped, so a foreign UNSTAMPED collision (incl. a doc with info.job_id ABSENT) is fully
+    excluded; only a globally-unique bridged 'ui-<tid>' own doc matches."""
+    import lib.cuckoo.common.central_mode as cm
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
+    f = cm.central_own_analysis_filter(42, 10)
+    assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 10}}, f), "own bridged matches"
+    assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": None}}, f), "own unstamped bridged matches"
+    assert not _mongo_matches({"info": {"id": 42}}, f), "job_id-absent collision excluded (the residual)"
+    assert not _mongo_matches({"info": {"id": 42, "job_id": "local-42"}}, f), "foreign unstamped local excluded"
+    assert not _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 77}}, f), "foreign tenant excluded"
+
+
 class _ZeroMatch:  # UpdateResult-like: well-formed write that addressed no document
     matched_count = 0
 

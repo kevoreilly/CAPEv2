@@ -160,7 +160,9 @@ def central_delete_analysis(request, task_id, tenant_id=_TENANT_UNSET):
     tenant guard uses the TASK's own tenant. The apiv2 delete routes resolve that tenant WHILE the SQL row
     exists and pass it as `tenant_id`, then call this AFTER the SQL + folder delete succeed (the Mongo delete
     is immediate/non-transactional, so running it first would lose the report if delete_folder fails and the
-    SQL is rolled back). The web remove() caller omits tenant_id and relies on the guarded view_task fallback.
+    SQL is rolled back). The web remove() caller likewise resolves the tenant while the SQL row exists and
+    passes tenant_id, deleting Mongo after its own commit; the _TENANT_UNSET guarded-view_task fallback remains
+    for any caller that omits it.
     Delete the resolved doc by _id + its OWN call chunks by their ObjectIds (from behavior.processes[].calls),
     never by the bare task_id (a colliding tenant's calls also carry it).
 

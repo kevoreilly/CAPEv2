@@ -417,10 +417,11 @@ def test_hunt_facets_per_category_no_facet():
 
 
 def test_centralstore_refuses_non_bridged_under_mt(monkeypatch):
-    """Option A airtight: bridge-required (central+MT) -> CentralStore.run refuses to PERSIST a non-bridged
-    analysis doc ('local-<id>' / bare-token job_id). This is the single doc-write choke point, so a non-bridged
-    submission can never create a single-tenant doc in an MT deployment. A bridged 'ui-<n>' doc is unaffected
-    by the guard (it proceeds past it)."""
+    """Bridge-required (central+MT): CentralStore.run refuses a non-bridged doc ('local-<id>' / bare-token
+    job_id) BEFORE the S3 upload, so a doomed (soon-to-be-rejected) non-bridged analysis doesn't push artifacts
+    to the shared store. This is defence-in-depth at order 9998; the doc-PERSIST prevention (the actual write
+    site) is the mongodb-reporter backstop at 9999 -- see test_reject_unbridged_under_mt, which is the guard
+    that guarantees no unkeyed doc is ever inserted regardless of centralstore's state."""
     import modules.reporting.centralstore as cs
     from lib.cuckoo.common.exceptions import CuckooReportError
 
@@ -435,16 +436,9 @@ def test_centralstore_refuses_non_bridged_under_mt(monkeypatch):
         store.run({"info": {"id": 5, "custom": "campaign1"}})     # bare-token -> non-bridged -> refused
     with pytest.raises(CuckooReportError, match="non-bridged"):
         store.run({"info": {"id": 6}})                            # no custom -> local-6 -> refused
-
-    # bridge NOT required (single-node / MT-off): the guard does not fire for a non-bridged doc (it proceeds
-    # to the container/upload path, which we don't exercise here) -- assert it is NOT the guard that raises.
-    monkeypatch.setattr(cs, "central_bridge_required", lambda: False)
-    try:
-        store.run({"info": {"id": 7, "custom": "campaign1"}})
-    except CuckooReportError as e:
-        assert "non-bridged" not in str(e), "the bridge guard must not fire when the bridge is not required"
-    except Exception:
-        pass  # any downstream upload/path error is fine -- we only assert the guard didn't refuse
+    # (bridge-NOT-required behaviour is asserted directly on the backstop predicate in
+    # test_reject_unbridged_under_mt; exercising CentralStore.run's full upload path here would be vacuous --
+    # a bare CentralStore has analysis_path="" so run() short-circuits before the guard's effect is observable.)
 
 
 def test_reject_unbridged_under_mt(monkeypatch):

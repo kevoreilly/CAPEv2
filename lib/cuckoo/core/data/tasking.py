@@ -62,28 +62,6 @@ log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 
 
-def _sanitize_submitted_custom(custom):
-    """Strip a client-supplied job_id from a submitted `custom`. Called unconditionally from add().
-
-    The broker submit-bridge is the SOLE legitimate setter of a job_id -- via a direct SQL UPDATE, NOT
-    this add() API path -- so a client-supplied job_id in `custom` is a forgery vector: centralstore
-    (resolve_job_id) would read it into info.job_id, rewrite info.id to that (foreign) central id, key the
-    S3 prefix off it, and the scoped read/write/delete would then target another tenant's doc. Drop any
-    'job_id=<v>' token; and blank a bare 'ui-<N>' custom (resolve_job_id also returns a bare token, but
-    only a 'ui-<N>' one triggers the info.id rewrite -- a non-ui bare token is harmless). These tokens are
-    reserved broker-bridge machinery -- never legitimate client input single-node either (centralstore is
-    inactive there, so nothing consumes them), so stripping them is a no-op for any real single-node
-    custom. All other free-form custom content is left untouched."""
-    if not custom:
-        return custom
-    kept = [p for p in str(custom).split(",") if p.strip() and not p.strip().startswith("job_id=")]
-    result = ",".join(kept)
-    s = result.strip()
-    if s and "=" not in s and "," not in s and s.startswith("ui-") and s[3:].isdigit():
-        return ""
-    return result
-
-
 def _advisory_lock(lock_engine, key):
     """Best-effort cross-process serialization of per-task visibility toggles.
 
@@ -329,14 +307,17 @@ class TasksMixIn:
         task.package = package
         task.options = options
         task.priority = priority
-        # A client must not smuggle a job_id / bare ui-<N> through custom -- those are RESERVED tokens of
-        # the broker submit-bridge (set only via direct SQL) and would be read into info.job_id / rewrite
-        # info.id to a foreign central id at reporting (cross-tenant). Strip UNCONDITIONALLY at this single
-        # submission chokepoint: gating on central_mode_config() was a fail-open (an import/config error in
-        # the mode check silently skipped the strip, letting a forged token through), and these tokens are
-        # never legitimate client input single-node either (centralstore is inactive, so nothing consumes
-        # them there). No mode branch -> no fail-open surface.
-        custom = _sanitize_submitted_custom(custom)
+        # NOTE: a client-supplied job_id in `custom` is NOT scrubbed here. An earlier "root fix" stripped it
+        # at this ingest chokepoint, but add() is the SHARED ingest for external submissions AND the broker's
+        # own legitimate job_id delivery (the dispatcher POSTs /tasks/create with custom="job_id=ui-<tid>";
+        # centralstore keys the DocumentDB doc + S3 prefix off it) AND internal re-submitters (reschedule /
+        # dist / gcp copy task.custom) -- add() can't tell them apart, so stripping here breaks the central
+        # pipeline. The forgery is instead contained at the reachable layers: the central submit-bridge only
+        # enqueues tasks whose custom is NOT already 'job_id=%' (a forged UI submission is skipped, never
+        # runs), workers are not user-facing, and every central WRITE that keys on a task's own doc DERIVES
+        # 'ui-<task_id>' from the authorized id rather than reading custom (set_task_visibility, central_guac),
+        # with viewer-scoped reads + the reconcile unstamped-or-own guard behind that. Durable upstream fix:
+        # authenticate the job_id at the consumer (centralstore) instead of trusting submitted custom.
         task.custom = custom
         task.machine = machine
         task.platform = platform

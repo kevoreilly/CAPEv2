@@ -48,7 +48,21 @@ def resolve_job_id(custom, analysis_id):
     """The broker passes the global job_id through the task `custom` field, carried
     all the way to reporting. Accept 'job_id=<v>' (optionally among other
     comma-separated k=v pairs) or a bare token. Fall back to 'local-<id>' so central
-    mode also works when an analysis was submitted directly (no broker)."""
+    mode also works when an analysis was submitted directly (no broker).
+
+    TRUST MODEL / residual: `custom` is submitter-influenceable, so in principle a
+    client could set job_id=ui-<victim> to key this job's DocumentDB doc / S3 prefix
+    onto another tenant's id. This is contained by the deployment topology rather than
+    scrubbed at ingest (add() is the shared path the broker itself uses to deliver the
+    legitimate job_id, so it cannot strip): the central submit-bridge only enqueues
+    tasks whose custom is NOT already 'job_id=%' (a forged submission is skipped, never
+    runs, never reaches here), and workers are not user-facing. The reachable central
+    WRITES that key on a task's own doc DERIVE 'ui-<task_id>' from the authorized id
+    rather than reading custom (set_task_visibility, central_guac), with viewer-scoped
+    reads + the reconcile unstamped-or-own guard behind them. DURABLE FIX (upstream):
+    authenticate the job_id here against the delivering broker rather than trusting the
+    submitted custom (e.g. a signed/out-of-band job_id), which would also let a bare
+    token be accepted only when bridge-stamped."""
     if custom:
         text = str(custom)
         for part in text.split(","):

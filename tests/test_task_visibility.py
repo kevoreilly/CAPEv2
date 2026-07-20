@@ -637,45 +637,20 @@ def test_set_task_visibility_fails_closed_when_central_mode_probe_raises(db, mon
         "foreign worker-local colliding doc must NOT match even when the mode probe failed"
 
 
-def test_sanitize_submitted_custom():
-    """A client-supplied job_id in custom is a central forgery vector -> stripped at submission."""
-    from lib.cuckoo.core.data.tasking import _sanitize_submitted_custom
-    assert _sanitize_submitted_custom("job_id=ui-999") == ""                       # token form dropped
-    assert _sanitize_submitted_custom("foo=bar,job_id=ui-9,baz=1") == "foo=bar,baz=1"
-    assert _sanitize_submitted_custom("ui-999") == ""                              # bare central id blanked
-    assert _sanitize_submitted_custom("mycampaign") == "mycampaign"               # harmless bare token kept
-    assert _sanitize_submitted_custom("local-5") == "local-5"                     # non-ui bare token kept
-    assert _sanitize_submitted_custom("") == ""
-    assert _sanitize_submitted_custom(None) is None
-
-
 @pytest.mark.usefixtures("tmp_cuckoo_root")
-def test_add_strips_client_job_id_unconditionally(db, monkeypatch):
-    """add() strips a client-smuggled job_id from custom UNCONDITIONALLY (no central-mode gate: gating was
-    a fail-open -- an import/config error in the mode check silently skipped the strip). The token can't
-    reach centralstore (info.job_id / info.id rewrite / S3 prefix / scoped read-write-delete keys), and
-    is reserved broker-bridge machinery that is never legitimate client input single-node either."""
+def test_add_preserves_client_custom_verbatim(db, monkeypatch):
+    """add() must NOT scrub a job_id from custom: it is the shared ingest for external submissions AND the
+    broker's own legit delivery (dispatcher POSTs /tasks/create with custom='job_id=ui-<tid>') AND internal
+    re-submitters (reschedule/dist/gcp copy task.custom). Stripping here broke the central pipeline; the
+    forgery is contained at the reachable layers (bridge skips forged-custom submissions, non-user-facing
+    workers, derive-based writes + scoped reads) instead. So custom round-trips verbatim in every mode."""
     from lib.cuckoo.core.data.task import Task
-    # Central mode enabled: stripped.
     monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
                         lambda: type("C", (), {"enabled": True})())
     tid = db.add_url("http://x.example", custom="job_id=ui-999,foo=bar")
-    assert db.session.get(Task, tid).custom == "foo=bar"
+    assert db.session.get(Task, tid).custom == "job_id=ui-999,foo=bar"  # central: preserved (broker relies on it)
 
-    # Central mode disabled: STILL stripped (unconditional -> no fail-open surface). Only the reserved
-    # job_id token is removed; the rest of the free-form custom survives.
     monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
                         lambda: type("C", (), {"enabled": False})())
     tid2 = db.add_url("http://y.example", custom="job_id=ui-999,foo=bar")
-    assert db.session.get(Task, tid2).custom == "foo=bar"
-
-    # The mode check itself throwing must NOT resurrect the fail-open: strip still happens.
-    def _boom():
-        raise RuntimeError("config broke")
-    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config", _boom)
-    tid3 = db.add_url("http://z.example", custom="job_id=ui-999,foo=bar")
-    assert db.session.get(Task, tid3).custom == "foo=bar"
-
-    # Ordinary free-form custom with no reserved token is left entirely untouched.
-    tid4 = db.add_url("http://w.example", custom="mycampaign,foo=bar")
-    assert db.session.get(Task, tid4).custom == "mycampaign,foo=bar"
+    assert db.session.get(Task, tid2).custom == "job_id=ui-999,foo=bar"  # single-node: upstream verbatim

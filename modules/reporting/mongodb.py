@@ -540,11 +540,11 @@ class MongoDB(Report):
             # Delete ONLY that doc (+ its own call chunks by ObjectId) -- a bare info.id $in over the
             # re-keyed central id would, in the shared DocumentDB, also destroy a colliding worker-local
             # doc for ANOTHER tenant (adversarial-review HIGH, write side). Mirrors central_delete_analysis.
-            # What makes info.job_id trustworthy here is NOT this scoped delete on its own but the root fix:
-            # add() strips a client-supplied job_id from `custom` at ingest (_sanitize_submitted_custom), so
-            # resolve_job_id can no longer be steered to a victim's ui-<id>. This delete + the reconcile's
-            # unstamped-or-own guard are defence-in-depth layered ON TOP of that root fix, not a substitute
-            # for it -- a reader should not treat either as closing the forgery class by itself.
+            # info.job_id is not client-forgeable in the deployed topology (the submit-bridge skips
+            # 'job_id=%' custom + workers are not user-facing -- see centralstore.resolve_job_id's trust
+            # note); this scoped delete + the reconcile's unstamped-or-own guard are defence-in-depth on top
+            # of that containment, not a substitute -- a reader should not treat either as closing the
+            # forgery class by itself. Durable fix: authenticate job_id at the centralstore consumer.
             try:
                 _old = mongo_find_one("analysis", {"info.job_id": _pre_job_id}, {"_id": 1, "behavior.processes.calls": 1})
                 if _old:

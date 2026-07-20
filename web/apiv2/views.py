@@ -1516,10 +1516,13 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     # Validate the requested format BEFORE staging: a typo'd/unknown format is a 4xx client error, and staging
     # first would materialize the whole analysis tree onto the web node (central mode) only to reject. Then
     # gate the 'all' bulk archive before staging too, so a refused request never stages / writes the marker.
-    _fmt = report_format.lower()
-    if _fmt not in formats and _fmt not in report_formats:
+    # NORMALIZE report_format to lowercase here so the content-type chain below (which compares the raw value
+    # and has no trailing else) can't be reached with a mixed-case format that passed the .lower() gate and
+    # then falls through unbound -> NameError/500 (the \w+ route otherwise allows e.g. /report/<id>/JSON/).
+    report_format = report_format.lower()
+    if report_format not in formats and report_format not in report_formats:
         return Response({"error": True, "error_value": f"Report format not found: {report_format}"}, status=400)
-    if _fmt == "all" and not apiconf.taskreport.get("all"):
+    if report_format == "all" and not apiconf.taskreport.get("all"):
         return Response({"error": True, "error_value": "Downloading all reports in one call is disabled"})
 
     _central_stage(request, task_id)
@@ -1595,6 +1598,11 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH) and path_exists(srcdir):
             return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
+        # Guard like the sibling endpoints (tasks_screenshot/dropped/selfextracted): in central mode a
+        # best-effort _central_stage that raised (Http404 before os.makedirs) leaves no local analysis dir, so
+        # the bare os.listdir below would raise FileNotFoundError -> HTTP 500 instead of a clean JSON error.
+        if not path_exists(srcdir):
+            return Response({"error": True, "error_value": "No analysis directory for task %s" % task_id})
 
         mem_zip = BytesIO()
         with zipfile.ZipFile(mem_zip, "a", zipfile.ZIP_DEFLATED, False) as zf:
@@ -3219,7 +3227,14 @@ def post_processing(request, category, task_id):
         content = json.loads(content)
         if not content:
             return Response({"error": True, "msg": "Missed content data or category"})
-        _ = mongo_find_one_and_update("analysis", {"info.id": int(task_id)}, {"$set": {category: content}})
+        # NOTE: this route is a commented-out example (urls.py) and is NOT auth/tenant-gated -- it MUST be
+        # secured (auth + can_manage_task + tenant scope) before being enabled. Minimal defence-in-depth: in
+        # central mode key the write on the derived globally-unique job_id so it can't $set onto a colliding
+        # worker-local doc (a bare {info.id} can, in the shared DocumentDB); single-node keeps bare info.id.
+        from lib.cuckoo.common.central_mode import central_mode_config
+
+        _pp_filter = {"info.job_id": "ui-%d" % int(task_id)} if central_mode_config().enabled else {"info.id": int(task_id)}
+        _ = mongo_find_one_and_update("analysis", _pp_filter, {"$set": {category: content}})
         resp = {"error": False, "msg": "Added under the key {}".format(category)}
     else:
         resp = {"error": True, "msg": "Missed content data or category"}

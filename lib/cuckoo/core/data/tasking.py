@@ -1009,16 +1009,20 @@ class TasksMixIn:
                 _central = True
             if _central:
                 # Inline fallback ONLY when the central_mode import itself failed -> the mode is genuinely
-                # UNKNOWN (can't call central_bridge_required). A ui-only literal would 0-match every doc in a
-                # NON-central install (no info.job_id field) -> a restrictive toggle would silently no-op and
-                # leave Mongo more-permissive than SQL (fail OPEN). Use the {ui- OR info.id} superset + tenant
-                # guard so an OWN doc is matched in EITHER mode (central: ui-/info.id; non-central: info.id).
-                # The bare-info.id arm's only risk is a foreign collision under central+MT -- but that requires
-                # central_mode to be importable to even mint non-ui docs (the centralstore/mongodb persist
-                # backstops), which by construction it is NOT on this arm; so this is the pragmatic own-doc key
-                # for a broken-import state, not a fail-open.
+                # UNKNOWN. Mirror central_own_analysis_filter's NON-bridge-required (three-arm, job_id-qualified)
+                # shape exactly -- NOT a bare {info.id} arm. The bare arm would 0-match a non-central doc's own
+                # doc only if it lacked info.id (it doesn't) but, worse, would re-admit a FOREIGN worker-local
+                # doc colliding on info.id (the "audit HIGH" the helper's own docstring calls out) -- and an
+                # import glitch is exactly when the mongodb persist-backstop is ALSO down (_reject_unbridged_under_mt
+                # returns False on the same ImportError), so unbridged docs CAN exist. The job_id-qualified arms
+                # match an own doc in EITHER mode (non-central: no job_id field -> the {$in:[None,...]} arm)
+                # while excluding the foreign collision (local- arm requires OUR tenant stamp).
                 _filt = _own_filter(task_id, _mine) if _own_filter is not None else {"$and": [
-                    {"$or": [{"info.job_id": f"ui-{int(task_id)}"}, {"info.id": int(task_id)}]},
+                    {"$or": [
+                        {"info.job_id": f"ui-{int(task_id)}"},
+                        {"info.id": int(task_id), "info.job_id": {"$in": [None, f"ui-{int(task_id)}"]}},
+                        {"info.id": int(task_id), "info.job_id": f"local-{int(task_id)}", "info.tenant_id": _mine},
+                    ]},
                     {"$or": [{"info.tenant_id": None}, {"info.tenant_id": _mine}]},
                 ]}
             try:

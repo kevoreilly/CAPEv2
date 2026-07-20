@@ -47,8 +47,16 @@ def test_job_id_from_custom_freetext_does_not_warn_but_probe_does(caplog):
 
     caplog.clear()
     with caplog.at_level(logging.WARNING, logger=a.log.name):
-        assert a.job_id_from_custom("../../etc") is None           # probe-shaped (no whitespace)
+        assert a.job_id_from_custom("../../etc") is None           # probe-shaped ('..')
     assert any("path-unsafe bare job_id token" in r.getMessage() for r in caplog.records), \
+        [r.getMessage() for r in caplog.records]
+
+    # a traversal-shaped probe with INTERIOR whitespace must STILL warn (keyed on '..'/'/', not whitespace):
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger=a.log.name):
+        assert a.job_id_from_custom("../../etc x") is None
+        assert a.job_id_from_custom("a/b c") is None
+    assert len([r for r in caplog.records if "path-unsafe bare job_id token" in r.getMessage()]) == 2, \
         [r.getMessage() for r in caplog.records]
 
 

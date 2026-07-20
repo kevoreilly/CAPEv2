@@ -96,13 +96,15 @@ def job_id_from_custom(custom):
     if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token):
         if _is_safe_job_id(token):
             return token
-        # Only a whitespace-free bare token LOOKS like a job_id/path attempt (e.g. '../../etc') -> warn so a
-        # seam probe is greppable. `custom` is free-text: a note with whitespace is not a probe, so log at
-        # debug to avoid per-read WARNING spam (this resolver runs on every central artifact read).
-        if any(c.isspace() for c in token):
-            log.debug("central: bare custom %r is free-text, not a job_id; using scoped fallback", token)
-        else:
+        # A bare token that LOOKS like a path/job_id attempt (contains '..' or '/') is warned so a seam probe
+        # stays greppable -- keyed on the traversal markers, NOT on whitespace (the token is already .strip()ed,
+        # so only interior whitespace remains and an attacker controls that: '../../etc x' must still warn).
+        # `custom` is free-text, so a note WITHOUT those markers is not a probe -> debug (no per-read spam; this
+        # resolver runs on every central artifact read). Either way the value is rejected (returns None).
+        if ".." in token or "/" in token:
             log.warning("central: ignoring path-unsafe bare job_id token %r in submitted custom", token)
+        else:
+            log.debug("central: bare custom %r is not a job_id (free-text note); using scoped fallback", token)
     return None
 
 

@@ -1372,7 +1372,12 @@ def tasks_delete(request, task_id, status=False):
         #   - orphaned   -> task IS gone but its report couldn't be erased; NOT retryable (a task-delete retry
         #     answers "not exists"; the Mongo doc + S3 need a reaper), so surfaced distinctly, not as success
         #     NOR as a retryable "failed".
-        #   - s_deleted  -> clean (a folder-delete failure alone is a logged disk orphan-by-path, still deleted).
+        #   - s_deleted  -> deleted; the report is erased ONLY when web.conf [web_reporting] enabled is on
+        #     (the _central gate below + :central_delete_analysis) -- that flag ships `no` and is the GUI-serving
+        #     switch, NOT the Mongo-backend switch, so with it off the report is RETAINED and still reported here
+        #     as deleted, while tasks_delete_many (ungated on this flag) WOULD erase it. That cross-endpoint
+        #     divergence is pre-existing upstream gating; unifying it (gate both on the Mongo-backend flag) is a
+        #     surfaced design call, not changed here. A folder-delete failure alone is a logged disk orphan.
         _central = web_conf.web_reporting.get("enabled", True)
         _tenant = getattr(_t, "tenant_id", None) if _central else None
         try:
@@ -3338,9 +3343,13 @@ def tasks_delete_many(request):
     response = {}
     # NB: form-encoding sends booleans as strings, so bool("False") would be True -- parse the string forms
     # (utils/dist.py posts delete_mongo=False, i.e. "False", to opt OUT of deleting the worker's Mongo report).
+    # delete_mongo: form-encoding sends booleans as strings, so bool("False") would be True. ABSENT -> the
+    # delete default (True). A present-but-EMPTY value is ambiguous -- upstream treated it as retain, this parse
+    # would treat it as delete -- so REJECT it (400) rather than silently pick a destructive OR a retaining side
+    # (no in-tree caller sends empty; utils/dist.py posts a real "False"). Otherwise parse the explicit strings.
     _dm = request.POST.get("delete_mongo", True)
-    # Only explicit false-y strings opt OUT; a present-but-EMPTY value ("") falls through to the delete default,
-    # so it can't accidentally invert the absent-default (delete) into silent retention.
+    if isinstance(_dm, str) and _dm.strip() == "":
+        return Response({"error": True, "error_value": "delete_mongo present but empty; send true or false explicitly"}, status=400)
     delete_mongo = _dm if isinstance(_dm, bool) else str(_dm).strip().lower() not in ("false", "0", "no")
     for task_id in request.POST.get("ids", "").split(",") or []:
         task_id = int(task_id)

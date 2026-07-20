@@ -251,6 +251,13 @@ unused_files_in_mongodb = no
 # Central control-plane mode (off = current single-node behavior; analyses stay on the local
 # storage/analyses tree). When on, analysis artifacts are pushed to a shared object store and
 # interactive Guac routing resolves job->worker via a directory backend.
+#
+# TENANT ISOLATION: when central mode AND multitenancy are BOTH enabled, tenant-isolated access
+# requires the submit-bridge -- only a bridged task (job_id "ui-<central_id>", globally unique and
+# reconcile-mapped to a tenant) is a tenant-scoped own doc. A direct worker submission (keyed
+# "local-<id>", worker-local info.id, no tenancy by construction) is SINGLE-TENANT only: it is not
+# addressable through the tenant-scoped own-doc read/write/delete paths. See
+# lib.cuckoo.common.central_mode.central_bridge_required.
 enabled = no
 # Artifact storage backend when central mode is ON: "s3" (any S3-compatible store — AWS S3, MinIO,
 # Ceph RGW — via boto3, which is an optional/lazy import: pip install boto3 to use it) or "local"

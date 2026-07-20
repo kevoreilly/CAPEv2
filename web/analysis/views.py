@@ -4116,6 +4116,8 @@ def remove(request, task_id):
         # Wrap the folder delete so a failure (EACCES / stale NFS handle) does NOT skip the Mongo delete --
         # otherwise a folder error would leave the Mongo doc (+ its S3 artifacts) orphaned with the SQL row
         # already gone. A folder left behind is a disk/PII-retention follow-up (orphan-by-path), not a leak.
+        _folder_failed = False
+        _report_failed = False
         try:
             if path_exists(analyses_path):
                 delete_folder(analyses_path)
@@ -4123,24 +4125,25 @@ def remove(request, task_id):
             import logging
 
             logging.getLogger(__name__).error("remove: delete_folder failed for task %s: %s", task_id, _fe)
-            # Don't claim a clean "Task(s) deleted." -- the SQL row is already committed away, so the leftover
-            # tree (submitted sample + dropped files) has no row/UI path left to reap it. Surface it.
-            message = "Task removed, but its analysis files could not be fully deleted (see server logs)."
+            _folder_failed = True
         try:
             # SEPARATE try: central_delete_analysis raises on any non-AutoReconnect pymongo error -- unguarded,
-            # that 500s the view (discarding the message above) with the SQL row already committed + folder gone.
+            # that 500s the view (discarding the message below) with the SQL row already committed + folder gone.
             central_delete_analysis(request, int(task_id), tenant_id=_tenant)
         except Exception as _me:
             import logging
 
             logging.getLogger(__name__).error("remove: central delete failed for task %s: %s", task_id, _me)
-            # Compose (don't clobber) so a simultaneous folder failure isn't hidden -- the leftover tree
-            # (sample + dropped files) is the PII/retention-relevant half and must still be surfaced.
-            message = (
-                "Task removed, but its analysis files AND report could not be deleted (see server logs)."
-                if "analysis files" in message
-                else "Task removed, but its analysis report could not be deleted (see server logs)."
-            )
+            _report_failed = True
+        # Compose from FLAGS (not substring-matching the message) so a future copy-edit can't silently reinstate
+        # a clobber. The SQL row is already committed away, so a leftover tree (sample + dropped files, the
+        # PII/retention-relevant half) or an un-erased report must be surfaced, not hidden behind "deleted".
+        if _folder_failed and _report_failed:
+            message = "Task removed, but its analysis files AND report could not be deleted (see server logs)."
+        elif _folder_failed:
+            message = "Task removed, but its analysis files could not be fully deleted (see server logs)."
+        elif _report_failed:
+            message = "Task removed, but its analysis report could not be deleted (see server logs)."
 
     return render(request, "success_simple.html", {"message": message})
 

@@ -41,8 +41,9 @@ except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
 try:
-    from dev_utils.mongodb import mongo_update_one
+    from dev_utils.mongodb import mongo_find_one, mongo_update_one
 except Exception:  # mongo optional
+    mongo_find_one = None
     mongo_update_one = None
 
 
@@ -985,20 +986,19 @@ class TasksMixIn:
             # viewer scope (invisible even to the owner). Restamping ownership here is
             # idempotent for a normal toggle and repairs that orphan.
             # Central mode: key the write on the task's OWN doc, DERIVED from the authorized task_id -- never
-            # read task.custom (a user-supplied field a caller can forge to 'job_id=ui-<victim>' to re-own
-            # ANOTHER tenant's doc; adversarial-review HIGH, write side, same class as the guac fix). Match
-            # the derived bridged key (info.job_id 'ui-<task_id>') OR info.id==task_id CONSTRAINED to a job_id
-            # that is null-or-OURS -- ours being either the bridged 'ui-<task_id>' or the direct-submit
-            # 'local-<task_id>' (resolve_job_id's non-broker fallback stamps that, and only 'ui-*' rewrites
-            # info.id, so an own direct-submit doc keeps info.id==task_id + job_id 'local-<task_id>'; excluding
-            # it silently no-op'd the owner's own toggle). A FOREIGN bridged 'ui-<other>' still can't match.
-            # ANDed with unstamped-or-own as a second layer. Non-central: bare info.id (upstream shape).
-            # RESIDUAL: an own direct-submit doc and a FOREIGN worker-local doc that both carry
-            # 'local-<task_id>' + a null tenant_id are indistinguishable here -- fully closing that needs a
-            # node/store discriminator (data-model follow-up); the matched_count check below at least surfaces
-            # a 0-match instead of silently reporting success.
+            # read task.custom (a user-supplied field a caller can forge; adversarial-review HIGH, write side).
+            # Match: the derived bridged key (info.job_id 'ui-<task_id>'); OR info.id==task_id with a job_id
+            # that is null / not-yet-stamped or the bridged 'ui-<task_id>'; OR the direct-submit
+            # 'local-<task_id>' (resolve_job_id's non-broker fallback; only 'ui-*' rewrites info.id, so an own
+            # direct-submit doc keeps info.id==task_id + job_id 'local-<task_id>') -- but the local- arm ONLY
+            # when the doc already carries OUR tenant_id (stamp_tenant_info stamps info.tenant_id at report
+            # time), so a FOREIGN unstamped worker-local doc (tenant_id null) colliding on info.id can NOT be
+            # matched/re-owned. ANDed with unstamped-or-own as a second layer. Non-central: bare info.id
+            # (upstream shape). (When task.tenant_id is itself None -- MT-off / untenanted -- the local- arm
+            # collapses to the null tenant, acceptable there.)
             _filt = {"info.id": task_id}
-            _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": getattr(task, "tenant_id", None)}]}
+            _mine = getattr(task, "tenant_id", None)
+            _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": _mine}]}
             try:
                 from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -1009,17 +1009,18 @@ class TasksMixIn:
                 # re-own a colliding foreign doc). Consistent with viewer_scope / _mt_enabled fail-closed.
                 _central = True
             if _central:
+                _tid = int(task_id)
                 _filt = {"$and": [{"$or": [
-                    {"info.job_id": f"ui-{int(task_id)}"},
-                    {"$and": [{"info.id": int(task_id)},
-                              {"info.job_id": {"$in": [None, f"ui-{int(task_id)}", f"local-{int(task_id)}"]}}]},
+                    {"info.job_id": f"ui-{_tid}"},
+                    {"$and": [{"info.id": _tid}, {"info.job_id": {"$in": [None, f"ui-{_tid}"]}}]},
+                    {"$and": [{"info.id": _tid}, {"info.job_id": f"local-{_tid}"}, {"info.tenant_id": _mine}]},
                 ]}, _own]}
             try:
                 _res = mongo_update_one(
                     "analysis", _filt,
                     {"$set": {
                         "info.visibility": _vis,
-                        "info.tenant_id": getattr(task, "tenant_id", None),
+                        "info.tenant_id": _mine,
                         "info.user_id": getattr(task, "user_id", None),
                     }},
                 )
@@ -1030,17 +1031,25 @@ class TasksMixIn:
                 # graceful_auto_reconnect exhausted its retries (driver failure) -> abort so the caller rolls
                 # the SQL change back rather than leaving the stores divergent.
                 return False
-            # A 0-match is NOT a driver failure: the write is well-formed, it just addressed no document.
-            # In central mode that is expected+safe when the report doc has not been written yet (the reconcile
-            # stamps it from the authoritative SQL value later) or when the only colliding doc belongs to
-            # ANOTHER tenant (which we MUST NOT touch). Do NOT abort the SQL toggle on a 0-match (that would
-            # break a legitimate toggle on a not-yet-reported task), but surface it rather than silently
-            # reporting success, so an own-doc-the-filter-missed can be diagnosed (the direct-submit residual
-            # above).
+            # A 0-match is NOT a driver failure: the write is well-formed, it just addressed no document. That
+            # is SAFE only when NO doc exists yet -- the reconcile stamps it from the authoritative SQL value on
+            # report. But if a doc DOES exist at this info.id that our scoped filter could not address (an own
+            # doc whose info.job_id is a bare submitter token, or a foreign colliding doc), succeeding here
+            # would leave mongo more permissive than SQL. Distinguish the two with one existence probe and
+            # report FAILURE in the latter case so the caller aborts a RESTRICTIVE toggle (SQL rolls back,
+            # stores stay consistent) and logs a PERMISSIVE one (mongo stays less-permissive = fail-closed).
             if _central and getattr(_res, "matched_count", 1) == 0:
-                log.warning(
-                    "visibility mongo sync matched 0 docs for task %s (report not yet written, or no own doc "
-                    "in the shared central collection); SQL is authoritative, reconcile will re-stamp", task_id)
+                try:
+                    _exists = mongo_find_one is not None and mongo_find_one(
+                        "analysis", {"info.id": int(task_id)}, {"_id": 1}) is not None
+                except Exception:
+                    _exists = True  # can't tell -> assume a doc exists (fail closed)
+                if _exists:
+                    log.warning("visibility mongo sync matched 0 docs for task %s but a doc exists at that "
+                                "info.id the scoped filter could not address; reporting sync failure", task_id)
+                    return False
+                log.warning("visibility mongo sync matched 0 docs for task %s (report not yet written); SQL is "
+                            "authoritative, reconcile will re-stamp", task_id)
             return True
 
         try:

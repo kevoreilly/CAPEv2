@@ -1368,30 +1368,30 @@ def tasks_delete(request, task_id, status=False):
         # inverts any residual failure to the recoverable direction (task gone, report lingers -> reapable).
         _central = web_conf.web_reporting.get("enabled", True)
         _tenant = getattr(_t, "tenant_id", None) if _central else None
-        # Per-task try/except: the explicit per-iteration commit makes the batch partial-apply (task N is
-        # durable before task N+1 runs), so a delete_folder / Mongo-delete failure on a LATER task must be
-        # recorded and the loop continue -- otherwise the exception escapes with the per-task resp discarded,
-        # and the client gets a bodiless 500 that can't distinguish "nothing happened" from "task N destroyed".
+        # Commit the SQL delete BEFORE the irreversible folder/Mongo deletes (db.delete_task only stages; the
+        # middleware commits after the view). PRE-commit failures roll back so the task survives + is retryable;
+        # a POST-commit cleanup failure can't be undone, so it's logged as an orphan but still reported deleted
+        # (the task IS gone; mislabelling it "failed" would make a retry answer "not exists" and never reap it).
         try:
-            if db.delete_task(task):
-                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
-                db.session.commit()  # make the SQL delete durable before the irreversible Mongo delete
-                if _central:
-                    central_delete_analysis(request, task, tenant_id=_tenant)
-                s_deleted.append(str(task))
-            else:
+            if not db.delete_task(task):
                 f_deleted.append(str(task))
+                continue
+            db.session.commit()
         except Exception as _de:
-            # Roll back the STAGED (uncommitted) SQL delete: db.delete_task only session.delete()s, so without
-            # this the next iteration's commit (or the middleware's) would make it durable even though we report
-            # failure -> task committed-deleted with its Mongo/S3 artifacts orphaned and no row to drive a retry.
-            # Rollback also clears a pending-rollback session so the next iteration's view_task doesn't 500.
             try:
-                db.session.rollback()
+                db.session.rollback()  # staged delete must not survive; also clears a pending-rollback session
             except Exception:
                 pass
-            log.error("tasks_delete: task %s failed mid-delete (may be partially applied): %s", task, _de)
+            log.error("tasks_delete: task %s SQL delete failed (rolled back, retryable): %s", task, _de)
             f_deleted.append(str(task))
+            continue
+        try:
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
+            if _central:
+                central_delete_analysis(request, task, tenant_id=_tenant)
+        except Exception as _ce:
+            log.error("tasks_delete: task %s deleted but post-commit cleanup failed (orphan may remain): %s", task, _ce)
+        s_deleted.append(str(task))
 
     if s_deleted:
         resp["data"] = "Task(s) ID(s) {0} has been deleted".format(",".join(s_deleted))
@@ -3329,28 +3329,30 @@ def tasks_delete_many(request):
             # delete_many is immediate/non-transactional, so COMMIT the SQL delete explicitly BEFORE the Mongo
             # delete -- else a later-iteration rollback would resurrect this task while its report is gone.
             _tenant = getattr(task, "tenant_id", None)
-            # Per-task try/except: the per-iteration commit makes the batch partial-apply, so a later-task
-            # failure must be recorded per-task and the loop continue (else it escapes with `response`
-            # discarded -> a bodiless 500 that hides which tasks were already destroyed).
+            # Commit the SQL delete BEFORE the irreversible folder/Mongo deletes (see tasks_delete). PRE-commit
+            # failures roll back (task survives, retryable); a POST-commit cleanup failure is logged as an
+            # orphan but still reported deleted (mislabelling it errored would make a retry answer "not exists").
             try:
-                if db.delete_task(task_id):
-                    delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
-                    db.session.commit()  # SQL delete durable before the irreversible Mongo delete
-                    if delete_mongo:
-                        central_delete_analysis(request, task_id, tenant_id=_tenant)
-                    response.setdefault(task_id, "deleted")
-                else:
+                if not db.delete_task(task_id):
                     response.setdefault(task_id, "not exists")
+                    continue
+                db.session.commit()
             except Exception as _de:
-                # Roll back the STAGED (uncommitted) SQL delete so a mid-delete failure doesn't become durable
-                # via the next iteration's commit / the middleware (see tasks_delete). Also clears a
-                # pending-rollback session so the next view_task doesn't 500.
                 try:
                     db.session.rollback()
                 except Exception:
                     pass
-                log.error("tasks_delete_many: task %s failed mid-delete (may be partially applied): %s", task_id, _de)
+                log.error("tasks_delete_many: task %s SQL delete failed (rolled back, retryable): %s", task_id, _de)
                 response.setdefault(task_id, "error")
+                continue
+            try:
+                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
+                if delete_mongo:
+                    central_delete_analysis(request, task_id, tenant_id=_tenant)
+            except Exception as _ce:
+                log.error("tasks_delete_many: task %s deleted but post-commit cleanup failed (orphan may remain): %s",
+                          task_id, _ce)
+            response.setdefault(task_id, "deleted")
         else:
             response.setdefault(task_id, "not exists")
     # Don't answer status:OK when tasks errored -- a retention client keyed on status must be able to tell a

@@ -4177,12 +4177,23 @@ def comments(request, task_id):
             return render(request, "error.html", {"error": "No comment provided."})
 
         if enabledconf["mongodb"]:
-            report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
+            # Central mode: address the caller's OWN doc by the derived unique key (mirrors set_task_visibility
+            # / central_delete_analysis) for BOTH the read here and the $set write below -- NOT the read
+            # viewer_scope, whose public/tenant arms could match a colliding FOREIGN doc and let this mutating
+            # comment write (and the curcomments it seeds) land on another tenant's analysis. Non-central: the
+            # existing scoped/bare filter, unchanged.
+            from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
+            _cfilt = central_own_analysis_filter(task_id) if central_mode_config().enabled else _scoped_analysis_query(request, task_id)
+            report = mongo_find_one("analysis", _cfilt, {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
         if es_as_db:
             query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
             report = query["_source"]
             esid = query["_id"]
             esidx = query["_index"]
+        if not report:
+            # 0-match (report not written/reconciled yet, or a non-bridged doc the unique key can't address)
+            # -> nothing to comment on. Clean error instead of a None-deref crash on report["info"].
+            return render(request, "error.html", {"error": "No analysis report found for this task."})
         if "comments" in report["info"]:
             curcomments = report["info"]["comments"]
         else:
@@ -4202,7 +4213,7 @@ def comments(request, task_id):
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
         if enabledconf["mongodb"]:
-            mongo_update_one("analysis", _scoped_analysis_query(request, task_id), {"$set": {"info.comments": curcomments}})
+            mongo_update_one("analysis", _cfilt, {"$set": {"info.comments": curcomments}})
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)

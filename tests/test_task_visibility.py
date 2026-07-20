@@ -548,7 +548,7 @@ def test_set_task_visibility_central_derives_own_job_id_ignoring_forged_custom(d
         "$and": [
             {"$or": [
                 {"info.job_id": f"ui-{tid}"},
-                {"$and": [{"info.id": tid}, {"info.job_id": {"$in": [None, f"ui-{tid}"]}}]},
+                {"$and": [{"info.id": tid}, {"info.job_id": {"$in": [None, f"ui-{tid}", f"local-{tid}"]}}]},
             ]},
             {"$or": [{"info.tenant_id": None}, {"info.tenant_id": 10}]},
         ]
@@ -576,10 +576,12 @@ def _mongo_matches(doc, flt):
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")
-def test_set_task_visibility_central_filter_excludes_foreign_colliding_doc(db, monkeypatch):
-    """DOC-LEVEL: the central write filter matches the caller's OWN doc (bridged or not-yet-job_id-stamped)
-    and NEVER a foreign doc that merely collides on info.id -- worker-local 'local-N' or another tenant's
-    'ui-<other>' (the cross-tenant re-own class my shape-only test missed)."""
+def test_set_task_visibility_central_filter_matches_own_excludes_foreign(db, monkeypatch):
+    """DOC-LEVEL: the central write filter matches the caller's OWN doc in ALL three shapes (bridged
+    'ui-<tid>', not-yet-job_id-stamped, and direct-submit 'local-<tid>') and excludes a foreign doc that is
+    STAMPED for another tenant or is a DIFFERENT task's bridged doc. RESIDUAL (documented, not asserted): an
+    UNSTAMPED foreign 'local-<tid>' colliding on info.id is indistinguishable from the owner's own
+    direct-submit doc -- closing that needs a node/store discriminator (data-model follow-up)."""
     import lib.cuckoo.core.data.tasking as tk
     monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
     monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
@@ -590,12 +592,19 @@ def test_set_task_visibility_central_filter_excludes_foreign_colliding_doc(db, m
     tid = db.add_url("http://x.example", tenant_id=10, visibility="tenant")
     db.set_task_visibility(tid, "public")
     f = captured["f"]
+    # own doc, every shape:
     assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged must match"
     assert _mongo_matches({"info": {"id": tid, "tenant_id": None}}, f), "own not-yet-stamped must match"
-    assert not _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": None}}, f), \
-        "foreign worker-local colliding doc must NOT match"
-    assert not _mongo_matches({"info": {"id": tid, "job_id": "ui-999999", "tenant_id": None}}, f), \
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": None}}, f), \
+        "own direct-submit (local-<tid>) must match -- excluding it silently no-op'd the owner's toggle"
+    # foreign docs STAMPED for another tenant are excluded by the unstamped-or-own arm:
+    assert not _mongo_matches({"info": {"id": tid, "job_id": "ui-999999", "tenant_id": 77}}, f), \
         "another tenant's bridged doc must NOT match"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": 77}}, f), \
+        "another tenant's colliding direct-submit doc must NOT match"
+    # a DIFFERENT task's bridged doc is excluded even unstamped (its job_id is not ui-<tid>/local-<tid>):
+    assert not _mongo_matches({"info": {"id": tid, "job_id": "ui-999999", "tenant_id": None}}, f), \
+        "a different task's bridged doc (ui-<other>) must NOT match"
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")
@@ -633,8 +642,33 @@ def test_set_task_visibility_fails_closed_when_central_mode_probe_raises(db, mon
     f = captured["f"]
     assert f != {"info.id": tid}, "must NOT fall back to the unscoped bare filter"
     assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged must match"
-    assert not _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": None}}, f), \
-        "foreign worker-local colliding doc must NOT match even when the mode probe failed"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": "ui-999999", "tenant_id": None}}, f), \
+        "a different task's bridged doc must NOT match even when the mode probe failed"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_zero_match_warns_but_does_not_abort(db, monkeypatch, caplog):
+    """A central 0-match write (report not yet written, or no own doc in the shared collection) must NOT
+    abort a RESTRICTIVE toggle -- the reconcile stamps the doc from the authoritative SQL value later, so
+    aborting would break a legit toggle on a not-yet-reported task. It warns instead; SQL still commits.
+    (A genuine driver failure -> mongo_update_one returns None -> False -> abort, covered separately.)"""
+    import logging
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.core.data.task import Task
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": True})())
+
+    class _R:  # UpdateResult-like: well-formed write that addressed no document
+        matched_count = 0
+
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: _R(), raising=False)
+    tid = db.add_url("http://x.example", tenant_id=10, visibility="public")
+    with caplog.at_level(logging.WARNING):
+        db.set_task_visibility(tid, "private")  # RESTRICTIVE: a 0-match must not raise/abort
+    assert db.session.get(Task, tid).visibility == "private", "SQL toggle must commit despite a 0-match"
+    assert any("matched 0 docs" in r.getMessage() for r in caplog.records), "0-match must be surfaced (warned)"
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")

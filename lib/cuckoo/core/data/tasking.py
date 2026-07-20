@@ -985,12 +985,15 @@ class TasksMixIn:
             # read task.custom (a user-supplied field a caller can forge to 'job_id=ui-<victim>' to re-own
             # ANOTHER tenant's doc; adversarial-review HIGH, write side, same class as the guac fix). Match
             # the derived bridged key (info.job_id 'ui-<task_id>') OR info.id==task_id CONSTRAINED to a job_id
-            # that is null-or-ours -- so a FOREIGN doc (bridged 'ui-<other>' or worker-local 'local-N') that
-            # merely collides on info.id can NOT be matched/re-owned -- while keeping the info.id arm so a
-            # non-bridged / not-yet-stamped OWN doc isn't a silent no-op (mongo left more-permissive than
-            # SQL). ANDed with unstamped-or-own as a second layer. (Residual: a foreign doc with NO job_id
-            # field + colliding info.id still matches -- needs a node/store discriminator or a matched_count
-            # check.) Non-central: bare info.id (upstream single-node shape).
+            # that is null-or-OURS -- ours being either the bridged 'ui-<task_id>' or the direct-submit
+            # 'local-<task_id>' (resolve_job_id's non-broker fallback stamps that, and only 'ui-*' rewrites
+            # info.id, so an own direct-submit doc keeps info.id==task_id + job_id 'local-<task_id>'; excluding
+            # it silently no-op'd the owner's own toggle). A FOREIGN bridged 'ui-<other>' still can't match.
+            # ANDed with unstamped-or-own as a second layer. Non-central: bare info.id (upstream shape).
+            # RESIDUAL: an own direct-submit doc and a FOREIGN worker-local doc that both carry
+            # 'local-<task_id>' + a null tenant_id are indistinguishable here -- fully closing that needs a
+            # node/store discriminator (data-model follow-up); the matched_count check below at least surfaces
+            # a 0-match instead of silently reporting success.
             _filt = {"info.id": task_id}
             _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": getattr(task, "tenant_id", None)}]}
             try:
@@ -1005,20 +1008,37 @@ class TasksMixIn:
             if _central:
                 _filt = {"$and": [{"$or": [
                     {"info.job_id": f"ui-{int(task_id)}"},
-                    {"$and": [{"info.id": int(task_id)}, {"info.job_id": {"$in": [None, f"ui-{int(task_id)}"]}}]},
+                    {"$and": [{"info.id": int(task_id)},
+                              {"info.job_id": {"$in": [None, f"ui-{int(task_id)}", f"local-{int(task_id)}"]}}]},
                 ]}, _own]}
             try:
-                return mongo_update_one(
+                _res = mongo_update_one(
                     "analysis", _filt,
                     {"$set": {
                         "info.visibility": _vis,
                         "info.tenant_id": getattr(task, "tenant_id", None),
                         "info.user_id": getattr(task, "user_id", None),
                     }},
-                ) is not None
+                )
             except Exception as _e:
                 log.warning("visibility mongo sync errored for task %s: %s", task_id, _e)
                 return False
+            if _res is None:
+                # graceful_auto_reconnect exhausted its retries (driver failure) -> abort so the caller rolls
+                # the SQL change back rather than leaving the stores divergent.
+                return False
+            # A 0-match is NOT a driver failure: the write is well-formed, it just addressed no document.
+            # In central mode that is expected+safe when the report doc has not been written yet (the reconcile
+            # stamps it from the authoritative SQL value later) or when the only colliding doc belongs to
+            # ANOTHER tenant (which we MUST NOT touch). Do NOT abort the SQL toggle on a 0-match (that would
+            # break a legitimate toggle on a not-yet-reported task), but surface it rather than silently
+            # reporting success, so an own-doc-the-filter-missed can be diagnosed (the direct-submit residual
+            # above).
+            if _central and getattr(_res, "matched_count", 1) == 0:
+                log.warning(
+                    "visibility mongo sync matched 0 docs for task %s (report not yet written, or no own doc "
+                    "in the shared central collection); SQL is authoritative, reconcile will re-stamp", task_id)
+            return True
 
         try:
             _lock_conn = _advisory_lock(getattr(self, "lock_engine", None), task_id)

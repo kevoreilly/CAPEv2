@@ -33,6 +33,25 @@ def test_job_id_from_custom():
     assert job_id_from_custom(".hidden") is None                    # must start with an alnum
 
 
+def test_job_id_from_custom_freetext_does_not_warn_but_probe_does(caplog):
+    """`custom` is a documented free-text field, and this resolver runs on EVERY central artifact read, so a
+    bare note with whitespace ('my sample run') must NOT emit a WARNING (that would spam the log per-read and
+    bury real probes) -- it is logged at debug. A whitespace-free path-unsafe token ('../../etc') LOOKS like a
+    job_id/path attempt and IS warned so a seam probe stays greppable. Both still resolve to None."""
+    import logging
+    import lib.cuckoo.common.artifact_storage as a
+
+    with caplog.at_level(logging.WARNING, logger=a.log.name):
+        assert a.job_id_from_custom("my sample run") is None       # free-text note (has whitespace)
+    assert not caplog.records, [r.getMessage() for r in caplog.records]
+
+    caplog.clear()
+    with caplog.at_level(logging.WARNING, logger=a.log.name):
+        assert a.job_id_from_custom("../../etc") is None           # probe-shaped (no whitespace)
+    assert any("path-unsafe bare job_id token" in r.getMessage() for r in caplog.records), \
+        [r.getMessage() for r in caplog.records]
+
+
 def test_is_safe_job_id_matches_centralstore():
     """The read-seam parser guard and the write-seam guard are ONE shared helper (no drift): centralstore
     imports _is_safe_job_id from artifact_storage."""

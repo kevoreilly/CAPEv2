@@ -73,8 +73,10 @@ def job_id_from_custom(custom):
     path-unsafe custom (e.g. '../../etc') is rejected HERE -> return None -> the caller falls back to the
     scoped info.id lookup (read) / 'local-<id>' (write), never a container-escaping prefix. (Defence in depth:
     _store_and_container ALSO validates the resolved job_id, covering the mongo-fallback path too.) A rejected
-    non-empty candidate is logged so a job_id-seam probe stays greppable rather than silently becoming a
-    'local-<id>' report. Returns the job_id or None."""
+    PROBE-SHAPED candidate is logged so a job_id-seam probe stays greppable; a bare free-text `custom` (a
+    documented free-form field, so a note like 'my sample run' is not a job_id attempt) is only logged at
+    debug -- else every artifact read of a non-bridged task would re-warn on the operator's own note.
+    Returns the job_id or None."""
     if not custom:
         return None
     text = str(custom)
@@ -84,12 +86,19 @@ def job_id_from_custom(custom):
         if v and _is_safe_job_id(v):
             return v
         if v:
+            # An explicit 'job_id=' with an unsafe value is a deliberate attempt (probe/misconfig) -> warn.
             log.warning("central: ignoring path-unsafe job_id=%r in submitted custom (probe or misconfig)", v)
     token = text.strip()
     if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token):
         if _is_safe_job_id(token):
             return token
-        log.warning("central: ignoring path-unsafe bare job_id token %r in submitted custom", token)
+        # Only a whitespace-free bare token LOOKS like a job_id/path attempt (e.g. '../../etc') -> warn so a
+        # seam probe is greppable. `custom` is free-text: a note with whitespace is not a probe, so log at
+        # debug to avoid per-read WARNING spam (this resolver runs on every central artifact read).
+        if any(c.isspace() for c in token):
+            log.debug("central: bare custom %r is free-text, not a job_id; using scoped fallback", token)
+        else:
+            log.warning("central: ignoring path-unsafe bare job_id token %r in submitted custom", token)
     return None
 
 

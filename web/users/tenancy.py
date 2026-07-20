@@ -114,6 +114,30 @@ def can_view_sample(user, *, sha256=None, sha1=None, md5=None, sample_id=None) -
     return bool(db.list_tasks(sample_id=sample.id, visible_to=viewer, limit=1))
 
 
+def can_ban_user(actor, target_user_id) -> bool:
+    """Authorize banning target_user_id: deactivating the account (+ revoking API keys) and banning all
+    their tasks. Mirrors can_manage_task at USER granularity -- a break-glass local/IdP admin bans anyone;
+    a tenant admin bans only members of their OWN tenant; nobody else (a plain member or a non-admin
+    is_staff operator cannot reach across tenants). MT-disabled installs never call this: viewer_for makes
+    every principal a break-glass local-admin, and the tenancy_optional facade's MT-absent fallback keeps
+    the upstream staff/superuser-only boundary -- so this preserves single-node behaviour.
+
+    Fails closed (deny) on any resolution error rather than defaulting to allow."""
+    viewer = viewer_for(actor)
+    if viewer.is_local_admin:
+        return True
+    if not viewer.is_tenant_admin or viewer.tenant_id is None:
+        return False
+    from django.contrib.auth.models import User
+
+    try:
+        prof = User.objects.select_related("userprofile").get(id=int(target_user_id)).userprofile
+        target_tenant = getattr(prof, "tenant_id", None)
+    except Exception:
+        return False
+    return target_tenant is not None and target_tenant == viewer.tenant_id
+
+
 def submission_scope(request):
     """Resolve (tenant_id, visibility) for a new submission from the request.
 

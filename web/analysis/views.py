@@ -192,7 +192,7 @@ if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
 
 db: TasksMixIn = Database()
 
-from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for, multitenancy_config
+from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_view_sample, can_ban_user, viewer_for, multitenancy_config
 
 # Shared central-mode cross-store info.id collision seam (report(), report-tab loaders, apiv2 report-family,
 # compare seeds all route their per-task analysis reads through this) -- see analysis.central_views.
@@ -3251,6 +3251,15 @@ def load_evtx_channel(request, task_id):
     if request.headers.get("x-requested-with") != "XMLHttpRequest":
         raise PermissionDenied
 
+    # Central mode: evtx.zip lives in S3 until staged locally. A deep-link straight to the Event Logs tab
+    # can arrive before report()/load_files staged the tree, so stage here too (cheap no-op once
+    # .central_staged exists) -- else the absent-file check below wrongly raises PermissionDenied for a
+    # fully authorized task (@require_task_visibility already gated access). Mirrors load_files().
+    from lib.cuckoo.common.central_mode import central_mode_config
+    if central_mode_config().enabled:
+        from analysis.central_views import central_stage_local
+        central_stage_local(request, task_id)
+
     member = request.GET.get("member", "")
     page = request.GET.get("page", "1")
     search_query = request.GET.get("search", "")
@@ -3276,6 +3285,13 @@ def load_evtx_channel(request, task_id):
 def load_evtx_channel_count(request, task_id):
     if request.headers.get("x-requested-with") != "XMLHttpRequest":
         raise PermissionDenied
+
+    # Central mode: stage the S3 tree first (see load_evtx_channel) so the count endpoint doesn't 403 on a
+    # not-yet-staged but authorized task. No-op once .central_staged exists.
+    from lib.cuckoo.common.central_mode import central_mode_config
+    if central_mode_config().enabled:
+        from analysis.central_views import central_stage_local
+        central_stage_local(request, task_id)
 
     member = request.GET.get("member", "")
     evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
@@ -4475,7 +4491,10 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def ban_all_user_tasks(request, user_id: int):
-    if request.user.is_staff or request.user.is_superuser:
+    # can_ban_user is the SINGLE authority: MT-off -> upstream staff/superuser boundary (facade fallback);
+    # MT-on -> break-glass admin bans anyone, tenant admin only within their own tenant. Gating on raw
+    # is_staff let a tenant operator ban ANOTHER tenant's users (adversarial-review MEDIUM, priv-esc).
+    if can_ban_user(request.user, user_id):
         db.ban_user_tasks(user_id)
         return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
     return render(request, "error.html", {"error": "Nice try! You don't have permission to ban user tasks"})
@@ -4483,7 +4502,7 @@ def ban_all_user_tasks(request, user_id: int):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def ban_user(request, user_id: int):
-    if request.user.is_staff or request.user.is_superuser:
+    if can_ban_user(request.user, user_id):
         success = disable_user(user_id)
         if success:
             return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))

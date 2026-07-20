@@ -365,3 +365,72 @@ def test_submission_scope_ignores_visibility_when_mt_disabled(monkeypatch):
     r.user = User.objects.create_user("mtoffsub", "mtoffsub@x.com", "x")
     r.data = {"visibility": "private"}  # explicit request must be IGNORED when MT is off
     assert ut.submission_scope(r) == (None, "public")
+
+
+def _mk_user(username, tenant=None, is_tenant_admin=False, is_superuser=False):
+    from users.models import UserProfile
+
+    u = User.objects.create_user(username, f"{username}@x.com", "x")
+    if is_superuser:
+        u.is_superuser = True
+        u.is_staff = True
+        u.save()
+    p = UserProfile.objects.get(user=u)  # auto-created by signal
+    p.tenant = tenant
+    p.is_tenant_admin = is_tenant_admin
+    p.save()
+    return User.objects.get(pk=u.pk)  # re-fetch so the cached userprofile reflects the saved tenant
+
+
+@pytest.mark.django_db
+def test_can_ban_user_tenant_admin_only_within_own_tenant(mt_enabled):
+    """The priv-esc the finding names: a tenant admin may ban members of their OWN tenant, but NOT another
+    tenant's users (ban deactivates the account + revokes API keys + bans all their tasks)."""
+    from users.models import Tenant
+    from users.tenancy import can_ban_user
+
+    acme = Tenant.objects.create(slug="acme", name="Acme")
+    globex = Tenant.objects.create(slug="globex", name="Globex")
+    admin_a = _mk_user("admin_a", tenant=acme, is_tenant_admin=True)
+    member_a = _mk_user("member_a", tenant=acme)
+    member_b = _mk_user("member_b", tenant=globex)
+    assert can_ban_user(admin_a, member_a.id) is True          # own tenant -> allowed
+    assert can_ban_user(admin_a, member_b.id) is False         # OTHER tenant -> denied (priv-esc closed)
+
+
+@pytest.mark.django_db
+def test_can_ban_user_plain_member_denied(mt_enabled):
+    """A non-admin member (even is_staff, which upstream would allow) cannot ban anyone under MT."""
+    from users.models import Tenant
+    from users.tenancy import can_ban_user
+
+    acme = Tenant.objects.create(slug="acme", name="Acme")
+    member = _mk_user("m1", tenant=acme)          # not a tenant admin
+    victim = _mk_user("v1", tenant=acme)
+    assert can_ban_user(member, victim.id) is False
+
+
+@pytest.mark.django_db
+def test_can_ban_user_breakglass_superuser_crosses_tenants(mt_enabled):
+    """local_admins_manage_all_tenants is on (mt_enabled fixture) -> a superuser is break-glass and bans
+    across tenants, preserving the operator escape hatch."""
+    from users.models import Tenant
+    from users.tenancy import can_ban_user
+
+    Tenant.objects.create(slug="acme", name="Acme")
+    globex = Tenant.objects.create(slug="globex", name="Globex")
+    su = _mk_user("root", tenant=None, is_superuser=True)
+    victim = _mk_user("vv", tenant=globex)
+    assert can_ban_user(su, victim.id) is True
+
+
+@pytest.mark.django_db
+def test_can_ban_user_missing_target_fails_closed(mt_enabled):
+    """A tenant admin targeting a nonexistent user id must be denied (fail closed on resolution error),
+    never defaulted to allow."""
+    from users.models import Tenant
+    from users.tenancy import can_ban_user
+
+    acme = Tenant.objects.create(slug="acme", name="Acme")
+    admin_a = _mk_user("admin_a", tenant=acme, is_tenant_admin=True)
+    assert can_ban_user(admin_a, 999999) is False

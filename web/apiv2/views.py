@@ -1368,13 +1368,21 @@ def tasks_delete(request, task_id, status=False):
         # inverts any residual failure to the recoverable direction (task gone, report lingers -> reapable).
         _central = web_conf.web_reporting.get("enabled", True)
         _tenant = getattr(_t, "tenant_id", None) if _central else None
-        if db.delete_task(task):
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
-            db.session.commit()  # make the SQL delete durable before the irreversible Mongo delete
-            if _central:
-                central_delete_analysis(request, task, tenant_id=_tenant)
-            s_deleted.append(str(task))
-        else:
+        # Per-task try/except: the explicit per-iteration commit makes the batch partial-apply (task N is
+        # durable before task N+1 runs), so a delete_folder / Mongo-delete failure on a LATER task must be
+        # recorded and the loop continue -- otherwise the exception escapes with the per-task resp discarded,
+        # and the client gets a bodiless 500 that can't distinguish "nothing happened" from "task N destroyed".
+        try:
+            if db.delete_task(task):
+                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
+                db.session.commit()  # make the SQL delete durable before the irreversible Mongo delete
+                if _central:
+                    central_delete_analysis(request, task, tenant_id=_tenant)
+                s_deleted.append(str(task))
+            else:
+                f_deleted.append(str(task))
+        except Exception as _de:
+            log.error("tasks_delete: task %s failed mid-delete (may be partially applied): %s", task, _de)
             f_deleted.append(str(task))
 
     if s_deleted:
@@ -3313,11 +3321,21 @@ def tasks_delete_many(request):
             # delete_many is immediate/non-transactional, so COMMIT the SQL delete explicitly BEFORE the Mongo
             # delete -- else a later-iteration rollback would resurrect this task while its report is gone.
             _tenant = getattr(task, "tenant_id", None)
-            if db.delete_task(task_id):
-                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
-                db.session.commit()  # SQL delete durable before the irreversible Mongo delete
-                if delete_mongo:
-                    central_delete_analysis(request, task_id, tenant_id=_tenant)
+            # Per-task try/except: the per-iteration commit makes the batch partial-apply, so a later-task
+            # failure must be recorded per-task and the loop continue (else it escapes with `response`
+            # discarded -> a bodiless 500 that hides which tasks were already destroyed).
+            try:
+                if db.delete_task(task_id):
+                    delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
+                    db.session.commit()  # SQL delete durable before the irreversible Mongo delete
+                    if delete_mongo:
+                        central_delete_analysis(request, task_id, tenant_id=_tenant)
+                    response.setdefault(task_id, "deleted")
+                else:
+                    response.setdefault(task_id, "not exists")
+            except Exception as _de:
+                log.error("tasks_delete_many: task %s failed mid-delete (may be partially applied): %s", task_id, _de)
+                response.setdefault(task_id, "error")
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"

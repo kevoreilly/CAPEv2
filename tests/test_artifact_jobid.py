@@ -204,3 +204,27 @@ def test_store_and_container_rejects_unsafe_fallback_jobid(monkeypatch):
     monkeypatch.setattr(a, "_job_id_for_task", lambda tid, scope=None: "ui-42", raising=False)
     _store, container = a._store_and_container(42, scope=None)
     assert container == "results/ui-42"
+
+
+def test_store_and_container_nonstring_fallback_jobid_is_http404(monkeypatch):
+    """The mongo-fallback branch returns info.job_id straight from the shared collection with no type check, so
+    a non-str value (e.g. an int written by a second/legacy writer -- the exact threat the guard cites) must
+    yield a clean Http404, NOT a TypeError->500 (which the central_views except-Http404 handlers would miss)."""
+    import lib.cuckoo.common.artifact_storage as a
+    from django.http import Http404
+    import pytest
+
+    cfg = type("C", (), {"s3_prefix": "results"})()
+    monkeypatch.setattr(a, "central_mode_config", lambda: cfg, raising=False)
+    monkeypatch.setattr(a, "get_artifact_store", lambda c: (object(), True), raising=False)
+    monkeypatch.setattr(a, "_job_id_for_task", lambda tid, scope=None: 12345, raising=False)  # non-str
+    with pytest.raises(Http404):
+        a._store_and_container(42, scope=None)
+
+
+def test_is_safe_job_id_nonstring_is_false():
+    """_is_safe_job_id must be type-safe (isinstance str), not raise, for a non-str input."""
+    import lib.cuckoo.common.artifact_storage as a
+    assert a._is_safe_job_id(12345) is False
+    assert a._is_safe_job_id(None) is False
+    assert a._is_safe_job_id(b"ui-1") is False

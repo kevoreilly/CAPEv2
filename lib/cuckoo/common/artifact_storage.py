@@ -54,7 +54,11 @@ _SAFE_JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
 
 
 def _is_safe_job_id(job_id):
-    return bool(job_id) and _SAFE_JOB_ID_RE.match(job_id) is not None and ".." not in job_id
+    # isinstance guard, not bool(): a non-str info.job_id (e.g. an int written by a second/legacy writer of the
+    # shared collection -- the exact threat _store_and_container cites) would make re.match raise TypeError, and
+    # a TypeError is not Http404 so the central_views except-Http404 handlers would miss it (-> 500). Return
+    # False for any non-str so the caller raises a clean Http404 instead.
+    return isinstance(job_id, str) and _SAFE_JOB_ID_RE.match(job_id) is not None and ".." not in job_id
 
 
 def job_id_from_custom(custom):

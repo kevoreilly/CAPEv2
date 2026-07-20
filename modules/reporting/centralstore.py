@@ -22,19 +22,12 @@ from lib.cuckoo.common.storage_backend import get_artifact_store
 
 log = logging.getLogger(__name__)
 
-# job_id becomes an S3 key segment, so it must not contain path separators or
-# traversal. The broker should stamp an authenticated job_id; this is the last
-# line of defence against a tenant-supplied `custom` poisoning another job's
-# prefix (audit CRITICAL-1). local-<int> fallback satisfies the allowlist.
-# Must start with an alnum (no leading '.'/'-'/'_') AND contain no '..' run, so a
-# value like '.', '..', '.foo' or 'a..b' can never collapse 'results/<job_id>/' to a
-# parent ref ('results/../') in an S3 key or the local staging path. _is_safe_job_id
-# applies both rules (the regex alone permitted '.'/'..').
-_JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
-
-
-def _is_safe_job_id(job_id):
-    return bool(job_id) and _JOB_ID_RE.match(job_id) is not None and ".." not in job_id
+# job_id becomes an S3 key / local-mount container segment, so it must be path-safe (no separators, no '..').
+# The safety guard is defined ONCE in lib.cuckoo.common.artifact_storage and shared by the read seam
+# (job_id_from_custom) and this write seam so they can never drift -- the last line of defence against a
+# tenant-supplied `custom` poisoning another job's prefix (audit CRITICAL-1). local-<int> fallback satisfies
+# it. (The read seam now rejects a path-unsafe custom at the parser, so this is belt-and-suspenders.)
+from lib.cuckoo.common.artifact_storage import _SAFE_JOB_ID_RE, _is_safe_job_id
 
 # Upload the whole analysis tree to S3 (the "heavy detail" tier): shots, dropped
 # files, pcap, procdump, AND reports/ (report.json/html/pdf are downloadable
@@ -110,7 +103,7 @@ class CentralStore(Report):
             # Refuse a job_id that could escape/poison another job's S3 prefix.
             raise CuckooReportError(
                 "centralstore: refusing unsafe job_id %r (must match %s and contain no '..')"
-                % (job_id, _JOB_ID_RE.pattern))
+                % (job_id, _SAFE_JOB_ID_RE.pattern))
         info["job_id"] = job_id  # carried into the DocumentDB doc; read seam keys S3 by it
 
         # Align info.id to the CENTRAL task id when the broker assigned a

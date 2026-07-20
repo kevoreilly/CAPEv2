@@ -44,6 +44,19 @@ _JOB_ID_CACHE = OrderedDict()  # most-recently-used at the end
 _JOB_ID_CACHE_MAX = 1024
 
 
+# A resolved job_id becomes the object-store container prefix ("<s3_prefix>/<job_id>/") on both the S3 and
+# the local-mount backends, so it MUST be path-safe: an alnum-anchored charset with no ".." (a value like
+# "..", ".foo" or "../../etc" could otherwise collapse the prefix to a parent ref and, on the local mount,
+# escape the results tree to read arbitrary host files). This is the canonical guard shared by the read seam
+# (job_id_from_custom below, applied at the single parse choke point) AND the write seam
+# (centralstore.CentralStore.run imports _is_safe_job_id from here) so the two can never drift.
+_SAFE_JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+
+
+def _is_safe_job_id(job_id):
+    return bool(job_id) and _SAFE_JOB_ID_RE.match(job_id) is not None and ".." not in job_id
+
+
 def job_id_from_custom(custom):
     """Parse the broker job_id out of a task's RDS `custom` field. THE single parser shared by the WRITE
     consumer (centralstore.resolve_job_id) and the READ/DELETE consumers (central_views.central_job_id_for_task
@@ -55,6 +68,11 @@ def job_id_from_custom(custom):
     prefix -- SQL LIKE tests the RAW column, so do NOT .strip() before the prefix test (else ' job_id=...'
     would evade the filter yet resolve here) -- and NEVER a bare 'ui-<N>' (the bridge's reserved central-id
     form, which no direct submitter produces). A bare NON-ui token is the direct-submission fallback.
+
+    The resolved value is ALSO required to be _is_safe_job_id: it becomes the store container prefix on the
+    read seam (_rds_job_id -> _job_id_for_task -> _store_and_container), which does NOT re-validate, so a
+    path-unsafe custom (e.g. '../../etc') must be rejected HERE -> return None -> the caller falls back to the
+    scoped info.id lookup (read) / 'local-<id>' (write), never a container-escaping prefix.
     Returns the job_id or None."""
     if not custom:
         return None
@@ -62,10 +80,10 @@ def job_id_from_custom(custom):
     first = text.split(",", 1)[0]  # RAW first field (no strip -> matches LIKE 'job_id=%' anchoring)
     if first.startswith("job_id="):
         v = first.split("=", 1)[1].strip()
-        if v:
+        if v and _is_safe_job_id(v):
             return v
     token = text.strip()
-    if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token):
+    if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token) and _is_safe_job_id(token):
         return token
     return None
 

@@ -22,6 +22,25 @@ def test_job_id_from_custom():
     assert job_id_from_custom("ui-999999") is None                 # bare 'ui-<N>' (bridge's reserved form)
     assert job_id_from_custom(" job_id=ui-999999") is None         # leading space -> raw prefix test fails
     assert job_id_from_custom("\tjob_id=ui-9") is None             # leading tab, same
+    # PATH-SAFETY: the resolved job_id becomes the store container prefix ("<s3_prefix>/<job_id>/"), so a
+    # path-unsafe custom must NOT resolve (else, on the local-mount backend, '..' escapes the results tree ->
+    # arbitrary host-file read). Rejected as both a bare token AND a job_id= value.
+    assert job_id_from_custom("../../../../etc") is None            # bare traversal token
+    assert job_id_from_custom("job_id=../../etc") is None           # traversal as the job_id= value
+    assert job_id_from_custom("..") is None
+    assert job_id_from_custom("a..b") is None                       # any '..' run
+    assert job_id_from_custom("a/b") is None                        # path separator (not in charset)
+    assert job_id_from_custom(".hidden") is None                    # must start with an alnum
+
+
+def test_is_safe_job_id_matches_centralstore():
+    """The read-seam parser guard and the write-seam guard are ONE shared helper (no drift): centralstore
+    imports _is_safe_job_id from artifact_storage."""
+    import lib.cuckoo.common.artifact_storage as a
+    import modules.reporting.centralstore as cs
+    assert cs._is_safe_job_id is a._is_safe_job_id
+    assert a._is_safe_job_id("ui-42") and a._is_safe_job_id("local-7")
+    assert not a._is_safe_job_id("../x") and not a._is_safe_job_id("..") and not a._is_safe_job_id(".x")
 
 
 def test_rds_job_id_nonnumeric_not_logged_as_rds_failure(monkeypatch, caplog):

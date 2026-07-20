@@ -1385,12 +1385,21 @@ def tasks_delete(request, task_id, status=False):
             log.error("tasks_delete: task %s SQL delete failed (rolled back, retryable): %s", task, _de)
             f_deleted.append(str(task))
             continue
+        # SEPARATE guards: a folder-delete failure must NOT skip the Mongo/central delete (a shared try would
+        # orphan the analysis doc + S3 artifacts -- the more serious leak -- on a mere disk error). A folder
+        # failure degrades to a disk orphan-by-path (logged, still counts as deleted); a report-delete failure
+        # IS surfaced (f_deleted) since it leaves an unreapable doc with the SQL row already gone.
         try:
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
+        except Exception as _fe:
+            log.error("tasks_delete: task %s folder delete failed (disk orphan-by-path): %s", task, _fe)
+        try:
             if _central:
                 central_delete_analysis(request, task, tenant_id=_tenant)
         except Exception as _ce:
-            log.error("tasks_delete: task %s deleted but post-commit cleanup failed (orphan may remain): %s", task, _ce)
+            log.error("tasks_delete: task %s report delete FAILED (Mongo doc + S3 orphaned, unreapable): %s", task, _ce)
+            f_deleted.append(str(task))
+            continue
         s_deleted.append(str(task))
 
     if s_deleted:
@@ -3345,13 +3354,21 @@ def tasks_delete_many(request):
                 log.error("tasks_delete_many: task %s SQL delete failed (rolled back, retryable): %s", task_id, _de)
                 response.setdefault(task_id, "error")
                 continue
+            # SEPARATE guards (see tasks_delete): a folder failure must not skip the Mongo delete. A report
+            # delete failure records "error" so the partial_error status below flags the HARMFUL case (an
+            # orphaned Mongo doc), not just a harmless pre-commit rollback.
             try:
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
+            except Exception as _fe:
+                log.error("tasks_delete_many: task %s folder delete failed (disk orphan-by-path): %s", task_id, _fe)
+            try:
                 if delete_mongo:
                     central_delete_analysis(request, task_id, tenant_id=_tenant)
             except Exception as _ce:
-                log.error("tasks_delete_many: task %s deleted but post-commit cleanup failed (orphan may remain): %s",
+                log.error("tasks_delete_many: task %s report delete FAILED (Mongo doc + S3 orphaned, unreapable): %s",
                           task_id, _ce)
+                response.setdefault(task_id, "error")
+                continue
             response.setdefault(task_id, "deleted")
         else:
             response.setdefault(task_id, "not exists")

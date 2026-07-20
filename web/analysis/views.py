@@ -4058,13 +4058,12 @@ def remove(request, task_id):
         return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
     if enabledconf["mongodb"]:
-        # Resolve the task's tenant WHILE the SQL row exists; the immediate Mongo delete is deferred to AFTER
-        # the SQL delete is committed (below) so a failure can't destroy the report while the task survives
-        # (same rollback-safety as the apiv2 delete routes).
+        # Resolve the task's tenant WHILE the SQL row exists; BOTH the irreversible folder delete and the Mongo
+        # delete are deferred to AFTER the SQL delete commits (below) so neither can destroy the report while
+        # the task survives a rollback (same rollback-safety as the apiv2 delete routes). (ES branch below is
+        # unchanged: es_as_db is out of the mongo-only MT support boundary.)
         _tenant = getattr(db.view_task(int(task_id)), "tenant_id", None)
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
-        if path_exists(analyses_path):
-            delete_folder(analyses_path)
         message = "Task(s) deleted."
     if es_as_db:
         analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
@@ -4111,9 +4110,11 @@ def remove(request, task_id):
 
     db.delete_task(task_id)
     if enabledconf["mongodb"]:
-        # SQL delete durable BEFORE the irreversible Mongo delete (db.delete_task only stages; the middleware
-        # commits after the view). _tenant was resolved above while the SQL row still existed.
+        # SQL delete durable BEFORE the irreversible folder + Mongo deletes (db.delete_task only stages; the
+        # middleware commits after the view). _tenant/analyses_path resolved above while the SQL row existed.
         db.session.commit()
+        if path_exists(analyses_path):
+            delete_folder(analyses_path)
         central_delete_analysis(request, int(task_id), tenant_id=_tenant)
 
     return render(request, "success_simple.html", {"message": message})
@@ -4226,14 +4227,24 @@ def comments(request, task_id):
         buf["Data"] = "".join(escape_map.get(thechar, thechar) for thechar in comment)
         # status can be posted/removed
         buf["Status"] = "posted"
-        curcomments.insert(0, buf)  # for the ES whole-list update below
+        curcomments.insert(0, buf)  # newest-first
         if enabledconf["mongodb"] and _mongo_id is not None:
-            # Atomic $push keyed on the exact _id AND the own-doc filter: $push (not a read-modify-$set of the
-            # whole list) removes the self-vs-self LOST UPDATE when two comments land in one request window;
-            # re-ANDing _cfilt re-evaluates the tenant guard AT WRITE TIME (writing by bare _id would target the
-            # read-verified doc but not re-check the guard). $each/$position:0 preserves newest-first order.
-            mongo_update_one("analysis", {"$and": [{"_id": _mongo_id}, _cfilt]},
-                             {"$push": {"info.comments": {"$each": [buf], "$position": 0}}})
+            # $set the whole (prepended, newest-first) list -- NOT $push/$position: Amazon DocumentDB (the
+            # central [mongodb] target) doesn't support $position (same class of gap this tree already works
+            # around for $facet). Key on {_id AND the own-doc filter} so the write targets the exact doc read
+            # AND re-evaluates the tenant guard at write time. A 0-match means the doc was reconciled/stamped or
+            # deleted between the read and this write -> LOG it (don't silently drop the comment on a success
+            # redirect), matching the fail-loud 0-match handling in the apiv2/central delete paths. (Residual: a
+            # whole-list $set can lose one of two comments posted in the SAME request window -- LOW: comments
+            # are low-frequency; an atomic prepend needs $position, which DocumentDB rejects.)
+            _res = mongo_update_one("analysis", {"$and": [{"_id": _mongo_id}, _cfilt]},
+                                    {"$set": {"info.comments": curcomments}})
+            if getattr(_res, "matched_count", 1) == 0:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "comments: 0-match writing task %s (doc reconciled/deleted between read and write); "
+                    "comment not stored Mongo-side", task_id)
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)

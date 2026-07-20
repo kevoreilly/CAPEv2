@@ -988,25 +988,31 @@ class TasksMixIn:
             # viewer scope (invisible even to the owner). Restamping ownership here is
             # idempotent for a normal toggle and repairs that orphan.
             # Central mode: key the write on the task's OWN doc via the SHARED derived filter
-            # central_own_analysis_filter(task_id) = {info.job_id: 'ui-<task_id>'}. That bridge-assigned key is
-            # globally unique (can't collide with a worker-local 'local-<n>' doc) and DERIVED from the
-            # authorized task_id (can't be steered by a forged custom), so it uniquely + unforgeably addresses
-            # this task's doc with no id-collision / tenant / ownership gymnastics. The same helper backs the
-            # central DELETE, so write and delete can't drift. Non-central: bare info.id (upstream shape).
+            # central_own_analysis_filter(task_id, task.tenant_id) = {ui-<task_id> OR info.id==task_id} AND
+            # unstamped-or-own. The ui- arm is the bridge's globally-unique key; the info.id arm addresses a
+            # NON-bridged/direct-submit doc (which central mode supports and keeps at its worker-local info.id
+            # == task_id) so a restrictive toggle can't silently leave it more-permissive than SQL; the tenant
+            # guard excludes a FOREIGN doc stamped for another tenant that merely collides on info.id. DERIVED
+            # from the authorized id (never the forgeable custom). The same helper backs the central DELETE +
+            # comment write and mirrors the READ filter, so they can't drift. Non-central: bare info.id.
             _mine = getattr(task, "tenant_id", None)
             _filt = {"info.id": task_id}
+            _own_filter = None
             try:
                 from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
 
+                _own_filter = central_own_analysis_filter
                 _central = central_mode_config().enabled
             except Exception:
-                # Can't determine mode -> assume central and FAIL CLOSED: use the derived unique-key filter
-                # rather than dropping to the unscoped bare {info.id} write (which, on a central node, could
-                # re-own a colliding foreign doc). Consistent with viewer_scope / _mt_enabled fail-closed.
+                # Can't determine mode / the central_mode import itself failed -> assume central and FAIL
+                # CLOSED, but do NOT re-run the failed import (it would raise ImportError out of _sync_mongo,
+                # leaving the SQL toggle un-reverted): derive the SAME filter inline as the fallback.
                 _central = True
-                from lib.cuckoo.common.central_mode import central_own_analysis_filter
             if _central:
-                _filt = central_own_analysis_filter(task_id)
+                _filt = _own_filter(task_id, _mine) if _own_filter is not None else {"$and": [
+                    {"$or": [{"info.job_id": f"ui-{int(task_id)}"}, {"info.id": int(task_id)}]},
+                    {"$or": [{"info.tenant_id": None}, {"info.tenant_id": _mine}]},
+                ]}
             try:
                 _res = mongo_update_one(
                     "analysis", _filt,
@@ -1023,10 +1029,10 @@ class TasksMixIn:
                 # graceful_auto_reconnect exhausted its retries (driver failure) -> abort so the caller rolls
                 # the SQL change back rather than leaving the stores divergent.
                 return False
-            # A 0-match on the unique derived key means this task's report is not written yet -- the reconcile
-            # stamps it from the authoritative SQL value on report -- so it is a SAFE no-op, NOT an error: the
-            # unique key can't have missed an existing own doc, so there is nothing left more-permissive than
-            # SQL to worry about. Surface it for observability; do NOT abort the toggle.
+            # A 0-match means NO own doc exists yet: the ui- + info.id arms cover every own shape (bridged AND
+            # non-bridged), so the filter can't have MISSED an existing own doc -> nothing is left
+            # more-permissive than SQL. The reconcile stamps the doc from the authoritative SQL value on
+            # report. Surface it for observability; do NOT abort the toggle.
             if _central and getattr(_res, "matched_count", 1) == 0:
                 log.warning("visibility mongo sync matched 0 docs for task %s (report not yet written); SQL is "
                             "authoritative, reconcile will re-stamp on report", task_id)

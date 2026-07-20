@@ -542,7 +542,10 @@ def test_set_task_visibility_central_keys_on_derived_unique_jobid_ignoring_forge
     t.custom = "job_id=ui-999999"  # FORGED: a victim's job id, not this task's own
     db.session.commit()
     db.set_task_visibility(tid, "public")
-    assert calls[-1][1] == {"info.job_id": f"ui-{tid}"}, calls[-1]
+    assert calls[-1][1] == {"$and": [
+        {"$or": [{"info.job_id": f"ui-{tid}"}, {"info.id": tid}]},
+        {"$or": [{"info.tenant_id": None}, {"info.tenant_id": 10}]},
+    ]}, calls[-1]
     assert "ui-999999" not in str(calls[-1][1]), "forged custom must not reach the write filter"
 
 
@@ -567,10 +570,11 @@ def _mongo_matches(doc, flt):
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")
 def test_set_task_visibility_central_filter_matches_own_excludes_foreign(db, monkeypatch):
-    """DOC-LEVEL: the derived unique key matches the caller's OWN bridged doc (info.job_id 'ui-<tid>') and
-    EXCLUDES every foreign/colliding doc -- a worker-local 'local-<tid>' collision, another tenant's colliding
-    doc, or a different task's 'ui-<other>' -- because 'ui-<task_id>' is globally unique and derived from the
-    authorized id (no info.id-collision or tenant gymnastics needed)."""
+    """DOC-LEVEL: {ui-<tid> OR info.id==tid} AND unstamped-or-own matches the caller's OWN doc in every shape
+    (bridged 'ui-<tid>', non-bridged/direct-submit 'local-<tid>' via the info.id arm, and not-yet-stamped),
+    and EXCLUDES a FOREIGN doc STAMPED for another tenant even when it collides on info.id or carries a forged
+    'ui-<tid>' key, and any different task's doc. (Documented residual: a foreign UNSTAMPED doc colliding on
+    info.id is indistinguishable from an own unstamped doc -- needs a node/store discriminator.)"""
     import lib.cuckoo.core.data.tasking as tk
     monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
     monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
@@ -581,14 +585,19 @@ def test_set_task_visibility_central_filter_matches_own_excludes_foreign(db, mon
     tid = db.add_url("http://x.example", tenant_id=10, visibility="tenant")
     db.set_task_visibility(tid, "public")
     f = captured["f"]
+    # own doc, every shape, matches:
     assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged must match"
-    # every foreign / colliding shape is excluded by the unique ui- key:
-    assert not _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": None}}, f), \
-        "a worker-local colliding doc must NOT match"
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": 10}}, f), \
+        "own direct-submit (local-<tid>, stamped) must match via the info.id arm"
+    assert _mongo_matches({"info": {"id": tid, "tenant_id": None}}, f), "own not-yet-stamped must match"
+    # foreign docs STAMPED for another tenant are excluded by the unstamped-or-own guard:
     assert not _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": 77}}, f), \
         "another tenant's colliding direct-submit doc must NOT match"
-    assert not _mongo_matches({"info": {"id": tid, "job_id": "ui-999999", "tenant_id": None}}, f), \
-        "a different task's bridged doc (ui-<other>) must NOT match"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": 77}}, f), \
+        "a foreign doc with a forged ui-<tid> key stamped for another tenant must NOT match"
+    # a different task's doc (different info.id AND job_id) is excluded outright:
+    assert not _mongo_matches({"info": {"id": 424242, "job_id": "ui-424242", "tenant_id": None}}, f), \
+        "a different task's bridged doc must NOT match"
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")
@@ -625,9 +634,47 @@ def test_set_task_visibility_fails_closed_when_central_mode_probe_raises(db, mon
     db.set_task_visibility(tid, "public")
     f = captured["f"]
     assert f != {"info.id": tid}, "must NOT fall back to the unscoped bare filter"
-    assert f == {"info.job_id": f"ui-{tid}"}, f  # fail-closed to the derived unique key
-    assert not _mongo_matches({"info": {"id": tid, "job_id": "ui-999999", "tenant_id": None}}, f), \
-        "a different task's bridged doc must NOT match even when the mode probe failed"
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged must match"
+    assert not _mongo_matches({"info": {"id": 424242, "job_id": "ui-424242", "tenant_id": None}}, f), \
+        "a different task's doc must NOT match even when the mode probe failed"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_central_import_failure_still_fails_closed(db, monkeypatch):
+    """[LOW] If the lib.cuckoo.common.central_mode IMPORT itself fails (not just the config call), the except
+    arm must NOT re-run the failed import (that would raise ImportError out of _sync_mongo, leaving the SQL
+    toggle un-reverted): it derives the same {ui OR info.id} + own filter INLINE. The toggle completes and the
+    write is still scoped (never the unscoped bare {info.id})."""
+    import sys
+    import types
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    # A broken central_mode module: importing central_mode_config / central_own_analysis_filter raises.
+    broken = types.ModuleType("lib.cuckoo.common.central_mode")
+    monkeypatch.setitem(sys.modules, "lib.cuckoo.common.central_mode", broken)
+    captured = {}
+    monkeypatch.setattr(tk, "mongo_update_one",
+                        lambda *a, **k: (captured.__setitem__("f", a[1]), object())[1], raising=False)
+    tid = db.add_url("http://x.example", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")  # must NOT raise
+    f = captured["f"]
+    assert f != {"info.id": tid}, "import failure must still fail closed to the scoped filter, not bare info.id"
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged still matches"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": 77}}, f), \
+        "the inline fallback keeps the tenant guard"
+
+
+def test_central_own_analysis_filter_excludes_foreign_tenant():
+    """The shared helper's tenant guard: a doc STAMPED for another tenant (even with the matching ui- key or a
+    colliding info.id) is excluded, so a $set can't relabel/re-own it (adversarial-review MED)."""
+    from lib.cuckoo.common.central_mode import central_own_analysis_filter
+    f = central_own_analysis_filter(42, 10)  # our task 42, our tenant 10
+    assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 10}}, f)
+    assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": None}}, f)      # unstamped own
+    assert not _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 77}}, f), \
+        "a doc owned by tenant 77 must NOT be matched by tenant-10's own-doc filter"
+    assert not _mongo_matches({"info": {"id": 42, "job_id": "local-42", "tenant_id": 77}}, f)
 
 
 class _ZeroMatch:  # UpdateResult-like: well-formed write that addressed no document

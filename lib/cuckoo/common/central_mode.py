@@ -164,27 +164,37 @@ def central_mode_config() -> "CentralModeConfig":
     return _parse(sec)
 
 
-def central_own_analysis_filter(task_id):
-    """The Mongo filter that identifies the caller's OWN analysis doc for a central task, DERIVED from the
-    authorized task_id. It is the SINGLE key used by every central WRITE that mutates a task's own doc --
-    the visibility-toggle write (lib.cuckoo.core.data.tasking.set_task_visibility) and the central DELETE
-    (web.analysis.central_views.central_delete_analysis) -- so the two can never drift.
+def central_own_analysis_filter(task_id, tenant_id):
+    """The Mongo filter identifying the caller's OWN analysis doc for a central task, DERIVED from the
+    authorized task_id. The SINGLE key used by every central WRITE that mutates a task's own doc -- the
+    visibility-toggle write (lib.cuckoo.core.data.tasking.set_task_visibility), the central DELETE and the
+    comment write (web.analysis.central_views / views.comments) -- so they can't drift, and it deliberately
+    mirrors the READ filter (central_views.central_analysis_query) so read and write agree on "this task's doc".
 
-    Why info.job_id = 'ui-<task_id>' is the right (and sufficient) key in the central topology:
-      * The submit-bridge assigns a GLOBALLY-UNIQUE job_id 'ui-<central_task_id>' to every task it enqueues,
-        and centralstore stamps that verbatim into info.job_id (and rewrites info.id to the same central id).
-        So 'ui-<task_id>' is unique across the shared DocumentDB -- it CANNOT collide with a worker-local doc
-        (which carries a different 'local-<n>' job_id).
-      * It is DERIVED from the authorized task_id, never read from the user-supplied `custom`, so a client
-        cannot steer it to another task's id (the forgery class of the earlier `custom`-keyed reads/writes).
-      * The caller has already passed can_manage_task / a visibility gate on that task_id, so addressing that
-        task's own doc needs no further ownership predicate -- the key is not cross-tenant reachable.
+    Two arms, ANDed with an unstamped-or-own tenant guard:
+      * info.job_id == 'ui-<task_id>' -- the bridge assigns this GLOBALLY-UNIQUE id and centralstore stamps it
+        (rewriting info.id to the same central id), so it uniquely + unforgeably (DERIVED, never read from the
+        user `custom`) addresses a bridged task's doc.
+      * info.id == task_id -- a NON-bridged / direct-submit central doc keeps its worker-local info.id (only
+        'ui-*' triggers the rewrite) and is keyed 'local-<id>' / a bare token, so it is NOT reachable by the
+        ui- arm; central mode explicitly supports this topology (resolve_job_id's non-broker fallback,
+        mongodb.py's direct-submit handling, central_analysis_query's read fallback), so the write MUST address
+        it too -- otherwise a restrictive toggle silently leaves the Mongo doc more permissive than SQL.
 
-    A 0-match therefore means "this task's report is not written yet" (the reconcile stamps it from the
-    authoritative SQL value on report) -- callers treat that as a safe no-op, never an error.
+    The tenant guard {tenant_id null-or-ours} is defence-in-depth: a FOREIGN doc STAMPED for another tenant
+    that collides on info.id (or carries a forged first-position 'ui-<victim>' custom that reconcile stamped)
+    is excluded, so the $set can't relabel/re-own it -- the companion to reconcile's own unstamped-or-own
+    guard. Pass the TASK's tenant_id (the doc's expected owner), which also lets a break-glass toggle of
+    another tenant's task match (the task carries that tenant).
 
-    RESIDUAL (documented follow-up): a BRIDGE-LESS / direct-submit central deployment produces docs keyed
-    'local-<worker_id>' (no 'ui-<id>'), which this filter does not address; their toggle/delete Mongo-sync
-    no-ops (SQL stays authoritative). Supporting that would need resolving the authorized job_id from the RDS
-    custom or a positive store/node discriminator -- out of scope for the bridge topology this feature ships."""
-    return {"info.job_id": f"ui-{int(task_id)}"}
+    A 0-match now genuinely means NO own doc exists yet (the ui- + info.id arms cover every own shape) -- the
+    reconcile stamps it from the authoritative SQL value on report -- so callers treat it as a safe no-op.
+
+    RESIDUAL (documented follow-up): a FOREIGN UNSTAMPED doc (tenant_id null) that collides on info.id is
+    indistinguishable from an own unstamped doc -- fully closing it needs a positive node/store discriminator
+    (data-model change)."""
+    _tid = int(task_id)
+    return {"$and": [
+        {"$or": [{"info.job_id": f"ui-{_tid}"}, {"info.id": _tid}]},
+        {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]},
+    ]}

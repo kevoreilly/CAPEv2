@@ -1008,12 +1008,17 @@ class TasksMixIn:
                 # leaving the SQL toggle un-reverted): derive a filter inline as the fallback.
                 _central = True
             if _central:
-                # Inline fallback (import failed -> can't call central_bridge_required): fail closed to the MOST
-                # restrictive ui-only own-doc key. It NEVER admits a foreign info.id collision (the bare-info.id
-                # arm the old inline filter carried did). A non-bridged own doc 0-matches -> the toggle no-ops
-                # (SQL authoritative), which is safer than re-owning a colliding foreign doc.
+                # Inline fallback ONLY when the central_mode import itself failed -> the mode is genuinely
+                # UNKNOWN (can't call central_bridge_required). A ui-only literal would 0-match every doc in a
+                # NON-central install (no info.job_id field) -> a restrictive toggle would silently no-op and
+                # leave Mongo more-permissive than SQL (fail OPEN). Use the {ui- OR info.id} superset + tenant
+                # guard so an OWN doc is matched in EITHER mode (central: ui-/info.id; non-central: info.id).
+                # The bare-info.id arm's only risk is a foreign collision under central+MT -- but that requires
+                # central_mode to be importable to even mint non-ui docs (the centralstore/mongodb persist
+                # backstops), which by construction it is NOT on this arm; so this is the pragmatic own-doc key
+                # for a broken-import state, not a fail-open.
                 _filt = _own_filter(task_id, _mine) if _own_filter is not None else {"$and": [
-                    {"info.job_id": f"ui-{int(task_id)}"},
+                    {"$or": [{"info.job_id": f"ui-{int(task_id)}"}, {"info.id": int(task_id)}]},
                     {"$or": [{"info.tenant_id": None}, {"info.tenant_id": _mine}]},
                 ]}
             try:

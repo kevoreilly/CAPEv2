@@ -69,11 +69,12 @@ def job_id_from_custom(custom):
     would evade the filter yet resolve here) -- and NEVER a bare 'ui-<N>' (the bridge's reserved central-id
     form, which no direct submitter produces). A bare NON-ui token is the direct-submission fallback.
 
-    The resolved value is ALSO required to be _is_safe_job_id: it becomes the store container prefix on the
-    read seam (_rds_job_id -> _job_id_for_task -> _store_and_container), which does NOT re-validate, so a
-    path-unsafe custom (e.g. '../../etc') must be rejected HERE -> return None -> the caller falls back to the
-    scoped info.id lookup (read) / 'local-<id>' (write), never a container-escaping prefix.
-    Returns the job_id or None."""
+    The resolved value is ALSO required to be _is_safe_job_id: it becomes the store container prefix, so a
+    path-unsafe custom (e.g. '../../etc') is rejected HERE -> return None -> the caller falls back to the
+    scoped info.id lookup (read) / 'local-<id>' (write), never a container-escaping prefix. (Defence in depth:
+    _store_and_container ALSO validates the resolved job_id, covering the mongo-fallback path too.) A rejected
+    non-empty candidate is logged so a job_id-seam probe stays greppable rather than silently becoming a
+    'local-<id>' report. Returns the job_id or None."""
     if not custom:
         return None
     text = str(custom)
@@ -82,9 +83,13 @@ def job_id_from_custom(custom):
         v = first.split("=", 1)[1].strip()
         if v and _is_safe_job_id(v):
             return v
+        if v:
+            log.warning("central: ignoring path-unsafe job_id=%r in submitted custom (probe or misconfig)", v)
     token = text.strip()
-    if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token) and _is_safe_job_id(token):
-        return token
+    if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token):
+        if _is_safe_job_id(token):
+            return token
+        log.warning("central: ignoring path-unsafe bare job_id token %r in submitted custom", token)
     return None
 
 
@@ -197,11 +202,20 @@ def _store_and_container(task_id, scope=None):
     """Return (ArtifactStore, container) for an analysis. Single-node: the local-FS store
     over storage/analyses, container=<task_id>. Central: the configured backend (S3/local
     mount), container="<s3_prefix>/<job_id>" (raises Http404 if the job_id can't resolve)."""
+    from django.http import Http404
+
     cfg = central_mode_config()
     store, is_central = get_artifact_store(cfg)
     if not is_central:
         return store, str(task_id)
-    return store, f"{cfg.s3_prefix}/{_job_id_for_task(task_id, scope)}"
+    jid = _job_id_for_task(task_id, scope)
+    # The job_id becomes the container prefix. job_id_from_custom already rejects a path-unsafe RDS custom, but
+    # the mongo-fallback branch of _job_id_for_task returns info.job_id straight from the doc -- validate HERE
+    # too so a hostile value (e.g. from a second/legacy writer of the shared collection) can't escape the
+    # results tree on the local-mount backend. Both read-seam return paths thus funnel through one guard.
+    if not _is_safe_job_id(jid):
+        raise Http404("invalid job id")
+    return store, f"{cfg.s3_prefix}/{jid}"
 
 
 def artifact_response(task_id, relpath, content_type, filename, chunk=8192, scope=None):

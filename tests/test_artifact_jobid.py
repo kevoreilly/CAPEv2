@@ -165,3 +165,23 @@ def test_job_id_for_task_fallback_scoped(monkeypatch):
     scope = {"info.tenant_id": 3}
     assert a._job_id_for_task(9, scope=scope) == "wl-9"
     assert seen["query"] == {"$and": [{"info.id": 9}, scope]}, seen["query"]
+
+
+def test_store_and_container_rejects_unsafe_fallback_jobid(monkeypatch):
+    """Defence-in-depth: even if _job_id_for_task returns a path-unsafe job_id (a hostile info.job_id from a
+    second/legacy writer of the shared collection, which the mongo-fallback path does NOT re-validate),
+    _store_and_container must raise Http404 rather than build a container-escaping '<prefix>/../../etc'."""
+    import lib.cuckoo.common.artifact_storage as a
+    from django.http import Http404
+    import pytest
+
+    cfg = type("C", (), {"s3_prefix": "results"})()
+    monkeypatch.setattr(a, "central_mode_config", lambda: cfg, raising=False)
+    monkeypatch.setattr(a, "get_artifact_store", lambda c: (object(), True), raising=False)  # central store
+    monkeypatch.setattr(a, "_job_id_for_task", lambda tid, scope=None: "../../../../etc", raising=False)
+    with pytest.raises(Http404):
+        a._store_and_container(42, scope=None)
+    # a safe job_id still builds the expected container:
+    monkeypatch.setattr(a, "_job_id_for_task", lambda tid, scope=None: "ui-42", raising=False)
+    _store, container = a._store_and_container(42, scope=None)
+    assert container == "results/ui-42"

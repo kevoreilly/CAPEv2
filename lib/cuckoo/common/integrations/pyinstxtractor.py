@@ -318,7 +318,6 @@ class PyInstArchive:
                 # s -> ARCHIVE_ITEM_PYSOURCE
                 # Entry point are expected to be python scripts
                 log.info("[+] Possible entry point: %s.pyc", entry.name)
-                
                 final_filename = self._writePyc(destination_entry + ".pyc", data)
                 if self.pycMagic == b"\0" * 4:
                     # if we don't have the pyc header yet, fix them in a later pass

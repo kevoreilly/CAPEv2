@@ -988,13 +988,12 @@ class TasksMixIn:
             # viewer scope (invisible even to the owner). Restamping ownership here is
             # idempotent for a normal toggle and repairs that orphan.
             # Central mode: key the write on the task's OWN doc via the SHARED derived filter
-            # central_own_analysis_filter(task_id, task.tenant_id) = {ui-<task_id> OR info.id==task_id} AND
-            # unstamped-or-own. The ui- arm is the bridge's globally-unique key; the info.id arm addresses a
-            # NON-bridged/direct-submit doc (which central mode supports and keeps at its worker-local info.id
-            # == task_id) so a restrictive toggle can't silently leave it more-permissive than SQL; the tenant
-            # guard excludes a FOREIGN doc stamped for another tenant that merely collides on info.id. DERIVED
-            # from the authorized id (never the forgeable custom). The same helper backs the central DELETE +
-            # comment write and mirrors the READ filter, so they can't drift. Non-central: bare info.id.
+            # central_own_analysis_filter(task_id, task.tenant_id). Under central+MT (bridge-required) it is
+            # ui-only ({info.job_id: ui-<task_id>} + tenant guard): only a bridged doc has a tenant-isolated
+            # identity, so a non-bridged/direct-submit doc is single-tenant and is intentionally NOT addressed
+            # here (see central_bridge_required). Single-node / MT-off keeps the three-arm form (ui- OR info.id)
+            # to also cover direct-submit docs. DERIVED from the authorized id (never the forgeable custom); the
+            # same helper backs the central DELETE + comment write, so they can't drift. Non-central: bare info.id.
             _mine = getattr(task, "tenant_id", None)
             _filt = {"info.id": task_id}
             _own_filter = None
@@ -1006,11 +1005,15 @@ class TasksMixIn:
             except Exception:
                 # Can't determine mode / the central_mode import itself failed -> assume central and FAIL
                 # CLOSED, but do NOT re-run the failed import (it would raise ImportError out of _sync_mongo,
-                # leaving the SQL toggle un-reverted): derive the SAME filter inline as the fallback.
+                # leaving the SQL toggle un-reverted): derive a filter inline as the fallback.
                 _central = True
             if _central:
+                # Inline fallback (import failed -> can't call central_bridge_required): fail closed to the MOST
+                # restrictive ui-only own-doc key. It NEVER admits a foreign info.id collision (the bare-info.id
+                # arm the old inline filter carried did). A non-bridged own doc 0-matches -> the toggle no-ops
+                # (SQL authoritative), which is safer than re-owning a colliding foreign doc.
                 _filt = _own_filter(task_id, _mine) if _own_filter is not None else {"$and": [
-                    {"$or": [{"info.job_id": f"ui-{int(task_id)}"}, {"info.id": int(task_id)}]},
+                    {"info.job_id": f"ui-{int(task_id)}"},
                     {"$or": [{"info.tenant_id": None}, {"info.tenant_id": _mine}]},
                 ]}
             try:
@@ -1029,13 +1032,16 @@ class TasksMixIn:
                 # graceful_auto_reconnect exhausted its retries (driver failure) -> abort so the caller rolls
                 # the SQL change back rather than leaving the stores divergent.
                 return False
-            # A 0-match means NO own doc exists yet: the ui- + info.id arms cover every own shape (bridged AND
-            # non-bridged), so the filter can't have MISSED an existing own doc -> nothing is left
-            # more-permissive than SQL. The reconcile stamps the doc from the authoritative SQL value on
-            # report. Surface it for observability; do NOT abort the toggle.
+            # A 0-match: under bridge-required (ui-only) it means either the bridged report is not written yet
+            # (reconcile stamps it from the authoritative SQL value on report) OR the task is non-bridged
+            # (single-tenant by design -- deliberately not addressed by the tenant-scoped filter). Either way
+            # SQL stays authoritative for access; surface for observability, do NOT abort. NOTE: a RESTRICTIVE
+            # toggle of a non-bridged doc under MT therefore does not reach Mongo -- acceptable only because a
+            # non-bridged doc is single-tenant (central_bridge_required); a bridged doc always has the ui- key.
             if _central and getattr(_res, "matched_count", 1) == 0:
-                log.warning("visibility mongo sync matched 0 docs for task %s (report not yet written); SQL is "
-                            "authoritative, reconcile will re-stamp on report", task_id)
+                log.warning("visibility mongo sync matched 0 docs for task %s (report not yet written, or a "
+                            "non-bridged single-tenant doc); SQL is authoritative, reconcile re-stamps on report",
+                            task_id)
             return True
 
         try:

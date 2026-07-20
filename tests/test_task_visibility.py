@@ -672,19 +672,37 @@ def test_set_task_visibility_zero_match_warns_but_does_not_abort(db, monkeypatch
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")
-def test_add_preserves_client_custom_verbatim(db, monkeypatch):
+def test_add_preserves_client_custom_verbatim(db):
     """add() must NOT scrub a job_id from custom: it is the shared ingest for external submissions AND the
     broker's own legit delivery (dispatcher POSTs /tasks/create with custom='job_id=ui-<tid>') AND internal
-    re-submitters (reschedule/dist/gcp copy task.custom). Stripping here broke the central pipeline; the
-    forgery is contained at the reachable layers (bridge skips forged-custom submissions, non-user-facing
-    workers, derive-based writes + scoped reads) instead. So custom round-trips verbatim in every mode."""
+    re-submitters (reschedule/dist/gcp copy task.custom). add() no longer consults central_mode_config, so
+    there is no mode to vary -- custom round-trips verbatim, and the containment for the forms below lives in
+    the consumer (centralstore.resolve_job_id), not here (see test_resolve_job_id_only_honours_first_position)."""
     from lib.cuckoo.core.data.task import Task
-    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
-                        lambda: type("C", (), {"enabled": True})())
     tid = db.add_url("http://x.example", custom="job_id=ui-999,foo=bar")
-    assert db.session.get(Task, tid).custom == "job_id=ui-999,foo=bar"  # central: preserved (broker relies on it)
+    assert db.session.get(Task, tid).custom == "job_id=ui-999,foo=bar"  # broker delivery relies on it
 
-    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
-                        lambda: type("C", (), {"enabled": False})())
-    tid2 = db.add_url("http://y.example", custom="job_id=ui-999,foo=bar")
-    assert db.session.get(Task, tid2).custom == "job_id=ui-999,foo=bar"  # single-node: upstream verbatim
+    # Forms that EVADE the bridge's prefix-anchored LIKE 'job_id=%' filter but that resolve_job_id must not
+    # honour -- they round-trip through add() by design; containment is the consumer's job.
+    tid2 = db.add_url("http://y.example", custom="foo=bar,job_id=ui-999")
+    assert db.session.get(Task, tid2).custom == "foo=bar,job_id=ui-999"
+    tid3 = db.add_url("http://z.example", custom="ui-999")
+    assert db.session.get(Task, tid3).custom == "ui-999"
+
+
+def test_resolve_job_id_only_honours_first_position_and_rejects_bare_ui():
+    """centralstore.resolve_job_id is the consumer that turns `custom` into the job_id keying info.job_id /
+    the info.id rewrite / the S3 prefix / the pre-insert delete. It must agree with the bridge's
+    prefix-anchored `custom NOT LIKE 'job_id=%'` enqueue filter: honour job_id= ONLY in the first position
+    (what the dispatcher sends) and NEVER a bare 'ui-<N>' -- else a client custom that evades the filter
+    ('foo=bar,job_id=ui-<victim>' / bare 'ui-<victim>') would still steer to a foreign id."""
+    from modules.reporting.centralstore import resolve_job_id
+    # legitimate broker delivery -> honoured
+    assert resolve_job_id("job_id=ui-42", 7) == "ui-42"
+    # filter-evading forms -> NOT honoured, fall back to local-<analysis_id>
+    assert resolve_job_id("foo=bar,job_id=ui-999999", 7) == "local-7"   # job_id= not first position
+    assert resolve_job_id("ui-999999", 7) == "local-7"                  # bare ui-<N> reserved form
+    # a bare NON-ui token is still the direct-submission fallback
+    assert resolve_job_id("local-7", 7) == "local-7"
+    assert resolve_job_id("campaign-x", 7) == "campaign-x"
+    assert resolve_job_id("", 7) == "local-7"

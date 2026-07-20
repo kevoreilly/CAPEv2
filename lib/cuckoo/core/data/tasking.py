@@ -309,15 +309,18 @@ class TasksMixIn:
         task.priority = priority
         # NOTE: a client-supplied job_id in `custom` is NOT scrubbed here. An earlier "root fix" stripped it
         # at this ingest chokepoint, but add() is the SHARED ingest for external submissions AND the broker's
-        # own legitimate job_id delivery (the dispatcher POSTs /tasks/create with custom="job_id=ui-<tid>";
-        # centralstore keys the DocumentDB doc + S3 prefix off it) AND internal re-submitters (reschedule /
-        # dist / gcp copy task.custom) -- add() can't tell them apart, so stripping here breaks the central
-        # pipeline. The forgery is instead contained at the reachable layers: the central submit-bridge only
-        # enqueues tasks whose custom is NOT already 'job_id=%' (a forged UI submission is skipped, never
-        # runs), workers are not user-facing, and every central WRITE that keys on a task's own doc DERIVES
-        # 'ui-<task_id>' from the authorized id rather than reading custom (set_task_visibility, central_guac),
-        # with viewer-scoped reads + the reconcile unstamped-or-own guard behind that. Durable upstream fix:
-        # authenticate the job_id at the consumer (centralstore) instead of trusting submitted custom.
+        # own legitimate job_id delivery (the dispatcher POSTs /tasks/create with custom="job_id=ui-<tid>")
+        # AND internal re-submitters (reschedule / dist / gcp copy task.custom) -- add() can't tell them
+        # apart, so stripping here breaks the central pipeline. Containment lives at the CONSUMER instead:
+        # centralstore.resolve_job_id honours a job_id= token ONLY in the first comma-position and never a
+        # bare 'ui-<N>', matching the submit-bridge's prefix-anchored `custom NOT LIKE 'job_id=%'` filter --
+        # so a client custom that would evade that filter can't steer info.job_id / the info.id rewrite / the
+        # S3 prefix / the pre-insert delete to a foreign id. On the broker path the bridge also OVERWRITES
+        # custom with its own 'job_id=ui-<own_tid>' and the dispatcher builds custom from the SQS job_id (not
+        # the RDS custom), so a forgery doesn't reach a worker there in the first place; workers are not
+        # user-facing; and every central WRITE keyed on a task's own doc DERIVES 'ui-<task_id>' from the
+        # authorized id rather than reading custom (set_task_visibility, central_guac). See
+        # centralstore.resolve_job_id + mongodb.py's pre-insert delete for the sites that consume this value.
         task.custom = custom
         task.machine = machine
         task.platform = platform

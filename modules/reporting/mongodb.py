@@ -540,11 +540,12 @@ class MongoDB(Report):
             # Delete ONLY that doc (+ its own call chunks by ObjectId) -- a bare info.id $in over the
             # re-keyed central id would, in the shared DocumentDB, also destroy a colliding worker-local
             # doc for ANOTHER tenant (adversarial-review HIGH, write side). Mirrors central_delete_analysis.
-            # info.job_id is not client-forgeable in the deployed topology (the submit-bridge skips
-            # 'job_id=%' custom + workers are not user-facing -- see centralstore.resolve_job_id's trust
-            # note); this scoped delete + the reconcile's unstamped-or-own guard are defence-in-depth on top
-            # of that containment, not a substitute -- a reader should not treat either as closing the
-            # forgery class by itself. Durable fix: authenticate job_id at the centralstore consumer.
+            # info.job_id is the value centralstore.resolve_job_id produced -- and that consumer only honours
+            # a job_id= token in the first comma-position + never a bare 'ui-<N>', matching the submit-bridge's
+            # prefix-anchored enqueue filter, so a client custom can't steer _pre_job_id to a foreign id here
+            # (see resolve_job_id's trust note; on the broker path the bridge also overwrites custom). This
+            # scoped delete + the reconcile's unstamped-or-own guard are defence-in-depth on top of that
+            # consumer anchoring, not a substitute. Durable fix: a signed/out-of-band job_id at ingest.
             try:
                 _old = mongo_find_one("analysis", {"info.job_id": _pre_job_id}, {"_id": 1, "behavior.processes.calls": 1})
                 if _old:

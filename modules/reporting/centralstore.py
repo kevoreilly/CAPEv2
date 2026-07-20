@@ -16,7 +16,7 @@ import os
 import re
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.central_mode import central_mode_config, upload_target_realpath
+from lib.cuckoo.common.central_mode import central_bridge_required, central_mode_config, upload_target_realpath
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.storage_backend import get_artifact_store
 
@@ -115,6 +115,17 @@ class CentralStore(Report):
         # so the report view, all report-tab lookups, and the artifact seam work without
         # touching ~25 info.id call sites in the upstream-synced views.py.
         _m = re.match(r"^ui-(\d+)$", job_id)
+        # BRIDGE-REQUIRED (central + MT): only a bridged 'ui-<central_id>' doc has a tenant-resolvable identity.
+        # A non-bridged doc ('local-<id>' / bare-token custom) has NO tenancy by construction, so persisting it
+        # to the shared DocumentDB would create a single-tenant doc the tenant-scoped own-doc filters
+        # deliberately can't address (an unreachable-on-delete orphan, or a restrictive toggle that never
+        # reaches it). Refuse it HERE -- the single choke point where the central analysis doc is written -- so
+        # a non-bridged submission can never produce a doc in an MT deployment (direct worker submission is
+        # single-tenant only; see lib.cuckoo.common.central_mode.central_bridge_required).
+        if not _m and central_bridge_required():
+            raise CuckooReportError(
+                "centralstore: refusing non-bridged analysis (job_id=%r) under multitenancy -- tenant-isolated "
+                "central submission requires the submit-bridge (ui-<central_id>)" % job_id)
         if _m:
             info["id"] = int(_m.group(1))
 

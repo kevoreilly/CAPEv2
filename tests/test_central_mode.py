@@ -414,3 +414,34 @@ def test_hunt_facets_per_category_no_facet():
     assert not any(any("$facet" in stage for stage in p) for p in sent)
     assert sent[0][0] == {"$match": {"$and": [{}, {"info.visibility": "public"}]}}
     assert facets["domains"][0]["_id"] == "evil.com"
+
+
+def test_centralstore_refuses_non_bridged_under_mt(monkeypatch):
+    """Option A airtight: bridge-required (central+MT) -> CentralStore.run refuses to PERSIST a non-bridged
+    analysis doc ('local-<id>' / bare-token job_id). This is the single doc-write choke point, so a non-bridged
+    submission can never create a single-tenant doc in an MT deployment. A bridged 'ui-<n>' doc is unaffected
+    by the guard (it proceeds past it)."""
+    import modules.reporting.centralstore as cs
+    from lib.cuckoo.common.exceptions import CuckooReportError
+
+    cfg = type("C", (), {"enabled": True, "storage_backend": "local", "central_local_root": "/tmp/cs-test",
+                         "s3_bucket": "", "s3_prefix": "results"})()
+    monkeypatch.setattr(cs, "central_mode_config", lambda: cfg)
+    monkeypatch.setattr(cs, "get_artifact_store", lambda c: (object(), True))
+    monkeypatch.setattr(cs, "central_bridge_required", lambda: True)
+
+    store = cs.CentralStore()
+    with pytest.raises(CuckooReportError, match="non-bridged"):
+        store.run({"info": {"id": 5, "custom": "campaign1"}})     # bare-token -> non-bridged -> refused
+    with pytest.raises(CuckooReportError, match="non-bridged"):
+        store.run({"info": {"id": 6}})                            # no custom -> local-6 -> refused
+
+    # bridge NOT required (single-node / MT-off): the guard does not fire for a non-bridged doc (it proceeds
+    # to the container/upload path, which we don't exercise here) -- assert it is NOT the guard that raises.
+    monkeypatch.setattr(cs, "central_bridge_required", lambda: False)
+    try:
+        store.run({"info": {"id": 7, "custom": "campaign1"}})
+    except CuckooReportError as e:
+        assert "non-bridged" not in str(e), "the bridge guard must not fire when the bridge is not required"
+    except Exception:
+        pass  # any downstream upload/path error is fine -- we only assert the guard didn't refuse

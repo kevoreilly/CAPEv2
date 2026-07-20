@@ -2142,10 +2142,13 @@ _ETW_JSON_SOURCES = {
     "wmi": (os.path.join("aux", "wmi_etw.json"), "wmi_etw.json"),
 }
 
-# "memory" is intentionally NOT here: process/full-memory dumps are served only by tasks_procmemory /
-# tasks_fullmemory, which enforce the [taskprocmemory]/[fullmemory] enabled+all + TLP-red policy gates.
-# bulkzip has only the [taskbulkzip] gate, so allowing "memory" here would bypass those (staging it in
-# central mode made the dormant bypass live) -- see adversarial-review MEDIUM.
+# "memory" is intentionally NOT a bulkzip folder: process/full-memory dumps have their own policy-gated
+# endpoints (tasks_procmemory / tasks_fullmemory enforce [taskprocmemory]/[fullmemory] enabled+all + TLP-red),
+# whereas bulkzip has only the weaker [taskbulkzip] gate -- so allowing "memory" here would bypass them
+# (staging it in central mode made the dormant bypass live). NOTE: this does not by itself make memory dumps
+# gated everywhere -- tasks_report 'all'/'dist' still recurse into the memory/ directory under the
+# [taskreport] gate alone (a pre-existing upstream behaviour, flagged to the maintainers as a separate
+# hardening; not changed here to avoid altering upstream report/all output).
 _BULKZIP_FOLDERS = {"logs", "network", "selfextracted"}
 
 
@@ -2214,16 +2217,18 @@ def tasks_pcap_variant(request, task_id, variant):
     task_id, err = _resolve_task_id(request, task_id, "taskpcap")
     if err:
         return err
-    _central_stage(request, task_id)
     v = (variant or "").lower()
+    # Validate BEFORE staging: an unknown variant is a 4xx client error, and staging first would pay a full
+    # S3 list + tree download only to reject.
+    if v not in _PCAP_VARIANTS and v not in ("zip", "pcapng"):
+        return Response({"error": True, "error_value": f"Unknown pcap variant: {variant}"}, status=400)
+    _central_stage(request, task_id)
     if v in _PCAP_VARIANTS:
         rel_path, fname = _PCAP_VARIANTS[v]
         return _serve_analysis_file(task_id, rel_path, fname, content_type="application/vnd.tcpdump.pcap")
     if v == "zip":
         return _pcapzip_response(task_id)
-    if v == "pcapng":
-        return _pcapng_response(task_id)
-    return Response({"error": True, "error_value": f"Unknown pcap variant: {variant}"})
+    return _pcapng_response(task_id)  # v == "pcapng" (only remaining valid variant)
 
 
 @csrf_exempt
@@ -2236,10 +2241,10 @@ def tasks_keys(request, task_id, kind):
     task_id, err = _resolve_task_id(request, task_id, "tasktlskeys")
     if err:
         return err
-    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
     k = (kind or "").lower()
-    if k not in _KEY_SOURCES:
-        return Response({"error": True, "error_value": f"Unknown keys kind: {kind}"})
+    if k not in _KEY_SOURCES:  # validate before staging (4xx client error, no wasted S3 download)
+        return Response({"error": True, "error_value": f"Unknown keys kind: {kind}"}, status=400)
+    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
     rel_path, fname = _KEY_SOURCES[k]
     return _serve_analysis_file(task_id, rel_path, fname, content_type="text/plain")
 
@@ -2252,14 +2257,14 @@ def tasks_etw(request, task_id, kind):
     task_id, err = _resolve_task_id(request, task_id, "tasketw")
     if err:
         return err
-    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
     k = (kind or "").lower()
+    if k not in _ETW_JSON_SOURCES and k != "amsi":  # validate before staging (4xx, no wasted S3 download)
+        return Response({"error": True, "error_value": f"Unknown etw kind: {kind}"}, status=400)
+    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
     if k in _ETW_JSON_SOURCES:
         rel_path, fname = _ETW_JSON_SOURCES[k]
         return _serve_analysis_file(task_id, rel_path, fname, content_type="application/x-ndjson")
-    if k == "amsi":
-        return _serve_folder_zip(task_id, os.path.join("aux", "amsi_etw"), "amsi_etw.zip")
-    return Response({"error": True, "error_value": f"Unknown etw kind: {kind}"})
+    return _serve_folder_zip(task_id, os.path.join("aux", "amsi_etw"), "amsi_etw.zip")  # k == "amsi"
 
 
 @csrf_exempt
@@ -2671,6 +2676,10 @@ def tasks_procmemory(request, task_id, pid="all"):
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
 
+    # Gate the "all" bulk download BEFORE staging so a REFUSED request never materializes the S3 memory/
+    # tree onto the web node's disk (central mode). The per-pid path has no "all" gate; it stages below.
+    if pid == "all" and not apiconf.taskprocmemory.get("all"):
+        return Response({"error": True, "error_value": "Downloading of all process memory dumps is disabled"})
     _central_stage(request, task_id, include_memory=True)
     # Check if any process memory dumps exist
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", "memory")
@@ -2681,9 +2690,6 @@ def tasks_procmemory(request, task_id, pid="all"):
     parent_folder = os.path.dirname(srcdir)
     analysis_dir = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}")
     if pid == "all":
-        if not apiconf.taskprocmemory.get("all"):
-            resp = {"error": True, "error_value": "Downloading of all process memory dumps is disabled"}
-            return Response(resp)
         if USE_SEVENZIP:
             zip_path = os.path.join(analysis_dir, "procdumps.zip")
             try:

@@ -727,6 +727,7 @@ def test_resolve_job_id_only_honours_first_position_and_rejects_bare_ui():
     # filter-evading forms -> NOT honoured, fall back to local-<analysis_id>
     assert resolve_job_id("foo=bar,job_id=ui-999999", 7) == "local-7"   # job_id= not first position
     assert resolve_job_id("ui-999999", 7) == "local-7"                  # bare ui-<N> reserved form
+    assert resolve_job_id(" job_id=ui-999999", 7) == "local-7"          # leading space -> raw prefix parity
     # a bare NON-ui token is still the direct-submission fallback
     assert resolve_job_id("local-7", 7) == "local-7"
     assert resolve_job_id("campaign-x", 7) == "campaign-x"

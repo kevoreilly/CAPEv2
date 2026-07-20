@@ -10,12 +10,18 @@ collision).
 
 def test_job_id_from_custom():
     from lib.cuckoo.common.artifact_storage import job_id_from_custom
-    assert job_id_from_custom("job_id=ui-5,foo=bar") == "ui-5"   # only the job_id= value
+    assert job_id_from_custom("job_id=ui-5,foo=bar") == "ui-5"   # job_id= in the FIRST position -> honoured
     assert job_id_from_custom("job_id=ui-9") == "ui-9"
-    assert job_id_from_custom("ui-3") == "ui-3"                  # bare token (non-bridged)
+    assert job_id_from_custom("local-3") == "local-3"            # bare NON-ui token (direct submission)
     assert job_id_from_custom("foo=bar") is None
     assert job_id_from_custom(None) is None
     assert job_id_from_custom("") is None
+    # ANCHORED to the submit-bridge's prefix filter: a client custom that evades `custom LIKE 'job_id=%'`
+    # must NOT resolve to a job_id here (else it could steer info.job_id / the S3 prefix / the scoped delete):
+    assert job_id_from_custom("foo=bar,job_id=ui-999999") is None  # job_id= NOT in the first position
+    assert job_id_from_custom("ui-999999") is None                 # bare 'ui-<N>' (bridge's reserved form)
+    assert job_id_from_custom(" job_id=ui-999999") is None         # leading space -> raw prefix test fails
+    assert job_id_from_custom("\tjob_id=ui-9") is None             # leading tab, same
 
 
 def test_rds_job_id_nonnumeric_not_logged_as_rds_failure(monkeypatch, caplog):

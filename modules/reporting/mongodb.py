@@ -541,10 +541,11 @@ class MongoDB(Report):
             # re-keyed central id would, in the shared DocumentDB, also destroy a colliding worker-local
             # doc for ANOTHER tenant (adversarial-review HIGH, write side). Mirrors central_delete_analysis.
             # info.job_id is the value centralstore.resolve_job_id produced -- and that consumer only honours
-            # a job_id= token in the first comma-position + never a bare 'ui-<N>', matching the submit-bridge's
-            # prefix-anchored enqueue filter, so a client custom can't steer _pre_job_id to a foreign id here
-            # (see resolve_job_id's trust note; on the broker path the bridge also overwrites custom). This
-            # scoped delete + the reconcile's unstamped-or-own guard are defence-in-depth on top of that
+            # a job_id= token in the RAW first comma-position + never a bare 'ui-<N>', matching the
+            # submit-bridge's prefix-anchored enqueue filter, so a client custom that EVADES that filter can't
+            # steer _pre_job_id to a foreign id (a FIRST-position forgery is contained by the bridge topology
+            # -- overwrite + SQS-derived custom -- NOT by this code; see resolve_job_id's durable-fix note).
+            # This scoped delete + the reconcile's unstamped-or-own guard are defence-in-depth on top of that
             # consumer anchoring, not a substitute. Durable fix: a signed/out-of-band job_id at ingest.
             try:
                 _old = mongo_find_one("analysis", {"info.job_id": _pre_job_id}, {"_id": 1, "behavior.processes.calls": 1})

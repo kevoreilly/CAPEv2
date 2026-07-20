@@ -8,6 +8,7 @@ config. Validated live on a CAPE box; the branch/seam logic here is the unit-tes
 """
 import logging
 import os
+import re
 from collections import OrderedDict
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -44,22 +45,27 @@ _JOB_ID_CACHE_MAX = 1024
 
 
 def job_id_from_custom(custom):
-    """Parse the broker job_id out of a task's RDS `custom` field. The submit-bridge
-    stamps custom='job_id=ui-<id>' (comma-separated k=v pairs); a bare token is also
-    accepted for non-bridged tasks. Returns the job_id or None. Pure (no DB) so both the
-    lib staging resolver and web.analysis.central_views.central_job_id_for_task share one
-    parse and can't drift."""
+    """Parse the broker job_id out of a task's RDS `custom` field. THE single parser shared by the WRITE
+    consumer (centralstore.resolve_job_id) and the READ/DELETE consumers (central_views.central_job_id_for_task
+    -> central_analysis_query / central_delete_analysis) so they can't drift. Pure (no DB).
+
+    Anchored to match the submit-bridge's `custom NOT LIKE 'job_id=%'` enqueue filter so a client `custom`
+    that evades the (out-of-tree) filter can't steer the job_id (which keys info.job_id, the info.id rewrite,
+    the S3 prefix, and the pre-insert/scoped delete): honour 'job_id=' ONLY as the RAW first comma-field
+    prefix -- SQL LIKE tests the RAW column, so do NOT .strip() before the prefix test (else ' job_id=...'
+    would evade the filter yet resolve here) -- and NEVER a bare 'ui-<N>' (the bridge's reserved central-id
+    form, which no direct submitter produces). A bare NON-ui token is the direct-submission fallback.
+    Returns the job_id or None."""
     if not custom:
         return None
     text = str(custom)
-    for part in text.split(","):
-        part = part.strip()
-        if part.startswith("job_id="):
-            v = part.split("=", 1)[1].strip()
-            if v:
-                return v
+    first = text.split(",", 1)[0]  # RAW first field (no strip -> matches LIKE 'job_id=%' anchoring)
+    if first.startswith("job_id="):
+        v = first.split("=", 1)[1].strip()
+        if v:
+            return v
     token = text.strip()
-    if token and "=" not in token and "," not in token:
+    if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token):
         return token
     return None
 

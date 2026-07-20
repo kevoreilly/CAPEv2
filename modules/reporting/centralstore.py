@@ -64,22 +64,18 @@ def resolve_job_id(custom, analysis_id):
     bridge's reserved central-id form, which no direct submitter produces. Fall back to 'local-<id>' when
     nothing usable is present.
 
-    Belt-and-suspenders in the bridge topology: the bridge OVERWRITES custom with its own
-    'job_id=ui-<own_tid>' (SQL UPDATE) and the dispatcher builds custom from the SQS message's job_id
-    (not the RDS custom field), so a forged custom does not reach here on the broker path in the first
-    place; this anchoring closes the direct / bridge-less deployments too. DURABLE FIX (upstream): a
-    signed / out-of-band job_id authenticated against the delivering broker."""
-    if custom:
-        text = str(custom)
-        first = text.split(",", 1)[0].strip()
-        if first.startswith("job_id="):
-            v = first.split("=", 1)[1].strip()
-            if v:
-                return v
-        token = text.strip()
-        if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token):
-            return token
-    return f"local-{analysis_id}"
+    Shares ONE parser with the read/delete consumers -- job_id_from_custom (lib.cuckoo.common.artifact_storage)
+    -- so the write and read keys can't drift; this just adds the write-side 'local-<analysis_id>' fallback.
+
+    On the broker path the bridge OVERWRITES custom with its own 'job_id=ui-<own_tid>' (SQL UPDATE) and the
+    dispatcher builds custom from the SQS message's job_id (not the RDS custom field), so a forged custom does
+    not reach here at all. The anchoring above closes the two filter-EVASION forms (non-first-position
+    'job_id=' and a bare 'ui-<N>') on any path; a FIRST-position 'custom=job_id=ui-<victim>' is still honoured
+    verbatim and, in a bridge-less / direct deployment, remains contained only by topology -- NOT closed here.
+    DURABLE FIX (upstream): a signed / out-of-band job_id authenticated against the delivering broker."""
+    from lib.cuckoo.common.artifact_storage import job_id_from_custom
+
+    return job_id_from_custom(custom) or f"local-{analysis_id}"
 
 
 class CentralStore(Report):

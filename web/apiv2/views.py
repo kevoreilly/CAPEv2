@@ -2103,6 +2103,7 @@ def tasks_tlspcap(request, task_id):
     task_id, err = _resolve_task_id(request, task_id, "tasktlspcap", check_tlp=False)
     if err:
         return err
+    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
 
     decrypted = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump_decrypted.pcap")
     legacy = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "polarproxy", "tls.pcap")
@@ -2231,6 +2232,7 @@ def tasks_keys(request, task_id, kind):
     task_id, err = _resolve_task_id(request, task_id, "tasktlskeys")
     if err:
         return err
+    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
     k = (kind or "").lower()
     if k not in _KEY_SOURCES:
         return Response({"error": True, "error_value": f"Unknown keys kind: {kind}"})
@@ -2246,6 +2248,7 @@ def tasks_etw(request, task_id, kind):
     task_id, err = _resolve_task_id(request, task_id, "tasketw")
     if err:
         return err
+    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
     k = (kind or "").lower()
     if k in _ETW_JSON_SOURCES:
         rel_path, fname = _ETW_JSON_SOURCES[k]
@@ -2265,6 +2268,7 @@ def tasks_bulkzip(request, task_id, folder):
     task_id, err = _resolve_task_id(request, task_id, "taskbulkzip")
     if err:
         return err
+    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
     f = (folder or "").lower()
     if f not in _BULKZIP_FOLDERS:
         return Response({"error": True, "error_value": f"Unknown bulkzip folder: {folder}"})

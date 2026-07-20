@@ -329,7 +329,7 @@ def get_task_package(task_id: int) -> str:
     return task_dict.get("package", "")
 
 
-def get_analysis_info(db, id=-1, task=None, rtmp=None):
+def get_analysis_info(db, id=-1, task=None, rtmp=None, scope=None):
     if not task:
         task = db.view_task(id)
     if not task:
@@ -358,9 +358,15 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None):
         new.update({"machine": machine})
 
     if not rtmp and enabledconf["mongodb"]:
+        # scope: caller-supplied central viewer tenant $match, ANDed onto the info.id fallback so a
+        # colliding foreign-tenant doc can't be surfaced when the viewer's own doc is absent from the
+        # scoped bulk map (audit MEDIUM cross-store collision). None = single-node / break-glass.
+        _gi_q = {"info.id": int(new["id"])}
+        if scope:
+            _gi_q = {"$and": [_gi_q, scope]}
         rtmp = mongo_find_one(
             "analysis",
-            {"info.id": int(new["id"])},
+            _gi_q,
             {
                 "info": 1,
                 "target.file.virustotal.summary": 1,
@@ -517,6 +523,16 @@ def index(request, page=1):
     analyses_static = []
 
     _visible = viewer_for(request.user)
+    # Central mode: the viewer's tenant $match, reused for BOTH the info.id-keyed enrichment reads below
+    # (bulk map + the get_analysis_info fallback) so a colliding worker-local doc can't surface on a
+    # viewer's own list row (audit MEDIUM cross-store collision). None = single-node / break-glass.
+    _view_scope = None
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_scope import viewer_scope
+
+        _view_scope = viewer_scope(request.user)
     tasks_files = db.list_tasks(
         limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING, tags_tasks_not_like="audit", include_hashes=True, visible_to=_visible
     )
@@ -529,9 +545,12 @@ def index(request, page=1):
         all_tasks = (tasks_files or []) + (tasks_static or []) + (tasks_urls or []) + (tasks_pcaps or [])
         if all_tasks:
             all_ids = [int(t.id) for t in all_tasks]
+            # Central mode (_view_scope, computed above): AND the viewer tenant $match so a colliding
+            # worker-local doc can't win this info.id-keyed enrichment map. No-op single-node/break-glass.
+            _idx_q = {"$and": [{"info.id": {"$in": all_ids}}, _view_scope]} if _view_scope else {"info.id": {"$in": all_ids}}
             cursor = mongo_find(
                 "analysis",
-                {"info.id": {"$in": all_ids}},
+                _idx_q,
                 {
                     "info": 1,
                     "target.file.virustotal.summary": 1,
@@ -637,7 +656,7 @@ def index(request, page=1):
 
     if tasks_files:
         for task in tasks_files:
-            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id), scope=_view_scope)
             if new["id"] == first_file:
                 paging["show_file_next"] = "hide"
             if page <= 1:
@@ -655,7 +674,7 @@ def index(request, page=1):
 
     if tasks_static:
         for task in tasks_static:
-            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id), scope=_view_scope)
             if new["id"] == first_static:
                 paging["show_static_next"] = "hide"
             if page <= 1:
@@ -670,7 +689,7 @@ def index(request, page=1):
 
     if tasks_urls:
         for task in tasks_urls:
-            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id), scope=_view_scope)
             if new["id"] == first_url:
                 paging["show_url_next"] = "hide"
             if page <= 1:
@@ -685,7 +704,7 @@ def index(request, page=1):
 
     if tasks_pcaps:
         for task in tasks_pcaps:
-            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id), scope=_view_scope)
             if new["id"] == first_pcap:
                 paging["show_pcap_next"] = "hide"
             if page <= 1:
@@ -3978,12 +3997,23 @@ def search(request, searched=""):
         # get_analysis_info(); reuse the resolved Task so it doesn't re-query.
         _tids = [t for t in (_result_task_id(r) for r in (records or [])) if t is not None]
         _visible = {t.id: t for t in db.list_tasks(task_ids=_tids, visible_to=viewer_for(request.user))} if _tids else {}
+        # Central mode: viewer tenant $match for the get_analysis_info info.id fallback (audit MEDIUM).
+        _srch_scope = None
+        try:
+            from lib.cuckoo.common.central_mode import central_mode_config
+
+            if central_mode_config().enabled:
+                from analysis.central_scope import viewer_scope
+
+                _srch_scope = viewer_scope(request.user)
+        except Exception:
+            _srch_scope = None
         analyses = []
         for result in records or []:
             tid = _result_task_id(result)
             if tid is None or tid not in _visible:
                 continue
-            new = get_analysis_info(db, task=_visible[tid])
+            new = get_analysis_info(db, task=_visible[tid], scope=_srch_scope)
             if not new:
                 continue
             analyses.append(new)

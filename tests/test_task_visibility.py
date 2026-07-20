@@ -523,21 +523,12 @@ def test_set_task_visibility_fails_closed_when_lock_unavailable(db, monkeypatch)
         db.set_task_visibility(tid, "private")
 
 
-def test_job_id_from_custom_parses():
-    from lib.cuckoo.core.data.tasking import _job_id_from_custom
-    assert _job_id_from_custom("job_id=ui-5,foo=bar") == "ui-5"
-    assert _job_id_from_custom("foo=bar,job_id=ui-9") == "ui-9"
-    assert _job_id_from_custom("ui-42") == "ui-42"   # bare token
-    assert _job_id_from_custom("foo=bar") is None
-    assert _job_id_from_custom("") is None
-    assert _job_id_from_custom(None) is None
-
-
 @pytest.mark.usefixtures("tmp_cuckoo_root")
-def test_set_task_visibility_central_keys_write_on_job_id(db, monkeypatch):
-    """Central mode: the mongo visibility/ownership write keys on the task's own globally-unique
-    info.job_id, NOT bare info.id -- else a colliding worker-local doc sharing the id could be relabeled
-    / re-owned by this toggle (adversarial-review HIGH, write side)."""
+def test_set_task_visibility_central_derives_own_job_id_ignoring_forged_custom(db, monkeypatch):
+    """Central mode: the visibility/ownership write keys on the task's OWN deterministic bridged doc
+    (info.job_id 'ui-<task_id>' AND info.id==task_id), DERIVED from the authorized task_id -- NEVER read
+    from the forgeable task.custom. A caller who forges custom='job_id=ui-<victim>' must NOT relabel /
+    re-own another tenant's doc (adversarial-review HIGH, write side -- same forgery class as guac)."""
     import lib.cuckoo.core.data.tasking as tk
     from lib.cuckoo.core.data.task import Task
 
@@ -548,10 +539,11 @@ def test_set_task_visibility_central_keys_write_on_job_id(db, monkeypatch):
     monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: (calls.append(a), object())[1], raising=False)
     tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
     t = db.session.get(Task, tid)
-    t.custom = "job_id=ui-77"
+    t.custom = "job_id=ui-999999"  # FORGED: a victim's job id, not this task's own
     db.session.commit()
     db.set_task_visibility(tid, "public")
-    assert calls and calls[-1][1] == {"info.job_id": "ui-77"}, calls[-1]
+    assert calls[-1][1] == {"$and": [{"info.job_id": f"ui-{tid}"}, {"info.id": tid}]}, calls[-1]
+    assert "ui-999999" not in str(calls[-1][1]), "forged custom must not reach the write filter"
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")

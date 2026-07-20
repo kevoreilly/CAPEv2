@@ -59,24 +59,6 @@ def _mongo_reporting_enabled() -> bool:
 
 log = logging.getLogger(__name__)
 
-
-def _job_id_from_custom(custom):
-    """Parse the broker job_id from a task's `custom` ('job_id=<v>' among optional other k=v pairs, or a
-    bare token) -- mirrors centralstore.resolve_job_id / central_guac. Central mode keys the shared
-    analysis doc by info.job_id (globally unique), so a WRITE scoped to it can't land on a colliding
-    worker-local doc that shares this task's info.id (audit HIGH cross-store collision, write side)."""
-    if not custom:
-        return None
-    text = str(custom)
-    for part in text.split(","):
-        part = part.strip()
-        if part.startswith("job_id="):
-            v = part.split("=", 1)[1].strip()
-            return v or None
-    token = text.strip()
-    if token and "=" not in token and "," not in token:
-        return token
-    return None
 conf = Config("cuckoo")
 
 
@@ -988,17 +970,19 @@ class TasksMixIn:
             # would then make it {visibility: tenant, tenant_id: null} — matching NO
             # viewer scope (invisible even to the owner). Restamping ownership here is
             # idempotent for a normal toggle and repairs that orphan.
-            # Central mode: key the write on the task's own globally-unique info.job_id so a colliding
-            # worker-local doc that shares this task's info.id can't be the doc we relabel/re-own
-            # (audit HIGH cross-store collision, write side). Non-central / non-bridged: bare info.id.
+            # Central mode: key the write on the task's OWN deterministic bridged doc -- info.job_id
+            # 'ui-<task_id>' (the submit-bridge assigns job_id='ui-<rds_task_id>'; central-submit-bridge.py)
+            # ANDed with info.id==task_id. DERIVE it from the authorized task_id; do NOT read task.custom
+            # -- that is a user-supplied submission field a caller can forge to 'job_id=ui-<victim>' to
+            # relabel/re-own ANOTHER tenant's doc (adversarial-review HIGH, write side -- the same forgery
+            # class as the guac live-VM fix). A derived id can't be redirected by a forged custom, and a
+            # colliding worker-local doc has a different job_id so it's untouched. Non-central: bare info.id.
             _filt = {"info.id": task_id}
             try:
                 from lib.cuckoo.common.central_mode import central_mode_config
 
                 if central_mode_config().enabled:
-                    _jid = _job_id_from_custom(getattr(task, "custom", None))
-                    if _jid:
-                        _filt = {"info.job_id": _jid}
+                    _filt = {"$and": [{"info.job_id": f"ui-{int(task_id)}"}, {"info.id": int(task_id)}]}
             except Exception:
                 pass
             try:

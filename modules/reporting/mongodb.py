@@ -14,7 +14,7 @@ from lib.cuckoo.common.config import Config
 try:
     from pymongo.errors import InvalidDocument, OperationFailure
 
-    from dev_utils.mongodb import mongo_collection_names, mongo_create_index, mongo_delete_data, mongo_find_one, mongo_insert_one, mongo_update_one
+    from dev_utils.mongodb import mongo_collection_names, mongo_create_index, mongo_delete_data, mongo_delete_many, mongo_find_one, mongo_insert_one, mongo_update_one
 
     HAVE_MONGO = True
 except ImportError:
@@ -517,8 +517,31 @@ class MongoDB(Report):
         # Delete old data just before inserting new one to avoid "missing report" window
         # or data loss if insertion fails during preparation (e.g. OOM)
         ids_to_delete = {local_task_id, int(report["info"]["id"])}
-        log.debug("Deleting previous MongoDB data for Task IDs: %s", ids_to_delete)
-        mongo_delete_data(list(ids_to_delete))
+        _pre_job_id = report["info"].get("job_id")
+        _central_pre = False
+        try:
+            from lib.cuckoo.common.central_mode import central_mode_config
+
+            _central_pre = central_mode_config().enabled and _is_central_rewritten_id(_pre_job_id)
+        except Exception:
+            _central_pre = False
+        if _central_pre:
+            # Central: the previous version of THIS report is keyed by the globally-unique info.job_id.
+            # Delete ONLY that doc (+ its own call chunks by ObjectId) -- a bare info.id $in over the
+            # re-keyed central id would, in the shared DocumentDB, also destroy a colliding worker-local
+            # doc for ANOTHER tenant (adversarial-review HIGH, write side). Mirrors central_delete_analysis.
+            try:
+                _old = mongo_find_one("analysis", {"info.job_id": _pre_job_id}, {"_id": 1, "behavior.processes.calls": 1})
+                if _old:
+                    _cids = [c for p in (_old.get("behavior") or {}).get("processes", []) or [] for c in (p.get("calls") or [])]
+                    if _cids:
+                        mongo_delete_many("calls", {"_id": {"$in": _cids}})
+                    mongo_delete_many("analysis", {"_id": _old["_id"]})
+            except Exception:
+                log.exception("central pre-insert scoped delete failed for job_id %s", _pre_job_id)
+        else:
+            log.debug("Deleting previous MongoDB data for Task IDs: %s", ids_to_delete)
+            mongo_delete_data(list(ids_to_delete))
 
         new_processes = insert_calls(report, mongodb=True)
         # Store the results in the report.

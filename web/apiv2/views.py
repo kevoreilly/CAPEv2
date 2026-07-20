@@ -1596,11 +1596,14 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         # ('all' gate + format validity are enforced before staging above.)
         report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
-        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH) and path_exists(srcdir):
+        # Traversal guard is UNCONDITIONAL (an out-of-tree path is always an error, present or not) -- mirrors
+        # the sibling endpoints (tasks_screenshot). The prior `and path_exists(srcdir)` conjunction only
+        # errored when the path was BOTH out-of-tree AND existed, which was a copy-paste hazard.
+        if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
             return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
-        # Guard like the sibling endpoints (tasks_screenshot/dropped/selfextracted): in central mode a
-        # best-effort _central_stage that raised (Http404 before os.makedirs) leaves no local analysis dir, so
-        # the bare os.listdir below would raise FileNotFoundError -> HTTP 500 instead of a clean JSON error.
+        # Separately guard a missing dir: in central mode a best-effort _central_stage that raised (Http404
+        # before os.makedirs) leaves no local analysis dir, so the bare os.listdir below would raise
+        # FileNotFoundError -> HTTP 500 instead of a clean JSON error.
         if not path_exists(srcdir):
             return Response({"error": True, "error_value": "No analysis directory for task %s" % task_id})
 
@@ -1686,7 +1689,10 @@ def tasks_iocs(request, task_id, detail=None):
         return Response(resp)
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+        # path_exists as well as the traversal guard: in central mode a best-effort _central_stage that raised
+        # (Http404 before os.makedirs) leaves no local report.json, so a bare open() would raise
+        # FileNotFoundError -> HTTP 500 instead of the clean JSON error below (mirrors tasks_selfextracted).
+        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH) and path_exists(jfile):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
     if not buf:
@@ -3192,7 +3198,10 @@ def tasks_config(request, task_id, cape_name=False):
             buf = None
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH):
+        # path_exists as well as the traversal guard: in central mode a best-effort _central_stage that raised
+        # (Http404 before os.makedirs) leaves no local report.json, so a bare open() would raise
+        # FileNotFoundError -> HTTP 500 instead of the clean JSON error below (mirrors tasks_selfextracted).
+        if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH) and path_exists(jfile):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
 
@@ -3229,11 +3238,17 @@ def post_processing(request, category, task_id):
             return Response({"error": True, "msg": "Missed content data or category"})
         # NOTE: this route is a commented-out example (urls.py) and is NOT auth/tenant-gated -- it MUST be
         # secured (auth + can_manage_task + tenant scope) before being enabled. Minimal defence-in-depth: in
-        # central mode key the write on the derived globally-unique job_id so it can't $set onto a colliding
-        # worker-local doc (a bare {info.id} can, in the shared DocumentDB); single-node keeps bare info.id.
-        from lib.cuckoo.common.central_mode import central_mode_config
+        # central mode route the $set through the SHARED own-doc filter (mirrors comments() /
+        # central_delete_analysis / set_task_visibility) so it addresses the caller's own doc by both the ui-
+        # and info.id arms AND excludes a foreign-tenant collider in the shared DocumentDB -- a hand-built
+        # {info.job_id: ui-<id>} would silently no-op for a non-bridged own doc, and a bare {info.id} could
+        # $set onto a colliding worker-local doc. Single-node keeps bare info.id.
+        from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
 
-        _pp_filter = {"info.job_id": "ui-%d" % int(task_id)} if central_mode_config().enabled else {"info.id": int(task_id)}
+        if central_mode_config().enabled:
+            _pp_filter = central_own_analysis_filter(int(task_id), getattr(db.view_task(int(task_id)), "tenant_id", None))
+        else:
+            _pp_filter = {"info.id": int(task_id)}
         _ = mongo_find_one_and_update("analysis", _pp_filter, {"$set": {category: content}})
         resp = {"error": False, "msg": "Added under the key {}".format(category)}
     else:

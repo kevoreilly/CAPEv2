@@ -1361,13 +1361,16 @@ def tasks_delete(request, task_id, status=False):
             continue
 
         # Resolve the task's OWN tenant WHILE the SQL row exists (central_delete_analysis uses it to scope the
-        # Mongo delete), but run the Mongo delete AFTER db.delete_task + delete_folder succeed: the Mongo
-        # delete_many is immediate/non-transactional, so doing it first means a delete_folder failure (rolled
-        # back by DBTransactionMiddleware) would destroy the report while the task survives.
+        # Mongo delete). The Mongo delete_many is immediate + non-transactional, but db.delete_task only STAGES
+        # the SQL delete (DBTransactionMiddleware commits after the view returns), so we COMMIT the SQL delete
+        # explicitly here BEFORE the Mongo delete. Otherwise a later-iteration failure that rolls the request
+        # back would resurrect this task's SQL row while its Mongo report is already destroyed. Committing first
+        # inverts any residual failure to the recoverable direction (task gone, report lingers -> reapable).
         _central = web_conf.web_reporting.get("enabled", True)
         _tenant = getattr(_t, "tenant_id", None) if _central else None
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
+            db.session.commit()  # make the SQL delete durable before the irreversible Mongo delete
             if _central:
                 central_delete_analysis(request, task, tenant_id=_tenant)
             s_deleted.append(str(task))
@@ -3305,13 +3308,14 @@ def tasks_delete_many(request):
             if task.status == TASK_RUNNING:
                 response.setdefault(task_id, "running")
                 continue
-            # Resolve the task's tenant WHILE the SQL row exists (from the row we already fetched), but run the
-            # Mongo delete AFTER db.delete_task + delete_folder succeed -- the Mongo delete_many is immediate/
-            # non-transactional, so doing it first would lose the report if delete_folder fails and the SQL is
-            # rolled back by DBTransactionMiddleware.
+            # Resolve the task's tenant WHILE the SQL row exists (from the row we already fetched). db.delete_task
+            # only STAGES the SQL delete (DBTransactionMiddleware commits after the view), and the Mongo
+            # delete_many is immediate/non-transactional, so COMMIT the SQL delete explicitly BEFORE the Mongo
+            # delete -- else a later-iteration rollback would resurrect this task while its report is gone.
             _tenant = getattr(task, "tenant_id", None)
             if db.delete_task(task_id):
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
+                db.session.commit()  # SQL delete durable before the irreversible Mongo delete
                 if delete_mongo:
                     central_delete_analysis(request, task_id, tenant_id=_tenant)
         else:

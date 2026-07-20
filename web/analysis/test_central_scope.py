@@ -191,3 +191,15 @@ def test_viewer_can_view_sample_fail_closed_on_runtime_error(monkeypatch):
     monkeypatch.setattr("users.tenancy.can_view_sample", boom)
     with pytest.raises(RuntimeError):
         viewer_can_view_sample(object(), sha256="abc")
+
+
+def test_viewer_scope_fail_closed_when_mt_enabled_but_dashboard_import_broken(monkeypatch):
+    """viewer_scope's ImportError arm must fail CLOSED (deny-all $match) when MT is enabled but
+    dashboard.views (or a dep) can't import -- not degrade the central collision-defense scope to
+    see-all (None). Same fail-open class closed in the tenancy_optional facade (f3494f98)."""
+    import analysis.central_scope as cs
+    _hide(monkeypatch, "dashboard.views")
+    monkeypatch.setattr("lib.cuckoo.common.tenancy_optional._mt_enabled", lambda: True)
+    assert cs.viewer_scope(object()) == {"_id": {"$in": []}}, "MT enabled + broken import must NOT see-all"
+    monkeypatch.setattr("lib.cuckoo.common.tenancy_optional._mt_enabled", lambda: False)
+    assert cs.viewer_scope(object()) is None, "MT genuinely absent -> single-tenant see-all"

@@ -1,12 +1,12 @@
 """central_delete_analysis deletes ONLY the caller's OWN doc in central mode (adversarial-review HIGH).
 
 Single-node: delegates to mongo_delete_data (unchanged). Central: the delete key is the SHARED
-central_own_analysis_filter(task_id, task.tenant) = {ui-<task_id> OR info.id==task_id} AND unstamped-or-own --
-derived from the authorized task_id (never custom / never the read viewer_scope), so it can't be steered to
-another task's doc, matches an own non-bridged doc via the info.id arm, and excludes a foreign doc stamped for
-another tenant. It resolves the task's tenant via view_task, so the apiv2 routes call it BEFORE the SQL
-delete. Deletes by _id + own call chunks by ObjectId, never by the bare task_id. A 0-match is LOGGED, not a
-silent "success".
+the SHARED, bridge-aware central_own_analysis_filter(task_id, task.tenant) -- ui-only under central+MT, or the
+three-arm {ui- OR info.id} form single-node/MT-off -- derived from the authorized task_id (never custom /
+never the read viewer_scope), so it can't be steered to another task's doc and excludes a foreign doc stamped
+for another tenant. The apiv2 routes resolve the tenant while the SQL row exists and pass it, running the
+Mongo delete after the SQL delete commits. Deletes by _id + own call chunks by ObjectId, never by the bare
+task_id. A 0-match is LOGGED, not a silent "success".
 """
 import logging
 

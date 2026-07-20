@@ -672,10 +672,12 @@ def test_set_task_visibility_central_import_failure_still_fails_closed(db, monke
         "the inline fallback keeps the tenant guard"
 
 
-def test_central_own_analysis_filter_excludes_foreign_tenant():
+def test_central_own_analysis_filter_excludes_foreign_tenant(monkeypatch):
     """The shared helper's tenant guard: a doc STAMPED for another tenant (even with the matching ui- key or a
     colliding info.id) is excluded, so a $set can't relabel/re-own it (adversarial-review MED)."""
-    from lib.cuckoo.common.central_mode import central_own_analysis_filter
+    import lib.cuckoo.common.central_mode as cm
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: False)  # pin the non-bridge (3-arm) shape
+    central_own_analysis_filter = cm.central_own_analysis_filter
     f = central_own_analysis_filter(42, 10)  # our task 42, our tenant 10
     assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 10}}, f)
     assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": None}}, f)      # unstamped own
@@ -684,7 +686,7 @@ def test_central_own_analysis_filter_excludes_foreign_tenant():
     assert not _mongo_matches({"info": {"id": 42, "job_id": "local-42", "tenant_id": 77}}, f)
 
 
-def test_central_own_analysis_filter_excludes_foreign_unstamped_collision():
+def test_central_own_analysis_filter_excludes_foreign_unstamped_collision(monkeypatch):
     """Adversarial-review HIGH regression: Mongo's {tenant_id: null} equality ALSO matches docs where the field
     is ABSENT, and every doc is inserted unstamped -- so a bare {info.id} arm ANDed with only a null-or-ours
     guard would re-admit a FOREIGN worker-local doc colliding on info.id to the destructive delete / re-owning
@@ -692,7 +694,9 @@ def test_central_own_analysis_filter_excludes_foreign_unstamped_collision():
     (the exact case the guard test deleted in a3df16c8 stopped covering) is excluded and the caller's own doc
     is the sole match. (Residual: a foreign doc with info.job_id ABSENT still passes the not-yet-keyed arm --
     that transient window needs the info.origin_id data-model fix.)"""
-    from lib.cuckoo.common.central_mode import central_own_analysis_filter
+    import lib.cuckoo.common.central_mode as cm
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: False)  # pin the non-bridge (3-arm) shape
+    central_own_analysis_filter = cm.central_own_analysis_filter
     f = central_own_analysis_filter(42, 10)                          # our task 42, our tenant 10
     foreign_unstamped = {"info": {"id": 42, "job_id": "local-42"}}   # tenant 77's doc, not yet reconciled
     assert not _mongo_matches(foreign_unstamped, f), \

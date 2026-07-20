@@ -3247,11 +3247,11 @@ def post_processing(request, category, task_id):
             return Response({"error": True, "msg": "Missed content data or category"})
         # NOTE: this route is a commented-out example (urls.py) and is NOT auth/tenant-gated -- it MUST be
         # secured (auth + can_manage_task + tenant scope) before being enabled. Minimal defence-in-depth: in
-        # central mode route the $set through the SHARED own-doc filter (mirrors comments() /
-        # central_delete_analysis / set_task_visibility) so it addresses the caller's own doc by both the ui-
-        # and info.id arms AND excludes a foreign-tenant collider in the shared DocumentDB -- a hand-built
-        # {info.job_id: ui-<id>} would silently no-op for a non-bridged own doc, and a bare {info.id} could
-        # $set onto a colliding worker-local doc. Single-node keeps bare info.id.
+        # central mode route the $set through the SHARED, bridge-aware own-doc filter (mirrors comments() /
+        # central_delete_analysis / set_task_visibility) rather than a hand-built one, so it stays correct in
+        # both modes: ui-only under central+MT (central_bridge_required), or the three-arm {ui- OR info.id}
+        # form single-node/MT-off. A bare {info.id} could $set onto a colliding worker-local doc. Single-node
+        # keeps bare info.id.
         from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
 
         if central_mode_config().enabled:

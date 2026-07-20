@@ -226,7 +226,8 @@ def central_own_analysis_filter(task_id, tenant_id):
     BRIDGE-REQUIRED (central + MT, central_bridge_required()): the info.id arms are DROPPED entirely -- only a
     bridged 'ui-<tid>' doc is a tenant-isolated own doc, so the filter is {info.job_id: ui-<tid>} AND the
     tenant guard. This fully closes the residual below (no bare info.id surface at all); a non-bridged doc is
-    single-tenant only in that mode. See docs/superpowers/plans/2026-07-20-central-owndoc-residual-decision.md.
+    single-tenant only in that mode, and centralstore/mongodb refuse to PERSIST one under central+MT so the
+    ui-only key always resolves an existing own doc.
 
     NON-bridge-required (single-node / MT-off): the three-arm form supports direct-submit docs. RESIDUAL there:
     a FOREIGN doc inserted but NOT YET keyed (info.job_id absent) that collides on info.id still passes the

@@ -213,8 +213,10 @@ def test_job_id_for_task_fallback_scoped(monkeypatch):
     """Non-bridged (no RDS job_id): fall back to the mongo info.id lookup ANDed with the
     viewer scope (the cross-store id-collision defence)."""
     import lib.cuckoo.common.artifact_storage as a
+    import lib.cuckoo.common.central_mode as cm
     a._JOB_ID_CACHE.clear()
     monkeypatch.setattr(a, "_rds_job_id", lambda tid: None)
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: False)  # pin: non-bridge fallback is allowed
     seen = {}
 
     def fake_find(coll, query, proj):

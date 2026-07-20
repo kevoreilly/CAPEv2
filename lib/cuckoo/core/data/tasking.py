@@ -63,15 +63,17 @@ conf = Config("cuckoo")
 
 
 def _sanitize_submitted_custom(custom):
-    """Strip a client-supplied job_id from a submitted `custom` (central mode only; caller gates).
+    """Strip a client-supplied job_id from a submitted `custom`. Called unconditionally from add().
 
     The broker submit-bridge is the SOLE legitimate setter of a job_id -- via a direct SQL UPDATE, NOT
     this add() API path -- so a client-supplied job_id in `custom` is a forgery vector: centralstore
     (resolve_job_id) would read it into info.job_id, rewrite info.id to that (foreign) central id, key the
     S3 prefix off it, and the scoped read/write/delete would then target another tenant's doc. Drop any
     'job_id=<v>' token; and blank a bare 'ui-<N>' custom (resolve_job_id also returns a bare token, but
-    only a 'ui-<N>' one triggers the info.id rewrite -- a non-ui bare token is harmless). Single-node
-    custom is free-form and left untouched."""
+    only a 'ui-<N>' one triggers the info.id rewrite -- a non-ui bare token is harmless). These tokens are
+    reserved broker-bridge machinery -- never legitimate client input single-node either (centralstore is
+    inactive there, so nothing consumes them), so stripping them is a no-op for any real single-node
+    custom. All other free-form custom content is left untouched."""
     if not custom:
         return custom
     kept = [p for p in str(custom).split(",") if p.strip() and not p.strip().startswith("job_id=")]
@@ -327,16 +329,14 @@ class TasksMixIn:
         task.package = package
         task.options = options
         task.priority = priority
-        # Central mode: a client must not smuggle a job_id through custom -- it's bridge-only (set via
-        # direct SQL) and would be read into info.job_id / rewrite info.id to a foreign central id at
-        # reporting (cross-tenant). Strip it at this single submission chokepoint; single-node untouched.
-        try:
-            from lib.cuckoo.common.central_mode import central_mode_config
-
-            if central_mode_config().enabled:
-                custom = _sanitize_submitted_custom(custom)
-        except Exception:
-            pass
+        # A client must not smuggle a job_id / bare ui-<N> through custom -- those are RESERVED tokens of
+        # the broker submit-bridge (set only via direct SQL) and would be read into info.job_id / rewrite
+        # info.id to a foreign central id at reporting (cross-tenant). Strip UNCONDITIONALLY at this single
+        # submission chokepoint: gating on central_mode_config() was a fail-open (an import/config error in
+        # the mode check silently skipped the strip, letting a forged token through), and these tokens are
+        # never legitimate client input single-node either (centralstore is inactive, so nothing consumes
+        # them there). No mode branch -> no fail-open surface.
+        custom = _sanitize_submitted_custom(custom)
         task.custom = custom
         task.machine = machine
         task.platform = platform
@@ -1000,27 +1000,32 @@ class TasksMixIn:
             # would then make it {visibility: tenant, tenant_id: null} — matching NO
             # viewer scope (invisible even to the owner). Restamping ownership here is
             # idempotent for a normal toggle and repairs that orphan.
-            # Central mode: key the write on the task's OWN deterministic bridged doc -- info.job_id
-            # 'ui-<task_id>' (the submit-bridge assigns job_id='ui-<rds_task_id>'; central-submit-bridge.py)
-            # ANDed with info.id==task_id. DERIVE it from the authorized task_id; do NOT read task.custom
-            # -- that is a user-supplied submission field a caller can forge to 'job_id=ui-<victim>' to
-            # relabel/re-own ANOTHER tenant's doc (adversarial-review HIGH, write side -- the same forgery
-            # class as the guac live-VM fix). A derived id can't be redirected by a forged custom, and a
-            # colliding worker-local doc has a different job_id so it's untouched. Non-central: bare info.id.
+            # Central mode: key the write on the task's OWN doc, DERIVED from the authorized task_id -- never
+            # read task.custom (a user-supplied field a caller can forge to 'job_id=ui-<victim>' to re-own
+            # ANOTHER tenant's doc; adversarial-review HIGH, write side, same class as the guac fix). Match
+            # the derived bridged key (info.job_id 'ui-<task_id>') OR info.id==task_id CONSTRAINED to a job_id
+            # that is null-or-ours -- so a FOREIGN doc (bridged 'ui-<other>' or worker-local 'local-N') that
+            # merely collides on info.id can NOT be matched/re-owned -- while keeping the info.id arm so a
+            # non-bridged / not-yet-stamped OWN doc isn't a silent no-op (mongo left more-permissive than
+            # SQL). ANDed with unstamped-or-own as a second layer. (Residual: a foreign doc with NO job_id
+            # field + colliding info.id still matches -- needs a node/store discriminator or a matched_count
+            # check.) Non-central: bare info.id (upstream single-node shape).
             _filt = {"info.id": task_id}
+            _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": getattr(task, "tenant_id", None)}]}
             try:
                 from lib.cuckoo.common.central_mode import central_mode_config
 
-                if central_mode_config().enabled:
-                    # Match the caller's OWN doc whether bridged (info.job_id 'ui-<task_id>', derived --
-                    # never from the forgeable custom) OR non-bridged / not-yet-job_id-stamped (info.id ==
-                    # task_id), ANDed with unstamped-or-own so a colliding FOREIGN doc sharing info.id
-                    # can't be relabeled (same guard as the reconcile). Keeping the info.id arm avoids a
-                    # silent no-op on a non-bridged doc that would leave mongo more-permissive than SQL.
-                    _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": getattr(task, "tenant_id", None)}]}
-                    _filt = {"$and": [{"$or": [{"info.job_id": f"ui-{int(task_id)}"}, {"info.id": int(task_id)}]}, _own]}
+                _central = central_mode_config().enabled
             except Exception:
-                pass
+                # Can't determine mode -> assume central and FAIL CLOSED: use the constrained own-doc filter
+                # rather than dropping to the unscoped bare {info.id} write (which, on a central node, could
+                # re-own a colliding foreign doc). Consistent with viewer_scope / _mt_enabled fail-closed.
+                _central = True
+            if _central:
+                _filt = {"$and": [{"$or": [
+                    {"info.job_id": f"ui-{int(task_id)}"},
+                    {"$and": [{"info.id": int(task_id)}, {"info.job_id": {"$in": [None, f"ui-{int(task_id)}"]}}]},
+                ]}, _own]}
             try:
                 return mongo_update_one(
                     "analysis", _filt,

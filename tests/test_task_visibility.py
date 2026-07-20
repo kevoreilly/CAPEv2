@@ -542,15 +542,60 @@ def test_set_task_visibility_central_derives_own_job_id_ignoring_forged_custom(d
     t.custom = "job_id=ui-999999"  # FORGED: a victim's job id, not this task's own
     db.session.commit()
     db.set_task_visibility(tid, "public")
-    # bridged (derived ui-<tid>) OR non-bridged (info.id) -- both the caller's own -- ANDed with
-    # unstamped-or-own; the forged ui-999999 never appears.
+    # derived bridged key OR info.id constrained to job_id null-or-ours, ANDed with unstamped-or-own; the
+    # forged ui-999999 never appears.
     assert calls[-1][1] == {
         "$and": [
-            {"$or": [{"info.job_id": f"ui-{tid}"}, {"info.id": tid}]},
+            {"$or": [
+                {"info.job_id": f"ui-{tid}"},
+                {"$and": [{"info.id": tid}, {"info.job_id": {"$in": [None, f"ui-{tid}"]}}]},
+            ]},
             {"$or": [{"info.tenant_id": None}, {"info.tenant_id": 10}]},
         ]
     }, calls[-1]
     assert "ui-999999" not in str(calls[-1][1]), "forged custom must not reach the write filter"
+
+
+def _mongo_matches(doc, flt):
+    """Minimal Mongo filter evaluator ($and/$or/$in/dotted-key equality; None matches a missing field) --
+    so the visibility filter can be asserted at the DOCUMENT level, not just by shape."""
+    if "$and" in flt:
+        return all(_mongo_matches(doc, s) for s in flt["$and"])
+    if "$or" in flt:
+        return any(_mongo_matches(doc, s) for s in flt["$or"])
+    for key, want in flt.items():
+        cur = doc
+        for part in key.split("."):
+            cur = cur.get(part) if isinstance(cur, dict) else None
+        if isinstance(want, dict) and "$in" in want:
+            if cur not in want["$in"]:
+                return False
+        elif cur != want:
+            return False
+    return True
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_central_filter_excludes_foreign_colliding_doc(db, monkeypatch):
+    """DOC-LEVEL: the central write filter matches the caller's OWN doc (bridged or not-yet-job_id-stamped)
+    and NEVER a foreign doc that merely collides on info.id -- worker-local 'local-N' or another tenant's
+    'ui-<other>' (the cross-tenant re-own class my shape-only test missed)."""
+    import lib.cuckoo.core.data.tasking as tk
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": True})())
+    captured = {}
+    monkeypatch.setattr(tk, "mongo_update_one",
+                        lambda *a, **k: (captured.__setitem__("f", a[1]), object())[1], raising=False)
+    tid = db.add_url("http://x.example", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")
+    f = captured["f"]
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged must match"
+    assert _mongo_matches({"info": {"id": tid, "tenant_id": None}}, f), "own not-yet-stamped must match"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": None}}, f), \
+        "foreign worker-local colliding doc must NOT match"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": "ui-999999", "tenant_id": None}}, f), \
+        "another tenant's bridged doc must NOT match"
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")
@@ -568,6 +613,30 @@ def test_set_task_visibility_single_node_keys_on_info_id(db, monkeypatch):
     assert calls and calls[-1][1] == {"info.id": tid}, calls[-1]
 
 
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_fails_closed_when_central_mode_probe_raises(db, monkeypatch):
+    """If the central_mode config read RAISES, the write must NOT drop to the unscoped bare {info.id} filter
+    (a fail-open that could re-own a colliding foreign doc on a central node). Fail closed: use the
+    constrained own-doc filter -- so a foreign worker-local / other-tenant doc still can't be matched."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+
+    def _boom():
+        raise RuntimeError("config layer broke")
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config", _boom)
+    captured = {}
+    monkeypatch.setattr(tk, "mongo_update_one",
+                        lambda *a, **k: (captured.__setitem__("f", a[1]), object())[1], raising=False)
+    tid = db.add_url("http://x.example", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")
+    f = captured["f"]
+    assert f != {"info.id": tid}, "must NOT fall back to the unscoped bare filter"
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged must match"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": None}}, f), \
+        "foreign worker-local colliding doc must NOT match even when the mode probe failed"
+
+
 def test_sanitize_submitted_custom():
     """A client-supplied job_id in custom is a central forgery vector -> stripped at submission."""
     from lib.cuckoo.core.data.tasking import _sanitize_submitted_custom
@@ -581,16 +650,32 @@ def test_sanitize_submitted_custom():
 
 
 @pytest.mark.usefixtures("tmp_cuckoo_root")
-def test_add_strips_client_job_id_in_central_mode(db, monkeypatch):
-    """Central mode: add() strips a client-smuggled job_id from custom so it can't reach centralstore
-    (info.job_id / info.id rewrite / S3 prefix / scoped read-write-delete keys). Single-node untouched."""
+def test_add_strips_client_job_id_unconditionally(db, monkeypatch):
+    """add() strips a client-smuggled job_id from custom UNCONDITIONALLY (no central-mode gate: gating was
+    a fail-open -- an import/config error in the mode check silently skipped the strip). The token can't
+    reach centralstore (info.job_id / info.id rewrite / S3 prefix / scoped read-write-delete keys), and
+    is reserved broker-bridge machinery that is never legitimate client input single-node either."""
     from lib.cuckoo.core.data.task import Task
+    # Central mode enabled: stripped.
     monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
                         lambda: type("C", (), {"enabled": True})())
     tid = db.add_url("http://x.example", custom="job_id=ui-999,foo=bar")
     assert db.session.get(Task, tid).custom == "foo=bar"
 
+    # Central mode disabled: STILL stripped (unconditional -> no fail-open surface). Only the reserved
+    # job_id token is removed; the rest of the free-form custom survives.
     monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
                         lambda: type("C", (), {"enabled": False})())
     tid2 = db.add_url("http://y.example", custom="job_id=ui-999,foo=bar")
-    assert db.session.get(Task, tid2).custom == "job_id=ui-999,foo=bar"  # single-node: untouched
+    assert db.session.get(Task, tid2).custom == "foo=bar"
+
+    # The mode check itself throwing must NOT resurrect the fail-open: strip still happens.
+    def _boom():
+        raise RuntimeError("config broke")
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config", _boom)
+    tid3 = db.add_url("http://z.example", custom="job_id=ui-999,foo=bar")
+    assert db.session.get(Task, tid3).custom == "foo=bar"
+
+    # Ordinary free-form custom with no reserved token is left entirely untouched.
+    tid4 = db.add_url("http://w.example", custom="mycampaign,foo=bar")
+    assert db.session.get(Task, tid4).custom == "mycampaign,foo=bar"

@@ -566,3 +566,31 @@ def test_set_task_visibility_single_node_keys_on_info_id(db, monkeypatch):
     tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
     db.set_task_visibility(tid, "public")
     assert calls and calls[-1][1] == {"info.id": tid}, calls[-1]
+
+
+def test_sanitize_submitted_custom():
+    """A client-supplied job_id in custom is a central forgery vector -> stripped at submission."""
+    from lib.cuckoo.core.data.tasking import _sanitize_submitted_custom
+    assert _sanitize_submitted_custom("job_id=ui-999") == ""                       # token form dropped
+    assert _sanitize_submitted_custom("foo=bar,job_id=ui-9,baz=1") == "foo=bar,baz=1"
+    assert _sanitize_submitted_custom("ui-999") == ""                              # bare central id blanked
+    assert _sanitize_submitted_custom("mycampaign") == "mycampaign"               # harmless bare token kept
+    assert _sanitize_submitted_custom("local-5") == "local-5"                     # non-ui bare token kept
+    assert _sanitize_submitted_custom("") == ""
+    assert _sanitize_submitted_custom(None) is None
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_add_strips_client_job_id_in_central_mode(db, monkeypatch):
+    """Central mode: add() strips a client-smuggled job_id from custom so it can't reach centralstore
+    (info.job_id / info.id rewrite / S3 prefix / scoped read-write-delete keys). Single-node untouched."""
+    from lib.cuckoo.core.data.task import Task
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": True})())
+    tid = db.add_url("http://x.example", custom="job_id=ui-999,foo=bar")
+    assert db.session.get(Task, tid).custom == "foo=bar"
+
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": False})())
+    tid2 = db.add_url("http://y.example", custom="job_id=ui-999,foo=bar")
+    assert db.session.get(Task, tid2).custom == "job_id=ui-999,foo=bar"  # single-node: untouched

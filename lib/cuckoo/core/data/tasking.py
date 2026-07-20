@@ -62,6 +62,26 @@ log = logging.getLogger(__name__)
 conf = Config("cuckoo")
 
 
+def _sanitize_submitted_custom(custom):
+    """Strip a client-supplied job_id from a submitted `custom` (central mode only; caller gates).
+
+    The broker submit-bridge is the SOLE legitimate setter of a job_id -- via a direct SQL UPDATE, NOT
+    this add() API path -- so a client-supplied job_id in `custom` is a forgery vector: centralstore
+    (resolve_job_id) would read it into info.job_id, rewrite info.id to that (foreign) central id, key the
+    S3 prefix off it, and the scoped read/write/delete would then target another tenant's doc. Drop any
+    'job_id=<v>' token; and blank a bare 'ui-<N>' custom (resolve_job_id also returns a bare token, but
+    only a 'ui-<N>' one triggers the info.id rewrite -- a non-ui bare token is harmless). Single-node
+    custom is free-form and left untouched."""
+    if not custom:
+        return custom
+    kept = [p for p in str(custom).split(",") if p.strip() and not p.strip().startswith("job_id=")]
+    result = ",".join(kept)
+    s = result.strip()
+    if s and "=" not in s and "," not in s and s.startswith("ui-") and s[3:].isdigit():
+        return ""
+    return result
+
+
 def _advisory_lock(lock_engine, key):
     """Best-effort cross-process serialization of per-task visibility toggles.
 
@@ -307,6 +327,16 @@ class TasksMixIn:
         task.package = package
         task.options = options
         task.priority = priority
+        # Central mode: a client must not smuggle a job_id through custom -- it's bridge-only (set via
+        # direct SQL) and would be read into info.job_id / rewrite info.id to a foreign central id at
+        # reporting (cross-tenant). Strip it at this single submission chokepoint; single-node untouched.
+        try:
+            from lib.cuckoo.common.central_mode import central_mode_config
+
+            if central_mode_config().enabled:
+                custom = _sanitize_submitted_custom(custom)
+        except Exception:
+            pass
         task.custom = custom
         task.machine = machine
         task.platform = platform

@@ -542,7 +542,14 @@ def test_set_task_visibility_central_derives_own_job_id_ignoring_forged_custom(d
     t.custom = "job_id=ui-999999"  # FORGED: a victim's job id, not this task's own
     db.session.commit()
     db.set_task_visibility(tid, "public")
-    assert calls[-1][1] == {"$and": [{"info.job_id": f"ui-{tid}"}, {"info.id": tid}]}, calls[-1]
+    # bridged (derived ui-<tid>) OR non-bridged (info.id) -- both the caller's own -- ANDed with
+    # unstamped-or-own; the forged ui-999999 never appears.
+    assert calls[-1][1] == {
+        "$and": [
+            {"$or": [{"info.job_id": f"ui-{tid}"}, {"info.id": tid}]},
+            {"$or": [{"info.tenant_id": None}, {"info.tenant_id": 10}]},
+        ]
+    }, calls[-1]
     assert "ui-999999" not in str(calls[-1][1]), "forged custom must not reach the write filter"
 
 

@@ -3998,16 +3998,15 @@ def search(request, searched=""):
         _tids = [t for t in (_result_task_id(r) for r in (records or [])) if t is not None]
         _visible = {t.id: t for t in db.list_tasks(task_ids=_tids, visible_to=viewer_for(request.user))} if _tids else {}
         # Central mode: viewer tenant $match for the get_analysis_info info.id fallback (audit MEDIUM).
+        # NO broad except -- viewer_scope() is deliberately fail-closed (see central_scope.py); swallowing
+        # a runtime error to None here would silently degrade to see-all. Matches index().
         _srch_scope = None
-        try:
-            from lib.cuckoo.common.central_mode import central_mode_config
+        from lib.cuckoo.common.central_mode import central_mode_config
 
-            if central_mode_config().enabled:
-                from analysis.central_scope import viewer_scope
+        if central_mode_config().enabled:
+            from analysis.central_scope import viewer_scope
 
-                _srch_scope = viewer_scope(request.user)
-        except Exception:
-            _srch_scope = None
+            _srch_scope = viewer_scope(request.user)
         analyses = []
         for result in records or []:
             tid = _result_task_id(result)

@@ -2268,8 +2268,10 @@ def tasks_bulkzip(request, task_id, folder):
     task_id, err = _resolve_task_id(request, task_id, "taskbulkzip")
     if err:
         return err
-    _central_stage(request, task_id)  # central mode: materialize the S3 tree before the local-FS reads
     f = (folder or "").lower()
+    # central mode: materialize the S3 tree; include the memory subtree when serving the memory folder
+    # (ensure_local_analysis excludes memory/ by default, so the default stage would leave it absent).
+    _central_stage(request, task_id, include_memory=(f == "memory"))
     if f not in _BULKZIP_FOLDERS:
         return Response({"error": True, "error_value": f"Unknown bulkzip folder: {folder}"})
     return _serve_folder_zip(task_id, f, f"{f}.zip")

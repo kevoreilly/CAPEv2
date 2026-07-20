@@ -982,7 +982,13 @@ class TasksMixIn:
                 from lib.cuckoo.common.central_mode import central_mode_config
 
                 if central_mode_config().enabled:
-                    _filt = {"$and": [{"info.job_id": f"ui-{int(task_id)}"}, {"info.id": int(task_id)}]}
+                    # Match the caller's OWN doc whether bridged (info.job_id 'ui-<task_id>', derived --
+                    # never from the forgeable custom) OR non-bridged / not-yet-job_id-stamped (info.id ==
+                    # task_id), ANDed with unstamped-or-own so a colliding FOREIGN doc sharing info.id
+                    # can't be relabeled (same guard as the reconcile). Keeping the info.id arm avoids a
+                    # silent no-op on a non-bridged doc that would leave mongo more-permissive than SQL.
+                    _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": getattr(task, "tenant_id", None)}]}
+                    _filt = {"$and": [{"$or": [{"info.job_id": f"ui-{int(task_id)}"}, {"info.id": int(task_id)}]}, _own]}
             except Exception:
                 pass
             try:

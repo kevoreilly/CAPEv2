@@ -47,8 +47,14 @@ def entitled_scopes(user):
     legacy behaviour.  Otherwise returns the per-scope panels appropriate for
     the viewer's tenancy.
     """
-    if _ut is None:  # MT layer absent -> single global panel (legacy behaviour)
-        return ["global"]
+    if _ut is None:
+        # _ut None can mean 'MT layer genuinely absent' (legacy single "global" panel) OR 'MT enabled but
+        # the users.tenancy import chain broke' -- in the latter, ["global"] (see-all) would silently drop
+        # the central enrichment scope to see-all. Fail CLOSED (no panels) when MT is detectably enabled,
+        # mirroring the tenancy_optional facade (f3494f98) / viewer_scope (300fcb50).
+        from lib.cuckoo.common.tenancy_optional import _mt_enabled
+
+        return [] if _mt_enabled() else ["global"]
     v = _ut.viewer_for(user)
     cfg = _ut.multitenancy_config()
     # Mode-INDEPENDENT, mirroring can_read / viewer_scope_match: the scoped panels
@@ -81,6 +87,10 @@ def entitled_scope_filter(user):
     scopes = entitled_scopes(user)
     if "global" in scopes:
         return None
+    if _ut is None:
+        # MT enabled but users.tenancy broke (entitled_scopes returned [] via _mt_enabled) -> no _ut to
+        # resolve a scope; fail closed to a deny-all $match rather than crash on _ut.viewer_for or see-all.
+        return {"info.id": -1}
     from lib.cuckoo.common.tenancy import scope_match
 
     v = _ut.viewer_for(user)

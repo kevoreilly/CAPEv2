@@ -434,3 +434,46 @@ def test_can_ban_user_missing_target_fails_closed(mt_enabled):
     acme = Tenant.objects.create(slug="acme", name="Acme")
     admin_a = _mk_user("admin_a", tenant=acme, is_tenant_admin=True)
     assert can_ban_user(admin_a, 999999) is False
+
+
+@pytest.mark.django_db
+def test_can_ban_user_mt_disabled_requires_staff(mt_disabled):
+    """PRIV-ESC guard: with MT OFF, viewer_for makes EVERY principal is_local_admin (back-compat see-all),
+    so can_ban_user must NOT fall through to the break-glass arm -- it keeps upstream's staff/superuser-only
+    boundary, else any authenticated user (the views gate solely on this) could ban accounts."""
+    from users.tenancy import can_ban_user
+
+    plain = _mk_user("plain")            # not staff, not superuser
+    staff = User.objects.create_user("st", "st@x.com", "x")
+    staff.is_staff = True
+    staff.save()
+    su = User.objects.create_user("su", "su@x.com", "x")
+    su.is_superuser = True
+    su.save()
+    victim = _mk_user("vic")
+    assert can_ban_user(plain, victim.id) is False   # non-staff must be denied (upstream boundary)
+    assert can_ban_user(staff, victim.id) is True
+    assert can_ban_user(su, victim.id) is True
+
+
+@pytest.mark.django_db
+def test_can_ban_user_tenant_admin_cannot_ban_privileged_or_self(mt_enabled):
+    """A tenant admin may ban a plain member of their tenant, but NOT a superuser/staff operator (privilege
+    inversion) nor themselves -- even within their own tenant."""
+    from users.models import Tenant, UserProfile
+    from users.tenancy import can_ban_user
+
+    acme = Tenant.objects.create(slug="acme", name="Acme")
+    admin_a = _mk_user("admin_a", tenant=acme, is_tenant_admin=True)
+    member = _mk_user("member", tenant=acme)
+    op_super = _mk_user("op_super", tenant=acme, is_superuser=True)  # operator who is an acme member
+    staff = User.objects.create_user("stf", "stf@x.com", "x")
+    staff.is_staff = True
+    staff.save()
+    sp = UserProfile.objects.get(user=staff)
+    sp.tenant = acme
+    sp.save()
+    assert can_ban_user(admin_a, member.id) is True             # plain member of own tenant -> allowed
+    assert can_ban_user(admin_a, op_super.id) is False          # superuser target -> refused
+    assert can_ban_user(admin_a, staff.id) is False             # staff target -> refused
+    assert can_ban_user(admin_a, admin_a.id) is False           # self-ban -> refused

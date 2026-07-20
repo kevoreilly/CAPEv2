@@ -116,13 +116,20 @@ def can_view_sample(user, *, sha256=None, sha1=None, md5=None, sample_id=None) -
 
 def can_ban_user(actor, target_user_id) -> bool:
     """Authorize banning target_user_id: deactivating the account (+ revoking API keys) and banning all
-    their tasks. Mirrors can_manage_task at USER granularity -- a break-glass local/IdP admin bans anyone;
-    a tenant admin bans only members of their OWN tenant; nobody else (a plain member or a non-admin
-    is_staff operator cannot reach across tenants). MT-disabled installs never call this: viewer_for makes
-    every principal a break-glass local-admin, and the tenancy_optional facade's MT-absent fallback keeps
-    the upstream staff/superuser-only boundary -- so this preserves single-node behaviour.
+    their tasks. The ban_user / ban_all_user_tasks views gate SOLELY on this call, so it must carry the
+    whole boundary itself:
+
+    - MT DISABLED: viewer_for marks EVERY principal is_local_admin (back-compat see-all, incl. anonymous),
+      so falling through to the break-glass arm would authorize anyone. Keep upstream's staff/superuser-only
+      boundary explicitly BEFORE consulting the viewer.
+    - MT ENABLED: a break-glass local/IdP admin bans anyone; a tenant admin bans only members of their OWN
+      tenant, and NOT a higher-privileged (superuser/staff) target nor themselves; nobody else.
 
     Fails closed (deny) on any resolution error rather than defaulting to allow."""
+    # Use the MODULE-LEVEL multitenancy_config (the same binding viewer_for uses and the test fixtures
+    # patch); an in-function re-import from the core module would bypass those (see submission_scope).
+    if not multitenancy_config().enabled:
+        return bool(getattr(actor, "is_staff", False) or getattr(actor, "is_superuser", False))
     viewer = viewer_for(actor)
     if viewer.is_local_admin:
         return True
@@ -131,8 +138,14 @@ def can_ban_user(actor, target_user_id) -> bool:
     from django.contrib.auth.models import User
 
     try:
-        prof = User.objects.select_related("userprofile").get(id=int(target_user_id)).userprofile
-        target_tenant = getattr(prof, "tenant_id", None)
+        target = User.objects.select_related("userprofile").get(id=int(target_user_id))
+        # A tenant admin must not ban an operator/higher-privileged account or themselves (unlike
+        # can_manage_task, which this mirrors, users carry privilege that tasks don't -- so guard the target).
+        if target.id == getattr(actor, "id", None):
+            return False
+        if getattr(target, "is_superuser", False) or getattr(target, "is_staff", False):
+            return False
+        target_tenant = getattr(target.userprofile, "tenant_id", None)
     except Exception:
         return False
     return target_tenant is not None and target_tenant == viewer.tenant_id

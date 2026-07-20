@@ -209,13 +209,18 @@ def _is_central_rewritten_id(job_id) -> bool:
     return bool(job_id) and re.match(r"^ui-(\d+)$", str(job_id)) is not None
 
 
-def _reconcile_write_filter(central_id, job_id, ids):
+def _reconcile_write_filter(central_id, job_id, ids, tenant_id=None):
     """Mongo filter for the reconcile tenancy stamp. A CENTRAL bridged doc is keyed by its
     globally-unique info.job_id -- a colliding worker-local doc sharing an info.id, reconciled under a
     DIFFERENT (worker) lock domain, must not be relabeled with this task's tenancy (audit HIGH, write
-    side). Single-node / non-bridged: the local DB is authoritative, so key on the info.id $in set."""
+    side). Single-node / non-bridged: the local DB is authoritative, so key on the info.id $in set.
+
+    Defence-in-depth: the central write ALSO requires the target doc to be UNSTAMPED (info.tenant_id null
+    = the fail-closed insert this reconcile exists to repair) OR already this tenant's -- so even if the
+    report's info.job_id ever traced to a forgeable custom, the reconcile can never RE-OWN a doc already
+    stamped for another tenant (companion to the set_task_visibility forgery fix)."""
     if central_id and job_id:
-        return {"info.job_id": job_id}
+        return {"$and": [{"info.job_id": job_id}, {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]}]}
     return {"info.id": {"$in": ids}}
 
 
@@ -349,7 +354,7 @@ def _reconcile_report_visibility(main_task_id, local_task_id, ids_to_delete, job
                 ids = [local_task_id]
             res = mongo_update_one(
                 "analysis",
-                _reconcile_write_filter(_central_id, job_id, ids),
+                _reconcile_write_filter(_central_id, job_id, ids, info.get("tenant_id")),
                 {"$set": {
                     "info.tenant_id": info.get("tenant_id"),
                     "info.user_id": info.get("user_id"),

@@ -4058,7 +4058,10 @@ def remove(request, task_id):
         return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
     if enabledconf["mongodb"]:
-        central_delete_analysis(request, int(task_id))
+        # Resolve the task's tenant WHILE the SQL row exists; the immediate Mongo delete is deferred to AFTER
+        # the SQL delete is committed (below) so a failure can't destroy the report while the task survives
+        # (same rollback-safety as the apiv2 delete routes).
+        _tenant = getattr(db.view_task(int(task_id)), "tenant_id", None)
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
         if path_exists(analyses_path):
             delete_folder(analyses_path)
@@ -4107,6 +4110,11 @@ def remove(request, task_id):
                 )
 
     db.delete_task(task_id)
+    if enabledconf["mongodb"]:
+        # SQL delete durable BEFORE the irreversible Mongo delete (db.delete_task only stages; the middleware
+        # commits after the view). _tenant was resolved above while the SQL row still existed.
+        db.session.commit()
+        central_delete_analysis(request, int(task_id), tenant_id=_tenant)
 
     return render(request, "success_simple.html", {"message": message})
 
@@ -4218,11 +4226,14 @@ def comments(request, task_id):
         buf["Data"] = "".join(escape_map.get(thechar, thechar) for thechar in comment)
         # status can be posted/removed
         buf["Status"] = "posted"
-        curcomments.insert(0, buf)
+        curcomments.insert(0, buf)  # for the ES whole-list update below
         if enabledconf["mongodb"] and _mongo_id is not None:
-            # Write by the exact _id we read (see the projection note above), not _cfilt, so a multi-match
-            # filter can't land the comment on a different doc than the one whose comments we just extended.
-            mongo_update_one("analysis", {"_id": _mongo_id}, {"$set": {"info.comments": curcomments}})
+            # Atomic $push keyed on the exact _id AND the own-doc filter: $push (not a read-modify-$set of the
+            # whole list) removes the self-vs-self LOST UPDATE when two comments land in one request window;
+            # re-ANDing _cfilt re-evaluates the tenant guard AT WRITE TIME (writing by bare _id would target the
+            # read-verified doc but not re-check the guard). $each/$position:0 preserves newest-first order.
+            mongo_update_one("analysis", {"$and": [{"_id": _mongo_id}, _cfilt]},
+                             {"$push": {"info.comments": {"$each": [buf], "$position": 0}}})
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)

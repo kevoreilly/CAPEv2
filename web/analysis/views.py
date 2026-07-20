@@ -4187,7 +4187,11 @@ def comments(request, task_id):
                 _cfilt = central_own_analysis_filter(task_id, getattr(db.view_task(task_id), "tenant_id", None))
             else:
                 _cfilt = _scoped_analysis_query(request, task_id)
-            report = mongo_find_one("analysis", _cfilt, {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
+            # Project _id so the write below can target the EXACT doc we read: _cfilt can match >1 doc (re-runs
+            # sharing an info.id, or a collision), the read picks newest via sort=[_id desc], but mongo_update_one
+            # takes no sort -- re-using _cfilt for the write could $set the comment onto a DIFFERENT doc.
+            report = mongo_find_one("analysis", _cfilt, {"info.comments": 1, "_id": 1}, sort=[("_id", -1)])
+            _mongo_id = report.get("_id") if report else None
         if es_as_db:
             query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
             report = query["_source"]
@@ -4215,8 +4219,10 @@ def comments(request, task_id):
         # status can be posted/removed
         buf["Status"] = "posted"
         curcomments.insert(0, buf)
-        if enabledconf["mongodb"]:
-            mongo_update_one("analysis", _cfilt, {"$set": {"info.comments": curcomments}})
+        if enabledconf["mongodb"] and _mongo_id is not None:
+            # Write by the exact _id we read (see the projection note above), not _cfilt, so a multi-match
+            # filter can't land the comment on a different doc than the one whose comments we just extended.
+            mongo_update_one("analysis", {"_id": _mongo_id}, {"$set": {"info.comments": curcomments}})
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)

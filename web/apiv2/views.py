@@ -1355,17 +1355,21 @@ def tasks_delete(request, task_id, status=False):
             f_deleted.append(str(task))
             continue
         # tenant isolation: only delete tasks the caller may manage
-        if not can_manage_task(request.user, db.view_task(task)):
+        _t = db.view_task(task)
+        if not can_manage_task(request.user, _t):
             f_deleted.append(str(task))
             continue
 
-        # central_delete_analysis resolves the task's OWN tenant (via view_task) to scope the Mongo delete, so
-        # it MUST run BEFORE db.delete_task removes the SQL row (else view_task returns None -> the guard can't
-        # resolve the tenant and the delete no-ops). The web remove() view already calls it in this order.
-        if web_conf.web_reporting.get("enabled", True):
-            central_delete_analysis(request, task)
+        # Resolve the task's OWN tenant WHILE the SQL row exists (central_delete_analysis uses it to scope the
+        # Mongo delete), but run the Mongo delete AFTER db.delete_task + delete_folder succeed: the Mongo
+        # delete_many is immediate/non-transactional, so doing it first means a delete_folder failure (rolled
+        # back by DBTransactionMiddleware) would destroy the report while the task survives.
+        _central = web_conf.web_reporting.get("enabled", True)
+        _tenant = getattr(_t, "tenant_id", None) if _central else None
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
+            if _central:
+                central_delete_analysis(request, task, tenant_id=_tenant)
             s_deleted.append(str(task))
         else:
             f_deleted.append(str(task))
@@ -1601,9 +1605,9 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
         # errored when the path was BOTH out-of-tree AND existed, which was a copy-paste hazard.
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
             return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
-        # Separately guard a missing dir: in central mode a best-effort _central_stage that raised (Http404
-        # before os.makedirs) leaves no local analysis dir, so the bare os.listdir below would raise
-        # FileNotFoundError -> HTTP 500 instead of a clean JSON error.
+        # Separately guard a missing dir: in central mode _central_stage is best-effort (it swallows all
+        # exceptions), so a stage that failed silently leaves no local analysis dir and the bare os.listdir
+        # below would raise FileNotFoundError -> HTTP 500 instead of a clean JSON error.
         if not path_exists(srcdir):
             return Response({"error": True, "error_value": "No analysis directory for task %s" % task_id})
 
@@ -1689,9 +1693,10 @@ def tasks_iocs(request, task_id, detail=None):
         return Response(resp)
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        # path_exists as well as the traversal guard: in central mode a best-effort _central_stage that raised
-        # (Http404 before os.makedirs) leaves no local report.json, so a bare open() would raise
-        # FileNotFoundError -> HTTP 500 instead of the clean JSON error below (mirrors tasks_selfextracted).
+        # path_exists as well as the traversal guard: in central mode _central_stage is best-effort (it
+        # swallows all exceptions), so a stage that failed silently leaves no local report.json and a bare
+        # open() would raise FileNotFoundError -> HTTP 500 instead of the clean JSON error below (mirrors
+        # tasks_selfextracted).
         if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH) and path_exists(jfile):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
@@ -3198,9 +3203,10 @@ def tasks_config(request, task_id, cape_name=False):
             buf = None
     if repconf.jsondump.get("enabled") and not buf:
         jfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports", "report.json")
-        # path_exists as well as the traversal guard: in central mode a best-effort _central_stage that raised
-        # (Http404 before os.makedirs) leaves no local report.json, so a bare open() would raise
-        # FileNotFoundError -> HTTP 500 instead of the clean JSON error below (mirrors tasks_selfextracted).
+        # path_exists as well as the traversal guard: in central mode _central_stage is best-effort (it
+        # swallows all exceptions), so a stage that failed silently leaves no local report.json and a bare
+        # open() would raise FileNotFoundError -> HTTP 500 instead of the clean JSON error below (mirrors
+        # tasks_selfextracted).
         if os.path.normpath(jfile).startswith(ANALYSIS_BASE_PATH) and path_exists(jfile):
             with open(jfile, "r") as jdata:
                 buf = json.load(jdata)
@@ -3249,8 +3255,12 @@ def post_processing(request, category, task_id):
             _pp_filter = central_own_analysis_filter(int(task_id), getattr(db.view_task(int(task_id)), "tenant_id", None))
         else:
             _pp_filter = {"info.id": int(task_id)}
-        _ = mongo_find_one_and_update("analysis", _pp_filter, {"$set": {category: content}})
-        resp = {"error": False, "msg": "Added under the key {}".format(category)}
+        # Fail loud: a 0-match must NOT report success (else a dropped $set on a non-bridged/absent doc looks
+        # like it landed). mongo_find_one_and_update returns None when nothing matched.
+        if mongo_find_one_and_update("analysis", _pp_filter, {"$set": {category: content}}) is None:
+            resp = {"error": True, "msg": "No analysis doc for task {}".format(task_id)}
+        else:
+            resp = {"error": False, "msg": "Added under the key {}".format(category)}
     else:
         resp = {"error": True, "msg": "Missed content data or category"}
 
@@ -3295,12 +3305,15 @@ def tasks_delete_many(request):
             if task.status == TASK_RUNNING:
                 response.setdefault(task_id, "running")
                 continue
-            # BEFORE db.delete_task: central_delete_analysis resolves the task's tenant via view_task to scope
-            # the Mongo delete, so it must run while the SQL row still exists.
-            if delete_mongo:
-                central_delete_analysis(request, task_id)
+            # Resolve the task's tenant WHILE the SQL row exists (from the row we already fetched), but run the
+            # Mongo delete AFTER db.delete_task + delete_folder succeed -- the Mongo delete_many is immediate/
+            # non-transactional, so doing it first would lose the report if delete_folder fails and the SQL is
+            # rolled back by DBTransactionMiddleware.
+            _tenant = getattr(task, "tenant_id", None)
             if db.delete_task(task_id):
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
+                if delete_mongo:
+                    central_delete_analysis(request, task_id, tenant_id=_tenant)
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"

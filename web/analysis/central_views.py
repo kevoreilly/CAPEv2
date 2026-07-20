@@ -121,7 +121,10 @@ def scoped_analysis_query(request, task_id, extra=None):
     return {"$and": [q, extra]} if extra else q
 
 
-def central_delete_analysis(request, task_id):
+_TENANT_UNSET = object()  # sentinel: distinguish "tenant not passed" (do a guarded view_task) from "tenant is None"
+
+
+def central_delete_analysis(request, task_id, tenant_id=_TENANT_UNSET):
     """Delete a task's Mongo analysis + call chunks, tenant-scoped in central mode.
 
     Single-node / non-central: delegates to the upstream mongo_delete_data(task_id) (unchanged).
@@ -135,10 +138,12 @@ def central_delete_analysis(request, task_id):
     PUBLIC/TENANT arms match OTHER owners'/tenants' docs) NOR a forgeable custom job_id: keying on those let a
     caller destroy any public/same-tenant analysis via custom='job_id=ui-<victim>' (adversarial-review HIGH).
     The key is DERIVED from the authorized task_id (the caller already passed can_manage_task on it); the
-    tenant guard uses the TASK's own tenant, so it must run BEFORE the caller deletes the SQL row -- the apiv2
-    delete routes call this first (the web remove() view already does). Delete the resolved doc by _id + its
-    OWN call chunks by their ObjectIds (from behavior.processes[].calls), never by the bare task_id (a
-    colliding tenant's calls also carry it).
+    tenant guard uses the TASK's own tenant. The apiv2 delete routes resolve that tenant WHILE the SQL row
+    exists and pass it as `tenant_id`, then call this AFTER the SQL + folder delete succeed (the Mongo delete
+    is immediate/non-transactional, so running it first would lose the report if delete_folder fails and the
+    SQL is rolled back). The web remove() caller omits tenant_id and relies on the guarded view_task fallback.
+    Delete the resolved doc by _id + its OWN call chunks by their ObjectIds (from behavior.processes[].calls),
+    never by the bare task_id (a colliding tenant's calls also carry it).
 
     A 0-match is LOGGED (not silent): the SQL row + local tree are gone by the time the caller reports
     "deleted", so a Mongo doc left behind (report not written yet, or a foreign-only collision the tenant
@@ -163,12 +168,22 @@ def central_delete_analysis(request, task_id):
         int(task_id)
     except (TypeError, ValueError):
         return  # non-numeric id: nothing to delete Mongo-side (caller still removes SQL + local tree)
-    # Resolve the task's own tenant for the guard. Called BEFORE the SQL row is deleted (apiv2 routes reordered
-    # for this), so view_task returns the row; None on a genuinely-missing task -> the unstamped-or-null arm.
-    from lib.cuckoo.core.database import Database
+    # Resolve the task's own tenant for the guard. The Mongo delete is immediate + non-transactional, so the
+    # caller resolves the tenant WHILE the SQL row exists and passes it here to run the Mongo delete AFTER the
+    # SQL + folder delete succeed (else a delete_folder failure rolled back by DBTransactionMiddleware would
+    # destroy the report while the task survives). If tenant_id is left unset (the web remove() caller), fall
+    # back to a GUARDED view_task; an RDS failure fails closed (leave Mongo intact) rather than 500 mid-delete.
+    if tenant_id is _TENANT_UNSET:
+        try:
+            from lib.cuckoo.core.database import Database
 
-    _task = Database().view_task(task_id)
-    _mine = getattr(_task, "tenant_id", None) if _task else None
+            _task = Database().view_task(task_id)
+            _mine = getattr(_task, "tenant_id", None) if _task else None
+        except Exception:
+            log.exception("central delete: tenant lookup failed for task %s; leaving Mongo unchanged", task_id)
+            return
+    else:
+        _mine = tenant_id
     doc = mongo_find_one(
         "analysis", central_own_analysis_filter(task_id, _mine), {"_id": 1, "behavior.processes.calls": 1})
     if not doc:

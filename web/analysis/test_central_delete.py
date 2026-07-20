@@ -119,3 +119,53 @@ def test_delete_central_zero_match_logs_and_deletes_nothing(monkeypatch, caplog)
     assert deletes == [], "fail-closed: nothing deleted Mongo-side when no own doc resolves"
     assert any("no own analysis doc matched" in r.getMessage() for r in caplog.records), \
         "a 0-match delete must be LOGGED, not a silent success (SQL row + tree already gone)"
+
+
+def test_delete_central_passed_tenant_skips_view_task(monkeypatch):
+    """The apiv2 delete routes reorder the Mongo delete to AFTER the SQL delete (so a delete_folder failure
+    can't destroy the report while the task survives), which means view_task would return None by then. They
+    pass the tenant resolved BEFORE the SQL delete via tenant_id=; when it is passed, central_delete_analysis
+    must NOT consult the DB at all."""
+    import analysis.central_views as cv
+
+    _central(monkeypatch, True)
+
+    def _boom(*a, **k):
+        raise AssertionError("view_task consulted despite an explicit tenant_id")
+
+    monkeypatch.setattr("lib.cuckoo.core.database.Database", _boom, raising=False)
+    captured = {}
+    monkeypatch.setattr("dev_utils.mongodb.mongo_find_one",
+                        lambda coll, q, proj=None: captured.__setitem__("f", q), raising=False)
+    monkeypatch.setattr("dev_utils.mongodb.mongo_delete_many", lambda *a, **k: None, raising=False)
+
+    cv.central_delete_analysis(_Req(object()), 5, tenant_id=10)
+    f = captured["f"]
+    assert _mongo_matches({"info": {"id": 5, "job_id": "ui-5", "tenant_id": 10}}, f), "own doc still matches"
+    assert not _mongo_matches({"info": {"id": 5, "job_id": "local-5"}}, f), \
+        "a foreign UNSTAMPED colliding doc must NOT match (tenant guard uses the passed tenant)"
+
+
+def test_delete_central_tenant_lookup_failure_fails_closed(monkeypatch, caplog):
+    """When tenant_id is NOT passed (the web remove() caller) and the guarded view_task raises (RDS blip), the
+    delete fails closed -- logs and leaves Mongo untouched -- rather than 500-ing mid-delete."""
+    import logging
+    import analysis.central_views as cv
+
+    _central(monkeypatch, True)
+
+    class _DB:
+        def view_task(self, tid):
+            raise RuntimeError("central RDS pool exhausted")
+
+    monkeypatch.setattr("lib.cuckoo.core.database.Database", _DB, raising=False)
+    deletes = []
+    monkeypatch.setattr("dev_utils.mongodb.mongo_find_one",
+                        lambda *a, **k: deletes.append("find") or None, raising=False)
+    monkeypatch.setattr("dev_utils.mongodb.mongo_delete_many", lambda *a, **k: deletes.append("del"), raising=False)
+
+    with caplog.at_level(logging.ERROR):
+        cv.central_delete_analysis(_Req(object()), 9)
+
+    assert deletes == [], "fail-closed: no Mongo read/delete when the tenant can't be resolved"
+    assert any("tenant lookup failed" in r.getMessage() for r in caplog.records)

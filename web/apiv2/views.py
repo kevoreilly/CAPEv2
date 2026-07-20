@@ -2275,11 +2275,14 @@ def tasks_bulkzip(request, task_id, folder):
     if err:
         return err
     f = (folder or "").lower()
-    # central mode: materialize the S3 tree. memory/ is NOT a bulkzip folder (see above),
-    # so it is never staged here -- the policy-gated tasks_procmemory owns that surface.
-    _central_stage(request, task_id)
+    # Validate the folder BEFORE staging: an unknown folder is a 4xx client error, and staging first would
+    # pay a full S3 list + tree download only to reject. (memory/ was removed from the whitelist -- process/
+    # full-memory dumps are served only via the policy-gated tasks_procmemory/tasks_fullmemory -- so a
+    # folder=memory request now 400s here rather than silently returning a 200 with an empty archive.)
     if f not in _BULKZIP_FOLDERS:
-        return Response({"error": True, "error_value": f"Unknown bulkzip folder: {folder}"})
+        return Response({"error": True, "error_value": f"Unknown bulkzip folder: {folder}"}, status=400)
+    # central mode: materialize the S3 tree for the (now-validated) folder. memory/ is never staged here.
+    _central_stage(request, task_id)
     return _serve_folder_zip(task_id, f, f"{f}.zip")
 
 

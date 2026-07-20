@@ -169,6 +169,38 @@ def test_job_id_for_task_rds_forged_denied(monkeypatch):
         a._job_id_for_task(9, scope={"info.tenant_id": 7})
 
 
+def test_job_id_for_task_bridge_required_denies_nonbridged_scoped(monkeypatch):
+    """Option A: bridge-required (central+MT) + a tenant scope + no RDS ui- job_id -> Http404. A non-bridged
+    task has no tenant-safe artifact, so we must NOT fall through to the info.id lookup (whose scope arm could
+    surface a foreign public collision). Break-glass (scope None) is unaffected -- covered separately."""
+    import lib.cuckoo.common.artifact_storage as a
+    import lib.cuckoo.common.central_mode as cm
+    import pytest
+    from django.http import Http404
+    a._JOB_ID_CACHE.clear()
+    monkeypatch.setattr(a, "_rds_job_id", lambda tid: None)          # non-bridged
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
+
+    def boom(*x, **k):
+        raise AssertionError("mongo fallback consulted despite bridge-required")
+    monkeypatch.setattr("dev_utils.mongodb.mongo_find_one", boom, raising=False)
+    with pytest.raises(Http404):
+        a._job_id_for_task(9, scope={"info.tenant_id": 3})
+
+
+def test_job_id_for_task_bridge_required_break_glass_still_falls_back(monkeypatch):
+    """scope None (see-all / break-glass / MT-off) is NOT denied even when the bridge is required -- there is
+    no tenant boundary to cross, so an admin can still resolve a non-bridged doc."""
+    import lib.cuckoo.common.artifact_storage as a
+    import lib.cuckoo.common.central_mode as cm
+    a._JOB_ID_CACHE.clear()
+    monkeypatch.setattr(a, "_rds_job_id", lambda tid: None)
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
+    monkeypatch.setattr("dev_utils.mongodb.mongo_find_one",
+                        lambda coll, q, proj: {"info": {"job_id": "local-9"}}, raising=False)
+    assert a._job_id_for_task(9, scope=None) == "local-9"
+
+
 def test_job_id_for_task_fallback_scoped(monkeypatch):
     """Non-bridged (no RDS job_id): fall back to the mongo info.id lookup ANDed with the
     viewer scope (the cross-store id-collision defence)."""

@@ -200,6 +200,15 @@ def _job_id_for_task(task_id, scope=None):
         tid = int(task_id)
     except (TypeError, ValueError):
         raise Http404("invalid task id")
+    # BRIDGE-REQUIRED (central+MT): a non-bridged task has no RDS-derived ui- job_id and no tenancy by
+    # construction, so a tenant-scoped viewer has no tenant-safe non-bridged artifact — deny rather than fall
+    # through to the info.id lookup (whose scope arm could still surface a foreign PUBLIC non-bridged doc that
+    # collides on info.id). scope None (see-all / break-glass / MT-off) is unaffected.
+    if scope is not None:
+        from lib.cuckoo.common.central_mode import central_bridge_required
+
+        if central_bridge_required():
+            raise Http404("no bridged job_id for task")
     query = {"info.id": tid}
     if scope:
         query = {"$and": [query, scope]}

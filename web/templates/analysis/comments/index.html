@@ -11,7 +11,7 @@
 </form>
 <hr>
 {% if analysis.info.comments %}
-{% for comment in analysis.info.comments|reversed %}{# comments are stored chronologically (append); render newest-first #}
+{% for comment in analysis.info.comments|dictsortreversed:"Timestamp" %}{# newest-first, order-agnostic (works for both append-stored and legacy insert(0) threads); Timestamp is %Y-%m-%d %H:%M:%S so it sorts lexicographically #}
 <div class="alert alert-primary text-white fs-6"><b>[{{comment.Timestamp}}]</b><br />{{comment.Data|safe}}</div>
 {% endfor %}
 {% else %}

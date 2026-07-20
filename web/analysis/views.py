@@ -4123,6 +4123,9 @@ def remove(request, task_id):
             import logging
 
             logging.getLogger(__name__).error("remove: delete_folder failed for task %s: %s", task_id, _fe)
+            # Don't claim a clean "Task(s) deleted." -- the SQL row is already committed away, so the leftover
+            # tree (submitted sample + dropped files) has no row/UI path left to reap it. Surface it.
+            message = "Task removed, but its analysis files could not be fully deleted (see server logs)."
         central_delete_analysis(request, int(task_id), tenant_id=_tenant)
 
     return render(request, "success_simple.html", {"message": message})
@@ -4240,8 +4243,9 @@ def comments(request, task_id):
             # Atomic $push {$each:[buf]} (append) keyed on {_id AND the own-doc filter}. $each is DocumentDB-safe
             # ($position is NOT -- like $facet, worked around elsewhere in this tree), it removes the whole-list
             # read-modify-write LOST UPDATE, and pushing ONLY buf makes it immune to the with-ES-enabled hazard
-            # where curcomments is seeded from the ES doc while _mongo_id points at the Mongo doc. Newest-first
-            # display is preserved by a |reversed in web/templates/analysis/comments/index.html. A 0-match OR a
+            # where curcomments is seeded from the ES doc while _mongo_id points at the Mongo doc. Display order
+            # is handled Timestamp-wise (dictsortreversed) in the template, so storage order is irrelevant and
+            # no migration of legacy insert(0) threads is needed. A 0-match OR a
             # None result (graceful_auto_reconnect exhausted its AutoReconnect retries and returned None) means
             # the write did NOT land -> LOG, don't silently drop the comment on the success redirect (mirrors
             # set_task_visibility's `if _res is None`).

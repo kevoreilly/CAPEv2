@@ -41,9 +41,8 @@ except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
 try:
-    from dev_utils.mongodb import mongo_find_one, mongo_update_one
+    from dev_utils.mongodb import mongo_update_one
 except Exception:  # mongo optional
-    mongo_find_one = None
     mongo_update_one = None
 
 
@@ -988,36 +987,26 @@ class TasksMixIn:
             # would then make it {visibility: tenant, tenant_id: null} — matching NO
             # viewer scope (invisible even to the owner). Restamping ownership here is
             # idempotent for a normal toggle and repairs that orphan.
-            # Central mode: key the write on the task's OWN doc, DERIVED from the authorized task_id -- never
-            # read task.custom (a user-supplied field a caller can forge; adversarial-review HIGH, write side).
-            # Match: the derived bridged key (info.job_id 'ui-<task_id>'); OR info.id==task_id with a job_id
-            # that is null / not-yet-stamped or the bridged 'ui-<task_id>'; OR the direct-submit
-            # 'local-<task_id>' (resolve_job_id's non-broker fallback; only 'ui-*' rewrites info.id, so an own
-            # direct-submit doc keeps info.id==task_id + job_id 'local-<task_id>') -- but the local- arm ONLY
-            # when the doc already carries OUR tenant_id (stamp_tenant_info stamps info.tenant_id at report
-            # time), so a FOREIGN unstamped worker-local doc (tenant_id null) colliding on info.id can NOT be
-            # matched/re-owned. ANDed with unstamped-or-own as a second layer. Non-central: bare info.id
-            # (upstream shape). (When task.tenant_id is itself None -- MT-off / untenanted -- the local- arm
-            # collapses to the null tenant, acceptable there.)
-            _filt = {"info.id": task_id}
+            # Central mode: key the write on the task's OWN doc via the SHARED derived filter
+            # central_own_analysis_filter(task_id) = {info.job_id: 'ui-<task_id>'}. That bridge-assigned key is
+            # globally unique (can't collide with a worker-local 'local-<n>' doc) and DERIVED from the
+            # authorized task_id (can't be steered by a forged custom), so it uniquely + unforgeably addresses
+            # this task's doc with no id-collision / tenant / ownership gymnastics. The same helper backs the
+            # central DELETE, so write and delete can't drift. Non-central: bare info.id (upstream shape).
             _mine = getattr(task, "tenant_id", None)
-            _own = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": _mine}]}
+            _filt = {"info.id": task_id}
             try:
-                from lib.cuckoo.common.central_mode import central_mode_config
+                from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
 
                 _central = central_mode_config().enabled
             except Exception:
-                # Can't determine mode -> assume central and FAIL CLOSED: use the constrained own-doc filter
+                # Can't determine mode -> assume central and FAIL CLOSED: use the derived unique-key filter
                 # rather than dropping to the unscoped bare {info.id} write (which, on a central node, could
                 # re-own a colliding foreign doc). Consistent with viewer_scope / _mt_enabled fail-closed.
                 _central = True
+                from lib.cuckoo.common.central_mode import central_own_analysis_filter
             if _central:
-                _tid = int(task_id)
-                _filt = {"$and": [{"$or": [
-                    {"info.job_id": f"ui-{_tid}"},
-                    {"$and": [{"info.id": _tid}, {"info.job_id": {"$in": [None, f"ui-{_tid}"]}}]},
-                    {"$and": [{"info.id": _tid}, {"info.job_id": f"local-{_tid}"}, {"info.tenant_id": _mine}]},
-                ]}, _own]}
+                _filt = central_own_analysis_filter(task_id)
             try:
                 _res = mongo_update_one(
                     "analysis", _filt,
@@ -1034,25 +1023,13 @@ class TasksMixIn:
                 # graceful_auto_reconnect exhausted its retries (driver failure) -> abort so the caller rolls
                 # the SQL change back rather than leaving the stores divergent.
                 return False
-            # A 0-match is NOT a driver failure: the write is well-formed, it just addressed no document. That
-            # is SAFE only when NO doc exists yet -- the reconcile stamps it from the authoritative SQL value on
-            # report. But if a doc DOES exist at this info.id that our scoped filter could not address (an own
-            # doc whose info.job_id is a bare submitter token, or a foreign colliding doc), succeeding here
-            # would leave mongo more permissive than SQL. Distinguish the two with one existence probe and
-            # report FAILURE in the latter case so the caller aborts a RESTRICTIVE toggle (SQL rolls back,
-            # stores stay consistent) and logs a PERMISSIVE one (mongo stays less-permissive = fail-closed).
+            # A 0-match on the unique derived key means this task's report is not written yet -- the reconcile
+            # stamps it from the authoritative SQL value on report -- so it is a SAFE no-op, NOT an error: the
+            # unique key can't have missed an existing own doc, so there is nothing left more-permissive than
+            # SQL to worry about. Surface it for observability; do NOT abort the toggle.
             if _central and getattr(_res, "matched_count", 1) == 0:
-                try:
-                    _exists = mongo_find_one is not None and mongo_find_one(
-                        "analysis", {"info.id": int(task_id)}, {"_id": 1}) is not None
-                except Exception:
-                    _exists = True  # can't tell -> assume a doc exists (fail closed)
-                if _exists:
-                    log.warning("visibility mongo sync matched 0 docs for task %s but a doc exists at that "
-                                "info.id the scoped filter could not address; reporting sync failure", task_id)
-                    return False
                 log.warning("visibility mongo sync matched 0 docs for task %s (report not yet written); SQL is "
-                            "authoritative, reconcile will re-stamp", task_id)
+                            "authoritative, reconcile will re-stamp on report", task_id)
             return True
 
         try:

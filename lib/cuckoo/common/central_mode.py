@@ -162,3 +162,29 @@ def central_mode_config() -> "CentralModeConfig":
     except Exception:
         sec = {}
     return _parse(sec)
+
+
+def central_own_analysis_filter(task_id):
+    """The Mongo filter that identifies the caller's OWN analysis doc for a central task, DERIVED from the
+    authorized task_id. It is the SINGLE key used by every central WRITE that mutates a task's own doc --
+    the visibility-toggle write (lib.cuckoo.core.data.tasking.set_task_visibility) and the central DELETE
+    (web.analysis.central_views.central_delete_analysis) -- so the two can never drift.
+
+    Why info.job_id = 'ui-<task_id>' is the right (and sufficient) key in the central topology:
+      * The submit-bridge assigns a GLOBALLY-UNIQUE job_id 'ui-<central_task_id>' to every task it enqueues,
+        and centralstore stamps that verbatim into info.job_id (and rewrites info.id to the same central id).
+        So 'ui-<task_id>' is unique across the shared DocumentDB -- it CANNOT collide with a worker-local doc
+        (which carries a different 'local-<n>' job_id).
+      * It is DERIVED from the authorized task_id, never read from the user-supplied `custom`, so a client
+        cannot steer it to another task's id (the forgery class of the earlier `custom`-keyed reads/writes).
+      * The caller has already passed can_manage_task / a visibility gate on that task_id, so addressing that
+        task's own doc needs no further ownership predicate -- the key is not cross-tenant reachable.
+
+    A 0-match therefore means "this task's report is not written yet" (the reconcile stamps it from the
+    authoritative SQL value on report) -- callers treat that as a safe no-op, never an error.
+
+    RESIDUAL (documented follow-up): a BRIDGE-LESS / direct-submit central deployment produces docs keyed
+    'local-<worker_id>' (no 'ui-<id>'), which this filter does not address; their toggle/delete Mongo-sync
+    no-ops (SQL stays authoritative). Supporting that would need resolving the authorized job_id from the RDS
+    custom or a positive store/node discriminator -- out of scope for the bridge topology this feature ships."""
+    return {"info.job_id": f"ui-{int(task_id)}"}

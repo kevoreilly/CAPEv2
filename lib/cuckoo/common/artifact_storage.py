@@ -280,17 +280,20 @@ def ensure_local_analysis(task_id, scope=None, exclude_prefixes=("memory/", "mem
         log.warning("central mode: failed to stage analysis %s: %s", task_id, e)
 
 
-def ensure_local_memory(task_id, scope=None):
-    """Central mode: stage the memory dumps (the memory/ per-process subtree AND the root
-    memory.dmp[.zip/.strings] full-RAM image) — which ensure_local_analysis EXCLUDES from the
-    bulk stage because they are large — to the local analysis dir, on EXPLICIT demand (the
-    memory-download endpoints). Idempotent per-file; not marker-gated. Best-effort (a clean Http404
-    propagates so the view 404s; other errors are swallowed)."""
+def ensure_local_memory(task_id, scope=None, include_full_ram=True):
+    """Central mode: stage the memory dumps (the memory/ per-process subtree AND, when include_full_ram, the
+    root memory.dmp[.zip/.strings] full-RAM image) — which ensure_local_analysis EXCLUDES from the bulk stage
+    because they are large — to the local analysis dir, on EXPLICIT demand (the memory-download endpoints).
+    include_full_ram=False stages ONLY the per-process memory/ subtree: the procmemory endpoints serve
+    per-process dumps, so they must not pull the multi-GB root full-RAM image onto the web node (that image
+    is gated separately by [taskfullmemory] and served only by tasks_fullmemory). Idempotent per-file; not
+    marker-gated. Best-effort (a clean Http404 propagates so the view 404s; other errors are swallowed)."""
     cfg = central_mode_config()
     if not cfg.enabled:
         return
     try:
-        _stage_tree(task_id, scope, want=lambda rel: rel.startswith("memory/") or rel.startswith("memory.dmp"))
+        _stage_tree(task_id, scope, want=lambda rel: rel.startswith("memory/") or (
+            include_full_ram and rel.startswith("memory.dmp")))
     except Exception as e:
         from django.http import Http404
 

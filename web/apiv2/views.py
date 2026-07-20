@@ -1461,6 +1461,12 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
 
+    # Gate the "all" bulk archive BEFORE staging so a refused request never materializes the full analysis
+    # tree onto the web node's disk (central mode) + writes the .central_staged marker (the inner check below
+    # is now redundant but kept defensively).
+    if report_format.lower() == "all" and not apiconf.taskreport.get("all"):
+        return Response({"error": True, "error_value": "Downloading all reports in one call is disabled"})
+
     _central_stage(request, task_id)
 
     resp = {}
@@ -2011,15 +2017,17 @@ def _resolve_task_id(request, task_id, enabled_key, check_tlp=True):
     return task_id, None
 
 
-def _central_stage(request, task_id, include_memory=False):
+def _central_stage(request, task_id, include_memory=False, include_full_ram=True):
     """Central mode: stage the S3 results/<job_id>/ tree to the local
     storage/analyses/<task_id>/ dir so the local-FS artifact reads in the apiv2
     download endpoints below work (same generic seam the web report view uses —
     avoids rewriting each endpoint's FS reads). MUST be called AFTER the endpoint's
     per-task authorization so an unauthorized task_id is never staged. The large
     memory dumps are excluded from the bulk stage; the fullmemory/procmemory
-    endpoints pass include_memory=True to stage them on explicit demand. No-op
-    single-node; best-effort (never raises)."""
+    endpoints pass include_memory=True to stage them on explicit demand.
+    include_full_ram=False (the procmemory endpoints) stages only the per-process
+    memory/ subtree, not the multi-GB root full-RAM image. No-op single-node;
+    best-effort (never raises)."""
     try:
         from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -2031,7 +2039,7 @@ def _central_stage(request, task_id, include_memory=False):
         scope = viewer_scope(request.user)
         ensure_local_analysis(task_id, scope=scope)
         if include_memory:
-            ensure_local_memory(task_id, scope=scope)
+            ensure_local_memory(task_id, scope=scope, include_full_ram=include_full_ram)
     except Exception:
         pass
 
@@ -2680,7 +2688,9 @@ def tasks_procmemory(request, task_id, pid="all"):
     # tree onto the web node's disk (central mode). The per-pid path has no "all" gate; it stages below.
     if pid == "all" and not apiconf.taskprocmemory.get("all"):
         return Response({"error": True, "error_value": "Downloading of all process memory dumps is disabled"})
-    _central_stage(request, task_id, include_memory=True)
+    # procmemory serves PER-PROCESS dumps (memory/<pid>.dmp); stage only that subtree, NOT the multi-GB root
+    # full-RAM image (memory.dmp) -- that is gated by [taskfullmemory] and served only by tasks_fullmemory.
+    _central_stage(request, task_id, include_memory=True, include_full_ram=False)
     # Check if any process memory dumps exist
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", "memory")
     if not path_exists(srcdir):

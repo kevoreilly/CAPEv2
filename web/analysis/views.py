@@ -4134,7 +4134,13 @@ def remove(request, task_id):
             import logging
 
             logging.getLogger(__name__).error("remove: central delete failed for task %s: %s", task_id, _me)
-            message = "Task removed, but its analysis report could not be deleted (see server logs)."
+            # Compose (don't clobber) so a simultaneous folder failure isn't hidden -- the leftover tree
+            # (sample + dropped files) is the PII/retention-relevant half and must still be surfaced.
+            message = (
+                "Task removed, but its analysis files AND report could not be deleted (see server logs)."
+                if "analysis files" in message
+                else "Task removed, but its analysis report could not be deleted (see server logs)."
+            )
 
     return render(request, "success_simple.html", {"message": message})
 

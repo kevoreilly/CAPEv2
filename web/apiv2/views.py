@@ -1359,11 +1359,13 @@ def tasks_delete(request, task_id, status=False):
             f_deleted.append(str(task))
             continue
 
+        # central_delete_analysis resolves the task's OWN tenant (via view_task) to scope the Mongo delete, so
+        # it MUST run BEFORE db.delete_task removes the SQL row (else view_task returns None -> the guard can't
+        # resolve the tenant and the delete no-ops). The web remove() view already calls it in this order.
+        if web_conf.web_reporting.get("enabled", True):
+            central_delete_analysis(request, task)
         if db.delete_task(task):
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task))
-            if web_conf.web_reporting.get("enabled", True):
-                central_delete_analysis(request, task)
-
             s_deleted.append(str(task))
         else:
             f_deleted.append(str(task))
@@ -3263,10 +3265,12 @@ def tasks_delete_many(request):
             if task.status == TASK_RUNNING:
                 response.setdefault(task_id, "running")
                 continue
-            if db.delete_task(task_id):
-                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
+            # BEFORE db.delete_task: central_delete_analysis resolves the task's tenant via view_task to scope
+            # the Mongo delete, so it must run while the SQL row still exists.
             if delete_mongo:
                 central_delete_analysis(request, task_id)
+            if db.delete_task(task_id):
+                delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
         else:
             response.setdefault(task_id, "not exists")
     response["status"] = "OK"

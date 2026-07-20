@@ -129,25 +129,26 @@ def central_delete_analysis(request, task_id):
     Central mode: a colliding worker-local / direct-submit / reconcile-skipped doc for another tenant can
     share this task's bare info.id (analysis) and task_id (calls) in the shared DocumentDB, so an unscoped
     mongo_delete_data would DESTROY that tenant's docs (audit MEDIUM cross-tenant destructive write). Resolve
-    ONLY the caller's OWN doc via the SHARED central_own_analysis_filter(task_id) = {info.job_id:
-    'ui-<task_id>'} -- the same globally-unique, DERIVED (never read from custom), collision-free key the
-    visibility-toggle write uses, so delete and write can't drift. A destructive delete must NOT reuse the
-    read viewer_scope (its PUBLIC/TENANT arms match OTHER owners'/tenants' docs) NOR a forgeable custom
-    job_id: keying on those let a caller destroy any public/same-tenant analysis via custom='job_id=ui-<victim>'
-    (adversarial-review HIGH). Because the key is derived from the authorized task_id (the caller already
-    passed can_manage_task on it) and 'ui-<task_id>' is unique, no tenant/ownership predicate is needed and
-    the doc is not cross-tenant reachable -- and it does NOT depend on the SQL row still existing, so the apiv2
-    routes that delete the relational row first are unaffected. Delete the resolved doc by _id + its OWN call
-    chunks by their ObjectIds (from behavior.processes[].calls), never by the bare task_id (a colliding
-    tenant's calls also carry it). FAIL-CLOSED: no own doc resolves -> delete nothing Mongo-side (the caller
-    still removes the SQL row + local tree).
+    ONLY the caller's OWN doc via the SHARED central_own_analysis_filter(task_id, tenant) = {ui-<task_id> OR
+    info.id==task_id} AND unstamped-or-own -- the same filter the visibility-toggle write + the comment write
+    use (and mirroring the READ filter), so they can't drift. It must NOT reuse the read viewer_scope (its
+    PUBLIC/TENANT arms match OTHER owners'/tenants' docs) NOR a forgeable custom job_id: keying on those let a
+    caller destroy any public/same-tenant analysis via custom='job_id=ui-<victim>' (adversarial-review HIGH).
+    The key is DERIVED from the authorized task_id (the caller already passed can_manage_task on it); the
+    tenant guard uses the TASK's own tenant, so it must run BEFORE the caller deletes the SQL row -- the apiv2
+    delete routes call this first (the web remove() view already does). Delete the resolved doc by _id + its
+    OWN call chunks by their ObjectIds (from behavior.processes[].calls), never by the bare task_id (a
+    colliding tenant's calls also carry it).
 
-    Residuals (documented follow-ups): (1) a BRIDGE-LESS / direct-submit central doc is keyed 'local-<id>',
-    not 'ui-<id>', so this filter doesn't address it -- see central_own_analysis_filter. (2) the upstream
-    mongo_delete_data 'analysis' hook (remove_task_references_from_files) $pullAll's the bare task_id from the
-    shared files collection's backrefs; it is intentionally NOT run here (keying on the bare task_id would
-    re-introduce the cross-tenant collision), leaving a caller-side stale backref on the caller's OWN deleted
-    task -- fail-safe, never another tenant's; precisely scoping it needs a tenant-qualified backref key."""
+    A 0-match is LOGGED (not silent): the SQL row + local tree are gone by the time the caller reports
+    "deleted", so a Mongo doc left behind (report not written yet, or a foreign-only collision the tenant
+    guard correctly excluded) must be surfaced rather than reported as a successful erasure.
+
+    Residuals (documented follow-ups): (1) a FOREIGN UNSTAMPED doc colliding on info.id is indistinguishable
+    from an own unstamped doc -- needs a node/store discriminator. (2) the upstream mongo_delete_data
+    'analysis' hook (remove_task_references_from_files) $pullAll's the bare task_id from the shared files
+    collection's backrefs; NOT run here (bare task_id would re-introduce the cross-tenant collision), leaving a
+    caller-side stale backref on the caller's OWN deleted task -- fail-safe; needs a tenant-qualified key."""
     from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
 
     if not central_mode_config().enabled:
@@ -162,9 +163,21 @@ def central_delete_analysis(request, task_id):
         int(task_id)
     except (TypeError, ValueError):
         return  # non-numeric id: nothing to delete Mongo-side (caller still removes SQL + local tree)
-    doc = mongo_find_one("analysis", central_own_analysis_filter(task_id), {"_id": 1, "behavior.processes.calls": 1})
+    # Resolve the task's own tenant for the guard. Called BEFORE the SQL row is deleted (apiv2 routes reordered
+    # for this), so view_task returns the row; None on a genuinely-missing task -> the unstamped-or-null arm.
+    from lib.cuckoo.core.database import Database
+
+    _task = Database().view_task(task_id)
+    _mine = getattr(_task, "tenant_id", None) if _task else None
+    doc = mongo_find_one(
+        "analysis", central_own_analysis_filter(task_id, _mine), {"_id": 1, "behavior.processes.calls": 1})
     if not doc:
-        return  # fail-closed: no own doc for this caller
+        # No own doc matched: report not written yet, or only a foreign colliding doc (correctly excluded).
+        # The SQL row + local tree are already gone, so surface the un-erased Mongo doc rather than silently
+        # reporting a successful deletion.
+        log.warning("central delete: no own analysis doc matched for task %s; Mongo side left unchanged "
+                    "(report not yet written, or a foreign colliding doc excluded by the tenant guard)", task_id)
+        return
     call_ids = []
     for proc in (doc.get("behavior") or {}).get("processes", []) or []:
         call_ids.extend(proc.get("calls") or [])

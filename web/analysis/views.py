@@ -4183,7 +4183,10 @@ def comments(request, task_id):
             # comment write (and the curcomments it seeds) land on another tenant's analysis. Non-central: the
             # existing scoped/bare filter, unchanged.
             from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
-            _cfilt = central_own_analysis_filter(task_id) if central_mode_config().enabled else _scoped_analysis_query(request, task_id)
+            if central_mode_config().enabled:
+                _cfilt = central_own_analysis_filter(task_id, getattr(db.view_task(task_id), "tenant_id", None))
+            else:
+                _cfilt = _scoped_analysis_query(request, task_id)
             report = mongo_find_one("analysis", _cfilt, {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
         if es_as_db:
             query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]

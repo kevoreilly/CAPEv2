@@ -78,10 +78,18 @@ def central_analysis_query(task_id, scope=None):
         # re-keyed to its central id, so info.id == task_id still resolves the legit owner; a forged
         # job_id at another task's unstamped doc does not. A forged job_id -> another tenant's
         # STAMPED doc fails the scope arm too. scope None (see-all/break-glass/MT-off) = unrestricted.
+        from lib.cuckoo.common.central_mode import central_bridge_required
+
         q = {"info.job_id": jid}
         if scope:
             try:
-                _own_unstamped = {"$and": [{"info.tenant_id": None}, {"info.id": int(task_id)}]}
+                if central_bridge_required():
+                    # BRIDGE-REQUIRED (central+MT): key the own-not-yet-reconciled arm on the GLOBALLY-UNIQUE
+                    # jid, NOT info.id -- a foreign non-bridged doc could collide on info.id (worker-local id ==
+                    # this central id) and its null tenant would satisfy an info.id-based null arm cross-tenant.
+                    _own_unstamped = {"$and": [{"info.job_id": jid}, {"info.tenant_id": None}]}
+                else:
+                    _own_unstamped = {"$and": [{"info.tenant_id": None}, {"info.id": int(task_id)}]}
                 q = {"$and": [q, {"$or": [scope, _own_unstamped]}]}
             except (TypeError, ValueError):
                 q = {"$and": [q, scope]}  # non-numeric task id: drop the null arm (fail-closed)

@@ -133,6 +133,26 @@ def test_central_analysis_query_nonbridged_is_scoped(monkeypatch):
     assert cv.central_analysis_query(7, scope=scope) == {"$and": [{"info.id": 7}, scope]}
 
 
+def test_central_analysis_query_bridge_required_unstamped_arm_is_jid_keyed(monkeypatch):
+    """Option A: when the bridge is required (central+MT), the own-not-yet-reconciled arm keys on the
+    GLOBALLY-UNIQUE info.job_id, NOT info.id -- so a foreign non-bridged doc that collides on info.id (and is
+    unstamped) can't ride the null arm to a cross-tenant read; the owner's own unstamped bridged doc still
+    resolves via its unique jid."""
+    import analysis.central_views as cv
+    import lib.cuckoo.common.central_mode as cm
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
+    q = cv.central_analysis_query(42, scope={"info.tenant_id": "A"})
+    assert q == {"$and": [{"info.job_id": "ui-42"},
+                          {"$or": [{"info.tenant_id": "A"},
+                                   {"$and": [{"info.job_id": "ui-42"}, {"info.tenant_id": None}]}]}]}, q
+    # a foreign unstamped doc colliding on info.id (worker-local id == this central id) is NOT readable:
+    foreign = {"info": {"job_id": "local-42", "id": 42, "tenant_id": None}, "signatures": ["secret"]}
+    assert not _matches(foreign, q), "foreign unstamped info.id collision must not be readable when bridge-required"
+    own_unstamped = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}}
+    assert _matches(own_unstamped, q), "owner's own not-yet-reconciled bridged doc still resolves"
+
+
 def test_central_job_id_nonnumeric_returns_none_silently(monkeypatch, caplog):
     """Non-numeric task_id (filereport/full_memory \\w+ routes) is bad INPUT, not an RDS error:
     int() resolves before the DB try -> None silently, no 'RDS lookup failed' log. Mirrors

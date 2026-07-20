@@ -2142,7 +2142,11 @@ _ETW_JSON_SOURCES = {
     "wmi": (os.path.join("aux", "wmi_etw.json"), "wmi_etw.json"),
 }
 
-_BULKZIP_FOLDERS = {"logs", "network", "memory", "selfextracted"}
+# "memory" is intentionally NOT here: process/full-memory dumps are served only by tasks_procmemory /
+# tasks_fullmemory, which enforce the [taskprocmemory]/[fullmemory] enabled+all + TLP-red policy gates.
+# bulkzip has only the [taskbulkzip] gate, so allowing "memory" here would bypass those (staging it in
+# central mode made the dormant bypass live) -- see adversarial-review MEDIUM.
+_BULKZIP_FOLDERS = {"logs", "network", "selfextracted"}
 
 
 def _pcapng_response(task_id):
@@ -2262,16 +2266,18 @@ def tasks_etw(request, task_id, kind):
 @api_view(["GET"])
 def tasks_bulkzip(request, task_id, folder):
     """Encrypt-zip an entire analysis subdirectory. folder is whitelisted
-    to {logs, network, memory, selfextracted}. Archive is AES-encrypted
+    to {logs, network, selfextracted}. Archive is AES-encrypted
     with ZIP_PWD for parity with tasks_dropped / tasks_payloadfiles /
-    tasks_procdumpfiles."""
+    tasks_procdumpfiles. "memory" is intentionally excluded: process/full-memory
+    dumps are served only via tasks_procmemory / tasks_fullmemory, which enforce
+    the dedicated policy gates -- see _BULKZIP_FOLDERS."""
     task_id, err = _resolve_task_id(request, task_id, "taskbulkzip")
     if err:
         return err
     f = (folder or "").lower()
-    # central mode: materialize the S3 tree; include the memory subtree when serving the memory folder
-    # (ensure_local_analysis excludes memory/ by default, so the default stage would leave it absent).
-    _central_stage(request, task_id, include_memory=(f == "memory"))
+    # central mode: materialize the S3 tree. memory/ is NOT a bulkzip folder (see above),
+    # so it is never staged here -- the policy-gated tasks_procmemory owns that surface.
+    _central_stage(request, task_id)
     if f not in _BULKZIP_FOLDERS:
         return Response({"error": True, "error_value": f"Unknown bulkzip folder: {folder}"})
     return _serve_folder_zip(task_id, f, f"{f}.zip")

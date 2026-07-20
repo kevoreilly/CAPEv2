@@ -1382,6 +1382,14 @@ def tasks_delete(request, task_id, status=False):
             else:
                 f_deleted.append(str(task))
         except Exception as _de:
+            # Roll back the STAGED (uncommitted) SQL delete: db.delete_task only session.delete()s, so without
+            # this the next iteration's commit (or the middleware's) would make it durable even though we report
+            # failure -> task committed-deleted with its Mongo/S3 artifacts orphaned and no row to drive a retry.
+            # Rollback also clears a pending-rollback session so the next iteration's view_task doesn't 500.
+            try:
+                db.session.rollback()
+            except Exception:
+                pass
             log.error("tasks_delete: task %s failed mid-delete (may be partially applied): %s", task, _de)
             f_deleted.append(str(task))
 
@@ -3334,11 +3342,23 @@ def tasks_delete_many(request):
                 else:
                     response.setdefault(task_id, "not exists")
             except Exception as _de:
+                # Roll back the STAGED (uncommitted) SQL delete so a mid-delete failure doesn't become durable
+                # via the next iteration's commit / the middleware (see tasks_delete). Also clears a
+                # pending-rollback session so the next view_task doesn't 500.
+                try:
+                    db.session.rollback()
+                except Exception:
+                    pass
                 log.error("tasks_delete_many: task %s failed mid-delete (may be partially applied): %s", task_id, _de)
                 response.setdefault(task_id, "error")
         else:
             response.setdefault(task_id, "not exists")
-    response["status"] = "OK"
+    # Don't answer status:OK when tasks errored -- a retention client keyed on status must be able to tell a
+    # partial/failed batch (whose Mongo docs may be orphaned) from a clean one (matches tasks_delete's resp.error).
+    _errored = any(v == "error" for v in response.values())
+    response["status"] = "partial_error" if _errored else "OK"
+    if _errored:
+        response["error"] = True
     return Response(response)
 
 

@@ -436,9 +436,19 @@ def test_centralstore_refuses_non_bridged_under_mt(monkeypatch):
         store.run({"info": {"id": 5, "custom": "campaign1"}})     # bare-token -> non-bridged -> refused
     with pytest.raises(CuckooReportError, match="non-bridged"):
         store.run({"info": {"id": 6}})                            # no custom -> local-6 -> refused
-    # (bridge-NOT-required behaviour is asserted directly on the backstop predicate in
-    # test_reject_unbridged_under_mt; exercising CentralStore.run's full upload path here would be vacuous --
-    # a bare CentralStore has analysis_path="" so run() short-circuits before the guard's effect is observable.)
+
+    # OVER-FIRING guard: with the bridge NOT required (single-node / MT-off), the same non-ui doc must NOT hit
+    # the "non-bridged" refusal. The guard is BEFORE any analysis_path use, so this is observable regardless of
+    # the bare store's empty analysis_path; any downstream upload/path error is irrelevant -- we assert only
+    # that the BRIDGE guard did not over-fire (catches a future refactor that drops the central_bridge_required
+    # conjunct and starts failing every single-node direct-submit report).
+    monkeypatch.setattr(cs, "central_bridge_required", lambda: False)
+    try:
+        store.run({"info": {"id": 7, "custom": "campaign1"}})
+    except CuckooReportError as e:
+        assert "non-bridged" not in str(e), "the bridge guard must not fire when the bridge is not required"
+    except Exception:
+        pass  # any downstream upload/path error on the bare store is fine -- not the guard
 
 
 def test_reject_unbridged_under_mt(monkeypatch):

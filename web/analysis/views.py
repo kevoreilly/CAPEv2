@@ -4126,7 +4126,15 @@ def remove(request, task_id):
             # Don't claim a clean "Task(s) deleted." -- the SQL row is already committed away, so the leftover
             # tree (submitted sample + dropped files) has no row/UI path left to reap it. Surface it.
             message = "Task removed, but its analysis files could not be fully deleted (see server logs)."
-        central_delete_analysis(request, int(task_id), tenant_id=_tenant)
+        try:
+            # SEPARATE try: central_delete_analysis raises on any non-AutoReconnect pymongo error -- unguarded,
+            # that 500s the view (discarding the message above) with the SQL row already committed + folder gone.
+            central_delete_analysis(request, int(task_id), tenant_id=_tenant)
+        except Exception as _me:
+            import logging
+
+            logging.getLogger(__name__).error("remove: central delete failed for task %s: %s", task_id, _me)
+            message = "Task removed, but its analysis report could not be deleted (see server logs)."
 
     return render(request, "success_simple.html", {"message": message})
 
@@ -4238,7 +4246,7 @@ def comments(request, task_id):
         buf["Data"] = "".join(escape_map.get(thechar, thechar) for thechar in comment)
         # status can be posted/removed
         buf["Status"] = "posted"
-        curcomments.append(buf)  # chronological (oldest-first) storage; the template renders |reversed
+        curcomments.append(buf)  # chronological (oldest-first) storage; the template sorts by Timestamp (newest-first)
         if enabledconf["mongodb"] and _mongo_id is not None:
             # Atomic $push {$each:[buf]} (append) keyed on {_id AND the own-doc filter}. $each is DocumentDB-safe
             # ($position is NOT -- like $facet, worked around elsewhere in this tree), it removes the whole-list

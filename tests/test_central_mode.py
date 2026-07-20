@@ -445,3 +445,20 @@ def test_centralstore_refuses_non_bridged_under_mt(monkeypatch):
         assert "non-bridged" not in str(e), "the bridge guard must not fire when the bridge is not required"
     except Exception:
         pass  # any downstream upload/path error is fine -- we only assert the guard didn't refuse
+
+
+def test_reject_unbridged_under_mt(monkeypatch):
+    """The mongodb-reporter backstop predicate: under central+MT every persisted doc must be bridged
+    (ui-<central_id>). A non-bridged job_id (local-<id> / bare-token / None) is rejected; a ui- doc is not;
+    and when the bridge is not required (single-node / MT-off) nothing is rejected."""
+    import modules.reporting.mongodb as m
+    import lib.cuckoo.common.central_mode as cm
+
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
+    assert m._reject_unbridged_under_mt("local-5") is True
+    assert m._reject_unbridged_under_mt("campaign1") is True     # bare-token custom
+    assert m._reject_unbridged_under_mt(None) is True            # centralstore disabled -> no job_id stamped
+    assert m._reject_unbridged_under_mt("ui-5") is False         # bridged -> allowed
+
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: False)
+    assert m._reject_unbridged_under_mt("local-5") is False      # single-node / MT-off -> never blocked

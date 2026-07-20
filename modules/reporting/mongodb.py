@@ -209,6 +209,21 @@ def _is_central_rewritten_id(job_id) -> bool:
     return bool(job_id) and re.match(r"^ui-(\d+)$", str(job_id)) is not None
 
 
+def _reject_unbridged_under_mt(job_id) -> bool:
+    """True iff this analysis must NOT be persisted: under central+MT (central_bridge_required) every doc MUST
+    carry a globally-unique 'ui-<central_id>' job_id (the tenant-scoped own-doc filters key ONLY on it). A
+    non-bridged doc ('local-<id>' / bare-token / no job_id) has no tenancy by construction. Isolated from
+    MongoDB.run for testability. Best-effort: if central_bridge_required can't be resolved (import/config
+    issue) do NOT block -- central_bridge_required is itself fail-closed, and blocking every insert on an
+    import glitch would break single-node too."""
+    try:
+        from lib.cuckoo.common.central_mode import central_bridge_required
+
+        return central_bridge_required() and not _is_central_rewritten_id(job_id)
+    except Exception:
+        return False
+
+
 def _reconcile_write_filter(central_id, job_id, ids, tenant_id=None):
     """Mongo filter for the reconcile tenancy stamp. A CENTRAL bridged doc is keyed by its
     globally-unique info.job_id -- a colliding worker-local doc sharing an info.id, reconciled under a
@@ -505,6 +520,21 @@ class MongoDB(Report):
 
         if "behavior" not in report or not isinstance(report["behavior"], dict):
             report["behavior"] = {"processes": [], "processtree": [], "summary": {}}
+
+        # BRIDGE-REQUIRED backstop (central + MT): every persisted analysis doc MUST carry a globally-unique
+        # 'ui-<central_id>' job_id, because the tenant-scoped own-doc filters key ONLY on it. centralstore
+        # stamps it (order 9998), but it may be DISABLED ([centralstore] enabled=no is the default) or have
+        # raised (e.g. s3 misconfig -> plugins.py logs the CuckooReportError and CONTINUES the chain), either
+        # of which would otherwise insert an UNKEYED doc that no visibility toggle / delete / comment can ever
+        # address -> a silent fail-open (mongo stays permissive) or an unreachable orphan. Refuse the insert
+        # HERE -- the actual DB-write choke point, which runs regardless of centralstore's state -- so the
+        # ui-only invariant is airtight. Single-node / MT-off is unaffected (central_bridge_required() False).
+        if _reject_unbridged_under_mt(report["info"].get("job_id")):
+            raise CuckooReportError(
+                "mongodb: refusing to persist analysis with non-bridged job_id (%r) under multitenancy -- "
+                "central+MT requires [centralstore] enabled to stamp a ui-<central_id> job_id (tenant-isolated "
+                "central submission requires the submit-bridge)" % report["info"].get("job_id")
+            )
 
         # Stamp tenant context so mongo aggregations can be scoped. Use an
         # INDEPENDENT session (not the processor's shared scoped session) so we

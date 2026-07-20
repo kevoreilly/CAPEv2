@@ -1349,6 +1349,7 @@ def tasks_delete(request, task_id, status=False):
     resp = {}
     s_deleted = []
     f_deleted = []
+    orphaned = []  # SQL row deleted, but its Mongo report couldn't be erased -> NOT retryable as a task delete
     for task in task_id:
         check = validate_task(task, status)
         if check["error"]:
@@ -1361,17 +1362,18 @@ def tasks_delete(request, task_id, status=False):
             continue
 
         # Resolve the task's OWN tenant WHILE the SQL row exists (central_delete_analysis uses it to scope the
-        # Mongo delete). The Mongo delete_many is immediate + non-transactional, but db.delete_task only STAGES
-        # the SQL delete (DBTransactionMiddleware commits after the view returns), so we COMMIT the SQL delete
-        # explicitly here BEFORE the Mongo delete. Otherwise a later-iteration failure that rolls the request
-        # back would resurrect this task's SQL row while its Mongo report is already destroyed. Committing first
-        # inverts any residual failure to the recoverable direction (task gone, report lingers -> reapable).
+        # Mongo delete). Commit the SQL delete BEFORE the irreversible folder/Mongo deletes: db.delete_task only
+        # STAGES (the middleware commits after the view), and the Mongo delete is immediate + non-transactional,
+        # so committing first prevents a later-iteration rollback from resurrecting the row over an already-gone
+        # report. THREE outcomes, distinguished in the response so a client knows what to retry:
+        #   - PRE-commit failure  -> rollback -> f_deleted  (task still exists; RETRYABLE).
+        #   - POST-commit report-delete failure -> orphaned  (task IS gone; NOT retryable -- a task-delete retry
+        #     answers "not exists"; the Mongo doc + S3 need a reaper, so surface it distinctly, don't hide it
+        #     as success NOR mislabel it as a retryable "failed").
+        #   - success -> s_deleted.
+        # (A folder-delete failure alone is a logged disk orphan-by-path and still counts as deleted.)
         _central = web_conf.web_reporting.get("enabled", True)
         _tenant = getattr(_t, "tenant_id", None) if _central else None
-        # Commit the SQL delete BEFORE the irreversible folder/Mongo deletes (db.delete_task only stages; the
-        # middleware commits after the view). PRE-commit failures roll back so the task survives + is retryable;
-        # a POST-commit cleanup failure can't be undone, so it's logged as an orphan but still reported deleted
-        # (the task IS gone; mislabelling it "failed" would make a retry answer "not exists" and never reap it).
         try:
             if not db.delete_task(task):
                 f_deleted.append(str(task))
@@ -1398,7 +1400,7 @@ def tasks_delete(request, task_id, status=False):
                 central_delete_analysis(request, task, tenant_id=_tenant)
         except Exception as _ce:
             log.error("tasks_delete: task %s report delete FAILED (Mongo doc + S3 orphaned, unreapable): %s", task, _ce)
-            f_deleted.append(str(task))
+            orphaned.append(str(task))
             continue
         s_deleted.append(str(task))
 
@@ -1408,6 +1410,13 @@ def tasks_delete(request, task_id, status=False):
     if f_deleted:
         resp["error"] = True
         resp["failed"] = "Task(s) ID(s) {0} failed to remove".format(",".join(f_deleted))
+
+    if orphaned:
+        # Task rows are gone but their reports could not be erased -- distinct from "failed" (retryable): these
+        # need out-of-band reaping, not a task-delete retry (which would answer "not exists").
+        resp["error"] = True
+        resp["orphaned"] = "Task(s) ID(s) {0} deleted but report NOT erased (orphaned, needs reaping)".format(
+            ",".join(orphaned))
 
     return Response(resp)
 
@@ -3321,7 +3330,10 @@ def statistics_data(requests, days):
 @api_view(["POST"])
 def tasks_delete_many(request):
     response = {}
-    delete_mongo = request.POST.get("delete_mongo", True)
+    # NB: form-encoding sends booleans as strings, so bool("False") would be True -- parse the string forms
+    # (utils/dist.py posts delete_mongo=False, i.e. "False", to opt OUT of deleting the worker's Mongo report).
+    _dm = request.POST.get("delete_mongo", True)
+    delete_mongo = _dm if isinstance(_dm, bool) else str(_dm).strip().lower() not in ("false", "0", "no", "")
     for task_id in request.POST.get("ids", "").split(",") or []:
         task_id = int(task_id)
         task = db.view_task(task_id)
@@ -3338,9 +3350,10 @@ def tasks_delete_many(request):
             # delete_many is immediate/non-transactional, so COMMIT the SQL delete explicitly BEFORE the Mongo
             # delete -- else a later-iteration rollback would resurrect this task while its report is gone.
             _tenant = getattr(task, "tenant_id", None)
-            # Commit the SQL delete BEFORE the irreversible folder/Mongo deletes (see tasks_delete). PRE-commit
-            # failures roll back (task survives, retryable); a POST-commit cleanup failure is logged as an
-            # orphan but still reported deleted (mislabelling it errored would make a retry answer "not exists").
+            # Commit the SQL delete BEFORE the irreversible folder/Mongo deletes (see tasks_delete). THREE
+            # distinct per-task outcomes (a client must act differently on each): "error" = PRE-commit failure,
+            # task still exists, RETRYABLE; "deleted_orphan_report" = task gone but its report couldn't be
+            # erased, NOT retryable (needs a reaper); "deleted" = clean.
             try:
                 if not db.delete_task(task_id):
                     response.setdefault(task_id, "not exists")
@@ -3354,9 +3367,7 @@ def tasks_delete_many(request):
                 log.error("tasks_delete_many: task %s SQL delete failed (rolled back, retryable): %s", task_id, _de)
                 response.setdefault(task_id, "error")
                 continue
-            # SEPARATE guards (see tasks_delete): a folder failure must not skip the Mongo delete. A report
-            # delete failure records "error" so the partial_error status below flags the HARMFUL case (an
-            # orphaned Mongo doc), not just a harmless pre-commit rollback.
+            # SEPARATE guards (see tasks_delete): a folder failure must not skip the Mongo delete.
             try:
                 delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", "%d" % task_id))
             except Exception as _fe:
@@ -3367,16 +3378,18 @@ def tasks_delete_many(request):
             except Exception as _ce:
                 log.error("tasks_delete_many: task %s report delete FAILED (Mongo doc + S3 orphaned, unreapable): %s",
                           task_id, _ce)
-                response.setdefault(task_id, "error")
+                response.setdefault(task_id, "deleted_orphan_report")
                 continue
             response.setdefault(task_id, "deleted")
         else:
             response.setdefault(task_id, "not exists")
-    # Don't answer status:OK when tasks errored -- a retention client keyed on status must be able to tell a
-    # partial/failed batch (whose Mongo docs may be orphaned) from a clean one (matches tasks_delete's resp.error).
+    # status must let a retention client tell three outcomes apart: a RETRYABLE failure ("error", task still
+    # exists), an ORPHANED report ("deleted_orphan_report", task gone but its Mongo doc needs reaping), and a
+    # clean batch. Don't answer plain OK when either problem occurred.
     _errored = any(v == "error" for v in response.values())
-    response["status"] = "partial_error" if _errored else "OK"
-    if _errored:
+    _orphaned = any(v == "deleted_orphan_report" for v in response.values())
+    response["status"] = "partial_error" if (_errored or _orphaned) else "OK"
+    if _errored or _orphaned:
         response["error"] = True
     return Response(response)
 

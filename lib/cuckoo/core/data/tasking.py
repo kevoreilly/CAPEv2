@@ -1010,13 +1010,17 @@ class TasksMixIn:
             if _central:
                 # Inline fallback ONLY when the central_mode import itself failed -> the mode is genuinely
                 # UNKNOWN. Mirror central_own_analysis_filter's NON-bridge-required (three-arm, job_id-qualified)
-                # shape exactly -- NOT a bare {info.id} arm. The bare arm would 0-match a non-central doc's own
-                # doc only if it lacked info.id (it doesn't) but, worse, would re-admit a FOREIGN worker-local
-                # doc colliding on info.id (the "audit HIGH" the helper's own docstring calls out) -- and an
-                # import glitch is exactly when the mongodb persist-backstop is ALSO down (_reject_unbridged_under_mt
-                # returns False on the same ImportError), so unbridged docs CAN exist. The job_id-qualified arms
-                # match an own doc in EITHER mode (non-central: no job_id field -> the {$in:[None,...]} arm)
-                # while excluding the foreign collision (local- arm requires OUR tenant stamp).
+                # shape exactly -- NOT a bare {info.id} arm (which would re-admit a FOREIGN worker-local doc that
+                # has a job_id, the "audit HIGH" the helper's docstring calls out; an import glitch is exactly
+                # when the mongodb persist-backstop is ALSO down, so unbridged docs CAN exist). The three arms
+                # match an own doc in EITHER mode (non-central: no job_id field -> the {$in:[None,...]} arm) and
+                # exclude a foreign STAMPED-'local-' collision. DELIBERATE trade / residual: this picks the
+                # non-bridge-required (permissive) shape while central_bridge_required() fails CLOSED (ui-only)
+                # on an indeterminate probe -- because a ui-only key would 0-match every doc in a genuinely
+                # non-central install (silent fail-open there). The residual it inherits from the three-arm form
+                # is the same one the helper documents "acceptable only when MT is off": arm 2 still matches a
+                # foreign worker-local doc that has NO job_id at all (Mongo null-equality matches an absent
+                # field) -- fully closing that needs the info.origin_id data-model discriminator.
                 _filt = _own_filter(task_id, _mine) if _own_filter is not None else {"$and": [
                     {"$or": [
                         {"info.job_id": f"ui-{int(task_id)}"},

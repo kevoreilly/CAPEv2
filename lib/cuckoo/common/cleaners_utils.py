@@ -297,9 +297,12 @@ def delete_data(tid):
         else:
             log.info("failed to remove faile task %s from DB", tid)
     # delete_folder OUTSIDE the begin() block: an rmtree failure mid-delete must NOT roll back the (committed)
-    # SQL delete and resurrect a task whose Mongo report was already destroyed above -> a live task pointing at
-    # a half-deleted tree, re-broken every nightly run. A folder failure is a disk orphan-by-path (logged).
-    # Matches the commit-before-irreversible ordering the apiv2/remove() delete paths use.
+    # SQL delete and resurrect a task pointing at a half-deleted tree, re-broken every nightly run. A folder
+    # failure is a disk orphan-by-path (logged).
+    # NOTE: unlike the apiv2/remove() paths (SQL commit -> THEN Mongo), the report delete above runs FIRST and
+    # mongo_delete_data() swallows its own exceptions (returns None; the elif arm is Elasticsearch-only), so a
+    # surviving report + committed SQL delete (an unreapable doc) is still reachable here and is NOT detected.
+    # Closing that needs a status-returning Mongo delete so the commit can be conditioned on it.
     if _sql_deleted:
         try:
             delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid)))

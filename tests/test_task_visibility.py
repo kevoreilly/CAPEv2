@@ -542,8 +542,15 @@ def test_set_task_visibility_central_keys_on_derived_unique_jobid_ignoring_forge
     t.custom = "job_id=ui-999999"  # FORGED: a victim's job id, not this task's own
     db.session.commit()
     db.set_task_visibility(tid, "public")
+    # The own-doc arms are DERIVED from tid (ui-<tid> / info.id==tid, job_id-qualified); the 'local-<tid>' arm
+    # requires our tenant stamp so a foreign UNSTAMPED collision can't be re-owned (see the excludes-foreign
+    # tests). The forged custom 'ui-999999' never reaches the filter.
     assert calls[-1][1] == {"$and": [
-        {"$or": [{"info.job_id": f"ui-{tid}"}, {"info.id": tid}]},
+        {"$or": [
+            {"info.job_id": f"ui-{tid}"},
+            {"$and": [{"info.id": tid}, {"info.job_id": {"$in": [None, f"ui-{tid}"]}}]},
+            {"$and": [{"info.id": tid}, {"info.job_id": f"local-{tid}"}, {"info.tenant_id": 10}]},
+        ]},
         {"$or": [{"info.tenant_id": None}, {"info.tenant_id": 10}]},
     ]}, calls[-1]
     assert "ui-999999" not in str(calls[-1][1]), "forged custom must not reach the write filter"
@@ -675,6 +682,24 @@ def test_central_own_analysis_filter_excludes_foreign_tenant():
     assert not _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 77}}, f), \
         "a doc owned by tenant 77 must NOT be matched by tenant-10's own-doc filter"
     assert not _mongo_matches({"info": {"id": 42, "job_id": "local-42", "tenant_id": 77}}, f)
+
+
+def test_central_own_analysis_filter_excludes_foreign_unstamped_collision():
+    """Adversarial-review HIGH regression: Mongo's {tenant_id: null} equality ALSO matches docs where the field
+    is ABSENT, and every doc is inserted unstamped -- so a bare {info.id} arm ANDed with only a null-or-ours
+    guard would re-admit a FOREIGN worker-local doc colliding on info.id to the destructive delete / re-owning
+    $set. The 'local-<tid>' arm therefore requires OUR tenant stamp, so a foreign UNSTAMPED 'local-<tid>' doc
+    (the exact case the guard test deleted in a3df16c8 stopped covering) is excluded and the caller's own doc
+    is the sole match. (Residual: a foreign doc with info.job_id ABSENT still passes the not-yet-keyed arm --
+    that transient window needs the info.origin_id data-model fix.)"""
+    from lib.cuckoo.common.central_mode import central_own_analysis_filter
+    f = central_own_analysis_filter(42, 10)                          # our task 42, our tenant 10
+    foreign_unstamped = {"info": {"id": 42, "job_id": "local-42"}}   # tenant 77's doc, not yet reconciled
+    assert not _mongo_matches(foreign_unstamped, f), \
+        "a foreign UNSTAMPED colliding 'local-<tid>' doc must NOT be selectable by the own-doc filter"
+    own = {"info": {"id": 42, "job_id": "ui-42", "tenant_id": 10}}
+    assert [d for d in (own, foreign_unstamped) if _mongo_matches(d, f)] == [own], \
+        "the filter must select EXACTLY the caller's own doc, so a single-doc find_one/update_one is unambiguous"
 
 
 class _ZeroMatch:  # UpdateResult-like: well-formed write that addressed no document

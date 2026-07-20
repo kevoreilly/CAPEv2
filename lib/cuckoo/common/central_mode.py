@@ -168,33 +168,46 @@ def central_own_analysis_filter(task_id, tenant_id):
     """The Mongo filter identifying the caller's OWN analysis doc for a central task, DERIVED from the
     authorized task_id. The SINGLE key used by every central WRITE that mutates a task's own doc -- the
     visibility-toggle write (lib.cuckoo.core.data.tasking.set_task_visibility), the central DELETE and the
-    comment write (web.analysis.central_views / views.comments) -- so they can't drift, and it deliberately
-    mirrors the READ filter (central_views.central_analysis_query) so read and write agree on "this task's doc".
+    comment write (web.analysis.central_views / views.comments) -- so they can't drift.
 
-    Two arms, ANDed with an unstamped-or-own tenant guard:
+    CRITICAL Mongo semantics: an equality on null ({info.tenant_id: None}) ALSO matches documents where the
+    field is ABSENT, and every doc is inserted unstamped (stamp_tenant_info / reconcile write the tenant only
+    at report time; a reconcile-skipped doc stays stranded). So a bare {info.id: tid} arm ANDed with only a
+    null-or-ours tenant guard would re-admit a FOREIGN worker-local doc that collides on info.id (audit HIGH:
+    it backs a destructive delete + a re-owning $set). The own-doc arms are therefore qualified by job_id:
+
       * info.job_id == 'ui-<task_id>' -- the bridge assigns this GLOBALLY-UNIQUE id and centralstore stamps it
         (rewriting info.id to the same central id), so it uniquely + unforgeably (DERIVED, never read from the
         user `custom`) addresses a bridged task's doc.
-      * info.id == task_id -- a NON-bridged / direct-submit central doc keeps its worker-local info.id (only
-        'ui-*' triggers the rewrite) and is keyed 'local-<id>' / a bare token, so it is NOT reachable by the
-        ui- arm; central mode explicitly supports this topology (resolve_job_id's non-broker fallback,
-        mongodb.py's direct-submit handling, central_analysis_query's read fallback), so the write MUST address
-        it too -- otherwise a restrictive toggle silently leaves the Mongo doc more permissive than SQL.
+      * info.id == task_id AND info.job_id in {absent/null, 'ui-<task_id>'} -- an OWN doc not yet keyed (before
+        centralstore stamps job_id). A foreign doc that has already been stamped 'local-<n>' fails this arm.
+      * info.id == task_id AND info.job_id == 'local-<task_id>' AND info.tenant_id == ours -- an OWN
+        direct-submit / non-bridged doc: central mode explicitly supports this topology (resolve_job_id's
+        non-broker fallback, mongodb.py's direct-submit handling, central_analysis_query's read fallback), so
+        the write MUST address it -- but 'local-<n>' is NOT globally unique (two workers both mint it), so it
+        is OURS only once it carries OUR tenant stamp. (This means a restrictive toggle of an own NON-bridged
+        doc is a safe no-op until reconcile stamps it -- bounded, and preferable to admitting a foreign doc.)
 
-    The tenant guard {tenant_id null-or-ours} is defence-in-depth: a FOREIGN doc STAMPED for another tenant
-    that collides on info.id (or carries a forged first-position 'ui-<victim>' custom that reconcile stamped)
-    is excluded, so the $set can't relabel/re-own it -- the companion to reconcile's own unstamped-or-own
-    guard. Pass the TASK's tenant_id (the doc's expected owner), which also lets a break-glass toggle of
-    another tenant's task match (the task carries that tenant).
+    All ANDed with a {tenant_id null-or-ours} guard: a FOREIGN doc STAMPED for another tenant that collides on
+    info.id is excluded, so the $set can't relabel/re-own it. Pass the TASK's tenant_id (the doc's expected
+    owner), which also lets a break-glass toggle of another tenant's task match (the task carries that tenant).
 
-    A 0-match now genuinely means NO own doc exists yet (the ui- + info.id arms cover every own shape) -- the
-    reconcile stamps it from the authoritative SQL value on report -- so callers treat it as a safe no-op.
+    This is NOT identical to the READ filter (central_analysis_query ANDs its non-bridged arm with the full
+    viewer_scope); it is the WRITE-side own-doc key, deliberately tenant-guarded. A 0-match is a safe no-op
+    (no own doc yet; reconcile stamps it from the authoritative SQL value on report).
 
-    RESIDUAL (documented follow-up): a FOREIGN UNSTAMPED doc (tenant_id null) that collides on info.id is
-    indistinguishable from an own unstamped doc -- fully closing it needs a positive node/store discriminator
-    (data-model change)."""
+    RESIDUAL (documented follow-up, see docs/superpowers/plans): a FOREIGN doc inserted but NOT YET keyed
+    (info.job_id absent) that collides on info.id still passes the second arm during that transient window --
+    fully closing it needs a positive node/store discriminator (info.origin_id) stamped at insert (data-model
+    change), which also removes the own-non-bridged no-op above."""
     _tid = int(task_id)
     return {"$and": [
-        {"$or": [{"info.job_id": f"ui-{_tid}"}, {"info.id": _tid}]},
+        {"$or": [
+            {"info.job_id": f"ui-{_tid}"},
+            # own not-yet-keyed doc: our info.id AND no foreign job_id stamped on it
+            {"$and": [{"info.id": _tid}, {"info.job_id": {"$in": [None, f"ui-{_tid}"]}}]},
+            # own direct-submit doc: 'local-<tid>' is OURS only once it carries OUR tenant stamp
+            {"$and": [{"info.id": _tid}, {"info.job_id": f"local-{_tid}"}, {"info.tenant_id": tenant_id}]},
+        ]},
         {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]},
     ]}

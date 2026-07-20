@@ -1461,24 +1461,6 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     if check.get("tlp", "") in ("red", "Red"):
         return Response({"error": True, "error_value": "Task has a TLP of RED"})
 
-    # Gate the "all" bulk archive BEFORE staging so a refused request never materializes the full analysis
-    # tree onto the web node's disk (central mode) + writes the .central_staged marker (the inner check below
-    # is now redundant but kept defensively).
-    if report_format.lower() == "all" and not apiconf.taskreport.get("all"):
-        return Response({"error": True, "error_value": "Downloading all reports in one call is disabled"})
-
-    _central_stage(request, task_id)
-
-    resp = {}
-
-    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
-    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
-        return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
-
-    # Report validity check
-    if path_exists(srcdir) and len(os.listdir(srcdir)) == 0:
-        resp = {"error": True, "error_value": "No reports created for task %s" % task_id}
-
     formats = {
         "protobuf": "report.protobuf",
         "json": "report.json",
@@ -1528,6 +1510,27 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             ],
         },
     }
+
+    # Validate the requested format BEFORE staging: a typo'd/unknown format is a 4xx client error, and staging
+    # first would materialize the whole analysis tree onto the web node (central mode) only to reject. Then
+    # gate the 'all' bulk archive before staging too, so a refused request never stages / writes the marker.
+    _fmt = report_format.lower()
+    if _fmt not in formats and _fmt not in report_formats:
+        return Response({"error": True, "error_value": f"Report format not found: {report_format}"}, status=400)
+    if _fmt == "all" and not apiconf.taskreport.get("all"):
+        return Response({"error": True, "error_value": "Downloading all reports in one call is disabled"})
+
+    _central_stage(request, task_id)
+
+    resp = {}
+
+    srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
+    if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
+        return render(request, "error.html", {"error": f"File not found {os.path.basename(srcdir)}"})
+
+    # Report validity check
+    if path_exists(srcdir) and len(os.listdir(srcdir)) == 0:
+        resp = {"error": True, "error_value": "No reports created for task %s" % task_id}
 
     if report_format.lower() in formats:
         report_path = os.path.join(srcdir, formats[report_format.lower()])
@@ -1585,11 +1588,7 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
             return Response(resp)
 
     elif report_format.lower() in report_formats:
-        if report_format.lower() == "all":
-            if not apiconf.taskreport.get("all"):
-                resp = {"error": True, "error_value": "Downloading all reports in one call is disabled"}
-                return Response(resp)
-
+        # ('all' gate + format validity are enforced before staging above.)
         report_files = report_formats[report_format.lower()]
         srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH) and path_exists(srcdir):
@@ -1911,7 +1910,11 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
 
-    if len(os.listdir(srcdir)) == 0:
+    # Guard the listing like the sibling endpoints (tasks_dropped / tasks_selfextracted): in central mode a
+    # task that produced no screenshots has no shots/* S3 keys, so ensure_local_analysis never creates the
+    # local shots/ dir -- a bare os.listdir would then raise FileNotFoundError -> HTTP 500 instead of this
+    # clean JSON error.
+    if not path_exists(srcdir) or len(os.listdir(srcdir)) == 0:
         resp = {"error": True, "error_value": "No screenshots created for task %s" % task_id}
         return Response(resp)
 

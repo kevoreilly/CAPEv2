@@ -94,6 +94,16 @@ def central_analysis_query(task_id, scope=None):
             except (TypeError, ValueError):
                 q = {"$and": [q, scope]}  # non-numeric task id: drop the null arm (fail-closed)
         return q
+    # BRIDGE-REQUIRED (central + MT): a non-bridged task has no tenant-isolated identity, and the artifact seam
+    # (_job_id_for_task) hard-denies its resolution for a tenant-scoped viewer -- so DENY the read too, rather
+    # than serve a scoped info.id lookup whose PUBLIC scope arm could still surface a foreign colliding doc
+    # (and, during an RDS blip where central_job_id_for_task returns None for a genuinely bridged task, would
+    # render the WRONG doc under the user's own task id). A never-match filter -> the reader gets a clean "no
+    # report", matching the artifact 404. scope None (see-all / break-glass / MT-off) is unaffected.
+    from lib.cuckoo.common.central_mode import central_bridge_required
+
+    if scope is not None and central_bridge_required():
+        return {"info.job_id": {"$in": []}}  # matches nothing (both seams now agree the doc is not visible)
     # Non-bridged FALLBACK (seeded/single-node/worker-local docs): info.id can collide
     # across workers, so AND the viewer scope as defence-in-depth against surfacing another
     # tenant's colliding doc (audit HIGH: cross-store id collision).
@@ -140,9 +150,10 @@ def central_delete_analysis(request, task_id, tenant_id=_TENANT_UNSET):
     Central mode: a colliding worker-local / direct-submit / reconcile-skipped doc for another tenant can
     share this task's bare info.id (analysis) and task_id (calls) in the shared DocumentDB, so an unscoped
     mongo_delete_data would DESTROY that tenant's docs (audit MEDIUM cross-tenant destructive write). Resolve
-    ONLY the caller's OWN doc via the SHARED central_own_analysis_filter(task_id, tenant) = {ui-<task_id> OR
-    info.id==task_id} AND unstamped-or-own -- the same filter the visibility-toggle write + the comment write
-    use (and mirroring the READ filter), so they can't drift. It must NOT reuse the read viewer_scope (its
+    ONLY the caller's OWN doc via the SHARED, bridge-aware central_own_analysis_filter(task_id, tenant) --
+    ui-only ({info.job_id: ui-<task_id>} + tenant guard) under central+MT, or the three-arm {ui- OR info.id}
+    form single-node/MT-off -- the same filter the visibility-toggle write + the comment write use, so they
+    can't drift. It must NOT reuse the read viewer_scope (its
     PUBLIC/TENANT arms match OTHER owners'/tenants' docs) NOR a forgeable custom job_id: keying on those let a
     caller destroy any public/same-tenant analysis via custom='job_id=ui-<victim>' (adversarial-review HIGH).
     The key is DERIVED from the authorized task_id (the caller already passed can_manage_task on it); the

@@ -4059,9 +4059,9 @@ def remove(request, task_id):
 
     if enabledconf["mongodb"]:
         # Resolve the task's tenant WHILE the SQL row exists; BOTH the irreversible folder delete and the Mongo
-        # delete are deferred to AFTER the SQL delete commits (below) so neither can destroy the report while
-        # the task survives a rollback (same rollback-safety as the apiv2 delete routes). (ES branch below is
-        # unchanged: es_as_db is out of the mongo-only MT support boundary.)
+        # delete are deferred to AFTER the SQL delete commits (below) so a rollback can't leave a live task
+        # pointing at a missing analysis dir. (ES branch below is unchanged: es_as_db is out of the mongo-only
+        # MT support boundary.)
         _tenant = getattr(db.view_task(int(task_id)), "tenant_id", None)
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
         message = "Task(s) deleted."
@@ -4113,8 +4113,16 @@ def remove(request, task_id):
         # SQL delete durable BEFORE the irreversible folder + Mongo deletes (db.delete_task only stages; the
         # middleware commits after the view). _tenant/analyses_path resolved above while the SQL row existed.
         db.session.commit()
-        if path_exists(analyses_path):
-            delete_folder(analyses_path)
+        # Wrap the folder delete so a failure (EACCES / stale NFS handle) does NOT skip the Mongo delete --
+        # otherwise a folder error would leave the Mongo doc (+ its S3 artifacts) orphaned with the SQL row
+        # already gone. A folder left behind is a disk/PII-retention follow-up (orphan-by-path), not a leak.
+        try:
+            if path_exists(analyses_path):
+                delete_folder(analyses_path)
+        except Exception as _fe:
+            import logging
+
+            logging.getLogger(__name__).error("remove: delete_folder failed for task %s: %s", task_id, _fe)
         central_delete_analysis(request, int(task_id), tenant_id=_tenant)
 
     return render(request, "success_simple.html", {"message": message})
@@ -4227,24 +4235,24 @@ def comments(request, task_id):
         buf["Data"] = "".join(escape_map.get(thechar, thechar) for thechar in comment)
         # status can be posted/removed
         buf["Status"] = "posted"
-        curcomments.insert(0, buf)  # newest-first
+        curcomments.append(buf)  # chronological (oldest-first) storage; the template renders |reversed
         if enabledconf["mongodb"] and _mongo_id is not None:
-            # $set the whole (prepended, newest-first) list -- NOT $push/$position: Amazon DocumentDB (the
-            # central [mongodb] target) doesn't support $position (same class of gap this tree already works
-            # around for $facet). Key on {_id AND the own-doc filter} so the write targets the exact doc read
-            # AND re-evaluates the tenant guard at write time. A 0-match means the doc was reconciled/stamped or
-            # deleted between the read and this write -> LOG it (don't silently drop the comment on a success
-            # redirect), matching the fail-loud 0-match handling in the apiv2/central delete paths. (Residual: a
-            # whole-list $set can lose one of two comments posted in the SAME request window -- LOW: comments
-            # are low-frequency; an atomic prepend needs $position, which DocumentDB rejects.)
+            # Atomic $push {$each:[buf]} (append) keyed on {_id AND the own-doc filter}. $each is DocumentDB-safe
+            # ($position is NOT -- like $facet, worked around elsewhere in this tree), it removes the whole-list
+            # read-modify-write LOST UPDATE, and pushing ONLY buf makes it immune to the with-ES-enabled hazard
+            # where curcomments is seeded from the ES doc while _mongo_id points at the Mongo doc. Newest-first
+            # display is preserved by a |reversed in web/templates/analysis/comments/index.html. A 0-match OR a
+            # None result (graceful_auto_reconnect exhausted its AutoReconnect retries and returned None) means
+            # the write did NOT land -> LOG, don't silently drop the comment on the success redirect (mirrors
+            # set_task_visibility's `if _res is None`).
             _res = mongo_update_one("analysis", {"$and": [{"_id": _mongo_id}, _cfilt]},
-                                    {"$set": {"info.comments": curcomments}})
-            if getattr(_res, "matched_count", 1) == 0:
+                                    {"$push": {"info.comments": {"$each": [buf]}}})
+            if _res is None or getattr(_res, "matched_count", 1) == 0:
                 import logging
 
                 logging.getLogger(__name__).warning(
-                    "comments: 0-match writing task %s (doc reconciled/deleted between read and write); "
-                    "comment not stored Mongo-side", task_id)
+                    "comments: write did not land for task %s (0-match or driver failure); comment not stored "
+                    "Mongo-side", task_id)
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)

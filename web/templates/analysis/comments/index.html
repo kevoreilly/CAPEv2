@@ -11,7 +11,7 @@
 </form>
 <hr>
 {% if analysis.info.comments %}
-{% for comment in analysis.info.comments %}
+{% for comment in analysis.info.comments|reversed %}{# comments are stored chronologically (append); render newest-first #}
 <div class="alert alert-primary text-white fs-6"><b>[{{comment.Timestamp}}]</b><br />{{comment.Data|safe}}</div>
 {% endfor %}
 {% else %}

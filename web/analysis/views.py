@@ -4138,6 +4138,10 @@ def remove(request, task_id):
         # Compose from FLAGS (not substring-matching the message) so a future copy-edit can't silently reinstate
         # a clobber. The SQL row is already committed away, so a leftover tree (sample + dropped files, the
         # PII/retention-relevant half) or an un-erased report must be surfaced, not hidden behind "deleted".
+        # CAVEAT (same as apiv2 tasks_delete/tasks_delete_many): _report_failed only fires if
+        # central_delete_analysis RAISES -- true for a central-mode OperationFailure, but NOT for the non-central
+        # arm, which delegates to mongo_delete_data and swallows every error (mongodb.py). Fully surfacing that
+        # needs a status-returning Mongo delete (tracked follow-up).
         if _folder_failed and _report_failed:
             message = "Task removed, but its analysis files AND report could not be deleted (see server logs)."
         elif _folder_failed:

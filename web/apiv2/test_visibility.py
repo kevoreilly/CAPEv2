@@ -1766,3 +1766,118 @@ def test_tasks_view_response_strips_mt_keys_when_off(cape_db, monkeypatch, mt_di
     data = r.json()["data"]
     assert "tenant_id" not in data
     assert "visibility" not in data
+
+
+def _td_stub(monkeypatch, deleted):
+    """Happy-path stubs for tasks_delete (single GET path): a deletable task whose SQL delete succeeds.
+    web_reporting defaults enabled -> central_delete_analysis is called; stub it out."""
+    import types
+    import apiv2.views as views
+    _t = FakeTask(user_id=1, tenant_id=None, visibility="public")
+    _t.status = "reported"
+    monkeypatch.setattr(views, "validate_task", lambda *a, **k: {"error": False}, raising=False)
+    monkeypatch.setattr(views, "can_delete_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
+    monkeypatch.setattr(views.db, "session",
+                        types.SimpleNamespace(commit=lambda: None, rollback=lambda: None), raising=False)
+    monkeypatch.setattr(views, "delete_folder", lambda *a, **k: None, raising=False)
+    monkeypatch.setattr(views, "central_delete_analysis", lambda *a, **k: None, raising=False)
+
+
+@pytest.mark.django_db
+def test_tasks_delete_rejects_out_of_range_and_huge_tokens(cape_db, monkeypatch):
+    """tasks_delete (single GET path) rejects a digit-only-but-out-of-range (>2**31-1), a >4300-digit
+    (int()-would-raise), and a zero token with 400 -- before view_task / int()-raise (a bodiless 500).
+    Parity with the delete_many bounds, previously untested on the single path."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
+    u = User.objects.create_user("td_oor", "td_oor@x.com", "x")
+    u.is_staff = True
+    u.save()
+    for tid in ("2147483648", "9" * 4301, "0", "10,2147483648"):
+        req = APIRequestFactory().get("/apiv2/tasks/delete/%s/" % tid)
+        force_authenticate(req, user=u)
+        resp = views.tasks_delete(req, tid)
+        assert resp.status_code == 400, tid
+    assert deleted == []                               # nothing deleted on any malformed/out-of-range id
+
+
+@pytest.mark.django_db
+def test_tasks_delete_zero_padded_id_accepted(cape_db, monkeypatch):
+    """A left-zero-padded but in-range id ('007', '00000000010') is ACCEPTED + normalized (7, 10), parity
+    with delete_many (comment claims parity; only delete_many had a proof before)."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _td_stub(monkeypatch, deleted)
+    u = User.objects.create_user("td_zp", "td_zp@x.com", "x")
+    u.is_staff = True
+    u.save()
+    req = APIRequestFactory().get("/apiv2/tasks/delete/007,00000000010/")
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete(req, "007,00000000010")
+    assert resp.status_code == 200
+    assert sorted(deleted) == [7, 10]                  # padded ids normalized + deleted
+
+
+@pytest.mark.django_db
+def test_tasks_delete_range_reversed_rejected_and_valid_range_deletes_each(cape_db, monkeypatch):
+    """The START-END range arm: a reversed range ('9-3') is 400 with nothing deleted; a valid range ('3-5')
+    deletes each id in [start,end]. Both range branches were untested (only the comma-list arm had pins)."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    # reversed -> 400, no delete
+    deleted = []
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
+    u = User.objects.create_user("td_rng", "td_rng@x.com", "x")
+    u.is_staff = True
+    u.save()
+    req = APIRequestFactory().get("/apiv2/tasks/delete/9-3/")
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete(req, "9-3")
+    assert resp.status_code == 400 and deleted == []
+
+    # valid range -> each id deleted
+    deleted2 = []
+    _td_stub(monkeypatch, deleted2)
+    req2 = APIRequestFactory().get("/apiv2/tasks/delete/3-5/")
+    force_authenticate(req2, user=u)
+    resp2 = views.tasks_delete(req2, "3-5")
+    assert resp2.status_code == 200
+    assert sorted(deleted2) == [3, 4, 5]
+
+
+@pytest.mark.django_db
+def test_toggle_visibility_report_store_unreachable_returns_503(cape_db, mt_enabled, monkeypatch):
+    """When db.set_task_visibility raises CuckooOperationalError (report store unreachable) the SQL change is
+    rolled back and the endpoint returns 503 (retry) -- NOT a silent 200 with the two stores diverged."""
+    from rest_framework.test import APIClient
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+    import apiv2.views as views
+
+    class T:
+        id = 1
+
+        def __init__(self):
+            self.user_id, self.tenant_id, self.visibility = 1, 10, "tenant"
+
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: T())
+    monkeypatch.setattr(views, "can_view_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views, "can_set_visibility_task", lambda u, t, v: True, raising=False)
+
+    def _raise(tid, vis):
+        raise CuckooOperationalError("report store unreachable")
+    monkeypatch.setattr(views.db, "set_task_visibility", _raise, raising=False)
+
+    u = User.objects.create_user("v503", "v503@x.com", "x")
+    c = APIClient()
+    c.force_authenticate(user=u)
+    r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "public"}, format="json")
+    assert r.status_code == 503
+    assert r.json().get("error") is True

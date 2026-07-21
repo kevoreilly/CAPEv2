@@ -470,3 +470,89 @@ def test_can_delete_task_templatetag_gates_button(cape_db, monkeypatch):
         raise RuntimeError("resolution error")
     monkeypatch.setattr(topt, "can_delete_task", _boom)
     assert tags.can_delete_task(u, _T()) is False         # fail closed on any error
+
+
+@pytest.mark.django_db
+def test_analysis_search_ids_bounded_not_500(cape_db, monkeypatch, client):
+    """The analysis-side search 'ids' path bounds each token like apiv2's ext_tasks_search: an out-of-range
+    (>2**31-1), huge-digit (>4300 chars), or zero token renders the generic 'Not all values are valid task
+    ids' error (200) BEFORE any DB query -- never an unbounded int()->500. Only the apiv2 side had a bound
+    test before this."""
+    import analysis.views as av
+    from django.urls import reverse
+
+    def _boom(*a, **k):
+        raise AssertionError("must not query the DB for an invalid id set")
+    monkeypatch.setattr(av.db, "list_tasks", _boom, raising=False)
+    client.force_login(User.objects.create_user("asids", "asids@x.com", "x"))
+    try:
+        url = reverse("search")
+    except Exception:
+        url = "/analysis/search/"
+    for bad in ("2147483648", "9" * 4301, "0"):
+        r = client.post(url, {"search": "ids:%s" % bad})
+        assert r.status_code == 200
+        assert b"Not all values are valid task ids" in r.content
+
+
+@pytest.mark.django_db
+def test_can_delete_task_templatetag_resolves_id(cape_db, monkeypatch):
+    """The can_delete_task tag's id-path (mongo analysis.info.id, not a Task object): it resolves via
+    Database().view_task -> False if the id is gone (hide the button), else delegates to can_delete_task.
+    The object-path test never exercises this view_task branch."""
+    from analysis.templatetags import analysis_tags as tags
+    import web.tenancy_optional as topt
+
+    u = User.objects.create_user("ttid", "ttid@x.com", "x")
+
+    class _DB:
+        def __init__(self, t):
+            self._t = t
+
+        def view_task(self, tid):
+            return self._t
+
+    # id resolves to None -> hide (False) without consulting can_delete_task
+    monkeypatch.setattr("lib.cuckoo.core.database.Database", lambda: _DB(None))
+    assert tags.can_delete_task(u, 5) is False
+
+    # id resolves to a task -> delegate to can_delete_task
+    class _T:
+        visibility = "public"
+        user_id = 1
+    monkeypatch.setattr("lib.cuckoo.core.database.Database", lambda: _DB(_T()))
+    monkeypatch.setattr(topt, "can_delete_task", lambda user, task: True)
+    assert tags.can_delete_task(u, 5) is True
+
+
+@pytest.mark.django_db
+def test_require_task_delete_missing_or_unseeable_is_generic_not_found(cape_db, mt_enabled, monkeypatch):
+    """require_task_delete returns the generic 'Not found' (no cross-tenant enumeration oracle) for a
+    MISSING or NOT-VIEWABLE task -- distinct from the 'not permitted' 403 it returns for a seen-but-
+    undeletable task (covered separately). Both anti-enumeration arms asserted here."""
+    from django.test import RequestFactory
+    import analysis.views as av
+
+    sentinel = object()
+
+    @av.require_task_delete
+    def _view(request, task_id):
+        return sentinel
+
+    req = RequestFactory().get("/x/")
+    req.user = User.objects.create_user("rnf", "rnf@x.com", "x")
+
+    # (a) missing task -> generic Not found
+    monkeypatch.setattr(av.db, "view_task", lambda tid: None)
+    r = _view(req, task_id="5")
+    assert r is not sentinel and r.status_code == 403
+    assert b"Not found" in r.content and b"not permitted" not in r.content
+
+    # (b) exists but not viewable -> SAME generic Not found (no existence signal)
+    class _T:
+        id = 5
+    monkeypatch.setattr(av.db, "view_task", lambda tid: _T())
+    monkeypatch.setattr(av, "can_view_task", lambda u, t: False, raising=False)
+    r = _view(req, task_id="5")
+    assert r.status_code == 403
+    assert b"Not found" in r.content and b"not permitted" not in r.content

@@ -21,6 +21,8 @@ def test_web_authz_gates_fail_closed_when_mt_enabled_but_broken(monkeypatch):
     assert fac.can_view_task(object(), object()) is False
     assert fac.can_toggle_task(object(), object()) is False
     assert fac.can_manage_task(object(), object()) is False
+    assert fac.can_delete_task(object(), object()) is False                       # irreversible delete gate
+    assert fac.can_set_visibility_task(object(), object(), "public") is False     # visibility-transition gate
     assert fac.can_view_sample(object(), sha256="a" * 64) is False
     assert fac.viewer_for(object()).is_local_admin is False
     assert fac.submission_scope(object()) == (None, fac.PRIVATE)
@@ -31,6 +33,8 @@ def test_web_authz_gates_see_all_when_mt_genuinely_absent(monkeypatch):
     _hide(monkeypatch, "users.tenancy")
     monkeypatch.setattr(fac, "_mt_enabled", lambda: False)
     assert fac.can_view_task(object(), object()) is True
+    assert fac.can_delete_task(object(), object()) is True                        # MT absent -> single-tenant allow
+    assert fac.can_set_visibility_task(object(), object(), "public") is True
     assert fac.viewer_for(object()).is_local_admin is True
     assert fac.submission_scope(object()) == (None, fac.PUBLIC)
 

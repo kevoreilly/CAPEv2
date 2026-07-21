@@ -74,6 +74,18 @@ def test_can_set_visibility_blocks_tenant_admin_public_downgrade():
     assert can_set_visibility(other, pub, "public") is False
 
 
+def test_can_delete_orphan_owner_not_deletable_by_anon():
+    """An orphan/system-owned task (owner_id=None -- the shape _job_for produces for a task with no user_id,
+    e.g. the audit app's instance-owned tasks) must NOT be deletable by an anonymous viewer (user_id=None).
+    RED against dropping _is_owner's `v.user_id is not None` guard, where None == None would grant delete."""
+    from lib.cuckoo.common.tenancy import can_delete, Viewer, Job
+
+    anon = Viewer(user_id=None, tenant_id=None)
+    assert can_delete(anon, Job(owner_id=None, tenant_id=None, visibility="private")) is False
+    assert can_delete(anon, Job(owner_id=None, tenant_id=10, visibility="public")) is False
+    assert can_delete(anon, Job(owner_id=None, tenant_id=10, visibility="tenant")) is False
+
+
 def test_config_defaults():
     from lib.cuckoo.common import tenancy
     cfg = tenancy.multitenancy_config()

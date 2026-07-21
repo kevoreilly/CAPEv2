@@ -4139,9 +4139,12 @@ def remove(request, task_id):
         # a clobber. The SQL row is already committed away, so a leftover tree (sample + dropped files, the
         # PII/retention-relevant half) or an un-erased report must be surfaced, not hidden behind "deleted".
         # CAVEAT (same as apiv2 tasks_delete/tasks_delete_many): _report_failed only fires if
-        # central_delete_analysis RAISES -- true for a central-mode OperationFailure, but NOT for the non-central
-        # arm, which delegates to mongo_delete_data and swallows every error (mongodb.py). Fully surfacing that
-        # needs a status-returning Mongo delete (tracked follow-up).
+        # central_delete_analysis RAISES, which is NARROWER than "the report was erased" on BOTH arms.
+        # Central: its mongo_find_one/mongo_delete_many are @graceful_auto_reconnect, which after exhausting
+        # its AutoReconnect retries returns None WITHOUT raising (dev_utils/mongodb.py) and central_views does
+        # not check that return; a 0-match delete likewise only warns -- so here only a non-AutoReconnect
+        # pymongo error raises. Non-central: delegates to mongo_delete_data, which swallows every error
+        # (mongodb.py). Fully surfacing either needs a status-returning Mongo delete (tracked follow-up).
         if _folder_failed and _report_failed:
             message = "Task removed, but its analysis files AND report could not be deleted (see server logs)."
         elif _folder_failed:

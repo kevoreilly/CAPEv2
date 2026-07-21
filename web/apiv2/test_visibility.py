@@ -448,9 +448,13 @@ def test_tasks_delete_many_skips_unmanageable_cross_tenant(cape_db, mt_enabled, 
     """A tenant-less user POSTing another tenant's private task id to the bulk-
     delete endpoint must NOT delete it (the worst confirmed critical)."""
     from rest_framework.test import APIRequestFactory, force_authenticate
+    import types
     import apiv2.views as views
 
     deleted = []
+    # taskdelete kill-switch defaults OFF; enable it so this test exercises the CROSS-TENANT
+    # guard (the kill-switch itself has its own test below).
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
     monkeypatch.setattr(views.db, "view_task",
                         lambda tid: FakeTask(user_id=999, tenant_id=10, visibility="private"))
     monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
@@ -463,6 +467,27 @@ def test_tasks_delete_many_skips_unmanageable_cross_tenant(cape_db, mt_enabled, 
 
     assert deleted == []                       # cross-tenant task NOT deleted
     assert resp.data.get(1) == "not exists"    # indistinguishable from missing
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_respects_taskdelete_killswitch(cape_db, monkeypatch):
+    """[taskdelete] enabled=no must gate the BULK endpoint too (mirror tasks_delete): a
+    non-staff caller must NOT be able to destroy tasks + reports while deletion is frozen."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import types
+    import apiv2.views as views
+
+    deleted = []
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": False}))
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
+
+    u = User.objects.create_user("ks", "ks@x.com", "x")  # non-staff
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "1"})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 403             # frozen: disabled + non-staff
+    assert deleted == []                       # nothing destroyed
 
 
 @pytest.mark.django_db

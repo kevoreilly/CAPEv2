@@ -3341,8 +3341,12 @@ def statistics_data(requests, days):
 @api_view(["POST"])
 def tasks_delete_many(request):
     response = {}
-    # NB: form-encoding sends booleans as strings, so bool("False") would be True -- parse the string forms
-    # (utils/dist.py posts delete_mongo=False, i.e. "False", to opt OUT of deleting the worker's Mongo report).
+    # Mirror tasks_delete's [taskdelete] kill-switch (:1333): the operator's freeze-deletion switch
+    # (incident / legal hold / retention audit) must gate the BULK endpoint too -- otherwise a
+    # non-staff caller keeps destroying tasks + reports through /tasks/delete_many/ while deletion
+    # is supposedly disabled. Pre-existing upstream gap; this PR hardened the endpoint otherwise.
+    if not (apiconf.taskdelete.get("enabled") or request.user.is_staff):
+        return Response({"error": True, "error_value": "Task Deletion API is Disabled"}, status=403)
     # delete_mongo: form-encoding sends booleans as strings, so bool("False") would be True. ABSENT -> the
     # delete default (True). A present-but-EMPTY value is ambiguous -- upstream treated it as retain, this parse
     # would treat it as delete -- so REJECT it (400) rather than silently pick a destructive OR a retaining side

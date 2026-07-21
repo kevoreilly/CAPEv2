@@ -354,8 +354,13 @@ def _delete_many(node, ids, nodes, db):
             data={"ids": ids, "delete_mongo": False},
             verify=False,
         )
-        if res and res.status_code != 200:
-            log.info("%d - %s", res.status_code, res.content)
+        # `if res` is falsy for any non-2xx (requests.Response.__bool__ is self.ok), so a 4xx/5xx from
+        # delete_many was invisible here -- no log, no rollback -- and the cleaner committed deleted=True
+        # for the whole batch anyway, leaking the worker's analyses/ + Mongo reports with no retry. Branch
+        # on `is not None` so a frozen/failed node surfaces (logged) and rolls back for the next sweep.
+        if res is not None and res.status_code != 200:
+            log.warning("[REMOVE] %-15s ==> non-200 %d, rolling back for retry: %s",
+                        nodes[node].name, res.status_code, res.content[:200])
             db.rollback()
 
     except Exception as e:

@@ -447,10 +447,12 @@ def test_hash_routed_discovery_catches_unguarded(tmp_path, monkeypatch):
 def test_tasks_delete_many_skips_unmanageable_cross_tenant(cape_db, mt_enabled, monkeypatch):
     """A tenant-less user POSTing another tenant's private task id to the bulk-
     delete endpoint must NOT delete it (the worst confirmed critical)."""
+    import types
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
     deleted = []
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))  # bypass freeze
     monkeypatch.setattr(views.db, "view_task",
                         lambda tid: FakeTask(user_id=999, tenant_id=10, visibility="private"))
     monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
@@ -472,6 +474,9 @@ def _dm_stub(monkeypatch, deleted):
     import apiv2.views as views
     _t = FakeTask(user_id=1, tenant_id=None, visibility="public")
     _t.status = "reported"  # not TASK_RUNNING
+    # happy path: [taskdelete] enabled so the authed-non-staff freeze gate doesn't short-circuit
+    # (freeze has its own dedicated tests). Callers that test the freeze override apiconf after this.
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
     monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)
     monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
     monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
@@ -631,6 +636,96 @@ def test_tasks_delete_many_missing_ids_is_noop(cape_db, monkeypatch):
 
 
 @pytest.mark.django_db
+def test_tasks_delete_many_freeze_gates_authed_nonstaff_not_anon(cape_db, monkeypatch):
+    """[taskdelete] disabled freezes an authenticated non-staff caller (403) but NOT the anonymous
+    stock/dist worker-cleanup path (which must keep reclaiming disk)."""
+    import types
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": False}))  # after _dm_stub
+
+    # authenticated non-staff -> frozen
+    u = User.objects.create_user("fz", "fz@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10"})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+    assert resp.status_code == 403
+    assert deleted == []
+
+    # anonymous (no auth = the stock/dist path) -> NOT frozen, reclamation proceeds
+    deleted.clear()
+    req_anon = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10"})
+    resp_anon = views.tasks_delete_many(req_anon)
+    assert resp_anon.status_code == 200
+    assert deleted == [10]
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_freeze_bypassed_by_staff_and_when_enabled(cape_db, monkeypatch):
+    """Staff bypass the freeze, and an authed non-staff caller is allowed when [taskdelete] is enabled."""
+    import types
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    # staff + disabled -> bypass
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": False}))
+    staff = User.objects.create_user("stf", "stf@x.com", "x")
+    staff.is_staff = True
+    staff.save()
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10"})
+    force_authenticate(req, user=staff)
+    assert views.tasks_delete_many(req).status_code == 200
+    assert deleted == [10]
+    # non-staff + ENABLED -> allowed
+    deleted.clear()
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
+    u = User.objects.create_user("en", "en@x.com", "x")
+    req2 = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "11"})
+    force_authenticate(req2, user=u)
+    assert views.tasks_delete_many(req2).status_code == 200
+    assert deleted == [11]
+
+
+@pytest.mark.django_db
+def test_tasks_delete_rejects_negative_range_no_mass_delete(cape_db, monkeypatch):
+    """/tasks/delete/-5/ must 400, NOT expand to range(0,6) and mass-delete tasks 1-5
+    (the force_int('')==0 footgun)."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
+    u = User.objects.create_user("td1", "td1@x.com", "x")  # staff bypasses the gate
+    u.is_staff = True
+    u.save()
+    req = APIRequestFactory().get("/apiv2/tasks/delete/-5/")
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete(req, "-5")
+    assert resp.status_code == 400
+    assert deleted == []                             # no mass delete
+
+
+@pytest.mark.django_db
+def test_tasks_delete_rejects_multi_hyphen_no_500(cape_db, monkeypatch):
+    """/tasks/delete/1-2-3/ must 400, not 500 (ValueError: too many values to unpack)."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    u = User.objects.create_user("td2", "td2@x.com", "x")
+    u.is_staff = True
+    u.save()
+    req = APIRequestFactory().get("/apiv2/tasks/delete/1-2-3/")
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete(req, "1-2-3")
+    assert resp.status_code == 400
+
+
+@pytest.mark.django_db
 def test_tasks_delete_many_empty_delete_mongo_retains(cape_db, monkeypatch):
     """A present-but-EMPTY delete_mongo RETAINS the Mongo report (upstream bool("")=False
     back-compat) -- NOT a 400 and NOT a delete. The explicit-string parse still fixes the
@@ -642,6 +737,7 @@ def test_tasks_delete_many_empty_delete_mongo_retains(cape_db, monkeypatch):
     _t = FakeTask(user_id=1, tenant_id=None, visibility="public")
     _t.status = "reported"                     # not TASK_RUNNING
     called = []
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))  # bypass freeze
     monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)
     monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
     monkeypatch.setattr(views.db, "delete_task", lambda tid: True)

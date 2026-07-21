@@ -1334,17 +1334,33 @@ def tasks_delete(request, task_id, status=False):
         resp = {"error": True, "error_value": "Task Deletion API is Disabled"}
         return Response(resp)
 
+    # Strict id parsing (Task.id is a 32-bit signed PG Integer). force_int is too loose here: force_int("")==0
+    # turned "-5" into range(0,6) -- a mass-delete of tasks 1..5 from one mistyped id -- and a multi-hyphen
+    # "1-2-3" unpacked into two names and 500'd. Validate every token; reject a malformed range/list with 400
+    # (never expand or unpack it); and keep the range LAZY (never list(range(...))) so a wide "1-2147483647"
+    # can't materialize a multi-GB list.
+    def _valid_task_id(tok):
+        tok = tok.strip()
+        return tok.isascii() and tok.isdigit() and len(tok) <= 10 and 1 <= int(tok) <= 2147483647
+
     if isinstance(task_id, int):
         task_id = [task_id]
     elif "-" in task_id:
-        start, end = map(force_int, task_id.split("-"))
+        _parts = task_id.split("-")
+        if len(_parts) != 2 or not all(_valid_task_id(p) for p in _parts):
+            resp = {"error": True, "error_value": "Malformed task ID range (expected START-END positive integers)"}
+            return Response(resp, status=400)
+        start, end = int(_parts[0].strip()), int(_parts[1].strip())
         if start > end:
             resp = {"error": True, "error_value": "Start Task ID is bigger than End Task ID"}
-            return Response(resp)
-        else:
-            task_id = list(range(start, end + 1))
+            return Response(resp, status=400)
+        task_id = range(start, end + 1)
     else:
-        task_id = [force_int(task.strip()) for task in task_id.split(",")]
+        _toks = [t.strip() for t in task_id.split(",") if t.strip()]
+        if not _toks or not all(_valid_task_id(t) for t in _toks):
+            resp = {"error": True, "error_value": "Malformed task ID (expected positive integers)"}
+            return Response(resp, status=400)
+        task_id = [int(t) for t in _toks]
 
     resp = {}
     s_deleted = []
@@ -3341,10 +3357,13 @@ def statistics_data(requests, days):
 @api_view(["POST"])
 def tasks_delete_many(request):
     response = {}
-    # NB: NOT gated by the [taskdelete] kill-switch. Unlike the human-facing tasks_delete, this is the
-    # automated worker-cleanup path (utils/dist.py _delete_many + utils/go-fetcher), and on a stock install
-    # ([taskdelete] enabled=no + token_auth_enabled=no -> AllowAny/AnonymousUser) a kill-switch here would
-    # 403 EVERY caller and silently break disk reclamation (dist.py's `if res` treats a 403 as falsy).
+    # [taskdelete] freeze (legal hold / incident / retention audit) applies to an authenticated HUMAN/API
+    # caller, but NOT the anonymous stock/dist worker-cleanup path (utils/dist.py _delete_many + go-fetcher):
+    # request.user is AnonymousUser when token_auth_enabled=no, and 403-ing that path would silently break
+    # disk reclamation (dist.py's `if res` is falsy on non-2xx) -- the regression a blanket kill-switch caused.
+    # So freeze only an authenticated non-staff principal (staff bypass, mirroring tasks_delete's is_staff arm).
+    if request.user.is_authenticated and not request.user.is_staff and not apiconf.taskdelete.get("enabled"):
+        return Response({"error": True, "error_value": "Task Deletion API is Disabled"}, status=403)
     # Read BOTH ids and delete_mongo from the SAME body via request.data (populated for form AND JSON).
     # request.POST is empty for a JSON content type, so sourcing ids from request.data while leaving
     # delete_mongo on request.POST would silently drop a JSON caller's delete_mongo=false RETAIN opt-out and

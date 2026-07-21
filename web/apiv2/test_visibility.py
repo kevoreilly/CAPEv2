@@ -597,6 +597,67 @@ def test_tasks_delete_many_gates_on_can_delete_not_can_manage(cape_db, monkeypat
 
 
 @pytest.mark.django_db
+def test_tasks_delete_gates_on_can_delete_not_can_manage(cape_db, monkeypatch):
+    """tasks_delete (single) authorizes each task via can_delete_task, NOT can_manage_task: a caller who
+    may manage a public task but not delete it is refused (task lands in `failed`, nothing deleted). A
+    behavioral pin so a revert of tasks_delete to can_manage_task fails CI (the GUARD_MARKERS substring
+    check alone would still pass)."""
+    import types
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _t = FakeTask(user_id=1, tenant_id=10, visibility="public")
+    _t.status = "reported"
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
+    monkeypatch.setattr(views, "validate_task", lambda *a, **k: {"error": False}, raising=False)
+    monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
+    monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)   # manage WOULD allow
+    monkeypatch.setattr(views, "can_delete_task", lambda u, t: False, raising=False)  # delete denies
+
+    u = User.objects.create_user("td_cd", "td_cd@x.com", "x")
+    req = APIRequestFactory().get("/apiv2/tasks/delete/5/")   # tasks_delete is @api_view(["GET"])
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete(req, "5")
+
+    assert deleted == []                              # gated by can_delete_task (deny), not can_manage
+    assert "5" in resp.data.get("failed", "")         # reported failed, not deleted
+
+
+@pytest.mark.django_db
+def test_toggle_visibility_gates_on_can_set_visibility_not_can_toggle(cape_db, mt_enabled, monkeypatch):
+    """The visibility WRITE authorizes via can_set_visibility_task (transition-aware), NOT can_toggle_task
+    -- this is what stops a tenant-admin downgrading a non-owned PUBLIC job into can_delete's tenant
+    branch. RED against a revert to can_toggle_task (which has no direction guard)."""
+    from rest_framework.test import APIClient
+    import apiv2.views as views
+
+    wrote = []
+
+    class T:
+        id = 1
+
+        def __init__(self):
+            self.user_id, self.tenant_id, self.visibility = 999, 10, "public"
+
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: T())
+    monkeypatch.setattr(views.db, "set_task_visibility",
+                        lambda tid, vis: wrote.append((tid, vis)) or T(), raising=False)
+    monkeypatch.setattr(views, "can_view_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views, "can_toggle_task", lambda u, t: True, raising=False)             # toggle WOULD allow
+    monkeypatch.setattr(views, "can_set_visibility_task", lambda u, t, v: False, raising=False)  # transition denies
+
+    u = User.objects.create_user("tsv_cd", "tsv_cd@x.com", "x")
+    c = APIClient()
+    c.force_authenticate(user=u)
+    r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "tenant"}, format="json")
+
+    assert r.status_code == 403                       # gated by can_set_visibility_task (deny), not can_toggle
+    assert wrote == []                                # the downgrade write never happened
+
+
+@pytest.mark.django_db
 def test_tasks_delete_many_reads_json_body(cape_db, monkeypatch):
     """ids sourced from request.data so a JSON-bodied caller isn't a silent no-op (request.POST is
     empty for application/json -> would answer 200 having deleted nothing)."""

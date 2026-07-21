@@ -72,13 +72,16 @@
                 <h6 class="text-muted text-uppercase small mb-3">Administrative Actions</h6>
                 
                 <div class="d-grid gap-3">
-                    <a href="{% url 'remove' analysis.info.id %}" 
-                       class="btn btn-outline-danger d-flex align-items-center justify-content-center gap-2" 
-                       data-bs-toggle="tooltip" 
+                    {% can_delete_task user analysis.info.id as _can_delete %}
+                    {% if _can_delete %}
+                    <a href="{% url 'remove' analysis.info.id %}"
+                       class="btn btn-outline-danger d-flex align-items-center justify-content-center gap-2"
+                       data-bs-toggle="tooltip"
                        title="Delete this task permanently"
                        onclick="return confirm('Are you sure you want to delete this task? This action cannot be undone.');">
                         <i class="fas fa-trash-alt"></i> Delete Task
                     </a>
+                    {% endif %}
 
                     {% if analysis.info.user_id %}
                     <div class="text-muted small text-center border-top border-secondary pt-2 mt-1">

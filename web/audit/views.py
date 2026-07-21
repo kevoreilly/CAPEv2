@@ -27,6 +27,7 @@ from lib.cuckoo.core.data.audits import AuditsMixIn, TestSession
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from lib.cuckoo.core.data.db_common import _utcnow_naive
 from lib.cuckoo.core.data.audit_data import (TestRun, TEST_QUEUED, TEST_COMPLETE, TEST_FAILED, TEST_RUNNING, TEST_UNQUEUED)
+from web.tenancy_optional import can_delete_task
 
 '''
 try:
@@ -47,6 +48,18 @@ web_cfg = Config("web")
 db: AuditsMixIn = Database()
 
 anon_not_viewable_func_list = (
+    # Destructive / mutating endpoints must NEVER be served to an anonymous caller via ANON_VIEW
+    # (which otherwise returns the raw view with NO login). These create/delete CAPE tasks, rmtree
+    # analysis directories, or mutate the audit catalog -- login is mandatory regardless of the
+    # read-only anonymous-browse setting (the delete paths additionally gate on can_delete_task).
+    "create_test_session",
+    "reload_available_tests",
+    "delete_test_session",
+    "queue_test",
+    "queue_all_tests",
+    "unqueue_test",
+    "unqueue_all_tests",
+    "update_task_config",
 )
 
 # Conditional decorator for web authentication
@@ -206,6 +219,20 @@ def reload_available_tests(request):
     return redirect(reverse("audit_index") + "#available-tests")
 
 
+def _caller_can_delete_session(user, session) -> bool:
+    """True iff `user` may DELETE every CAPE task that purging `session` would remove (delete_test_session
+    rmtree's storage/analyses/<cape_task_id> for each run). Audit tasks are instance/system-owned, so with
+    MT ON this resolves to a break-glass box admin; with MT OFF can_delete_task allows every principal
+    (single shared trust domain) -> unchanged. Fails closed on the first un-deletable run."""
+    for run in getattr(session, "runs", None) or []:
+        if run.cape_task_id is None:
+            continue
+        _t = db.view_task(run.cape_task_id)
+        if _t is not None and not can_delete_task(user, _t):
+            return False
+    return True
+
+
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def delete_test_session(request, session_id: int):
@@ -216,6 +243,8 @@ def delete_test_session(request, session_id: int):
     try:
         session = db.get_test_session(session_id)
         if session:
+            if not _caller_can_delete_session(request.user, session):
+                return HttpResponseForbidden("You are not permitted to delete this session")
             if not db.delete_test_session(session_id):
                 messages.warning(request, f"Could not delete active session #{session_id}.")
     except Exception as e:
@@ -418,10 +447,11 @@ def queue_all_tests(request, session_id: int):
             task_ids.append({"run": run.id, "task": task_id})
     return JsonResponse({"task_ids": task_ids})
 
-def inner_unqueue_test(testrun: TestRun) -> Optional[int]:
+def inner_unqueue_test(testrun: TestRun, user=None) -> Optional[int]:
     """
     Try to delete a CAPE task of a session which has been queued (but not started yet)
     @parameter testrun: The TestRun db object of the run to clear
+    @parameter user: the requesting user; the CAPE-task delete is gated on can_delete_task(user, task)
     Returns the deleted CAPE task id, or None if failed
     """
     # note: I tried to use db.delete_tasks(), with the task_id's & TASK_PENDING
@@ -430,6 +460,14 @@ def inner_unqueue_test(testrun: TestRun) -> Optional[int]:
     if testrun.cape_task_id is not None and testrun.status == TEST_QUEUED:
         task_id = testrun.cape_task_id
         cape_task = db.view_task(task_id)
+        if cape_task is None:
+            # the CAPE row is already gone -> nothing to delete (was a bodiless 500 on .status below)
+            return None
+        # tenant isolation: only delete a CAPE task the caller may DELETE. Audit tasks are instance/
+        # system-owned, so with MT ON this resolves to a break-glass box admin; with MT OFF
+        # can_delete_task allows every principal (single shared trust domain) -> no behavior change.
+        if user is not None and not can_delete_task(user, cape_task):
+            return None
         if cape_task.status == TASK_PENDING:
             db.delete_task(task_id)
             testrun.status = TEST_UNQUEUED
@@ -447,7 +485,7 @@ def unqueue_test(request, session_id, testrun_id):
     if not run:
         return JsonResponse({"status": "failure", "message": "Could not retrieve test task", "task_id": None})
 
-    cape_task_id = inner_unqueue_test(run)
+    cape_task_id = inner_unqueue_test(run, request.user)
     if cape_task_id:
         return JsonResponse({"status": "success", "message": "Test unqueued successfully", "task_id": cape_task_id})
     else:
@@ -462,7 +500,7 @@ def unqueue_all_tests(request, session_id: int):
         logger.warning("Request to unqueue all tests of invalid session %d",session_id)
     else:
         for run in db_test_session.runs:
-            task_id = inner_unqueue_test(run)
+            task_id = inner_unqueue_test(run, request.user)
             if task_id:
                 deleted_task_ids.append(task_id)
     return JsonResponse({"deleted_tasks": deleted_task_ids})

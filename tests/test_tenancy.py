@@ -1,15 +1,16 @@
 import pytest
 
 from tests.tenancy_vectors import VECTORS
-from lib.cuckoo.common.tenancy import can_read, can_toggle, Viewer, Job
+from lib.cuckoo.common.tenancy import can_read, can_toggle, can_delete, Viewer, Job
 
 
-@pytest.mark.parametrize("label,viewer,job,want_read,want_toggle", VECTORS, ids=[v[0] for v in VECTORS])
-def test_predicate_matches_vectors(label, viewer, job, want_read, want_toggle):
+@pytest.mark.parametrize("label,viewer,job,want_read,want_toggle,want_delete", VECTORS, ids=[v[0] for v in VECTORS])
+def test_predicate_matches_vectors(label, viewer, job, want_read, want_toggle, want_delete):
     v = Viewer(**viewer)
     j = Job(**job)
     assert can_read(v, j) is want_read, f"{label}: read"
     assert can_toggle(v, j) is want_toggle, f"{label}: toggle"
+    assert can_delete(v, j) is want_delete, f"{label}: delete"
 
 
 def test_can_delete_public_stricter_than_toggle():
@@ -22,6 +23,7 @@ def test_can_delete_public_stricter_than_toggle():
     tadmin = Viewer(user_id=2, tenant_id=10, is_tenant_admin=True)
     boxadmin = Viewer(user_id=3, tenant_id=None, is_local_admin=True)
     other = Viewer(user_id=4, tenant_id=10)
+    foreign_tadmin = Viewer(user_id=5, tenant_id=99, is_tenant_admin=True)  # admin of a DIFFERENT tenant
     pub = Job(owner_id=1, tenant_id=10, visibility="public")
     ten = Job(owner_id=1, tenant_id=10, visibility="tenant")
     priv = Job(owner_id=1, tenant_id=10, visibility="private")
@@ -35,9 +37,41 @@ def test_can_delete_public_stricter_than_toggle():
 
     # TENANT -- submitter / same-tenant tenant-admin / box admin.
     assert [can_delete(x, ten) for x in (owner, tadmin, boxadmin, other)] == [True, True, True, False]
+    # A DIFFERENT tenant's admin must NOT delete this tenant's job -- exercises the _same_tenant conjunct
+    # (RED against a mutant can_delete with _same_tenant dropped, which would let tenant-99 delete tenant-10).
+    assert can_delete(foreign_tadmin, ten) is False
 
     # PRIVATE -- submitter / box admin only (a tenant-admin cannot delete a member's private job).
     assert [can_delete(x, priv) for x in (owner, tadmin, boxadmin, other)] == [True, False, True, False]
+
+
+def test_can_set_visibility_blocks_tenant_admin_public_downgrade():
+    """The visibility transition itself is authorized so can_delete's PUBLIC boundary can't be reached
+    in two steps: a tenant-admin may toggle a public job but may NOT downgrade it to tenant/private
+    (which would move it into can_delete's tenant branch). Widening / same-value / owner / break-glass
+    stay allowed. RED against the pre-fix code where the write gated on can_toggle alone."""
+    from lib.cuckoo.common.tenancy import can_set_visibility, can_toggle, can_delete, Viewer, Job
+
+    owner = Viewer(user_id=1, tenant_id=10)
+    tadmin = Viewer(user_id=2, tenant_id=10, is_tenant_admin=True)
+    boxadmin = Viewer(user_id=3, tenant_id=None, is_local_admin=True)
+    other = Viewer(user_id=4, tenant_id=10)
+    pub = Job(owner_id=1, tenant_id=10, visibility="public")
+    ten = Job(owner_id=1, tenant_id=10, visibility="tenant")
+
+    # the escalation the guard closes: toggle allowed, but the downgrade transition is not.
+    assert can_toggle(tadmin, pub) is True
+    assert can_set_visibility(tadmin, pub, "tenant") is False   # <- the former bypass step
+    assert can_set_visibility(tadmin, pub, "private") is False
+    assert can_delete(tadmin, pub) is False                     # and the delete itself still refused
+    # widening / same-value stays allowed for the tenant-admin
+    assert can_set_visibility(tadmin, ten, "public") is True
+    assert can_set_visibility(tadmin, pub, "public") is True
+    # owner + break-glass may set any value they can already toggle
+    assert can_set_visibility(owner, pub, "tenant") is True
+    assert can_set_visibility(boxadmin, pub, "private") is True
+    # a caller with no toggle right is refused regardless of direction
+    assert can_set_visibility(other, pub, "public") is False
 
 
 def test_config_defaults():

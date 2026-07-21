@@ -157,10 +157,10 @@ def test_non_numeric_task_id_denied_before_db(cape_db, mt_enabled, monkeypatch, 
 
 @pytest.mark.django_db
 def test_require_visibility_mt_off_passthrough(cape_db, mt_disabled, monkeypatch):
-    """HARD INVARIANT: with MT OFF, require_task_visibility / require_task_manage
-    are PURE pass-throughs — they must NOT coerce the id, call db.view_task, or
-    return a 403. The wrapped view runs exactly as upstream (which then renders off
-    disk/mongo, ~200)."""
+    """HARD INVARIANT: with MT OFF, require_task_visibility / require_task_manage /
+    require_task_delete are PURE pass-throughs — they must NOT coerce the id, call
+    db.view_task, or return a 403. The wrapped view runs exactly as upstream (which
+    then renders off disk/mongo, ~200)."""
     from django.test import RequestFactory
     import analysis.views as av
 
@@ -179,11 +179,47 @@ def test_require_visibility_mt_off_passthrough(cape_db, mt_disabled, monkeypatch
     def _mng_view(request, task_id):
         return sentinel
 
+    @av.require_task_delete
+    def _del_view(request, task_id):
+        return sentinel
+
     req = RequestFactory().get("/x/")
     req.user = User.objects.create_user("pt", "pt@x.com", "x")
     # even a non-numeric id passes straight through untouched when MT is off
     assert _vis_view(req, task_id="abc") is sentinel
     assert _mng_view(req, task_id="abc") is sentinel
+    assert _del_view(req, task_id="abc") is sentinel
+
+
+@pytest.mark.django_db
+def test_require_task_delete_gates_on_can_delete_not_can_manage(cape_db, mt_enabled, monkeypatch):
+    """MT ON: require_task_delete authorizes via can_delete_task, NOT can_manage_task. A caller who may
+    MANAGE a task (e.g. tenant-admin on a public job) but not DELETE it is refused -- and, because they
+    can SEE it, with a DISTINGUISHABLE 'not permitted' (403) rather than the generic 'Not found'. RED
+    against a revert of remove() to @require_task_manage (which would let the view run) or to the old
+    undifferentiated 'Not found'."""
+    from django.test import RequestFactory
+    import analysis.views as av
+
+    class _T:
+        id = 5
+    monkeypatch.setattr(av.db, "view_task", lambda tid: _T())
+    monkeypatch.setattr(av, "can_view_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(av, "can_manage_task", lambda u, t: True, raising=False)   # manage WOULD allow
+    monkeypatch.setattr(av, "can_delete_task", lambda u, t: False, raising=False)  # delete denies
+
+    sentinel = object()
+
+    @av.require_task_delete
+    def _del_view(request, task_id):
+        return sentinel
+
+    req = RequestFactory().get("/x/")
+    req.user = User.objects.create_user("dg", "dg@x.com", "x")
+    resp = _del_view(req, task_id="5")
+    assert resp is not sentinel                          # gated by can_delete_task (deny), not can_manage
+    assert resp.status_code == 403
+    assert b"not permitted" in resp.content              # distinguishable (caller can SEE it), not "Not found"
 
 
 @pytest.mark.django_db
@@ -409,3 +445,28 @@ def test_remove_valid_id_mongodb_off_renders_message_not_500(cape_db, monkeypatc
 
     assert resp.status_code == 200                     # not an UnboundLocalError 500
     assert deleted == ["7"]                            # SQL delete still happened (id coerced + normalized)
+
+
+@pytest.mark.django_db
+def test_can_delete_task_templatetag_gates_button(cape_db, monkeypatch):
+    """The can_delete_task template tag gates the irreversible Delete button: True only when
+    can_delete_task allows, and it fails CLOSED (False -> no button) if resolution raises. Accepts a
+    Task-like object directly (no view_task hit when it already carries visibility/user_id)."""
+    from analysis.templatetags import analysis_tags as tags
+    import web.tenancy_optional as topt
+
+    class _T:
+        visibility = "public"
+        user_id = 1
+
+    u = User.objects.create_user("ttag", "ttag@x.com", "x")
+
+    monkeypatch.setattr(topt, "can_delete_task", lambda user, task: False)
+    assert tags.can_delete_task(u, _T()) is False        # denied -> button hidden
+    monkeypatch.setattr(topt, "can_delete_task", lambda user, task: True)
+    assert tags.can_delete_task(u, _T()) is True         # allowed -> button shown
+
+    def _boom(user, task):
+        raise RuntimeError("resolution error")
+    monkeypatch.setattr(topt, "can_delete_task", _boom)
+    assert tags.can_delete_task(u, _T()) is False         # fail closed on any error

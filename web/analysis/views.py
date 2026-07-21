@@ -265,8 +265,14 @@ def require_task_delete(view):
         if tid is None:
             return HttpResponseForbidden("Not found")
         task = db.view_task(tid)
-        if task is None or not can_delete_task(request.user, task):
+        if task is None or not can_view_task(request.user, task):
+            # missing OR not even visible: the SAME generic 'Not found' (no cross-tenant enumeration).
             return HttpResponseForbidden("Not found")
+        if not can_delete_task(request.user, task):
+            # the caller can demonstrably SEE this task, so a distinguishable 'not permitted' leaks
+            # nothing new -- and it lets the UI hide/disable a Delete control instead of offering one
+            # that 403s as if the task were missing.
+            return HttpResponseForbidden("You are not permitted to delete this task")
         return view(request, *args, **kwargs)
 
     return _wrapped

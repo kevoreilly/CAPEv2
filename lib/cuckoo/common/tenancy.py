@@ -79,6 +79,24 @@ def can_delete(v: Viewer, j: Job) -> bool:
     return False
 
 
+def can_set_visibility(v: Viewer, j: Job, new_visibility: str) -> bool:
+    """Authorize a visibility TRANSITION. Baseline is can_toggle, plus a direction guard that keeps
+    can_delete's PUBLIC boundary from being reachable by a two-step move: a principal authorized ONLY
+    by the tenant-admin path (not the owner, not a break-glass box admin) may not make a PUBLIC job
+    MORE restrictive (public -> tenant/private). Without this, a tenant-admin -- who can_delete
+    deliberately bars from deleting a public job -- could flip it to 'tenant' (can_toggle allows that)
+    and then delete it via can_delete's tenant branch. Widening (tenant -> public) and same-value
+    writes remain allowed; the owner and break-glass may set any value they could already toggle."""
+    if not can_toggle(v, j):
+        return False
+    if _is_owner(v, j) or v.is_local_admin:
+        return True
+    # Authorized purely as tenant-admin here: block only the escalating downgrade of a PUBLIC job.
+    if j.visibility == PUBLIC and new_visibility in (TENANT, PRIVATE):
+        return False
+    return True
+
+
 def scope_match(scope: str, v: "Viewer"):
     """Mongo $match (dict) selecting the analysis docs in a stat SCOPE for viewer v.
     Mirrors the can_read branches. Returns None for 'global' (no filter). Keys target

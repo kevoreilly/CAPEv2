@@ -39,7 +39,7 @@ except ImportError:
 # the in-browser control and scripted API clients work.
 _UI_INTERNAL_AUTH = [SessionAuthentication] + ([ApiKeyAuthentication] if ApiKeyAuthentication else [])
 
-from web.tenancy_optional import submission_scope, can_view_task, can_toggle_task, can_manage_task, can_delete_task, can_view_sample, viewer_for
+from web.tenancy_optional import submission_scope, can_view_task, can_manage_task, can_delete_task, can_set_visibility_task, can_view_sample, viewer_for
 from web.tenancy_optional import VISIBILITIES, TENANT, multitenancy_config
 
 # Shared central-mode cross-store info.id collision seam (report-family reads route through it) --
@@ -162,7 +162,10 @@ def tasks_set_visibility(request, task_id):
     vis = request.data.get("visibility")
     if vis not in VISIBILITIES:
         return Response({"error": True, "error_value": "invalid visibility"}, status=400)
-    if not can_toggle_task(request.user, task):
+    # can_set_visibility_task (not just can_toggle_task): the transition itself is authorized, so a
+    # tenant-admin can't downgrade a non-owned PUBLIC job to tenant/private and then reach can_delete's
+    # tenant branch on a public task they're barred from deleting. Owner / break-glass unaffected.
+    if not can_set_visibility_task(request.user, task, vis):
         return Response({"error": True, "error_value": "Access denied"}, status=403)
     # A task with no tenant can't be 'tenant'-visible: can_read's tenant branch
     # requires a non-null job tenant, so this would make the task readable by nobody

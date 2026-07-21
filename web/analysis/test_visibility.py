@@ -372,11 +372,15 @@ def test_perform_search_tags_scopes_prequery_by_viewer(cape_db, monkeypatch):
 @pytest.mark.django_db
 def test_remove_oversized_id_is_not_found_not_500(cape_db, monkeypatch):
     """analysis.remove() must fail closed to not-found on an out-of-range / huge-digit id (the route
-    captures raw \\d+), never a bodiless 500 from int()/view_task (22003 / ValueError)."""
+    captures raw \\d+), never a bodiless 500 from int()/view_task (22003 / ValueError). mongodb is
+    forced ON so `viewed == []` is RED without the coerce guard: with mongodb on, an unguarded id WOULD
+    reach db.view_task(int(task_id)) below -- so the empty capture proves the coerce ran FIRST, not that
+    view_task is simply unreachable (it is, with mongodb off -> the assertion would be vacuous)."""
     from django.test import RequestFactory
     import analysis.views as av
 
-    monkeypatch.setitem(av.enabledconf, "delete", True)  # skip the whiskey gate (delete enabled)
+    monkeypatch.setitem(av.enabledconf, "delete", True)   # skip the whiskey gate (delete enabled)
+    monkeypatch.setitem(av.enabledconf, "mongodb", True)  # make the guarded view_task call REACHABLE
     viewed = []
     monkeypatch.setattr(av.db, "view_task", lambda tid: viewed.append(tid) or None, raising=False)
     monkeypatch.setattr(av.db, "delete_task", lambda tid: True, raising=False)
@@ -384,4 +388,24 @@ def test_remove_oversized_id_is_not_found_not_500(cape_db, monkeypatch):
     for bad in ("99999999999999999999", "9" * 5000):  # in-range-int-overflow (22003) + >4300-digit (ValueError)
         resp = av.remove(rf.get("/x/"), bad)
         assert resp.status_code == 200                 # not-found render, not a 500
-    assert viewed == []                                # coerced + failed closed BEFORE view_task
+    assert viewed == []                                # coerced + failed closed BEFORE the reachable view_task
+
+
+@pytest.mark.django_db
+def test_remove_valid_id_mongodb_off_renders_message_not_500(cape_db, monkeypatch):
+    """A valid id with mongodb OFF and ES off must render 200 with a message, NOT a bodiless 500: `message`
+    is bound unconditionally so the final render can't hit UnboundLocalError when neither the mongodb nor the
+    ES arm runs (both configs off -> the sole binding is the unconditional default)."""
+    from django.test import RequestFactory
+    import analysis.views as av
+
+    monkeypatch.setitem(av.enabledconf, "delete", True)
+    monkeypatch.setitem(av.enabledconf, "mongodb", False)  # neither delete-arm sets `message`
+    monkeypatch.setattr(av, "es_as_db", False, raising=False)
+    monkeypatch.setattr(av, "essearch", False, raising=False)
+    deleted = []
+    monkeypatch.setattr(av.db, "delete_task", lambda tid: deleted.append(tid) or True, raising=False)
+    resp = av.remove(RequestFactory().get("/x/"), "7")
+
+    assert resp.status_code == 200                     # not an UnboundLocalError 500
+    assert deleted == ["7"]                            # SQL delete still happened (id coerced + normalized)

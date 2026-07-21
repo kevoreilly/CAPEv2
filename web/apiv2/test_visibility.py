@@ -823,6 +823,70 @@ def test_tasks_delete_many_empty_delete_mongo_retains(cape_db, monkeypatch):
 
 
 @pytest.mark.django_db
+def test_tasks_delete_many_nested_ids_rejected_not_partial(cape_db, monkeypatch):
+    """A nested/structured ids entry ({"ids": [[10,11,12]]}) must be rejected WHOLE, never str()+split.
+    str([10,11,12]) -> "[10, 11, 12]" whose middle token " 11" strips to a digit -> the old flatten would
+    silently DELETE task 11 from a payload that names no scalar id. Reject the list entry as invalid."""
+    import json as _json
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    u = User.objects.create_user("nest", "nest@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/",
+                                   data=_json.dumps({"ids": [[10, 11, 12]]}), content_type="application/json")
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200
+    assert deleted == []                                     # NOTHING deleted -- no partial-delete of task 11
+    assert "[10, 11, 12]" in resp.data.get("invalid_ids", [])  # the list entry reported whole, never split
+    assert resp.data.get("error") is True
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_zero_token_rejected(cape_db, monkeypatch):
+    """A zero-valued token ("0" / "00") is out of range (Task.id starts at 1) -> reported invalid, never
+    passed through as id 0 (which view_task can't resolve). Locks the lower bound, matching _coerce_task_id."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    u = User.objects.create_user("zt", "zt@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "0,00,11"})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200
+    assert deleted == [11]                                   # only the real id; 0/00 rejected
+    _inv = resp.data.get("invalid_ids", [])
+    assert "0" in _inv and "00" in _inv                      # both zero tokens reported, not resolved to id 0
+
+
+@pytest.mark.django_db
+def test_ext_tasks_search_ids_bounded_not_500(cape_db, monkeypatch):
+    """The extendedsearch `ids` option must bound each token like the delete paths: an out-of-range or
+    >4300-digit argument returns a clean error, NOT a bodiless 500 (int() ValueError / PG 22003 in
+    list_tasks). The guard fires before any db call, so no perform_search/list_tasks mock is needed."""
+    import types
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(extendedtasksearch={"enabled": True}))
+    u = User.objects.create_user("eids", "eids@x.com", "x")
+    _huge = "9" * 4301  # beyond CPython's int(str) 4300-digit cap -> unbounded int() would itself raise
+    for bad in ("2147483648", _huge, "0"):  # out-of-range, huge-digit, zero (lower bound)
+        req = APIRequestFactory().post("/apiv2/tasks/extendedsearch/", {"option": "ids", "argument": bad})
+        force_authenticate(req, user=u)
+        req.user = u
+        resp = views.ext_tasks_search(req)
+        assert resp.data.get("error") is True                        # clean error envelope, never a 500
+        assert resp.data.get("error_value") == "Not all values are valid task ids"
+
+
+@pytest.mark.django_db
 def test_ext_tasks_search_drops_cross_tenant_rows(cape_db, mt_enabled, monkeypatch):
     """ext_tasks_search batch-filters perform_search rows through
     list_tasks(visible_to=viewer) in ONE query: a report row for a task the caller

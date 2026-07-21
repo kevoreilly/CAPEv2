@@ -3986,13 +3986,17 @@ def search(request, searched=""):
                 term = "sha512"
 
         if term == "ids":
-            if all([v.strip().isdigit() for v in value.split(",")]):
-                value = [int(v.strip()) for v in filter(None, value.split(","))]
+            # bound each token like remove()/the delete paths: unbounded int() on caller input 500s
+            # (>4300 digits -> ValueError; > 2**31-1 -> PG 22003). _coerce_task_id gates 1..2**31-1.
+            _id_toks = [v.strip() for v in value.split(",") if v.strip()]
+            _resolved = [_coerce_task_id(t) for t in _id_toks]
+            if _id_toks and all(x is not None for x in _resolved):
+                value = _resolved
             else:
                 return render(
                     request,
                     "analysis/search.html",
-                    {"title": "Search", "analyses": None, "term": searched, "error": "Not all values are integers"},
+                    {"title": "Search", "analyses": None, "term": searched, "error": "Not all values are valid task ids"},
                 )
 
         # Escape forward slash characters
@@ -4093,6 +4097,9 @@ def remove(request, task_id):
     if _tid is None:
         return render(request, "success_simple.html", {"message": "Task not found."})
     task_id = str(_tid)
+    # Bind unconditionally: neither the mongodb nor the ES arm below is guaranteed to run (both configs off),
+    # yet the final render references `message` -> a bodiless 500 (UnboundLocalError) from a delete endpoint.
+    message = "Task(s) deleted."
 
     if enabledconf["mongodb"]:
         # Resolve the task's tenant WHILE the SQL row exists; BOTH the irreversible folder delete and the Mongo
@@ -4101,7 +4108,6 @@ def remove(request, task_id):
         # MT support boundary.)
         _tenant = getattr(db.view_task(int(task_id)), "tenant_id", None)
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
-        message = "Task(s) deleted."
     if es_as_db:
         analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(analyses) > 1:

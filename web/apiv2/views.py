@@ -959,10 +959,17 @@ def ext_tasks_search(request):
             value = [int(v.id) for v in db.list_tasks(options_like=value, limit=search_limit, visible_to=viewer_for(request.user))]
             term = "ids"
         elif term == "ids":
-            if all([v.strip().isdigit() for v in value.split(",")]):
-                value = [int(v.strip()) for v in filter(None, value.split(","))]
+            # bound each token like the delete paths: unbounded int() on a caller-supplied value 500s
+            # (>4300 digits -> ValueError; > 2**31-1 -> PG 22003 in list_tasks). Task.id is 32-bit.
+            _id_toks = [v.strip() for v in value.split(",") if v.strip()]
+
+            def _ok_id(t):
+                n = t.lstrip("0") or "0"
+                return t.isascii() and t.isdigit() and len(n) <= 10 and 1 <= int(n) <= 2147483647
+            if _id_toks and all(_ok_id(t) for t in _id_toks):
+                value = [int(t.lstrip("0") or "0") for t in _id_toks]
             else:
-                return Response({"error": True, "error_value": "Not all values are integers"})
+                return Response({"error": True, "error_value": "Not all values are valid task ids"})
             tmp_value = []
             for task in db.list_tasks(task_ids=value, visible_to=viewer_for(request.user)) or []:
                 if task.status == "reported":
@@ -1341,7 +1348,8 @@ def tasks_delete(request, task_id, status=False):
     # can't materialize a multi-GB list.
     def _valid_task_id(tok):
         tok = tok.strip()
-        return tok.isascii() and tok.isdigit() and len(tok) <= 10 and 1 <= int(tok) <= 2147483647
+        norm = tok.lstrip("0") or "0"  # accept zero-padded ids (parity with delete_many); int() handles the zeros
+        return tok.isascii() and tok.isdigit() and len(norm) <= 10 and 1 <= int(norm) <= 2147483647
 
     if isinstance(task_id, int):
         task_id = [task_id]
@@ -3398,12 +3406,17 @@ def tasks_delete_many(request):
     # magnitude > 2**31-1. Invalid tokens go in a LIST, never a top-level key (can't clobber status/error).
     _invalid_ids, _ids = [], []
     for _entry in _raw:
+        if isinstance(_entry, (list, tuple, dict)):
+            # a nested/structured entry (e.g. {"ids": [[10,11,12]]}) must be rejected WHOLE -- str()+split
+            # would render it to "[10, 11, 12]" and partial-delete the middle token. Report, never split.
+            _invalid_ids.append(str(_entry))
+            continue
         for _tok in str(_entry).split(","):
             _tok = _tok.strip()
             if not _tok:
                 continue
             _norm = _tok.lstrip("0") or "0"
-            if _tok.isascii() and _tok.isdigit() and len(_norm) <= 10 and int(_norm) <= 2147483647:
+            if _tok.isascii() and _tok.isdigit() and len(_norm) <= 10 and 1 <= int(_norm) <= 2147483647:
                 _ids.append(int(_norm))
             else:
                 _invalid_ids.append(_tok)

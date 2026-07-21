@@ -515,13 +515,15 @@ def test_tasks_delete_many_out_of_range_id_is_invalid_not_500(cape_db, monkeypat
     deleted = []
     _dm_stub(monkeypatch, deleted)
     u = User.objects.create_user("oor", "oor@x.com", "x")
-    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10,2147483648,11"})
+    _huge = "9" * 4301  # > CPython's 4300-digit int(str) cap -> int() would itself raise ValueError -> 500
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10,2147483648,%s,11" % _huge})
     force_authenticate(req, user=u)
     resp = views.tasks_delete_many(req)
 
-    assert resp.status_code == 200                            # not a 500
+    assert resp.status_code == 200                            # not a 500 (neither out-of-range nor >4300 digits)
     assert sorted(deleted) == [10, 11]                        # in-range ids reclaimed
-    assert "2147483648" in resp.data.get("invalid_ids", [])   # out-of-range reported, never hit view_task
+    _inv = resp.data.get("invalid_ids", [])
+    assert "2147483648" in _inv and _huge in _inv            # both reported, never hit view_task or int()-raise
 
 
 @pytest.mark.django_db

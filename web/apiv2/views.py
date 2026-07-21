@@ -3375,11 +3375,13 @@ def tasks_delete_many(request):
     # Task.id is a 32-bit signed PG Integer; a digit-only but out-of-range token (> 2**31-1) clears
     # isdigit() yet raises a driver out-of-range at view_task -- a bodiless 500 AFTER earlier deletes have
     # committed. Bound magnitude here too so the "validate the whole list before deleting" invariant holds.
+    # Gate on len(<=10, the max id's digit count) BEFORE int(): CPython caps int(str) at 4300 digits, so a
+    # longer all-digit token would itself raise ValueError on the conversion meant to make validation total.
     _invalid_ids, _ids = [], []
     for _tok in _tokens:
         if not _tok:
             continue
-        if _tok.isascii() and _tok.isdigit() and int(_tok) <= 2147483647:
+        if _tok.isascii() and _tok.isdigit() and len(_tok) <= 10 and int(_tok) <= 2147483647:
             _ids.append(int(_tok))
         else:
             _invalid_ids.append(_tok)

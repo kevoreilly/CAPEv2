@@ -3372,11 +3372,14 @@ def tasks_delete_many(request):
         if isinstance(_ids_field, (list, tuple))
         else [x.strip() for x in str(_ids_field).split(",")]
     )
+    # Task.id is a 32-bit signed PG Integer; a digit-only but out-of-range token (> 2**31-1) clears
+    # isdigit() yet raises a driver out-of-range at view_task -- a bodiless 500 AFTER earlier deletes have
+    # committed. Bound magnitude here too so the "validate the whole list before deleting" invariant holds.
     _invalid_ids, _ids = [], []
     for _tok in _tokens:
         if not _tok:
             continue
-        if _tok.isascii() and _tok.isdigit():
+        if _tok.isascii() and _tok.isdigit() and int(_tok) <= 2147483647:
             _ids.append(int(_tok))
         else:
             _invalid_ids.append(_tok)

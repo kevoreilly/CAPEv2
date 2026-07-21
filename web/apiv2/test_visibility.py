@@ -465,7 +465,6 @@ def test_tasks_delete_many_skips_unmanageable_cross_tenant(cape_db, mt_enabled, 
     assert resp.data.get(1) == "not exists"    # indistinguishable from missing
 
 
-@pytest.mark.django_db
 def _dm_stub(monkeypatch, deleted):
     """Common stubs for the bulk-delete happy path: a manageable, non-running task whose SQL delete
     succeeds. view_task returns a REAL task so `deleted` is mutation-detecting (not vacuous)."""
@@ -503,6 +502,26 @@ def test_tasks_delete_many_reports_malformed_id_without_dropping_batch(cape_db, 
     assert "oops" in resp.data.get("invalid_ids", [])  # reported in a LIST, not a top-level key
     assert resp.data.get("status") == "partial_error"  # covers the _invalid status contract
     assert resp.data.get("error") is True            # surfaced, not a silent OK
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_out_of_range_id_is_invalid_not_500(cape_db, monkeypatch):
+    """A digit-only but out-of-range id (> 2**31-1, beyond Task.id's 32-bit range) is reported as invalid,
+    not passed to view_task where the driver would raise a bodiless 500 mid-batch after earlier deletes
+    already committed. Keeps the validate-before-delete invariant."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    u = User.objects.create_user("oor", "oor@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10,2147483648,11"})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200                            # not a 500
+    assert sorted(deleted) == [10, 11]                        # in-range ids reclaimed
+    assert "2147483648" in resp.data.get("invalid_ids", [])   # out-of-range reported, never hit view_task
 
 
 @pytest.mark.django_db

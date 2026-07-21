@@ -491,6 +491,38 @@ def test_tasks_delete_many_respects_taskdelete_killswitch(cape_db, monkeypatch):
 
 
 @pytest.mark.django_db
+def test_tasks_delete_many_empty_delete_mongo_retains(cape_db, monkeypatch):
+    """A present-but-EMPTY delete_mongo RETAINS the Mongo report (upstream bool("")=False
+    back-compat) -- NOT a 400 and NOT a delete. The explicit-string parse still fixes the
+    original bug where a real "False" was coerced truthy and wrongly deleted."""
+    import types
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    _t = FakeTask(user_id=1, tenant_id=None, visibility="public")
+    _t.status = "reported"                     # not TASK_RUNNING
+    called = []
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
+    monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: True)
+    monkeypatch.setattr(views.db, "session",
+                        types.SimpleNamespace(commit=lambda: None, rollback=lambda: None), raising=False)
+    monkeypatch.setattr(views, "delete_folder", lambda *a, **k: None, raising=False)
+    monkeypatch.setattr(views, "central_delete_analysis",
+                        lambda *a, **k: called.append(a) or None, raising=False)
+
+    u = User.objects.create_user("emr", "emr@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "1", "delete_mongo": ""})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code != 400             # empty no longer rejected (back-compat)
+    assert resp.data.get(1) == "deleted"       # task deleted
+    assert called == []                        # report RETAINED: central_delete_analysis NOT called
+
+
+@pytest.mark.django_db
 def test_ext_tasks_search_drops_cross_tenant_rows(cape_db, mt_enabled, monkeypatch):
     """ext_tasks_search batch-filters perform_search rows through
     list_tasks(visible_to=viewer) in ONE query: a report row for a task the caller

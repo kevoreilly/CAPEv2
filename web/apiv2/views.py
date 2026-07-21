@@ -3347,14 +3347,12 @@ def tasks_delete_many(request):
     # is supposedly disabled. Pre-existing upstream gap; this PR hardened the endpoint otherwise.
     if not (apiconf.taskdelete.get("enabled") or request.user.is_staff):
         return Response({"error": True, "error_value": "Task Deletion API is Disabled"}, status=403)
-    # delete_mongo: form-encoding sends booleans as strings, so bool("False") would be True. ABSENT -> the
-    # delete default (True). A present-but-EMPTY value is ambiguous -- upstream treated it as retain, this parse
-    # would treat it as delete -- so REJECT it (400) rather than silently pick a destructive OR a retaining side
-    # (no in-tree caller sends empty; utils/dist.py posts a real "False"). Otherwise parse the explicit strings.
+    # delete_mongo: form-encoding sends booleans as strings, and bool("False") is True, so parse the string
+    # forms explicitly -- upstream's bool(...) turned an opt-OUT "False" (utils/dist.py, to keep the worker's
+    # Mongo report) into a delete. ABSENT -> delete (upstream default True); a present-but-EMPTY value is
+    # RETAIN, preserving upstream's bool("")=False back-compat ("" is in the retain set below).
     _dm = request.POST.get("delete_mongo", True)
-    if isinstance(_dm, str) and _dm.strip() == "":
-        return Response({"error": True, "error_value": "delete_mongo present but empty; send true or false explicitly"}, status=400)
-    delete_mongo = _dm if isinstance(_dm, bool) else str(_dm).strip().lower() not in ("false", "0", "no")
+    delete_mongo = _dm if isinstance(_dm, bool) else str(_dm).strip().lower() not in ("", "false", "0", "no")
     for task_id in request.POST.get("ids", "").split(",") or []:
         task_id = int(task_id)
         task = db.view_task(task_id)

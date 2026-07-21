@@ -13,8 +13,8 @@ pytest_plugins = ("mt_test_fixtures",)  # fixtures live in web/mt_test_fixtures.
 # management guard (for mutation endpoints).
 GUARD_MARKERS = (
     "_deny_if_hidden", "_deny_task", "_deny_manage", "_resolve_task_id", "visible_to",
-    "require_task_visibility", "require_task_manage", "can_view_task", "can_manage_task",
-    "can_toggle_task",
+    "require_task_visibility", "require_task_manage", "require_task_delete", "can_view_task",
+    "can_manage_task", "can_delete_task", "can_toggle_task",
     # scope-filtering primitives for aggregate / mongo surfaces (dashboard,
     # statistics, hunt, compare): restrict an aggregation to the viewer's
     # entitled scopes instead of gating a single task_id. viewer_scope is the
@@ -478,6 +478,7 @@ def _dm_stub(monkeypatch, deleted):
     # (freeze has its own dedicated tests). Callers that test the freeze override apiconf after this.
     monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
     monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views, "can_delete_task", lambda u, t: True, raising=False)  # delete paths gate on this
     monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
     monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
     monkeypatch.setattr(views.db, "session",
@@ -567,6 +568,32 @@ def test_tasks_delete_many_repeated_form_keys(cape_db, monkeypatch):
 
     assert resp.status_code == 200
     assert sorted(deleted) == [10, 11, 12]                   # all three, not just the last
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_gates_on_can_delete_not_can_manage(cape_db, monkeypatch):
+    """The delete path authorizes via can_delete_task (stricter for public jobs), NOT can_manage_task:
+    a caller who may manage a public task but not delete it is refused."""
+    import types
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _t = FakeTask(user_id=1, tenant_id=10, visibility="public")
+    _t.status = "reported"
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
+    monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
+    monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)   # manage WOULD allow
+    monkeypatch.setattr(views, "can_delete_task", lambda u, t: False, raising=False)  # delete denies
+
+    u = User.objects.create_user("cd", "cd@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "5"})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert deleted == []                                     # gated by can_delete_task (deny), not can_manage
+    assert resp.data.get(5) == "not exists"
 
 
 @pytest.mark.django_db

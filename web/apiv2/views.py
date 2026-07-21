@@ -39,7 +39,7 @@ except ImportError:
 # the in-browser control and scripted API clients work.
 _UI_INTERNAL_AUTH = [SessionAuthentication] + ([ApiKeyAuthentication] if ApiKeyAuthentication else [])
 
-from web.tenancy_optional import submission_scope, can_view_task, can_toggle_task, can_manage_task, can_view_sample, viewer_for
+from web.tenancy_optional import submission_scope, can_view_task, can_toggle_task, can_manage_task, can_delete_task, can_view_sample, viewer_for
 from web.tenancy_optional import VISIBILITIES, TENANT, multitenancy_config
 
 # Shared central-mode cross-store info.id collision seam (report-family reads route through it) --
@@ -1371,9 +1371,9 @@ def tasks_delete(request, task_id, status=False):
         if check["error"]:
             f_deleted.append(str(task))
             continue
-        # tenant isolation: only delete tasks the caller may manage
+        # tenant isolation: only delete tasks the caller may DELETE (stricter than manage for public jobs)
         _t = db.view_task(task)
-        if not can_manage_task(request.user, _t):
+        if not can_delete_task(request.user, _t):
             f_deleted.append(str(task))
             continue
 
@@ -3410,8 +3410,9 @@ def tasks_delete_many(request):
     for task_id in _ids:
         task = db.view_task(task_id)
         if task:
-            if not can_manage_task(request.user, task):
-                # hidden == missing: no cross-tenant enumeration, no unauthorized delete
+            if not can_delete_task(request.user, task):
+                # hidden == missing: no cross-tenant enumeration, no unauthorized delete (stricter than
+                # manage for a public job: only its submitter or a box admin, never a tenant-admin)
                 response.setdefault(task_id, "not exists")
                 continue
             if task.status == TASK_RUNNING:

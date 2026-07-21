@@ -64,6 +64,21 @@ def can_toggle(v: Viewer, j: Job) -> bool:
     return False
 
 
+def can_delete(v: Viewer, j: Job) -> bool:
+    """Authorize an irreversible task DELETE. Stricter than can_toggle for PUBLIC jobs: a public
+    task is a shared/instance resource, so only its ORIGINAL SUBMITTER or a break-glass box admin
+    may delete it -- a tenant-admin may toggle/manage a public job in their tenant but NOT delete
+    it. TENANT jobs: submitter, that tenant's tenant-admin, or box admin. PRIVATE: submitter or box
+    admin. (Reversible ops stay on can_toggle; deletion gets the tighter rule.)"""
+    if v.is_local_admin:
+        return True
+    if _is_owner(v, j):
+        return True
+    if j.visibility == TENANT and v.is_tenant_admin and _same_tenant(v, j):
+        return True
+    return False
+
+
 def scope_match(scope: str, v: "Viewer"):
     """Mongo $match (dict) selecting the analysis docs in a stat SCOPE for viewer v.
     Mirrors the can_read branches. Returns None for 'global' (no filter). Keys target

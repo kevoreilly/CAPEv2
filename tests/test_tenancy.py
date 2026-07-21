@@ -12,6 +12,34 @@ def test_predicate_matches_vectors(label, viewer, job, want_read, want_toggle):
     assert can_toggle(v, j) is want_toggle, f"{label}: toggle"
 
 
+def test_can_delete_public_stricter_than_toggle():
+    """can_delete is can_toggle minus tenant-admin-on-PUBLIC: a public task is a shared/instance
+    resource, deletable ONLY by its submitter or a break-glass box admin. TENANT: submitter /
+    tenant-admin(same tenant) / box admin. PRIVATE: submitter / box admin."""
+    from lib.cuckoo.common.tenancy import can_delete, can_toggle, Viewer, Job
+
+    owner = Viewer(user_id=1, tenant_id=10)
+    tadmin = Viewer(user_id=2, tenant_id=10, is_tenant_admin=True)
+    boxadmin = Viewer(user_id=3, tenant_id=None, is_local_admin=True)
+    other = Viewer(user_id=4, tenant_id=10)
+    pub = Job(owner_id=1, tenant_id=10, visibility="public")
+    ten = Job(owner_id=1, tenant_id=10, visibility="tenant")
+    priv = Job(owner_id=1, tenant_id=10, visibility="private")
+
+    # PUBLIC -- the delta: tenant-admin may TOGGLE/manage a public job but may NOT delete it.
+    assert can_toggle(tadmin, pub) is True
+    assert can_delete(tadmin, pub) is False
+    assert can_delete(owner, pub) is True
+    assert can_delete(boxadmin, pub) is True
+    assert can_delete(other, pub) is False
+
+    # TENANT -- submitter / same-tenant tenant-admin / box admin.
+    assert [can_delete(x, ten) for x in (owner, tadmin, boxadmin, other)] == [True, True, True, False]
+
+    # PRIVATE -- submitter / box admin only (a tenant-admin cannot delete a member's private job).
+    assert [can_delete(x, priv) for x in (owner, tadmin, boxadmin, other)] == [True, False, True, False]
+
+
 def test_config_defaults():
     from lib.cuckoo.common import tenancy
     cfg = tenancy.multitenancy_config()

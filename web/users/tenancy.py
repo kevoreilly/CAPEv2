@@ -3,7 +3,7 @@
 The web/apiv2 layers call can_view_task / can_toggle_task; the actual policy lives
 in the framework-neutral predicate so the broker can reuse it unchanged.
 """
-from lib.cuckoo.common.tenancy import Viewer, Job, can_read, can_toggle, multitenancy_config
+from lib.cuckoo.common.tenancy import Viewer, Job, can_read, can_toggle, can_delete, multitenancy_config
 
 
 def viewer_for(user) -> Viewer:
@@ -79,11 +79,18 @@ def can_toggle_task(user, task) -> bool:
 
 
 def can_manage_task(user, task) -> bool:
-    """Authorize a mutation (delete/reschedule/reprocess/comment/remove) on a
+    """Authorize a REVERSIBLE mutation (reschedule/reprocess/comment/visibility-toggle) on a
     task. Same policy as toggling visibility: owner, tenant-admin for the
     tenant's public/tenant jobs, or break-glass superuser — never another
     member's private job."""
     return can_toggle(viewer_for(user), _job_for(task))
+
+
+def can_delete_task(user, task) -> bool:
+    """Authorize an IRREVERSIBLE task delete. Stricter than can_manage_task for a PUBLIC job: only
+    its original submitter or a break-glass box admin may delete it (a tenant-admin can manage but
+    not delete a public job). Tenant: submitter/tenant-admin/box-admin. Private: submitter/box-admin."""
+    return can_delete(viewer_for(user), _job_for(task))
 
 
 def can_view_sample(user, *, sha256=None, sha1=None, md5=None, sample_id=None) -> bool:

@@ -78,6 +78,17 @@ def can_manage_task(user, task):
     return real(user, task)
 
 
+def can_delete_task(user, task):
+    # Irreversible delete gate (stricter than can_manage_task for PUBLIC jobs). Same fail-closed
+    # contract: MT genuinely absent -> allow (single-tenant shared box); MT enabled but import broken
+    # -> deny (never see-all the sole isolation gate).
+    try:
+        from users.tenancy import can_delete_task as real
+    except ImportError:
+        return not _mt_enabled()
+    return real(user, task)
+
+
 def can_view_sample(user, *, sha256=None, sha1=None, md5=None, sample_id=None):
     try:
         from users.tenancy import can_view_sample as real

@@ -192,7 +192,7 @@ if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
 
 db: TasksMixIn = Database()
 
-from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_view_sample, can_ban_user, viewer_for, multitenancy_config
+from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_delete_task, can_view_sample, can_ban_user, viewer_for, multitenancy_config
 
 # Shared central-mode cross-store info.id collision seam (report(), report-tab loaders, apiv2 report-family,
 # compare seeds all route their per-task analysis reads through this) -- see analysis.central_views.
@@ -242,6 +242,30 @@ def require_task_manage(view):
             return HttpResponseForbidden("Not found")
         task = db.view_task(tid)
         if task is None or not can_manage_task(request.user, task):
+            return HttpResponseForbidden("Not found")
+        return view(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def require_task_delete(view):
+    """Decorator for task-scoped DELETE views (remove): 403 (generic) unless the user may DELETE the
+    task. Stricter than require_task_manage for a PUBLIC job — only its submitter or a break-glass box
+    admin, never a tenant-admin (can_delete_task). TRUE NO-OP when multitenancy is disabled."""
+    from functools import wraps
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        if not multitenancy_config().enabled:
+            return view(request, *args, **kwargs)
+        tid = kwargs.get("task_id") or kwargs.get("analysis_number")
+        if tid is None and args:
+            tid = args[0]
+        tid = _coerce_task_id(tid)
+        if tid is None:
+            return HttpResponseForbidden("Not found")
+        task = db.view_task(tid)
+        if task is None or not can_delete_task(request.user, task):
             return HttpResponseForbidden("Not found")
         return view(request, *args, **kwargs)
 
@@ -4055,7 +4079,7 @@ def search(request, searched=""):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
-@require_task_manage
+@require_task_delete
 def remove(request, task_id):
     """Remove an analysis."""
     if not enabledconf["delete"] and not request.user.is_staff:

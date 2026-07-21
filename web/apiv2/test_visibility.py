@@ -500,7 +500,8 @@ def test_tasks_delete_many_reports_malformed_id_without_dropping_batch(cape_db, 
 
     assert resp.status_code == 200                   # no all-or-nothing 4xx
     assert sorted(deleted) == [10, 11]               # valid ids STILL reclaimed
-    assert resp.data.get("oops") == "invalid id"     # malformed reported per-id
+    assert "oops" in resp.data.get("invalid_ids", [])  # reported in a LIST, not a top-level key
+    assert resp.data.get("status") == "partial_error"  # covers the _invalid status contract
     assert resp.data.get("error") is True            # surfaced, not a silent OK
 
 
@@ -522,6 +523,72 @@ def test_tasks_delete_many_reads_json_body(cape_db, monkeypatch):
 
     assert resp.status_code == 200
     assert sorted(deleted) == [101, 102]             # JSON body honored, not a silent no-op
+    assert resp.data.get("status") == "OK"           # clean-batch status contract covered
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_json_delete_mongo_opt_out_honored(cape_db, monkeypatch):
+    """A JSON caller's delete_mongo=false RETAIN opt-out must be honored: delete_mongo is read from the
+    SAME body as ids (request.data), not request.POST (empty for application/json -> would default True
+    and irreversibly erase the report the caller asked to keep)."""
+    import json as _json
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted, wiped = [], []
+    _dm_stub(monkeypatch, deleted)
+    monkeypatch.setattr(views, "central_delete_analysis",
+                        lambda req, tid, **k: wiped.append(tid) or None, raising=False)
+    u = User.objects.create_user("jmo", "jmo@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/",
+                                   data=_json.dumps({"ids": "101,102", "delete_mongo": False}),
+                                   content_type="application/json")
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200
+    assert sorted(deleted) == [101, 102]             # SQL rows deleted
+    assert wiped == []                               # reports RETAINED (opt-out honored, not erased)
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_json_array_body_is_ids_not_500(cape_db, monkeypatch):
+    """A top-level JSON array body ([10,11]) is treated as the ids list, not an AttributeError 500 on
+    request.data.get (request.data is a list, which has no .get)."""
+    import json as _json
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    u = User.objects.create_user("jarr", "jarr@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/",
+                                   data=_json.dumps([10, 11]), content_type="application/json")
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200                   # not a 500
+    assert sorted(deleted) == [10, 11]
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_invalid_token_does_not_clobber_envelope(cape_db, monkeypatch):
+    """Tokens spelled like reserved envelope keys ('status'/'error') are reported in the invalid_ids LIST
+    and must NOT overwrite the summary keys."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    u = User.objects.create_user("clob", "clob@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10,status,error,11"})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert sorted(deleted) == [10, 11]                       # valid ids still reclaimed
+    assert set(resp.data.get("invalid_ids", [])) == {"status", "error"}  # both reported, not swallowed
+    assert resp.data.get("status") == "partial_error"        # envelope intact (not clobbered by a token)
+    assert resp.data.get("error") is True
 
 
 @pytest.mark.django_db
@@ -539,6 +606,7 @@ def test_tasks_delete_many_missing_ids_is_noop(cape_db, monkeypatch):
 
     assert resp.status_code == 200
     assert deleted == []                             # nothing deleted on empty ids
+    assert resp.data.get("status") == "OK"           # clean-batch status contract covered
 
 
 @pytest.mark.django_db

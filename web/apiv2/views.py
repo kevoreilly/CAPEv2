@@ -3345,33 +3345,41 @@ def tasks_delete_many(request):
     # automated worker-cleanup path (utils/dist.py _delete_many + utils/go-fetcher), and on a stock install
     # ([taskdelete] enabled=no + token_auth_enabled=no -> AllowAny/AnonymousUser) a kill-switch here would
     # 403 EVERY caller and silently break disk reclamation (dist.py's `if res` treats a 403 as falsy).
-    # delete_mongo: form-encoding sends booleans as strings, and bool("False") is True, so parse the string
-    # forms explicitly -- upstream's bool(...) turned an opt-OUT "False" (utils/dist.py, to keep the worker's
-    # Mongo report) into a delete. ABSENT -> delete (upstream default True); a present-but-EMPTY value is
-    # RETAIN, preserving upstream's bool("")=False back-compat ("" is in the retain set below).
-    _dm = request.POST.get("delete_mongo", True)
-    delete_mongo = _dm if isinstance(_dm, bool) else str(_dm).strip().lower() not in ("", "false", "0", "no")
-    # Read ids from request.data (populated for form AND JSON bodies) -- request.POST is EMPTY for a JSON
-    # content type, which would silently no-op this destructive endpoint and answer 200. Validate the WHOLE
-    # list before deleting anything (the per-task commit below makes each delete durable), and SKIP-AND-REPORT
-    # a malformed id per-id rather than rejecting the batch with a 4xx: neither automated consumer inspects the
-    # status code (dist.py's `if res` is falsy on non-2xx; go-fetcher ignores it), so an all-or-nothing reject
-    # marks the whole batch deleted-but-un-reclaimed. Strict ASCII digits: int() also eats '5_0'->50, '+5', and
-    # unicode digits, so a caller couldn't map the response key back to the token it sent.
-    _ids_field = request.data.get("ids", "")
+    # Read BOTH ids and delete_mongo from the SAME body via request.data (populated for form AND JSON).
+    # request.POST is empty for a JSON content type, so sourcing ids from request.data while leaving
+    # delete_mongo on request.POST would silently drop a JSON caller's delete_mongo=false RETAIN opt-out and
+    # irreversibly erase the report. request.data may be a bare list/scalar (JSON array/number/string) with no
+    # .get, so normalize the shape first (a top-level array is an ids list; a scalar body -> clean no-op)
+    # rather than 500 on .get.
+    _body = request.data
+    if isinstance(_body, dict):
+        _ids_field, _dm_field = _body.get("ids", ""), _body.get("delete_mongo", True)
+    elif isinstance(_body, (list, tuple)):
+        _ids_field, _dm_field = _body, True  # top-level JSON array of ids; no envelope -> delete default
+    else:
+        _ids_field, _dm_field = "", True  # scalar/str body -> no ids -> clean no-op
+    # delete_mongo: bool("False") is True, so parse the string forms explicitly -- upstream's bool(...) turned
+    # an opt-OUT "False" (utils/dist.py, to keep the worker's Mongo report) into a delete. ABSENT -> delete
+    # (upstream default True); present-but-EMPTY -> RETAIN (upstream bool("")=False back-compat; "" is in the set).
+    delete_mongo = _dm_field if isinstance(_dm_field, bool) else str(_dm_field).strip().lower() not in ("", "false", "0", "no")
+    # Validate the whole id list before deleting anything (the per-task commit below makes each delete durable),
+    # and SKIP-AND-REPORT a malformed id rather than rejecting the batch with a 4xx that neither automated
+    # consumer sees (dist.py's `if res` is falsy on non-2xx; go-fetcher ignores it) -> whole-batch leak. Strict
+    # ASCII digits (int() also eats '5_0'->50, '+5', unicode). Invalid tokens go in a LIST, never a top-level
+    # response key, so a token spelled "status"/"error" can't clobber the summary envelope.
     _tokens = (
         [str(x).strip() for x in _ids_field]
         if isinstance(_ids_field, (list, tuple))
         else [x.strip() for x in str(_ids_field).split(",")]
     )
-    _ids = []
+    _invalid_ids, _ids = [], []
     for _tok in _tokens:
         if not _tok:
             continue
-        if not (_tok.isascii() and _tok.isdigit()):
-            response[_tok] = "invalid id"  # report per-id; keep the batch's valid work, don't reject all
-            continue
-        _ids.append(int(_tok))
+        if _tok.isascii() and _tok.isdigit():
+            _ids.append(int(_tok))
+        else:
+            _invalid_ids.append(_tok)
     for task_id in _ids:
         task = db.view_task(task_id)
         if task:
@@ -3429,9 +3437,13 @@ def tasks_delete_many(request):
     # clean batch. Don't answer plain OK when either problem occurred.
     _errored = any(v == "error" for v in response.values())
     _orphaned = any(v == "deleted_orphan_report" for v in response.values())
-    _invalid = any(v == "invalid id" for v in response.values())
-    response["status"] = "partial_error" if (_errored or _orphaned or _invalid) else "OK"
-    if _errored or _orphaned or _invalid:
+    if _invalid_ids:
+        # dedicated key (a LIST) -- never a top-level response key, so a token spelled "status"/"error"
+        # can't clobber the envelope, and zero-padded aliases stay distinct in the report.
+        response["invalid_ids"] = _invalid_ids
+    _bad = _errored or _orphaned or bool(_invalid_ids)
+    response["status"] = "partial_error" if _bad else "OK"
+    if _bad:
         response["error"] = True
     return Response(response)
 

@@ -212,9 +212,13 @@ def _coerce_task_id(tid):
     closed with the same generic 403 as a missing/hidden task (no enumeration).
     """
     try:
-        return int(tid)
+        _v = int(tid)
     except (TypeError, ValueError):
         return None
+    # Task.id is a 32-bit signed PG Integer: an out-of-range value (or a huge digit string that clears int())
+    # is not a real task and would raise a driver DataError (22003) in view_task -> a bodiless 500 that also
+    # leaks a task-vs-no-task signal. Fail closed to None (same generic 403/not-found as missing/hidden).
+    return _v if 1 <= _v <= 2147483647 else None
 
 
 def require_task_manage(view):
@@ -4056,6 +4060,15 @@ def remove(request, task_id):
     """Remove an analysis."""
     if not enabledconf["delete"] and not request.user.is_staff:
         return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
+
+    # Bound the id (route captures raw \d+, no <int:>/serializer): an oversized or huge-digit value would
+    # raise ValueError/DataError inside the int()/view_task calls below -> a bodiless 500 from a delete
+    # endpoint. Coerce + fail closed to the generic not-found render (runs before any delete -> no partial
+    # mutation). str() the canonical value so the folder-path + downstream int()s use a normalized id.
+    _tid = _coerce_task_id(task_id)
+    if _tid is None:
+        return render(request, "success_simple.html", {"message": "Task not found."})
+    task_id = str(_tid)
 
     if enabledconf["mongodb"]:
         # Resolve the task's tenant WHILE the SQL row exists; BOTH the irreversible folder delete and the Mongo

@@ -3370,40 +3370,43 @@ def tasks_delete_many(request):
     # irreversibly erase the report. request.data may be a bare list/scalar (JSON array/number/string) with no
     # .get, so normalize the shape first (a top-level array is an ids list; a scalar body -> clean no-op)
     # rather than 500 on .get.
+    # Read the body via request.data (form + JSON). Sources: a top-level JSON array; a QueryDict (form) via
+    # getlist so repeated `ids=` keys aren't truncated to the last; a JSON object whose "ids" is a list or a
+    # comma string; else no ids. delete_mongo comes from the SAME body (a JSON caller's opt-out is lost if
+    # read from the empty-for-JSON request.POST).
     _body = request.data
-    if isinstance(_body, dict):
-        _ids_field, _dm_field = _body.get("ids", ""), _body.get("delete_mongo", True)
-    elif isinstance(_body, (list, tuple)):
-        _ids_field, _dm_field = _body, True  # top-level JSON array of ids; no envelope -> delete default
+    _dm_field = True
+    if isinstance(_body, (list, tuple)):
+        _raw = list(_body)  # top-level JSON array of ids
+    elif hasattr(_body, "getlist"):  # QueryDict (form) -- honor repeated ids= keys
+        _raw = _body.getlist("ids")
+        _dm_field = _body.get("delete_mongo", True)
+    elif isinstance(_body, dict):  # JSON object
+        _idv = _body.get("ids", "")
+        _raw = list(_idv) if isinstance(_idv, (list, tuple)) else [_idv]
+        _dm_field = _body.get("delete_mongo", True)
     else:
-        _ids_field, _dm_field = "", True  # scalar/str body -> no ids -> clean no-op
+        _raw = []  # JSON scalar/str -> no ids -> clean no-op
     # delete_mongo: bool("False") is True, so parse the string forms explicitly -- upstream's bool(...) turned
     # an opt-OUT "False" (utils/dist.py, to keep the worker's Mongo report) into a delete. ABSENT -> delete
     # (upstream default True); present-but-EMPTY -> RETAIN (upstream bool("")=False back-compat; "" is in the set).
     delete_mongo = _dm_field if isinstance(_dm_field, bool) else str(_dm_field).strip().lower() not in ("", "false", "0", "no")
-    # Validate the whole id list before deleting anything (the per-task commit below makes each delete durable),
-    # and SKIP-AND-REPORT a malformed id rather than rejecting the batch with a 4xx that neither automated
-    # consumer sees (dist.py's `if res` is falsy on non-2xx; go-fetcher ignores it) -> whole-batch leak. Strict
-    # ASCII digits (int() also eats '5_0'->50, '+5', unicode). Invalid tokens go in a LIST, never a top-level
-    # response key, so a token spelled "status"/"error" can't clobber the summary envelope.
-    _tokens = (
-        [str(x).strip() for x in _ids_field]
-        if isinstance(_ids_field, (list, tuple))
-        else [x.strip() for x in str(_ids_field).split(",")]
-    )
-    # Task.id is a 32-bit signed PG Integer; a digit-only but out-of-range token (> 2**31-1) clears
-    # isdigit() yet raises a driver out-of-range at view_task -- a bodiless 500 AFTER earlier deletes have
-    # committed. Bound magnitude here too so the "validate the whole list before deleting" invariant holds.
-    # Gate on len(<=10, the max id's digit count) BEFORE int(): CPython caps int(str) at 4300 digits, so a
-    # longer all-digit token would itself raise ValueError on the conversion meant to make validation total.
+    # Flatten to tokens (each raw entry may be a comma-joined string or a bare int), validate the WHOLE list
+    # before deleting anything, and SKIP-AND-REPORT a malformed id per-id (a 4xx is invisible to dist.py's
+    # `if res` / go-fetcher -> whole-batch leak). Task.id is a 32-bit signed PG Integer: strip leading zeros
+    # (a padded %011d id is valid), gate len<=10 BEFORE int() (CPython caps int(str) at 4300 digits), reject
+    # magnitude > 2**31-1. Invalid tokens go in a LIST, never a top-level key (can't clobber status/error).
     _invalid_ids, _ids = [], []
-    for _tok in _tokens:
-        if not _tok:
-            continue
-        if _tok.isascii() and _tok.isdigit() and len(_tok) <= 10 and int(_tok) <= 2147483647:
-            _ids.append(int(_tok))
-        else:
-            _invalid_ids.append(_tok)
+    for _entry in _raw:
+        for _tok in str(_entry).split(","):
+            _tok = _tok.strip()
+            if not _tok:
+                continue
+            _norm = _tok.lstrip("0") or "0"
+            if _tok.isascii() and _tok.isdigit() and len(_norm) <= 10 and int(_norm) <= 2147483647:
+                _ids.append(int(_norm))
+            else:
+                _invalid_ids.append(_tok)
     for task_id in _ids:
         task = db.view_task(task_id)
         if task:

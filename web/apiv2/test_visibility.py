@@ -532,6 +532,44 @@ def test_tasks_delete_many_out_of_range_id_is_invalid_not_500(cape_db, monkeypat
 
 
 @pytest.mark.django_db
+def test_tasks_delete_many_zero_padded_id_accepted(cape_db, monkeypatch):
+    """A left-zero-padded id (e.g. %011d) is a valid in-range id, not rejected: strip leading zeros
+    before the length/magnitude gate."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    u = User.objects.create_user("zp", "zp@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "00000000001,000010"})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200
+    assert sorted(deleted) == [1, 10]                        # padded ids resolved, not reported invalid
+    assert resp.data.get("invalid_ids") is None
+    assert resp.data.get("status") == "OK"
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_repeated_form_keys(cape_db, monkeypatch):
+    """Repeated form ids= keys (ids=10&ids=11&ids=12) are all honored via getlist, not truncated to
+    the last value."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    u = User.objects.create_user("rk", "rk@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": ["10", "11", "12"]})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200
+    assert sorted(deleted) == [10, 11, 12]                   # all three, not just the last
+
+
+@pytest.mark.django_db
 def test_tasks_delete_many_reads_json_body(cape_db, monkeypatch):
     """ids sourced from request.data so a JSON-bodied caller isn't a silent no-op (request.POST is
     empty for application/json -> would answer 200 having deleted nothing)."""

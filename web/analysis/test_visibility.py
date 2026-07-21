@@ -367,3 +367,21 @@ def test_perform_search_tags_scopes_prequery_by_viewer(cape_db, monkeypatch):
     v = Viewer(user_id=2, tenant_id=10)
     wu.perform_search("tags_tasks", "sometag", viewer=v)
     assert captured.get("visible_to") is v  # prequery scoped by the viewer before the limit
+
+
+@pytest.mark.django_db
+def test_remove_oversized_id_is_not_found_not_500(cape_db, monkeypatch):
+    """analysis.remove() must fail closed to not-found on an out-of-range / huge-digit id (the route
+    captures raw \\d+), never a bodiless 500 from int()/view_task (22003 / ValueError)."""
+    from django.test import RequestFactory
+    import analysis.views as av
+
+    monkeypatch.setitem(av.enabledconf, "delete", True)  # skip the whiskey gate (delete enabled)
+    viewed = []
+    monkeypatch.setattr(av.db, "view_task", lambda tid: viewed.append(tid) or None, raising=False)
+    monkeypatch.setattr(av.db, "delete_task", lambda tid: True, raising=False)
+    rf = RequestFactory()
+    for bad in ("99999999999999999999", "9" * 5000):  # in-range-int-overflow (22003) + >4300-digit (ValueError)
+        resp = av.remove(rf.get("/x/"), bad)
+        assert resp.status_code == 200                 # not-found render, not a 500
+    assert viewed == []                                # coerced + failed closed BEFORE view_task

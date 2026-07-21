@@ -448,13 +448,9 @@ def test_tasks_delete_many_skips_unmanageable_cross_tenant(cape_db, mt_enabled, 
     """A tenant-less user POSTing another tenant's private task id to the bulk-
     delete endpoint must NOT delete it (the worst confirmed critical)."""
     from rest_framework.test import APIRequestFactory, force_authenticate
-    import types
     import apiv2.views as views
 
     deleted = []
-    # taskdelete kill-switch defaults OFF; enable it so this test exercises the CROSS-TENANT
-    # guard (the kill-switch itself has its own test below).
-    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
     monkeypatch.setattr(views.db, "view_task",
                         lambda tid: FakeTask(user_id=999, tenant_id=10, visibility="private"))
     monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
@@ -470,24 +466,41 @@ def test_tasks_delete_many_skips_unmanageable_cross_tenant(cape_db, mt_enabled, 
 
 
 @pytest.mark.django_db
-def test_tasks_delete_many_respects_taskdelete_killswitch(cape_db, monkeypatch):
-    """[taskdelete] enabled=no must gate the BULK endpoint too (mirror tasks_delete): a
-    non-staff caller must NOT be able to destroy tasks + reports while deletion is frozen."""
+def test_tasks_delete_many_rejects_malformed_ids_before_deleting(cape_db, monkeypatch):
+    """A non-integer id must 400 BEFORE any deletion: the per-task db.session.commit() makes each
+    delete durable, so validating the whole list up front prevents 'delete 10,11 then 500 on oops'."""
     from rest_framework.test import APIRequestFactory, force_authenticate
-    import types
     import apiv2.views as views
 
     deleted = []
-    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": False}))
+    monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views.db, "view_task", lambda tid: None)
     monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
 
-    u = User.objects.create_user("ks", "ks@x.com", "x")  # non-staff
-    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "1"})
+    u = User.objects.create_user("mid", "mid@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10,11,oops"})
     force_authenticate(req, user=u)
     resp = views.tasks_delete_many(req)
 
-    assert resp.status_code == 403             # frozen: disabled + non-staff
-    assert deleted == []                       # nothing destroyed
+    assert resp.status_code == 400             # malformed -> 400 up front
+    assert deleted == []                       # NOTHING deleted (no partial destruction)
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_missing_ids_is_noop(cape_db, monkeypatch):
+    """Absent/empty ids -> clean no-op (200/OK), not the old int('') 500."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: True)
+
+    u = User.objects.create_user("noid", "noid@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {})
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200
+    assert resp.data.get("status") == "OK"
 
 
 @pytest.mark.django_db
@@ -502,7 +515,6 @@ def test_tasks_delete_many_empty_delete_mongo_retains(cape_db, monkeypatch):
     _t = FakeTask(user_id=1, tenant_id=None, visibility="public")
     _t.status = "reported"                     # not TASK_RUNNING
     called = []
-    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
     monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)
     monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
     monkeypatch.setattr(views.db, "delete_task", lambda tid: True)

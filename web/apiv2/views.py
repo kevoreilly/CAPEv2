@@ -3341,20 +3341,25 @@ def statistics_data(requests, days):
 @api_view(["POST"])
 def tasks_delete_many(request):
     response = {}
-    # Mirror tasks_delete's [taskdelete] kill-switch (:1333): the operator's freeze-deletion switch
-    # (incident / legal hold / retention audit) must gate the BULK endpoint too -- otherwise a
-    # non-staff caller keeps destroying tasks + reports through /tasks/delete_many/ while deletion
-    # is supposedly disabled. Pre-existing upstream gap; this PR hardened the endpoint otherwise.
-    if not (apiconf.taskdelete.get("enabled") or request.user.is_staff):
-        return Response({"error": True, "error_value": "Task Deletion API is Disabled"}, status=403)
+    # NB: NOT gated by the [taskdelete] kill-switch. Unlike the human-facing tasks_delete, this is the
+    # automated worker-cleanup path (utils/dist.py _delete_many + utils/go-fetcher), and on a stock install
+    # ([taskdelete] enabled=no + token_auth_enabled=no -> AllowAny/AnonymousUser) a kill-switch here would
+    # 403 EVERY caller and silently break disk reclamation (dist.py's `if res` treats a 403 as falsy).
     # delete_mongo: form-encoding sends booleans as strings, and bool("False") is True, so parse the string
     # forms explicitly -- upstream's bool(...) turned an opt-OUT "False" (utils/dist.py, to keep the worker's
     # Mongo report) into a delete. ABSENT -> delete (upstream default True); a present-but-EMPTY value is
     # RETAIN, preserving upstream's bool("")=False back-compat ("" is in the retain set below).
     _dm = request.POST.get("delete_mongo", True)
     delete_mongo = _dm if isinstance(_dm, bool) else str(_dm).strip().lower() not in ("", "false", "0", "no")
-    for task_id in request.POST.get("ids", "").split(",") or []:
-        task_id = int(task_id)
+    # Validate the WHOLE id list up front: the per-task db.session.commit() below makes each delete durable
+    # immediately, so a malformed id mid-list (int() raising) would 500 AFTER destroying the earlier ids.
+    # Empty tokens (absent/blank ids) -> no-op, not the old int("") 500; a non-integer -> 400 before any delete.
+    _raw_ids = [x.strip() for x in request.POST.get("ids", "").split(",") if x.strip()]
+    try:
+        _ids = [int(x) for x in _raw_ids]
+    except ValueError:
+        return Response({"error": True, "error_value": "ids must be a comma-separated list of integers"}, status=400)
+    for task_id in _ids:
         task = db.view_task(task_id)
         if task:
             if not can_manage_task(request.user, task):

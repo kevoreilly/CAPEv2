@@ -466,41 +466,79 @@ def test_tasks_delete_many_skips_unmanageable_cross_tenant(cape_db, mt_enabled, 
 
 
 @pytest.mark.django_db
-def test_tasks_delete_many_rejects_malformed_ids_before_deleting(cape_db, monkeypatch):
-    """A non-integer id must 400 BEFORE any deletion: the per-task db.session.commit() makes each
-    delete durable, so validating the whole list up front prevents 'delete 10,11 then 500 on oops'."""
+def _dm_stub(monkeypatch, deleted):
+    """Common stubs for the bulk-delete happy path: a manageable, non-running task whose SQL delete
+    succeeds. view_task returns a REAL task so `deleted` is mutation-detecting (not vacuous)."""
+    import types
+    import apiv2.views as views
+    _t = FakeTask(user_id=1, tenant_id=None, visibility="public")
+    _t.status = "reported"  # not TASK_RUNNING
+    monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views.db, "view_task", lambda tid: _t)
+    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
+    monkeypatch.setattr(views.db, "session",
+                        types.SimpleNamespace(commit=lambda: None, rollback=lambda: None), raising=False)
+    monkeypatch.setattr(views, "delete_folder", lambda *a, **k: None, raising=False)
+    monkeypatch.setattr(views, "central_delete_analysis", lambda *a, **k: None, raising=False)
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_reports_malformed_id_without_dropping_batch(cape_db, monkeypatch):
+    """A malformed id is reported per-id (200 + error) and does NOT reject the batch or 500 mid-way --
+    the valid ids are still reclaimed. Guards against the all-or-nothing whole-batch leak (neither dist.py
+    nor go-fetcher inspects a 4xx). view_task returns a real task so `deleted` is RED against the old
+    all-or-nothing 400 (which reclaimed nothing)."""
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
     deleted = []
-    monkeypatch.setattr(views, "can_manage_task", lambda u, t: True, raising=False)
-    monkeypatch.setattr(views.db, "view_task", lambda tid: None)
-    monkeypatch.setattr(views.db, "delete_task", lambda tid: deleted.append(tid) or True)
-
+    _dm_stub(monkeypatch, deleted)
     u = User.objects.create_user("mid", "mid@x.com", "x")
-    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10,11,oops"})
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10,oops,11"})
     force_authenticate(req, user=u)
     resp = views.tasks_delete_many(req)
 
-    assert resp.status_code == 400             # malformed -> 400 up front
-    assert deleted == []                       # NOTHING deleted (no partial destruction)
+    assert resp.status_code == 200                   # no all-or-nothing 4xx
+    assert sorted(deleted) == [10, 11]               # valid ids STILL reclaimed
+    assert resp.data.get("oops") == "invalid id"     # malformed reported per-id
+    assert resp.data.get("error") is True            # surfaced, not a silent OK
+
+
+@pytest.mark.django_db
+def test_tasks_delete_many_reads_json_body(cape_db, monkeypatch):
+    """ids sourced from request.data so a JSON-bodied caller isn't a silent no-op (request.POST is
+    empty for application/json -> would answer 200 having deleted nothing)."""
+    import json as _json
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    deleted = []
+    _dm_stub(monkeypatch, deleted)
+    u = User.objects.create_user("js", "js@x.com", "x")
+    req = APIRequestFactory().post("/apiv2/tasks/delete_many/",
+                                   data=_json.dumps({"ids": "101,102"}), content_type="application/json")
+    force_authenticate(req, user=u)
+    resp = views.tasks_delete_many(req)
+
+    assert resp.status_code == 200
+    assert sorted(deleted) == [101, 102]             # JSON body honored, not a silent no-op
 
 
 @pytest.mark.django_db
 def test_tasks_delete_many_missing_ids_is_noop(cape_db, monkeypatch):
-    """Absent/empty ids -> clean no-op (200/OK), not the old int('') 500."""
+    """Absent/empty ids -> clean no-op: NOTHING deleted (capture proves it), not the old int('') 500."""
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
-    monkeypatch.setattr(views.db, "delete_task", lambda tid: True)
-
+    deleted = []
+    _dm_stub(monkeypatch, deleted)  # view_task returns a deletable task, so an empty-ids delete would be caught
     u = User.objects.create_user("noid", "noid@x.com", "x")
     req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {})
     force_authenticate(req, user=u)
     resp = views.tasks_delete_many(req)
 
     assert resp.status_code == 200
-    assert resp.data.get("status") == "OK"
+    assert deleted == []                             # nothing deleted on empty ids
 
 
 @pytest.mark.django_db

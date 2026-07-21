@@ -3351,14 +3351,27 @@ def tasks_delete_many(request):
     # RETAIN, preserving upstream's bool("")=False back-compat ("" is in the retain set below).
     _dm = request.POST.get("delete_mongo", True)
     delete_mongo = _dm if isinstance(_dm, bool) else str(_dm).strip().lower() not in ("", "false", "0", "no")
-    # Validate the WHOLE id list up front: the per-task db.session.commit() below makes each delete durable
-    # immediately, so a malformed id mid-list (int() raising) would 500 AFTER destroying the earlier ids.
-    # Empty tokens (absent/blank ids) -> no-op, not the old int("") 500; a non-integer -> 400 before any delete.
-    _raw_ids = [x.strip() for x in request.POST.get("ids", "").split(",") if x.strip()]
-    try:
-        _ids = [int(x) for x in _raw_ids]
-    except ValueError:
-        return Response({"error": True, "error_value": "ids must be a comma-separated list of integers"}, status=400)
+    # Read ids from request.data (populated for form AND JSON bodies) -- request.POST is EMPTY for a JSON
+    # content type, which would silently no-op this destructive endpoint and answer 200. Validate the WHOLE
+    # list before deleting anything (the per-task commit below makes each delete durable), and SKIP-AND-REPORT
+    # a malformed id per-id rather than rejecting the batch with a 4xx: neither automated consumer inspects the
+    # status code (dist.py's `if res` is falsy on non-2xx; go-fetcher ignores it), so an all-or-nothing reject
+    # marks the whole batch deleted-but-un-reclaimed. Strict ASCII digits: int() also eats '5_0'->50, '+5', and
+    # unicode digits, so a caller couldn't map the response key back to the token it sent.
+    _ids_field = request.data.get("ids", "")
+    _tokens = (
+        [str(x).strip() for x in _ids_field]
+        if isinstance(_ids_field, (list, tuple))
+        else [x.strip() for x in str(_ids_field).split(",")]
+    )
+    _ids = []
+    for _tok in _tokens:
+        if not _tok:
+            continue
+        if not (_tok.isascii() and _tok.isdigit()):
+            response[_tok] = "invalid id"  # report per-id; keep the batch's valid work, don't reject all
+            continue
+        _ids.append(int(_tok))
     for task_id in _ids:
         task = db.view_task(task_id)
         if task:
@@ -3416,8 +3429,9 @@ def tasks_delete_many(request):
     # clean batch. Don't answer plain OK when either problem occurred.
     _errored = any(v == "error" for v in response.values())
     _orphaned = any(v == "deleted_orphan_report" for v in response.values())
-    response["status"] = "partial_error" if (_errored or _orphaned) else "OK"
-    if _errored or _orphaned:
+    _invalid = any(v == "invalid id" for v in response.values())
+    response["status"] = "partial_error" if (_errored or _orphaned or _invalid) else "OK"
+    if _errored or _orphaned or _invalid:
         response["error"] = True
     return Response(response)
 

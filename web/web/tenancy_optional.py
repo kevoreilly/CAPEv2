@@ -89,6 +89,17 @@ def can_delete_task(user, task):
     return real(user, task)
 
 
+def can_delete_job(viewer, task):
+    # Irreversible-delete gate for an ALREADY-resolved viewer (avoids rebuilding viewer_for per row in
+    # list views). Same fail-closed contract: MT genuinely absent -> allow (single-tenant); MT enabled
+    # but import broken -> deny.
+    try:
+        from users.tenancy import can_delete_job as real
+    except ImportError:
+        return not _mt_enabled()
+    return real(viewer, task)
+
+
 def can_set_visibility_task(user, task, new_visibility):
     # Visibility-transition gate (can_toggle + a direction guard so a tenant-admin can't downgrade a
     # non-owned public job into can_delete's tenant branch). Same fail-closed contract: MT genuinely

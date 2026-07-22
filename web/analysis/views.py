@@ -192,7 +192,7 @@ if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
 
 db: TasksMixIn = Database()
 
-from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_delete_task, can_set_visibility_task, can_view_sample, can_ban_user, viewer_for, multitenancy_config
+from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_delete_task, can_delete_job, can_set_visibility_task, can_view_sample, can_ban_user, viewer_for, multitenancy_config
 
 # Shared central-mode cross-store info.id collision seam (report(), report-tab loaders, apiv2 report-family,
 # compare seeds all route their per-task analysis reads through this) -- see analysis.central_views.
@@ -776,14 +776,19 @@ def index(request, page=1):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
     # db = Database()
-    tasks = db.list_tasks(status=TASK_PENDING, include_hashes=True, visible_to=viewer_for(request.user))
+    # Resolve the viewer ONCE and reuse it for both the read scope and the per-row deletability check.
+    # (can_delete_task rebuilds viewer_for per call -> for a break-glass-off superuser that is one
+    # socialaccount_set.exists() query PER pending row; can_delete_job takes the pre-built viewer.)
+    _viewer = viewer_for(request.user)
+    tasks = db.list_tasks(status=TASK_PENDING, include_hashes=True, visible_to=_viewer)
 
     pending = []
     for task in tasks:
         # UX: the pending list is READ-scoped (visible_to), so it can include other submitters' public /
         # same-tenant tasks the viewer may see but NOT delete. Annotate per-task deletability (reusing the
-        # already-loaded task, no extra query) so the template hides the Delete control it can't action.
-        _can_delete = can_delete_task(request.user, task)
+        # already-loaded task AND the single resolved viewer, no extra query) so the template hides the
+        # Delete control it can't action.
+        _can_delete = can_delete_job(_viewer, task)
         # Some tasks do not have sample attributes
         if task.sample:
             pending.append(

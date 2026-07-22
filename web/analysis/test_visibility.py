@@ -556,3 +556,32 @@ def test_require_task_delete_missing_or_unseeable_is_generic_not_found(cape_db, 
     r = _view(req, task_id="5")
     assert r.status_code == 403
     assert b"Not found" in r.content and b"not permitted" not in r.content
+
+
+@pytest.mark.django_db
+def test_pending_resolves_viewer_once(cape_db, mt_enabled, monkeypatch, client):
+    """pending() must resolve viewer_for ONCE per request, not once per row -- else a break-glass-off
+    superuser triggers an O(N) socialaccount_set.exists() fan-out. RED against per-row can_delete_task
+    (which rebuilt viewer_for for each task -> 1 + N calls)."""
+    from django.urls import reverse
+    import analysis.views as av
+
+    class _T:
+        def __init__(self, i):
+            self.id = i
+            self.user_id, self.tenant_id, self.visibility = 1, None, "public"
+            self.target, self.added_on, self.category, self.sample = "t%d" % i, None, "file", None
+
+    monkeypatch.setattr(av.db, "list_tasks", lambda *a, **k: [_T(1), _T(2), _T(3), _T(4)])
+    calls = {"n": 0}
+    _real = av.viewer_for
+
+    def _counting(u):
+        calls["n"] += 1
+        return _real(u)
+    monkeypatch.setattr(av, "viewer_for", _counting)
+
+    client.force_login(User.objects.create_user("pv", "pv@x.com", "x"))
+    r = client.get(reverse("pending"))
+    assert r.status_code == 200
+    assert calls["n"] == 1, "viewer_for resolved %d times (expected 1 per request, not per-row)" % calls["n"]

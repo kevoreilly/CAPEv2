@@ -93,6 +93,14 @@ def can_delete_task(user, task) -> bool:
     return can_delete(viewer_for(user), _job_for(task))
 
 
+def can_delete_job(viewer, task) -> bool:
+    """can_delete for a caller whose Viewer was ALREADY resolved. List views (e.g. pending()) annotate
+    per-row deletability; calling can_delete_task(user, task) per row rebuilds viewer_for(user) each time,
+    which for a break-glass-off superuser fires a fresh socialaccount_set.exists() query per row (O(N)).
+    Resolve the viewer once and pass it here instead."""
+    return can_delete(viewer, _job_for(task))
+
+
 def can_set_visibility_task(user, task, new_visibility) -> bool:
     """Authorize a visibility TRANSITION (not just any toggle). Adds a direction guard on top of
     can_toggle so a tenant-admin can't downgrade a non-owned PUBLIC job to tenant/private and thereby

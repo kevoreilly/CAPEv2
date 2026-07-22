@@ -1853,42 +1853,26 @@ def cron_cleaner(clean_x_hours=False):
     """
     """Method that runs forever"""
 
-    # PID-based lock robust to SIGNAL death (SIGTERM/SIGKILL/OOM skip the try/finally below, so a
-    # presence-only check would leave a stale pidfile that disables the cleaner forever). If the pidfile
-    # names a process that is no longer alive, it's stale -> remove + proceed.
-    if path_exists("/tmp/dist_cleaner.pid"):
-        _old_pid = 0
-        try:
-            with open("/tmp/dist_cleaner.pid") as _pf:
-                _old_pid = int((_pf.read() or "0").strip() or "0")
-        except (ValueError, OSError):
-            _old_pid = 0
-        _alive = False
-        if _old_pid > 0:
-            try:
-                os.kill(_old_pid, 0)  # signal 0 = liveness probe (sends nothing)
-                _alive = True
-            except ProcessLookupError:
-                _alive = False
-            except PermissionError:
-                _alive = True  # exists, owned by another user
-            except OSError:
-                _alive = False
-        if _alive:
-            log.info("dist_cleaner already running (pid %s)", _old_pid)
-            sys.exit()
-        log.warning("stale dist_cleaner pidfile (pid %s not alive); removing", _old_pid)
-        path_delete("/tmp/dist_cleaner.pid")
+    # Single-instance lock via flock (advisory, held on an open fd for the process lifetime). The kernel
+    # releases it AUTOMATICALLY when this process dies by ANY means -- normal exit, exception, SIGTERM/
+    # SIGKILL, OOM -- so there is no stale-pidfile, recycled-PID, or check-then-create-race class to reason
+    # about (the failure modes a presence-only or os.kill(pid,0) liveness heuristic keeps re-exposing). Open
+    # a+ (create, no truncate) so a losing racer can't clobber the holder's recorded pid; write our pid only
+    # after the lock is ours (informational for humans -- flock, not the file content, is authoritative).
+    import fcntl
 
-    pid = open("/tmp/dist_cleaner.pid", "wb")
-    pid.write(str(os.getpid()).encode())  # write the REAL pid so a stale lock is detectable
-    pid.close()
+    _lock_fd = open("/tmp/dist_cleaner.pid", "a+")
+    try:
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        log.info("dist_cleaner already running (flock held); exiting")
+        _lock_fd.close()
+        sys.exit()
+    _lock_fd.seek(0)
+    _lock_fd.truncate()
+    _lock_fd.write(str(os.getpid()))
+    _lock_fd.flush()
 
-    # GUARANTEE the pidfile is removed even if the body raises or a node hangs. Otherwise a stale
-    # /tmp/dist_cleaner.pid trips the presence check above (log "we running" + sys.exit) on EVERY
-    # subsequent invocation -> the cleaner is permanently disabled until someone manually rm's it, and
-    # worker analyses/ dirs leak without bound. The _delete_many timeout bounds the hang; this bounds the
-    # crash. (Presence-only lock; a PID-write + liveness check would be more robust -- follow-up.)
     db = None
     try:
         db = session()
@@ -1930,7 +1914,17 @@ def cron_cleaner(clean_x_hours=False):
     finally:
         if db is not None:
             db.close()
-        path_delete("/tmp/dist_cleaner.pid")
+        # Release the lock (closing the fd releases the flock; the kernel would too on death) and remove
+        # the file best-effort -- a concurrent unlink or an already-gone file must not raise here.
+        try:
+            fcntl.flock(_lock_fd, fcntl.LOCK_UN)
+        except Exception:
+            pass
+        _lock_fd.close()
+        try:
+            path_delete("/tmp/dist_cleaner.pid")
+        except Exception:
+            pass
 
 
 def create_app(database_connection):

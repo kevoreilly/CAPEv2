@@ -1855,19 +1855,33 @@ def cron_cleaner(clean_x_hours=False):
 
     # Single-instance lock via flock (advisory, held on an open fd for the process lifetime). The kernel
     # releases it AUTOMATICALLY when this process dies by ANY means -- normal exit, exception, SIGTERM/
-    # SIGKILL, OOM -- so there is no stale-pidfile, recycled-PID, or check-then-create-race class to reason
-    # about (the failure modes a presence-only or os.kill(pid,0) liveness heuristic keeps re-exposing). Open
-    # a+ (create, no truncate) so a losing racer can't clobber the holder's recorded pid; write our pid only
-    # after the lock is ours (informational for humans -- flock, not the file content, is authoritative).
+    # SIGKILL, OOM -- so there is no stale-pidfile / recycled-PID / check-then-create-race class (the
+    # presence-only + os.kill liveness heuristics we replaced kept re-exposing those). Do NOT unlink the
+    # file on exit (see the finally): flock locks the INODE but exclusion is checked via the PATH, so
+    # unlinking orphans the locked inode and a concurrent starter can lock a FRESH inode at the same path
+    # -> two cleaners. A persistent lockfile is harmless -- its pid content is informational; the flock,
+    # not the file, is authoritative. O_NOFOLLOW + 0600 so a symlink planted at the /tmp path can't
+    # redirect the open where fs.protected_symlinks is off.
     import fcntl
 
-    _lock_fd = open("/tmp/dist_cleaner.pid", "a+")
+    try:
+        _lock_fd = os.fdopen(os.open("/tmp/dist_cleaner.pid", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600), "r+")
+    except OSError as _oe:
+        log.error("dist_cleaner: cannot open lockfile (%s); skipping this run", _oe)
+        return
     try:
         fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
-    except OSError:
+    except BlockingIOError:
+        # Contention: another cleaner holds the lock -> nothing to do.
         log.info("dist_cleaner already running (flock held); exiting")
         _lock_fd.close()
         sys.exit()
+    except OSError as _le:
+        # Environmental flock failure (ENOLCK/EIO) -- NOT contention. Don't mislabel it as "already running"
+        # or silently disable; log the real cause and skip this run (next cron retries).
+        log.error("dist_cleaner: flock unavailable (%s); skipping this run", _le)
+        _lock_fd.close()
+        return
     _lock_fd.seek(0)
     _lock_fd.truncate()
     _lock_fd.write(str(os.getpid()))
@@ -1914,17 +1928,14 @@ def cron_cleaner(clean_x_hours=False):
     finally:
         if db is not None:
             db.close()
-        # Release the lock (closing the fd releases the flock; the kernel would too on death) and remove
-        # the file best-effort -- a concurrent unlink or an already-gone file must not raise here.
+        # Release the lock + close the fd (the kernel would also release on death). Do NOT unlink the
+        # lockfile: unlinking orphans the flock'd inode and lets a concurrent starter lock a fresh inode at
+        # the same path -> two cleaners (the inode-vs-path seam noted above). A persistent lockfile is fine.
         try:
             fcntl.flock(_lock_fd, fcntl.LOCK_UN)
         except Exception:
             pass
         _lock_fd.close()
-        try:
-            path_delete("/tmp/dist_cleaner.pid")
-        except Exception:
-            pass
 
 
 def create_app(database_connection):

@@ -355,6 +355,12 @@ def _delete_many(node, ids, nodes, db):
             headers={"Authorization": f"Token {apikey}"},
             data={"ids": ids, "delete_mongo": False},
             verify=False,
+            # BOUNDED timeout (connect, read): without it a frozen/half-open worker (accepts the TCP
+            # connection, never responds) blocks this POST FOREVER -- so `return False` never fires, the
+            # re-queue/retry path never runs, and one wedged node stalls disk-reclamation for EVERY node
+            # (cron_cleaner hangs; the Retriever cleaner thread stalls before its next drain). A timeout
+            # raises requests.exceptions.Timeout -> caught below -> return False -> the resilience path engages.
+            timeout=(10, 120),
         )
         # `if res` is falsy for any non-2xx (requests.Response.__bool__ is self.ok), so a 4xx/5xx from
         # delete_many used to be invisible here. Report success/FAILURE to the CALLER (do NOT roll back the
@@ -1106,9 +1112,11 @@ class Retriever(threading.Thread):
                     if not _delete_many(node_id, ids, nodes, db):
                         # The ids were consumed off the queue with .get() and this session has no writes to
                         # roll back, so a failed sweep would silently LOSE them (the worker's analyses/ leak).
-                        # Re-queue so a frozen/down node's cleanup is retried on the next pass.
+                        # Re-queue so a frozen/down node's cleanup is retried on the next pass. Re-queue as
+                        # int (details holds numeric strings) to match the int the t_is_none bookkeeping and
+                        # the original enqueue sites use, so re-queued ids aren't silently skipped there.
                         for _tid in details[node_id]:
-                            self.cleaner_queue.put((node_id, _tid))
+                            self.cleaner_queue.put((node_id, int(_tid) if str(_tid).isdigit() else _tid))
             db.commit()
             db.close()
             time.sleep(20)
@@ -1833,44 +1841,53 @@ def cron_cleaner(clean_x_hours=False):
     pid.write(b"")
     pid.close()
 
-    db = session()
-    nodes = {}
+    # GUARANTEE the pidfile is removed even if the body raises or a node hangs. Otherwise a stale
+    # /tmp/dist_cleaner.pid trips the presence check above (log "we running" + sys.exit) on EVERY
+    # subsequent invocation -> the cleaner is permanently disabled until someone manually rm's it, and
+    # worker analyses/ dirs leak without bound. The _delete_many timeout bounds the hang; this bounds the
+    # crash. (Presence-only lock; a PID-write + liveness check would be more robust -- follow-up.)
+    db = None
+    try:
+        db = session()
+        nodes = {}
 
-    for node in db.scalars(select(Node)):
-        nodes.setdefault(node.id, node)
+        for node in db.scalars(select(Node)):
+            nodes.setdefault(node.id, node)
 
-    # Allow force cleanup notificated but for some reason not deleted even when it set to deleted
-    if clean_x_hours:
-        stmt = (
-            select(Task)
-            .where(Task.notificated.is_(True), Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
-            .order_by(Task.id.desc())
-        )
-    else:
-        stmt = select(Task).where(Task.notificated.is_(True), Task.deleted.is_(False)).order_by(Task.id.desc())
-    tasks = db.scalars(stmt)
-    if tasks is not None:
-        # Group the task OBJECTS per node (do NOT set deleted=True yet) so a failing node's rollback can't
-        # revert the healthy nodes' progress -- the flag is set per node ONLY after that node's delete_many
-        # succeeds. A node that fails leaves its tasks deleted=False -> re-selected next sweep; other nodes
-        # are unaffected (was: deleted=True set for ALL nodes up front + one session-wide rollback wiped them).
-        node_tasks = {}
-        for task in tasks:
-            node = nodes[task.node_id]
-            if node:
-                node_tasks.setdefault(node.id, []).append(task)
+        # Allow force cleanup notificated but for some reason not deleted even when it set to deleted
+        if clean_x_hours:
+            stmt = (
+                select(Task)
+                .where(Task.notificated.is_(True), Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
+                .order_by(Task.id.desc())
+            )
+        else:
+            stmt = select(Task).where(Task.notificated.is_(True), Task.deleted.is_(False)).order_by(Task.id.desc())
+        tasks = db.scalars(stmt)
+        if tasks is not None:
+            # Group the task OBJECTS per node (do NOT set deleted=True yet) so a failing node's rollback can't
+            # revert the healthy nodes' progress -- the flag is set per node ONLY after that node's delete_many
+            # succeeds. A node that fails leaves its tasks deleted=False -> re-selected next sweep; other nodes
+            # are unaffected (was: deleted=True set for ALL nodes up front + one session-wide rollback wiped them).
+            node_tasks = {}
+            for task in tasks:
+                node = nodes[task.node_id]
+                if node:
+                    node_tasks.setdefault(node.id, []).append(task)
 
-        for node_id, tlist in node_tasks.items():
-            if not tlist:
-                continue
-            ids = ",".join(str(t.task_id) for t in tlist)
-            if _delete_many(node_id, ids, nodes, db):
-                for t in tlist:
-                    t.deleted = True
+            for node_id, tlist in node_tasks.items():
+                if not tlist:
+                    continue
+                ids = ",".join(str(t.task_id) for t in tlist)
+                if _delete_many(node_id, ids, nodes, db):
+                    for t in tlist:
+                        t.deleted = True
 
-    db.commit()
-    db.close()
-    path_delete("/tmp/dist_cleaner.pid")
+        db.commit()
+    finally:
+        if db is not None:
+            db.close()
+        path_delete("/tmp/dist_cleaner.pid")
 
 
 def create_app(database_connection):

@@ -84,10 +84,14 @@ def central_analysis_query(task_id, scope=None):
         if scope:
             try:
                 if central_bridge_required():
-                    # BRIDGE-REQUIRED (central+MT): key the own-not-yet-reconciled arm on the GLOBALLY-UNIQUE
-                    # jid, NOT info.id -- a foreign non-bridged doc could collide on info.id (worker-local id ==
-                    # this central id) and its null tenant would satisfy an info.id-based null arm cross-tenant.
-                    _own_unstamped = {"$and": [{"info.job_id": jid}, {"info.tenant_id": None}]}
+                    # BRIDGE-REQUIRED (central+MT): the own-not-yet-reconciled arm MUST be pinned to the
+                    # AUTHORIZED task (info.id == task_id). job_id alone here just repeats the outer
+                    # {info.job_id: jid} predicate -> the arm reduces to `info.tenant_id IS NULL`, and jid is
+                    # submitter-FORGEABLE (custom='job_id=ui-<victim>'), so a job_id-only null arm reads a
+                    # DIFFERENT task's UNSTAMPED doc cross-tenant (adversarial-review HIGH). Keep the unique
+                    # jid too so a foreign doc that merely collides on info.id can't ride the null arm either
+                    # -- a match now requires all three: the forged jid, a null tenant, AND our own info.id.
+                    _own_unstamped = {"$and": [{"info.job_id": jid}, {"info.tenant_id": None}, {"info.id": int(task_id)}]}
                 else:
                     _own_unstamped = {"$and": [{"info.tenant_id": None}, {"info.id": int(task_id)}]}
                 q = {"$and": [q, {"$or": [scope, _own_unstamped]}]}

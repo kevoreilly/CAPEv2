@@ -117,6 +117,32 @@ def test_central_analysis_query_forged_jobid_stamped_denied(monkeypatch):
     assert not _matches(victim_stamped, q), "forged job_id read another tenant's stamped doc"
 
 
+def test_central_analysis_query_bridge_required_forged_jobid_blocked(monkeypatch):
+    """BRIDGE-REQUIRED (central+MT, the production config): the forged-job_id cross-tenant read must be
+    blocked HERE too, not only in the non-bridge branch. The own-unstamped arm is pinned to the authorized
+    task's info.id, so a forged custom=job_id=ui-<victim> can't ride the null arm to a DIFFERENT task's
+    unstamped doc. RED against the prior bridge-required arm ({info.job_id: jid, tenant null}) which reduced
+    to the forgeable tautology `info.tenant_id IS NULL`."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_bridge_required", lambda: True)
+    q = cv.central_analysis_query(999, scope={"info.tenant_id": "A"})
+    victim = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}, "signatures": ["victim-secret"]}
+    assert not _matches(victim, q), "forged job_id read a different task's unstamped doc (bridge-required)"
+
+
+def test_central_analysis_query_bridge_required_owner_unstamped_resolves(monkeypatch):
+    """BRIDGE-REQUIRED: no owner lockout -- the legit owner viewing their OWN not-yet-reconciled doc
+    (centralstore re-keys info.id to the central id, so info.id == task_id) still resolves via the pinned
+    null arm."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_bridge_required", lambda: True)
+    q = cv.central_analysis_query(42, scope={"info.tenant_id": "A"})
+    own = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}}
+    assert _matches(own, q), "owner locked out of their own not-yet-reconciled doc (bridge-required)"
+
+
 def test_central_analysis_query_bridged_no_scope_is_bare(monkeypatch):
     """No scope (see-all / break-glass / MT-off): bare info.job_id, no restriction."""
     import analysis.central_views as cv
@@ -133,11 +159,13 @@ def test_central_analysis_query_nonbridged_is_scoped(monkeypatch):
     assert cv.central_analysis_query(7, scope=scope) == {"$and": [{"info.id": 7}, scope]}
 
 
-def test_central_analysis_query_bridge_required_unstamped_arm_is_jid_keyed(monkeypatch):
-    """Option A: when the bridge is required (central+MT), the own-not-yet-reconciled arm keys on the
-    GLOBALLY-UNIQUE info.job_id, NOT info.id -- so a foreign non-bridged doc that collides on info.id (and is
-    unstamped) can't ride the null arm to a cross-tenant read; the owner's own unstamped bridged doc still
-    resolves via its unique jid."""
+def test_central_analysis_query_bridge_required_unstamped_arm_pins_jid_and_info_id(monkeypatch):
+    """When the bridge is required (central+MT), the own-not-yet-reconciled arm pins BOTH the globally-unique
+    info.job_id AND the authorized info.id (== task_id). info.id blocks a FORGED job_id from riding the null
+    arm to another task's unstamped doc (adversarial-review HIGH); the unique jid additionally blocks a
+    foreign non-bridged doc that merely collides on info.id. The owner's own unstamped bridged doc (re-keyed
+    so info.id == task_id) still resolves. (Was: jid-only, which reduced to the forgeable `tenant_id IS
+    NULL`.)"""
     import analysis.central_views as cv
     import lib.cuckoo.common.central_mode as cm
     monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
@@ -145,7 +173,7 @@ def test_central_analysis_query_bridge_required_unstamped_arm_is_jid_keyed(monke
     q = cv.central_analysis_query(42, scope={"info.tenant_id": "A"})
     assert q == {"$and": [{"info.job_id": "ui-42"},
                           {"$or": [{"info.tenant_id": "A"},
-                                   {"$and": [{"info.job_id": "ui-42"}, {"info.tenant_id": None}]}]}]}, q
+                                   {"$and": [{"info.job_id": "ui-42"}, {"info.tenant_id": None}, {"info.id": 42}]}]}]}, q
     # a foreign unstamped doc colliding on info.id (worker-local id == this central id) is NOT readable:
     foreign = {"info": {"job_id": "local-42", "id": 42, "tenant_id": None}, "signatures": ["secret"]}
     assert not _matches(foreign, q), "foreign unstamped info.id collision must not be readable when bridge-required"

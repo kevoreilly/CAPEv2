@@ -331,7 +331,9 @@ def _delete_many(node, ids, nodes, db):
         db (object): The database connection object to perform rollback in case of failure.
 
     Returns:
-        None
+        bool: True if the node's tasks were deleted (or the node is the main server / already gone),
+        False on a transport error, non-200, or a per-id partial failure. The CALLER owns the session
+        outcome (mark deleted / re-queue) -- _delete_many never rolls back the shared session itself.
 
     Raises:
         Exception: If there is an error during the deletion process.
@@ -342,7 +344,7 @@ def _delete_many(node, ids, nodes, db):
         Critical: Logs the error message if an exception occurs during the deletion process.
     """
     if nodes[node].name == main_server_name:
-        return
+        return True
     try:
         url = urljoin(nodes[node].url, "tasks/delete_many/")
         apikey = nodes[node].apikey
@@ -355,17 +357,29 @@ def _delete_many(node, ids, nodes, db):
             verify=False,
         )
         # `if res` is falsy for any non-2xx (requests.Response.__bool__ is self.ok), so a 4xx/5xx from
-        # delete_many was invisible here -- no log, no rollback -- and the cleaner committed deleted=True
-        # for the whole batch anyway, leaking the worker's analyses/ + Mongo reports with no retry. Branch
-        # on `is not None` so a frozen/failed node surfaces (logged) and rolls back for the next sweep.
-        if res is not None and res.status_code != 200:
-            log.warning("[REMOVE] %-15s ==> non-200 %d, rolling back for retry: %s",
-                        nodes[node].name, res.status_code, res.content[:200])
-            db.rollback()
+        # delete_many used to be invisible here. Report success/FAILURE to the CALLER (do NOT roll back the
+        # shared session ourselves -- a session-wide rollback in a multi-node sweep reverts the OTHER nodes'
+        # progress; the caller scopes the failure to this node / re-queues its ids).
+        if res is None or res.status_code != 200:
+            log.warning("[REMOVE] %-15s ==> non-200 %s: %s", nodes[node].name,
+                        getattr(res, "status_code", "no-response"), getattr(res, "content", b"")[:200])
+            return False
+        # delete_many answers HTTP 200 even on a per-id failure; a GENUINE failure sets error=True /
+        # status=partial_error (NOT an idempotent 'not exists', which stays error-absent). Surface that so
+        # the caller doesn't mark those tasks deleted and retries them on the next sweep.
+        try:
+            _body = res.json()
+        except Exception:
+            _body = {}
+        if isinstance(_body, dict) and _body.get("error") is True:
+            log.warning("[REMOVE] %-15s ==> partial failure (%s): %s", nodes[node].name,
+                        _body.get("status"), {k: v for k, v in _body.items() if v in ("error", "deleted_orphan_report")})
+            return False
+        return True
 
     except Exception as e:
         log.warning("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node].name, e)
-        db.rollback()
+        return False
 
 
 def node_submit_task(task_id, node_id, main_task_id, db=None):
@@ -1089,7 +1103,12 @@ class Retriever(threading.Thread):
                 node = nodes[node_id]
                 if node and details.get(node_id):
                     ids = ",".join(list(set(details[node_id])))
-                    _delete_many(node_id, ids, nodes, db)
+                    if not _delete_many(node_id, ids, nodes, db):
+                        # The ids were consumed off the queue with .get() and this session has no writes to
+                        # roll back, so a failed sweep would silently LOSE them (the worker's analyses/ leak).
+                        # Re-queue so a frozen/down node's cleanup is retried on the next pass.
+                        for _tid in details[node_id]:
+                            self.cleaner_queue.put((node_id, _tid))
             db.commit()
             db.close()
             time.sleep(20)
@@ -1816,7 +1835,6 @@ def cron_cleaner(clean_x_hours=False):
 
     db = session()
     nodes = {}
-    details = {}
 
     for node in db.scalars(select(Node)):
         nodes.setdefault(node.id, node)
@@ -1832,18 +1850,23 @@ def cron_cleaner(clean_x_hours=False):
         stmt = select(Task).where(Task.notificated.is_(True), Task.deleted.is_(False)).order_by(Task.id.desc())
     tasks = db.scalars(stmt)
     if tasks is not None:
+        # Group the task OBJECTS per node (do NOT set deleted=True yet) so a failing node's rollback can't
+        # revert the healthy nodes' progress -- the flag is set per node ONLY after that node's delete_many
+        # succeeds. A node that fails leaves its tasks deleted=False -> re-selected next sweep; other nodes
+        # are unaffected (was: deleted=True set for ALL nodes up front + one session-wide rollback wiped them).
+        node_tasks = {}
         for task in tasks:
             node = nodes[task.node_id]
             if node:
-                details.setdefault(node.id, []).append(str(task.task_id))
-                task.deleted = True
+                node_tasks.setdefault(node.id, []).append(task)
 
-        for node in details:
-            if node and not details[node]:
+        for node_id, tlist in node_tasks.items():
+            if not tlist:
                 continue
-
-            ids = ",".join(details[node])
-            _delete_many(node, ids, nodes, db)
+            ids = ",".join(str(t.task_id) for t in tlist)
+            if _delete_many(node_id, ids, nodes, db):
+                for t in tlist:
+                    t.deleted = True
 
     db.commit()
     db.close()

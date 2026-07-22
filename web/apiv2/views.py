@@ -3377,13 +3377,13 @@ def statistics_data(requests, days):
 @api_view(["POST"])
 def tasks_delete_many(request):
     response = {}
-    # [taskdelete] freeze (legal hold / incident / retention audit) applies to an authenticated HUMAN/API
-    # caller, but NOT the anonymous stock/dist worker-cleanup path (utils/dist.py _delete_many + go-fetcher):
-    # request.user is AnonymousUser when token_auth_enabled=no, and 403-ing that path would silently break
-    # disk reclamation (dist.py's `if res` is falsy on non-2xx) -- the regression a blanket kill-switch caused.
-    # So freeze only an authenticated non-staff principal (staff bypass, mirroring tasks_delete's is_staff arm).
-    if request.user.is_authenticated and not request.user.is_staff and not apiconf.taskdelete.get("enabled"):
-        return Response({"error": True, "error_value": "Task Deletion API is Disabled"}, status=403)
+    # NB: tasks_delete_many is the MACHINE worker-cleanup path (utils/dist.py _delete_many + go-fetcher's
+    # DeleteFromWorker). It deliberately carries NO [taskdelete] freeze: an authenticated non-staff freeze
+    # 403s the distributed workers (they authenticate with a node Token under token_auth_enabled=yes) and
+    # silently breaks disk reclamation, while an anonymity-keyed freeze never fires at all under the stock
+    # token_auth_enabled=no (AllowAny -> AnonymousUser). The [taskdelete] legal-hold freeze lives on the
+    # HUMAN endpoint tasks_delete; freezing a human's BULK delete needs a machine-vs-human principal
+    # distinction (node key / dedicated permission), tracked separately -- not an anonymity heuristic here.
     # Read BOTH ids and delete_mongo from the SAME body via request.data (populated for form AND JSON).
     # request.POST is empty for a JSON content type, so sourcing ids from request.data while leaving
     # delete_mongo on request.POST would silently drop a JSON caller's delete_mongo=false RETAIN opt-out and

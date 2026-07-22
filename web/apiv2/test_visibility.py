@@ -762,58 +762,33 @@ def test_tasks_delete_many_missing_ids_is_noop(cape_db, monkeypatch):
 
 
 @pytest.mark.django_db
-def test_tasks_delete_many_freeze_gates_authed_nonstaff_not_anon(cape_db, monkeypatch):
-    """[taskdelete] disabled freezes an authenticated non-staff caller (403) but NOT the anonymous
-    stock/dist worker-cleanup path (which must keep reclaiming disk)."""
+def test_tasks_delete_many_never_frozen_machine_cleanup_path(cape_db, monkeypatch):
+    """tasks_delete_many is the MACHINE worker-cleanup path (utils/dist.py + go-fetcher) -> it carries NO
+    [taskdelete] freeze: an authenticated non-staff caller (a dist node's Token principal) AND the anonymous
+    stock path both proceed even with [taskdelete] disabled. RED against re-introducing the freeze, which
+    403'd the token-auth workers (silent disk-reclamation break) and never fired under token_auth=no. The
+    legal-hold freeze lives on the HUMAN endpoint tasks_delete."""
     import types
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
     deleted = []
     _dm_stub(monkeypatch, deleted)
-    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": False}))  # after _dm_stub
+    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": False}))  # frozen config
 
-    # authenticated non-staff -> frozen
+    # authenticated non-staff (the token-auth dist worker principal) -> NOT frozen
     u = User.objects.create_user("fz", "fz@x.com", "x")
     req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10"})
     force_authenticate(req, user=u)
     resp = views.tasks_delete_many(req)
-    assert resp.status_code == 403
-    assert deleted == []
+    assert resp.status_code == 200
+    assert deleted == [10]
 
-    # anonymous (no auth = the stock/dist path) -> NOT frozen, reclamation proceeds
+    # anonymous (stock token_auth_enabled=no path) -> also proceeds
     deleted.clear()
-    req_anon = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10"})
+    req_anon = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "11"})
     resp_anon = views.tasks_delete_many(req_anon)
     assert resp_anon.status_code == 200
-    assert deleted == [10]
-
-
-@pytest.mark.django_db
-def test_tasks_delete_many_freeze_bypassed_by_staff_and_when_enabled(cape_db, monkeypatch):
-    """Staff bypass the freeze, and an authed non-staff caller is allowed when [taskdelete] is enabled."""
-    import types
-    from rest_framework.test import APIRequestFactory, force_authenticate
-    import apiv2.views as views
-
-    deleted = []
-    _dm_stub(monkeypatch, deleted)
-    # staff + disabled -> bypass
-    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": False}))
-    staff = User.objects.create_user("stf", "stf@x.com", "x")
-    staff.is_staff = True
-    staff.save()
-    req = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "10"})
-    force_authenticate(req, user=staff)
-    assert views.tasks_delete_many(req).status_code == 200
-    assert deleted == [10]
-    # non-staff + ENABLED -> allowed
-    deleted.clear()
-    monkeypatch.setattr(views, "apiconf", types.SimpleNamespace(taskdelete={"enabled": True}))
-    u = User.objects.create_user("en", "en@x.com", "x")
-    req2 = APIRequestFactory().post("/apiv2/tasks/delete_many/", {"ids": "11"})
-    force_authenticate(req2, user=u)
-    assert views.tasks_delete_many(req2).status_code == 200
     assert deleted == [11]
 
 

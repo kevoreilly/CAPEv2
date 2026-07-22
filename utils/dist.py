@@ -1842,14 +1842,17 @@ def cron_cleaner(clean_x_hours=False):
         notified and created within the last `clean_x_hours` hours.
 
     The method performs the following steps:
-    1. Checks if the cleaner is already running by looking for a PID file at "/tmp/dist_cleaner.pid".
-    2. If the cleaner is not running, it creates a PID file to indicate that it is running.
+    1. Acquires a single-instance advisory lock via flock() on CUCKOO_ROOT/log/dist_cleaner.pid; if another
+       cleaner already holds it, returns without running this sweep (the kernel releases the lock on death by
+       any means, so there is no stale-lock recovery to do).
+    2. The lockfile is PERSISTENT BY DESIGN and is NOT deleted on exit -- exclusion is the flock on the inode,
+       not the file's presence, and unlinking it would let a concurrent starter lock a fresh inode at the
+       same path (two cleaners). Do not `rm` it; its contents (the pid) are informational only.
     3. Connects to the database and retrieves all nodes.
     4. Depending on the `clean_x_hours` argument, it retrieves tasks that need to be cleaned up.
-    5. Marks the retrieved tasks as deleted and groups them by node.
-    6. Deletes the tasks from the nodes.
-    7. Commits the changes to the database and closes the connection.
-    8. Deletes the PID file to indicate that the cleaner has finished running.
+    5. Deletes the tasks from each node, marking them deleted per node ONLY on that node's success.
+    6. Commits the changes to the database and closes the connection.
+    7. Releases the flock (closes the fd) in a finally; the lockfile stays on disk for the next run.
     """
     """Method that runs forever"""
 
@@ -1862,20 +1865,40 @@ def cron_cleaner(clean_x_hours=False):
     # -> two cleaners. A persistent lockfile is harmless -- its pid content is informational; the flock,
     # not the file, is authoritative. O_NOFOLLOW + 0600 so a symlink planted at the /tmp path can't
     # redirect the open where fs.protected_symlinks is off.
+    import errno
     import fcntl
+    import pwd
 
+    # The lock lives in the SERVICE-OWNED log dir, NOT world-writable /tmp. In sticky /tmp with Ubuntu's
+    # default fs.protected_regular=2 the kernel refuses to open a not-owned regular file, and DAC refuses a
+    # foreign 0600 file, so a lockfile ever created there by another user (e.g. a one-off `sudo ... -ec`)
+    # would wedge every cape run. CUCKOO_ROOT/log is created + owned by the cape service (same dir as
+    # dist.log), so it's cape-openable. O_NOFOLLOW + 0600 defends the open against a planted symlink.
+    _lock_dir = os.path.join(CUCKOO_ROOT, "log")
+    if not path_exists(_lock_dir):
+        path_mkdir(_lock_dir)
+    _lock_path = os.path.join(_lock_dir, "dist_cleaner.pid")
     try:
-        _lock_fd = os.fdopen(os.open("/tmp/dist_cleaner.pid", os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600), "r+")
+        _lock_fd = os.fdopen(os.open(_lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600), "r+")
     except OSError as _oe:
-        log.error("dist_cleaner: cannot open lockfile (%s); skipping this run", _oe)
+        _hint = ""
+        if getattr(_oe, "errno", None) in (errno.EACCES, errno.EPERM):
+            try:
+                _owner = pwd.getpwuid(os.stat(_lock_path).st_uid).pw_name
+            except Exception:
+                _owner = "?"
+            _hint = f" -- lockfile is owned by {_owner!r}, not this service user; remove {_lock_path} to recover"
+        log.error("dist_cleaner: cannot open lockfile %s (%s)%s; skipping this run", _lock_path, _oe, _hint)
         return
     try:
         fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except BlockingIOError:
-        # Contention: another cleaner holds the lock -> nothing to do.
-        log.info("dist_cleaner already running (flock held); exiting")
+        # Contention: another cleaner holds the lock. RETURN (do NOT sys.exit): with -ec, __main__ continues
+        # into StatusThread/Retriever/app.run after cron_cleaner, so exiting here would take down the whole
+        # dist server for a startup-contention window instead of just skipping this one sweep.
+        log.info("dist_cleaner already running (flock held); skipping this run")
         _lock_fd.close()
-        sys.exit()
+        return
     except OSError as _le:
         # Environmental flock failure (ENOLCK/EIO) -- NOT contention. Don't mislabel it as "already running"
         # or silently disable; log the real cause and skip this run (next cron retries).

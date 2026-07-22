@@ -63,6 +63,11 @@ web_conf = Config("web")
 dist_conf = Config("distributed")
 gcp_conf = Config("gcp")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")
+# Cap on how many times a failed worker-cleanup delete is re-queued before it is dropped (with a log).
+# Bounds the window in which a STALE re-queued delete could fire against a re-provisioned worker (worker
+# task ids are node-local autoincrements + id reuse on re-setup is supported) and delete a fresh task's
+# row/analyses. ~10 attempts x the 20s cleaner cadence ≈ a few minutes of retry, then give up.
+CLEANER_MAX_RETRIES = 10
 
 HAVE_GCP = False
 if gcp_conf.samples_pubsub.enabled:
@@ -637,6 +642,7 @@ class Retriever(threading.Thread):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
         self.t_is_none = {}
+        self.cleaner_retries = {}  # (node_id, task_id) -> failed-cleanup attempt count; bounds the re-queue
         self.status_count = {}
         self.current_queue = {}
         self.current_two_queue = {}
@@ -1112,11 +1118,26 @@ class Retriever(threading.Thread):
                     if not _delete_many(node_id, ids, nodes, db):
                         # The ids were consumed off the queue with .get() and this session has no writes to
                         # roll back, so a failed sweep would silently LOSE them (the worker's analyses/ leak).
-                        # Re-queue so a frozen/down node's cleanup is retried on the next pass. Re-queue as
-                        # int (details holds numeric strings) to match the int the t_is_none bookkeeping and
-                        # the original enqueue sites use, so re-queued ids aren't silently skipped there.
+                        # Re-queue so a frozen/down node's cleanup is retried on the next pass -- but BOUND it:
+                        # retrying a stale (node_id, task_id) forever risks deleting a FRESH task after the
+                        # worker is re-provisioned (node-local ids are reused). Drop (with a log) after
+                        # CLEANER_MAX_RETRIES. Re-queue as int (details holds numeric strings) to match the
+                        # int the t_is_none bookkeeping + original enqueue sites use.
                         for _tid in details[node_id]:
-                            self.cleaner_queue.put((node_id, int(_tid) if str(_tid).isdigit() else _tid))
+                            key = (node_id, int(_tid) if str(_tid).isdigit() else _tid)
+                            attempts = self.cleaner_retries.get(key, 0) + 1
+                            if attempts >= CLEANER_MAX_RETRIES:
+                                log.warning("[REMOVE] giving up on task %s @ node %s after %d failed cleanup "
+                                            "attempts (worker down/re-provisioned?)", _tid, node_id, attempts)
+                                self.cleaner_retries.pop(key, None)
+                            else:
+                                self.cleaner_retries[key] = attempts
+                                self.cleaner_queue.put(key)
+                    else:
+                        # Node cleanup succeeded -> clear any retry counters for its ids so the cap is per
+                        # sustained-failure streak, not lifetime.
+                        for _tid in details[node_id]:
+                            self.cleaner_retries.pop((node_id, int(_tid) if str(_tid).isdigit() else _tid), None)
             db.commit()
             db.close()
             time.sleep(20)
@@ -1832,13 +1853,35 @@ def cron_cleaner(clean_x_hours=False):
     """
     """Method that runs forever"""
 
-    # Check if we are not runned
+    # PID-based lock robust to SIGNAL death (SIGTERM/SIGKILL/OOM skip the try/finally below, so a
+    # presence-only check would leave a stale pidfile that disables the cleaner forever). If the pidfile
+    # names a process that is no longer alive, it's stale -> remove + proceed.
     if path_exists("/tmp/dist_cleaner.pid"):
-        log.info("we running")
-        sys.exit()
+        _old_pid = 0
+        try:
+            with open("/tmp/dist_cleaner.pid") as _pf:
+                _old_pid = int((_pf.read() or "0").strip() or "0")
+        except (ValueError, OSError):
+            _old_pid = 0
+        _alive = False
+        if _old_pid > 0:
+            try:
+                os.kill(_old_pid, 0)  # signal 0 = liveness probe (sends nothing)
+                _alive = True
+            except ProcessLookupError:
+                _alive = False
+            except PermissionError:
+                _alive = True  # exists, owned by another user
+            except OSError:
+                _alive = False
+        if _alive:
+            log.info("dist_cleaner already running (pid %s)", _old_pid)
+            sys.exit()
+        log.warning("stale dist_cleaner pidfile (pid %s not alive); removing", _old_pid)
+        path_delete("/tmp/dist_cleaner.pid")
 
     pid = open("/tmp/dist_cleaner.pid", "wb")
-    pid.write(b"")
+    pid.write(str(os.getpid()).encode())  # write the REAL pid so a stale lock is detectable
     pid.close()
 
     # GUARANTEE the pidfile is removed even if the body raises or a node hangs. Otherwise a stale

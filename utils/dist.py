@@ -1884,10 +1884,18 @@ def cron_cleaner(clean_x_hours=False):
         _hint = ""
         if getattr(_oe, "errno", None) in (errno.EACCES, errno.EPERM):
             try:
-                _owner = pwd.getpwuid(os.stat(_lock_path).st_uid).pw_name
-            except Exception:
-                _owner = "?"
-            _hint = f" -- lockfile is owned by {_owner!r}, not this service user; remove {_lock_path} to recover"
+                _st = os.stat(_lock_path)
+            except OSError:
+                # EACCES/EPERM from the DIRECTORY (log/ pre-created root-owned/unsearchable) with NO
+                # lockfile yet: os.stat raises FileNotFoundError, so don't advise removing a nonexistent
+                # file -- point at the lock-dir ownership/permissions, which is the actual blocker.
+                _hint = f" -- check ownership/permissions of {_lock_dir} (lockfile absent; create refused)"
+            else:
+                try:
+                    _owner = pwd.getpwuid(_st.st_uid).pw_name
+                except Exception:
+                    _owner = str(_st.st_uid)
+                _hint = f" -- lockfile is owned by {_owner!r}, not this service user; remove {_lock_path} to recover"
         log.error("dist_cleaner: cannot open lockfile %s (%s)%s; skipping this run", _lock_path, _oe, _hint)
         return
     try:

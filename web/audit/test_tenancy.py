@@ -87,26 +87,22 @@ def test_anon_view_never_exposes_mutating_audit_endpoints():
 
 
 @pytest.mark.django_db
-def test_inner_unqueue_test_user_none_deletes_pending(cape_db, monkeypatch):
-    """The user=None back-compat path (no-user callers): the can_delete_task gate is SKIPPED (guard is
-    `user is not None and not can_delete_task(...)`) and a TASK_PENDING run's CAPE task IS deleted + its
-    linkage cleared. RED if the guard were tightened to require a user (would break no-user callers)."""
+def test_inner_unqueue_test_user_none_denied(cape_db, monkeypatch):
+    """A missing caller identity (user is None) FAILS CLOSED: even a TASK_PENDING run's CAPE task is NOT
+    deleted and its linkage is untouched. RED against the old fail-open default that skipped the gate when
+    user was None (a stray no-user call could then silently delete)."""
     import audit.views as av
-    from lib.cuckoo.core.data.audit_data import TEST_QUEUED, TEST_UNQUEUED
+    from lib.cuckoo.core.data.audit_data import TEST_QUEUED
     from lib.cuckoo.core.data.task import TASK_PENDING
 
     deleted = []
     monkeypatch.setattr(av.db, "view_task", lambda tid: _FakeCapeTask(TASK_PENDING))
     monkeypatch.setattr(av.db, "delete_task", lambda tid: deleted.append(tid), raising=False)
 
-    def _must_not(*a, **k):
-        raise AssertionError("can_delete_task must not be consulted when user is None")
-    monkeypatch.setattr(av, "can_delete_task", _must_not, raising=False)
-
     run = _FakeRun(cape_task_id=42, status=TEST_QUEUED)
-    assert av.inner_unqueue_test(run) == 42       # user defaults to None -> gate skipped, delete proceeds
-    assert deleted == [42]
-    assert run.cape_task_id is None and run.status == TEST_UNQUEUED
+    assert av.inner_unqueue_test(run) is None      # user defaults to None -> denied
+    assert deleted == []                           # nothing deleted
+    assert run.cape_task_id == 42                  # linkage intact
 
 
 @pytest.mark.django_db
@@ -146,16 +142,57 @@ def test_inner_unqueue_test_skips_non_queued_run(cape_db, monkeypatch):
 
 
 @pytest.mark.django_db
-def test_caller_can_delete_session_dangling_task_skipped(cape_db, monkeypatch):
-    """A run with a non-None cape_task_id whose CAPE row is already gone (view_task -> None) is SKIPPED,
-    not treated as un-deletable: a dangling row doesn't block the session purge (distinct branch from the
-    can_delete-denies case)."""
+def test_caller_can_delete_session_no_live_task_fails_closed_under_mt(cape_db, mt_enabled, monkeypatch):
+    """A session with NO authorization-bearing (live-task) run -- all runs unqueued (cape_task_id=None) or
+    dangling (view_task->None) -- must FAIL CLOSED under MT to a break-glass box admin, not fall through to
+    allow-any-authenticated-user. A freshly-created, not-yet-queued session is the COMMON all-task-less
+    state. RED against the old vacuous-True loop. The caller here is a plain non-staff, non-admin user."""
     import audit.views as av
 
-    class _Session:
-        runs = [_FakeRun(cape_task_id=7, status="x")]
+    class _Sess:
+        def __init__(self, runs):
+            self.runs = runs
 
-    monkeypatch.setattr(av.db, "view_task", lambda tid: None)   # dangling
-    monkeypatch.setattr(av, "can_delete_task", lambda u, t: False, raising=False)  # would block IF consulted
-    u = User.objects.create_user("au_dg", "au_dg@x.com", "x")
-    assert av._caller_can_delete_session(u, _Session()) is True  # dangling run skipped, not blocking
+    u = User.objects.create_user("au_fc", "au_fc@x.com", "x")  # tenant-less, non-staff -> not box-admin
+
+    # all UNQUEUED (cape_task_id=None) -> view_task must never be consulted
+    def _no_view(*a, **k):
+        raise AssertionError("view_task must not be consulted for a task-less run")
+    monkeypatch.setattr(av.db, "view_task", _no_view, raising=False)
+    assert av._caller_can_delete_session(u, _Sess([_FakeRun(None, "x"), _FakeRun(None, "x")])) is False
+
+    # all DANGLING (rows gone) -> still fail closed
+    monkeypatch.setattr(av.db, "view_task", lambda tid: None, raising=False)
+    assert av._caller_can_delete_session(u, _Sess([_FakeRun(101, "x"), _FakeRun(102, "x")])) is False
+
+
+@pytest.mark.django_db
+def test_caller_can_delete_session_no_live_task_allows_box_admin(cape_db, mt_enabled, monkeypatch):
+    """The break-glass exception: a box admin (viewer.is_local_admin) MAY purge a task-less/dangling
+    session under MT -- the fail-closed default lets the legitimate operator through."""
+    import audit.views as av
+
+    class _Sess:
+        def __init__(self, runs):
+            self.runs = runs
+
+    monkeypatch.setattr(av.db, "view_task", lambda tid: None, raising=False)
+    monkeypatch.setattr(av, "viewer_for", lambda u: type("V", (), {"is_local_admin": True})(), raising=False)
+    u = User.objects.create_user("au_ba", "au_ba@x.com", "x")
+    assert av._caller_can_delete_session(u, _Sess([_FakeRun(None, "x")])) is True
+
+
+@pytest.mark.django_db
+def test_caller_can_delete_session_no_live_task_allows_when_mt_off(cape_db, monkeypatch):
+    """MT off -> single shared trust domain: a task-less session is deletable (no regression vs upstream,
+    which had no audit authz at all)."""
+    import audit.views as av
+
+    class _Sess:
+        def __init__(self, runs):
+            self.runs = runs
+
+    monkeypatch.setattr(av, "multitenancy_config", lambda: type("C", (), {"enabled": False})(), raising=False)
+    monkeypatch.setattr(av.db, "view_task", lambda tid: None, raising=False)
+    u = User.objects.create_user("au_off", "au_off@x.com", "x")
+    assert av._caller_can_delete_session(u, _Sess([_FakeRun(None, "x")])) is True

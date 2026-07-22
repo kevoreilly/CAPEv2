@@ -27,7 +27,7 @@ from lib.cuckoo.core.data.audits import AuditsMixIn, TestSession
 from lib.cuckoo.core.data.task import TASK_PENDING, Task
 from lib.cuckoo.core.data.db_common import _utcnow_naive
 from lib.cuckoo.core.data.audit_data import (TestRun, TEST_QUEUED, TEST_COMPLETE, TEST_FAILED, TEST_RUNNING, TEST_UNQUEUED)
-from web.tenancy_optional import can_delete_task
+from web.tenancy_optional import can_delete_task, viewer_for, multitenancy_config
 
 '''
 try:
@@ -112,6 +112,9 @@ def audit_index(request, page:int = 1):
                     db.update_audit_tasks_status(db_session=db_session, audit_session=audit_session)
                     break
             audit_session.stats = get_session_stats(audit_session)
+            # UX: hide the destructive Delete control for a session the caller can't purge (the POST is
+            # server-side fail-closed regardless) instead of offering a button that 403s.
+            audit_session.can_delete = _caller_can_delete_session(request.user, audit_session)
 
         paging["show_session_prev"] = "hide"
         paging["show_session_next"] = "hide"
@@ -220,17 +223,30 @@ def reload_available_tests(request):
 
 
 def _caller_can_delete_session(user, session) -> bool:
-    """True iff `user` may DELETE every CAPE task that purging `session` would remove (delete_test_session
-    rmtree's storage/analyses/<cape_task_id> for each run). Audit tasks are instance/system-owned, so with
-    MT ON this resolves to a break-glass box admin; with MT OFF can_delete_task allows every principal
-    (single shared trust domain) -> unchanged. Fails closed on the first un-deletable run."""
+    """True iff `user` may DELETE the CAPE tasks that purging `session` would remove (delete_test_session
+    rmtree's storage/analyses/<cape_task_id> for each run). Audit sessions carry NO owner/tenant column,
+    so authorization is derived from the runs' CAPE tasks via can_delete_task (system-owned -> break-glass
+    box admin under MT; every principal under MT-off). A run with no live task -- unqueued (cape_task_id=
+    None) or dangling (row already gone) -- carries no authorization signal and is skipped. But a session
+    with NO authorization-bearing run (all unqueued/dangling -- the common freshly-created state) must FAIL
+    CLOSED under MT to a break-glass box admin, NOT fall through to allow-any-authenticated-user (which
+    would let any tenant purge another principal's session). MT off -> single shared trust domain -> allow."""
+    checked = False
     for run in getattr(session, "runs", None) or []:
         if run.cape_task_id is None:
             continue
         _t = db.view_task(run.cape_task_id)
-        if _t is not None and not can_delete_task(user, _t):
+        if _t is None:
+            continue
+        checked = True
+        if not can_delete_task(user, _t):
             return False
-    return True
+    if checked:
+        return True
+    # No live task to gate on. Fail closed under MT (break-glass box admin only); allow single-tenant.
+    if not multitenancy_config().enabled:
+        return True
+    return bool(getattr(viewer_for(user), "is_local_admin", False))
 
 
 @require_POST
@@ -463,10 +479,12 @@ def inner_unqueue_test(testrun: TestRun, user=None) -> Optional[int]:
         if cape_task is None:
             # the CAPE row is already gone -> nothing to delete (was a bodiless 500 on .status below)
             return None
-        # tenant isolation: only delete a CAPE task the caller may DELETE. Audit tasks are instance/
-        # system-owned, so with MT ON this resolves to a break-glass box admin; with MT OFF
-        # can_delete_task allows every principal (single shared trust domain) -> no behavior change.
-        if user is not None and not can_delete_task(user, cape_task):
+        # Authorization is MANDATORY and fails CLOSED: a missing caller identity (user is None) is denied,
+        # and the caller must be allowed to DELETE this task. Audit tasks are instance/system-owned, so
+        # with MT ON can_delete_task resolves to a break-glass box admin; with MT OFF it allows every
+        # principal (single shared trust domain). Both in-tree callers pass request.user; the None default
+        # exists only so a stray no-user call can't silently delete.
+        if user is None or not can_delete_task(user, cape_task):
             return None
         if cape_task.status == TASK_PENDING:
             db.delete_task(task_id)

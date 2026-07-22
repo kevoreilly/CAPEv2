@@ -192,7 +192,7 @@ if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
 
 db: TasksMixIn = Database()
 
-from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_delete_task, can_view_sample, can_ban_user, viewer_for, multitenancy_config
+from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_delete_task, can_set_visibility_task, can_view_sample, can_ban_user, viewer_for, multitenancy_config
 
 # Shared central-mode cross-store info.id collision seam (report(), report-tab loaders, apiv2 report-family,
 # compare seeds all route their per-task analysis reads through this) -- see analysis.central_views.
@@ -780,6 +780,10 @@ def pending(request):
 
     pending = []
     for task in tasks:
+        # UX: the pending list is READ-scoped (visible_to), so it can include other submitters' public /
+        # same-tenant tasks the viewer may see but NOT delete. Annotate per-task deletability (reusing the
+        # already-loaded task, no extra query) so the template hides the Delete control it can't action.
+        _can_delete = can_delete_task(request.user, task)
         # Some tasks do not have sample attributes
         if task.sample:
             pending.append(
@@ -790,6 +794,7 @@ def pending(request):
                     "category": task.category,
                     "md5": task.sample.md5,
                     "sha256": task.sample.sha256,
+                    "can_delete": _can_delete,
                 }
             )
         else:
@@ -801,6 +806,7 @@ def pending(request):
                     "category": task.category,
                     "md5": "",
                     "sha256": "",
+                    "can_delete": _can_delete,
                 }
             )
     data = {"tasks": pending, "count": len(pending), "title": "Pending Tasks"}
@@ -2833,6 +2839,17 @@ def report(request, task_id):
     # would be meaningless and writing a value could plant a backfill landmine if MT
     # is later enabled — the apiv2 endpoint also rejects the write when disabled.
     can_toggle_visibility = multitenancy_config().enabled and can_toggle_task(request.user, _task)
+    # Per-option gating for the report visibility dropdown: offer ONLY the transitions the caller may
+    # actually perform, mirroring the apiv2 endpoint's guards (can_set_visibility_task + a 'tenant' target
+    # needs a non-null tenant_id) so the UI never presents an option that then 403s/400s. Only meaningful
+    # when the toggle is shown at all (MT on + _task is a live, viewable task).
+    visibility_choices = []
+    if can_toggle_visibility:
+        for _vis in ("public", "tenant", "private"):
+            if _vis == "tenant" and getattr(_task, "tenant_id", None) is None:
+                continue
+            if can_set_visibility_task(request.user, _task, _vis):
+                visibility_choices.append(_vis)
 
     # Central mode: the analysis tree lives in S3, not on this node's disk. Stage it
     # locally (once, cached, excluding huge memory dumps) so EVERY report feature that
@@ -3255,6 +3272,10 @@ def report(request, task_id):
             # tenant — 'tenant' on a tenant_id=NULL task makes it readable by nobody
             # but owner/break-glass (can_read's tenant branch needs a non-null tenant).
             "task_has_tenant": getattr(_task, "tenant_id", None) is not None,
+            # The visibility values the caller may actually SET (per-option gated above); the dropdown
+            # renders only these so it never offers a transition that would 403 (e.g. a tenant-admin
+            # can't downgrade a public job) or 400 ('tenant' on a tenant-less task).
+            "visibility_choices": visibility_choices,
             "analysis": report,
             # ToDo test
             "file": report.get("target", {}).get("file", {}),

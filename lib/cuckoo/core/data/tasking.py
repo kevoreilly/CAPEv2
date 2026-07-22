@@ -944,14 +944,20 @@ class TasksMixIn:
 
         return self.set_task_status(task, status)
 
-    def set_task_visibility(self, task_id: int, visibility: str) -> Optional[Task]:
+    def set_task_visibility(self, task_id: int, visibility: str, expected_prior: Optional[str] = None) -> Optional[Task]:
         """Set a task's visibility (public/tenant/private).
         @param task_id: task identifier
         @param visibility: one of public|tenant|private
+        @param expected_prior: optimistic compare-and-swap guard. If given, the caller AUTHORIZED the
+            transition against a task whose visibility was `expected_prior`; if a concurrent toggle
+            changed it before we take the serialization lock, the pre-lock authorization may no longer
+            hold (e.g. a tenant-admin's widen authorized on 'tenant' must NOT land on a now-'private'
+            job the caller can't touch), so abort with CuckooVisibilityConflict instead of writing.
         @return: the Task, or None if not found
         @raise ValueError: if visibility is not a known level — defense in depth
             so no caller (web, broker, or future) can persist a bogus value even
             if it skips the view-layer check.
+        @raise CuckooVisibilityConflict: expected_prior given but the current (post-lock) value differs.
         """
         from lib.cuckoo.common.tenancy import VISIBILITIES
 
@@ -970,7 +976,7 @@ class TasksMixIn:
         # commit and the mongo publish, so two interleaved toggles (A commits SQL and
         # stalls; B writes both stores; A resumes publishing its STALE mongo value)
         # can't leave mongo more permissive than SQL either.
-        from lib.cuckoo.common.exceptions import CuckooOperationalError
+        from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooVisibilityConflict
 
         _RANK = {"private": 0, "tenant": 1, "public": 2}
         _mongo_on = mongo_update_one is not None and _mongo_reporting_enabled()
@@ -1078,6 +1084,15 @@ class TasksMixIn:
                 # the direction decision and _prev must reflect the CURRENT truth.
                 self.session.refresh(task)
             _prev_visibility = task.visibility
+            # Optimistic compare-and-swap: the caller authorized this transition against `expected_prior`.
+            # If a concurrent toggle changed the row before we acquired the lock, the pre-lock authorization
+            # may no longer hold, so abort WITHOUT writing rather than commit a possibly-unauthorized
+            # end-state (e.g. a tenant-admin's widen authorized on 'tenant' landing on a now-'private' job).
+            # The finally below still releases the lock. The caller re-reads + re-authorizes and retries.
+            if expected_prior is not None and _prev_visibility != expected_prior:
+                raise CuckooVisibilityConflict(
+                    f"task {task_id} visibility changed concurrently ({expected_prior!r} -> {_prev_visibility!r}); retry"
+                )
             task.visibility = visibility
 
             if _RANK.get(visibility, 0) > _RANK.get(_prev_visibility, 0):

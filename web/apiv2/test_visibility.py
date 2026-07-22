@@ -326,7 +326,7 @@ def test_toggle_visibility_authz_and_indistinguishability(cape_db, mt_enabled, m
 
     monkeypatch.setattr(views.db, "view_task", lambda *a, **k: T())
     monkeypatch.setattr(views.db, "set_task_visibility",
-                        lambda tid, vis: state.__setitem__("vis", vis), raising=False)
+                        lambda tid, vis, expected_prior=None: state.__setitem__("vis", vis), raising=False)
 
     c = APIClient()
 
@@ -1399,7 +1399,7 @@ def test_toggle_visibility_rejects_tenant_for_tenantless_task(cape_db, mt_enable
 
     monkeypatch.setattr(views.db, "view_task", lambda *a, **k: T())
     monkeypatch.setattr(views.db, "set_task_visibility",
-                        lambda tid, vis: state.__setitem__("vis", vis), raising=False)
+                        lambda tid, vis, expected_prior=None: state.__setitem__("vis", vis), raising=False)
 
     c = APIClient()
     c.force_authenticate(user=owner)
@@ -1871,7 +1871,7 @@ def test_toggle_visibility_report_store_unreachable_returns_503(cape_db, mt_enab
     monkeypatch.setattr(views, "can_view_task", lambda u, t: True, raising=False)
     monkeypatch.setattr(views, "can_set_visibility_task", lambda u, t, v: True, raising=False)
 
-    def _raise(tid, vis):
+    def _raise(tid, vis, expected_prior=None):
         raise CuckooOperationalError("report store unreachable")
     monkeypatch.setattr(views.db, "set_task_visibility", _raise, raising=False)
 
@@ -1881,3 +1881,65 @@ def test_toggle_visibility_report_store_unreachable_returns_503(cape_db, mt_enab
     r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "public"}, format="json")
     assert r.status_code == 503
     assert r.json().get("error") is True
+
+
+@pytest.mark.django_db
+def test_toggle_visibility_concurrent_change_returns_409(cape_db, mt_enabled, monkeypatch):
+    """If set_task_visibility raises CuckooVisibilityConflict (a concurrent toggle changed the row after the
+    pre-lock authorization), the endpoint returns 409 (re-read + retry) -- not a 503 and not a silent write."""
+    from rest_framework.test import APIClient
+    from lib.cuckoo.common.exceptions import CuckooVisibilityConflict
+    import apiv2.views as views
+
+    class T:
+        id = 1
+
+        def __init__(self):
+            self.user_id, self.tenant_id, self.visibility = 1, 10, "tenant"
+
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: T())
+    monkeypatch.setattr(views, "can_view_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views, "can_set_visibility_task", lambda u, t, v: True, raising=False)
+
+    def _raise(tid, vis, expected_prior=None):
+        raise CuckooVisibilityConflict("changed concurrently")
+    monkeypatch.setattr(views.db, "set_task_visibility", _raise, raising=False)
+
+    u = User.objects.create_user("v409", "v409@x.com", "x")
+    c = APIClient()
+    c.force_authenticate(user=u)
+    r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "public"}, format="json")
+    assert r.status_code == 409 and r.json().get("error") is True
+
+
+@pytest.mark.django_db
+def test_toggle_visibility_passes_expected_prior_for_cas(cape_db, mt_enabled, monkeypatch):
+    """The endpoint passes the snapshot visibility it authorized against as expected_prior, so the setter can
+    CAS-abort on a concurrent change. RED if the endpoint dropped the arg (the setter could then commit a
+    stale-authorized write)."""
+    from rest_framework.test import APIClient
+    import apiv2.views as views
+
+    seen = {}
+
+    class T:
+        id = 1
+
+        def __init__(self):
+            self.user_id, self.tenant_id, self.visibility = 1, 10, "tenant"
+
+    monkeypatch.setattr(views.db, "view_task", lambda *a, **k: T())
+    monkeypatch.setattr(views, "can_view_task", lambda u, t: True, raising=False)
+    monkeypatch.setattr(views, "can_set_visibility_task", lambda u, t, v: True, raising=False)
+
+    def _cap(tid, vis, expected_prior=None):
+        seen["expected_prior"] = expected_prior
+        return T()
+    monkeypatch.setattr(views.db, "set_task_visibility", _cap, raising=False)
+
+    u = User.objects.create_user("vcas", "vcas@x.com", "x")
+    c = APIClient()
+    c.force_authenticate(user=u)
+    r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "public"}, format="json")
+    assert r.status_code == 200
+    assert seen.get("expected_prior") == "tenant"   # the snapshot value the authorization was computed against

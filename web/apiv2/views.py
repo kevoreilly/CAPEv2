@@ -175,8 +175,17 @@ def tasks_set_visibility(request, task_id):
             {"error": True, "error_value": "tenant visibility requires the task to belong to a tenant"},
             status=400,
         )
+    # Optimistic CAS: authorization above was computed against THIS snapshot's visibility. Pass it as
+    # expected_prior so the setter, under its per-task lock, aborts if a concurrent toggle changed the row
+    # (the pre-lock authorization would otherwise land on a state the predicate denies) -> 409, retry.
+    _expected_prior = getattr(task, "visibility", None)
     try:
-        db.set_task_visibility(task_id, vis)
+        db.set_task_visibility(task_id, vis, expected_prior=_expected_prior)
+    except CuckooVisibilityConflict:
+        return Response(
+            {"error": True, "error_value": "visibility changed concurrently; re-read and retry"},
+            status=409,
+        )
     except CuckooOperationalError:
         # The report store (mongo) was unreachable, so set_task_visibility rolled
         # the SQL change back to keep the two stores consistent — NOTHING changed.
@@ -191,7 +200,7 @@ sys.path.append(settings.CUCKOO_PATH)
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_ROOT, CUCKOO_VERSION
-from lib.cuckoo.common.exceptions import CuckooDemuxError, CuckooOperationalError
+from lib.cuckoo.common.exceptions import CuckooDemuxError, CuckooOperationalError, CuckooVisibilityConflict
 from lib.cuckoo.common.path_utils import path_delete, path_exists
 from lib.cuckoo.common.saztopcap import saz_to_pcap
 from lib.cuckoo.common.utils import (

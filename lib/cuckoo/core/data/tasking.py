@@ -340,29 +340,57 @@ class TasksMixIn:
             parent_sample=parent_sample,
         )
 
-    def _identify_aux_func(self, file: bytes, package: str, check_shellcode: bool = True) -> tuple:
-        # before demux we need to check as msix has zip mime and we don't want it to be extracted:
-        tmp_package = False
-        if not package:
-            f = SflockFile.from_path(file)
-            try:
-                tmp_package = sflock_identify(f, check_shellcode=check_shellcode)
-            except Exception as e:
-                log.error("Failed to sflock_ident due to %s", str(e))
-                tmp_package = "generic"
+    def identify_submission_package(
+        self,
+        file: bytes,
+        package: str = "",
+        check_shellcode: bool = True,
+    ) -> tuple:
+        """Resolve package handling and whether generic demux should run."""
+        requested_package = package
+        identified_package = False
 
-        if tmp_package and tmp_package in sandbox_packages:
-            # This probably should be way much bigger list of formats
-            if tmp_package in ("iso", "udf", "vhd"):
+        if not requested_package:
+            sf_file = SflockFile.from_path(file)
+            try:
+                identified_package = sflock_identify(
+                    sf_file,
+                    check_shellcode=check_shellcode,
+                )
+            except Exception as e:
+                log.error("Failed to identify submission with SFlock: %s", e)
+                identified_package = "generic"
+
+        if identified_package and identified_package in sandbox_packages:
+            if identified_package in ("iso", "udf", "vhd"):
                 package = "archive"
-            elif tmp_package in ("zip", "rar"):
+            elif identified_package in ("zip", "rar"):
                 package = ""
-            elif tmp_package in ("html",):
+            elif identified_package == "html":
                 package = web_conf.url_analysis.package
             else:
-                package = tmp_package
+                package = identified_package
 
-        return package, tmp_package
+        generic_demux = (
+            not requested_package
+            and not package
+            and identified_package not in (False, None, "", "generic")
+        )
+
+        return package, identified_package, generic_demux
+
+    def _identify_aux_func(
+        self,
+        file: bytes,
+        package: str,
+        check_shellcode: bool = True,
+    ) -> tuple:
+        package, identified_package, _ = self.identify_submission_package(
+            file,
+            package,
+            check_shellcode=check_shellcode,
+        )
+        return package, identified_package
 
     def demux_sample_and_add_to_db(
         self,
@@ -534,30 +562,40 @@ class TasksMixIn:
                     else:
                         options = "dist_extract=1"
 
-                task_id = self.add_path(
-                    file_path=file.decode(),
-                    timeout=timeout,
-                    priority=priority,
-                    options=options,
-                    package=package,
-                    machine=machine,
-                    platform=platform,
-                    memory=memory,
-                    custom=custom,
-                    enforce_timeout=enforce_timeout,
-                    tags=tags,
-                    clock=clock,
-                    tlp=tlp,
-                    source_url=source_url,
-                    route=route,
-                    tags_tasks=tags_tasks,
-                    cape=cape,
-                    user_id=user_id,
-                    parent_sample=parent_sample,
-                )
+                if machine == "all":
+                    task_machines = [
+                        vm.label
+                        for vm in self.list_machines(platform=platform)
+                    ]
+                else:
+                    task_machines = [machine]
+
+                for task_machine in task_machines:
+                    task_id = self.add_path(
+                        file_path=file.decode(),
+                        timeout=timeout,
+                        priority=priority,
+                        options=options,
+                        package=package,
+                        machine=task_machine,
+                        platform=platform,
+                        memory=memory,
+                        custom=custom,
+                        enforce_timeout=enforce_timeout,
+                        tags=tags,
+                        clock=clock,
+                        tlp=tlp,
+                        source_url=source_url,
+                        route=route,
+                        tags_tasks=tags_tasks,
+                        cape=cape,
+                        user_id=user_id,
+                        parent_sample=parent_sample,
+                    )
+                    if task_id:
+                        task_ids.append(task_id)
+
                 package = None
-            if task_id:
-                task_ids.append(task_id)
 
         if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}

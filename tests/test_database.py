@@ -115,6 +115,113 @@ class TestDatabaseEngine:
             db.add_url("http://foo.bar")
             assert db.session.scalar(count_stmt) == 2
 
+    @pytest.mark.parametrize(
+        "detected_platform",
+        ("windows", "linux"),
+    )
+    def test_demuxed_file_platform_is_used_for_task(
+        self,
+        db: _Database,
+        temp_filename: str,
+        monkeypatch,
+        detected_platform,
+    ):
+        extracted_file = temp_filename.encode()
+
+        monkeypatch.setattr(
+            tasking,
+            "demux_sample",
+            lambda *_args, **_kwargs: (
+                [(extracted_file, detected_platform)],
+                [],
+            ),
+        )
+
+        with db.session.begin():
+            task_ids, details = db.demux_sample_and_add_to_db(
+                file_path=temp_filename,
+                platform="",
+            )
+
+        assert details == {}
+        assert len(task_ids) == 1
+
+        with db.session.begin():
+            task = db.session.get(Task, task_ids[0])
+            assert task.platform == detected_platform
+
+    @pytest.mark.parametrize(
+        "detected_platform,expected_labels",
+        (
+            ("windows", {"win-label-1", "win-label-2"}),
+            ("linux", {"linux-label-1", "linux-label-2"}),
+        ),
+    )
+    def test_machine_all_uses_demuxed_platform(
+        self,
+        db: _Database,
+        temp_filename: str,
+        monkeypatch,
+        detected_platform,
+        expected_labels,
+    ):
+        extracted_file = temp_filename.encode()
+
+        monkeypatch.setattr(
+            tasking,
+            "demux_sample",
+            lambda *_args, **_kwargs: (
+                [(extracted_file, detected_platform)],
+                [],
+            ),
+        )
+
+        with db.session.begin():
+            self.add_machine(
+                db,
+                name="win-name-1",
+                label="win-label-1",
+                platform="windows",
+            )
+            self.add_machine(
+                db,
+                name="win-name-2",
+                label="win-label-2",
+                platform="windows",
+            )
+            self.add_machine(
+                db,
+                name="linux-name-1",
+                label="linux-label-1",
+                platform="linux",
+            )
+            self.add_machine(
+                db,
+                name="linux-name-2",
+                label="linux-label-2",
+                platform="linux",
+            )
+
+            task_ids, details = db.demux_sample_and_add_to_db(
+                file_path=temp_filename,
+                platform="",
+                machine="all",
+            )
+
+        assert details == {}
+        assert len(task_ids) == 2
+
+        with db.session.begin():
+            tasks = [
+                db.session.get(Task, task_id)
+                for task_id in task_ids
+            ]
+
+            assert {task.machine for task in tasks} == expected_labels
+            assert {task.platform for task in tasks} == {
+                detected_platform
+            }
+
     def test_error_exists(self, db: _Database):
         err_msg = "A" * 1024
         with db.session.no_autoflush:

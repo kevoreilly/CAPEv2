@@ -28,10 +28,10 @@ def _worker_api_token(token_file):
 
 
 def _worker_machine_url(worker_ip, port, cape_task_id):
-    """The worker's apiv2 machine-label URL (tasks/machine): a staff-gated infra read
-    that returns ONLY the task's analysis-VM label, so this control-plane lookup is
+    """The worker's apiv2 machine-label URL (tasks/machine): an is_local_admin-gated infra
+    read that returns ONLY the task's analysis-VM label, so this control-plane lookup is
     not blocked by the worker's per-tenant task scoping. port comes from
-    [central_mode] worker_api_port."""
+    [central_mode] worker_api_port. The worker_api_token principal must be is_local_admin."""
     return "http://%s:%d/apiv2/tasks/machine/%d/" % (worker_ip, int(port), int(cape_task_id))
 
 
@@ -122,6 +122,18 @@ def worker_vm_for_task(task_id):
         headers = {"Authorization": f"Token {token}"} if token else {}
         r = requests.get(_worker_machine_url(worker_ip, cfg.worker_api_port, cape_task_id),
                          headers=headers, timeout=10)
+        if r.status_code != 200:
+            # A 401/403/404 here is almost always an auth/authorization misconfig of the
+            # worker_api_token principal (tasks/machine requires is_local_admin) — NOT a
+            # genuinely local task. Log it so a dead live-VM attach is diagnosable instead
+            # of silently degrading to (None, None) == "no VM" (the caller can't tell them
+            # apart otherwise).
+            log.warning(
+                "central guac: worker %s tasks/machine for task %s returned HTTP %s "
+                "(verify worker_api_token maps to an is_local_admin principal)",
+                worker_ip, task_id, r.status_code,
+            )
+            return (None, None)
         body = r.json() or {}
         # tasks/machine returns {"error": False, "machine": "<label>"} at top level.
         return (body.get("machine") or None, None)  # central guac uses the worker's localhost for VNC

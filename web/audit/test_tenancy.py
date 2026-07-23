@@ -5,6 +5,9 @@ module-load hiccup fails only that test, not collection."""
 import pytest
 from django.contrib.auth.models import User
 
+pytest_plugins = ("mt_test_fixtures",)  # cape_db/mt_enabled live in web/mt_test_fixtures.py;
+# declare it so this module runs standalone (pytest path/-k), not only in a whole-web/ run.
+
 
 class _FakeRun:
     def __init__(self, cape_task_id, status):

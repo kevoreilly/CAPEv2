@@ -284,6 +284,12 @@ broker_table =
 # Interactive-Guac worker access: how the central node reaches the worker that hosts a live task's
 # VM. Defaults match the standard CAPE deb layout; override for other topologies.
 # File holding the worker apiv2 Token (blank/absent => requests go unauthenticated).
+# The token's principal must be is_local_admin (a break-glass superuser: is_superuser AND
+# EITHER local_admins_manage_all_tenants=yes OR an IdP-linked account) — the interactive
+# live-VM lookup (apiv2 tasks/machine) is is_local_admin-gated. A plain local createsuperuser
+# is NOT is_local_admin when local_admins_manage_all_tenants=no, and a machine identity can't
+# obtain an IdP SocialAccount, so under that flag set local_admins_manage_all_tenants=yes (or
+# point this at an IdP-linked superuser) or interactive attach 404s.
 worker_api_token_file = /etc/cape/api-token
 # The worker's apiv2/web port.
 worker_api_port = 8000

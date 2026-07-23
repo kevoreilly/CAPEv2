@@ -1149,27 +1149,24 @@ def tasks_machine(request, task_id):
     but the exemption is bounded:
       * returns ONLY the pool VM label (e.g. "win11_seabios_107"), never
         analysis content, target, or tenant metadata;
-      * the cross-tenant label read is gated to the control-plane's trusted
-        principal, matching apiv2's own auth posture: when token auth is ENABLED
-        (token_auth_enabled=yes) only a staff/superuser node key may read it, so
-        a regular tenant token gets the SAME generic 404 as a missing task and
-        cannot enumerate other tenants' ids; when token auth is DISABLED the
-        operator has made the ENTIRE apiv2 AllowAny/anonymous by choice (every
-        endpoint open within the deployment's network boundary), so there is no
-        principal to check and this label-only read follows that same posture.
+      * gated on the model's OWN cross-tenant authority, viewer_for().is_local_admin,
+        so a caller without cross-tenant authority gets the SAME generic 404 as a
+        missing task and cannot enumerate other tenants' ids or read their VM label.
     The end user was already authorized via can_manage_task at the UI's
-    remote_session view before this machine-to-machine call is made.
+    remote_session view before this machine-to-machine call is made; the central
+    node's service token (worker_api_token_file) must therefore map to an
+    is_local_admin principal (see [central_mode] in cuckoo.conf.default).
     """
-    # Indistinguishable 404 (mirrors _deny_if_hidden's generic 404), enforced only when
-    # apiv2 token auth is on (otherwise there is no authenticated principal — AllowAny).
-    # Gate on the model's OWN cross-tenant authority, viewer_for().is_local_admin (a
-    # break-glass / IdP superuser), NOT is_staff/is_superuser: is_staff is never consulted
-    # by the tenancy predicate, so an is_staff-but-tenant-bound IdP principal has no
-    # cross-tenant authority — gating on it would let them read another tenant's VM label
-    # and enumerate task existence (a weaker gate than the model requires). On a
-    # token_auth_enabled=yes deployment the central service token must therefore map to a
-    # break-glass superuser so the legitimate central->worker call still passes.
-    if apiconf.api.get("token_auth_enabled") and not viewer_for(getattr(request, "user", None)).is_local_admin:
+    # Indistinguishable 404 (mirrors _deny_if_hidden's generic 404). Gate UNCONDITIONALLY
+    # on viewer_for().is_local_admin — the model's cross-tenant authority — NOT on
+    # is_staff/is_superuser and NOT conditional on token_auth_enabled. token_auth_enabled=no
+    # removes AUTHENTICATION, not AUTHORIZATION: every sibling per-task read still runs
+    # _deny_if_hidden -> can_view_task -> viewer_for, so an anonymous caller under MT is the
+    # least-privileged principal (is_local_admin=False) and is denied. Skipping the check
+    # when token auth is off would make this the ONLY endpoint that leaks a cross-tenant VM
+    # label + a 200-vs-404 existence oracle to anonymous. With MT OFF, viewer_for marks every
+    # principal is_local_admin=True, so the single-tenant / AllowAny posture keeps working.
+    if not viewer_for(getattr(request, "user", None)).is_local_admin:
         return Response({"error": True, "error_value": "Task not found"}, status=404)
     task = db.view_task(task_id)
     if not task:

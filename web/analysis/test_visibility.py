@@ -593,35 +593,38 @@ def test_pending_resolves_viewer_once(cape_db, mt_enabled, monkeypatch, client):
 # (visibility <select>, delete button) previously used '_'-prefixed loop/assign
 # vars (_vis, _can_delete), which 500'd /analysis/<id>/ for a user who can
 # actually toggle/delete (owner/tenant-admin) — the block only renders for them,
-# so it slipped through. WALK the whole analysis/ subtree (not a hardcoded list)
+# so it slipped through. WALK the whole web/templates tree (not a hardcoded list)
 # and parse EACH file on its own: get_template("report.html") wouldn't catch a
-# '_'-var in an {% include %} partial (includes compile at render), but parsing
-# every file individually does.
+# '_'-var in an {% include %} partial OR an {% extends %} parent (base/header/footer)
+# — both resolve at render, not parse — but parsing every file individually does.
 # ---------------------------------------------------------------------------
-def _analysis_template_names():
-    """analysis/*.html loader names (relative to web/templates/), discovered by walk.
-    web/templates is the sibling of this test's app dir (web/analysis/)."""
+def _web_template_names():
+    """ALL *.html loader names under web/templates/, discovered by walk (not just
+    analysis/): a `_`-leading var in a `{% extends %}` parent (base.html/header/footer)
+    or any shared partial 500s the page too, and ExtendsNode/IncludeNode only resolve
+    those at RENDER, so parsing every file on its own is what catches them. web/templates
+    is the sibling of this test's app dir (web/analysis/)."""
     import os
     troot = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates"))
-    aroot = os.path.join(troot, "analysis")
     names = []
-    for dirpath, _dirs, files in os.walk(aroot):
+    for dirpath, _dirs, files in os.walk(troot):
         for f in files:
             if f.endswith(".html"):
                 names.append(os.path.relpath(os.path.join(dirpath, f), troot))
     return sorted(names)
 
 
-_ANALYSIS_TEMPLATES = _analysis_template_names()
+_WEB_TEMPLATES = _web_template_names()
 
 
-def test_analysis_template_walk_is_populated():
+def test_web_template_walk_is_populated():
     """Guard against the guard silently going inert (empty parametrize == green)."""
-    assert len(_ANALYSIS_TEMPLATES) >= 3, "analysis template walk found too few files — guard inert"
-    assert "analysis/report.html" in _ANALYSIS_TEMPLATES
+    assert len(_WEB_TEMPLATES) >= 20, "web template walk found too few files — guard inert"
+    assert "analysis/report.html" in _WEB_TEMPLATES
+    assert "base.html" in _WEB_TEMPLATES  # the {% extends %} parent the analysis-only walk missed
 
 
-@pytest.mark.parametrize("tpl", _ANALYSIS_TEMPLATES)
-def test_analysis_template_has_no_underscore_leading_var(tpl):
+@pytest.mark.parametrize("tpl", _WEB_TEMPLATES)
+def test_web_template_has_no_underscore_leading_var(tpl):
     from django.template.loader import get_template
     get_template(tpl)  # raises TemplateSyntaxError if any var/attr begins with '_'

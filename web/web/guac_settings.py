@@ -66,6 +66,12 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
+    # AuthenticationMiddleware populates request.user from the session. guac/views.py's index
+    # gates the live-VM tunnel on request.user — login_required (when WEB_AUTHENTICATION is on)
+    # AND, under multitenancy, can_manage_task(request.user, task). Without this middleware
+    # request.user does not exist and every /guac/ request 500s ('ASGIRequest' object has no
+    # attribute 'user'); it must sit AFTER SessionMiddleware (it reads the session).
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
@@ -87,8 +93,23 @@ TEMPLATES = [
     },
 ]
 
-# Database settings. We don't need it.
+# Database settings. Default to the local sqlite (single-node / no deploy overlay).
 DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": "siteauth.sqlite"}}
+
+# Share the central auth/session store with the main web. guac-web is a SEPARATE ASGI process,
+# so to resolve request.user to the SAME authenticated User the browser is logged in as on the
+# main web (:8000) it must (a) read the session from the same DB the main web writes to, and (b)
+# permit the same auth backend the session was created with (e.g. allauth for OIDC) — otherwise
+# django.contrib.auth.get_user returns AnonymousUser and login_required / the MT can_manage_task
+# gate reject every attach. local_settings.py is where the deploy injects the central DB
+# (postgres/RDS) + allauth backends; web.settings adopts it the same way. SECRET_KEY is already
+# shared (both import web/web/secret_key.py) so the session auth-hash validates. Absent
+# local_settings (dev / single-node), keep the sqlite default -> AnonymousUser, matching
+# upstream's WEB_AUTHENTICATION=off behavior.
+try:
+    from .local_settings import DATABASES, AUTHENTICATION_BACKENDS  # noqa: F401, F811
+except Exception:
+    pass
 
 ASGI_APPLICATION = "web.asgi.application"
 

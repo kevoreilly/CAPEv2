@@ -39,6 +39,14 @@ except ImportError:
 # SECURITY WARNING: don"t run with debug turned on in production!
 DEBUG = True
 
+# guac/views.py gates every view with @conditional_login_required(login_required,
+# settings.WEB_AUTHENTICATION). guac-web loads THIS module (web/asgi.py sets
+# DJANGO_SETTINGS_MODULE=web.guac_settings), NOT web.settings, so it must define
+# WEB_AUTHENTICATION too — derived from web.conf exactly as web.settings does. Without it,
+# `import guac.urls` raises AttributeError and EVERY /guac/ request 500s ("Connection
+# error"), breaking the interactive live-VM Guacamole tunnel.
+WEB_AUTHENTICATION = _CapeConfig("web").web_auth.get("enabled", False)
+
 LOGGING_CONFIG = None
 
 ALLOWED_HOSTS = [

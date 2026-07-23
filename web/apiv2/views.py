@@ -1160,12 +1160,16 @@ def tasks_machine(request, task_id):
     The end user was already authorized via can_manage_task at the UI's
     remote_session view before this machine-to-machine call is made.
     """
-    user = getattr(request, "user", None)
-    # Indistinguishable 404 (mirrors _deny_if_hidden's generic 404): only enforced
-    # when apiv2 token auth is on — otherwise there is no authenticated principal.
-    if apiconf.api.get("token_auth_enabled") and not (
-        user and user.is_authenticated and (user.is_staff or user.is_superuser)
-    ):
+    # Indistinguishable 404 (mirrors _deny_if_hidden's generic 404), enforced only when
+    # apiv2 token auth is on (otherwise there is no authenticated principal — AllowAny).
+    # Gate on the model's OWN cross-tenant authority, viewer_for().is_local_admin (a
+    # break-glass / IdP superuser), NOT is_staff/is_superuser: is_staff is never consulted
+    # by the tenancy predicate, so an is_staff-but-tenant-bound IdP principal has no
+    # cross-tenant authority — gating on it would let them read another tenant's VM label
+    # and enumerate task existence (a weaker gate than the model requires). On a
+    # token_auth_enabled=yes deployment the central service token must therefore map to a
+    # break-glass superuser so the legitimate central->worker call still passes.
+    if apiconf.api.get("token_auth_enabled") and not viewer_for(getattr(request, "user", None)).is_local_admin:
         return Response({"error": True, "error_value": "Task not found"}, status=404)
     task = db.view_task(task_id)
     if not task:

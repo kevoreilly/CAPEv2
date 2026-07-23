@@ -29,12 +29,12 @@ ALLOWLIST = {
     # on purpose, but the exemption is bounded (pinned by the test_tasks_machine_*
     # tests below): (1) it returns ONLY the pool VM label (e.g. "win11_seabios_107"),
     # never analysis content / target / tenant metadata; (2) its cross-tenant read
-    # tracks apiv2's OWN auth posture — staff/superuser-only when token auth is enabled
-    # (a regular tenant token gets the same generic 404 as a missing task, so it can't
-    # enumerate other tenants' ids), and open (like every other endpoint) only when the
-    # operator has set token_auth_enabled=no (AllowAny). The end user was already
-    # authorized via can_manage_task at the UI's remote_session view before this
-    # machine-to-machine call is made.
+    # tracks apiv2's OWN auth posture — when token auth is enabled the caller must hold
+    # the model's cross-tenant authority (viewer_for().is_local_admin, NOT is_staff), so
+    # a tenant-bound token gets the same generic 404 as a missing task and can't enumerate
+    # other tenants' ids; open (like every other endpoint) only when the operator has set
+    # token_auth_enabled=no (AllowAny). The end user was already authorized via
+    # can_manage_task at the UI's remote_session view before this machine-to-machine call.
     "tasks_machine",
 }
 
@@ -1934,10 +1934,12 @@ def test_toggle_visibility_passes_expected_prior_for_cas(cape_db, mt_enabled, mo
 
 # ---------------------------------------------------------------------------
 # tasks_machine: central-mode control-plane infra read (label-only). Its cross-tenant
-# exemption tracks apiv2's OWN auth posture: staff-gated when token auth is ENABLED,
-# and open (like every other endpoint) when the operator sets token_auth_enabled=no
-# (AllowAny). These tests BOUND the coverage-gate ALLOWLIST exemption — if someone
-# widens the response or drops the staff gate in the authenticated mode, they go RED.
+# exemption tracks apiv2's OWN auth posture: when token auth is ENABLED the caller must
+# hold the model's cross-tenant authority (viewer_for().is_local_admin — a break-glass /
+# IdP superuser, NOT merely is_staff/is_superuser), and when the operator sets
+# token_auth_enabled=no the whole apiv2 is AllowAny so this label-only read follows suit.
+# These tests BOUND the coverage-gate ALLOWLIST exemption — if someone widens the response
+# or weakens the gate to is_staff, they go RED.
 # ---------------------------------------------------------------------------
 def _tm_set_token_auth(monkeypatch, views, enabled):
     """Force apiv2 [api] token_auth_enabled for tasks_machine's gate. tasks_machine only
@@ -1950,21 +1952,29 @@ def _tm_set_token_auth(monkeypatch, views, enabled):
     )
 
 
+def _tm_set_viewer(monkeypatch, views, is_local_admin):
+    """Stub viewer_for -> a Viewer with the given cross-tenant authority (is_local_admin).
+    viewer_for's own resolution (break-glass / IdP) is tested elsewhere; here we pin only
+    that tasks_machine gates on is_local_admin."""
+    import types
+    monkeypatch.setattr(views, "viewer_for", lambda u: types.SimpleNamespace(is_local_admin=is_local_admin), raising=False)
+
+
 @pytest.mark.django_db
-def test_tasks_machine_staff_reads_label_cross_tenant(cape_db, mt_enabled, monkeypatch):
-    """token auth ENABLED: a STAFF caller (the central node's service identity) reads a
-    task's analysis-VM label EVEN for another tenant's private task — the single
-    cross-tenant read tasks_machine allows. Bounded to the label by the sibling tests."""
+def test_tasks_machine_local_admin_reads_label_cross_tenant(cape_db, mt_enabled, monkeypatch):
+    """token auth ENABLED: a caller with the model's cross-tenant authority
+    (viewer_for().is_local_admin — a break-glass/IdP superuser, the central service
+    identity) reads a task's analysis-VM label EVEN for another tenant's private task —
+    the single cross-tenant read tasks_machine allows. Bounded to the label below."""
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
     _tm_set_token_auth(monkeypatch, views, True)
+    _tm_set_viewer(monkeypatch, views, True)
     t = FakeTask(user_id=999, tenant_id=10, visibility="private")
     t.machine = "win11_seabios_107"
     monkeypatch.setattr(views.db, "view_task", lambda tid: t)
-    svc = User.objects.create_user("svc_staff", "svc@x.com", "x")
-    svc.is_staff = True
-    svc.save()
+    svc = User.objects.create_user("svc_admin", "svc@x.com", "x")
     req = APIRequestFactory().get("/apiv2/tasks/machine/1/")
     force_authenticate(req, user=svc)
     resp = views.tasks_machine(req, "1")
@@ -1973,10 +1983,12 @@ def test_tasks_machine_staff_reads_label_cross_tenant(cape_db, mt_enabled, monke
 
 
 @pytest.mark.django_db
-def test_tasks_machine_non_staff_gets_generic_404(cape_db, mt_enabled, monkeypatch):
-    """token auth ENABLED: a regular (non-staff) token gets the SAME generic 404 as a
-    missing task even when the task exists — no VM label, no existence signal that could
-    enumerate other tenants' task ids."""
+def test_tasks_machine_is_staff_alone_gets_generic_404(cape_db, mt_enabled, monkeypatch):
+    """token auth ENABLED, THE FINDING (LOW): is_staff is NOT the model's cross-tenant
+    authority. A real is_staff (non-superuser) principal — e.g. an IdP admin_groups user
+    also bound to one tenant — resolves to is_local_admin=False, so it gets the SAME
+    generic 404 as a missing task: no cross-tenant VM label, no existence oracle. Uses the
+    REAL viewer_for (no stub) so a regression to an is_staff gate goes RED."""
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
@@ -1984,7 +1996,9 @@ def test_tasks_machine_non_staff_gets_generic_404(cape_db, mt_enabled, monkeypat
     t = FakeTask(user_id=999, tenant_id=10, visibility="private")
     t.machine = "win11_seabios_107"
     monkeypatch.setattr(views.db, "view_task", lambda tid: t)
-    u = User.objects.create_user("svc_plain", "p@x.com", "x")  # not staff/superuser
+    u = User.objects.create_user("svc_staff_only", "p@x.com", "x")
+    u.is_staff = True  # staff but NOT superuser => viewer_for().is_local_admin is False
+    u.save()
     req = APIRequestFactory().get("/apiv2/tasks/machine/1/")
     force_authenticate(req, user=u)
     resp = views.tasks_machine(req, "1")
@@ -2001,12 +2015,11 @@ def test_tasks_machine_returns_only_label(cape_db, mt_enabled, monkeypatch):
     import apiv2.views as views
 
     _tm_set_token_auth(monkeypatch, views, True)
+    _tm_set_viewer(monkeypatch, views, True)
     t = FakeTask(user_id=1, tenant_id=10, visibility="public")
     t.machine = "win11_seabios_101"
     monkeypatch.setattr(views.db, "view_task", lambda tid: t)
     svc = User.objects.create_user("svc_only", "o@x.com", "x")
-    svc.is_superuser = True
-    svc.save()
     req = APIRequestFactory().get("/apiv2/tasks/machine/1/")
     force_authenticate(req, user=svc)
     resp = views.tasks_machine(req, "1")

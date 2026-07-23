@@ -585,3 +585,21 @@ def test_pending_resolves_viewer_once(cape_db, mt_enabled, monkeypatch, client):
     r = client.get(reverse("pending"))
     assert r.status_code == 200
     assert calls["n"] == 1, "viewer_for resolved %d times (expected 1 per request, not per-row)" % calls["n"]
+
+
+# ---------------------------------------------------------------------------
+# Template parse guard: Django forbids template vars/attrs beginning with '_'
+# (TemplateSyntaxError at PARSE time). The MT/central per-task controls
+# (visibility <select>, delete button) previously used '_'-prefixed loop/assign
+# vars (_vis, _can_delete), which 500'd /analysis/<id>/ for a user who can
+# actually toggle/delete (owner/tenant-admin) — the block only renders for them,
+# so it slipped through. Compile each so a re-introduced '_'-var fails CI.
+# ---------------------------------------------------------------------------
+@pytest.mark.parametrize("tpl", [
+    "analysis/report.html",
+    "analysis/failed_processing.html",
+    "analysis/admin/index.html",
+])
+def test_analysis_template_has_no_underscore_leading_var(tpl):
+    from django.template.loader import get_template
+    get_template(tpl)  # raises TemplateSyntaxError if any var/attr begins with '_'

@@ -72,8 +72,8 @@
                 <h6 class="text-muted text-uppercase small mb-3">Administrative Actions</h6>
                 
                 <div class="d-grid gap-3">
-                    {% can_delete_task user analysis.info.id as _can_delete %}
-                    {% if _can_delete %}
+                    {% can_delete_task user analysis.info.id as can_delete %}
+                    {% if can_delete %}
                     <a href="{% url 'remove' analysis.info.id %}"
                        class="btn btn-outline-danger d-flex align-items-center justify-content-center gap-2"
                        data-bs-toggle="tooltip"

@@ -4,8 +4,8 @@
 <div class="visibility-toggle mb-2" data-task-id="{{ id }}">
     <label class="text-white-50 me-2">Visibility</label>
     <select class="form-select form-select-sm d-inline-block w-auto" id="report_visibility" data-prev="{{ task_visibility }}" onchange="setReportVisibility(this)">
-        {% for _vis in visibility_choices %}
-        <option value="{{ _vis }}" {% if task_visibility == _vis %}selected{% endif %}>{{ _vis }}</option>
+        {% for vis in visibility_choices %}
+        <option value="{{ vis }}" {% if task_visibility == vis %}selected{% endif %}>{{ vis }}</option>
         {% endfor %}
     </select>
 </div>

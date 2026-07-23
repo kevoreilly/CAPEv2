@@ -10,8 +10,8 @@
                 <dt class="col-sm-3 text-white">Task ID</dt>
                 <dd class="col-sm-9 d-flex align-items-center text-white">
                     {{task.id}}
-                    {% can_delete_task user task as _can_delete %}
-                    {% if _can_delete %}
+                    {% can_delete_task user task as can_delete %}
+                    {% if can_delete %}
                     <a href="{% url "remove" task.id %}" class="btn btn-danger btn-sm ms-3" data-bs-toggle="tooltip" title="Delete task"><i class="fas fa-trash-alt me-1"></i> Delete</a>
                     {% endif %}
                     {% if settings.REPROCESS_FAILED_PROCESSING %}

@@ -32,7 +32,7 @@ try:
         select,
         update,
     )
-    from sqlalchemy.orm import joinedload, subqueryload
+    from sqlalchemy.orm import joinedload, selectinload
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
@@ -158,7 +158,7 @@ class TasksMixIn:
             sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
             if not sample:
                 try:
-                    with self.session.begin_nested():
+                    with self.session.begin():
                         sample = Sample(
                             md5=file_md5,
                             crc32=fileobj.get_crc32(),
@@ -223,10 +223,9 @@ class TasksMixIn:
         task.cape = cape
         task.tags_tasks = tags_tasks
 
-        # Use a nested transaction so that we can return an ID.
-        with self.session.begin_nested():
+        # Use a transaction so that we can return an ID.
+        with self.session.begin():
             self.session.add(task)
-            self.session.flush()
 
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
@@ -983,7 +982,7 @@ class TasksMixIn:
         @return: list of tasks.
         """
         tasks: List[Task] = []
-        stmt = select(Task).options(joinedload(Task.guest), subqueryload(Task.errors), subqueryload(Task.tags))
+        stmt = select(Task).options(joinedload(Task.guest), selectinload(Task.errors), selectinload(Task.tags))
         if include_hashes:
             stmt = stmt.options(joinedload(Task.sample))
         if status:
@@ -1038,12 +1037,16 @@ class TasksMixIn:
         @param task_id: ID of the task to query.
         @return: operation status.
         """
-        task = self.session.get(Task, task_id)
-        if task is None:
+        try:
+            with self.session.begin():
+                task = self.session.get(Task, task_id)
+                if task is None:
+                    return False
+                self.session.delete(task)
+            return True
+        except SQLAlchemyError as e:
+            log.error("Error deleting task %s: %s", task_id, str(e))
             return False
-        self.session.delete(task)
-        # ToDo missed commits everywhere, check if autocommit is possible
-        return True
 
     def delete_tasks(
         self,
@@ -1137,13 +1140,12 @@ class TasksMixIn:
         # but the more idiomatic SQLAlchemy 2.0 approach would be to wrap the execution
         # in a with self.session.begin(): block, which handles transactions automatically.
         try:
-            result = self.session.execute(delete_stmt)
-            log.info("Deleted %d tasks matching the criteria.", result.rowcount)
-            self.session.commit()
+            with self.session.begin():
+                result = self.session.execute(delete_stmt)
+                log.info("Deleted %d tasks matching the criteria.", result.rowcount)
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting tasks: %s", str(e))
-            self.session.rollback()
             return False
 
     # ToDo replace with delete_tasks
@@ -1213,10 +1215,10 @@ class TasksMixIn:
         query = select(Task).where(Task.id == task_id)
         if details:
             query = query.options(
-                joinedload(Task.guest), subqueryload(Task.errors), subqueryload(Task.tags), joinedload(Task.sample)
+                joinedload(Task.guest), selectinload(Task.errors), selectinload(Task.tags), joinedload(Task.sample)
             )
         else:
-            query = query.options(subqueryload(Task.tags), joinedload(Task.sample))
+            query = query.options(selectinload(Task.tags), joinedload(Task.sample))
         return self.session.scalar(query)
 
     # This function is used by the runstatistics community module.

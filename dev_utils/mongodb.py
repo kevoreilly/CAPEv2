@@ -11,6 +11,22 @@ logging.getLogger("pymongo").setLevel(logging.ERROR)
 repconf = Config("reporting")
 
 mdb = repconf.mongodb.get("db", "cuckoo")
+query_timeout = int(repconf.mongodb.get("query_timeout", 20000))
+regex_timeout = int(repconf.mongodb.get("regex_timeout", 10000))
+
+
+def is_regex_query(query):
+    if isinstance(query, dict):
+        for k, v in query.items():
+            if k == "$regex":
+                return True
+            if is_regex_query(v):
+                return True
+    elif isinstance(query, list):
+        for v in query:
+            if is_regex_query(v):
+                return True
+    return False
 
 
 def _truthy(val, default=False):
@@ -70,7 +86,12 @@ if repconf.mongodb.enabled:
         global _client, _results_db
         if _client is None:
             _client = connect_to_mongo()
-            _results_db = _client[mdb]
+            if _client is not None:
+                _results_db = _client[mdb]
+
+        if _results_db is None:
+            raise ConnectionFailure("MongoDB connection is not established. Check your configuration and ensure MongoDB is running.")
+
         return _results_db
 
     # For legacy code that expects results_db to be an object
@@ -84,6 +105,24 @@ if repconf.mongodb.enabled:
         def __getattr__(self, name): return getattr(get_mongodb(), name)
 
     results_db = LegacyDB()
+else:
+    class ConnectionFailure(Exception):
+        pass
+
+    class AutoReconnect(Exception):
+        pass
+
+    class OperationFailure(Exception):
+        pass
+
+    def get_mongodb():
+        raise ConnectionFailure("MongoDB is disabled in reporting.conf")
+
+    class DisabledDB:
+        def __getattr__(self, name):
+            raise ConnectionFailure("MongoDB is disabled in reporting.conf")
+
+    results_db = DisabledDB()
 
 MAX_AUTO_RECONNECT_ATTEMPTS = 5
 
@@ -153,11 +192,14 @@ def mongo_insert_one(collection: str, doc):
 
 
 @graceful_auto_reconnect
-def mongo_find(collection: str, query, projection=False, sort=None, limit=None, no_hooks=False):
+def mongo_find(collection: str, query, projection=False, sort=None, limit=None, max_time_ms=None, no_hooks=False):
     if sort is None:
         sort = [("_id", -1)]
 
-    find_by = functools.partial(getattr(results_db, collection).find, query, sort=sort)
+    if max_time_ms is None:
+        max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
+
+    find_by = functools.partial(getattr(results_db, collection).find, query, sort=sort, max_time_ms=max_time_ms)
     if projection:
         find_by = functools.partial(find_by, projection=projection)
     if limit:
@@ -175,9 +217,10 @@ def mongo_find_one(collection: str, query, projection=False, sort=None, max_time
     if sort is None:
         sort = [("_id", -1)]
 
-    kwargs = {"sort": sort}
-    if max_time_ms:
-        kwargs["max_time_ms"] = max_time_ms
+    if max_time_ms is None:
+        max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
+
+    kwargs = {"sort": sort, "max_time_ms": max_time_ms}
 
     if projection:
         result = getattr(results_db, collection).find_one(query, projection, **kwargs)
@@ -193,7 +236,7 @@ def mongo_find_one(collection: str, query, projection=False, sort=None, max_time
 
 @graceful_auto_reconnect
 def mongo_delete_one(collection: str, query):
-    return getattr(results_db, collection).delete_one(query)
+    return getattr(results_db, collection).delete_one(query, hint=[("_id", 1)])
 
 
 @graceful_auto_reconnect
@@ -211,12 +254,14 @@ def mongo_update_one(collection: str, query, update, bypass_document_validation:
     if isinstance(update, dict) and update.get("$set"):
         for hook in hooks[mongo_update_one][collection]:
             update["$set"] = hook(update["$set"])
-    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation)
+    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation, hint=[("_id", 1)])
 
 
 @graceful_auto_reconnect
-def mongo_aggregate(collection: str, query):
-    return getattr(results_db, collection).aggregate(query)
+def mongo_aggregate(collection: str, query, max_time_ms=None):
+    if max_time_ms is None:
+        max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
+    return getattr(results_db, collection).aggregate(query, maxTimeMS=max_time_ms)
 
 
 @graceful_auto_reconnect
@@ -308,4 +353,5 @@ def mongo_is_cluster():
 
 # Mongodb hooks are registered by importing this module.
 # Import it down here because mongo_hooks import this module.
-from . import mongo_hooks  # noqa: F401
+if repconf.mongodb.enabled:
+    from . import mongo_hooks  # noqa: F401

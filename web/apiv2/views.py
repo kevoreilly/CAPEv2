@@ -1149,24 +1149,38 @@ def tasks_machine(request, task_id):
     but the exemption is bounded:
       * returns ONLY the pool VM label (e.g. "win11_seabios_107"), never
         analysis content, target, or tenant metadata;
-      * gated on the model's OWN cross-tenant authority, viewer_for().is_local_admin,
-        so a caller without cross-tenant authority gets the SAME generic 404 as a
-        missing task and cannot enumerate other tenants' ids or read their VM label.
-    The end user was already authorized via can_manage_task at the UI's
-    remote_session view before this machine-to-machine call is made; the central
-    node's service token (worker_api_token_file) must therefore map to an
-    is_local_admin principal (see [central_mode] in cuckoo.conf.default).
+      * authorized ONLY by EITHER (a) the control plane presenting the configured
+        shared secret [api] control_plane_token (a constant-time match — a
+        machine-to-machine primitive that works even under token_auth_enabled=no,
+        where DRF leaves the request anonymous), OR (b) an is_local_admin principal
+        (the model's cross-tenant authority). Any other caller gets the SAME generic
+        404 as a missing task and cannot read a cross-tenant VM label or enumerate ids.
+    The end user was already authorized via can_manage_task at the UI's remote_session
+    view before this machine-to-machine call is made. The control plane presents the
+    shared secret via worker_api_token_file (see [api] control_plane_token in
+    api.conf.default); when that secret is empty the endpoint authorizes by is_local_admin
+    only (with MT off, viewer_for marks every principal is_local_admin, so single-tenant /
+    AllowAny installs keep working).
     """
-    # Indistinguishable 404 (mirrors _deny_if_hidden's generic 404). Gate UNCONDITIONALLY
-    # on viewer_for().is_local_admin — the model's cross-tenant authority — NOT on
-    # is_staff/is_superuser and NOT conditional on token_auth_enabled. token_auth_enabled=no
-    # removes AUTHENTICATION, not AUTHORIZATION: every sibling per-task read still runs
-    # _deny_if_hidden -> can_view_task -> viewer_for, so an anonymous caller under MT is the
-    # least-privileged principal (is_local_admin=False) and is denied. Skipping the check
-    # when token auth is off would make this the ONLY endpoint that leaks a cross-tenant VM
-    # label + a 200-vs-404 existence oracle to anonymous. With MT OFF, viewer_for marks every
-    # principal is_local_admin=True, so the single-tenant / AllowAny posture keeps working.
-    if not viewer_for(getattr(request, "user", None)).is_local_admin:
+    # Authorization decision, then ONE indistinguishable 404 (mirrors _deny_if_hidden's
+    # generic 404). token_auth_enabled=no removes AUTHENTICATION not AUTHORIZATION, so we
+    # must NOT open this endpoint to anonymous — every sibling read denies anonymous under MT.
+    from django.utils.crypto import constant_time_compare
+
+    authorized = False
+    # (a) machine-to-machine shared secret. FAIL-CLOSED: only when a NON-EMPTY secret is
+    # configured AND a non-empty bearer is presented AND they match in constant time. An
+    # unset/empty secret disables this path entirely (never "" == "").
+    _cp_secret = str(apiconf.api.get("control_plane_token") or "")
+    if _cp_secret:
+        _auth = request.META.get("HTTP_AUTHORIZATION", "") or ""
+        _presented = _auth[6:].strip() if _auth[:6].lower() == "token " else ""
+        if _presented and constant_time_compare(_presented, _cp_secret):
+            authorized = True
+    # (b) the model's cross-tenant authority (break-glass / IdP superuser). Read directly
+    # from HTTP header above rather than request.user because under token_auth_enabled=no
+    # DRF leaves request.user anonymous even when a token is presented.
+    if not authorized and not viewer_for(getattr(request, "user", None)).is_local_admin:
         return Response({"error": True, "error_value": "Task not found"}, status=404)
     task = db.view_task(task_id)
     if not task:

@@ -28,14 +28,15 @@ ALLOWLIST = {
     # tasks_machine: central-mode control-plane INFRA read. It is NOT tenant-scoped
     # on purpose, but the exemption is bounded (pinned by the test_tasks_machine_*
     # tests below): (1) it returns ONLY the pool VM label (e.g. "win11_seabios_107"),
-    # never analysis content / target / tenant metadata; (2) it is gated UNCONDITIONALLY
-    # on the model's own cross-tenant authority viewer_for().is_local_admin (NOT is_staff,
-    # NOT conditional on token_auth), so any caller lacking that authority — including an
-    # anonymous caller under MT — gets the same generic 404 as a missing task and can't
-    # read a cross-tenant VM label or enumerate ids. With MT off, viewer_for marks every
-    # principal is_local_admin (legacy see-all), so single-tenant installs are unaffected.
-    # The end user was already authorized via can_manage_task at the UI's remote_session
-    # view before this machine-to-machine call.
+    # never analysis content / target / tenant metadata; (2) it authorizes ONLY via EITHER
+    # the configured [api] control_plane_token shared secret (constant-time m2m match) OR the
+    # model's own cross-tenant authority viewer_for().is_local_admin — NOT is_staff, NOT
+    # conditional on token_auth. Any other caller (incl. anonymous under MT) gets the same
+    # generic 404 as a missing task and can't read a cross-tenant VM label or enumerate ids.
+    # An empty control_plane_token disables the shared-secret path (fail-closed). With MT off,
+    # viewer_for marks every principal is_local_admin (legacy see-all), so single-tenant
+    # installs are unaffected. The end user was already authorized via can_manage_task at the
+    # UI's remote_session view before this machine-to-machine call.
     "tasks_machine",
 }
 
@@ -2064,3 +2065,67 @@ def test_tasks_machine_mt_off_allows_single_tenant(cape_db, mt_disabled, monkeyp
     resp = views.tasks_machine(req, "1")
     assert resp.data.get("error") is False
     assert resp.data.get("machine") == "win11_seabios_107"
+
+
+def _tm_set_cp(monkeypatch, views, secret):
+    """Configure [api] control_plane_token for tasks_machine (it reads apiconf.api.get)."""
+    import types
+    monkeypatch.setattr(
+        views.apiconf, "api",
+        types.SimpleNamespace(get=lambda k, d=None: secret if k == "control_plane_token" else d),
+        raising=False,
+    )
+
+
+@pytest.mark.django_db
+def test_tasks_machine_control_plane_secret_authorizes(cape_db, mt_enabled, monkeypatch):
+    """The control plane presenting the configured [api] control_plane_token shared secret
+    reads the label EVEN when anonymous under token_auth_enabled=no (the poc2 posture) — the
+    m2m auth path for interactive attach. Still label-only."""
+    from rest_framework.test import APIRequestFactory
+    import apiv2.views as views
+
+    _tm_set_cp(monkeypatch, views, "s3cr3t-cp-token")
+    t = FakeTask(user_id=999, tenant_id=10, visibility="private")
+    t.machine = "win11_seabios_107"
+    monkeypatch.setattr(views.db, "view_task", lambda tid: t)
+    req = APIRequestFactory().get("/apiv2/tasks/machine/1/", HTTP_AUTHORIZATION="Token s3cr3t-cp-token")  # anonymous
+    resp = views.tasks_machine(req, "1")
+    assert resp.data.get("error") is False
+    assert resp.data.get("machine") == "win11_seabios_107"
+    assert set(resp.data.keys()) == {"error", "machine"}
+
+
+@pytest.mark.django_db
+def test_tasks_machine_wrong_control_plane_secret_denied(cape_db, mt_enabled, monkeypatch):
+    """A WRONG bearer with a configured secret gets the generic 404 — no guess/bypass, no
+    fallback to == or is_staff. (Anonymous, so the is_local_admin fallback also denies.)"""
+    from rest_framework.test import APIRequestFactory
+    import apiv2.views as views
+
+    _tm_set_cp(monkeypatch, views, "s3cr3t-cp-token")
+    t = FakeTask(user_id=999, tenant_id=10, visibility="private")
+    t.machine = "win11_seabios_107"
+    monkeypatch.setattr(views.db, "view_task", lambda tid: t)
+    req = APIRequestFactory().get("/apiv2/tasks/machine/1/", HTTP_AUTHORIZATION="Token WRONG")  # anonymous
+    resp = views.tasks_machine(req, "1")
+    assert resp.status_code == 404
+    assert "machine" not in resp.data
+
+
+@pytest.mark.django_db
+def test_tasks_machine_empty_secret_disables_shared_path(cape_db, mt_enabled, monkeypatch):
+    """FAIL-CLOSED: an EMPTY configured secret disables the shared-secret path entirely (no
+    '' == '' match), so an anonymous caller — even presenting an empty bearer — falls through
+    to the is_local_admin gate and is denied."""
+    from rest_framework.test import APIRequestFactory
+    import apiv2.views as views
+
+    _tm_set_cp(monkeypatch, views, "")  # secret unset
+    t = FakeTask(user_id=999, tenant_id=10, visibility="private")
+    t.machine = "win11_seabios_107"
+    monkeypatch.setattr(views.db, "view_task", lambda tid: t)
+    req = APIRequestFactory().get("/apiv2/tasks/machine/1/", HTTP_AUTHORIZATION="Token ")  # empty bearer, anonymous
+    resp = views.tasks_machine(req, "1")
+    assert resp.status_code == 404
+    assert "machine" not in resp.data

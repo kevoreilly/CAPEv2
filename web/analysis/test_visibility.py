@@ -593,13 +593,35 @@ def test_pending_resolves_viewer_once(cape_db, mt_enabled, monkeypatch, client):
 # (visibility <select>, delete button) previously used '_'-prefixed loop/assign
 # vars (_vis, _can_delete), which 500'd /analysis/<id>/ for a user who can
 # actually toggle/delete (owner/tenant-admin) — the block only renders for them,
-# so it slipped through. Compile each so a re-introduced '_'-var fails CI.
+# so it slipped through. WALK the whole analysis/ subtree (not a hardcoded list)
+# and parse EACH file on its own: get_template("report.html") wouldn't catch a
+# '_'-var in an {% include %} partial (includes compile at render), but parsing
+# every file individually does.
 # ---------------------------------------------------------------------------
-@pytest.mark.parametrize("tpl", [
-    "analysis/report.html",
-    "analysis/failed_processing.html",
-    "analysis/admin/index.html",
-])
+def _analysis_template_names():
+    """analysis/*.html loader names (relative to web/templates/), discovered by walk.
+    web/templates is the sibling of this test's app dir (web/analysis/)."""
+    import os
+    troot = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "templates"))
+    aroot = os.path.join(troot, "analysis")
+    names = []
+    for dirpath, _dirs, files in os.walk(aroot):
+        for f in files:
+            if f.endswith(".html"):
+                names.append(os.path.relpath(os.path.join(dirpath, f), troot))
+    return sorted(names)
+
+
+_ANALYSIS_TEMPLATES = _analysis_template_names()
+
+
+def test_analysis_template_walk_is_populated():
+    """Guard against the guard silently going inert (empty parametrize == green)."""
+    assert len(_ANALYSIS_TEMPLATES) >= 3, "analysis template walk found too few files — guard inert"
+    assert "analysis/report.html" in _ANALYSIS_TEMPLATES
+
+
+@pytest.mark.parametrize("tpl", _ANALYSIS_TEMPLATES)
 def test_analysis_template_has_no_underscore_leading_var(tpl):
     from django.template.loader import get_template
     get_template(tpl)  # raises TemplateSyntaxError if any var/attr begins with '_'

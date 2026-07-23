@@ -1146,19 +1146,26 @@ def tasks_machine(request, task_id):
     live-VM tunnel to the worker that holds the VM.
 
     Deliberately NOT tenant-scoped (allowlisted in the apiv2 coverage gate),
-    but the exemption is bounded two ways:
-      * gated on a staff/superuser caller — the central node's service identity
-        — so a regular tenant token gets the SAME generic 404 as a missing task
-        and cannot enumerate other tenants' task ids;
+    but the exemption is bounded:
       * returns ONLY the pool VM label (e.g. "win11_seabios_107"), never
-        analysis content, target, or tenant metadata.
+        analysis content, target, or tenant metadata;
+      * the cross-tenant label read is gated to the control-plane's trusted
+        principal, matching apiv2's own auth posture: when token auth is ENABLED
+        (token_auth_enabled=yes) only a staff/superuser node key may read it, so
+        a regular tenant token gets the SAME generic 404 as a missing task and
+        cannot enumerate other tenants' ids; when token auth is DISABLED the
+        operator has made the ENTIRE apiv2 AllowAny/anonymous by choice (every
+        endpoint open within the deployment's network boundary), so there is no
+        principal to check and this label-only read follows that same posture.
     The end user was already authorized via can_manage_task at the UI's
     remote_session view before this machine-to-machine call is made.
     """
     user = getattr(request, "user", None)
-    # Indistinguishable 404 for any non-staff caller: no existence signal leaks
-    # to a regular tenant token (mirrors _deny_if_hidden's generic 404).
-    if not (user and user.is_authenticated and (user.is_staff or user.is_superuser)):
+    # Indistinguishable 404 (mirrors _deny_if_hidden's generic 404): only enforced
+    # when apiv2 token auth is on — otherwise there is no authenticated principal.
+    if apiconf.api.get("token_auth_enabled") and not (
+        user and user.is_authenticated and (user.is_staff or user.is_superuser)
+    ):
         return Response({"error": True, "error_value": "Task not found"}, status=404)
     task = db.view_task(task_id)
     if not task:

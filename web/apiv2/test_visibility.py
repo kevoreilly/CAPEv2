@@ -26,14 +26,15 @@ GUARD_MARKERS = (
 # SECURITY ALLOWLIST — keep tiny; every entry needs a real justification.
 ALLOWLIST = {
     # tasks_machine: central-mode control-plane INFRA read. It is NOT tenant-scoped
-    # on purpose, but the exemption is bounded two ways (both pinned by the
-    # test_tasks_machine_* tests below): (1) it is gated on a staff/superuser caller
-    # — the central node's service identity — so a regular tenant token gets the same
-    # generic 404 as a missing task and cannot enumerate other tenants' ids; (2) it
-    # returns ONLY the pool VM label (e.g. "win11_seabios_107"), never analysis
-    # content / target / tenant metadata. The end user was already authorized via
-    # can_manage_task at the UI's remote_session view before this machine-to-machine
-    # call is made.
+    # on purpose, but the exemption is bounded (pinned by the test_tasks_machine_*
+    # tests below): (1) it returns ONLY the pool VM label (e.g. "win11_seabios_107"),
+    # never analysis content / target / tenant metadata; (2) its cross-tenant read
+    # tracks apiv2's OWN auth posture — staff/superuser-only when token auth is enabled
+    # (a regular tenant token gets the same generic 404 as a missing task, so it can't
+    # enumerate other tenants' ids), and open (like every other endpoint) only when the
+    # operator has set token_auth_enabled=no (AllowAny). The end user was already
+    # authorized via can_manage_task at the UI's remote_session view before this
+    # machine-to-machine call is made.
     "tasks_machine",
 }
 
@@ -1932,19 +1933,32 @@ def test_toggle_visibility_passes_expected_prior_for_cas(cape_db, mt_enabled, mo
 
 
 # ---------------------------------------------------------------------------
-# tasks_machine: central-mode control-plane infra read (staff-gated, label-only).
-# These tests BOUND the coverage-gate ALLOWLIST exemption for tasks_machine — if
-# someone widens the response or drops the staff gate, they go RED.
+# tasks_machine: central-mode control-plane infra read (label-only). Its cross-tenant
+# exemption tracks apiv2's OWN auth posture: staff-gated when token auth is ENABLED,
+# and open (like every other endpoint) when the operator sets token_auth_enabled=no
+# (AllowAny). These tests BOUND the coverage-gate ALLOWLIST exemption — if someone
+# widens the response or drops the staff gate in the authenticated mode, they go RED.
 # ---------------------------------------------------------------------------
+def _tm_set_token_auth(monkeypatch, views, enabled):
+    """Force apiv2 [api] token_auth_enabled for tasks_machine's gate. tasks_machine only
+    reads apiconf.api.get('token_auth_enabled'), so a tiny stand-in section is enough."""
+    import types
+    monkeypatch.setattr(
+        views.apiconf, "api",
+        types.SimpleNamespace(get=lambda k, d=None: enabled if k == "token_auth_enabled" else d),
+        raising=False,
+    )
+
+
 @pytest.mark.django_db
 def test_tasks_machine_staff_reads_label_cross_tenant(cape_db, mt_enabled, monkeypatch):
-    """A STAFF caller (the central node's service identity) can read a task's
-    analysis-VM label EVEN for another tenant's private task — the single
-    cross-tenant read tasks_machine allows, so the control plane can build the
-    guac tunnel. Bounded to the label by the sibling tests below."""
+    """token auth ENABLED: a STAFF caller (the central node's service identity) reads a
+    task's analysis-VM label EVEN for another tenant's private task — the single
+    cross-tenant read tasks_machine allows. Bounded to the label by the sibling tests."""
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
+    _tm_set_token_auth(monkeypatch, views, True)
     t = FakeTask(user_id=999, tenant_id=10, visibility="private")
     t.machine = "win11_seabios_107"
     monkeypatch.setattr(views.db, "view_task", lambda tid: t)
@@ -1960,12 +1974,13 @@ def test_tasks_machine_staff_reads_label_cross_tenant(cape_db, mt_enabled, monke
 
 @pytest.mark.django_db
 def test_tasks_machine_non_staff_gets_generic_404(cape_db, mt_enabled, monkeypatch):
-    """A regular (non-staff) token gets the SAME generic 404 as a missing task
-    even when the task exists — no VM label, and no existence signal that could
+    """token auth ENABLED: a regular (non-staff) token gets the SAME generic 404 as a
+    missing task even when the task exists — no VM label, no existence signal that could
     enumerate other tenants' task ids."""
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
+    _tm_set_token_auth(monkeypatch, views, True)
     t = FakeTask(user_id=999, tenant_id=10, visibility="private")
     t.machine = "win11_seabios_107"
     monkeypatch.setattr(views.db, "view_task", lambda tid: t)
@@ -1985,6 +2000,7 @@ def test_tasks_machine_returns_only_label(cape_db, mt_enabled, monkeypatch):
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
+    _tm_set_token_auth(monkeypatch, views, True)
     t = FakeTask(user_id=1, tenant_id=10, visibility="public")
     t.machine = "win11_seabios_101"
     monkeypatch.setattr(views.db, "view_task", lambda tid: t)
@@ -1994,4 +2010,24 @@ def test_tasks_machine_returns_only_label(cape_db, mt_enabled, monkeypatch):
     req = APIRequestFactory().get("/apiv2/tasks/machine/1/")
     force_authenticate(req, user=svc)
     resp = views.tasks_machine(req, "1")
+    assert set(resp.data.keys()) == {"error", "machine"}
+
+
+@pytest.mark.django_db
+def test_tasks_machine_open_when_token_auth_disabled(cape_db, mt_enabled, monkeypatch):
+    """token auth DISABLED (AllowAny): the whole apiv2 is anonymous by operator choice,
+    so an unauthenticated caller (the central node in that posture) still gets the label
+    — otherwise the control plane, which is anonymous here, could never resolve the VM
+    and interactive attach would be impossible. Still label-only."""
+    from rest_framework.test import APIRequestFactory
+    import apiv2.views as views
+
+    _tm_set_token_auth(monkeypatch, views, False)
+    t = FakeTask(user_id=999, tenant_id=10, visibility="private")
+    t.machine = "win11_seabios_107"
+    monkeypatch.setattr(views.db, "view_task", lambda tid: t)
+    req = APIRequestFactory().get("/apiv2/tasks/machine/1/")  # no force_authenticate -> AnonymousUser
+    resp = views.tasks_machine(req, "1")
+    assert resp.data.get("error") is False
+    assert resp.data.get("machine") == "win11_seabios_107"
     assert set(resp.data.keys()) == {"error", "machine"}

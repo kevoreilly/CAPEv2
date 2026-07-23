@@ -172,22 +172,21 @@ class Package:
         @return: process pid
         """
         free = self.options.get(OPT_FREE, False)
-        suspended = not free
 
         kernel_analysis = bool(self.options.get(OPT_KERNEL_ANALYSIS, False))
 
         p = Process(options=self.options, config=self.config)
-        if not p.execute(path=path, args=args, suspended=suspended, kernel_analysis=kernel_analysis):
+        if not p.execute(path=path, args=args, kernel_analysis=kernel_analysis):
             raise CuckooPackageError("Unable to execute the initial process, analysis aborted")
 
-        if free:
-            return None
-
-        if not kernel_analysis:
+        if not free and not kernel_analysis:
             p.inject(interest)
 
         p.resume()
         p.close()
+
+        if free:
+            return None
 
         return p.pid
 

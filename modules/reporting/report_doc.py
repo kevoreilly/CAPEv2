@@ -21,7 +21,10 @@ CHUNK_CALL_SIZE = 100
 
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_insert_one
-elif repconf.elasticsearchdb.enabled:
+# NB: pas de elif — mongodb ET elasticsearchdb peuvent etre actifs ensemble ;
+# avec elif, parallel_bulk/get_daily_calls_index restent indefinis et le
+# module ElasticSearchDB crashe (bug upstream).
+if repconf.elasticsearchdb.enabled:
     from elasticsearch.helpers import parallel_bulk
 
     from dev_utils.elasticsearchdb import get_daily_calls_index

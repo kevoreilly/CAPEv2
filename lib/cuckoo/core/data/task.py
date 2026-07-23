@@ -41,10 +41,10 @@ def _task_secret_key() -> str:
     """Return the configured token-signing secret, warning once if it is weak."""
     from lib.cuckoo.common.config import Config
 
-    secret = Config("cuckoo").security.get("secret_key", DEFAULT_SECRET_KEY)
+    secret = Config("cuckoo").agent_security.get("secret_key", DEFAULT_SECRET_KEY)
     if secret in INSECURE_SECRET_KEYS:
         log.warning(
-            "cuckoo.conf [security] secret_key is unset or left at its default; "
+            "cuckoo.conf [agent_security] secret_key is unset or left at its default; "
             "task authentication tokens are predictable. Set secret_key to a random string."
         )
     return secret

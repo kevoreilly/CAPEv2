@@ -315,6 +315,9 @@ class TestAnalysisManager:
         }
         # Dynamically load auxiliary modules from Config to ensure test stays in sync with configuration changes
         expected_opts.update(Config("auxiliary").auxiliary_modules)
+        # The guest agent token is only injected when agent_auth is enabled (mirrors build_options)
+        if Config("cuckoo").agent_security.get("agent_auth", False):
+            expected_opts["token"] = task.token
 
         assert opts == expected_opts
 
@@ -361,6 +364,9 @@ class TestAnalysisManager:
         }
         # Dynamically load auxiliary modules from Config to ensure test stays in sync with configuration changes
         expected_opts.update(Config("auxiliary").auxiliary_modules)
+        # The guest agent token is only injected when agent_auth is enabled (mirrors build_options)
+        if Config("cuckoo").agent_security.get("agent_auth", False):
+            expected_opts["token"] = task.token
 
         assert opts == expected_opts
 

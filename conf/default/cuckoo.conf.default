@@ -284,7 +284,7 @@ worker_api_port = 8000
 worker_ssh_user = cape
 worker_ssh_keyfile = /home/cape/.ssh/id_ed25519
 
-[security]
+[agent_security]
 # Enable ephemeral token authentication for the VM agent
 agent_auth = yes
 # Secret key used to dynamically sign task tokens (highly recommended to change this to a random string)

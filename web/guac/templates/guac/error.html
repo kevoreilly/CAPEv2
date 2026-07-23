@@ -13,7 +13,9 @@
     <script src="{% static 'js/jquery.js' %}"></script>
 </head>
 <body class="bg-dark text-white">
-    {% include "header.html" %}
+    {# self-contained console page: no main-web header include — guac-web runs a minimal urlconf
+       (web.guac_urls) that lacks the header's named routes (e.g. 'analysis'), so including it 500s
+       with NoReverseMatch. Matches guac/index.html, which is likewise self-contained. #}
     <div class="container mt-5">
         <div class="row justify-content-center">
             <div class="col-md-6">

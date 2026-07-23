@@ -30,7 +30,13 @@ def viewer_scope(user):
     try:
         from dashboard.views import entitled_scope_filter
     except ImportError:
-        return None  # MT layer not deployed -> single-tenant central
+        # ImportError can't tell 'MT layer genuinely absent' (single-tenant -> see-all is correct) from
+        # 'MT enabled but dashboard.views (or a dep) failed to import' -- the latter would silently drop
+        # the central collision-defense scope to see-all. Fail CLOSED (deny-all $match) when MT is
+        # detectably enabled, mirroring the tenancy_optional facade (f3494f98). None only when MT is off.
+        from lib.cuckoo.common.tenancy_optional import _mt_enabled
+
+        return {"_id": {"$in": []}} if _mt_enabled() else None
     return entitled_scope_filter(user)  # authoritative; handles MT on/off; errors propagate
 
 
@@ -41,5 +47,11 @@ def viewer_can_view_sample(user, *, sha256=None, sha1=None, md5=None, sample_id=
     try:
         from users.tenancy import can_view_sample
     except ImportError:
-        return True  # MT layer not deployed -> single-tenant central
+        # ImportError can't tell 'MT genuinely absent' (single-tenant -> see-all correct) from 'MT enabled
+        # but users.tenancy (or a dep) failed to import' -- the latter would grant EVERY by-hash sample view
+        # (central_file / central_vtupload). Fail CLOSED (deny) when MT is detectably enabled, mirroring
+        # viewer_scope above and the tenancy_optional facade (f3494f98). None-of-MT -> True (single-tenant).
+        from lib.cuckoo.common.tenancy_optional import _mt_enabled
+
+        return not _mt_enabled()
     return can_view_sample(user, sha256=sha256, sha1=sha1, md5=md5, sample_id=sample_id)

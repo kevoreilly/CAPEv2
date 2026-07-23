@@ -640,6 +640,24 @@ def check_snapshot_state():
             conn.close()
 
 
+def _tolerate_missing_rooter():
+    """True when this node is a central MANAGEMENT node ([central_mode] tolerate_missing_rooter=yes):
+    it advertises the fleet's route options on the submission form but never routes guest traffic
+    itself -- only workers route. Callers (init_rooter / init_routing) then skip the rooter
+    reachability check + all route verification/NAT setup, while still populating vpns/socks5s for the
+    form. This is gated on the FLAG ALONE, NOT on whether the rooter socket is reachable: a central UI
+    built from the worker AMI may have cape-rooter running but no tun0/VPN infra, so rt_available/
+    nic_available would answer 'not available' and raise CuckooStartupError even though a rooter is
+    up. Default off, so single-node and workers (central mode on, flag off) verify their routing and
+    fail fast normally."""
+    try:
+        from lib.cuckoo.common.central_mode import central_mode_config
+
+        return bool(central_mode_config().tolerate_missing_rooter)
+    except Exception:
+        return False
+
+
 def init_rooter(apply_state=False):
     """If required, check whether the rooter is running and whether we can connect to it.
 
@@ -667,6 +685,20 @@ def init_rooter(apply_state=False):
     try:
         s.connect(cuckoo.cuckoo.rooter)
     except socket.error as e:
+        # Central-mode management node (the UI): the web/API process advertises the fleet's route
+        # options on the submission form but never routes traffic itself -- only the worker's
+        # scheduler does. When THIS node opts in via [central_mode] tolerate_missing_rooter, an
+        # unreachable rooter is expected, so warn and continue instead of blocking UI startup. The
+        # scheduler (apply_state=True) still fails fast; workers (which run central mode too but do
+        # NOT set this flag) and single-node keep failing fast. Gated on the explicit flag -- NOT
+        # central_mode.enabled -- so a worker whose rooter died still refuses to come up (codex).
+        if not apply_state and _tolerate_missing_rooter():
+            log.warning(
+                "rooter unreachable (%s); this node has [central_mode] tolerate_missing_rooter=yes "
+                "-- advertising routes without routing (the worker's rooter enforces them)",
+                e,
+            )
+            return
         if e.strerror == "No such file or directory":
             raise CuckooStartupError(
                 "The rooter is required but it is either not running or it "
@@ -749,6 +781,15 @@ def init_routing(apply_nexthop_state=False):
     # Check whether all VPNs exist if configured and make their configuration
     # available through the vpns variable. Also enable NAT on each interface.
 
+    # Central management/UI node (opted in via tolerate_missing_rooter): still populate the
+    # vpns/socks5s/gateways dicts so the submission form can advertise the fleet's routes, but SKIP
+    # every rooter round-trip (rt_available/nic_available verification + NAT setup). The UI never
+    # routes -- only workers do -- and it has no VPN infra (tun0), so those checks would raise
+    # CuckooStartupError ("routing table ... not available") when a rooter IS running, or TypeError
+    # on rooter(...)["output"] when none is, either way killing the UI at import. The worker's rooter
+    # does the real verification + routing (codex).
+    _skip_rooter = _tolerate_missing_rooter()
+
     if routing.socks5.enabled:
         for name in routing.socks5.proxies.split(","):
             name = name.strip()
@@ -771,21 +812,22 @@ def init_routing(apply_nexthop_state=False):
                 raise CuckooStartupError(f"Could not find VPN configuration for {name}")
 
             entry = routing.get(name)
-            if routing.routing.verify_rt_table:
+            if routing.routing.verify_rt_table and not _skip_rooter:
                 is_rt_available = rooter("rt_available", entry.rt_table)["output"]
                 if not is_rt_available:
                     raise CuckooStartupError(f"The routing table that has been configured for VPN {entry.name} is not available")
             vpns[entry.name] = entry
 
-            # Disable & enable NAT on this network interface. Disable it just
-            # in case we still had the same rule from a previous run.
-            rooter("disable_nat", entry.interface)
-            rooter("enable_nat", entry.interface)
+            if not _skip_rooter:
+                # Disable & enable NAT on this network interface. Disable it just
+                # in case we still had the same rule from a previous run.
+                rooter("disable_nat", entry.interface)
+                rooter("enable_nat", entry.interface)
 
-            # Populate routing table with entries from main routing table.
-            if routing.routing.auto_rt:
-                rooter("flush_rttable", entry.rt_table)
-                rooter("init_rttable", entry.rt_table, entry.interface)
+                # Populate routing table with entries from main routing table.
+                if routing.routing.auto_rt:
+                    rooter("flush_rttable", entry.rt_table)
+                    rooter("init_rttable", entry.rt_table, entry.interface)
 
     # Load [gwX] next-hop egress profiles; apply rooter state (sweep/build/arm) only for the scheduler
     # (no-op when [nexthop] absent/disabled).
@@ -799,7 +841,7 @@ def init_routing(apply_nexthop_state=False):
     validate_default_route(routing)
 
     # Check whether the dirty line exists if it has been defined.
-    if routing.routing.internet != "none":
+    if routing.routing.internet != "none" and not _skip_rooter:
         is_nic_available = rooter("nic_available", routing.routing.internet)["output"]
         if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as dirty line is not available")
@@ -826,7 +868,7 @@ def init_routing(apply_nexthop_state=False):
             rooter("init_rttable", routing.routing.rt_table, routing.routing.internet)
 
     # Check if tor interface exists, if yes then enable nat
-    if routing.tor.enabled and routing.tor.interface:
+    if routing.tor.enabled and routing.tor.interface and not _skip_rooter:
         is_nic_available = rooter("nic_available", routing.tor.interface)["output"]
         if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as tor line is not available")
@@ -844,7 +886,7 @@ def init_routing(apply_nexthop_state=False):
     # Check if inetsim interface exists, if yes then enable nat, if interface is not the same as tor
     # if routing.inetsim.interface and cuckoo.routing.inetsim_interface !=  routing.tor.interface:
     # Check if inetsim interface exists, if yes then enable nat
-    if routing.inetsim.enabled and routing.inetsim.interface:
+    if routing.inetsim.enabled and routing.inetsim.interface and not _skip_rooter:
         is_nic_available = rooter("nic_available", routing.inetsim.interface)["output"]
         if not is_nic_available:
             raise CuckooStartupError("The network interface that has been configured as inetsim line is not available")

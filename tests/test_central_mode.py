@@ -8,7 +8,7 @@ from lib.cuckoo.common.central_mode import _parse, _as_bool, _as_int, _as_port, 
 from lib.cuckoo.common.central_guac import (
     _libvirt_ssh_dsn,
     _worker_api_token,
-    _worker_task_view_url,
+    _worker_machine_url,
 )
 from lib.cuckoo.common.hunt_query import build_hunt_facets
 from lib.cuckoo.common.storage_backend import (
@@ -334,9 +334,16 @@ def test_central_mode_worker_access_fields_parse():
 
 
 def test_central_guac_worker_url_and_dsn():
-    # port + task id substitute; the deb defaults no longer live in the code path
-    assert _worker_task_view_url("10.0.0.5", 8000, 42) == "http://10.0.0.5:8000/apiv2/tasks/view/42/"
-    assert _worker_task_view_url("10.0.0.5", "9443", "7") == "http://10.0.0.5:9443/apiv2/tasks/view/7/"
+    # port + task id substitute; the deb defaults no longer live in the code path.
+    # tasks/machine is the control-plane infra endpoint (authorized by the shared
+    # [api] control_plane_token, or an is_local_admin principal) returning ONLY the VM
+    # label, so this lookup isn't blocked by the worker's per-tenant scoping.
+    assert _worker_machine_url("10.0.0.5", 8000, 42) == "http://10.0.0.5:8000/apiv2/tasks/machine/42/"
+    assert _worker_machine_url("10.0.0.5", "9443", "7") == "http://10.0.0.5:9443/apiv2/tasks/machine/7/"
+    # an IPv6 worker IP is bracketed so its ':'s don't collide with the port separator
+    assert _worker_machine_url("fd00::5", 8000, 42) == "http://[fd00::5]:8000/apiv2/tasks/machine/42/"
+    assert _libvirt_ssh_dsn("fd00::9", "cape", "/home/cape/.ssh/id_ed25519") == \
+        "qemu+ssh://cape@[fd00::9]/system?keyfile=/home/cape/.ssh/id_ed25519&no_verify=1"
     # DSN carries the CONFIGURED user + keyfile (not hardcoded cape / id_ed25519)
     assert _libvirt_ssh_dsn("10.0.0.9", "cape", "/home/cape/.ssh/id_ed25519") == \
         "qemu+ssh://cape@10.0.0.9/system?keyfile=/home/cape/.ssh/id_ed25519&no_verify=1"
@@ -353,6 +360,59 @@ def test_central_guac_worker_api_token(tmp_path):
     assert _worker_api_token(str(tok)) == "s3cr3t"  # stripped
     # missing/unreadable -> "" (=> no auth header downstream), never raises
     assert _worker_api_token(str(tmp_path / "nope")) == ""
+
+
+def test_worker_vm_for_task_status_guard_and_success(monkeypatch):
+    """worker_vm_for_task resolves task -> broker job -> worker apiv2 tasks/machine. A non-200
+    from the worker (auth misconfig / no such task) must degrade to (None, None) -- never raise,
+    never return a bogus label -- and a 200 must surface ONLY the VM label (guest IP stays None;
+    central guac uses the worker's own localhost for VNC). The broker directory being absent
+    (single-node / central off) or the job not-yet-dispatched must also short-circuit WITHOUT
+    hitting the worker. This is the one production branch the other guac tests don't exercise."""
+    import lib.cuckoo.common.central_mode as cm
+    import lib.cuckoo.common.job_directory as jd
+    import requests
+    from lib.cuckoo.common.central_guac import worker_vm_for_task
+
+    cfg = _parse({"enabled": "yes", "worker_api_token_file": "/nonexistent-token", "worker_api_port": "8000"})
+    monkeypatch.setattr(cm, "central_mode_config", lambda: cfg)
+
+    class _Dir:
+        def __init__(self, loc):
+            self._loc = loc
+
+        def lookup(self, job_id):
+            assert job_id == "ui-42"  # derived from the AUTHORIZED task id, never task.custom
+            return self._loc
+
+    class _Resp:
+        def __init__(self, status, body):
+            self.status_code = status
+            self._body = body
+
+        def json(self):
+            return self._body
+
+    def _boom(*a, **k):
+        raise AssertionError("worker must not be contacted on the local/undispatched path")
+
+    # directory resolves the job to a worker + worker-local cape_task_id ...
+    monkeypatch.setattr(jd, "get_job_directory", lambda cfg: _Dir(JobLocation("10.0.0.7", 3)))
+    # ... worker 200 -> only the VM label surfaces (guest IP intentionally None)
+    monkeypatch.setattr(requests, "get", lambda url, **kw: _Resp(200, {"error": False, "machine": "win11_seabios_101"}))
+    assert worker_vm_for_task(42) == ("win11_seabios_101", None)
+    # ... worker 404 (auth misconfig / no such task) -> (None, None), no raise
+    monkeypatch.setattr(requests, "get", lambda url, **kw: _Resp(404, {"error": True}))
+    assert worker_vm_for_task(42) == (None, None)
+
+    # no broker directory (single-node / central off) -> (None, None) WITHOUT touching the worker
+    monkeypatch.setattr(jd, "get_job_directory", lambda cfg: None)
+    monkeypatch.setattr(requests, "get", _boom)
+    assert worker_vm_for_task(42) == (None, None)
+
+    # job resolved but not yet dispatched to a worker (no worker_ip) -> (None, None), no worker call
+    monkeypatch.setattr(jd, "get_job_directory", lambda cfg: _Dir(JobLocation(None, None)))
+    assert worker_vm_for_task(42) == (None, None)
 
 
 def test_centralstore_done_marker_local_and_uploaded(tmp_path):
@@ -414,3 +474,55 @@ def test_hunt_facets_per_category_no_facet():
     assert not any(any("$facet" in stage for stage in p) for p in sent)
     assert sent[0][0] == {"$match": {"$and": [{}, {"info.visibility": "public"}]}}
     assert facets["domains"][0]["_id"] == "evil.com"
+
+
+def test_centralstore_refuses_non_bridged_under_mt(monkeypatch):
+    """Bridge-required (central+MT): CentralStore.run refuses a non-bridged doc ('local-<id>' / bare-token
+    job_id) BEFORE the S3 upload, so a doomed (soon-to-be-rejected) non-bridged analysis doesn't push artifacts
+    to the shared store. This is defence-in-depth at order 9998; the doc-PERSIST prevention (the actual write
+    site) is the mongodb-reporter backstop at 9999 -- see test_reject_unbridged_under_mt, which is the guard
+    that guarantees no unkeyed doc is ever inserted regardless of centralstore's state."""
+    import modules.reporting.centralstore as cs
+    from lib.cuckoo.common.exceptions import CuckooReportError
+
+    cfg = type("C", (), {"enabled": True, "storage_backend": "local", "central_local_root": "/tmp/cs-test",
+                         "s3_bucket": "", "s3_prefix": "results"})()
+    monkeypatch.setattr(cs, "central_mode_config", lambda: cfg)
+    monkeypatch.setattr(cs, "get_artifact_store", lambda c: (object(), True))
+    monkeypatch.setattr(cs, "central_bridge_required", lambda: True)
+
+    store = cs.CentralStore()
+    with pytest.raises(CuckooReportError, match="non-bridged"):
+        store.run({"info": {"id": 5, "custom": "campaign1"}})     # bare-token -> non-bridged -> refused
+    with pytest.raises(CuckooReportError, match="non-bridged"):
+        store.run({"info": {"id": 6}})                            # no custom -> local-6 -> refused
+
+    # OVER-FIRING guard: with the bridge NOT required (single-node / MT-off), the same non-ui doc must NOT hit
+    # the "non-bridged" refusal. The guard is BEFORE any analysis_path use, so this is observable regardless of
+    # the bare store's empty analysis_path; any downstream upload/path error is irrelevant -- we assert only
+    # that the BRIDGE guard did not over-fire (catches a future refactor that drops the central_bridge_required
+    # conjunct and starts failing every single-node direct-submit report).
+    monkeypatch.setattr(cs, "central_bridge_required", lambda: False)
+    try:
+        store.run({"info": {"id": 7, "custom": "campaign1"}})
+    except CuckooReportError as e:
+        assert "non-bridged" not in str(e), "the bridge guard must not fire when the bridge is not required"
+    except Exception:
+        pass  # any downstream upload/path error on the bare store is fine -- not the guard
+
+
+def test_reject_unbridged_under_mt(monkeypatch):
+    """The mongodb-reporter backstop predicate: under central+MT every persisted doc must be bridged
+    (ui-<central_id>). A non-bridged job_id (local-<id> / bare-token / None) is rejected; a ui- doc is not;
+    and when the bridge is not required (single-node / MT-off) nothing is rejected."""
+    import modules.reporting.mongodb as m
+    import lib.cuckoo.common.central_mode as cm
+
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
+    assert m._reject_unbridged_under_mt("local-5") is True
+    assert m._reject_unbridged_under_mt("campaign1") is True     # bare-token custom
+    assert m._reject_unbridged_under_mt(None) is True            # centralstore disabled -> no job_id stamped
+    assert m._reject_unbridged_under_mt("ui-5") is False         # bridged -> allowed
+
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: False)
+    assert m._reject_unbridged_under_mt("local-5") is False      # single-node / MT-off -> never blocked

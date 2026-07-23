@@ -290,11 +290,24 @@ def delete_data(tid):
             delete_analysis_and_related_calls(tid)
     except Exception as e:
         log.exception("failed to remove analysis info (may not exist) %s due to %s", tid, e)
+    _sql_deleted = False
     with db.session.begin():
         if db.delete_task(tid):
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid)))
+            _sql_deleted = True
         else:
             log.info("failed to remove faile task %s from DB", tid)
+    # delete_folder OUTSIDE the begin() block: an rmtree failure mid-delete must NOT roll back the (committed)
+    # SQL delete and resurrect a task pointing at a half-deleted tree, re-broken every nightly run. A folder
+    # failure is a disk orphan-by-path (logged).
+    # NOTE: unlike the apiv2/remove() paths (SQL commit -> THEN Mongo), the report delete above runs FIRST and
+    # mongo_delete_data() swallows its own exceptions (returns None; the elif arm is Elasticsearch-only), so a
+    # surviving report + committed SQL delete (an unreapable doc) is still reachable here and is NOT detected.
+    # Closing that needs a status-returning Mongo delete so the commit can be conditioned on it.
+    if _sql_deleted:
+        try:
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid)))
+        except Exception as e:
+            log.error("delete_data: folder delete failed for task %s (disk orphan-by-path): %s", tid, e)
 
 
 def dist_delete_data(data, dist_db):

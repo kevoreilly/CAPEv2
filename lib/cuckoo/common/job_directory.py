@@ -126,6 +126,9 @@ class BrokerHttpJobDirectory(JobDirectory):
             headers = {"Authorization": f"Bearer {self.token}"} if self.token else {}
             r = requests.get(f"{self.broker_url}/api/status/{job_id}", headers=headers, timeout=10)
             if r.status_code != 200:
+                # Log the non-200 (stale broker_url/broker_api_token is the likely misconfig) so a
+                # dead lookup is diagnosable instead of silently degrading to (None, None) == "no job".
+                log.warning("job_directory(broker_http): status %s for %s (check broker_url/broker_api_token)", r.status_code, job_id)
                 return None
             item = r.json() or {}
         except Exception as e:

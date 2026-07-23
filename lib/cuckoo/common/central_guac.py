@@ -27,56 +27,51 @@ def _worker_api_token(token_file):
         return ""
 
 
-def _worker_task_view_url(worker_ip, port, cape_task_id):
-    """The worker's apiv2 task-view URL. port comes from [central_mode] worker_api_port."""
-    return "http://%s:%d/apiv2/tasks/view/%d/" % (worker_ip, int(port), int(cape_task_id))
+def _bracket(host):
+    """Bracket an IPv6 literal for use as a URL/DSN netloc; leave IPv4/hostnames as-is.
+    _valid_worker_ip accepts any ipaddress.ip_address, so an IPv6 worker IP (e.g. 'fd00::5')
+    reaches these builders and MUST be bracketed ('[fd00::5]') or the ':' collides with the
+    port separator and the URL/DSN is malformed."""
+    text = str(host)
+    return "[%s]" % text if ":" in text else text
+
+
+def _worker_machine_url(worker_ip, port, cape_task_id):
+    """The worker's apiv2 machine-label URL (tasks/machine): a control-plane infra read that
+    returns ONLY the task's analysis-VM label, so this lookup is not blocked by the worker's
+    per-tenant task scoping. port comes from [central_mode] worker_api_port. The presented
+    worker_api_token authorizes via the worker's [api] control_plane_token shared secret (or,
+    on a token_auth_enabled=yes worker, an is_local_admin principal)."""
+    return "http://%s:%d/apiv2/tasks/machine/%d/" % (_bracket(worker_ip), int(port), int(cape_task_id))
 
 
 def _libvirt_ssh_dsn(ip, ssh_user, keyfile):
     """qemu+ssh libvirt DSN to a worker. ssh_user/keyfile come from [central_mode]
     (worker_ssh_user/worker_ssh_keyfile) so the deb defaults aren't hardcoded. keyfile is
-    URL-quoted (safe='/') so a configured path with a '&'/'?'/space can't corrupt the query."""
+    URL-quoted (safe='/') so a configured path with a '&'/'?'/space can't corrupt the query.
+    An IPv6 worker IP is bracketed so its ':'s don't corrupt the netloc."""
     from urllib.parse import quote
 
-    return "qemu+ssh://%s@%s/system?keyfile=%s&no_verify=1" % (ssh_user, ip, quote(keyfile, safe="/"))
+    return "qemu+ssh://%s@%s/system?keyfile=%s&no_verify=1" % (ssh_user, _bracket(ip), quote(keyfile, safe="/"))
 
 
 def _job_id_for_task(task_id):
-    """Resolve the broker job_id for a task. Prefer the RDS task.custom stamp
-    ('job_id=ui-<id>', set by the submit-bridge at enqueue) — it exists DURING the
-    live run, which is exactly when interactive guac is needed. The DocumentDB
-    analysis doc is only written at reporting (after the VM is gone), so it can't be
-    relied on here; fall back to it only for non-bridged/seeded tasks."""
-    try:
-        from lib.cuckoo.core.database import Database
+    """Resolve the broker job_id for a live interactive task's VM, for the guac tunnel.
 
-        t = Database().view_task(int(task_id))
-        custom = getattr(t, "custom", None) if t else None
-        if custom:
-            # comma-separated k=v pairs — take ONLY the job_id= value (not the rest of the
-            # string), matching centralstore.resolve_job_id; a trailing ',foo=bar' would
-            # otherwise corrupt the DynamoDB key / S3 prefix lookup.
-            text = str(custom)
-            for part in text.split(","):
-                part = part.strip()
-                if part.startswith("job_id="):
-                    v = part.split("=", 1)[1].strip()
-                    if v:
-                        return v
-            # Bare-token form (custom is just the job id) — kept in sync with
-            # centralstore.resolve_job_id, which also accepts a bare token for non-bridged tasks.
-            token = text.strip()
-            if token and "=" not in token and "," not in token:
-                return token
-    except Exception:
-        pass
+    DERIVE it deterministically from the caller's AUTHORIZED task_id -- 'ui-<task_id>' -- NEVER from
+    the forgeable task.custom. The central submit-bridge assigns job_id='ui-<rds_task_id>' and stamps
+    it into custom (central-submit-bridge.py; its docstring: "job_id is deterministic 'ui-<rds_task_id>'
+    so the central read seam can resolve rds_task_id -> job_id"). custom is a user-supplied submission
+    field, and the bridge SKIPS a task whose custom is already 'job_id=%%' -- so a user who submits
+    custom='job_id=ui-<victim>' keeps that forged value, and reading it here resolved ANOTHER tenant's
+    worker/VM (adversarial-review HIGH: cross-tenant live-VM tunnel). Deriving binds the tunnel to the
+    caller's OWN task (can_manage_task already authorized it in the guac view/consumer); a forged custom
+    cannot redirect it, and a non-bridged / not-running task simply misses the broker directory
+    (-> no worker_ip -> local DSN). The DocumentDB doc can't help here anyway (written only at reporting,
+    after the VM is gone)."""
     try:
-        from dev_utils.mongodb import mongo_find_one
-
-        doc = mongo_find_one("analysis", {"info.id": int(task_id)}, {"info.job_id": 1})
-        # info may be missing OR explicitly None ({"info": None}); coalesce both before .get.
-        return ((doc or {}).get("info") or {}).get("job_id")
-    except Exception:
+        return f"ui-{int(task_id)}"
+    except (TypeError, ValueError):
         return None
 
 
@@ -136,10 +131,24 @@ def worker_vm_for_task(task_id):
 
         token = _worker_api_token(cfg.worker_api_token_file)
         headers = {"Authorization": f"Token {token}"} if token else {}
-        r = requests.get(_worker_task_view_url(worker_ip, cfg.worker_api_port, cape_task_id),
+        r = requests.get(_worker_machine_url(worker_ip, cfg.worker_api_port, cape_task_id),
                          headers=headers, timeout=10)
-        data = (r.json() or {}).get("data", {})
-        return (data.get("machine"), None)  # central guac uses the worker's localhost for VNC
+        if r.status_code != 200:
+            # A 401/403/404 here is almost always an auth/authorization misconfig — the
+            # presented worker_api_token doesn't match the worker's [api] control_plane_token
+            # (or, on a token_auth_enabled=yes worker, isn't an is_local_admin principal) —
+            # NOT a genuinely local task. Log it so a dead live-VM attach is diagnosable
+            # instead of silently degrading to (None, None) == "no VM" (the caller can't tell
+            # them apart otherwise).
+            log.warning(
+                "central guac: worker %s tasks/machine for task %s returned HTTP %s "
+                "(verify worker_api_token matches the worker's [api] control_plane_token)",
+                worker_ip, task_id, r.status_code,
+            )
+            return (None, None)
+        body = r.json() or {}
+        # tasks/machine returns {"error": False, "machine": "<label>"} at top level.
+        return (body.get("machine") or None, None)  # central guac uses the worker's localhost for VNC
     except Exception as e:
         log.warning("central guac: worker VM lookup failed for task %s: %s", task_id, e)
         return (None, None)

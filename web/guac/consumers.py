@@ -181,6 +181,27 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
 
+                # 3b. Defense-in-depth: confirm the socket's user may MANAGE this task.
+                # Opening the tunnel grants live keyboard/mouse/framebuffer control, a
+                # task ACTION — so it follows the same owner/tenant-admin/break-glass
+                # boundary as the mint (guac index / submission status), NOT mere read
+                # visibility. A leaked/replayed cookie must not tunnel into another
+                # tenant's (or another user's public) VM. Check UNCONDITIONALLY — do
+                # NOT skip for an anonymous/absent socket user: viewer_for resolves
+                # anonymous to a non-manager when MT is on (and break-glass when MT is
+                # off), so a replay is denied here rather than tunnelling on token
+                # possession alone.
+                from web.tenancy_optional import can_manage_task
+
+                ws_user = self.scope.get("user")
+                if not await sync_to_async(can_manage_task)(ws_user, task):
+                    logger.warning(
+                        "WebSocket rejected: user not entitled to task %s", self.guac_task_id
+                    )
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
+
                 # 4. Central mode: a broker-dispatched job's VM lives on a worker, so
                 # resolve that worker's libvirt DSN + IP and look up the VNC port from ITS
                 # libvirt; the tunnel then targets the worker's guacd. None => single-node.
@@ -197,6 +218,22 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
             else:
+                # Direct VNC connection (task_id=0): no per-task gate applies and
+                # the mint endpoints are break-glass-admin-only, so re-validate that
+                # here too — a replayed direct-VNC guac_session cookie from a tenant
+                # or anonymous socket must not open the raw VM/host console on token
+                # possession alone. viewer_for resolves anonymous to non-admin when
+                # MT is on, and to local-admin when MT is off (legacy console works).
+                from web.tenancy_optional import viewer_for as _viewer_for
+
+                ws_user = self.scope.get("user")
+                _is_admin = await sync_to_async(lambda: _viewer_for(ws_user).is_local_admin)()
+                if not _is_admin:
+                    logger.warning("WebSocket rejected: direct VNC requires a break-glass admin")
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
+
                 # Direct VNC connection
                 guest_ip = session_data.get("guest_ip")
                 if not guest_ip:

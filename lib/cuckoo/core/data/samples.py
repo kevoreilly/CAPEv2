@@ -22,10 +22,13 @@ if repconf.mongodb.enabled:
 from sqlalchemy.exc import IntegrityError
 try:
     from sqlalchemy import (
+        and_,
         BigInteger,
+        distinct,
         func,
         ForeignKey,
         Index,
+        or_,
         select,
         String,
         Text,
@@ -158,27 +161,37 @@ class SamplesMixIn:
         return sample
 
 
-    def check_file_uniq(self, sha256: str, hours: int = 0):
+    def check_file_uniq(self, sha256: str, hours: int = 0, visible_to=None):
         # TODO This function is poorly named. It returns True if a sample with the given
         # sha256 already exists in the database, rather than returning True if the given
         # sha256 is unique.
-        uniq = False
-        if hours and sha256:
-            date_since = _utcnow_naive() - timedelta(hours=hours)
+        if not sha256:
+            return False
 
-            stmt = (
-                select(Task)
-                .join(Sample, Task.sample_id == Sample.id)
-                .where(Sample.sha256 == sha256)
-                .where(Task.added_on >= date_since)
-            )
+        # The tenant scope must apply for ANY hours value — including hours=0
+        # (all-time uniqueness) — else a non-break-glass viewer's duplicate check
+        # is a cross-tenant existence oracle (the original else-branch called
+        # find_sample() unscoped). Build the scoped Task-exists query when a
+        # viewer is supplied; preserve the original unscoped behavior otherwise.
+        stmt = select(Task).join(Sample, Task.sample_id == Sample.id).where(Sample.sha256 == sha256)
+        if hours:
+            stmt = stmt.where(Task.added_on >= _utcnow_naive() - timedelta(hours=hours))
+
+        if visible_to is not None and not visible_to.is_local_admin:
+            from lib.cuckoo.common.tenancy import PUBLIC, TENANT
+
+            conds = [Task.visibility == PUBLIC]
+            if visible_to.user_id is not None:
+                conds.append(Task.user_id == visible_to.user_id)
+            if visible_to.tenant_id is not None:
+                conds.append(and_(Task.visibility == TENANT, Task.tenant_id == visible_to.tenant_id))
+            stmt = stmt.where(or_(*conds))
             return self.session.scalar(select(stmt.exists()))
-        else:
-            if not self.find_sample(sha256=sha256):
-                uniq = False
-            else:
-                uniq = True
-        return uniq
+
+        # Unscoped (break-glass / MT-disabled / no viewer): original semantics.
+        if not hours:
+            return self.find_sample(sha256=sha256) is not None
+        return self.session.scalar(select(stmt.exists()))
 
     def get_file_types(self) -> List[str]:
         """Gets a sorted list of unique sample file types."""
@@ -266,10 +279,15 @@ class SamplesMixIn:
                 hasher.update(chunk)
         return hasher.hexdigest()
 
-    def sample_path_by_hash(self, sample_hash: str = False, task_id: int = False):
+    def sample_path_by_hash(self, sample_hash: str = False, task_id: int = False, visible_to=None):
         """Retrieve information on a sample location by given hash.
         @param hash: md5/sha1/sha256/sha256.
         @param task_id: task_id
+        @param visible_to: optional tenancy Viewer — when set, only resolve a
+            sample the viewer has a VISIBLE task for (the shared by-hash boundary,
+            so a tenant can't pull another tenant's sample bytes by hash). No-op
+            for break-glass / MT-disabled (is_local_admin). Empty result is
+            indistinguishable from genuinely-not-found.
         @return: samples path(s) as list.
         """
         sizes = {
@@ -278,6 +296,25 @@ class SamplesMixIn:
             64: Sample.sha256,
             128: Sample.sha512,
         }
+
+        if visible_to is not None and not getattr(visible_to, "is_local_admin", False):
+            if task_id:
+                # A specific task_id must itself be visible to the caller. Checking
+                # only "any visible task for this sample" would leak whether ANOTHER
+                # tenant's task_id analyzed a sample the caller also has (an
+                # existence oracle) — so gate the task_id directly, then resolve
+                # its sample.
+                if not self.list_tasks(task_ids=[task_id], visible_to=visible_to, limit=1):
+                    return []
+                _samp = self.session.scalar(select(Sample).join(Task, Sample.id == Task.sample_id).where(Task.id == task_id))
+                if _samp is None:
+                    return []
+            elif sample_hash and sizes.get(len(sample_hash)):
+                _samp = self.session.scalar(select(Sample).where(sizes[len(sample_hash)] == sample_hash))
+                if _samp is None or not self.list_tasks(sample_id=_samp.id, visible_to=visible_to, limit=1):
+                    return []
+            else:
+                return []
 
         hashlib_sizes = {
             32: hashlib.md5,
@@ -381,9 +418,46 @@ class SamplesMixIn:
                             break
         return sample
 
-    def count_samples(self) -> int:
-        """Counts the amount of samples in the database."""
-        stmt = select(func.count(Sample.id))
+    def count_samples(self, scope=None, viewer=None) -> int:
+        """Counts the amount of samples in the database.
+
+        When scope/viewer are provided, counts distinct sample_ids referenced
+        by tasks visible in that scope — mirroring _scope_where's branch logic.
+        """
+        conds = [] if (scope is None and viewer is None) else self._scope_where(scope, viewer)
+
+        # Defense-in-depth: a non-break-glass viewer must NEVER receive an
+        # unscoped global count, even if a caller passes scope='global' — restrict
+        # to the samples referenced by tasks they may read. is_local_admin
+        # (break-glass, AND every principal when multitenancy is disabled — see
+        # viewer_for) keeps the unfiltered upstream count, so the public-install
+        # dashboard figure is unchanged. For the explicit public/tenant/mine
+        # panels this clause is a redundant superset that intersects to the same
+        # result; for a (mis)passed global scope it is the safety net.
+        from lib.cuckoo.common.tenancy import PUBLIC, TENANT
+
+        if viewer is not None and not viewer.is_local_admin:
+            vis = [Task.visibility == PUBLIC]
+            if viewer.user_id is not None:
+                vis.append(Task.user_id == viewer.user_id)
+            if viewer.tenant_id is not None:
+                vis.append(and_(Task.visibility == TENANT, Task.tenant_id == viewer.tenant_id))
+            conds.append(or_(*vis))
+
+        if not conds:
+            # No scope predicate (global / disabled / break-glass): count ALL
+            # samples exactly like upstream — count(Sample.id) includes parent-
+            # only/orphaned samples that the distinct-Task.sample_id branch drops,
+            # so the dashboard figure matches the pre-tenancy build.
+            return self.session.scalar(select(func.count(Sample.id)))
+
+        # Scope-aware: count distinct Task.sample_id values for tasks in scope.
+        stmt = (
+            select(func.count(distinct(Task.sample_id)))
+            .where(Task.sample_id.isnot(None))
+        )
+        for cond in conds:
+            stmt = stmt.where(cond)
         return self.session.scalar(stmt)
 
     def get_source_url(self, sample_id: int = None) -> Optional[str]:

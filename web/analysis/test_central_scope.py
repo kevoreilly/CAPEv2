@@ -56,6 +56,162 @@ def test_viewer_scope_fail_closed_on_runtime_error(monkeypatch):
         viewer_scope(object())
 
 
+def _matches(doc, flt):
+    """Minimal MongoDB-filter evaluator: $and / $or / dotted-key equality (None = null).
+    Lets the tests assert the SEMANTICS of central_analysis_query (which docs it returns)
+    rather than a brittle structural match."""
+    if "$and" in flt:
+        return all(_matches(doc, s) for s in flt["$and"])
+    if "$or" in flt:
+        return any(_matches(doc, s) for s in flt["$or"])
+    for key, want in flt.items():
+        cur = doc
+        for part in key.split("."):
+            cur = cur.get(part) if isinstance(cur, dict) else None
+        if cur != want:
+            return False
+    return True
+
+
+def test_central_analysis_query_bridged_authorizes(monkeypatch):
+    """Bridged task (RDS-derived job_id): key off unique info.job_id, but AUTHORIZE against the
+    viewer scope OR the authorized owner's not-yet-reconciled doc. The unstamped arm is constrained
+    to THIS task (info.id == task_id) so a forged job_id can't ride it to another task's doc."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-5")
+    scope = {"info.tenant_id": 10}
+    q = cv.central_analysis_query(7, scope=scope)
+    assert q == {"$and": [{"info.job_id": "ui-5"},
+                          {"$or": [scope, {"$and": [{"info.tenant_id": None}, {"info.id": 7}]}]}]}, q
+
+
+def test_central_analysis_query_forged_jobid_cannot_read_unstamped_cross_tenant(monkeypatch):
+    """Adversarial-review HIGH: attacker in tenant A forges the victim's job_id via their own
+    task's `custom`. The victim's doc is UNSTAMPED (tenant_id null, not-yet-reconciled) and belongs
+    to a DIFFERENT task (info.id=42) than the attacker's authorized task (999). The constrained
+    null arm (info.id == 999) must NOT match the victim doc -> no cross-tenant leak."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    q = cv.central_analysis_query(999, scope={"info.tenant_id": "A"})
+    victim = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None},
+              "signatures": ["victim-secret-behaviour"]}
+    assert not _matches(victim, q), "forged job_id read a different task's unstamped cross-tenant doc"
+
+
+def test_central_analysis_query_owner_unstamped_still_resolves(monkeypatch):
+    """No owner-lockout: the legit owner viewing their OWN not-yet-reconciled bridged task (doc
+    re-keyed to the central id, so info.id == task_id) still resolves via the constrained null arm."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    q = cv.central_analysis_query(42, scope={"info.tenant_id": "A"})
+    own = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}}
+    assert _matches(own, q), "owner locked out of their own not-yet-reconciled doc"
+
+
+def test_central_analysis_query_forged_jobid_stamped_denied(monkeypatch):
+    """Control: a forged job_id at another tenant's STAMPED doc fails the scope arm too."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    q = cv.central_analysis_query(999, scope={"info.tenant_id": "A"})
+    victim_stamped = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": "B"}}
+    assert not _matches(victim_stamped, q), "forged job_id read another tenant's stamped doc"
+
+
+def test_central_analysis_query_bridge_required_forged_jobid_blocked(monkeypatch):
+    """BRIDGE-REQUIRED (central+MT, the production config): the forged-job_id cross-tenant read must be
+    blocked HERE too, not only in the non-bridge branch. The own-unstamped arm is pinned to the authorized
+    task's info.id, so a forged custom=job_id=ui-<victim> can't ride the null arm to a DIFFERENT task's
+    unstamped doc. RED against the prior bridge-required arm ({info.job_id: jid, tenant null}) which reduced
+    to the forgeable tautology `info.tenant_id IS NULL`."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_bridge_required", lambda: True)
+    q = cv.central_analysis_query(999, scope={"info.tenant_id": "A"})
+    victim = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}, "signatures": ["victim-secret"]}
+    assert not _matches(victim, q), "forged job_id read a different task's unstamped doc (bridge-required)"
+
+
+def test_central_analysis_query_bridge_required_owner_unstamped_resolves(monkeypatch):
+    """BRIDGE-REQUIRED: no owner lockout -- the legit owner viewing their OWN not-yet-reconciled doc
+    (centralstore re-keys info.id to the central id, so info.id == task_id) still resolves via the pinned
+    null arm."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_bridge_required", lambda: True)
+    q = cv.central_analysis_query(42, scope={"info.tenant_id": "A"})
+    own = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}}
+    assert _matches(own, q), "owner locked out of their own not-yet-reconciled doc (bridge-required)"
+
+
+def test_central_analysis_query_bridged_no_scope_is_bare(monkeypatch):
+    """No scope (see-all / break-glass / MT-off): bare info.job_id, no restriction."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-5")
+    assert cv.central_analysis_query(7, scope=None) == {"info.job_id": "ui-5"}
+
+
+def test_central_analysis_query_nonbridged_is_scoped(monkeypatch):
+    """Non-bridged task (no RDS job_id): fall back to info.id ANDed with the viewer scope
+    (defence-in-depth against cross-store id collision)."""
+    import analysis.central_views as cv
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: None)
+    scope = {"info.tenant_id": 10}
+    assert cv.central_analysis_query(7, scope=scope) == {"$and": [{"info.id": 7}, scope]}
+
+
+def test_central_analysis_query_bridge_required_unstamped_arm_pins_jid_and_info_id(monkeypatch):
+    """When the bridge is required (central+MT), the own-not-yet-reconciled arm pins BOTH the globally-unique
+    info.job_id AND the authorized info.id (== task_id). info.id blocks a FORGED job_id from riding the null
+    arm to another task's unstamped doc (adversarial-review HIGH); the unique jid additionally blocks a
+    foreign non-bridged doc that merely collides on info.id. The owner's own unstamped bridged doc (re-keyed
+    so info.id == task_id) still resolves. (Was: jid-only, which reduced to the forgeable `tenant_id IS
+    NULL`.)"""
+    import analysis.central_views as cv
+    import lib.cuckoo.common.central_mode as cm
+    monkeypatch.setattr(cv, "central_job_id_for_task", lambda tid: "ui-42")
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
+    q = cv.central_analysis_query(42, scope={"info.tenant_id": "A"})
+    assert q == {"$and": [{"info.job_id": "ui-42"},
+                          {"$or": [{"info.tenant_id": "A"},
+                                   {"$and": [{"info.job_id": "ui-42"}, {"info.tenant_id": None}, {"info.id": 42}]}]}]}, q
+    # a foreign unstamped doc colliding on info.id (worker-local id == this central id) is NOT readable:
+    foreign = {"info": {"job_id": "local-42", "id": 42, "tenant_id": None}, "signatures": ["secret"]}
+    assert not _matches(foreign, q), "foreign unstamped info.id collision must not be readable when bridge-required"
+    own_unstamped = {"info": {"job_id": "ui-42", "id": 42, "tenant_id": None}}
+    assert _matches(own_unstamped, q), "owner's own not-yet-reconciled bridged doc still resolves"
+
+
+def test_central_job_id_nonnumeric_returns_none_silently(monkeypatch, caplog):
+    """Non-numeric task_id (filereport/full_memory \\w+ routes) is bad INPUT, not an RDS error:
+    int() resolves before the DB try -> None silently, no 'RDS lookup failed' log. Mirrors
+    _rds_job_id (the missing companion fix from 3fa6fdb8/576d8a95)."""
+    import logging
+    import analysis.central_views as cv
+
+    with caplog.at_level(logging.ERROR, logger=cv.log.name):
+        assert cv.central_job_id_for_task("abc") is None
+    assert not [r for r in caplog.records if "RDS lookup failed" in r.getMessage()], \
+        [r.getMessage() for r in caplog.records]
+
+
+def test_central_job_id_rds_error_is_logged(monkeypatch, caplog):
+    """A REAL RDS error (pool exhaustion/timeout) on a bridged task must be LOGGED (not swallowed),
+    so a bridged owner silently degraded to the scoped fallback leaves a signal. Mirrors _rds_job_id."""
+    import logging
+    import analysis.central_views as cv
+    import analysis.views as av
+
+    class _DB:
+        def view_task(self, tid):
+            raise RuntimeError("central RDS pool exhausted")
+
+    monkeypatch.setattr(av, "db", _DB(), raising=False)
+    with caplog.at_level(logging.ERROR, logger=cv.log.name):
+        assert cv.central_job_id_for_task(42) is None
+    assert any("RDS lookup failed" in r.getMessage() for r in caplog.records), \
+        [r.getMessage() for r in caplog.records]
+
+
 def test_viewer_can_view_sample_mt_layer_absent_is_true(monkeypatch):
     _hide(monkeypatch, "users.tenancy")
     assert viewer_can_view_sample(object(), sha256="abc") is True
@@ -83,3 +239,15 @@ def test_viewer_can_view_sample_fail_closed_on_runtime_error(monkeypatch):
     monkeypatch.setattr("users.tenancy.can_view_sample", boom)
     with pytest.raises(RuntimeError):
         viewer_can_view_sample(object(), sha256="abc")
+
+
+def test_viewer_scope_fail_closed_when_mt_enabled_but_dashboard_import_broken(monkeypatch):
+    """viewer_scope's ImportError arm must fail CLOSED (deny-all $match) when MT is enabled but
+    dashboard.views (or a dep) can't import -- not degrade the central collision-defense scope to
+    see-all (None). Same fail-open class closed in the tenancy_optional facade (f3494f98)."""
+    import analysis.central_scope as cs
+    _hide(monkeypatch, "dashboard.views")
+    monkeypatch.setattr("lib.cuckoo.common.tenancy_optional._mt_enabled", lambda: True)
+    assert cs.viewer_scope(object()) == {"_id": {"$in": []}}, "MT enabled + broken import must NOT see-all"
+    monkeypatch.setattr("lib.cuckoo.common.tenancy_optional._mt_enabled", lambda: False)
+    assert cs.viewer_scope(object()) is None, "MT genuinely absent -> single-tenant see-all"

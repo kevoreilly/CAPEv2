@@ -13,9 +13,12 @@ decorator stack (require_task_visibility, ratelimit, auth, …) has already run 
 relational task is authorized before we touch the central data plane. Single-node
 behavior is entirely in views.py and is never reached through this module.
 """
+import logging
 import os
 
 from django.shortcuts import render
+
+log = logging.getLogger(__name__)
 
 
 def central_job_id_for_task(task_id):
@@ -24,30 +27,31 @@ def central_job_id_for_task(task_id):
     the worker assigns its OWN local info.id (collides across workers), so the
     universal key for DocumentDB/S3 is info.job_id — NOT info.id. Returns None for a
     non-bridged task (caller falls back to info.id keying for seeded/single-node docs)."""
+    # Resolve int() BEFORE the DB try: a non-numeric id (the filereport/full_memory \w+
+    # routes) is bad INPUT, not an RDS error -- return None silently so it isn't logged as a
+    # DB failure below. Mirrors the sibling _rds_job_id (artifact_storage.py, fixed in 3fa6fdb8/
+    # 576d8a95); the two resolvers share job_id_from_custom and must not drift.
+    try:
+        tid = int(task_id)
+    except (TypeError, ValueError):
+        return None
     try:
         from analysis.views import db
-        t = db.view_task(int(task_id))
-        custom = getattr(t, "custom", None) if t else None
-        if custom:
-            # custom is comma-separated k=v pairs (matches centralstore.resolve_job_id);
-            # take ONLY the job_id= value, not everything to end-of-string — else a
-            # 'job_id=ui-5,foo=bar' custom yields 'ui-5,foo=bar' and never matches the
-            # S3 prefix / DocumentDB doc the artifacts were keyed under.
-            text = str(custom)
-            for part in text.split(","):
-                part = part.strip()
-                if part.startswith("job_id="):
-                    v = part.split("=", 1)[1].strip()
-                    if v:
-                        return v
-            # Bare-token form (custom is just the job id) — kept in sync with
-            # centralstore.resolve_job_id, which also accepts a bare token for non-bridged tasks.
-            token = text.strip()
-            if token and "=" not in token and "," not in token:
-                return token
+        from lib.cuckoo.common.artifact_storage import job_id_from_custom
+
+        t = db.view_task(tid)
+        # Shared parser (lib.cuckoo.common.artifact_storage.job_id_from_custom) so the
+        # web read seam and the lib staging resolver can't drift on the custom format
+        # (job_id=ui-5,foo=bar -> "ui-5"; bare token accepted for non-bridged tasks).
+        return job_id_from_custom(getattr(t, "custom", None) if t else None)
     except Exception:
-        pass
-    return None
+        # A genuine non-bridged task returns None WITHOUT an exception (job_id_from_custom).
+        # This except is a real RDS error (pool exhaustion / timeout) -- log it so a bridged
+        # OWNER silently degraded to the scoped info.id fallback (their own not-yet-reconciled
+        # doc lacks the unstamped arm there -> a brief owner-lockout during a DB blip) leaves a
+        # signal, not a mystery. Matches _rds_job_id's log.exception on the artifact path.
+        log.exception("central_job_id_for_task: RDS lookup failed for task %s; falling back to scoped resolution", tid)
+        return None
 
 
 def central_analysis_query(task_id, scope=None):
@@ -62,10 +66,164 @@ def central_analysis_query(task_id, scope=None):
     collide across workers) is ANDed with the viewer's `scope` (entitled_scope_filter)
     as defence-in-depth so a collision can't surface another tenant's doc (audit HIGH)."""
     jid = central_job_id_for_task(task_id)
-    q = {"info.job_id": jid} if jid else {"info.id": int(task_id)}
+    if jid:
+        # Bridged: key on the globally-unique info.job_id (RDS-derived from the authorized
+        # task's custom). But job_id comes from user-supplied `custom`, so it is NOT an
+        # unforgeable authz token — AUTHORIZE the resolved doc against the viewer scope OR the
+        # authorized owner's not-yet-reconciled doc. The unstamped arm (info.tenant_id null) MUST
+        # be constrained to THIS task (info.id == the decorator-authorized task_id): every doc is
+        # inserted unstamped and stamped later by the reconcile (and stranded on reconcile-skip),
+        # so an UNCONSTRAINED null arm lets a forged custom job_id (ui-<victimN>) read a DIFFERENT
+        # task's unstamped doc cross-tenant (adversarial-review HIGH). A bridged owner's doc is
+        # re-keyed to its central id, so info.id == task_id still resolves the legit owner; a forged
+        # job_id at another task's unstamped doc does not. A forged job_id -> another tenant's
+        # STAMPED doc fails the scope arm too. scope None (see-all/break-glass/MT-off) = unrestricted.
+        from lib.cuckoo.common.central_mode import central_bridge_required
+
+        q = {"info.job_id": jid}
+        if scope:
+            try:
+                if central_bridge_required():
+                    # BRIDGE-REQUIRED (central+MT): the own-not-yet-reconciled arm MUST be pinned to the
+                    # AUTHORIZED task (info.id == task_id). job_id alone here just repeats the outer
+                    # {info.job_id: jid} predicate -> the arm reduces to `info.tenant_id IS NULL`, and jid is
+                    # submitter-FORGEABLE (custom='job_id=ui-<victim>'), so a job_id-only null arm reads a
+                    # DIFFERENT task's UNSTAMPED doc cross-tenant (adversarial-review HIGH). Keep the unique
+                    # jid too so a foreign doc that merely collides on info.id can't ride the null arm either
+                    # -- a match now requires all three: the forged jid, a null tenant, AND our own info.id.
+                    _own_unstamped = {"$and": [{"info.job_id": jid}, {"info.tenant_id": None}, {"info.id": int(task_id)}]}
+                else:
+                    _own_unstamped = {"$and": [{"info.tenant_id": None}, {"info.id": int(task_id)}]}
+                q = {"$and": [q, {"$or": [scope, _own_unstamped]}]}
+            except (TypeError, ValueError):
+                q = {"$and": [q, scope]}  # non-numeric task id: drop the null arm (fail-closed)
+        return q
+    # BRIDGE-REQUIRED (central + MT): a non-bridged task has no tenant-isolated identity, and the artifact seam
+    # (_job_id_for_task) hard-denies its resolution for a tenant-scoped viewer -- so DENY the read too, rather
+    # than serve a scoped info.id lookup whose PUBLIC scope arm could still surface a foreign colliding doc
+    # (and, during an RDS blip where central_job_id_for_task returns None for a genuinely bridged task, would
+    # render the WRONG doc under the user's own task id). A never-match filter -> the reader gets a clean "no
+    # report", matching the artifact 404. scope None (see-all / break-glass / MT-off) is unaffected.
+    from lib.cuckoo.common.central_mode import central_bridge_required
+
+    if scope is not None and central_bridge_required():
+        return {"info.job_id": {"$in": []}}  # matches nothing (both seams now agree the doc is not visible)
+    # Non-bridged FALLBACK (seeded/single-node/worker-local docs): info.id can collide
+    # across workers, so AND the viewer scope as defence-in-depth against surfacing another
+    # tenant's colliding doc (audit HIGH: cross-store id collision).
+    q = {"info.id": int(task_id)}
     if scope:
         q = {"$and": [q, scope]}
     return q
+
+
+def scoped_analysis_query(request, task_id, extra=None):
+    """Central-mode-scoped Mongo filter for a per-task read of the shared 'analysis' collection.
+
+    Shared seam for report(), the apiv2 report-family, the web report-tab loaders, and the compare
+    seed reads. In central mode a colliding worker-local info.id (reconcile-skipped / direct-submit /
+    seeded doc) can shadow another tenant's central task id in the shared DocumentDB (audit HIGH
+    cross-store collision), so key on central_analysis_query -- which ANDs the viewer scope onto the
+    non-bridged info.id fallback. Single-node / non-central: the bare info.id (behaviour unchanged).
+    viewer_scope() fails CLOSED on a real resolution error, and this deliberately does NOT swallow
+    that into an unscoped read.
+
+    extra: additional AND constraints for reads that key on more than info.id (e.g.
+    {"behavior.processes.process_id": pid}); merged with $and so the scoped filter still targets the
+    right sub-document without dropping the collision defence.
+    """
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_scope import viewer_scope
+
+        q = central_analysis_query(task_id, scope=viewer_scope(request.user))
+    else:
+        q = {"info.id": int(task_id)}
+    return {"$and": [q, extra]} if extra else q
+
+
+_TENANT_UNSET = object()  # sentinel: distinguish "tenant not passed" (do a guarded view_task) from "tenant is None"
+
+
+def central_delete_analysis(request, task_id, tenant_id=_TENANT_UNSET):
+    """Delete a task's Mongo analysis + call chunks, tenant-scoped in central mode.
+
+    Single-node / non-central: delegates to the upstream mongo_delete_data(task_id) (unchanged).
+
+    Central mode: a colliding worker-local / direct-submit / reconcile-skipped doc for another tenant can
+    share this task's bare info.id (analysis) and task_id (calls) in the shared DocumentDB, so an unscoped
+    mongo_delete_data would DESTROY that tenant's docs (audit MEDIUM cross-tenant destructive write). Resolve
+    ONLY the caller's OWN doc via the SHARED, bridge-aware central_own_analysis_filter(task_id, tenant) --
+    ui-only ({info.job_id: ui-<task_id>} + tenant guard) under central+MT, or the three-arm {ui- OR info.id}
+    form single-node/MT-off -- the same filter the visibility-toggle write + the comment write use, so they
+    can't drift. It must NOT reuse the read viewer_scope (its
+    PUBLIC/TENANT arms match OTHER owners'/tenants' docs) NOR a forgeable custom job_id: keying on those let a
+    caller destroy any public/same-tenant analysis via custom='job_id=ui-<victim>' (adversarial-review HIGH).
+    The key is DERIVED from the authorized task_id (the caller already passed can_manage_task on it); the
+    tenant guard uses the TASK's own tenant. The apiv2 delete routes resolve that tenant WHILE the SQL row
+    exists and pass it as `tenant_id`, then call this AFTER the SQL + folder delete succeed (the Mongo delete
+    is immediate/non-transactional, so running it first would lose the report if delete_folder fails and the
+    SQL is rolled back). The web remove() caller likewise resolves the tenant while the SQL row exists and
+    passes tenant_id, deleting Mongo after its own commit; the _TENANT_UNSET guarded-view_task fallback remains
+    for any caller that omits it.
+    Delete the resolved doc by _id + its OWN call chunks by their ObjectIds (from behavior.processes[].calls),
+    never by the bare task_id (a colliding tenant's calls also carry it).
+
+    A 0-match is LOGGED (not silent): the SQL row + local tree are gone by the time the caller reports
+    "deleted", so a Mongo doc left behind (report not written yet, or a foreign-only collision the tenant
+    guard correctly excluded) must be surfaced rather than reported as a successful erasure.
+
+    Residuals (documented follow-ups): (1) a FOREIGN UNSTAMPED doc colliding on info.id is indistinguishable
+    from an own unstamped doc -- needs a node/store discriminator. (2) the upstream mongo_delete_data
+    'analysis' hook (remove_task_references_from_files) $pullAll's the bare task_id from the shared files
+    collection's backrefs; NOT run here (bare task_id would re-introduce the cross-tenant collision), leaving a
+    caller-side stale backref on the caller's OWN deleted task -- fail-safe; needs a tenant-qualified key."""
+    from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
+
+    if not central_mode_config().enabled:
+        from dev_utils.mongodb import mongo_delete_data
+
+        mongo_delete_data(task_id)
+        return
+
+    from dev_utils.mongodb import mongo_delete_many, mongo_find_one
+
+    try:
+        int(task_id)
+    except (TypeError, ValueError):
+        return  # non-numeric id: nothing to delete Mongo-side (caller still removes SQL + local tree)
+    # Resolve the task's own tenant for the guard. The Mongo delete is immediate + non-transactional, so the
+    # caller resolves the tenant WHILE the SQL row exists and passes it here to run the Mongo delete AFTER the
+    # SQL + folder delete succeed (else a delete_folder failure rolled back by DBTransactionMiddleware would
+    # destroy the report while the task survives). If tenant_id is left unset (the web remove() caller), fall
+    # back to a GUARDED view_task; an RDS failure fails closed (leave Mongo intact) rather than 500 mid-delete.
+    if tenant_id is _TENANT_UNSET:
+        try:
+            from lib.cuckoo.core.database import Database
+
+            _task = Database().view_task(task_id)
+            _mine = getattr(_task, "tenant_id", None) if _task else None
+        except Exception:
+            log.exception("central delete: tenant lookup failed for task %s; leaving Mongo unchanged", task_id)
+            return
+    else:
+        _mine = tenant_id
+    doc = mongo_find_one(
+        "analysis", central_own_analysis_filter(task_id, _mine), {"_id": 1, "behavior.processes.calls": 1})
+    if not doc:
+        # No own doc matched: report not written yet, or only a foreign colliding doc (correctly excluded).
+        # The SQL row + local tree are already gone, so surface the un-erased Mongo doc rather than silently
+        # reporting a successful deletion.
+        log.warning("central delete: no own analysis doc matched for task %s; Mongo side left unchanged "
+                    "(report not yet written, or a foreign colliding doc excluded by the tenant guard)", task_id)
+        return
+    call_ids = []
+    for proc in (doc.get("behavior") or {}).get("processes", []) or []:
+        call_ids.extend(proc.get("calls") or [])
+    if call_ids:
+        mongo_delete_many("calls", {"_id": {"$in": call_ids}})
+    mongo_delete_many("analysis", {"_id": doc["_id"]})
 
 
 def _task_sample_sha256(request, task_id):

@@ -49,7 +49,7 @@ except ImportError:  # pragma: no cover
 
 
 
-SCHEMA_VERSION = "2b3c4d5e6f7g"
+SCHEMA_VERSION = "3a1b_tenant_visibility"
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
@@ -185,6 +185,22 @@ class _Database(TasksMixIn,
                 engine_args["pool_pre_ping"] = True
             # A single, clean call to create the engine
             self.engine = create_engine(connection_string, **engine_args)
+
+            # Dedicated engine for per-task advisory locks (visibility toggles): a
+            # NullPool source kept OFF the shared app pool, so a lock held across a slow
+            # mongo round-trip can't exhaust it and stall unrelated DB work. Carries the
+            # SAME connect_args (e.g. postgres sslmode / client certs) so its
+            # connections match the app's DB connection policy. Postgres only — advisory
+            # locks are a no-op on sqlite (single-writer), so no lock engine is needed.
+            self.lock_engine = None
+            if url.drivername.startswith("postgresql"):
+                from sqlalchemy.pool import NullPool
+
+                self.lock_engine = create_engine(
+                    connection_string,
+                    poolclass=NullPool,
+                    connect_args=engine_args.get("connect_args", {}),
+                )
 
         except ImportError as e:  # pragma: no cover
             lib = e.message.rsplit(maxsplit=1)[-1]

@@ -1,0 +1,796 @@
+import pytest
+
+
+def _mk_task(category="file", target="x.exe"):
+    from lib.cuckoo.core.data.task import Task
+    t = Task(target=target)
+    t.category = category
+    return t
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_task_has_tenant_and_visibility(db):
+    from lib.cuckoo.core.data.task import Task
+    t = _mk_task()
+    t.user_id = 1
+    t.tenant_id = 10
+    t.visibility = "tenant"
+    db.session.add(t)
+    db.session.commit()
+    row = db.session.get(Task, t.id)
+    assert row.tenant_id == 10
+    assert row.visibility == "tenant"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_visibility_defaults_private(db):
+    from lib.cuckoo.core.data.task import Task
+    t = _mk_task()
+    db.session.add(t)
+    db.session.commit()
+    assert db.session.get(Task, t.id).visibility == "private"
+    assert db.session.get(Task, t.id).tenant_id is None
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_list_tasks_visible_filter(db):
+    from lib.cuckoo.common.tenancy import Viewer
+
+    def mk(owner, tenant, vis):
+        t = _mk_task()
+        t.user_id, t.tenant_id, t.visibility = owner, tenant, vis
+        db.session.add(t)
+        db.session.commit()
+        return t.id
+
+    pub = mk(1, 10, "public")
+    ten = mk(1, 10, "tenant")
+    priv = mk(1, 10, "private")
+    other = mk(3, 20, "tenant")
+
+    # viewer: member of tenant 10, not owner of priv
+    v = Viewer(user_id=2, tenant_id=10)
+    ids = {t.id for t in db.list_tasks(visible_to=v)}
+    assert pub in ids and ten in ids
+    assert priv not in ids        # private, not owner
+    assert other not in ids       # other tenant
+
+    # break-glass sees everything
+    allv = Viewer(user_id=9, tenant_id=None, is_superuser=True, is_local_admin=True)
+    allids = {t.id for t in db.list_tasks(visible_to=allv)}
+    assert {pub, ten, priv, other} <= allids
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_add_url_stamps_tenant_and_visibility(db):
+    from lib.cuckoo.core.data.task import Task
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    t = db.session.get(Task, tid)
+    assert t.tenant_id == 10
+    assert t.visibility == "tenant"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_add_url_defaults_private(db):
+    from lib.cuckoo.core.data.task import Task
+    tid = db.add_url("http://example.com")
+    assert db.session.get(Task, tid).visibility == "private"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_validates_enum(db):
+    """Defense-in-depth (M1): the DB setter rejects unknown levels so a bogus
+    value can never be persisted even if a caller skips the view-layer check."""
+    from lib.cuckoo.core.data.task import Task
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+
+    with pytest.raises(ValueError):
+        db.set_task_visibility(tid, "bogus")
+    # unchanged after the rejected write
+    assert db.session.get(Task, tid).visibility == "tenant"
+
+    # a valid level still works
+    assert db.set_task_visibility(tid, "public") is not None
+    assert db.session.get(Task, tid).visibility == "public"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_count_tasks_scope(db):
+    from lib.cuckoo.common.tenancy import Viewer
+
+    def mk(owner, tenant, vis):
+        t = _mk_task()
+        t.user_id, t.tenant_id, t.visibility = owner, tenant, vis
+        db.session.add(t)
+        db.session.commit()
+
+    mk(1, 10, "public")
+    mk(1, 10, "tenant")
+    mk(2, 10, "private")
+    mk(3, 20, "public")
+    v = Viewer(user_id=2, tenant_id=10)
+    assert db.count_tasks(scope="public", viewer=v) == 2     # the two public ones
+    assert db.count_tasks(scope="tenant", viewer=v) == 1     # tenant-vis in tenant 10
+    assert db.count_tasks(scope="mine", viewer=v) == 1       # owner==2
+    assert db.count_tasks(scope="global", viewer=v) == 4     # break-glass / no filter
+
+    # the other scope-aware methods apply the same filter / execute cleanly
+    assert sum(db.get_tasks_status_count(scope="public", viewer=v).values()) == 2
+    assert sum(db.get_tasks_status_count(scope="global", viewer=v).values()) == 4
+    assert db.minmax_tasks(scope="mine", viewer=v) is not None      # runs scoped, returns a tuple
+    assert isinstance(db.count_samples(scope="tenant", viewer=v), int)  # scoped distinct-sample count
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_count_matching_tasks_visible_filter(db):
+    """Pagination counts must apply the SAME visibility filter as the listing,
+    or the page totals leak other tenants' submission volumes (and produce
+    empty pages). count_matching_tasks(visible_to=) must agree with list_tasks."""
+    from lib.cuckoo.common.tenancy import Viewer
+
+    def mk(owner, tenant, vis):
+        t = _mk_task()
+        t.user_id, t.tenant_id, t.visibility = owner, tenant, vis
+        db.session.add(t)
+        db.session.commit()
+
+    mk(1, 10, "public")
+    mk(1, 10, "tenant")
+    mk(1, 10, "private")
+    mk(3, 20, "tenant")
+
+    v = Viewer(user_id=2, tenant_id=10)  # tenant-10 member, not owner of the private one
+    # the page count must equal the number of rows actually listed for that viewer
+    assert db.count_matching_tasks(visible_to=v) == len(db.list_tasks(visible_to=v, limit=100000))
+    # and it must be strictly fewer than the unfiltered total (private + other-tenant hidden)
+    assert db.count_matching_tasks(visible_to=v) < db.count_matching_tasks()
+    # break-glass counts everything, same as no filter
+    allv = Viewer(user_id=9, tenant_id=None, is_local_admin=True)
+    assert db.count_matching_tasks(visible_to=allv) == db.count_matching_tasks()
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_get_tasks_status_count_scoped_to_visible(db):
+    """get_tasks_status_count(visible_to=) must sum to the same count as
+    count_matching_tasks(visible_to=) over a mixed dataset, and be strictly
+    less than the unfiltered total (cross-tenant counts must not leak)."""
+    from lib.cuckoo.common.tenancy import Viewer
+
+    def mk(owner, tenant, vis):
+        t = _mk_task()
+        t.user_id, t.tenant_id, t.visibility = owner, tenant, vis
+        db.session.add(t)
+        db.session.commit()
+
+    mk(1, 10, "public")    # visible to tenant-10 member
+    mk(1, 10, "tenant")    # visible to tenant-10 member
+    mk(1, 10, "private")   # not visible (owner=1, not viewer)
+    mk(3, 20, "tenant")    # other tenant, not visible
+
+    v = Viewer(user_id=2, tenant_id=10)
+
+    # sum of the scoped status dict must equal count_matching_tasks with the same filter
+    scoped_sum = sum(db.get_tasks_status_count(visible_to=v).values())
+    assert scoped_sum == db.count_matching_tasks(visible_to=v)
+
+    # and it must be strictly less than the global unfiltered total
+    assert scoped_sum < sum(db.get_tasks_status_count().values())
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_syncs_mongo(db, monkeypatch):
+    calls = []
+    import lib.cuckoo.core.data.tasking as tk
+    # Sync only runs when mongo is the enabled report store; force it on for the test.
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+
+    def _rec(*a, **k):
+        calls.append((a, k))
+        return object()  # UpdateResult stand-in — a successful update returns non-None
+
+    monkeypatch.setattr(tk, "mongo_update_one", _rec, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")
+    assert calls and calls[-1][0][0] == "analysis"  # updated the analysis collection
+
+
+def test_set_task_visibility_raises_on_persistent_mongo_failure(db, monkeypatch):
+    """Finding #10: on the RESTRICTIVE path (public->private, mongo-first) a persistent
+    mongo-sync failure must be surfaced (raised), not swallowed — else a stale public
+    stamp after a private toggle silently keeps the analysis cross-tenant visible in
+    the aggregate/search/stats surfaces. mongo's graceful_auto_reconnect wrapper
+    swallows AutoReconnect/ServerSelectionTimeoutError and RETURNS None (no re-raise)
+    when mongo stays down, so model that real path (a None return), NOT a raw
+    exception — the latter would never exercise the bug."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: None, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="public")
+    with pytest.raises(CuckooOperationalError):
+        db.set_task_visibility(tid, "private")
+    # SQL rolled back to the previous value so the two stores can't diverge.
+    from lib.cuckoo.core.data.task import Task
+    assert db.session.get(Task, tid).visibility == "public"
+
+
+def test_set_task_visibility_reverts_mongo_when_sql_commit_fails(db, monkeypatch):
+    """RESTRICTIVE path (public->private, mongo-first): if the SQL commit fails AFTER a
+    successful mongo sync, mongo would be left MORE RESTRICTIVE than the un-committed
+    SQL — the setter must best-effort revert the mongo stamp to the previous value and
+    raise, so the two stores stay consistent."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    calls = []
+
+    def _rec(coll, q, upd, *a, **k):
+        calls.append(upd["$set"]["info.visibility"])
+        return object()  # UpdateResult stand-in (success)
+
+    monkeypatch.setattr(tk, "mongo_update_one", _rec, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="public")
+
+    # make ONLY the new-value commit inside set_task_visibility fail (add_url above
+    # already committed the task with the real commit).
+    orig_commit = db.session.commit
+    state = {"boom": True}
+
+    def _commit():
+        if state["boom"]:
+            state["boom"] = False
+            raise RuntimeError("transient SQL commit failure")
+        return orig_commit()
+
+    monkeypatch.setattr(db.session, "commit", _commit)
+
+    with pytest.raises(CuckooOperationalError):
+        db.set_task_visibility(tid, "private")
+
+    # forward sync to 'private', then a best-effort revert back to 'public'
+    assert calls == ["private", "public"]
+
+
+def test_set_task_visibility_syncs_ownership_not_just_visibility(db, monkeypatch):
+    """A visibility toggle re-stamps info.tenant_id/user_id (not just visibility), so a
+    doc orphaned by a crash between the reporter's fail-closed insert and its reconcile
+    (unowned: tenant_id/user_id null) is repaired on the next toggle instead of becoming
+    {visibility: tenant, tenant_id: null} — which matches no viewer scope."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    captured = {}
+    monkeypatch.setattr(
+        tk, "mongo_update_one",
+        lambda coll, q, upd, *a, **k: captured.update(upd["$set"]) or object(), raising=False,
+    )
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="private")
+    task = db.session.get(tk.Task, tid)
+
+    assert db.set_task_visibility(tid, "public") is not None
+    assert captured["info.visibility"] == "public"
+    assert captured["info.tenant_id"] == task.tenant_id == 10   # ownership synced, not just visibility
+    assert captured["info.user_id"] == task.user_id
+
+
+def test_set_task_visibility_permissive_commits_sql_before_mongo(db, monkeypatch):
+    """Codex P1: a MORE-permissive change (private->public) must make SQL durable
+    BEFORE publishing the mongo stamp — so a crash / concurrent aggregate in the
+    window can never see mongo more permissive than committed SQL. A mongo publish
+    lag must NOT roll back the durable, authorized SQL change."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.core.data.task import Task
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    order = []
+    # publish "lags" (returns None) AND records that it ran after the commit
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: order.append("mongo") or None, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="private")
+
+    orig_commit = db.session.commit
+
+    def _commit():
+        order.append("commit")
+        return orig_commit()
+
+    monkeypatch.setattr(db.session, "commit", _commit)
+
+    # a permissive change must NOT raise on a mongo lag (SQL is authoritative + durable)
+    assert db.set_task_visibility(tid, "public") is not None
+    assert order[:2] == ["commit", "mongo"]  # SQL durable BEFORE mongo published
+    db.session.expire_all()
+    assert db.session.get(Task, tid).visibility == "public"  # durable despite mongo lag
+
+
+def test_set_task_visibility_permissive_sql_fail_never_publishes_mongo(db, monkeypatch):
+    """A permissive change whose SQL commit fails must raise and NEVER publish the
+    mongo stamp — nothing becomes more permissive if SQL didn't commit."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    mongo_calls = []
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: mongo_calls.append(a) or object(), raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="private")
+
+    orig_commit = db.session.commit
+    state = {"boom": True}
+
+    def _commit():
+        if state["boom"]:
+            state["boom"] = False
+            raise RuntimeError("transient SQL commit failure")
+        return orig_commit()
+
+    monkeypatch.setattr(db.session, "commit", _commit)
+
+    with pytest.raises(CuckooOperationalError):
+        db.set_task_visibility(tid, "public")
+    assert mongo_calls == []  # never published the more-permissive stamp
+
+
+def test_set_task_visibility_skips_sync_when_mongo_disabled(db, monkeypatch):
+    """When mongo is NOT the report store, the toggle must succeed without any sync
+    attempt (so an ES/no-mongo install isn't broken by the sync path)."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: False, raising=False)
+
+    def _boom(*a, **k):
+        raise AssertionError("mongo_update_one must not be called when mongo is disabled")
+
+    monkeypatch.setattr(tk, "mongo_update_one", _boom, raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    assert db.set_task_visibility(tid, "public") is not None
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_reschedule_propagates_tenant_visibility(db):
+    """reschedule()/recovery must carry the source task's owner/tenant/visibility
+    to the new task — otherwise rescheduled or startup-recovered tasks fall back
+    to add() defaults (user_id=0, tenant_id=None, visibility='private') and the
+    original tenant's job silently leaves its scope (invisible to everyone but
+    break-glass in locked mode)."""
+    from lib.cuckoo.core.data.task import Task
+
+    tid = db.add_url("http://example.com", user_id=5, tenant_id=10, visibility="tenant")
+    new_tid = db.reschedule(tid)
+    assert new_tid and new_tid != tid
+    new = db.session.get(Task, new_tid)
+    assert new.user_id == 5
+    assert new.tenant_id == 10
+    assert new.visibility == "tenant"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_count_samples_global_matches_unscoped(db):
+    """B-extra-2 back-compat: count_samples(scope='global', viewer=...) must equal
+    the unscoped count(Sample.id) — the global/empty-scope branch must NOT switch
+    to distinct(Task.sample_id) (which drops orphan/parent-only samples and drifts
+    the dashboard figure from upstream)."""
+    from lib.cuckoo.common.tenancy import Viewer
+
+    def mk(owner, tenant, vis):
+        t = _mk_task()
+        t.user_id, t.tenant_id, t.visibility = owner, tenant, vis
+        db.session.add(t)
+        db.session.commit()
+
+    mk(1, 10, "public")
+    mk(2, 10, "private")
+    v = Viewer(user_id=9, tenant_id=None, is_local_admin=True)
+    assert db.count_samples(scope="global", viewer=v) == db.count_samples()
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_count_samples_nonadmin_global_is_restricted(db):
+    """#6 review (defense-in-depth): a non-break-glass viewer must NOT receive an
+    unscoped global sample count even if a caller passes scope='global' — the
+    count is restricted to samples referenced by tasks they may read. Break-glass
+    (is_local_admin) still gets the unfiltered count (back-compat)."""
+    from lib.cuckoo.common.tenancy import Viewer
+
+    def mk(owner, tenant, vis, sid):
+        t = _mk_task()
+        t.user_id, t.tenant_id, t.visibility, t.sample_id = owner, tenant, vis, sid
+        db.session.add(t)
+        db.session.commit()
+
+    mk(1, 10, "public", 100)    # visible to a tenant-10 viewer (public)
+    mk(5, 10, "tenant", 101)    # visible (same tenant, tenant-visibility)
+    mk(5, 10, "private", 102)   # hidden (private, not owner)
+    mk(7, 20, "private", 103)   # hidden (other tenant)
+
+    tenant_v = Viewer(user_id=2, tenant_id=10)               # non-admin (is_local_admin=False)
+    admin_v = Viewer(user_id=9, tenant_id=None, is_local_admin=True)
+
+    # non-admin: global scope is restricted to the 2 visible sample_ids (100,101)
+    assert db.count_samples(scope="global", viewer=tenant_v) == 2
+    # break-glass: unfiltered — sees all 4 distinct sample_ids referenced
+    assert db.count_samples(scope="mine", viewer=admin_v) >= 0  # smoke: scoped path runs
+    # the non-admin global count must be strictly fewer than all distinct sample_ids
+    assert db.count_samples(scope="global", viewer=tenant_v) < 4
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_check_file_uniq_scoped_even_with_hours_zero(db):
+    """#10 review (security-high): the duplicate check must be tenant-scoped for
+    ALL hours values — incl. hours=0 (all-time) — else it's a cross-tenant
+    existence oracle. A tenant-B-only private hash must read 'not duplicate' for a
+    tenant-A viewer; break-glass still sees it."""
+    from lib.cuckoo.core.data.samples import Sample
+    from lib.cuckoo.common.tenancy import Viewer
+
+    h = "d" * 64
+    s = Sample(md5="d" * 32, crc32="0000", sha1="d" * 40, sha256=h, sha512="d" * 128, file_size=1, file_type="x")
+    db.session.add(s)
+    db.session.commit()
+    t = _mk_task()
+    t.user_id, t.tenant_id, t.visibility, t.sample_id = 999, 20, "private", s.id  # tenant-B private
+    db.session.add(t)
+    db.session.commit()
+
+    tenant_a = Viewer(user_id=2, tenant_id=10)               # non-admin, other tenant
+    admin = Viewer(user_id=9, tenant_id=None, is_local_admin=True)
+
+    # hours=0 (all-time) MUST be scoped: A cannot observe B's private hash
+    assert db.check_file_uniq(h, hours=0, visible_to=tenant_a) is False
+    assert db.check_file_uniq(h, hours=24, visible_to=tenant_a) is False
+    # break-glass sees it (no-op); also the unscoped call (no viewer) preserves legacy behavior
+    assert db.check_file_uniq(h, hours=0, visible_to=admin) is True
+    assert db.check_file_uniq(h, hours=0) is True
+
+
+def test_advisory_lock_noop_without_lock_engine():
+    """No-op when there is no lock engine (non-Postgres / sqlite is single-writer):
+    _advisory_lock returns None and issues no SQL."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    assert tk._advisory_lock(None, 7) is None
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_sqlite_database_has_no_lock_engine(db):
+    """On sqlite the Database builds NO dedicated lock engine (advisory locks are a
+    no-op there), so set_task_visibility runs its unserialized-but-single-writer path."""
+    assert getattr(db, "lock_engine", "missing") is None
+
+
+def test_advisory_lock_uses_dedicated_engine_connection_on_postgres():
+    """The concurrent-toggle lock must be taken on a DEDICATED connection from the
+    dedicated lock ENGINE (NullPool, off the app pool), NOT the pooled ORM session
+    (re-entrant/leak across the mid-method commit). The SAME connection is locked,
+    unlocked, and closed."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    events = []
+
+    class _Conn:
+        def execute(self, stmt, params=None):
+            events.append(("execute", str(stmt), params))
+
+        def close(self):
+            events.append(("close", None, None))
+
+        def invalidate(self):
+            events.append(("invalidate", None, None))
+
+    the_conn = _Conn()
+
+    class _LockEngine:  # the dedicated NullPool lock engine (Database.lock_engine)
+        def connect(self):
+            events.append(("connect", None, None))
+            return the_conn
+
+    conn = tk._advisory_lock(_LockEngine(), 42)
+    assert conn is the_conn                      # dedicated connection from the lock engine
+    tk._advisory_unlock(conn, 42)
+
+    assert [e[0] for e in events] == ["connect", "execute", "execute", "close"]
+    assert "pg_advisory_lock" in events[1][1] and events[1][2] == {"k": 42}    # lock on that conn
+    assert "pg_advisory_unlock" in events[2][1] and events[2][2] == {"k": 42}  # unlock on the SAME conn
+
+
+def test_advisory_lock_fails_closed_on_acquire_failure():
+    """Pool/connection exhaustion must FAIL CLOSED (raise), never return None and
+    proceed unserialized (which would reopen the concurrent-toggle race)."""
+    import pytest as _pytest
+    import lib.cuckoo.core.data.tasking as tk
+
+    class _BoomEngine:
+        def connect(self):
+            raise RuntimeError("pool exhausted")
+
+    with _pytest.raises(RuntimeError):
+        tk._advisory_lock(_BoomEngine(), 7)
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_fails_closed_when_lock_unavailable(db, monkeypatch):
+    """If the serialization lock can't be acquired (Postgres pool exhausted) the toggle
+    must fail CLOSED (raise), never proceed unserialized."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.common.exceptions import CuckooOperationalError
+
+    def _boom(session, key):
+        raise RuntimeError("pool exhausted")
+
+    monkeypatch.setattr(tk, "_advisory_lock", _boom)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="public")
+    with pytest.raises(CuckooOperationalError):
+        db.set_task_visibility(tid, "private")
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_central_keys_on_derived_unique_jobid_ignoring_forged_custom(db, monkeypatch):
+    """Central mode: the visibility/ownership write keys on the task's OWN doc via the SHARED, globally-unique,
+    DERIVED bridge key info.job_id='ui-<task_id>' (central_own_analysis_filter) -- NEVER read from the
+    forgeable task.custom. A caller who forges custom='job_id=ui-<victim>' cannot relabel/re-own another
+    tenant's doc: the key is derived from the authorized id, so the forged value never reaches the filter."""
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.core.data.task import Task
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": True})())
+    calls = []
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: (calls.append(a), object())[1], raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    t = db.session.get(Task, tid)
+    t.custom = "job_id=ui-999999"  # FORGED: a victim's job id, not this task's own
+    db.session.commit()
+    db.set_task_visibility(tid, "public")
+    # The own-doc arms are DERIVED from tid (ui-<tid> / info.id==tid, job_id-qualified); the 'local-<tid>' arm
+    # requires our tenant stamp so a foreign UNSTAMPED collision can't be re-owned (see the excludes-foreign
+    # tests). The forged custom 'ui-999999' never reaches the filter.
+    assert calls[-1][1] == {"$and": [
+        {"$or": [
+            {"info.job_id": f"ui-{tid}"},
+            {"$and": [{"info.id": tid}, {"info.job_id": {"$in": [None, f"ui-{tid}"]}}]},
+            {"$and": [{"info.id": tid}, {"info.job_id": f"local-{tid}"}, {"info.tenant_id": 10}]},
+        ]},
+        {"$or": [{"info.tenant_id": None}, {"info.tenant_id": 10}]},
+    ]}, calls[-1]
+    assert "ui-999999" not in str(calls[-1][1]), "forged custom must not reach the write filter"
+
+
+def _mongo_matches(doc, flt):
+    """Minimal Mongo filter evaluator ($and/$or/$in/dotted-key equality; None matches a missing field) --
+    so the visibility filter can be asserted at the DOCUMENT level, not just by shape."""
+    if "$and" in flt:
+        return all(_mongo_matches(doc, s) for s in flt["$and"])
+    if "$or" in flt:
+        return any(_mongo_matches(doc, s) for s in flt["$or"])
+    for key, want in flt.items():
+        cur = doc
+        for part in key.split("."):
+            cur = cur.get(part) if isinstance(cur, dict) else None
+        if isinstance(want, dict) and "$in" in want:
+            if cur not in want["$in"]:
+                return False
+        elif cur != want:
+            return False
+    return True
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_central_filter_matches_own_excludes_foreign(db, monkeypatch):
+    """DOC-LEVEL: {ui-<tid> OR info.id==tid} AND unstamped-or-own matches the caller's OWN doc in every shape
+    (bridged 'ui-<tid>', non-bridged/direct-submit 'local-<tid>' via the info.id arm, and not-yet-stamped),
+    and EXCLUDES a FOREIGN doc STAMPED for another tenant even when it collides on info.id or carries a forged
+    'ui-<tid>' key, and any different task's doc. (Documented residual: a foreign UNSTAMPED doc colliding on
+    info.id is indistinguishable from an own unstamped doc -- needs a node/store discriminator.)"""
+    import lib.cuckoo.core.data.tasking as tk
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": True})())
+    captured = {}
+    monkeypatch.setattr(tk, "mongo_update_one",
+                        lambda *a, **k: (captured.__setitem__("f", a[1]), object())[1], raising=False)
+    tid = db.add_url("http://x.example", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")
+    f = captured["f"]
+    # own doc, every shape, matches:
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged must match"
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": 10}}, f), \
+        "own direct-submit (local-<tid>, stamped) must match via the info.id arm"
+    assert _mongo_matches({"info": {"id": tid, "tenant_id": None}}, f), "own not-yet-stamped must match"
+    # foreign docs STAMPED for another tenant are excluded by the unstamped-or-own guard:
+    assert not _mongo_matches({"info": {"id": tid, "job_id": f"local-{tid}", "tenant_id": 77}}, f), \
+        "another tenant's colliding direct-submit doc must NOT match"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": 77}}, f), \
+        "a foreign doc with a forged ui-<tid> key stamped for another tenant must NOT match"
+    # a different task's doc (different info.id AND job_id) is excluded outright:
+    assert not _mongo_matches({"info": {"id": 424242, "job_id": "ui-424242", "tenant_id": None}}, f), \
+        "a different task's bridged doc must NOT match"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_single_node_keys_on_info_id(db, monkeypatch):
+    """Single-node / non-central: unchanged bare info.id filter."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": False})())
+    calls = []
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: (calls.append(a), object())[1], raising=False)
+    tid = db.add_url("http://example.com", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")
+    assert calls and calls[-1][1] == {"info.id": tid}, calls[-1]
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_fails_closed_when_central_mode_probe_raises(db, monkeypatch):
+    """If the central_mode config read RAISES, the write must NOT drop to the unscoped bare {info.id} filter
+    (a fail-open that could re-own a colliding foreign doc on a central node). Fail closed: use the
+    constrained own-doc filter -- so a foreign worker-local / other-tenant doc still can't be matched."""
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+
+    def _boom():
+        raise RuntimeError("config layer broke")
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config", _boom)
+    captured = {}
+    monkeypatch.setattr(tk, "mongo_update_one",
+                        lambda *a, **k: (captured.__setitem__("f", a[1]), object())[1], raising=False)
+    tid = db.add_url("http://x.example", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")
+    f = captured["f"]
+    assert f != {"info.id": tid}, "must NOT fall back to the unscoped bare filter"
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged must match"
+    assert not _mongo_matches({"info": {"id": 424242, "job_id": "ui-424242", "tenant_id": None}}, f), \
+        "a different task's doc must NOT match even when the mode probe failed"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_central_import_failure_still_fails_closed(db, monkeypatch):
+    """[LOW] If the lib.cuckoo.common.central_mode IMPORT itself fails (not just the config call), the except
+    arm must NOT re-run the failed import (that would raise ImportError out of _sync_mongo, leaving the SQL
+    toggle un-reverted): it derives the same {ui OR info.id} + own filter INLINE. The toggle completes and the
+    write is still scoped (never the unscoped bare {info.id})."""
+    import sys
+    import types
+    import lib.cuckoo.core.data.tasking as tk
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    # A broken central_mode module: importing central_mode_config / central_own_analysis_filter raises.
+    broken = types.ModuleType("lib.cuckoo.common.central_mode")
+    monkeypatch.setitem(sys.modules, "lib.cuckoo.common.central_mode", broken)
+    captured = {}
+    monkeypatch.setattr(tk, "mongo_update_one",
+                        lambda *a, **k: (captured.__setitem__("f", a[1]), object())[1], raising=False)
+    tid = db.add_url("http://x.example", tenant_id=10, visibility="tenant")
+    db.set_task_visibility(tid, "public")  # must NOT raise
+    f = captured["f"]
+    assert f != {"info.id": tid}, "import failure must still fail closed to the scoped filter, not bare info.id"
+    assert _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": None}}, f), "own bridged still matches"
+    assert not _mongo_matches({"info": {"id": tid, "job_id": f"ui-{tid}", "tenant_id": 77}}, f), \
+        "the inline fallback keeps the tenant guard"
+
+
+def test_central_own_analysis_filter_excludes_foreign_tenant(monkeypatch):
+    """The shared helper's tenant guard: a doc STAMPED for another tenant (even with the matching ui- key or a
+    colliding info.id) is excluded, so a $set can't relabel/re-own it (adversarial-review MED)."""
+    import lib.cuckoo.common.central_mode as cm
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: False)  # pin the non-bridge (3-arm) shape
+    central_own_analysis_filter = cm.central_own_analysis_filter
+    f = central_own_analysis_filter(42, 10)  # our task 42, our tenant 10
+    assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 10}}, f)
+    assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": None}}, f)      # unstamped own
+    assert not _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 77}}, f), \
+        "a doc owned by tenant 77 must NOT be matched by tenant-10's own-doc filter"
+    assert not _mongo_matches({"info": {"id": 42, "job_id": "local-42", "tenant_id": 77}}, f)
+
+
+def test_central_own_analysis_filter_excludes_foreign_unstamped_collision(monkeypatch):
+    """Adversarial-review HIGH regression: Mongo's {tenant_id: null} equality ALSO matches docs where the field
+    is ABSENT, and every doc is inserted unstamped -- so a bare {info.id} arm ANDed with only a null-or-ours
+    guard would re-admit a FOREIGN worker-local doc colliding on info.id to the destructive delete / re-owning
+    $set. The 'local-<tid>' arm therefore requires OUR tenant stamp, so a foreign UNSTAMPED 'local-<tid>' doc
+    (the exact case the guard test deleted in a3df16c8 stopped covering) is excluded and the caller's own doc
+    is the sole match. (Residual: a foreign doc with info.job_id ABSENT still passes the not-yet-keyed arm --
+    that transient window needs the info.origin_id data-model fix.)"""
+    import lib.cuckoo.common.central_mode as cm
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: False)  # pin the non-bridge (3-arm) shape
+    central_own_analysis_filter = cm.central_own_analysis_filter
+    f = central_own_analysis_filter(42, 10)                          # our task 42, our tenant 10
+    foreign_unstamped = {"info": {"id": 42, "job_id": "local-42"}}   # tenant 77's doc, not yet reconciled
+    assert not _mongo_matches(foreign_unstamped, f), \
+        "a foreign UNSTAMPED colliding 'local-<tid>' doc must NOT be selectable by the own-doc filter"
+    own = {"info": {"id": 42, "job_id": "ui-42", "tenant_id": 10}}
+    assert [d for d in (own, foreign_unstamped) if _mongo_matches(d, f)] == [own], \
+        "the filter must select EXACTLY the caller's own doc, so a single-doc find_one/update_one is unambiguous"
+
+
+def test_central_bridge_required(monkeypatch):
+    """central_bridge_required() = central_mode.enabled AND MT enabled. Off unless BOTH hold."""
+    import lib.cuckoo.common.central_mode as cm
+    import lib.cuckoo.common.tenancy_optional as topt
+    monkeypatch.setattr(cm, "central_mode_config", lambda: type("C", (), {"enabled": False})())
+    monkeypatch.setattr(topt, "_mt_enabled", lambda: True)
+    assert cm.central_bridge_required() is False                 # central off -> never
+    monkeypatch.setattr(cm, "central_mode_config", lambda: type("C", (), {"enabled": True})())
+    assert cm.central_bridge_required() is True                  # central + MT -> required
+    monkeypatch.setattr(topt, "_mt_enabled", lambda: False)
+    assert cm.central_bridge_required() is False                 # central, MT off -> not required
+
+
+def test_own_filter_bridge_required_is_ui_only(monkeypatch):
+    """Option A: when the bridge is required (central+MT), the own-doc filter is ui-only -- the ambiguous
+    info.id arms are dropped, so a foreign UNSTAMPED collision (incl. a doc with info.job_id ABSENT) is fully
+    excluded; only a globally-unique bridged 'ui-<tid>' own doc matches."""
+    import lib.cuckoo.common.central_mode as cm
+    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
+    f = cm.central_own_analysis_filter(42, 10)
+    assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 10}}, f), "own bridged matches"
+    assert _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": None}}, f), "own unstamped bridged matches"
+    assert not _mongo_matches({"info": {"id": 42}}, f), "job_id-absent collision excluded (the residual)"
+    assert not _mongo_matches({"info": {"id": 42, "job_id": "local-42"}}, f), "foreign unstamped local excluded"
+    assert not _mongo_matches({"info": {"id": 42, "job_id": "ui-42", "tenant_id": 77}}, f), "foreign tenant excluded"
+
+
+class _ZeroMatch:  # UpdateResult-like: well-formed write that addressed no document
+    matched_count = 0
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_set_task_visibility_zero_match_commits_and_warns(db, monkeypatch, caplog):
+    """A central 0-match on the unique derived key means the report is not written yet -- the reconcile stamps
+    it from the authoritative SQL value on report -- so a RESTRICTIVE toggle must NOT abort: it warns and SQL
+    commits. (The unique key can't have MISSED an existing own doc, so there is nothing left more-permissive
+    than SQL; a genuine driver failure -> mongo_update_one returns None -> False -> abort, covered elsewhere.)"""
+    import logging
+    import lib.cuckoo.core.data.tasking as tk
+    from lib.cuckoo.core.data.task import Task
+
+    monkeypatch.setattr(tk, "_mongo_reporting_enabled", lambda: True, raising=False)
+    monkeypatch.setattr("lib.cuckoo.common.central_mode.central_mode_config",
+                        lambda: type("C", (), {"enabled": True})())
+    monkeypatch.setattr(tk, "mongo_update_one", lambda *a, **k: _ZeroMatch(), raising=False)
+    tid = db.add_url("http://x.example", tenant_id=10, visibility="public")
+    with caplog.at_level(logging.WARNING):
+        db.set_task_visibility(tid, "private")  # RESTRICTIVE
+    assert db.session.get(Task, tid).visibility == "private", "0-match must commit (SQL authoritative)"
+    assert any("not yet written" in r.getMessage() for r in caplog.records), "0-match must be surfaced (warned)"
+
+
+@pytest.mark.usefixtures("tmp_cuckoo_root")
+def test_add_preserves_client_custom_verbatim(db):
+    """add() must NOT scrub a job_id from custom: it is the shared ingest for external submissions AND the
+    broker's own legit delivery (dispatcher POSTs /tasks/create with custom='job_id=ui-<tid>') AND internal
+    re-submitters (reschedule/dist/gcp copy task.custom). add() no longer consults central_mode_config, so
+    there is no mode to vary -- custom round-trips verbatim, and the containment for the forms below lives in
+    the consumer (centralstore.resolve_job_id), not here (see test_resolve_job_id_only_honours_first_position)."""
+    from lib.cuckoo.core.data.task import Task
+    tid = db.add_url("http://x.example", custom="job_id=ui-999,foo=bar")
+    assert db.session.get(Task, tid).custom == "job_id=ui-999,foo=bar"  # broker delivery relies on it
+
+    # Forms that EVADE the bridge's prefix-anchored LIKE 'job_id=%' filter but that resolve_job_id must not
+    # honour -- they round-trip through add() by design; containment is the consumer's job.
+    tid2 = db.add_url("http://y.example", custom="foo=bar,job_id=ui-999")
+    assert db.session.get(Task, tid2).custom == "foo=bar,job_id=ui-999"
+    tid3 = db.add_url("http://z.example", custom="ui-999")
+    assert db.session.get(Task, tid3).custom == "ui-999"
+
+
+def test_resolve_job_id_only_honours_first_position_and_rejects_bare_ui():
+    """centralstore.resolve_job_id is the consumer that turns `custom` into the job_id keying info.job_id /
+    the info.id rewrite / the S3 prefix / the pre-insert delete. It must agree with the bridge's
+    prefix-anchored `custom NOT LIKE 'job_id=%'` enqueue filter: honour job_id= ONLY in the first position
+    (what the dispatcher sends) and NEVER a bare 'ui-<N>' -- else a client custom that evades the filter
+    ('foo=bar,job_id=ui-<victim>' / bare 'ui-<victim>') would still steer to a foreign id."""
+    from modules.reporting.centralstore import resolve_job_id
+    # legitimate broker delivery -> honoured
+    assert resolve_job_id("job_id=ui-42", 7) == "ui-42"
+    # filter-evading forms -> NOT honoured, fall back to local-<analysis_id>
+    assert resolve_job_id("foo=bar,job_id=ui-999999", 7) == "local-7"   # job_id= not first position
+    assert resolve_job_id("ui-999999", 7) == "local-7"                  # bare ui-<N> reserved form
+    assert resolve_job_id(" job_id=ui-999999", 7) == "local-7"          # leading space -> raw prefix parity
+    # a bare NON-ui token is still the direct-submission fallback
+    assert resolve_job_id("local-7", 7) == "local-7"
+    assert resolve_job_id("campaign-x", 7) == "campaign-x"
+    assert resolve_job_id("", 7) == "local-7"

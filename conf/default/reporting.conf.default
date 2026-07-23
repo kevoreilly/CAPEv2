@@ -236,3 +236,12 @@ enabled = no
 # MUST be done in conf/gcp.conf. This section only controls the enabled state.
 enabled = no
 
+# Central mode: ship the analysis tree to shared object storage (S3/compatible or a
+# shared mount) and stamp the central job_id onto the report. This module is a
+# PREREQUISITE for central mode -- with it disabled, [central_mode] is non-functional
+# (no artifacts uploaded, info.job_id never stamped, info.id never rewritten to the
+# central task id, and the visibility reconcile has no job_id to key on). Storage
+# targets are configured under [central_mode] in conf/cuckoo.conf. Leave disabled on a
+# standard single-node install.
+[centralstore]
+enabled = no

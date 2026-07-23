@@ -8,6 +8,7 @@ config. Validated live on a CAPE box; the branch/seam logic here is the unit-tes
 """
 import logging
 import os
+import re
 from collections import OrderedDict
 
 from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -43,35 +44,173 @@ _JOB_ID_CACHE = OrderedDict()  # most-recently-used at the end
 _JOB_ID_CACHE_MAX = 1024
 
 
+# A resolved job_id becomes the object-store container prefix ("<s3_prefix>/<job_id>/") on both the S3 and
+# the local-mount backends, so it MUST be path-safe: an alnum-anchored charset with no ".." (a value like
+# "..", ".foo" or "../../etc" could otherwise collapse the prefix to a parent ref and, on the local mount,
+# escape the results tree to read arbitrary host files). This is the canonical guard shared by the read seam
+# (job_id_from_custom below, applied at the single parse choke point) AND the write seam
+# (centralstore.CentralStore.run imports _is_safe_job_id from here) so the two can never drift.
+_SAFE_JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+
+
+def _is_safe_job_id(job_id):
+    # isinstance guard, not bool(): a non-str info.job_id (e.g. an int written by a second/legacy writer of the
+    # shared collection -- the exact threat _store_and_container cites) would make re.match raise TypeError, and
+    # a TypeError is not Http404 so the central_views except-Http404 handlers would miss it (-> 500). Return
+    # False for any non-str so the caller raises a clean Http404 instead.
+    return isinstance(job_id, str) and _SAFE_JOB_ID_RE.match(job_id) is not None and ".." not in job_id
+
+
+def job_id_from_custom(custom):
+    """Parse the broker job_id out of a task's RDS `custom` field. THE single parser shared by the WRITE
+    consumer (centralstore.resolve_job_id) and the READ/DELETE consumers (central_views.central_job_id_for_task
+    -> central_analysis_query / central_delete_analysis) so they can't drift. Pure (no DB).
+
+    Anchored to match the submit-bridge's `custom NOT LIKE 'job_id=%'` enqueue filter so a client `custom`
+    that evades the (out-of-tree) filter can't steer the job_id (which keys info.job_id, the info.id rewrite,
+    the S3 prefix, and the pre-insert/scoped delete): honour 'job_id=' ONLY as the RAW first comma-field
+    prefix -- SQL LIKE tests the RAW column, so do NOT .strip() before the prefix test (else ' job_id=...'
+    would evade the filter yet resolve here) -- and NEVER a bare 'ui-<N>' (the bridge's reserved central-id
+    form, which no direct submitter produces). A bare NON-ui token is the direct-submission fallback.
+
+    The resolved value is ALSO required to be _is_safe_job_id: it becomes the store container prefix, so a
+    path-unsafe custom (e.g. '../../etc') is rejected HERE -> return None -> the caller falls back to the
+    scoped info.id lookup (read) / 'local-<id>' (write), never a container-escaping prefix. (Defence in depth:
+    _store_and_container ALSO validates the resolved job_id, covering the mongo-fallback path too.) A rejected
+    PROBE-SHAPED candidate is logged so a job_id-seam probe stays greppable; a bare free-text `custom` (a
+    documented free-form field, so a note like 'my sample run' is not a job_id attempt) is only logged at
+    debug -- else every artifact read of a non-bridged task would re-warn on the operator's own note.
+    Returns the job_id or None."""
+    if not custom:
+        return None
+    text = str(custom)
+    first = text.split(",", 1)[0]  # RAW first field (no strip -> matches LIKE 'job_id=%' anchoring)
+    if first.startswith("job_id="):
+        v = first.split("=", 1)[1].strip()
+        if v and _is_safe_job_id(v):
+            return v
+        if v:
+            # An explicit 'job_id=' with an unsafe value is a deliberate attempt (probe/misconfig) -> warn.
+            log.warning("central: ignoring path-unsafe job_id=%r in submitted custom (probe or misconfig)", v)
+    token = text.strip()
+    if token and "=" not in token and "," not in token and not re.match(r"^ui-\d+$", token):
+        if _is_safe_job_id(token):
+            return token
+        # A bare token that LOOKS like a path/job_id attempt (contains '..' or '/') is warned so a seam probe
+        # stays greppable -- keyed on the traversal markers, NOT on whitespace (the token is already .strip()ed,
+        # so only interior whitespace remains and an attacker controls that: '../../etc x' must still warn).
+        # `custom` is free-text, so a note WITHOUT those markers is not a probe -> debug (no per-read spam; this
+        # resolver runs on every central artifact read). Either way the value is rejected (returns None).
+        if ".." in token or "/" in token:
+            log.warning("central: ignoring path-unsafe bare job_id token %r in submitted custom", token)
+        else:
+            log.debug("central: bare custom %r is not a job_id (free-text note); using scoped fallback", token)
+    return None
+
+
+def _rds_job_id(task_id):
+    """The AUTHORIZED job_id from the RDS task row's custom field — RDS-derived (no mongo
+    id-lookup), so it's collision-free AND independent of the tenancy reconcile (custom is
+    stamped by the submit-bridge, present even when info.tenant_id/visibility aren't yet).
+    None for a non-bridged task (caller falls back to the scoped info.id lookup)."""
+    # Resolve int() BEFORE the DB try: a non-numeric id (the filereport/full_memory \w+
+    # routes) is bad INPUT, not an RDS error — return None silently so it doesn't get
+    # mislabeled as a DB failure in the log below (the fallback's own int() 404s it).
+    try:
+        tid = int(task_id)
+    except (TypeError, ValueError):
+        return None
+    try:
+        from lib.cuckoo.core.database import Database
+
+        t = Database().view_task(tid)
+        return job_id_from_custom(getattr(t, "custom", None) if t else None)
+    except Exception:
+        # A genuine non-bridged task returns None WITHOUT an exception (job_id_from_custom).
+        # This except is a real RDS error (pool exhaustion / timeout) — log it so a bridged
+        # OWNER silently degraded to the scoped info.id fallback (and possibly 404'd on their
+        # own artifact during a DB blip) leaves a signal, not a mystery.
+        log.exception("_rds_job_id: RDS lookup failed for task %s; falling back to scoped resolution", tid)
+        return None
+
+
 def _job_id_for_task(task_id, scope=None):
     """Central mode keys the store by the global job_id (the broker passes it in custom,
     stamped into info.job_id at reporting; centralstore re-keys info.id to the unique
-    central task id). Resolve task_id -> job_id via mongo.
+    central task id). Resolve task_id -> job_id.
 
-    `scope` is the requesting viewer's tenant filter (e.g. entitled_scope_filter):
-    info.id is a per-worker sequence and collides across workers in a central
-    deployment, so the lookup is ANDed with the viewer's scope to guarantee the
-    resolved doc is one the viewer may actually see — not another tenant's analysis
-    that happens to share the numeric id (audit HIGH: cross-store id collision)."""
+    PREFER the RDS-derived job_id (_rds_job_id) to identify WHICH doc, then AUTHORIZE it
+    per-call against the viewer scope: callers gate can_view_task on the RDS task, but the
+    job_id itself comes from the task's user-supplied `custom` — so it is NOT an
+    unforgeable authorization token. The doc it resolves to must be in the viewer's `scope`
+    OR unstamped (info.tenant_id null = authorized owner's not-yet-reconciled doc). A forged
+    custom job_id pointing at another tenant's STAMPED doc fails that check -> Http404. Only
+    the RDS task_id->job_id MAPPING is cached (scope-independent); the authorization is
+    re-checked every call. A NON-bridged task (no RDS job_id) falls back to the scoped
+    info.id lookup (never cached across scopes — cross-store id collision, audit HIGH)."""
     from dev_utils.mongodb import mongo_find_one
     from django.http import Http404
 
-    # Only the unscoped (see-all / MT-absent / break-glass) path is cache-safe — see the note on
-    # _JOB_ID_CACHE. A present scope is authorization-sensitive, so never cache/serve it.
-    use_cache = not scope
-    if use_cache:
-        cached = _JOB_ID_CACHE.get(str(task_id))
-        if cached is not None:
-            _JOB_ID_CACHE.move_to_end(str(task_id))  # mark most-recently-used
-            return cached
+    # Resolve the candidate job_id. ONLY the RDS-derived mapping is cached: it's scope-
+    # INDEPENDENT (from the task's own custom), so serving it to any viewer is safe as long
+    # as the per-call authorization below still runs. The non-bridged info.id fallback is
+    # scope-sensitive, so it is never cached / served cross-scope.
+    jid = _JOB_ID_CACHE.get(str(task_id))
+    if jid is not None:
+        try:
+            _JOB_ID_CACHE.move_to_end(str(task_id))  # mark MRU; another thread may have evicted it
+        except KeyError:
+            pass
+    else:
+        jid = _rds_job_id(task_id)
+        if jid:
+            _JOB_ID_CACHE[str(task_id)] = jid
+            try:
+                _JOB_ID_CACHE.move_to_end(str(task_id))
+                if len(_JOB_ID_CACHE) > _JOB_ID_CACHE_MAX:
+                    _JOB_ID_CACHE.popitem(last=False)  # evict LRU
+            except KeyError:
+                pass
 
-    # filereport/full_memory routes capture task_id/analysis_number as \w+ (not \d+),
-    # so a non-numeric segment must raise Http404 (the views catch it -> clean error),
-    # not an uncaught ValueError -> HTTP 500.
+    if jid:
+        # Per-call AUTHORIZATION (not cached — scope-sensitive). scope None = see-all /
+        # break-glass / MT-off -> no restriction. Else the doc for this job_id must be in scope
+        # OR be the authorized owner's not-yet-reconciled doc. The unstamped arm (info.tenant_id
+        # null) MUST be constrained to THIS task (info.id == the decorator-authorized task_id):
+        # every doc is inserted unstamped and stamped later (and stranded on reconcile-skip), so an
+        # UNCONSTRAINED null arm lets a forged custom job_id (ui-<victimN>) read a DIFFERENT task's
+        # unstamped doc + its S3 artifacts cross-tenant (adversarial-review HIGH). A bridged owner's
+        # doc is re-keyed to its central id, so info.id == task_id resolves the legit owner; a forged
+        # job_id at another task's unstamped doc does not. A forged job_id -> a STAMPED doc fails the
+        # scope arm too -> Http404.
+        if scope is not None:
+            try:
+                _own_unstamped = {"$and": [{"info.tenant_id": None}, {"info.id": int(task_id)}]}
+                authq = {"$and": [{"info.job_id": jid}, {"$or": [scope, _own_unstamped]}]}
+            except (TypeError, ValueError):
+                authq = {"$and": [{"info.job_id": jid}, scope]}  # non-numeric task id: no null arm
+            if not mongo_find_one("analysis", authq, {"_id": 1}):
+                raise Http404("task not visible")
+        return jid
+
+    # Non-bridged fallback: info.id can collide across workers, so AND the viewer scope
+    # (defence-in-depth, audit HIGH). NOT cached — a scope-specific resolution must never be
+    # served to a different-scope caller.
+    # filereport/full_memory routes capture task_id as \w+ (not \d+), so a non-numeric
+    # segment must raise Http404 (views catch it -> clean error), not an uncaught ValueError.
     try:
         tid = int(task_id)
     except (TypeError, ValueError):
         raise Http404("invalid task id")
+    # BRIDGE-REQUIRED (central+MT): a non-bridged task has no RDS-derived ui- job_id and no tenancy by
+    # construction, so a tenant-scoped viewer has no tenant-safe non-bridged artifact — deny rather than fall
+    # through to the info.id lookup (whose scope arm could still surface a foreign PUBLIC non-bridged doc that
+    # collides on info.id). scope None (see-all / break-glass / MT-off) is unaffected.
+    if scope is not None:
+        from lib.cuckoo.common.central_mode import central_bridge_required
+
+        if central_bridge_required():
+            raise Http404("no bridged job_id for task")
     query = {"info.id": tid}
     if scope:
         query = {"$and": [query, scope]}
@@ -80,12 +219,6 @@ def _job_id_for_task(task_id, scope=None):
     job_id = ((doc or {}).get("info") or {}).get("job_id")
     if not job_id:
         raise Http404("no job_id mapping for task")
-
-    if use_cache:
-        _JOB_ID_CACHE[str(task_id)] = job_id
-        _JOB_ID_CACHE.move_to_end(str(task_id))
-        if len(_JOB_ID_CACHE) > _JOB_ID_CACHE_MAX:
-            _JOB_ID_CACHE.popitem(last=False)  # evict least-recently-used
     return job_id
 
 
@@ -93,11 +226,20 @@ def _store_and_container(task_id, scope=None):
     """Return (ArtifactStore, container) for an analysis. Single-node: the local-FS store
     over storage/analyses, container=<task_id>. Central: the configured backend (S3/local
     mount), container="<s3_prefix>/<job_id>" (raises Http404 if the job_id can't resolve)."""
+    from django.http import Http404
+
     cfg = central_mode_config()
     store, is_central = get_artifact_store(cfg)
     if not is_central:
         return store, str(task_id)
-    return store, f"{cfg.s3_prefix}/{_job_id_for_task(task_id, scope)}"
+    jid = _job_id_for_task(task_id, scope)
+    # The job_id becomes the container prefix. job_id_from_custom already rejects a path-unsafe RDS custom, but
+    # the mongo-fallback branch of _job_id_for_task returns info.job_id straight from the doc -- validate HERE
+    # too so a hostile value (e.g. from a second/legacy writer of the shared collection) can't escape the
+    # results tree on the local-mount backend. Both read-seam return paths thus funnel through one guard.
+    if not _is_safe_job_id(jid):
+        raise Http404("invalid job id")
+    return store, f"{cfg.s3_prefix}/{jid}"
 
 
 def artifact_response(task_id, relpath, content_type, filename, chunk=8192, scope=None):
@@ -194,17 +336,20 @@ def ensure_local_analysis(task_id, scope=None, exclude_prefixes=("memory/", "mem
         log.warning("central mode: failed to stage analysis %s: %s", task_id, e)
 
 
-def ensure_local_memory(task_id, scope=None):
-    """Central mode: stage the memory dumps (the memory/ per-process subtree AND the root
-    memory.dmp[.zip/.strings] full-RAM image) — which ensure_local_analysis EXCLUDES from the
-    bulk stage because they are large — to the local analysis dir, on EXPLICIT demand (the
-    memory-download endpoints). Idempotent per-file; not marker-gated. Best-effort (a clean Http404
-    propagates so the view 404s; other errors are swallowed)."""
+def ensure_local_memory(task_id, scope=None, include_full_ram=True):
+    """Central mode: stage the memory dumps (the memory/ per-process subtree AND, when include_full_ram, the
+    root memory.dmp[.zip/.strings] full-RAM image) — which ensure_local_analysis EXCLUDES from the bulk stage
+    because they are large — to the local analysis dir, on EXPLICIT demand (the memory-download endpoints).
+    include_full_ram=False stages ONLY the per-process memory/ subtree: the procmemory endpoints serve
+    per-process dumps, so they must not pull the multi-GB root full-RAM image onto the web node (that image
+    is gated separately by [taskfullmemory] and served only by tasks_fullmemory). Idempotent per-file; not
+    marker-gated. Best-effort (a clean Http404 propagates so the view 404s; other errors are swallowed)."""
     cfg = central_mode_config()
     if not cfg.enabled:
         return
     try:
-        _stage_tree(task_id, scope, want=lambda rel: rel.startswith("memory/") or rel.startswith("memory.dmp"))
+        _stage_tree(task_id, scope, want=lambda rel: rel.startswith("memory/") or (
+            include_full_ram and rel.startswith("memory.dmp")))
     except Exception as e:
         from django.http import Http404
 

@@ -63,6 +63,11 @@ web_conf = Config("web")
 dist_conf = Config("distributed")
 gcp_conf = Config("gcp")
 main_server_name = dist_conf.distributed.get("main_server_name", "master")
+# Cap on how many times a failed worker-cleanup delete is re-queued before it is dropped (with a log).
+# Bounds the window in which a STALE re-queued delete could fire against a re-provisioned worker (worker
+# task ids are node-local autoincrements + id reuse on re-setup is supported) and delete a fresh task's
+# row/analyses. ~10 attempts x the 20s cleaner cadence ≈ a few minutes of retry, then give up.
+CLEANER_MAX_RETRIES = 10
 
 HAVE_GCP = False
 if gcp_conf.samples_pubsub.enabled:
@@ -331,7 +336,9 @@ def _delete_many(node, ids, nodes, db):
         db (object): The database connection object to perform rollback in case of failure.
 
     Returns:
-        None
+        bool: True if the node's tasks were deleted (or the node is the main server / already gone),
+        False on a transport error, non-200, or a per-id partial failure. The CALLER owns the session
+        outcome (mark deleted / re-queue) -- _delete_many never rolls back the shared session itself.
 
     Raises:
         Exception: If there is an error during the deletion process.
@@ -342,7 +349,7 @@ def _delete_many(node, ids, nodes, db):
         Critical: Logs the error message if an exception occurs during the deletion process.
     """
     if nodes[node].name == main_server_name:
-        return
+        return True
     try:
         url = urljoin(nodes[node].url, "tasks/delete_many/")
         apikey = nodes[node].apikey
@@ -353,14 +360,37 @@ def _delete_many(node, ids, nodes, db):
             headers={"Authorization": f"Token {apikey}"},
             data={"ids": ids, "delete_mongo": False},
             verify=False,
+            # BOUNDED timeout (connect, read): without it a frozen/half-open worker (accepts the TCP
+            # connection, never responds) blocks this POST FOREVER -- so `return False` never fires, the
+            # re-queue/retry path never runs, and one wedged node stalls disk-reclamation for EVERY node
+            # (cron_cleaner hangs; the Retriever cleaner thread stalls before its next drain). A timeout
+            # raises requests.exceptions.Timeout -> caught below -> return False -> the resilience path engages.
+            timeout=(10, 120),
         )
-        if res and res.status_code != 200:
-            log.info("%d - %s", res.status_code, res.content)
-            db.rollback()
+        # `if res` is falsy for any non-2xx (requests.Response.__bool__ is self.ok), so a 4xx/5xx from
+        # delete_many used to be invisible here. Report success/FAILURE to the CALLER (do NOT roll back the
+        # shared session ourselves -- a session-wide rollback in a multi-node sweep reverts the OTHER nodes'
+        # progress; the caller scopes the failure to this node / re-queues its ids).
+        if res is None or res.status_code != 200:
+            log.warning("[REMOVE] %-15s ==> non-200 %s: %s", nodes[node].name,
+                        getattr(res, "status_code", "no-response"), getattr(res, "content", b"")[:200])
+            return False
+        # delete_many answers HTTP 200 even on a per-id failure; a GENUINE failure sets error=True /
+        # status=partial_error (NOT an idempotent 'not exists', which stays error-absent). Surface that so
+        # the caller doesn't mark those tasks deleted and retries them on the next sweep.
+        try:
+            _body = res.json()
+        except Exception:
+            _body = {}
+        if isinstance(_body, dict) and _body.get("error") is True:
+            log.warning("[REMOVE] %-15s ==> partial failure (%s): %s", nodes[node].name,
+                        _body.get("status"), {k: v for k, v in _body.items() if v in ("error", "deleted_orphan_report")})
+            return False
+        return True
 
     except Exception as e:
         log.warning("Error deleting task (tasks #%s, node %s): %s", ids, nodes[node].name, e)
-        db.rollback()
+        return False
 
 
 def node_submit_task(task_id, node_id, main_task_id, db=None):
@@ -612,6 +642,7 @@ class Retriever(threading.Thread):
         self.cleaner_queue = queue.Queue()
         self.fetcher_queue = queue.Queue()
         self.t_is_none = {}
+        self.cleaner_retries = {}  # (node_id, task_id) -> failed-cleanup attempt count; bounds the re-queue
         self.status_count = {}
         self.current_queue = {}
         self.current_two_queue = {}
@@ -1084,7 +1115,29 @@ class Retriever(threading.Thread):
                 node = nodes[node_id]
                 if node and details.get(node_id):
                     ids = ",".join(list(set(details[node_id])))
-                    _delete_many(node_id, ids, nodes, db)
+                    if not _delete_many(node_id, ids, nodes, db):
+                        # The ids were consumed off the queue with .get() and this session has no writes to
+                        # roll back, so a failed sweep would silently LOSE them (the worker's analyses/ leak).
+                        # Re-queue so a frozen/down node's cleanup is retried on the next pass -- but BOUND it:
+                        # retrying a stale (node_id, task_id) forever risks deleting a FRESH task after the
+                        # worker is re-provisioned (node-local ids are reused). Drop (with a log) after
+                        # CLEANER_MAX_RETRIES. Re-queue as int (details holds numeric strings) to match the
+                        # int the t_is_none bookkeeping + original enqueue sites use.
+                        for _tid in details[node_id]:
+                            key = (node_id, int(_tid) if str(_tid).isdigit() else _tid)
+                            attempts = self.cleaner_retries.get(key, 0) + 1
+                            if attempts >= CLEANER_MAX_RETRIES:
+                                log.warning("[REMOVE] giving up on task %s @ node %s after %d failed cleanup "
+                                            "attempts (worker down/re-provisioned?)", _tid, node_id, attempts)
+                                self.cleaner_retries.pop(key, None)
+                            else:
+                                self.cleaner_retries[key] = attempts
+                                self.cleaner_queue.put(key)
+                    else:
+                        # Node cleanup succeeded -> clear any retry counters for its ids so the cap is per
+                        # sustained-failure streak, not lifetime.
+                        for _tid in details[node_id]:
+                            self.cleaner_retries.pop((node_id, int(_tid) if str(_tid).isdigit() else _tid), None)
             db.commit()
             db.close()
             time.sleep(20)
@@ -1789,60 +1842,131 @@ def cron_cleaner(clean_x_hours=False):
         notified and created within the last `clean_x_hours` hours.
 
     The method performs the following steps:
-    1. Checks if the cleaner is already running by looking for a PID file at "/tmp/dist_cleaner.pid".
-    2. If the cleaner is not running, it creates a PID file to indicate that it is running.
+    1. Acquires a single-instance advisory lock via flock() on CUCKOO_ROOT/log/dist_cleaner.pid; if another
+       cleaner already holds it, returns without running this sweep (the kernel releases the lock on death by
+       any means, so there is no stale-lock recovery to do).
+    2. The lockfile is PERSISTENT BY DESIGN and is NOT deleted on exit -- exclusion is the flock on the inode,
+       not the file's presence, and unlinking it would let a concurrent starter lock a fresh inode at the
+       same path (two cleaners). Do not `rm` it; its contents (the pid) are informational only.
     3. Connects to the database and retrieves all nodes.
     4. Depending on the `clean_x_hours` argument, it retrieves tasks that need to be cleaned up.
-    5. Marks the retrieved tasks as deleted and groups them by node.
-    6. Deletes the tasks from the nodes.
-    7. Commits the changes to the database and closes the connection.
-    8. Deletes the PID file to indicate that the cleaner has finished running.
+    5. Deletes the tasks from each node, marking them deleted per node ONLY on that node's success.
+    6. Commits the changes to the database and closes the connection.
+    7. Releases the flock (closes the fd) in a finally; the lockfile stays on disk for the next run.
     """
     """Method that runs forever"""
 
-    # Check if we are not runned
-    if path_exists("/tmp/dist_cleaner.pid"):
-        log.info("we running")
-        sys.exit()
+    # Single-instance lock via flock (advisory, held on an open fd for the process lifetime). The kernel
+    # releases it AUTOMATICALLY when this process dies by ANY means -- normal exit, exception, SIGTERM/
+    # SIGKILL, OOM -- so there is no stale-pidfile / recycled-PID / check-then-create-race class (the
+    # presence-only + os.kill liveness heuristics we replaced kept re-exposing those). Do NOT unlink the
+    # file on exit (see the finally): flock locks the INODE but exclusion is checked via the PATH, so
+    # unlinking orphans the locked inode and a concurrent starter can lock a FRESH inode at the same path
+    # -> two cleaners. A persistent lockfile is harmless -- its pid content is informational; the flock,
+    # not the file, is authoritative. O_NOFOLLOW + 0600 so a symlink planted at the /tmp path can't
+    # redirect the open where fs.protected_symlinks is off.
+    import errno
+    import fcntl
+    import pwd
 
-    pid = open("/tmp/dist_cleaner.pid", "wb")
-    pid.write(b"")
-    pid.close()
+    # The lock lives in the SERVICE-OWNED log dir, NOT world-writable /tmp. In sticky /tmp with Ubuntu's
+    # default fs.protected_regular=2 the kernel refuses to open a not-owned regular file, and DAC refuses a
+    # foreign 0600 file, so a lockfile ever created there by another user (e.g. a one-off `sudo ... -ec`)
+    # would wedge every cape run. CUCKOO_ROOT/log is created + owned by the cape service (same dir as
+    # dist.log), so it's cape-openable. O_NOFOLLOW + 0600 defends the open against a planted symlink.
+    _lock_dir = os.path.join(CUCKOO_ROOT, "log")
+    if not path_exists(_lock_dir):
+        path_mkdir(_lock_dir)
+    _lock_path = os.path.join(_lock_dir, "dist_cleaner.pid")
+    try:
+        _lock_fd = os.fdopen(os.open(_lock_path, os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600), "r+")
+    except OSError as _oe:
+        _hint = ""
+        if getattr(_oe, "errno", None) in (errno.EACCES, errno.EPERM):
+            try:
+                _st = os.stat(_lock_path)
+            except OSError:
+                # EACCES/EPERM from the DIRECTORY (log/ pre-created root-owned/unsearchable) with NO
+                # lockfile yet: os.stat raises FileNotFoundError, so don't advise removing a nonexistent
+                # file -- point at the lock-dir ownership/permissions, which is the actual blocker.
+                _hint = f" -- check ownership/permissions of {_lock_dir} (lockfile absent; create refused)"
+            else:
+                try:
+                    _owner = pwd.getpwuid(_st.st_uid).pw_name
+                except Exception:
+                    _owner = str(_st.st_uid)
+                _hint = f" -- lockfile is owned by {_owner!r}, not this service user; remove {_lock_path} to recover"
+        log.error("dist_cleaner: cannot open lockfile %s (%s)%s; skipping this run", _lock_path, _oe, _hint)
+        return
+    try:
+        fcntl.flock(_lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        # Contention: another cleaner holds the lock. RETURN (do NOT sys.exit): with -ec, __main__ continues
+        # into StatusThread/Retriever/app.run after cron_cleaner, so exiting here would take down the whole
+        # dist server for a startup-contention window instead of just skipping this one sweep.
+        log.info("dist_cleaner already running (flock held); skipping this run")
+        _lock_fd.close()
+        return
+    except OSError as _le:
+        # Environmental flock failure (ENOLCK/EIO) -- NOT contention. Don't mislabel it as "already running"
+        # or silently disable; log the real cause and skip this run (next cron retries).
+        log.error("dist_cleaner: flock unavailable (%s); skipping this run", _le)
+        _lock_fd.close()
+        return
+    _lock_fd.seek(0)
+    _lock_fd.truncate()
+    _lock_fd.write(str(os.getpid()))
+    _lock_fd.flush()
 
-    db = session()
-    nodes = {}
-    details = {}
+    db = None
+    try:
+        db = session()
+        nodes = {}
 
-    for node in db.scalars(select(Node)):
-        nodes.setdefault(node.id, node)
+        for node in db.scalars(select(Node)):
+            nodes.setdefault(node.id, node)
 
-    # Allow force cleanup notificated but for some reason not deleted even when it set to deleted
-    if clean_x_hours:
-        stmt = (
-            select(Task)
-            .where(Task.notificated.is_(True), Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
-            .order_by(Task.id.desc())
-        )
-    else:
-        stmt = select(Task).where(Task.notificated.is_(True), Task.deleted.is_(False)).order_by(Task.id.desc())
-    tasks = db.scalars(stmt)
-    if tasks is not None:
-        for task in tasks:
-            node = nodes[task.node_id]
-            if node:
-                details.setdefault(node.id, []).append(str(task.task_id))
-                task.deleted = True
+        # Allow force cleanup notificated but for some reason not deleted even when it set to deleted
+        if clean_x_hours:
+            stmt = (
+                select(Task)
+                .where(Task.notificated.is_(True), Task.clock >= datetime.now() - timedelta(hours=clean_x_hours))
+                .order_by(Task.id.desc())
+            )
+        else:
+            stmt = select(Task).where(Task.notificated.is_(True), Task.deleted.is_(False)).order_by(Task.id.desc())
+        tasks = db.scalars(stmt)
+        if tasks is not None:
+            # Group the task OBJECTS per node (do NOT set deleted=True yet) so a failing node's rollback can't
+            # revert the healthy nodes' progress -- the flag is set per node ONLY after that node's delete_many
+            # succeeds. A node that fails leaves its tasks deleted=False -> re-selected next sweep; other nodes
+            # are unaffected (was: deleted=True set for ALL nodes up front + one session-wide rollback wiped them).
+            node_tasks = {}
+            for task in tasks:
+                node = nodes[task.node_id]
+                if node:
+                    node_tasks.setdefault(node.id, []).append(task)
 
-        for node in details:
-            if node and not details[node]:
-                continue
+            for node_id, tlist in node_tasks.items():
+                if not tlist:
+                    continue
+                ids = ",".join(str(t.task_id) for t in tlist)
+                if _delete_many(node_id, ids, nodes, db):
+                    for t in tlist:
+                        t.deleted = True
 
-            ids = ",".join(details[node])
-            _delete_many(node, ids, nodes, db)
-
-    db.commit()
-    db.close()
-    path_delete("/tmp/dist_cleaner.pid")
+        db.commit()
+    finally:
+        if db is not None:
+            db.close()
+        # Release the lock + close the fd (the kernel would also release on death). Do NOT unlink the
+        # lockfile: unlinking orphans the flock'd inode and lets a concurrent starter lock a fresh inode at
+        # the same path -> two cleaners (the inode-vs-path seam noted above). A persistent lockfile is fine.
+        try:
+            fcntl.flock(_lock_fd, fcntl.LOCK_UN)
+        except Exception:
+            pass
+        _lock_fd.close()
 
 
 def create_app(database_connection):

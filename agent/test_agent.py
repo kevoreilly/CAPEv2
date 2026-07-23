@@ -2,6 +2,9 @@
 
 import base64
 import datetime
+import glob
+import hashlib
+import hmac
 import io
 import json
 import multiprocessing
@@ -185,6 +188,7 @@ class TestAgent:
     agent_process: Optional[multiprocessing.Process] = None
 
     def setup_method(self):
+        os.environ["X_CAPE_AUTH_TOKEN"] = "test-token"
         agent.state = {"status": agent.Status.INIT, "description": "", "async_subprocess": None}
         ev = multiprocessing.Event()
         self.agent_process = multiprocessing.Process(
@@ -271,10 +275,15 @@ class TestAgent:
         return filepath
 
     @staticmethod
-    def post_form(url_part, form_data, expected_status=200, files=None):
+    def post_form(url_part, form_data, expected_status=200, files=None, headers=None):
         """Post to the URL and return the json."""
         url = urljoin(BASE_URL, url_part)
-        r = requests.post(url, data=form_data, files=files)
+        if headers is None:
+            headers = {}
+        token = os.environ.get("X_CAPE_AUTH_TOKEN")
+        if token and "X-CAPE-Auth-Token" not in headers:
+            headers["X-CAPE-Auth-Token"] = token
+        r = requests.post(url, data=form_data, files=files, headers=headers)
         assert r.status_code == expected_status
         js = r.json()
         return js
@@ -291,22 +300,31 @@ class TestAgent:
         assert "pinning" in js["features"]
 
     def test_status_write_valid_text(self):
-        """Write a status of 'exception'."""
-        # First, confirm the status is NOT 'exception'.
+        """Write a status of 'running'."""
+        # First, confirm the status is NOT 'running'.
+        _ = self.confirm_status(str(agent.Status.INIT))
+        form = {"status": "running"}
+        url_part = "status"
+        _ = self.post_form(url_part, form)
+        _ = self.confirm_status(str(agent.Status.RUNNING))
+
+    def test_status_write_terminal_rejected(self):
+        """Writing a terminal status ('exception') is rejected."""
         _ = self.confirm_status(str(agent.Status.INIT))
         form = {"status": "exception"}
         url_part = "status"
-        _ = self.post_form(url_part, form)
-        _ = self.confirm_status(str(agent.Status.EXCEPTION))
-
-    def test_status_write_valid_number(self):
-        """Write a status of '5'."""
-        # First, confirm the status is NOT 'exception'.
+        js = self.post_form(url_part, form, expected_status=403)
+        assert js["message"] == "Unauthorized"
+        assert js["error_code"] == 403
         _ = self.confirm_status(str(agent.Status.INIT))
-        form = {"status": 5}
+
+    def test_status_write_unauthorized(self):
+        """Writing a status without correct token is rejected."""
+        form = {"status": "running"}
         url_part = "status"
-        _ = self.post_form(url_part, form)
-        _ = self.confirm_status(str(agent.Status.EXCEPTION))
+        js = self.post_form(url_part, form, expected_status=403, headers={"X-CAPE-Auth-Token": "wrong-token"})
+        assert js["message"] == "Unauthorized"
+        assert js["error_code"] == 403
 
     def test_status_write_invalid(self):
         """Fail to provide a valid status."""
@@ -640,7 +658,7 @@ class TestAgent:
         assert "process_id" not in js
 
     def test_async_manual_status_override(self):
-        """Test that a manual status update overrides an in-progress async process."""
+        """Test that a manual terminal status update via HTTP POST is rejected and doesn't override an in-progress async process."""
         # Upload a Python file that sleeps for a short period, to ensure the
         # async subprocess is running while we override the status.
         file_contents = (
@@ -657,15 +675,17 @@ class TestAgent:
         # While the subprocess is running, the status should initially be RUNNING.
         self.confirm_status(str(agent.Status.RUNNING))
 
-        # Manually override the status to COMPLETE via POST /status.
+        # Manually override the status to COMPLETE via POST /status (should be rejected).
         override_form = {
             "status": str(agent.Status.COMPLETE),
             "description": "beep boop"
         }
-        status_resp = self.post_form("status", override_form)
-        assert status_resp.get("message") == "Analysis status updated"
+        status_resp = self.post_form("status", override_form, expected_status=403)
+        assert status_resp.get("message") == "Unauthorized"
+        assert status_resp.get("error_code") == 403
 
-        self.confirm_status(str(agent.Status.COMPLETE))
+        # Confirm status remains RUNNING
+        self.confirm_status(str(agent.Status.RUNNING))
 
     def test_execute(self):
         """Test executing the 'date' command."""
@@ -749,3 +769,72 @@ class TestAgent:
         assert r.status_code == 500
         js = r.json()
         assert js["message"] == "Agent has already been pinned to an IP!"
+
+    def test_browser_extension(self):
+        form = {"networkData": '{"url": "https://example.com"}'}
+        js = self.post_form("browser_extension", form)
+        assert js["message"] == "OK"
+        temp_dir = tempfile.gettempdir()
+        found_files = glob.glob(os.path.join(temp_dir, "**/bext_*.json"), recursive=True)
+        assert len(found_files) > 0
+        filepath = found_files[0]
+        with open(filepath, "r") as f:
+            data = json.load(f)
+        assert data.get("url") == "https://example.com"
+        # The agent signs an HMAC over the canonical payload (minus the signature).
+        signature = data.pop("signature", "")
+        canonical = json.dumps(data, sort_keys=True, separators=(",", ":")).encode()
+        expected = hmac.new(b"test-token", canonical, hashlib.sha256).hexdigest()
+        assert signature == expected
+        for path in found_files:
+            try:
+                os.remove(path)
+            except Exception:
+                pass
+
+    def test_disabled_auth_mode(self):
+        """Test that when agent_auth is disabled (X_CAPE_AUTH_TOKEN is unset), auth is bypassed."""
+        try:
+            requests.get(f"{BASE_URL}/kill")
+        except requests.exceptions.ConnectionError:
+            pass
+        self.agent_process.terminate()
+        self.agent_process.join()
+
+        old_token = os.environ.pop("X_CAPE_AUTH_TOKEN", None)
+        ev = multiprocessing.Event()
+        self.agent_process = multiprocessing.Process(
+            target=agent.app.run,
+            kwargs={"host": HOST, "port": PORT, "event": ev},
+        )
+        self.agent_process.start()
+        ev.wait(5.0)
+
+        try:
+            form = {"status": "running"}
+            url = urljoin(BASE_URL, "status")
+            r = requests.post(url, data=form)
+            assert r.status_code == 200
+            js = r.json()
+            assert js["message"] == "Analysis status updated"
+
+            form_terminal = {"status": "exception"}
+            r_term = requests.post(url, data=form_terminal)
+            assert r_term.status_code == 403
+        finally:
+            if old_token:
+                os.environ["X_CAPE_AUTH_TOKEN"] = old_token
+            try:
+                requests.get(f"{BASE_URL}/kill")
+            except requests.exceptions.ConnectionError:
+                pass
+            self.agent_process.terminate()
+            self.agent_process.join()
+
+            ev = multiprocessing.Event()
+            self.agent_process = multiprocessing.Process(
+                target=agent.app.run,
+                kwargs={"host": HOST, "port": PORT, "event": ev},
+            )
+            self.agent_process.start()
+            ev.wait(5.0)

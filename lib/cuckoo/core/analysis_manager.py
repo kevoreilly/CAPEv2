@@ -265,6 +265,9 @@ class AnalysisManager(threading.Thread):
             "timeout": self.task.timeout or self.cfg.timeouts.default,
         }
 
+        if self.cfg.agent_security.get("agent_auth", False):
+            options["token"] = self.task.token
+
         if self.task.category == "file":
             file_obj = File(self.task.target)
             options["file_name"] = file_obj.get_name()

@@ -335,10 +335,15 @@ def test_central_mode_worker_access_fields_parse():
 
 def test_central_guac_worker_url_and_dsn():
     # port + task id substitute; the deb defaults no longer live in the code path.
-    # tasks/machine is the staff-gated infra endpoint returning ONLY the VM label,
-    # so this control-plane lookup isn't blocked by the worker's per-tenant scoping.
+    # tasks/machine is the control-plane infra endpoint (authorized by the shared
+    # [api] control_plane_token, or an is_local_admin principal) returning ONLY the VM
+    # label, so this lookup isn't blocked by the worker's per-tenant scoping.
     assert _worker_machine_url("10.0.0.5", 8000, 42) == "http://10.0.0.5:8000/apiv2/tasks/machine/42/"
     assert _worker_machine_url("10.0.0.5", "9443", "7") == "http://10.0.0.5:9443/apiv2/tasks/machine/7/"
+    # an IPv6 worker IP is bracketed so its ':'s don't collide with the port separator
+    assert _worker_machine_url("fd00::5", 8000, 42) == "http://[fd00::5]:8000/apiv2/tasks/machine/42/"
+    assert _libvirt_ssh_dsn("fd00::9", "cape", "/home/cape/.ssh/id_ed25519") == \
+        "qemu+ssh://cape@[fd00::9]/system?keyfile=/home/cape/.ssh/id_ed25519&no_verify=1"
     # DSN carries the CONFIGURED user + keyfile (not hardcoded cape / id_ed25519)
     assert _libvirt_ssh_dsn("10.0.0.9", "cape", "/home/cape/.ssh/id_ed25519") == \
         "qemu+ssh://cape@10.0.0.9/system?keyfile=/home/cape/.ssh/id_ed25519&no_verify=1"
@@ -355,6 +360,59 @@ def test_central_guac_worker_api_token(tmp_path):
     assert _worker_api_token(str(tok)) == "s3cr3t"  # stripped
     # missing/unreadable -> "" (=> no auth header downstream), never raises
     assert _worker_api_token(str(tmp_path / "nope")) == ""
+
+
+def test_worker_vm_for_task_status_guard_and_success(monkeypatch):
+    """worker_vm_for_task resolves task -> broker job -> worker apiv2 tasks/machine. A non-200
+    from the worker (auth misconfig / no such task) must degrade to (None, None) -- never raise,
+    never return a bogus label -- and a 200 must surface ONLY the VM label (guest IP stays None;
+    central guac uses the worker's own localhost for VNC). The broker directory being absent
+    (single-node / central off) or the job not-yet-dispatched must also short-circuit WITHOUT
+    hitting the worker. This is the one production branch the other guac tests don't exercise."""
+    import lib.cuckoo.common.central_mode as cm
+    import lib.cuckoo.common.job_directory as jd
+    import requests
+    from lib.cuckoo.common.central_guac import worker_vm_for_task
+
+    cfg = _parse({"enabled": "yes", "worker_api_token_file": "/nonexistent-token", "worker_api_port": "8000"})
+    monkeypatch.setattr(cm, "central_mode_config", lambda: cfg)
+
+    class _Dir:
+        def __init__(self, loc):
+            self._loc = loc
+
+        def lookup(self, job_id):
+            assert job_id == "ui-42"  # derived from the AUTHORIZED task id, never task.custom
+            return self._loc
+
+    class _Resp:
+        def __init__(self, status, body):
+            self.status_code = status
+            self._body = body
+
+        def json(self):
+            return self._body
+
+    def _boom(*a, **k):
+        raise AssertionError("worker must not be contacted on the local/undispatched path")
+
+    # directory resolves the job to a worker + worker-local cape_task_id ...
+    monkeypatch.setattr(jd, "get_job_directory", lambda cfg: _Dir(JobLocation("10.0.0.7", 3)))
+    # ... worker 200 -> only the VM label surfaces (guest IP intentionally None)
+    monkeypatch.setattr(requests, "get", lambda url, **kw: _Resp(200, {"error": False, "machine": "win11_seabios_101"}))
+    assert worker_vm_for_task(42) == ("win11_seabios_101", None)
+    # ... worker 404 (auth misconfig / no such task) -> (None, None), no raise
+    monkeypatch.setattr(requests, "get", lambda url, **kw: _Resp(404, {"error": True}))
+    assert worker_vm_for_task(42) == (None, None)
+
+    # no broker directory (single-node / central off) -> (None, None) WITHOUT touching the worker
+    monkeypatch.setattr(jd, "get_job_directory", lambda cfg: None)
+    monkeypatch.setattr(requests, "get", _boom)
+    assert worker_vm_for_task(42) == (None, None)
+
+    # job resolved but not yet dispatched to a worker (no worker_ip) -> (None, None), no worker call
+    monkeypatch.setattr(jd, "get_job_directory", lambda cfg: _Dir(JobLocation(None, None)))
+    assert worker_vm_for_task(42) == (None, None)
 
 
 def test_centralstore_done_marker_local_and_uploaded(tmp_path):

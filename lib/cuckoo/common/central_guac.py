@@ -27,21 +27,32 @@ def _worker_api_token(token_file):
         return ""
 
 
+def _bracket(host):
+    """Bracket an IPv6 literal for use as a URL/DSN netloc; leave IPv4/hostnames as-is.
+    _valid_worker_ip accepts any ipaddress.ip_address, so an IPv6 worker IP (e.g. 'fd00::5')
+    reaches these builders and MUST be bracketed ('[fd00::5]') or the ':' collides with the
+    port separator and the URL/DSN is malformed."""
+    text = str(host)
+    return "[%s]" % text if ":" in text else text
+
+
 def _worker_machine_url(worker_ip, port, cape_task_id):
-    """The worker's apiv2 machine-label URL (tasks/machine): an is_local_admin-gated infra
-    read that returns ONLY the task's analysis-VM label, so this control-plane lookup is
-    not blocked by the worker's per-tenant task scoping. port comes from
-    [central_mode] worker_api_port. The worker_api_token principal must be is_local_admin."""
-    return "http://%s:%d/apiv2/tasks/machine/%d/" % (worker_ip, int(port), int(cape_task_id))
+    """The worker's apiv2 machine-label URL (tasks/machine): a control-plane infra read that
+    returns ONLY the task's analysis-VM label, so this lookup is not blocked by the worker's
+    per-tenant task scoping. port comes from [central_mode] worker_api_port. The presented
+    worker_api_token authorizes via the worker's [api] control_plane_token shared secret (or,
+    on a token_auth_enabled=yes worker, an is_local_admin principal)."""
+    return "http://%s:%d/apiv2/tasks/machine/%d/" % (_bracket(worker_ip), int(port), int(cape_task_id))
 
 
 def _libvirt_ssh_dsn(ip, ssh_user, keyfile):
     """qemu+ssh libvirt DSN to a worker. ssh_user/keyfile come from [central_mode]
     (worker_ssh_user/worker_ssh_keyfile) so the deb defaults aren't hardcoded. keyfile is
-    URL-quoted (safe='/') so a configured path with a '&'/'?'/space can't corrupt the query."""
+    URL-quoted (safe='/') so a configured path with a '&'/'?'/space can't corrupt the query.
+    An IPv6 worker IP is bracketed so its ':'s don't corrupt the netloc."""
     from urllib.parse import quote
 
-    return "qemu+ssh://%s@%s/system?keyfile=%s&no_verify=1" % (ssh_user, ip, quote(keyfile, safe="/"))
+    return "qemu+ssh://%s@%s/system?keyfile=%s&no_verify=1" % (ssh_user, _bracket(ip), quote(keyfile, safe="/"))
 
 
 def _job_id_for_task(task_id):
@@ -123,14 +134,15 @@ def worker_vm_for_task(task_id):
         r = requests.get(_worker_machine_url(worker_ip, cfg.worker_api_port, cape_task_id),
                          headers=headers, timeout=10)
         if r.status_code != 200:
-            # A 401/403/404 here is almost always an auth/authorization misconfig of the
-            # worker_api_token principal (tasks/machine requires is_local_admin) — NOT a
-            # genuinely local task. Log it so a dead live-VM attach is diagnosable instead
-            # of silently degrading to (None, None) == "no VM" (the caller can't tell them
-            # apart otherwise).
+            # A 401/403/404 here is almost always an auth/authorization misconfig — the
+            # presented worker_api_token doesn't match the worker's [api] control_plane_token
+            # (or, on a token_auth_enabled=yes worker, isn't an is_local_admin principal) —
+            # NOT a genuinely local task. Log it so a dead live-VM attach is diagnosable
+            # instead of silently degrading to (None, None) == "no VM" (the caller can't tell
+            # them apart otherwise).
             log.warning(
                 "central guac: worker %s tasks/machine for task %s returned HTTP %s "
-                "(verify worker_api_token maps to an is_local_admin principal)",
+                "(verify worker_api_token matches the worker's [api] control_plane_token)",
                 worker_ip, task_id, r.status_code,
             )
             return (None, None)

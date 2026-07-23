@@ -1990,11 +1990,15 @@ def test_tasks_machine_is_staff_alone_gets_generic_404(cape_db, mt_enabled, monk
 
 @pytest.mark.django_db
 def test_tasks_machine_anonymous_denied_under_mt(cape_db, mt_enabled, monkeypatch):
-    """SECURITY PIN (the [HIGH]): an UNAUTHENTICATED caller under MT is the least-privileged
-    principal (is_local_admin=False) and gets the SAME generic 404 as a missing task, EVEN
-    for an existing private task. This must hold regardless of token_auth_enabled — the gate
-    is unconditional. A regression to a token_auth_enabled-conditional gate would return the
-    label here (the anonymous cross-tenant label + existence oracle) and go RED."""
+    """SECURITY PIN (the [HIGH]): the in-function authorization gate denies an UNAUTHENTICATED
+    caller under MT — the least-privileged principal (no shared secret presented, is_local_admin
+    =False) — with the SAME generic 404 as a missing task, EVEN for an existing private task, so
+    there is no cross-tenant label leak and no existence oracle. This calls the view function
+    directly, exercising that gate in isolation: the result does NOT depend on token_auth_enabled,
+    because the gate never keys off it. A regression to a token_auth_enabled-conditional gate (the
+    original [HIGH]) would return the label here under token_auth_enabled=no and go RED. (At the
+    DRF dispatch layer a token_auth_enabled=yes install additionally 403s anonymous before reaching
+    here — an earlier denial, not a weaker one.)"""
     from rest_framework.test import APIRequestFactory
     import apiv2.views as views
 

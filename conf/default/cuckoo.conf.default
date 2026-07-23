@@ -283,13 +283,15 @@ broker_api_token =
 broker_table =
 # Interactive-Guac worker access: how the central node reaches the worker that hosts a live task's
 # VM. Defaults match the standard CAPE deb layout; override for other topologies.
-# File holding the worker apiv2 Token (blank/absent => requests go unauthenticated).
-# The token's principal must be is_local_admin (a break-glass superuser: is_superuser AND
-# EITHER local_admins_manage_all_tenants=yes OR an IdP-linked account) — the interactive
-# live-VM lookup (apiv2 tasks/machine) is is_local_admin-gated. A plain local createsuperuser
-# is NOT is_local_admin when local_admins_manage_all_tenants=no, and a machine identity can't
-# obtain an IdP SocialAccount, so under that flag set local_admins_manage_all_tenants=yes (or
-# point this at an IdP-linked superuser) or interactive attach 404s.
+# File holding the token the central node presents to the worker's apiv2 for the interactive
+# live-VM lookup (apiv2 tasks/machine). The worker authorizes that call by matching this value
+# (constant-time) against its own [api] control_plane_token, so this MUST equal the worker's
+# control_plane_token (in the AWS deploy: the same Secrets Manager value on both tiers). That
+# shared-secret path works on the shipped token_auth_enabled=no worker, where DRF leaves the
+# request anonymous. (On a token_auth_enabled=yes worker the endpoint ALSO accepts an
+# is_local_admin principal's token — but do NOT flip local_admins_manage_all_tenants=yes just
+# for this: that widens cross-tenant break-glass fleet-wide. Use an IdP-linked superuser
+# instead if you go that route.) Blank/absent => requests go unauthenticated.
 worker_api_token_file = /etc/cape/api-token
 # The worker's apiv2/web port.
 worker_api_port = 8000

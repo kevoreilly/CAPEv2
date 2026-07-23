@@ -28,6 +28,10 @@ urlpatterns = [
     re_path(r"^tasks/list/(?P<limit>\d+)/(?P<offset>\d+)/$", views.tasks_list),
     re_path(r"^tasks/list/(?P<limit>\d+)/(?P<offset>\d+)/(?P<window>\d+)/$", views.tasks_list),
     re_path(r"^tasks/view/(?P<task_id>\d+)/$", views.tasks_view),
+    # Central-mode control-plane infra read (staff/superuser only; returns ONLY the
+    # analysis VM label). Used by lib.cuckoo.common.central_guac to broker the guac
+    # live-VM tunnel. Allowlisted in apiv2/test_visibility.py with justification.
+    re_path(r"^tasks/machine/(?P<task_id>\d+)/$", views.tasks_machine),
     re_path(r"^tasks/visibility/(?P<task_id>\d+)/$", views.tasks_set_visibility),
     re_path(r"^tasks/reschedule/(?P<task_id>\d+)/$", views.tasks_reschedule),
     re_path(r"^tasks/reprocess/(?P<task_id>\d+)/$", views.tasks_reprocess),

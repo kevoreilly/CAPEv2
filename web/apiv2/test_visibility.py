@@ -24,7 +24,18 @@ GUARD_MARKERS = (
 
 # Routed task_id views that legitimately need NO per-task visibility guard.
 # SECURITY ALLOWLIST — keep tiny; every entry needs a real justification.
-ALLOWLIST = set()
+ALLOWLIST = {
+    # tasks_machine: central-mode control-plane INFRA read. It is NOT tenant-scoped
+    # on purpose, but the exemption is bounded two ways (both pinned by the
+    # test_tasks_machine_* tests below): (1) it is gated on a staff/superuser caller
+    # — the central node's service identity — so a regular tenant token gets the same
+    # generic 404 as a missing task and cannot enumerate other tenants' ids; (2) it
+    # returns ONLY the pool VM label (e.g. "win11_seabios_107"), never analysis
+    # content / target / tenant metadata. The end user was already authorized via
+    # can_manage_task at the UI's remote_session view before this machine-to-machine
+    # call is made.
+    "tasks_machine",
+}
 
 
 # URL capture-group names that identify a single task/analysis — any of these in
@@ -1918,3 +1929,69 @@ def test_toggle_visibility_passes_expected_prior_for_cas(cape_db, mt_enabled, mo
     r = c.patch("/apiv2/tasks/visibility/1/", {"visibility": "public"}, format="json")
     assert r.status_code == 200
     assert seen.get("expected_prior") == "tenant"   # the snapshot value the authorization was computed against
+
+
+# ---------------------------------------------------------------------------
+# tasks_machine: central-mode control-plane infra read (staff-gated, label-only).
+# These tests BOUND the coverage-gate ALLOWLIST exemption for tasks_machine — if
+# someone widens the response or drops the staff gate, they go RED.
+# ---------------------------------------------------------------------------
+@pytest.mark.django_db
+def test_tasks_machine_staff_reads_label_cross_tenant(cape_db, mt_enabled, monkeypatch):
+    """A STAFF caller (the central node's service identity) can read a task's
+    analysis-VM label EVEN for another tenant's private task — the single
+    cross-tenant read tasks_machine allows, so the control plane can build the
+    guac tunnel. Bounded to the label by the sibling tests below."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    t = FakeTask(user_id=999, tenant_id=10, visibility="private")
+    t.machine = "win11_seabios_107"
+    monkeypatch.setattr(views.db, "view_task", lambda tid: t)
+    svc = User.objects.create_user("svc_staff", "svc@x.com", "x")
+    svc.is_staff = True
+    svc.save()
+    req = APIRequestFactory().get("/apiv2/tasks/machine/1/")
+    force_authenticate(req, user=svc)
+    resp = views.tasks_machine(req, "1")
+    assert resp.data.get("error") is False
+    assert resp.data.get("machine") == "win11_seabios_107"
+
+
+@pytest.mark.django_db
+def test_tasks_machine_non_staff_gets_generic_404(cape_db, mt_enabled, monkeypatch):
+    """A regular (non-staff) token gets the SAME generic 404 as a missing task
+    even when the task exists — no VM label, and no existence signal that could
+    enumerate other tenants' task ids."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    t = FakeTask(user_id=999, tenant_id=10, visibility="private")
+    t.machine = "win11_seabios_107"
+    monkeypatch.setattr(views.db, "view_task", lambda tid: t)
+    u = User.objects.create_user("svc_plain", "p@x.com", "x")  # not staff/superuser
+    req = APIRequestFactory().get("/apiv2/tasks/machine/1/")
+    force_authenticate(req, user=u)
+    resp = views.tasks_machine(req, "1")
+    assert resp.status_code == 404
+    assert "machine" not in resp.data
+
+
+@pytest.mark.django_db
+def test_tasks_machine_returns_only_label(cape_db, mt_enabled, monkeypatch):
+    """The response surface MUST stay minimal ({error, machine}) — the coverage-gate
+    exemption is only safe because the payload is just the pool VM label. Widening
+    it to analysis/target/tenant data goes RED here."""
+    from rest_framework.test import APIRequestFactory, force_authenticate
+    import apiv2.views as views
+
+    t = FakeTask(user_id=1, tenant_id=10, visibility="public")
+    t.machine = "win11_seabios_101"
+    monkeypatch.setattr(views.db, "view_task", lambda tid: t)
+    svc = User.objects.create_user("svc_only", "o@x.com", "x")
+    svc.is_superuser = True
+    svc.save()
+    req = APIRequestFactory().get("/apiv2/tasks/machine/1/")
+    force_authenticate(req, user=svc)
+    resp = views.tasks_machine(req, "1")
+    assert set(resp.data.keys()) == {"error", "machine"}

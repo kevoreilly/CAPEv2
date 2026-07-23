@@ -27,9 +27,12 @@ def _worker_api_token(token_file):
         return ""
 
 
-def _worker_task_view_url(worker_ip, port, cape_task_id):
-    """The worker's apiv2 task-view URL. port comes from [central_mode] worker_api_port."""
-    return "http://%s:%d/apiv2/tasks/view/%d/" % (worker_ip, int(port), int(cape_task_id))
+def _worker_machine_url(worker_ip, port, cape_task_id):
+    """The worker's apiv2 machine-label URL (tasks/machine): a staff-gated infra read
+    that returns ONLY the task's analysis-VM label, so this control-plane lookup is
+    not blocked by the worker's per-tenant task scoping. port comes from
+    [central_mode] worker_api_port."""
+    return "http://%s:%d/apiv2/tasks/machine/%d/" % (worker_ip, int(port), int(cape_task_id))
 
 
 def _libvirt_ssh_dsn(ip, ssh_user, keyfile):
@@ -117,10 +120,11 @@ def worker_vm_for_task(task_id):
 
         token = _worker_api_token(cfg.worker_api_token_file)
         headers = {"Authorization": f"Token {token}"} if token else {}
-        r = requests.get(_worker_task_view_url(worker_ip, cfg.worker_api_port, cape_task_id),
+        r = requests.get(_worker_machine_url(worker_ip, cfg.worker_api_port, cape_task_id),
                          headers=headers, timeout=10)
-        data = (r.json() or {}).get("data", {})
-        return (data.get("machine"), None)  # central guac uses the worker's localhost for VNC
+        body = r.json() or {}
+        # tasks/machine returns {"error": False, "machine": "<label>"} at top level.
+        return (body.get("machine") or None, None)  # central guac uses the worker's localhost for VNC
     except Exception as e:
         log.warning("central guac: worker VM lookup failed for task %s: %s", task_id, e)
         return (None, None)

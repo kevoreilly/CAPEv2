@@ -8,7 +8,7 @@ from lib.cuckoo.common.central_mode import _parse, _as_bool, _as_int, _as_port, 
 from lib.cuckoo.common.central_guac import (
     _libvirt_ssh_dsn,
     _worker_api_token,
-    _worker_task_view_url,
+    _worker_machine_url,
 )
 from lib.cuckoo.common.hunt_query import build_hunt_facets
 from lib.cuckoo.common.storage_backend import (
@@ -334,9 +334,11 @@ def test_central_mode_worker_access_fields_parse():
 
 
 def test_central_guac_worker_url_and_dsn():
-    # port + task id substitute; the deb defaults no longer live in the code path
-    assert _worker_task_view_url("10.0.0.5", 8000, 42) == "http://10.0.0.5:8000/apiv2/tasks/view/42/"
-    assert _worker_task_view_url("10.0.0.5", "9443", "7") == "http://10.0.0.5:9443/apiv2/tasks/view/7/"
+    # port + task id substitute; the deb defaults no longer live in the code path.
+    # tasks/machine is the staff-gated infra endpoint returning ONLY the VM label,
+    # so this control-plane lookup isn't blocked by the worker's per-tenant scoping.
+    assert _worker_machine_url("10.0.0.5", 8000, 42) == "http://10.0.0.5:8000/apiv2/tasks/machine/42/"
+    assert _worker_machine_url("10.0.0.5", "9443", "7") == "http://10.0.0.5:9443/apiv2/tasks/machine/7/"
     # DSN carries the CONFIGURED user + keyfile (not hardcoded cape / id_ed25519)
     assert _libvirt_ssh_dsn("10.0.0.9", "cape", "/home/cape/.ssh/id_ed25519") == \
         "qemu+ssh://cape@10.0.0.9/system?keyfile=/home/cape/.ssh/id_ed25519&no_verify=1"

@@ -1185,7 +1185,15 @@ def tasks_machine(request, task_id):
     task = db.view_task(task_id)
     if not task:
         return Response({"error": True, "error_value": "Task not found"}, status=404)
-    return Response({"error": False, "machine": task.machine or ""})
+    # Also report the VM's live VNC port, resolved LOCALLY on this worker (SSH-free), so the
+    # central node can build the guac tunnel WITHOUT opening this worker's libvirt over SSH
+    # (that UI-side lookup was flaky -- it hung / returned -1 during VM boot -> guac 519). Still
+    # bounded within the allowlist exemption: a pool VM's VNC port, never analysis content /
+    # target / tenant metadata. None until the VM is running and has a port assigned.
+    from lib.cuckoo.common.central_guac import local_vnc_port
+
+    vnc_port = local_vnc_port(task.machine) if task.machine else None
+    return Response({"error": False, "machine": task.machine or "", "vnc_port": vnc_port})
 
 
 @csrf_exempt

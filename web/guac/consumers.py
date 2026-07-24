@@ -202,15 +202,26 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
 
-                # 4. Central mode: a broker-dispatched job's VM lives on a worker, so
-                # resolve that worker's libvirt DSN + IP and look up the VNC port from ITS
-                # libvirt; the tunnel then targets the worker's guacd. None => single-node.
+                # 4. Central mode: a broker-dispatched job's VM lives on a worker. worker_ip
+                # (from the broker record) is truthy => central; None => single-node/local. The
+                # tunnel targets the worker's guacd (guacd_hostname=worker_ip below).
                 from lib.cuckoo.common.central_guac import libvirt_dsn_for_task
 
                 vnc_dsn, worker_ip = await sync_to_async(libvirt_dsn_for_task)(self.guac_task_id, machinery_dsn)
 
-                # 4b. Look up VNC port server-side from libvirt (local or worker)
-                vnc_port = await sync_to_async(_get_vnc_port)(vm_label, vnc_dsn)
+                # 4b. Resolve the VNC port.
+                if worker_ip:
+                    # Central: the WORKER resolves its own VNC port via apiv2 (local libvirt,
+                    # reliable). Do NOT open the worker's libvirt over SSH from here -- that
+                    # lookup intermittently hangs / returns -1 during VM boot and was the cause
+                    # of guac 519 (UPSTREAM_NOT_FOUND).
+                    from lib.cuckoo.common.central_guac import worker_vnc_port_for_task
+
+                    vnc_port = await sync_to_async(worker_vnc_port_for_task)(self.guac_task_id)
+                else:
+                    # Single-node/non-central: guacd + libvirt are local, so read the port from
+                    # LOCAL libvirt exactly as before (unchanged behavior).
+                    vnc_port = await sync_to_async(_get_vnc_port)(vm_label, vnc_dsn)
                 if not vnc_port:
                     logger.warning(
                         "WebSocket rejected: no VNC port for VM %s", vm_label

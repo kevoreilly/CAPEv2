@@ -102,30 +102,29 @@ def worker_ip_for_task(task_id):
     return _worker_ip(central_mode_config(), task_id)
 
 
-def worker_vm_for_task(task_id):
-    """For a live broker-dispatched interactive task, return (vm_label, guest_ip) of the
-    VM on the worker — needed to build the guac session_data on the central node, where
-    the local machines table is empty (the VM lives on the worker). Resolves the broker
-    record (job_id -> worker IP + the worker-local cape_task_id) then asks that worker's
-    apiv2 for the task's machine. Returns (None, None) for non-bridged/local tasks."""
+def _worker_machine_body(task_id):
+    """Resolve task_id -> the hosting worker's apiv2 tasks/machine response dict, or None.
+    Shared by worker_vm_for_task (VM label) and worker_vnc_port_for_task (VNC port): resolves
+    the broker record (job_id -> worker IP + worker-local cape_task_id) then asks that worker's
+    apiv2. Central mode only; None => non-bridged/local task, or a worker/auth error (logged)."""
     from lib.cuckoo.common.central_mode import central_mode_config
     from lib.cuckoo.common.job_directory import get_job_directory
 
     cfg = central_mode_config()
     directory = get_job_directory(cfg)
     if directory is None:
-        return (None, None)
+        return None
     try:
         job_id = _job_id_for_task(task_id)
         if not job_id:
-            return (None, None)
+            return None
         loc = directory.lookup(job_id)
         if not loc:
-            return (None, None)
+            return None
         worker_ip = loc.worker_ip
         cape_task_id = loc.cape_task_id
         if not worker_ip or cape_task_id is None:
-            return (None, None)
+            return None
 
         import requests
 
@@ -138,20 +137,89 @@ def worker_vm_for_task(task_id):
             # presented worker_api_token doesn't match the worker's [api] control_plane_token
             # (or, on a token_auth_enabled=yes worker, isn't an is_local_admin principal) —
             # NOT a genuinely local task. Log it so a dead live-VM attach is diagnosable
-            # instead of silently degrading to (None, None) == "no VM" (the caller can't tell
-            # them apart otherwise).
+            # instead of silently degrading to None == "no VM" (the caller can't tell apart).
             log.warning(
                 "central guac: worker %s tasks/machine for task %s returned HTTP %s "
                 "(verify worker_api_token matches the worker's [api] control_plane_token)",
                 worker_ip, task_id, r.status_code,
             )
-            return (None, None)
-        body = r.json() or {}
-        # tasks/machine returns {"error": False, "machine": "<label>"} at top level.
-        return (body.get("machine") or None, None)  # central guac uses the worker's localhost for VNC
+            return None
+        return r.json() or {}
     except Exception as e:
         log.warning("central guac: worker VM lookup failed for task %s: %s", task_id, e)
+        return None
+
+
+def worker_vm_for_task(task_id):
+    """For a live broker-dispatched interactive task, return (vm_label, guest_ip) of the
+    VM on the worker — needed to build the guac session_data on the central node, where
+    the local machines table is empty (the VM lives on the worker). Returns (None, None)
+    for non-bridged/local tasks. guest_ip is None: central guac reaches the VM's VNC via the
+    worker's own localhost, so the guest IP isn't needed here."""
+    body = _worker_machine_body(task_id)
+    if not body:
         return (None, None)
+    # tasks/machine returns {"error": False, "machine": "<label>", "vnc_port": <int|null>}.
+    return (body.get("machine") or None, None)
+
+
+def worker_vnc_port_for_task(task_id):
+    """VNC port of the worker-hosted VM for a live interactive task, resolved by the WORKER's
+    own apiv2 (local libvirt on the worker — reliable, SSH-free). REPLACES the fragile UI-side
+    libvirt-over-SSH lookup (qemu+ssh://cape@worker), which intermittently hangs or returns -1
+    during VM boot and was the cause of guac 519 (UPSTREAM_NOT_FOUND). Returns an int port, or
+    None (non-bridged/local task, worker error, or the VM isn't exposing a VNC port yet)."""
+    body = _worker_machine_body(task_id)
+    if not body:
+        return None
+    vp = body.get("vnc_port")
+    try:
+        vp = int(vp)
+    except (TypeError, ValueError):
+        return None
+    return vp if vp > 0 else None
+
+
+def local_vnc_port(vm_label, dsn=None, retries=3):
+    """Resolve a VM's live VNC port from LOCAL libvirt (the host that runs the VM — the worker
+    itself in central mode). Reliable and SSH-free: the worker reports this via its apiv2 so the
+    central UI never opens the worker's libvirt over SSH. Returns an int port, or None if the VM
+    isn't running or hasn't been assigned a VNC port yet. Rejects <=0 — libvirt reports port='-1'
+    in the brief autoport-assignment window right after VM start, so retry to ride that out."""
+    try:
+        import time
+        import libvirt
+        from xml.etree import ElementTree as ET
+        from lib.cuckoo.common.config import Config
+
+        if not dsn:
+            machinery = Config().cuckoo.machinery
+            dsn = getattr(Config(machinery), machinery).get("dsn", "qemu:///system")
+    except Exception:
+        return None
+    for _attempt in range(max(1, int(retries or 1))):
+        conn = None
+        try:
+            conn = libvirt.open(dsn)
+            if conn:
+                dom = conn.lookupByName(vm_label)
+                st = dom.state(flags=0)
+                if st and st[0] == 1:
+                    g = ET.fromstring(dom.XMLDesc(0)).find('./devices/graphics[@type="vnc"]')
+                    raw = (g.get("port") if g is not None else "") or ""
+                    p = int(raw) if raw.lstrip("-").isdigit() else 0
+                    if p > 0:
+                        return p
+        except Exception:
+            return None
+        finally:
+            if conn:
+                try:
+                    conn.close()
+                except Exception:
+                    pass
+        time.sleep(0.5)
+    return None
 
 
 def libvirt_dsn_for_task(task_id, local_dsn):

@@ -415,6 +415,22 @@ def test_worker_vm_for_task_status_guard_and_success(monkeypatch):
     assert worker_vm_for_task(42) == (None, None)
 
 
+def test_worker_vnc_port_for_task_parsing(monkeypatch):
+    """worker_vnc_port_for_task returns the VNC port the WORKER reported (resolved worker-locally,
+    no libvirt-over-SSH). Accepts a positive int (str or int); rejects None / -1 / 0 / garbage and a
+    missing body -> None, so a bogus/absent port never reaches guacd (that was the guac-519 class)."""
+    import lib.cuckoo.common.central_guac as cg
+    from lib.cuckoo.common.central_guac import worker_vnc_port_for_task
+
+    cases = {5900: 5900, "5901": 5901, -1: None, 0: None, None: None, "nope": None, "__nobody__": None}
+    for given, want in cases.items():
+        monkeypatch.setattr(
+            cg, "_worker_machine_body",
+            lambda tid, _g=given: (None if _g == "__nobody__" else {"machine": "win11_seabios_1", "vnc_port": _g}),
+        )
+        assert worker_vnc_port_for_task(7) == want, f"vnc_port={given!r} -> expected {want!r}"
+
+
 def test_centralstore_done_marker_local_and_uploaded(tmp_path):
     # The completion marker must be BOTH written locally (the worker's NVMe-cleanup gate) AND
     # uploaded to the central store (the read seam's .central_staged completion signal). Regression:

@@ -2037,8 +2037,11 @@ def test_tasks_machine_denied_and_missing_are_indistinguishable(cape_db, mt_enab
 
 @pytest.mark.django_db
 def test_tasks_machine_returns_only_label(cape_db, mt_enabled, monkeypatch):
-    """The response surface MUST stay minimal ({error, machine}) — the coverage-gate
-    exemption is only safe because the payload is just the pool VM label."""
+    """The response surface MUST stay minimal ({error, machine, vnc_port}) — the coverage-gate
+    exemption is only safe because the payload is just the pool VM label + its VNC port (both
+    infra facts about a pool VM, never analysis content / target / tenant metadata). vnc_port is
+    resolved LOCALLY on the worker so the central node needn't open the worker's libvirt over SSH;
+    here libvirt is absent so it is None."""
     from rest_framework.test import APIRequestFactory, force_authenticate
     import apiv2.views as views
 
@@ -2051,7 +2054,8 @@ def test_tasks_machine_returns_only_label(cape_db, mt_enabled, monkeypatch):
     req = APIRequestFactory().get("/apiv2/tasks/machine/1/")
     force_authenticate(req, user=svc)
     resp = views.tasks_machine(req, "1")
-    assert set(resp.data.keys()) == {"error", "machine"}
+    assert set(resp.data.keys()) == {"error", "machine", "vnc_port"}
+    assert resp.data["machine"] == "win11_seabios_101"
 
 
 @pytest.mark.django_db
@@ -2097,7 +2101,7 @@ def test_tasks_machine_control_plane_secret_authorizes(cape_db, mt_enabled, monk
     resp = views.tasks_machine(req, "1")
     assert resp.data.get("error") is False
     assert resp.data.get("machine") == "win11_seabios_107"
-    assert set(resp.data.keys()) == {"error", "machine"}
+    assert set(resp.data.keys()) == {"error", "machine", "vnc_port"}
 
 
 @pytest.mark.django_db

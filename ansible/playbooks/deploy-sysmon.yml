@@ -1,0 +1,43 @@
+---
+# ════════════════════════════════════════════════════════════════════
+# Deploy Sysmon to Windows Guest VMs via WinRM
+#
+# Prerequisites:
+#   1. Install pywinrm on the control node:
+#        pip install pywinrm
+#   2. Add guest VMs to [cape_guests_winrm] in inventory/hosts.ini
+#   3. Set sysmon_install=true on each host you want to deploy to
+#
+# Usage:
+#   ansible-playbook playbooks/deploy-sysmon.yml
+#   ansible-playbook playbooks/deploy-sysmon.yml --limit win10-1
+#   ansible-playbook playbooks/deploy-sysmon.yml -e "sysmon_version=15.12"
+# ════════════════════════════════════════════════════════════════════
+
+- name: Deploy Sysmon to Windows guest VMs
+  hosts: cape_guests_winrm
+  gather_facts: false
+  tasks:
+    - name: Display deployment target
+      ansible.builtin.debug:
+        msg: "Deploying Sysmon to {{ inventory_hostname }} ({{ ansible_host }})"
+      tags: [sysmon]
+
+    - name: Include Sysmon deployment tasks
+      ansible.builtin.include_role:
+        name: guest_provisioning
+        tasks_from: sysmon
+      when: sysmon_install | default(false) | bool
+      tags: [sysmon]
+
+    - name: Skip Sysmon (not enabled for this host)
+      ansible.builtin.debug:
+        msg: "Skipping {{ inventory_hostname }} — sysmon_install is not true"
+      when: not (sysmon_install | default(false) | bool)
+      tags: [sysmon]
+
+    - name: Deployment complete
+      ansible.builtin.debug:
+        msg: "Sysmon deployment to {{ inventory_hostname }} complete"
+      when: sysmon_install | default(false) | bool
+      tags: [sysmon]

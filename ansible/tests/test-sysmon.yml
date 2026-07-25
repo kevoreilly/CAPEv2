@@ -1,0 +1,18 @@
+---
+- name: Test Sysmon deployment syntax
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    sysmon_install: true
+    sysmon_version: ""
+    sysmon_config_source: template
+    sysmon_config_file: ""
+    sysmon_download_url: ""
+    sysmon_install_dir: "C:\\Sysmon"
+    sysmon_service_name: "Sysmon"
+  tasks:
+    - name: Include Sysmon deployment tasks
+      ansible.builtin.include_role:
+        name: guest_provisioning
+        tasks_from: sysmon

@@ -1,0 +1,136 @@
+---
+# ════════════════════════════════════════════════════════════════════
+# Sysmon Deployment via WinRM
+# Opt-in per guest: set sysmon_install=true in inventory host vars.
+# Requires pywinrm on the control node: pip install pywinrm
+# ════════════════════════════════════════════════════════════════════
+
+- name: Check if Sysmon is already installed
+  ansible.windows.win_shell: |
+    $svc = Get-Service -Name {{ sysmon_service_name }} -ErrorAction SilentlyContinue
+    if ($svc) {
+      Write-Output "installed"
+      $ver = (Get-ItemProperty "{{ sysmon_install_dir }}\Sysmon.exe" -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+      if ($ver) { Write-Output "version=$ver" }
+    } else {
+      Write-Output "not_installed"
+    }
+  register: sysmon_check
+  changed_when: false
+  tags: [guest, sysmon]
+
+- name: Set Sysmon version fact from existing install
+  ansible.builtin.set_fact:
+    sysmon_installed: "{{ 'installed' in sysmon_check.stdout }}"
+    sysmon_installed_version: "{{ (sysmon_check.stdout_lines | select('match', '^version=') | first | default('version=')).split('=')[1] }}"
+  tags: [guest, sysmon]
+
+- name: Determine Sysmon download URL
+  block:
+    - name: Get latest Sysmon release info from GitHub
+      ansible.builtin.uri:
+        url: https://api.github.com/repos/Sysinternals/Sysmon/releases/latest
+        return_content: true
+        headers:
+          Accept: application/vnd.github.v3+json
+      register: sysmon_release
+      tags: [guest, sysmon]
+
+    - name: Extract download URL from release
+      ansible.builtin.set_fact:
+        sysmon_download_url: "{{ sysmon_release.json.assets | selectattr('name', 'equalto', 'Sysmon.zip') | map(attribute='browser_download_url') | first }}"
+        sysmon_latest_version: "{{ sysmon_release.json.tag_name | regex_replace('^v', '') }}"
+      tags: [guest, sysmon]
+  when:
+    - not sysmon_installed
+    - sysmon_download_url == ""
+    - sysmon_version == ""
+  tags: [guest, sysmon]
+
+- name: Set pinned Sysmon download URL
+  ansible.builtin.set_fact:
+    sysmon_download_url: "https://github.com/Sysinternals/Sysmon/releases/download/v{{ sysmon_version }}/Sysmon.zip"
+    sysmon_latest_version: "{{ sysmon_version }}"
+  when:
+    - not sysmon_installed
+    - sysmon_version != ""
+    - sysmon_download_url == ""
+  tags: [guest, sysmon]
+
+- name: Download Sysmon
+  ansible.windows.win_get_url:
+    url: "{{ sysmon_download_url }}"
+    dest: "{{ sysmon_install_dir }}\\Sysmon.zip"
+    force: true
+  when: not sysmon_installed
+  tags: [guest, sysmon]
+
+- name: Ensure Sysmon install directory exists
+  ansible.windows.win_file:
+    path: "{{ sysmon_install_dir }}"
+    state: directory
+  when: not sysmon_installed
+  tags: [guest, sysmon]
+
+- name: Extract Sysmon archive
+  ansible.windows.win_unzip:
+    src: "{{ sysmon_install_dir }}\\Sysmon.zip"
+    dest: "{{ sysmon_install_dir }}"
+    delete_archive: true
+  when: not sysmon_installed
+  tags: [guest, sysmon]
+
+- name: Deploy CAPEv2 Sysmon configuration
+  ansible.windows.win_template:
+    src: sysmonconfig-capev2.xml.j2
+    dest: "{{ sysmon_install_dir }}\\sysmonconfig.xml"
+  when:
+    - not sysmon_installed
+    - sysmon_config_source == "template"
+  tags: [guest, sysmon]
+
+- name: Deploy custom Sysmon configuration
+  ansible.windows.win_copy:
+    src: "{{ sysmon_config_file }}"
+    dest: "{{ sysmon_install_dir }}\\sysmonconfig.xml"
+  when:
+    - not sysmon_installed
+    - sysmon_config_source == "file"
+    - sysmon_config_file != ""
+  tags: [guest, sysmon]
+
+- name: Install Sysmon service
+  ansible.windows.win_shell: |
+    & "{{ sysmon_install_dir }}\Sysmon64.exe" -i "{{ sysmon_install_dir }}\sysmonconfig.xml" -accepteula
+  when: not sysmon_installed
+  tags: [guest, sysmon]
+
+- name: Verify Sysmon service is running
+  ansible.windows.win_service:
+    name: "{{ sysmon_service_name }}"
+    state: started
+    start_mode: auto
+  tags: [guest, sysmon]
+
+- name: Get Sysmon service version
+  ansible.windows.win_shell: |
+    $svc = Get-Service -Name {{ sysmon_service_name }} -ErrorAction SilentlyContinue
+    if ($svc) {
+      $ver = (Get-ItemProperty "{{ sysmon_install_dir }}\Sysmon.exe" -ErrorAction SilentlyContinue).VersionInfo.ProductVersion
+      Write-Output "Sysmon $ver running"
+    }
+  register: sysmon_version_result
+  changed_when: false
+  tags: [guest, sysmon]
+
+- name: Display Sysmon status
+  ansible.builtin.debug:
+    msg: "{{ sysmon_version_result.stdout_lines[0] | default('Sysmon status unknown') }}"
+  tags: [guest, sysmon]
+
+- name: Cleanup download artifacts
+  ansible.windows.win_file:
+    path: "{{ sysmon_install_dir }}\\Sysmon.zip"
+    state: absent
+  when: not sysmon_installed
+  tags: [guest, sysmon]

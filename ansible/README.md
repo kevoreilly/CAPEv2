@@ -69,6 +69,7 @@ ansible/
 │   ├── multi-node-web.yml     # Web node (web UI, MongoDB, nginx only)
 │   ├── multi-node-worker.yml  # Worker node (processing, signatures)
 │   ├── register-worker.yml    # Register worker with control node
+│   ├── deploy-sysmon.yml      # Deploy Sysmon to Windows guests via WinRM
 │   ├── verify.yml             # Post-deployment health checks
 │   ├── rollback.yml           # Full uninstall (reverses all changes)
 │   └── smoke-test.yml         # Integration test: submit file + poll
@@ -77,7 +78,10 @@ ansible/
 │   ├── common/                # Base OS: APT deps, cape user, sysctl, Tor, de4dot
 │   ├── hypervisor/            # QEMU + SeaBIOS + libvirt from source, virbr1, IOMMU
 │   ├── cape_host/             # CAPE core: repo, config, DB, signatures, systemd, optional
-│   └── guest_provisioning/    # Generates Windows guest scripts (.ps1/.bat)
+│   └── guest_provisioning/    # Generates Windows guest scripts (.ps1/.bat) + Sysmon deploy
+│       ├── tasks/sysmon.yml   # WinRM-based Sysmon deployment
+│       └── templates/
+│           └── sysmonconfig-capev2.xml.j2  # CAPEv2-tuned Sysmon config
 │
 ├── generated_guest_scripts/   # Output directory for guest VM scripts
 │
@@ -85,7 +89,8 @@ ansible/
     ├── verify-scaffolding.yml # Structural integrity tests
     ├── test-common-role.yml
     ├── test-cape-host-role.yml
-    └── test-guest-provisioning.yml
+    ├── test-guest-provisioning.yml
+    └── test-sysmon.yml
 ```
 
 ## Prerequisites
@@ -153,6 +158,20 @@ win10-2 libvirt_name=win10_2 guest_ip=192.168.1.102
 
 These are metadata-only entries used for script generation. Guests are not managed via SSH.
 
+### Guest VMs — WinRM (Remote Management)
+
+```ini
+[cape_guests_winrm]
+win10-1 ansible_host=192.168.1.101 ansible_user=cape ansible_password=cape
+         ansible_connection=winrm ansible_winrm_transport=basic
+         ansible_winrm_server_cert_validation=ignore
+         sysmon_install=true
+```
+
+Populate this group after initial Windows VM setup for remote management (Sysmon deployment, etc.).
+WinRM is enabled automatically by `Autounattend.xml` (specialize pass). Requires `pywinrm`
+on the control node: `pip install pywinrm`.
+
 ## Variable Reference
 
 ### Global (`group_vars/all/vars.yml`)
@@ -184,6 +203,10 @@ These are metadata-only entries used for script generation. Guests are not manag
 | `clamav_enable` | `false` | Enable ClamAV (optional) |
 | `tor_socket_timeout` | `60` | Tor socket timeout in seconds |
 | `snmp_community` | `ChangeMePublicRO` | SNMP community string |
+| `ansible_connection` | `winrm` | Default connection type for WinRM guests |
+| `ansible_winrm_transport` | `basic` | WinRM transport method |
+| `ansible_winrm_server_cert_validation` | `ignore` | Skip WinRM cert validation (dev only) |
+| `ansible_port` | `5985` | WinRM HTTP port |
 
 ### Host (`group_vars/cape_host.yml`)
 
@@ -210,6 +233,11 @@ These are metadata-only entries used for script generation. Guests are not manag
 | `disable_defender` | `true` | Disable Windows Defender in script |
 | `disable_firewall` | `true` | Disable Windows Firewall |
 | `python_installer_url` | *(see file)* | Python download URL for guest |
+| `sysmon_install` | `false` | Deploy Sysmon via WinRM (set `true` per guest) |
+| `sysmon_version` | `""` | Sysmon version to install (empty = latest) |
+| `sysmon_config_source` | `template` | Config source: `template` (CAPEv2 default) or `file` |
+| `sysmon_config_file` | `""` | Path to custom Sysmon XML config (when source: `file`) |
+| `sysmon_install_dir` | `C:\Sysmon` | Sysmon installation directory on guest |
 
 ### Secrets (`group_vars/all/vault.yml` — encrypted with Ansible Vault)
 
@@ -231,7 +259,7 @@ de4dot version and download URL.
 **`roles/cape_host/defaults/main.yml`** — CAPE repo URL, tcpdump path.
 
 **`roles/guest_provisioning/defaults/main.yml`** — Script output directory, agent Python version,
-VC++ redist year.
+VC++ redist year, Sysmon install defaults.
 
 ## Deploy Script (`ansible-deploy.sh`)
 
@@ -423,6 +451,7 @@ Every role and sub-task is tagged, allowing fine-grained control over what runs.
 | `agent` | deploy_agent.ps1 + uninstall_agent.ps1 |
 | `config` | config.ini |
 | `instructions` | SNAPSHOT_INSTRUCTIONS.md |
+| `sysmon` | Sysmon deployment via WinRM |
 
 ### Examples
 
@@ -501,6 +530,69 @@ to the Windows guest VM and executed there. No WinRM connection is required.
 7. Shut down guest
 8. On host: virsh snapshot-create-as <vm-name> --name clean --description "Ready"
 9. Update conf/kvm.conf with the VM and snapshot name
+```
+
+## Sysmon Deployment (WinRM)
+
+[Sysmon](https://docs.microsoft.com/en-us/sysinternals/downloads/sysmon) is deployed
+to Windows guest VMs via WinRM for enhanced visibility into process creation, network
+connections, DNS queries, and registry changes. The CAPEv2-tuned configuration captures
+exactly the events that `network_etw.py` and `evtx.py` process for behavioral analysis.
+
+### Prerequisites
+
+```bash
+pip install pywinrm
+```
+
+### Setup
+
+1. Add guest VMs to `[cape_guests_winrm]` in `inventory/hosts.ini`
+2. Set `sysmon_install=true` on each guest you want to deploy to
+3. Ensure WinRM is accessible (enabled by default via `Autounattend.xml`)
+
+### Deploy
+
+```bash
+# Deploy to all guests in [cape_guests_winrm] with sysmon_install=true
+ansible-playbook playbooks/deploy-sysmon.yml -i inventory/hosts.ini
+
+# Deploy to a specific guest
+ansible-playbook playbooks/deploy-sysmon.yml -i inventory/hosts.ini --limit win10-1
+
+# Pin a specific Sysmon version
+ansible-playbook playbooks/deploy-sysmon.yml -i inventory/hosts.ini -e "sysmon_version=15.12"
+
+# Dry-run
+ansible-playbook playbooks/deploy-sysmon.yml -i inventory/hosts.ini --check --diff
+```
+
+### Custom Sysmon Configuration
+
+To use your own Sysmon XML config instead of the built-in CAPEv2 template:
+
+```ini
+# In inventory/hosts.ini or group_vars
+sysmon_config_source: file
+sysmon_config_file: /path/to/your/sysmonconfig.xml
+```
+
+### Verification
+
+On the guest VM (via RDP or console):
+
+```powershell
+Get-Service Sysmon                          # Should show Running
+sysmon -c                                  # Shows active configuration
+Get-WinEvent -LogName Microsoft-Windows-Sysmon/Operational -MaxEvents 5
+```
+
+### Rollback
+
+```powershell
+# On the guest VM
+C:\Sysmon\Sysmon64.exe -u                   # Stop and remove Sysmon service
+Remove-Item -Recurse C:\Sysmon              # Remove installation directory
 ```
 
 ## Development & Testing

@@ -16,3 +16,18 @@ vm_wim_index: 6
 # Override in local_vars.yml if your host IP differs:
 #   cape_agent_url: "http://YOUR_HOST_IP:8000/agent/agent.py"
 cape_agent_url: "http://192.168.1.1:8000/agent/agent.py"
+
+# ────────────────────────────────────────────────────────────────────
+# Sysmon deployment (WinRM-based, opt-in per guest)
+# ────────────────────────────────────────────────────────────────────
+# Set sysmon_install=true on each guest in [cape_guests_winrm] to deploy.
+# Requires pywinrm on the control node: pip install pywinrm
+sysmon_install: false
+# Empty = download latest release from GitHub. Set to e.g. "15.12" to pin.
+sysmon_version: ""
+# "template" uses the built-in CAPEv2 config; "file" uses sysmon_config_file
+sysmon_config_source: template
+sysmon_config_file: ""
+# Override the full download URL (empty = auto-detect from GitHub API)
+sysmon_download_url: ""
+sysmon_install_dir: "C:\\Sysmon"

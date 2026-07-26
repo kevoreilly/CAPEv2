@@ -59,18 +59,50 @@ def index(request, task_id, session_data):
     if machinery not in machinery_available:
         return _error(request, task_id, f"Machinery type '{machinery}' is not supported")
 
+    # The VM label + guest IP are derived authoritatively from the task below (never from the
+    # attacker-controlled session_data path segment), so the task must exist.
+    _task = db.view_task(int(task_id))
+    if not _task:
+        return _error(request, task_id, "The specified task doesn't seem to exist")
+
+    # Central mode: a broker-dispatched job's VM is on a worker — check that
+    # worker's libvirt. None => local (single-node), DSN unchanged.
+    from lib.cuckoo.common.central_guac import libvirt_dsn_for_task
+
+    dsn, _worker_ip = libvirt_dsn_for_task(int(task_id), machinery_dsn)
+
     conn = None
     try:
-        conn = libvirt.open(machinery_dsn)
+        conn = libvirt.open(dsn)
         if not conn:
             return _error(request, task_id, "Could not connect to hypervisor")
 
         try:
-            session_id, label, guest_ip = (
+            session_id, _claimed_label, _claimed_ip = (
                 urlsafe_b64decode(session_data).decode("utf8").split("|")
             )
         except Exception as e:
             return _error(request, task_id, str(e))
+
+        # SECURITY: BOTH the VM label AND the guest IP MUST come from the authorized task,
+        # never from the attacker-controlled session_data path segment. Trusting the label
+        # lets a caller who can reach ONE running task tunnel into another VM by name;
+        # trusting guest_ip lets them point the guacd RDP tunnel at an arbitrary host:3389
+        # (SSRF — guest_host is built from this value in consumers.py). Derive both from the
+        # task: _task.machine + its machine record (single-node) or the worker's VM (central
+        # mode). Ignore _claimed_label / _claimed_ip entirely.
+        label = _task.machine
+        guest_ip = ""
+        if label:
+            _m = db.view_machine_by_label(label)
+            guest_ip = getattr(_m, "ip", "") or ""
+        else:
+            from lib.cuckoo.common.central_guac import worker_vm_for_task
+
+            label, guest_ip = worker_vm_for_task(int(task_id))
+            guest_ip = guest_ip or ""
+        if not label:
+            return _error(request, task_id, "No VM is associated with this task")
 
         try:
             dom = conn.lookupByName(label)

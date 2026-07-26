@@ -487,7 +487,7 @@ def demux_sample(
     magic = File(filename).get_type() or ""
 
     # --- 3. Handle Password-Protected Office Files ---
-    is_office = "Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)
+    is_office = ("Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)) and "MSI Installer" not in magic
     if is_office and use_sflock:
         password = options2passwd(options)
         if HAS_SFLOCK and password:

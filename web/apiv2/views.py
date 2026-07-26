@@ -1196,6 +1196,8 @@ def tasks_report(request, task_id, report_format="json", make_zip=False):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id)
+
     resp = {}
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "reports")
@@ -1379,6 +1381,8 @@ def tasks_iocs(request, task_id, detail=None):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+
+    _central_stage(request, task_id)
 
     buf = {}
     if repconf.mongodb.get("enabled") and not buf:
@@ -1614,6 +1618,8 @@ def tasks_screenshot(request, task_id, screenshot="all"):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id)
+
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "shots")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcdir)}"})
@@ -1667,6 +1673,8 @@ def tasks_pcap(request, task_id):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id)
+
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "dump.pcap")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
@@ -1702,6 +1710,31 @@ def _resolve_task_id(task_id, enabled_key, check_tlp=True):
     if rtid:
         task_id = rtid
     return task_id, None
+
+
+def _central_stage(request, task_id, include_memory=False):
+    """Central mode: stage the S3 results/<job_id>/ tree to the local
+    storage/analyses/<task_id>/ dir so the local-FS artifact reads in the apiv2
+    download endpoints below work (same generic seam the web report view uses —
+    avoids rewriting each endpoint's FS reads). MUST be called AFTER the endpoint's
+    per-task authorization so an unauthorized task_id is never staged. The large
+    memory dumps are excluded from the bulk stage; the fullmemory/procmemory
+    endpoints pass include_memory=True to stage them on explicit demand. No-op
+    single-node; best-effort (never raises)."""
+    try:
+        from lib.cuckoo.common.central_mode import central_mode_config
+
+        if not central_mode_config().enabled:
+            return
+        from lib.cuckoo.common.artifact_storage import ensure_local_analysis, ensure_local_memory
+        from analysis.central_scope import viewer_scope
+
+        scope = viewer_scope(request.user)
+        ensure_local_analysis(task_id, scope=scope)
+        if include_memory:
+            ensure_local_memory(task_id, scope=scope)
+    except Exception:
+        pass
 
 
 def _serve_analysis_file(task_id, rel_path, download_name, content_type="application/octet-stream"):
@@ -1877,6 +1910,7 @@ def tasks_pcap_variant(request, task_id, variant):
     task_id, err = _resolve_task_id(task_id, "taskpcap")
     if err:
         return err
+    _central_stage(request, task_id)
     v = (variant or "").lower()
     if v in _PCAP_VARIANTS:
         rel_path, fname = _PCAP_VARIANTS[v]
@@ -1957,6 +1991,8 @@ def tasks_evtx(request, task_id):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id)
+
     evtxfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "evtx", "evtx.zip")
     if not os.path.normpath(evtxfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(evtxfile)}"})
@@ -1984,6 +2020,7 @@ def tasks_mitmdump(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+    _central_stage(request, task_id)
     harfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "mitmdump", "dump.har")
     if not os.path.normpath(harfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(harfile)}"})
@@ -2016,6 +2053,8 @@ def tasks_dropped(request, task_id):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+
+    _central_stage(request, task_id)
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "files")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -2066,6 +2105,8 @@ def tasks_selfextracted(request, task_id, tool="all"):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+
+    _central_stage(request, task_id)
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "selfextracted")
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -2166,6 +2207,8 @@ def tasks_surifile(request, task_id):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id)
+
     srcfile = os.path.join(CUCKOO_ROOT, "storage", "analyses", "%s" % task_id, "logs", "files.zip")
     if not os.path.normpath(srcfile).startswith(ANALYSIS_BASE_PATH):
         return render(request, "error.html", {"error": f"File not found: {os.path.basename(srcfile)}"})
@@ -2231,6 +2274,7 @@ def tasks_procmemory(request, task_id, pid="all"):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id, include_memory=True)
     # Check if any process memory dumps exist
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", f"{task_id}", "memory")
     if not path_exists(srcdir):
@@ -2309,6 +2353,7 @@ def tasks_fullmemory(request, task_id):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id, include_memory=True)
     filename = ""
     file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "memory.dmp")
     if path_exists(file_path):
@@ -2557,6 +2602,8 @@ def tasks_payloadfiles(request, task_id):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id)
+
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "CAPE")
 
     if not os.path.normpath(srcdir).startswith(ANALYSIS_BASE_PATH):
@@ -2594,6 +2641,8 @@ def tasks_procdumpfiles(request, task_id):
     if rtid:
         task_id = rtid
 
+    _central_stage(request, task_id)
+
     # ToDo add all/one
 
     srcdir = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "procdump")
@@ -2630,6 +2679,8 @@ def tasks_config(request, task_id, cape_name=False):
     rtid = check.get("rtid", 0)
     if rtid:
         task_id = rtid
+
+    _central_stage(request, task_id)
 
     buf = {}
     if repconf.mongodb.get("enabled"):

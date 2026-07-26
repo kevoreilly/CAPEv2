@@ -194,7 +194,7 @@ class Process:
     # which check whether the VM has only been up for <10 minutes.
     startup_time = random.randint(1, 30) * 20 * 60 * 1000
 
-    def __init__(self, options=None, config=None, pid=0, h_process=0, thread_id=0, h_thread=0, suspended=False):
+    def __init__(self, options=None, config=None, pid=0, h_process=0, thread_id=0, h_thread=0):
         """@param pid: PID.
         @param h_process: process handle.
         @param thread_id: thread id.
@@ -208,7 +208,6 @@ class Process:
         self.h_process = HANDLE(h_process)
         self.thread_id = thread_id
         self.h_thread = HANDLE(h_thread)
-        self.suspended = suspended
         self.system_info = SYSTEM_INFO()
         self.critical = False
         self.path = None
@@ -627,11 +626,10 @@ class Process:
         except subprocess.CalledProcessError as e:
             log.error("Failed to collect %s process info: %s", process_name, e.output)
 
-    def execute(self, path, args=None, suspended=False, kernel_analysis=False):
+    def execute(self, path, args=None, kernel_analysis=False):
         """Execute sample process.
         @param path: sample path.
         @param args: process args.
-        @param suspended: is suspended.
         @return: operation status.
         """
         if not os.access(path, os.X_OK):
@@ -653,11 +651,7 @@ class Process:
             arguments += args
 
         self.path = path
-
-        creation_flags = CREATE_NEW_CONSOLE | EXTENDED_STARTUPINFO_PRESENT
-        if suspended:
-            self.suspended = True
-            creation_flags += CREATE_SUSPENDED
+        creation_flags = CREATE_NEW_CONSOLE | EXTENDED_STARTUPINFO_PRESENT | CREATE_SUSPENDED
 
         # Use the custom execution directory if provided, otherwise launch in the same location
         # where the sample resides (default %TEMP%)
@@ -697,17 +691,12 @@ class Process:
         """Resume a suspended thread.
         @return: operation status.
         """
-        if not self.suspended:
-            log.warning("The process with pid %d was not suspended at creation", self.pid)
-            return False
-
         if not self.h_thread:
             return False
 
         KERNEL32.Sleep(2000)
 
         if KERNEL32.ResumeThread(self.h_thread) != -1:
-            self.suspended = False
             log.info("Successfully resumed process with pid %d", self.pid)
             return True
         else:

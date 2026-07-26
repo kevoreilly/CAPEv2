@@ -1,7 +1,7 @@
 ---
 # ════════════════════════════════════════════════════════════════════
 # Epic 9: Guest VM Provisioning Scripts
-# All scripts are written to {{ guest_scripts_dir }}.
+# All scripts are written to {{ guest_scripts_dir }} on the control node.
 # They must be manually copied to the guest VM and executed.
 # ════════════════════════════════════════════════════════════════════
 
@@ -10,6 +10,9 @@
     path: "{{ guest_scripts_dir }}"
     state: directory
     mode: "0755"
+  delegate_to: localhost
+  become: false
+  connection: local
 
 # ────────────────────────────────────────────────────────────────────
 # 9.1: OS hardening scripts
@@ -61,6 +64,9 @@
 
       Write-Output "Hardening complete. A reboot is recommended."
     mode: "0644"
+  delegate_to: localhost
+  become: false
+  connection: local
   tags: [guest, harden]
 
 - name: Generate Windows hardening batch script
@@ -109,6 +115,9 @@
 
       echo Hardening complete. A reboot is recommended.
     mode: "0644"
+  delegate_to: localhost
+  become: false
+  connection: local
   tags: [guest, harden]
 
 # ────────────────────────────────────────────────────────────────────
@@ -159,6 +168,9 @@
 
       Write-Output "Dependency installation complete."
     mode: "0644"
+  delegate_to: localhost
+  become: false
+  connection: local
   tags: [guest, deps]
 
 # ────────────────────────────────────────────────────────────────────
@@ -169,6 +181,7 @@
   ansible.builtin.stat:
     path: "{{ cape_root }}/agent/agent.py"
   register: agent_py
+  tags: [guest, agent]
 
 - name: Generate agent deploy script
   ansible.builtin.copy:
@@ -228,6 +241,9 @@
 
       Write-Output "Agent deployment complete."
     mode: "0644"
+  delegate_to: localhost
+  become: false
+  connection: local
   when: agent_py.stat.exists | default(false)
   tags: [guest, agent]
 
@@ -263,6 +279,9 @@
 
       Write-Output "Agent uninstall complete."
     mode: "0644"
+  delegate_to: localhost
+  become: false
+  connection: local
   when: agent_py.stat.exists | default(false)
   tags: [guest, agent]
 
@@ -282,6 +301,9 @@
       # IP addresses to ignore for routing
       # ignore_ip = 192.168.1.1,8.8.8.8
     mode: "0644"
+  delegate_to: localhost
+  become: false
+  connection: local
   tags: [guest, config]
 
 # ────────────────────────────────────────────────────────────────────
@@ -397,4 +419,7 @@
         log file at `C:\ProgramData\cape\agent.log`.
       - Ensure port `{{ resultserver_port }}` is reachable from the guest.
     mode: "0644"
+  delegate_to: localhost
+  become: false
+  connection: local
   tags: [guest, instructions]

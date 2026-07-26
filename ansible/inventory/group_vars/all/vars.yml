@@ -129,13 +129,3 @@ vm_disk_gb: 64
 vm_os_variant: win10
 vm_wim_index: 6
 vm_bridge: "{{ network_iface | default('virbr1') }}"
-
-# ────────────────────────────────────────────────────────────────────
-# WinRM connection defaults for Windows guest VMs
-# ────────────────────────────────────────────────────────────────────
-# These apply to hosts in [cape_guests_winrm] for remote management.
-# Install pywinrm on the control node: pip install pywinrm
-ansible_connection: winrm
-ansible_winrm_transport: basic
-ansible_winrm_server_cert_validation: ignore
-ansible_port: 5985

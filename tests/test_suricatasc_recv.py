@@ -7,8 +7,6 @@ loop forever, hanging the whole processing task until the 900s pebble timeout
 killed it (status=failed_processing, NO report). The fix bails on empty recv so
 send_command() raises and the caller degrades gracefully (report still built).
 """
-import pytest
-
 from lib.cuckoo.common.suricatasc import SuricataSC
 
 

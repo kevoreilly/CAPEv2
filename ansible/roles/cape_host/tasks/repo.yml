@@ -1,29 +1,17 @@
 ---
-- name: Download CAPEv2 source tarball
-  ansible.builtin.get_url:
-    url: "https://github.com/kevoreilly/CAPEv2/archive/master.tar.gz"
-    dest: "/tmp/CAPEv2-master.tar.gz"
-    timeout: 120
+- name: Add CAPE root to git safe.directory list
+  ansible.builtin.git_config:
+    name: safe.directory
+    scope: global
+    value: "{{ cape_root }}"
 
-- name: Extract CAPEv2 tarball
-  ansible.builtin.unarchive:
-    src: "/tmp/CAPEv2-master.tar.gz"
-    dest: "{{ cape_root | dirname }}"
-    remote_src: true
-
-- name: Check if CAPEv2 repo is already deployed
-  ansible.builtin.stat:
-    path: "{{ cape_root }}/pyproject.toml"
-  register: _cape_repo_check
-
-- name: Rename extracted directory to cape_root
-  ansible.builtin.shell:
-    cmd: |
-      rm -rf "{{ cape_root }}" &&
-      mv "{{ cape_root | dirname }}/CAPEv2-master" "{{ cape_root }}"
-  args:
-    executable: /bin/bash
-  when: not _cape_repo_check.stat.exists
+- name: Clone CAPEv2 repository
+  ansible.builtin.git:
+    repo: "{{ cape_repo_url }}"
+    dest: "{{ cape_root }}"
+    depth: 1
+    version: master
+    force: false
 
 - name: Ensure CAPE root ownership
   ansible.builtin.file:
@@ -184,6 +172,24 @@
       --config-settings="--global-option=--enable-magic"
       --config-settings="--global-option=--enable-profiling"
     chdir: "{{ cape_root }}"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: not use_uv
+
+# ────────────────────────────────────────────────────────────────────
+# Optional HTTP replay library for deep network analysis
+# ────────────────────────────────────────────────────────────────────
+
+- name: Install httpreplay with uv
+  ansible.builtin.command:
+    cmd: /usr/local/bin/uv pip install "git+https://github.com/CAPESandbox/httpreplay"
+  become: true
+  become_user: "{{ cape_user }}"
+  when: use_uv
+
+- name: Install httpreplay with poetry
+  ansible.builtin.command:
+    cmd: "{{ cape_root }}/.venv/bin/pip install git+https://github.com/CAPESandbox/httpreplay"
   become: true
   become_user: "{{ cape_user }}"
   when: not use_uv

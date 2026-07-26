@@ -1,3 +1,6 @@
+### [15.07.2026]
+* Monitor update: Fix issue with NtWriteFile hook causing detonation failures (e.g. 9b1717eb154011b52aa24e4d6848976a9aafff2665f3171265aa767d5951be6c)
+
 ### [07.07.2026]
 * Monitor updates:
     * New hooks for SystemFunction036, SystemFunction040, SystemFunction041 (RtlGenRandom, RtlEncryptMemory, RtlDecryptMemory), Thread32First, Thread32Next, clipboard functions

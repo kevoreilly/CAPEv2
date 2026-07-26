@@ -132,6 +132,36 @@ interface = tun0
 rt_table = tun0
 
 
+[nexthop]
+# Decoupled next-hop egress to a shared gateway pool. Default OFF (no-regress).
+enabled = no
+# Comma list of [gwX] profile ids to load.
+gateways = gw1
+# Selection used when a task resolves to the pool: roundrobin | random | <gwX id>. Set
+# [routing] route = nexthop (the pool sentinel) as the node default so tasks that DON'T name a route
+# use this. A task may also name a route directly -- a <gwX id>, roundrobin, random, or nexthop --
+# from the web submission UI route selector (which lists the nexthop pool + each configured [gwX])
+# or via API/CLI/broker submissions. (Advertising nexthop routes across a distributed multi-node
+# CAPE via the exitnodes API is a separate follow-up.)
+default_policy = roundrobin
+# Drop guest egress when no live gateway (strongly recommended yes).
+fail_closed = yes
+# Whole guest subnet the blackhole covers (CIDR). MUST match the libvirt guest net.
+vm_net = 192.168.100.0/24
+
+[gw1]
+# Interface that reaches the gateway network (provided by the deployment).
+interface = ens6
+# Next-hop gateway IP reachable via `interface`, or 'onlink'.
+next_hop = onlink
+# Dedicated policy routing table id for this gateway. MUST be unique across the WHOLE system:
+# not a reserved table (main/local/default/253-255/0), not another [gwX]'s table, not a VPN's
+# rt_table, and not the [routing] dirty-line rt_table -- startup rejects those it can see. Note a
+# name<->id alias counts as the same table (e.g. do NOT use 201 here if a VPN uses a name mapped to
+# 201 in /etc/iproute2/rt_tables); keeping gateway tables to their own numeric range avoids this.
+rt_table = 201
+description = vpn-router-1
+
 [socks5]
 # By default we disable socks5 support as it requires running utils/rooter.py as
 # root next to cuckoo.py (which should run as regular user).

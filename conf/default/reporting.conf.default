@@ -105,6 +105,12 @@ index_filenames = no
 
 # Set this value if you are using mongodb with TLS enabled
 # tlscafile =
+# Enable TLS on the connection. Required for managed backends like Amazon DocumentDB
+# (a tlscafile alone does NOT enable TLS in pymongo). Default off = today's behavior.
+# tls = no
+# Retryable writes. Amazon DocumentDB rejects them, so set this to no when pointing at
+# DocumentDB. Default yes = pymongo's own default (unchanged for stock MongoDB).
+# retrywrites = yes
 
 # Automatically delete large dict values that exceed mongos 16MB limitation
 # Note: This only deletes dict keys from data stored in MongoDB. You would

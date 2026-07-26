@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import sys
+import threading
 import time
 from contextlib import suppress
 from datetime import datetime, timedelta
@@ -32,8 +33,41 @@ log = logging.getLogger(__name__)
 config = Config()
 repconf = Config("reporting")
 webconf = Config("web")
-resolver_pool = ThreadPool(50)
-atexit.register(resolver_pool.close)
+class _LazyThreadPool:
+    """Defers ThreadPool(50) creation until the first .map()/attribute use.
+
+    Importing this module used to eagerly spawn 53 threads (50 workers + 3
+    handler threads) in *every* process that imports it -- including
+    utils/process.py, which only needs free_space_monitor() and never touches
+    the resolver pool. Those live threads sat in the processor before it forked
+    its workers, and forking a heavily-multithreaded process deadlocks the
+    forked children in multiprocessing bootstrap/atexit (_exit_function -> join
+    -> waitpid), and trips the prefork single-threaded-before-fork invariant.
+    Only the cleaner/deletion paths actually call resolver_pool.map(), so the
+    pool is now created on demand by those callers and the processor forks clean.
+    """
+
+    _pool = None
+    _lock = threading.Lock()
+
+    def _get(self):
+        if self._pool is None:
+            with self._lock:
+                if self._pool is None:
+                    self._pool = ThreadPool(50)
+        return self._pool
+
+    def __getattr__(self, name):
+        return getattr(self._get(), name)
+
+
+resolver_pool = _LazyThreadPool()
+
+
+@atexit.register
+def _close_resolver_pool():
+    if resolver_pool._pool is not None:
+        resolver_pool._pool.close()
 
 HAVE_TMPFS = False
 if hasattr(config, "tmpfs"):

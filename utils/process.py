@@ -3,6 +3,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 import argparse
+import functools
 import gc
 import json
 import logging
@@ -11,7 +12,6 @@ import platform
 import resource
 import signal
 import sys
-import time
 from contextlib import suppress
 
 log = logging.getLogger()
@@ -27,26 +27,21 @@ if sys.version_info[:2] < (3, 8):
     sys.exit(1)
 
 try:
-    import pebble
+    import pebble  # noqa: F401  # fail fast with a clear message if the dep is missing (engines import it)
 except ImportError:
     log.critical("Missed pebble dependency. Run: poetry install")
     sys.exit(1)
 
 sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
-from concurrent.futures import TimeoutError
 
-from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import get_options, option_dict_enabled
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.data.task import (
-    TASK_COMPLETED,
-    TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
-    TASK_REPORTED,
-    Task
+    TASK_REPORTED
 )
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
@@ -70,8 +65,6 @@ if repconf.elasticsearchdb.enabled and not repconf.elasticsearchdb.searchonly:
 
 check_linux_dist()
 
-pending_future_map = {}
-pending_task_id_map = {}
 original_proctitle = getproctitle()
 
 
@@ -192,6 +185,30 @@ def process(
         # Stale data can prevent SQLAlchemy from querying the database or issuing
         # statements, resulting in unexpected errors and inconsistencies.
         db.session.remove()
+
+
+def run_task(task, memory_debugging=False, debug=False):
+    """Run exactly one completed task to completion (processing -> report).
+    Extracted from autoprocess so every engine shares identical per-task setup."""
+    sample_hash = ""
+    if task.category != "url":
+        with db.session.begin():
+            sample = db.view_sample(task.sample_id)
+            if sample:
+                sample_hash = sample.sha256
+    try:
+        process(
+            task.target,
+            sample_hash,
+            report=True,
+            auto=True,
+            task=task,
+            memory_debugging=memory_debugging,
+            debug=debug,
+        )
+    finally:
+        set_formatter_fmt()
+        setproctitle(original_proctitle)
 
 
 def init_worker():
@@ -377,148 +394,68 @@ def init_per_analysis_logging(tid=0, debug=False):
     return fhpa
 
 
-def processing_finished(future):
-    """
-    Callback function to handle the completion of a processing task.
-
-    This function is called when a future task is completed. It retrieves the task ID from the
-    pending_future_map, logs the result, and updates the task status in the database. If an
-    exception occurs during processing, it logs the error and sets the task status to failed.
-
-    Args:
-        future (concurrent.futures.Future): The future object representing the asynchronous task.
-
-    Raises:
-        TimeoutError: If the processing task times out.
-        pebble.ProcessExpired: If the processing task expires.
-        Exception: For any other exceptions that occur during processing.
-    """
-    task_id = pending_future_map.get(future)
-    with db.session.begin():
-        try:
-            _ = future.result()
-            log.info("Reports generation completed for Task #%d", task_id)
-        except TimeoutError as error:
-            log.error("[%d] Processing timeout: %s. Function: %s", task_id, error, error.args[1])
-            db.set_status(task_id, TASK_FAILED_PROCESSING)
-        except (pebble.ProcessExpired, Exception) as error:
-            log.exception("[%d] Exception when processing task: %s", task_id, error)
-            db.set_status(task_id, TASK_FAILED_PROCESSING)
-
-    pending_future_map.pop(future)
-    pending_task_id_map.pop(task_id)
-    set_formatter_fmt()
-    setproctitle(original_proctitle)
-
 
 def autoprocess(
-    parallel=1, failed_processing=False, maxtasksperchild=7, memory_debugging=False, processing_timeout=300, debug: bool = False, disable_memory_limit: bool = False
+    parallel=1,
+    failed_processing=False,
+    maxtasksperchild=7,
+    memory_debugging=False,
+    processing_timeout=300,
+    debug: bool = False,
+    disable_memory_limit: bool = False,
+    engine: str = "pebble",
 ):
     """
-    Automatically processes analysis data using a process pool.
+    Automatically processes analysis data using a process pool engine.
 
     Args:
         parallel (int): Number of parallel processes to use. Default is 1.
         failed_processing (bool): Whether to process failed tasks. Default is False.
-        maxtasksperchild (int): Maximum number of tasks per child process. Default is 7.
+        maxtasksperchild (int): Maximum number of tasks per child process (pebble engine only).
+            Default is 7. Pass 0 to disable worker recycling (avoids deadlock on some systems).
         memory_debugging (bool): Whether to enable memory debugging. Default is False.
         processing_timeout (int): Timeout for processing each task in seconds. Default is 300.
         debug (bool): Whether to enable debug mode. Default is False.
+        disable_memory_limit (bool): Skip setting process memory limits. Default is False.
+        engine (str): Processing engine to use: "pebble" (default) or "prefork".
 
     Raises:
         KeyboardInterrupt: If the process is interrupted by the user.
         MemoryError: If there is not enough free RAM to run processing.
         OSError: If an OS-related error occurs.
         Exception: If any other exception occurs during processing.
-
     """
-    maxcount = cfg.cuckoo.max_analysis_count
-    count = 0
-    # pool = multiprocessing.Pool(parallel, init_worker)
-    pool = False
-    try:
-        if not disable_memory_limit:
-            memory_limit()
-        log.info("Processing analysis data")
-        with pebble.ProcessPool(max_workers=parallel, max_tasks=maxtasksperchild, initializer=init_worker) as pool:
-            # CAUTION - big ugly loop ahead.
-            while count < maxcount or not maxcount:
-                # If not enough free disk space is available, then we print an
-                # error message and wait another round (this check is ignored
-                # when the freespace configuration variable is set to zero).
-                if cfg.cuckoo.freespace_processing:
-                    # Resolve the full base path to the analysis folder, just in
-                    # case somebody decides to make a symbolic link out of it.
-                    dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                    free_space_monitor(dir_path, processing=True)
+    from lib.cuckoo.core.processing_engine import get_engine
+    from lib.cuckoo.core.processing_engine.source import TaskSource
 
-                # If still full, don't add more (necessary despite pool).
-                if len(pending_task_id_map) >= parallel:
-                    time.sleep(5)
-                    continue
-                with db.session.begin():
-                    if failed_processing:
-                        tasks = db.list_tasks(status=TASK_FAILED_PROCESSING, limit=parallel, order_by=Task.completed_on.asc())
-                    else:
-                        tasks = db.list_tasks(status=TASK_COMPLETED, limit=parallel, order_by=Task.completed_on.asc())
-                    # Make sure the tasks are available as normal objects after the transaction ends, so that
-                    # sqlalchemy doesn't auto-initiate a new transaction the next time they are accessed.
-                    db.session.expunge_all()
-                added = False
-                # For loop to add only one, nice. (reason is that we shouldn't overshoot maxcount)
-                for task in tasks:
-                    # Not-so-efficient lock.
-                    if pending_task_id_map.get(task.id):
-                        continue
+    if not disable_memory_limit:
+        memory_limit()
+    log.info("Processing analysis data (engine=%s)", engine)
 
-                    log.info("Processing analysis data for Task #%d", task.id)
-                    sample_hash = ""
-                    if task.category != "url":
-                        with db.session.begin():
-                            sample = db.view_sample(task.sample_id)
-                            if sample:
-                                sample_hash = sample.sha256
+    # Compile the YARA ruleset ONCE in the supervisor, before the engine forks any
+    # workers. Every forked child then inherits the compiled rules via copy-on-write
+    # fork (0s + shared read-only pages), and its init_worker() File.init_yara() call
+    # short-circuits on the idempotency guard. Without this, prefork — which forks a
+    # fresh child per task — would pay the ~3s compile on every single task. Safe to
+    # call here: compilation is single-threaded, so it does not break the prefork
+    # single-threaded-before-fork invariant.
+    from lib.cuckoo.common.objects import File
 
-                    args = task.target, sample_hash
-                    kwargs = dict(report=True, auto=True, task=task, memory_debugging=memory_debugging, debug=debug)
-                    if memory_debugging:
-                        gc.collect()
-                        log.info("(before) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-                    # result = pool.apply_async(process, args, kwargs)
-                    future = pool.schedule(process, args, kwargs, timeout=processing_timeout)
-                    pending_future_map[future] = task.id
-                    pending_task_id_map[task.id] = future
-                    future.add_done_callback(processing_finished)
-                    if memory_debugging:
-                        gc.collect()
-                        log.info("(after) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
-                    count += 1
-                    added = True
-                    break
+    File.init_yara()
 
-                if not added:
-                    # don't hog cpu
-                    time.sleep(5)
-    except KeyboardInterrupt:
-        # ToDo verify in finally
-        # pool.terminate()
-        raise
-    except (MemoryError, OSError) as e:
-        mem = get_memory() / 1024 / 1024
-        log.critical(
-            "Memory Exception: Remain: %.2f GB. Your system doesn't have enough FREE RAM to run processing! Error: %s",
-            mem,
-            e,
-        )
-        sys.exit(1)
-    except Exception:
-        import traceback
-
-        traceback.print_exc()
-    finally:
-        if pool:
-            pool.close()
-            pool.join()
+    source = TaskSource(db, failed_processing=failed_processing)
+    eng = get_engine(
+        engine,
+        task_fn=functools.partial(run_task, memory_debugging=memory_debugging, debug=debug),
+        worker_init=init_worker,
+        source=source,
+        parallel=parallel,
+        timeout=processing_timeout,
+    )
+    eng.max_count = cfg.cuckoo.max_analysis_count
+    if engine == "pebble":
+        eng.max_tasks = maxtasksperchild
+    eng.run()
 
 
 def _load_report(task_id: int):
@@ -692,6 +629,12 @@ def main():
         required=False,
         default=str_to_bool(os.getenv("CAPE_DISABLE_MEMORY_LIMIT", "false")),
     )
+    parser.add_argument(
+        "--engine",
+        choices=["pebble", "prefork"],
+        default="pebble",
+        help="Processing engine: pebble (default, A/B control) or prefork.",
+    )
     args = parser.parse_args()
 
     init_database()
@@ -705,7 +648,8 @@ def main():
             memory_debugging=args.memory_debugging,
             processing_timeout=args.processing_timeout,
             debug=args.debug,
-            disable_memory_limit= args.disable_memory_limit,
+            disable_memory_limit=args.disable_memory_limit,
+            engine=args.engine,
         )
     else:
         for start, end in args.id:

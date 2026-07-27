@@ -91,8 +91,10 @@ class ElasticSearchDB(Report):
                     report["info"]["machine"][k] = datetime.strptime(info["machine"][k], "%Y-%m-%d %H:%M:%S")
 
         for dropped in report.get("dropped") or []:
-            if "pe" in dropped:
-                dropped["pe"]["timestamp"] = datetime.strptime(dropped["pe"]["timestamp"], "%Y-%m-%d %H:%M:%S")
+            if isinstance(dropped, dict) and isinstance(dropped.get("pe"), dict):
+                pe = dropped["pe"]
+                if isinstance(pe.get("timestamp"), str):
+                    pe["timestamp"] = datetime.strptime(pe["timestamp"], "%Y-%m-%d %H:%M:%S")
 
     # Fix signatures from string to list in order to have a common mapping
     def fix_signature_results(self, report):
@@ -106,15 +108,17 @@ class ElasticSearchDB(Report):
                             val[index] = {"name": file}
 
     def fix_suricata_http_status(self, report):
-        if "http" in (report.get("suricata") or {}):
-            for http in report["suricata"]["http"]:
-                if http["status"] == "None":
+        suricata = report.get("suricata")
+        if isinstance(suricata, dict):
+            for http in suricata.get("http") or []:
+                if isinstance(http, dict) and http.get("status") == "None":
                     http["status"] = None
 
     def fix_cape_payloads(self, report):
-        if "CAPE" in report:
-            for p in report["CAPE"].get("payloads") or []:
-                if p.get("tlsh") is False:
+        cape = report.get("CAPE")
+        if isinstance(cape, dict):
+            for p in cape.get("payloads") or []:
+                if isinstance(p, dict) and p.get("tlsh") is False:
                     p["tlsh"] = None
 
     def convert_procdump_strings_to_str(self, report):

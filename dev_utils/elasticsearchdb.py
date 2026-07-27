@@ -17,12 +17,15 @@ if repconf.elasticsearchdb.enabled:
     from elasticsearch import Elasticsearch
 
     # http_auth=(None, None) crashes urllib3's ":".join() — only pass credentials
-    # when both are actually configured (security-less local ES needs none).
-    _es_auth = (repconf.elasticsearchdb.get("username"), repconf.elasticsearchdb.get("password"))
+    # when a username is actually configured (security-less local ES needs none).
+    # The password defaults to "" so that a username configured with an empty
+    # password still authenticates instead of silently falling back to anonymous.
+    _es_username = repconf.elasticsearchdb.get("username")
+    _es_password = repconf.elasticsearchdb.get("password") or ""
     elastic_handler = Elasticsearch(
         hosts=[repconf.elasticsearchdb.host],
         port=repconf.elasticsearchdb.get("port", 9200),
-        http_auth=_es_auth if all(_es_auth) else None,
+        http_auth=(_es_username, _es_password) if _es_username else None,
         use_ssl=repconf.elasticsearchdb.get("use_ssl", False),
         verify_certs=repconf.elasticsearchdb.get("verify_certs", False),
         timeout=120,

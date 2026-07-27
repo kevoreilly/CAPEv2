@@ -23,7 +23,7 @@ from wsgiref.util import FileWrapper
 from django.conf import settings
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import BadRequest, PermissionDenied
-from django.http import HttpResponse, HttpResponseRedirect, JsonResponse, StreamingHttpResponse
+from django.http import HttpResponse, HttpResponseForbidden, HttpResponseRedirect, JsonResponse, StreamingHttpResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST, require_safe
@@ -172,7 +172,7 @@ for cfile in ("integrations", "reporting", "processing", "auxiliary", "web", "di
 if enabledconf["mongodb"]:
     from bson.objectid import ObjectId
 
-    from dev_utils.mongodb import mongo_aggregate, mongo_delete_data, mongo_find, mongo_find_one, mongo_update_one
+    from dev_utils.mongodb import mongo_aggregate, mongo_find, mongo_find_one, mongo_update_one
 
 es_as_db = False
 essearch = False
@@ -191,6 +191,120 @@ if enabledconf["mongodb"] or enabledconf["elasticsearchdb"]:
     DISABLED_WEB = False
 
 db: TasksMixIn = Database()
+
+from web.tenancy_optional import can_view_task, can_toggle_task, can_manage_task, can_delete_task, can_delete_job, can_set_visibility_task, can_view_sample, can_ban_user, viewer_for, multitenancy_config
+
+# Shared central-mode cross-store info.id collision seam (report(), report-tab loaders, apiv2 report-family,
+# compare seeds all route their per-task analysis reads through this) -- see analysis.central_views.
+from analysis.central_views import scoped_analysis_query as _scoped_analysis_query
+# Central-aware task delete: scopes the analysis+calls delete to the caller in central mode.
+from analysis.central_views import central_delete_analysis
+
+
+def _coerce_task_id(tid):
+    """Coerce a URL-supplied task id to int, or None if it isn't numeric.
+
+    Task.id is an integer PK, so a non-numeric id can never match a real task.
+    Some analysis routes capture the id as ``\\w+`` (e.g. filereport, full_memory),
+    so a request like ``/full_memory/abc/`` would otherwise forward ``"abc"`` to
+    db.view_task() and raise a DB DataError -> an uncaught 500 that also leaks a
+    task-vs-no-task signal. Returning None lets the task-scoped decorators fail
+    closed with the same generic 403 as a missing/hidden task (no enumeration).
+    """
+    try:
+        _v = int(tid)
+    except (TypeError, ValueError):
+        return None
+    # Task.id is a 32-bit signed PG Integer: an out-of-range value (or a huge digit string that clears int())
+    # is not a real task and would raise a driver DataError (22003) in view_task -> a bodiless 500 that also
+    # leaks a task-vs-no-task signal. Fail closed to None (same generic 403/not-found as missing/hidden).
+    return _v if 1 <= _v <= 2147483647 else None
+
+
+def require_task_manage(view):
+    """Decorator for task-scoped MUTATION views (remove/comment/reprocess/etc.):
+    403 (generic) unless the user may MANAGE the task (owner / tenant-admin for
+    public+tenant jobs / break-glass). Stricter than require_task_visibility."""
+    from functools import wraps
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        # TRUE NO-OP when multitenancy is disabled: pass straight through so the
+        # view renders exactly as upstream (off disk/mongo, ~200) — including the
+        # mode-independent non-numeric-id hardening, which only applies when MT is on.
+        if not multitenancy_config().enabled:
+            return view(request, *args, **kwargs)
+        tid = kwargs.get("task_id") or kwargs.get("analysis_number")
+        if tid is None and args:
+            tid = args[0]
+        tid = _coerce_task_id(tid)
+        if tid is None:
+            return HttpResponseForbidden("Not found")
+        task = db.view_task(tid)
+        if task is None or not can_manage_task(request.user, task):
+            return HttpResponseForbidden("Not found")
+        return view(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def require_task_delete(view):
+    """Decorator for task-scoped DELETE views (remove): 403 (generic) unless the user may DELETE the
+    task. Stricter than require_task_manage for a PUBLIC job — only its submitter or a break-glass box
+    admin, never a tenant-admin (can_delete_task). TRUE NO-OP when multitenancy is disabled."""
+    from functools import wraps
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        if not multitenancy_config().enabled:
+            return view(request, *args, **kwargs)
+        tid = kwargs.get("task_id") or kwargs.get("analysis_number")
+        if tid is None and args:
+            tid = args[0]
+        tid = _coerce_task_id(tid)
+        if tid is None:
+            return HttpResponseForbidden("Not found")
+        task = db.view_task(tid)
+        if task is None or not can_view_task(request.user, task):
+            # missing OR not even visible: the SAME generic 'Not found' (no cross-tenant enumeration).
+            return HttpResponseForbidden("Not found")
+        if not can_delete_task(request.user, task):
+            # the caller can demonstrably SEE this task, so a distinguishable 'not permitted' leaks
+            # nothing new -- and it lets the UI hide/disable a Delete control instead of offering one
+            # that 403s as if the task were missing.
+            return HttpResponseForbidden("You are not permitted to delete this task")
+        return view(request, *args, **kwargs)
+
+    return _wrapped
+
+
+def require_task_visibility(view):
+    """Decorator for task-scoped analysis views: 403 (generic) unless the
+    requesting user may see the task. task_id comes from the URL named-group
+    (passed as a kwarg), or the first positional arg as a fallback. A hidden
+    and a non-existent task are indistinguishable (no cross-tenant enumeration).
+    """
+    from functools import wraps
+
+    @wraps(view)
+    def _wrapped(request, *args, **kwargs):
+        # TRUE NO-OP when multitenancy is disabled: pass straight through so the
+        # view renders exactly as upstream (off disk/mongo, ~200) — including the
+        # mode-independent non-numeric-id hardening, which only applies when MT is on.
+        if not multitenancy_config().enabled:
+            return view(request, *args, **kwargs)
+        tid = kwargs.get("task_id") or kwargs.get("analysis_number")
+        if tid is None and args:
+            tid = args[0]
+        tid = _coerce_task_id(tid)
+        if tid is None:
+            return HttpResponseForbidden("Not found")
+        task = db.view_task(tid)
+        if task is None or not can_view_task(request.user, task):
+            return HttpResponseForbidden("Not found")
+        return view(request, *args, **kwargs)
+
+    return _wrapped
 
 anon_not_viewable_func_list = (
     "file",
@@ -249,7 +363,7 @@ def get_task_package(task_id: int) -> str:
     return task_dict.get("package", "")
 
 
-def get_analysis_info(db, id=-1, task=None, rtmp=None):
+def get_analysis_info(db, id=-1, task=None, rtmp=None, scope=None):
     if not task:
         task = db.view_task(id)
     if not task:
@@ -278,9 +392,15 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None):
         new.update({"machine": machine})
 
     if not rtmp and enabledconf["mongodb"]:
+        # scope: caller-supplied central viewer tenant $match, ANDed onto the info.id fallback so a
+        # colliding foreign-tenant doc can't be surfaced when the viewer's own doc is absent from the
+        # scoped bulk map (audit MEDIUM cross-store collision). None = single-node / break-glass.
+        _gi_q = {"info.id": int(new["id"])}
+        if scope:
+            _gi_q = {"$and": [_gi_q, scope]}
         rtmp = mongo_find_one(
             "analysis",
-            {"info.id": int(new["id"])},
+            _gi_q,
             {
                 "info": 1,
                 "target.file.virustotal.summary": 1,
@@ -436,21 +556,35 @@ def index(request, page=1):
     analyses_pcaps = []
     analyses_static = []
 
+    _visible = viewer_for(request.user)
+    # Central mode: the viewer's tenant $match, reused for BOTH the info.id-keyed enrichment reads below
+    # (bulk map + the get_analysis_info fallback) so a colliding worker-local doc can't surface on a
+    # viewer's own list row (audit MEDIUM cross-store collision). None = single-node / break-glass.
+    _view_scope = None
+    from lib.cuckoo.common.central_mode import central_mode_config
+
+    if central_mode_config().enabled:
+        from analysis.central_scope import viewer_scope
+
+        _view_scope = viewer_scope(request.user)
     tasks_files = db.list_tasks(
-        limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING, tags_tasks_not_like="audit", include_hashes=True
+        limit=TASK_LIMIT, offset=off, category="file", not_status=TASK_PENDING, tags_tasks_not_like="audit", include_hashes=True, visible_to=_visible
     )
-    tasks_static = db.list_tasks(limit=TASK_LIMIT, offset=off, category="static", not_status=TASK_PENDING, include_hashes=True)
-    tasks_urls = db.list_tasks(limit=TASK_LIMIT, offset=off, category="url", not_status=TASK_PENDING, include_hashes=True)
-    tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING, include_hashes=True)
+    tasks_static = db.list_tasks(limit=TASK_LIMIT, offset=off, category="static", not_status=TASK_PENDING, include_hashes=True, visible_to=_visible)
+    tasks_urls = db.list_tasks(limit=TASK_LIMIT, offset=off, category="url", not_status=TASK_PENDING, include_hashes=True, visible_to=_visible)
+    tasks_pcaps = db.list_tasks(limit=TASK_LIMIT, offset=off, category="pcap", not_status=TASK_PENDING, include_hashes=True, visible_to=_visible)
 
     mongo_map = {}
     if enabledconf["mongodb"]:
         all_tasks = (tasks_files or []) + (tasks_static or []) + (tasks_urls or []) + (tasks_pcaps or [])
         if all_tasks:
             all_ids = [int(t.id) for t in all_tasks]
+            # Central mode (_view_scope, computed above): AND the viewer tenant $match so a colliding
+            # worker-local doc can't win this info.id-keyed enrichment map. No-op single-node/break-glass.
+            _idx_q = {"$and": [{"info.id": {"$in": all_ids}}, _view_scope]} if _view_scope else {"info.id": {"$in": all_ids}}
             cursor = mongo_find(
                 "analysis",
-                {"info.id": {"$in": all_ids}},
+                _idx_q,
                 {
                     "info": 1,
                     "target.file.virustotal.summary": 1,
@@ -488,10 +622,10 @@ def index(request, page=1):
     pages_urls_num = 0
     pages_pcaps_num = 0
     pages_static_num = 0
-    tasks_files_number = db.count_matching_tasks(category="file", not_status=TASK_PENDING) or 0
-    tasks_static_number = db.count_matching_tasks(category="static", not_status=TASK_PENDING) or 0
-    tasks_urls_number = db.count_matching_tasks(category="url", not_status=TASK_PENDING) or 0
-    tasks_pcaps_number = db.count_matching_tasks(category="pcap", not_status=TASK_PENDING) or 0
+    tasks_files_number = db.count_matching_tasks(category="file", not_status=TASK_PENDING, visible_to=_visible) or 0
+    tasks_static_number = db.count_matching_tasks(category="static", not_status=TASK_PENDING, visible_to=_visible) or 0
+    tasks_urls_number = db.count_matching_tasks(category="url", not_status=TASK_PENDING, visible_to=_visible) or 0
+    tasks_pcaps_number = db.count_matching_tasks(category="pcap", not_status=TASK_PENDING, visible_to=_visible) or 0
     if tasks_files_number:
         pages_files_num = int(tasks_files_number / TASK_LIMIT + 1)
     if tasks_static_number:
@@ -527,40 +661,36 @@ def index(request, page=1):
     first_pcap = 0
     first_url = 0
     # On a fresh install, we need handle where there are 0 tasks.
-    buf = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc())
-    if len(buf) == 1:
-        first_file = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()[
-            "id"
-        ]
+    # One query per category (limit=1, visible_to-scoped): reuse buf[0] rather
+    # than re-querying for the id (halves the DB round-trips).
+    buf = db.list_tasks(limit=1, category="file", not_status=TASK_PENDING, order_by=Task.added_on.asc(), visible_to=_visible)
+    if buf:
+        first_file = buf[0].id
         paging["show_file_prev"] = "show"
     else:
         paging["show_file_prev"] = "hide"
-    buf = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc())
-    if len(buf) == 1:
-        first_static = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc())[
-            0
-        ].to_dict()["id"]
+    buf = db.list_tasks(limit=1, category="static", not_status=TASK_PENDING, order_by=Task.added_on.asc(), visible_to=_visible)
+    if buf:
+        first_static = buf[0].id
         paging["show_static_prev"] = "show"
     else:
         paging["show_static_prev"] = "hide"
-    buf = db.list_tasks(limit=1, category="url", not_status=TASK_PENDING, order_by=Task.added_on.asc())
-    if len(buf) == 1:
-        first_url = db.list_tasks(limit=1, category="url", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()["id"]
+    buf = db.list_tasks(limit=1, category="url", not_status=TASK_PENDING, order_by=Task.added_on.asc(), visible_to=_visible)
+    if buf:
+        first_url = buf[0].id
         paging["show_url_prev"] = "show"
     else:
         paging["show_url_prev"] = "hide"
-    buf = db.list_tasks(limit=1, category="pcap", not_status=TASK_PENDING, order_by=Task.added_on.asc())
-    if len(buf) == 1:
-        first_pcap = db.list_tasks(limit=1, category="pcap", not_status=TASK_PENDING, order_by=Task.added_on.asc())[0].to_dict()[
-            "id"
-        ]
+    buf = db.list_tasks(limit=1, category="pcap", not_status=TASK_PENDING, order_by=Task.added_on.asc(), visible_to=_visible)
+    if buf:
+        first_pcap = buf[0].id
         paging["show_pcap_prev"] = "show"
     else:
         paging["show_pcap_prev"] = "hide"
 
     if tasks_files:
         for task in tasks_files:
-            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id), scope=_view_scope)
             if new["id"] == first_file:
                 paging["show_file_next"] = "hide"
             if page <= 1:
@@ -578,7 +708,7 @@ def index(request, page=1):
 
     if tasks_static:
         for task in tasks_static:
-            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id), scope=_view_scope)
             if new["id"] == first_static:
                 paging["show_static_next"] = "hide"
             if page <= 1:
@@ -593,7 +723,7 @@ def index(request, page=1):
 
     if tasks_urls:
         for task in tasks_urls:
-            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id), scope=_view_scope)
             if new["id"] == first_url:
                 paging["show_url_next"] = "hide"
             if page <= 1:
@@ -608,7 +738,7 @@ def index(request, page=1):
 
     if tasks_pcaps:
         for task in tasks_pcaps:
-            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id))
+            new = get_analysis_info(db, task=task, rtmp=mongo_map.get(task.id), scope=_view_scope)
             if new["id"] == first_pcap:
                 paging["show_pcap_next"] = "hide"
             if page <= 1:
@@ -646,10 +776,19 @@ def index(request, page=1):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def pending(request):
     # db = Database()
-    tasks = db.list_tasks(status=TASK_PENDING, include_hashes=True)
+    # Resolve the viewer ONCE and reuse it for both the read scope and the per-row deletability check.
+    # (can_delete_task rebuilds viewer_for per call -> for a break-glass-off superuser that is one
+    # socialaccount_set.exists() query PER pending row; can_delete_job takes the pre-built viewer.)
+    _viewer = viewer_for(request.user)
+    tasks = db.list_tasks(status=TASK_PENDING, include_hashes=True, visible_to=_viewer)
 
     pending = []
     for task in tasks:
+        # UX: the pending list is READ-scoped (visible_to), so it can include other submitters' public /
+        # same-tenant tasks the viewer may see but NOT delete. Annotate per-task deletability (reusing the
+        # already-loaded task AND the single resolved viewer, no extra query) so the template hides the
+        # Delete control it can't action.
+        _can_delete = can_delete_job(_viewer, task)
         # Some tasks do not have sample attributes
         if task.sample:
             pending.append(
@@ -660,6 +799,7 @@ def pending(request):
                     "category": task.category,
                     "md5": task.sample.md5,
                     "sha256": task.sample.sha256,
+                    "can_delete": _can_delete,
                 }
             )
         else:
@@ -671,6 +811,7 @@ def pending(request):
                     "category": task.category,
                     "md5": "",
                     "sha256": "",
+                    "can_delete": _can_delete,
                 }
             )
     data = {"tasks": pending, "count": len(pending), "title": "Pending Tasks"}
@@ -799,7 +940,7 @@ def _filetime_to_iso(ft):
         return ""
 
 
-def _build_pid_name_map(task_id):
+def _build_pid_name_map(request, task_id):
     """PID → process-name lookup. Used by the ETW renderer to turn raw
     PIDs (which is all most ETW providers expose) into ``file.exe
     (4660)``-style display strings.
@@ -819,7 +960,7 @@ def _build_pid_name_map(task_id):
     try:
         rec = mongo_find_one(
             "analysis",
-            {"info.id": int(task_id)},
+            _scoped_analysis_query(request, task_id),
             {
                 "behavior.processes.process_id": 1,
                 "behavior.processes.process_name": 1,
@@ -853,7 +994,7 @@ def _build_pid_name_map(task_id):
     return out
 
 
-def _load_etw_telemetry(task_id):
+def _load_etw_telemetry(request, task_id):
     """Read every ETW NDJSON / directory we collect in aux/ and project
     each into a per-source row shape suitable for tabular rendering.
 
@@ -876,7 +1017,7 @@ def _load_etw_telemetry(task_id):
         "threatintel_alloc_summary": [],
         "amsi": [],
     }
-    pid_map = _build_pid_name_map(task_id)
+    pid_map = _build_pid_name_map(request, task_id)
 
     def _attach_proc(row, pid_field="pid"):
         pid = row.get(pid_field)
@@ -1721,6 +1862,7 @@ def _load_evtx_channel_page(zip_path, member, page, page_size=EVTX_PAGE_SIZE, se
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 # @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 # @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+@require_task_visibility
 def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
@@ -1757,7 +1899,7 @@ def load_files(request, task_id, category):
             if category in ("behavior", "debugger", "strace"):
                 data = mongo_find_one(
                     "analysis",
-                    {"info.id": int(task_id)},
+                    _scoped_analysis_query(request, task_id),
                     {"behavior.processes": 1, "behavior.processtree": 1, "detections2pid": 1, "info.tlp": 1, "_id": 0},
                 )
                 if category == "debugger":
@@ -1765,7 +1907,7 @@ def load_files(request, task_id, category):
                 if category == "strace":
                     data["strace"] = data["behavior"]
             elif category == "tracee":
-                data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
+                data = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {category: 1, "info.tlp": 1, "_id": 0})
                 tmp = data["tracee"]
                 data["tracee"] = {}
                 data["tracee"]["rawData"] = tmp
@@ -1840,17 +1982,17 @@ def load_files(request, task_id, category):
             elif category == "network":
                 data = mongo_find_one(
                     "analysis",
-                    {"info.id": int(task_id)},
+                    _scoped_analysis_query(request, task_id),
                     {category: 1, "info.tlp": 1, "cif": 1, "suricata": 1, "pcapng": 1, "_id": 0},
                 )
             elif category == "eventlogs":
                 data = mongo_find_one(
                     "analysis",
-                    {"info.id": int(task_id)},
+                    _scoped_analysis_query(request, task_id),
                     {"sigma": 1, "sysmon": 1, "info.tlp": 1, "info.id": 1, "_id": 0},
                 )
             else:
-                data = mongo_find_one("analysis", {"info.id": int(task_id)}, {category: 1, "info.tlp": 1, "_id": 0})
+                data = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {category: 1, "info.tlp": 1, "_id": 0})
         elif enabledconf["elasticsearchdb"]:
             if category in ("behavior", "debugger"):
                 data = elastic_handler.search(
@@ -1914,7 +2056,7 @@ def load_files(request, task_id, category):
                 "evtx_channels": evtx_channels,
             }
         elif category == "etw":
-            category_data = _load_etw_telemetry(task_id)
+            category_data = _load_etw_telemetry(request, task_id)
 
         ajax_response = {
             category: category_data,
@@ -1968,7 +2110,7 @@ def load_files(request, task_id, category):
         raise PermissionDenied
 
 
-def fetch_signature_call_data(task_id, requested_calls):
+def fetch_signature_call_data(request, task_id, requested_calls):
     try:
         requested_calls_by_pid = collections.defaultdict(lambda: collections.defaultdict(set))
         for requested_call in requested_calls:
@@ -1989,7 +2131,7 @@ def fetch_signature_call_data(task_id, requested_calls):
         # First, get the list of ObjectID's for call chunks for each process.
         process_data = mongo_find_one(
             "analysis",
-            {"info.id": task_id},
+            _scoped_analysis_query(request, task_id),
             {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
         )
     elif es_as_db:
@@ -2038,6 +2180,7 @@ def fetch_signature_call_data(task_id, requested_calls):
 @csrf_exempt
 @require_POST
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def signature_calls(request, task_id):
     try:
         requested_calls = json.loads(request.body)
@@ -2051,7 +2194,7 @@ def signature_calls(request, task_id):
         if "call" in requested_calls[0]:
             calls_to_return = [requested_call["call"] for requested_call in requested_calls]
         else:
-            calls_to_return = fetch_signature_call_data(int(task_id), requested_calls)
+            calls_to_return = fetch_signature_call_data(request, int(task_id), requested_calls)
     except (AttributeError, IndexError, TypeError):
         raise BadRequest
 
@@ -2060,6 +2203,7 @@ def signature_calls(request, task_id):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def chunk(request, task_id, pid, pagenum):
     try:
         pid, pagenum = int(pid), int(pagenum) - 1
@@ -2071,7 +2215,7 @@ def chunk(request, task_id, pid, pagenum):
         if enabledconf["mongodb"]:
             record = mongo_find_one(
                 "analysis",
-                {"info.id": int(task_id), "behavior.processes.process_id": pid},
+                _scoped_analysis_query(request, task_id, {"behavior.processes.process_id": pid}),
                 {"info.machine.platform": 1, "behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
 
@@ -2120,6 +2264,7 @@ def chunk(request, task_id, pid, pagenum):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
     """Filters calls for call category.
     @param task_id: cuckoo task id
@@ -2133,7 +2278,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
         if enabledconf["mongodb"]:
             record = mongo_find_one(
                 "analysis",
-                {"info.id": int(task_id), "behavior.processes.process_id": int(pid)},
+                _scoped_analysis_query(request, task_id, {"behavior.processes.process_id": int(pid)}),
                 {"info.machine.platform": 1, "behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
         if es_as_db:
@@ -2392,11 +2537,12 @@ def gen_moloch_from_antivirus(virustotal):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def antivirus(request, task_id):
     if enabledconf["mongodb"]:
         rtmp = mongo_find_one(
             "analysis",
-            {"info.id": int(task_id)},
+            _scoped_analysis_query(request, task_id),
             {"target.file.virustotal": 1, "url.virustotal": 1, "info.category": 1, "_id": 0},
             sort=[("_id", -1)],
         )
@@ -2434,9 +2580,10 @@ def antivirus(request, task_id):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def surialert(request, task_id):
     if enabledconf["mongodb"]:
-        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.alerts": 1, "_id": 0}, sort=[("_id", -1)])
+        report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"suricata.alerts": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
         report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.alerts"])["hits"][
             "hits"
@@ -2462,9 +2609,10 @@ def surialert(request, task_id):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def surihttp(request, task_id):
     if enabledconf["mongodb"]:
-        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.http": 1, "_id": 0}, sort=[("_id", -1)])
+        report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"suricata.http": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
         report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.http"])["hits"][
             "hits"
@@ -2492,9 +2640,10 @@ def surihttp(request, task_id):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def suritls(request, task_id):
     if enabledconf["mongodb"]:
-        report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"suricata.tls": 1, "_id": 0}, sort=[("_id", -1)])
+        report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"suricata.tls": 1, "_id": 0}, sort=[("_id", -1)])
     elif es_as_db:
         report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.tls"])["hits"][
             "hits"
@@ -2522,10 +2671,11 @@ def suritls(request, task_id):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def surifiles(request, task_id):
     if enabledconf["mongodb"]:
         report = mongo_find_one(
-            "analysis", {"info.id": int(task_id)}, {"info.id": 1, "suricata.files": 1, "_id": 0}, sort=[("_id", -1)]
+            "analysis", _scoped_analysis_query(request, task_id), {"info.id": 1, "suricata.files": 1, "_id": 0}, sort=[("_id", -1)]
         )
     elif es_as_db:
         report = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=["suricata.files"])["hits"][
@@ -2554,6 +2704,7 @@ def surifiles(request, task_id):
 
 @csrf_exempt
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def search_behavior(request, task_id):
     if request.method == "POST":
         query = request.POST.get("search")
@@ -2597,7 +2748,7 @@ def search_behavior(request, task_id):
 
         # Fetch anaylsis report
         if enabledconf["mongodb"]:
-            record = mongo_find_one("analysis", {"info.id": int(task_id)}, {"behavior.processes": 1, "_id": 0})
+            record = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"behavior.processes": 1, "_id": 0})
         if es_as_db:
             esquery = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
             esidx = esquery["_index"]
@@ -2677,6 +2828,34 @@ def split_signature_calls(report):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def report(request, task_id):
+    # Tenant/visibility enforcement — deny BEFORE any (expensive) report loading OR central staging
+    # (never stage another tenant's S3 tree). A hidden task and a missing/deleted task are
+    # INDISTINGUISHABLE (no cross-tenant enumeration) and both render the generic "no analysis found"
+    # page. TRUE NO-OP when multitenancy is disabled: the entire SQL-existence pre-check is skipped
+    # so a mongo/ES-only analysis (no SQL Task row) falls through to upstream's original mongo/ES
+    # 'if not report:' path with its unchanged message/rendering.
+    _task = None
+    if multitenancy_config().enabled:
+        _task = db.view_task(task_id)
+        if _task is None or not can_view_task(request.user, _task):
+            return render(request, "error.html", {"error": "No analysis found with specified ID"})
+    # Only show the visibility toggle when multitenancy is ON. With MT off every
+    # principal is a break-glass local-admin (can_toggle == True), but the control
+    # would be meaningless and writing a value could plant a backfill landmine if MT
+    # is later enabled — the apiv2 endpoint also rejects the write when disabled.
+    can_toggle_visibility = multitenancy_config().enabled and can_toggle_task(request.user, _task)
+    # Per-option gating for the report visibility dropdown: offer ONLY the transitions the caller may
+    # actually perform, mirroring the apiv2 endpoint's guards (can_set_visibility_task + a 'tenant' target
+    # needs a non-null tenant_id) so the UI never presents an option that then 403s/400s. Only meaningful
+    # when the toggle is shown at all (MT on + _task is a live, viewable task).
+    visibility_choices = []
+    if can_toggle_visibility:
+        for _vis in ("public", "tenant", "private"):
+            if _vis == "tenant" and getattr(_task, "tenant_id", None) is None:
+                continue
+            if can_set_visibility_task(request.user, _task, _vis):
+                visibility_choices.append(_vis)
+
     # Central mode: the analysis tree lives in S3, not on this node's disk. Stage it
     # locally (once, cached, excluding huge memory dumps) so EVERY report feature that
     # reads the local filesystem renders against the original UI without porting each
@@ -2685,6 +2864,12 @@ def report(request, task_id):
     if central_mode_config().enabled:
         from lib.cuckoo.common.artifact_storage import ensure_local_analysis
         from analysis.central_scope import viewer_scope
+        # Pass the viewer scope like every other central surface. The shared resolvers
+        # (_job_id_for_task / central_analysis_query) PREFER the RDS-authorized job_id and
+        # apply this scope ONLY on the non-bridged info.id fallback — so an authorized
+        # OWNER isn't locked out of a fail-closed / not-yet-reconciled / unstamped doc
+        # (job_id resolves it), while the non-bridged cross-store collision defence-in-depth
+        # is preserved. (report() is gated by can_view_task above, same as its siblings.)
         ensure_local_analysis(task_id, scope=viewer_scope(request.user))
     network_report = {}
     report = {}
@@ -2724,13 +2909,11 @@ def report(request, task_id):
             for service in CUSTOM_SERVICES:
                 projection[service] = 1
 
-        from lib.cuckoo.common.central_mode import central_mode_config
-        if central_mode_config().enabled:
-            from analysis.central_views import central_analysis_query
-            from analysis.central_scope import viewer_scope
-            _analysis_q = central_analysis_query(task_id, scope=viewer_scope(request.user))
-        else:
-            _analysis_q = {"info.id": int(task_id)}
+        # Central-mode cross-store collision defence + viewer scope (central_analysis_query prefers the
+        # RDS-authorized unique job_id and applies the scope only on the non-bridged info.id fallback, so
+        # an authorized OWNER isn't 404'd on a fail-closed/unstamped doc while the collision defence
+        # holds); single-node keeps the bare info.id. See _scoped_analysis_query.
+        _analysis_q = _scoped_analysis_query(request, task_id)
 
         report = mongo_find_one(
             "analysis",
@@ -2831,7 +3014,7 @@ def report(request, task_id):
                 mongo_aggregate(
                     "analysis",
                     [
-                        {"$match": {"info.id": int(task_id)}},
+                        {"$match": _analysis_q},
                         {
                             "$project": {
                                 "_id": 0,
@@ -2885,7 +3068,7 @@ def report(request, task_id):
     try:
         if enabledconf["mongodb"]:
             # Optimization: Use mongo_find_one with projection to avoid loading massive documents just to check for field existence
-            tmp_data = mongo_find_one("analysis", {"info.id": int(task_id), "memory": {"$exists": True}}, {"_id": 1})
+            tmp_data = mongo_find_one("analysis", {"$and": [_analysis_q, {"memory": {"$exists": True}}]}, {"_id": 1})
             if tmp_data:
                 report["memory"] = tmp_data["_id"] or 0
         elif es_as_db:
@@ -3047,11 +3230,28 @@ def report(request, task_id):
             report["target"]["file"]["sha256"],
             search_limit=10,
             projection={"info.id": 1, "detections": 1, "_id": 0},
+            viewer=viewer_for(request.user),
         )
         for record in records:
-            if record["info"]["id"] == report["info"]["id"]:
+            # rid comes from a mongo/ES record; a corrupt non-numeric id would raise
+            # in db.view_task's SQL parameter bind (-> 500). Coerce and skip on
+            # failure (also covers a missing/None id).
+            try:
+                rid = int((record.get("info") or {}).get("id"))
+            except (TypeError, ValueError):
                 continue
-            existent_tasks[record["info"]["id"]] = record.get("detections")
+            if rid == report["info"]["id"]:
+                continue
+            # tenant isolation: only surface other analyses of this sample that
+            # the requester may read. TRUE NO-OP when MT disabled — the SQL-existence
+            # intersection is skipped entirely so a mongo/ES-only record (no SQL Task
+            # row) is surfaced exactly as upstream did. Without this, when MT is ON the
+            # report page would leak other tenants' task ids + detections for the hash.
+            if multitenancy_config().enabled:
+                _vt = db.view_task(rid)
+                if _vt is None or not can_view_task(request.user, _vt):
+                    continue
+            existent_tasks[rid] = record.get("detections")
 
     # process log per task if enabled:
     process_log_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "process.log")
@@ -3071,6 +3271,16 @@ def report(request, task_id):
         "analysis/report.html",
         {
             "title": "Analysis Report",
+            "can_toggle_visibility": can_toggle_visibility,
+            "task_visibility": getattr(_task, "visibility", "private"),
+            # Only offer the 'tenant' toggle for a task that actually belongs to a
+            # tenant — 'tenant' on a tenant_id=NULL task makes it readable by nobody
+            # but owner/break-glass (can_read's tenant branch needs a non-null tenant).
+            "task_has_tenant": getattr(_task, "tenant_id", None) is not None,
+            # The visibility values the caller may actually SET (per-option gated above); the dropdown
+            # renders only these so it never offers a transition that would 403 (e.g. a tenant-admin
+            # can't downgrade a public job) or 400 ('tenant' on a tenant-less task).
+            "visibility_choices": visibility_choices,
             "analysis": report,
             # ToDo test
             "file": report.get("target", {}).get("file", {}),
@@ -3096,9 +3306,19 @@ def report(request, task_id):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def load_evtx_channel(request, task_id):
     if request.headers.get("x-requested-with") != "XMLHttpRequest":
         raise PermissionDenied
+
+    # Central mode: evtx.zip lives in S3 until staged locally. A deep-link straight to the Event Logs tab
+    # can arrive before report()/load_files staged the tree, so stage here too (cheap no-op once
+    # .central_staged exists) -- else the absent-file check below wrongly raises PermissionDenied for a
+    # fully authorized task (@require_task_visibility already gated access). Mirrors load_files().
+    from lib.cuckoo.common.central_mode import central_mode_config
+    if central_mode_config().enabled:
+        from analysis.central_views import central_stage_local
+        central_stage_local(request, task_id)
 
     member = request.GET.get("member", "")
     page = request.GET.get("page", "1")
@@ -3121,9 +3341,17 @@ def load_evtx_channel(request, task_id):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def load_evtx_channel_count(request, task_id):
     if request.headers.get("x-requested-with") != "XMLHttpRequest":
         raise PermissionDenied
+
+    # Central mode: stage the S3 tree first (see load_evtx_channel) so the count endpoint doesn't 403 on a
+    # not-yet-staged but authorized task. No-op once .central_staged exists.
+    from lib.cuckoo.common.central_mode import central_mode_config
+    if central_mode_config().enabled:
+        from analysis.central_views import central_stage_local
+        central_stage_local(request, task_id)
 
     member = request.GET.get("member", "")
     evtx_zip = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "evtx", "evtx.zip")
@@ -3150,6 +3378,7 @@ def load_evtx_channel_count(request, task_id):
 # session-cookie auth here so the global API-key-only DRF chain (used
 # under SSO deployments) doesn't 401 the in-browser fetches.
 @authentication_classes([SessionAuthentication])
+@require_task_visibility
 def file_nl(request, category, task_id, dlfile):
     from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -3219,10 +3448,11 @@ category_map = {
 }
 
 
-def _file_search_all_files(search_category: str, search_term: str) -> list:
+def _file_search_all_files(search_category: str, search_term: str, request) -> list:
     path = []
     try:
         projection = {
+            "info.id": 1,
             "info.parent_sample.path": 1,
             "info.parent_sample.cape_yara.name": 1,
             "target.file.path": 1,
@@ -3244,9 +3474,39 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
             "CAPE.payloads.extracted_files_tool.path": 1,
             "CAPE.payloads.extracted_files_tool.cape_yara.name": 1,
         }
-        records = perform_search(search_category, search_term, projection=projection)
+        # Tenant isolation: scope the search to the requester's entitled
+        # analyses at the query layer (no-op when multitenancy disabled). Without
+        # this, capeyarazipall streams other tenants' artifact bytes for any file
+        # matching the supplied YARA rule name.
+        records = perform_search(search_category, search_term, projection=projection, viewer=viewer_for(request.user))
+        # Defense-in-depth: keep only records whose owning analysis the requester
+        # may read, BEFORE resolving file paths. The query scope above is the
+        # primary gate, but a content-addressed artifact path
+        # (storage/binaries/<sha256>) has no /analyses/<task_id>/ segment, so a
+        # path-regex backstop misses it and would stream another tenant's private
+        # sample bytes. Gate on info.id (in the projection) for ALL path shapes;
+        # no-op when MT disabled (can_view_task -> is_local_admin).
+        _rids = []
+        for _rec in records:
+            _rid = (_rec.get("info") or {}).get("id")
+            if _rid is not None:
+                try:
+                    _rids.append(int(_rid))
+                except (ValueError, TypeError):
+                    pass
+        # Batch the visibility check in ONE SQL query (avoid an N+1 view_task per
+        # search record); list_tasks(visible_to=) returns only readable tasks.
+        _visible = {t.id for t in db.list_tasks(task_ids=_rids, visible_to=viewer_for(request.user))} if _rids else set()
+        _viewable = []
+        for _rec in records:
+            _rid = (_rec.get("info") or {}).get("id")
+            try:
+                if _rid is not None and int(_rid) in _visible:
+                    _viewable.append(_rec)
+            except (ValueError, TypeError):
+                continue
         search_term = search_term.lower()
-        for _, filepath, _, _ in yara_detected(search_term, records):
+        for _, filepath, _, _ in yara_detected(search_term, _viewable):
             if not path_exists(filepath):
                 continue
             path.append(filepath)
@@ -3266,6 +3526,7 @@ def _file_search_all_files(search_category: str, search_term: str) -> list:
 # UI-internal: same rationale as file_nl — used for in-browser downloads
 # of dropped files, payloads, etc. via session cookie auth.
 @authentication_classes([SessionAuthentication])
+@require_task_visibility
 def file(request, category, task_id, dlfile):
     from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -3307,6 +3568,13 @@ def file(request, category, task_id, dlfile):
         return render(request, "error.html", {"error": "Missed pyzipper library: poetry install"})
 
     if category in ("sample", "static", "staticzip"):
+        # By-hash access to the global content-addressed binary store. @require_
+        # task_visibility only gates task_id, not the attacker-supplied hash, so
+        # enforce the SAME visible-task-referencing-the-sample boundary as apiv2
+        # _deny_by_hash (no-op for break-glass / MT-disabled). Hidden == missing
+        # (generic error, no existence oracle).
+        if not can_view_sample(request.user, sha256=file_name):
+            return render(request, "error.html", {"error": "File not found"})
         path = os.path.join(CUCKOO_ROOT, "storage", "binaries", file_name)
     elif category in ("dropped", "droppedzip"):
         path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "files", file_name)
@@ -3317,7 +3585,10 @@ def file(request, category, task_id, dlfile):
         if web_cfg.zipped_download.download_all:
             sub_cat = category.replace("zipall", "")
             path = category_all_files(
-                task_id, sub_cat, os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), category_map[sub_cat])
+                task_id,
+                sub_cat,
+                os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), category_map[sub_cat]),
+                analysis_filter=_scoped_analysis_query(request, task_id),
             )
             file_name = f"{task_id}_{category}"
     elif category.startswith("CAPE"):
@@ -3420,7 +3691,7 @@ def file(request, category, task_id, dlfile):
     elif category == "capeyarazipall":
         # search in mongo and get the path
         if enabledconf["mongodb"] and web_cfg.zipped_download.download_all:
-            path = _file_search_all_files(category.replace("zipall", ""), dlfile)
+            path = _file_search_all_files(category.replace("zipall", ""), dlfile, request)
     elif category == "logszipall":
         buf = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "logs")
         path = []
@@ -3497,13 +3768,14 @@ def file(request, category, task_id, dlfile):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def procdump(request, task_id, process_id, start, end, zipped=False):
     origname = process_id + ".dmp"
     tmpdir = None
     tmp_file_path = None
     response = False
     if enabledconf["mongodb"]:
-        analysis = mongo_find_one("analysis", {"info.id": int(task_id)}, {"procmemory": 1, "_id": 0}, sort=[("_id", -1)])
+        analysis = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"procmemory": 1, "_id": 0}, sort=[("_id", -1)])
     if es_as_db:
         analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
 
@@ -3575,6 +3847,7 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def filereport(request, task_id, category):
     # check if allowed to download to all + if no if user has permissions
     if not settings.ALLOW_DL_REPORTS_TO_ALL and (
@@ -3639,6 +3912,7 @@ def filereport(request, task_id, category):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def full_memory_dump_file(request, analysis_number):
     from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -3666,6 +3940,7 @@ def full_memory_dump_file(request, analysis_number):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def full_memory_dump_strings(request, analysis_number):
     from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -3743,13 +4018,17 @@ def search(request, searched=""):
                 term = "sha512"
 
         if term == "ids":
-            if all([v.strip().isdigit() for v in value.split(",")]):
-                value = [int(v.strip()) for v in filter(None, value.split(","))]
+            # bound each token like remove()/the delete paths: unbounded int() on caller input 500s
+            # (>4300 digits -> ValueError; > 2**31-1 -> PG 22003). _coerce_task_id gates 1..2**31-1.
+            _id_toks = [v.strip() for v in value.split(",") if v.strip()]
+            _resolved = [_coerce_task_id(t) for t in _id_toks]
+            if _id_toks and all(x is not None for x in _resolved):
+                value = _resolved
             else:
                 return render(
                     request,
                     "analysis/search.html",
-                    {"title": "Search", "analyses": None, "term": searched, "error": "Not all values are integers"},
+                    {"title": "Search", "analyses": None, "term": searched, "error": "Not all values are valid task ids"},
                 )
 
         # Escape forward slash characters
@@ -3759,7 +4038,7 @@ def search(request, searched=""):
         term_only, value_only = term, value
 
         try:
-            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff)
+            records = perform_search(term, value, user_id=request.user.id, privs=request.user.is_staff, viewer=viewer_for(request.user))
         except ValueError:
             if term:
                 return render(
@@ -3774,15 +4053,46 @@ def search(request, searched=""):
                     {"title": "Search", "analyses": None, "term": None, "error": "Unable to recognize the search syntax"},
                 )
 
+        def _result_task_id(result):
+            if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
+                # perform_search's ES branch already unwraps _source (returns d["_source"]),
+                # so `result` IS the source dict — read task_id off it directly (a nested
+                # _source lookup is always None here -> would drop every row).
+                tid = (result or {}).get("task_id")
+            elif enabledconf["mongodb"] and term and "info" in result:
+                tid = (result.get("info") or {}).get("id")
+            elif es_as_db:
+                tid = (result.get("info") or {}).get("id")
+            else:
+                tid = None
+            if tid is None:
+                return None
+            try:
+                return int(tid)
+            except (ValueError, TypeError):
+                return None
+
+        # tenant isolation: batch-resolve the caller's visible tasks in ONE SQL
+        # query (avoid an N+1 view_task per result) and gate BEFORE the heavy
+        # get_analysis_info(); reuse the resolved Task so it doesn't re-query.
+        _tids = [t for t in (_result_task_id(r) for r in (records or [])) if t is not None]
+        _visible = {t.id: t for t in db.list_tasks(task_ids=_tids, visible_to=viewer_for(request.user))} if _tids else {}
+        # Central mode: viewer tenant $match for the get_analysis_info info.id fallback (audit MEDIUM).
+        # NO broad except -- viewer_scope() is deliberately fail-closed (see central_scope.py); swallowing
+        # a runtime error to None here would silently degrade to see-all. Matches index().
+        _srch_scope = None
+        from lib.cuckoo.common.central_mode import central_mode_config
+
+        if central_mode_config().enabled:
+            from analysis.central_scope import viewer_scope
+
+            _srch_scope = viewer_scope(request.user)
         analyses = []
         for result in records or []:
-            new = None
-            if enabledconf["mongodb"] and enabledconf["elasticsearchdb"] and essearch and not term:
-                new = get_analysis_info(db, id=int(result["_source"]["task_id"]))
-            if enabledconf["mongodb"] and term and "info" in result:
-                new = get_analysis_info(db, id=int(result["info"]["id"]))
-            if es_as_db:
-                new = get_analysis_info(db, id=int(result["info"]["id"]))
+            tid = _result_task_id(result)
+            if tid is None or tid not in _visible:
+                continue
+            new = get_analysis_info(db, task=_visible[tid], scope=_srch_scope)
             if not new:
                 continue
             analyses.append(new)
@@ -3805,17 +4115,31 @@ def search(request, searched=""):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_delete
 def remove(request, task_id):
     """Remove an analysis."""
     if not enabledconf["delete"] and not request.user.is_staff:
         return render(request, "success_simple.html", {"message": "buy a lot of whiskey to admin ;)"})
 
+    # Bound the id (route captures raw \d+, no <int:>/serializer): an oversized or huge-digit value would
+    # raise ValueError/DataError inside the int()/view_task calls below -> a bodiless 500 from a delete
+    # endpoint. Coerce + fail closed to the generic not-found render (runs before any delete -> no partial
+    # mutation). str() the canonical value so the folder-path + downstream int()s use a normalized id.
+    _tid = _coerce_task_id(task_id)
+    if _tid is None:
+        return render(request, "success_simple.html", {"message": "Task not found."})
+    task_id = str(_tid)
+    # Bind unconditionally: neither the mongodb nor the ES arm below is guaranteed to run (both configs off),
+    # yet the final render references `message` -> a bodiless 500 (UnboundLocalError) from a delete endpoint.
+    message = "Task(s) deleted."
+
     if enabledconf["mongodb"]:
-        mongo_delete_data(int(task_id))
+        # Resolve the task's tenant WHILE the SQL row exists; BOTH the irreversible folder delete and the Mongo
+        # delete are deferred to AFTER the SQL delete commits (below) so a rollback can't leave a live task
+        # pointing at a missing analysis dir. (ES branch below is unchanged: es_as_db is out of the mongo-only
+        # MT support boundary.)
+        _tenant = getattr(db.view_task(int(task_id)), "tenant_id", None)
         analyses_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id)
-        if path_exists(analyses_path):
-            delete_folder(analyses_path)
-        message = "Task(s) deleted."
     if es_as_db:
         analyses = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
         if len(analyses) > 1:
@@ -3860,12 +4184,55 @@ def remove(request, task_id):
                 )
 
     db.delete_task(task_id)
+    if enabledconf["mongodb"]:
+        # SQL delete durable BEFORE the irreversible folder + Mongo deletes (db.delete_task only stages; the
+        # middleware commits after the view). _tenant/analyses_path resolved above while the SQL row existed.
+        db.session.commit()
+        # Wrap the folder delete so a failure (EACCES / stale NFS handle) does NOT skip the Mongo delete --
+        # otherwise a folder error would leave the Mongo doc (+ its S3 artifacts) orphaned with the SQL row
+        # already gone. A folder left behind is a disk/PII-retention follow-up (orphan-by-path), not a leak.
+        _folder_failed = False
+        _report_failed = False
+        try:
+            if path_exists(analyses_path):
+                delete_folder(analyses_path)
+        except Exception as _fe:
+            import logging
+
+            logging.getLogger(__name__).error("remove: delete_folder failed for task %s: %s", task_id, _fe)
+            _folder_failed = True
+        try:
+            # SEPARATE try: central_delete_analysis raises on any non-AutoReconnect pymongo error -- unguarded,
+            # that 500s the view (discarding the message below) with the SQL row already committed + folder gone.
+            central_delete_analysis(request, int(task_id), tenant_id=_tenant)
+        except Exception as _me:
+            import logging
+
+            logging.getLogger(__name__).error("remove: central delete failed for task %s: %s", task_id, _me)
+            _report_failed = True
+        # Compose from FLAGS (not substring-matching the message) so a future copy-edit can't silently reinstate
+        # a clobber. The SQL row is already committed away, so a leftover tree (sample + dropped files, the
+        # PII/retention-relevant half) or an un-erased report must be surfaced, not hidden behind "deleted".
+        # CAVEAT (same as apiv2 tasks_delete/tasks_delete_many): _report_failed only fires if
+        # central_delete_analysis RAISES, which is NARROWER than "the report was erased" on BOTH arms.
+        # Central: its mongo_find_one/mongo_delete_many are @graceful_auto_reconnect, which after exhausting
+        # its AutoReconnect retries returns None WITHOUT raising (dev_utils/mongodb.py) and central_views does
+        # not check that return; a 0-match delete likewise only warns -- so here only a non-AutoReconnect
+        # pymongo error raises. Non-central: delegates to mongo_delete_data, which swallows every error
+        # (mongodb.py). Fully surfacing either needs a status-returning Mongo delete (tracked follow-up).
+        if _folder_failed and _report_failed:
+            message = "Task removed, but its analysis files AND report could not be deleted (see server logs)."
+        elif _folder_failed:
+            message = "Task removed, but its analysis files could not be fully deleted (see server logs)."
+        elif _report_failed:
+            message = "Task removed, but its analysis report could not be deleted (see server logs)."
 
     return render(request, "success_simple.html", {"message": message})
 
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def pcapstream(request, task_id, conntuple):
     from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -3921,6 +4288,7 @@ def pcapstream(request, task_id, conntuple):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_manage
 def comments(request, task_id):
     if request.method == "POST" and settings.COMMENTS:
         comment = request.POST.get("commentbox", "")
@@ -3928,12 +4296,30 @@ def comments(request, task_id):
             return render(request, "error.html", {"error": "No comment provided."})
 
         if enabledconf["mongodb"]:
-            report = mongo_find_one("analysis", {"info.id": int(task_id)}, {"info.comments": 1, "_id": 0}, sort=[("_id", -1)])
+            # Central mode: address the caller's OWN doc by the derived unique key (mirrors set_task_visibility
+            # / central_delete_analysis) for BOTH the read here and the $set write below -- NOT the read
+            # viewer_scope, whose public/tenant arms could match a colliding FOREIGN doc and let this mutating
+            # comment write (and the curcomments it seeds) land on another tenant's analysis. Non-central: the
+            # existing scoped/bare filter, unchanged.
+            from lib.cuckoo.common.central_mode import central_mode_config, central_own_analysis_filter
+            if central_mode_config().enabled:
+                _cfilt = central_own_analysis_filter(task_id, getattr(db.view_task(task_id), "tenant_id", None))
+            else:
+                _cfilt = _scoped_analysis_query(request, task_id)
+            # Project _id so the write below can target the EXACT doc we read: _cfilt can match >1 doc (re-runs
+            # sharing an info.id, or a collision), the read picks newest via sort=[_id desc], but mongo_update_one
+            # takes no sort -- re-using _cfilt for the write could $set the comment onto a DIFFERENT doc.
+            report = mongo_find_one("analysis", _cfilt, {"info.comments": 1, "_id": 1}, sort=[("_id", -1)])
+            _mongo_id = report.get("_id") if report else None
         if es_as_db:
             query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
             report = query["_source"]
             esid = query["_id"]
             esidx = query["_index"]
+        if not report:
+            # 0-match (report not written/reconciled yet, or a non-bridged doc the unique key can't address)
+            # -> nothing to comment on. Clean error instead of a None-deref crash on report["info"].
+            return render(request, "error.html", {"error": "No analysis report found for this task."})
         if "comments" in report["info"]:
             curcomments = report["info"]["comments"]
         else:
@@ -3951,9 +4337,25 @@ def comments(request, task_id):
         buf["Data"] = "".join(escape_map.get(thechar, thechar) for thechar in comment)
         # status can be posted/removed
         buf["Status"] = "posted"
-        curcomments.insert(0, buf)
-        if enabledconf["mongodb"]:
-            mongo_update_one("analysis", {"info.id": int(task_id)}, {"$set": {"info.comments": curcomments}})
+        curcomments.append(buf)  # chronological (oldest-first) storage; the template sorts by Timestamp (newest-first)
+        if enabledconf["mongodb"] and _mongo_id is not None:
+            # Atomic $push {$each:[buf]} (append) keyed on {_id AND the own-doc filter}. $each is DocumentDB-safe
+            # ($position is NOT -- like $facet, worked around elsewhere in this tree), it removes the whole-list
+            # read-modify-write LOST UPDATE, and pushing ONLY buf makes it immune to the with-ES-enabled hazard
+            # where curcomments is seeded from the ES doc while _mongo_id points at the Mongo doc. Display order
+            # is handled Timestamp-wise (dictsortreversed) in the template, so storage order is irrelevant and
+            # no migration of legacy insert(0) threads is needed. A 0-match OR a
+            # None result (graceful_auto_reconnect exhausted its AutoReconnect retries and returned None) means
+            # the write did NOT land -> LOG, don't silently drop the comment on the success redirect (mirrors
+            # set_task_visibility's `if _res is None`).
+            _res = mongo_update_one("analysis", {"$and": [{"_id": _mongo_id}, _cfilt]},
+                                    {"$push": {"info.comments": {"$each": [buf]}}})
+            if _res is None or getattr(_res, "matched_count", 1) == 0:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "comments: write did not land for task %s (0-match or driver failure); comment not stored "
+                    "Mongo-side", task_id)
         if es_as_db:
             es.update(index=esidx, id=esid, body={"doc": {"info": {"comments": curcomments}}})
         return redirect("report", task_id=task_id)
@@ -3962,6 +4364,7 @@ def comments(request, task_id):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_manage
 def vtupload(request, category, task_id, filename, dlfile):
     from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -3975,6 +4378,12 @@ def vtupload(request, category, task_id, filename, dlfile):
             folder_name = False
             path = False
             if category in ("sample", "static"):
+                # By-hash access to the global binary store — enforce the visible-
+                # task-referencing-the-sample boundary (else a tenant uploads
+                # another tenant's sample to VirusTotal by hash). No-op for
+                # break-glass / MT-disabled.
+                if not can_view_sample(request.user, sha256=dlfile):
+                    return render(request, "error.html", {"error": "File not found"})
                 path = os.path.join(CUCKOO_ROOT, "storage", "binaries", dlfile)
             elif category == "dropped":
                 folder_name = "files"
@@ -4009,8 +4418,25 @@ def vtupload(request, category, task_id, filename, dlfile):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def statistics_data(request, days=7):
     if days.isdigit():
+        from dashboard.views import entitled_scopes, _SCOPE_LABEL
+
+        v = viewer_for(request.user)
         try:
-            details = statistics(int(days))
+            _scopes = list(entitled_scopes(request.user))
+            # TRUE NO-OP when multitenancy is disabled: entitled_scopes() -> ["global"],
+            # so the sole panel gets an EMPTY element-id/target suffix and the template
+            # collapses the multi-panel header/title so the rendered markup is byte-for-byte
+            # identical to upstream (bare 'tasksChart', 'All Detections', no '-global').
+            _single_global = len(_scopes) == 1 and _scopes[0] == "global"
+            panels = [
+                {
+                    "scope": scope,
+                    "label": _SCOPE_LABEL[scope],
+                    "suffix": "" if _single_global else "-" + scope,
+                    "statistics": statistics(int(days), scope=scope, viewer=v),
+                }
+                for scope in _scopes
+            ]
         except Exception as e:
             # psycopg2.OperationalError
             print(e)
@@ -4019,7 +4445,7 @@ def statistics_data(request, days=7):
                 "error.html",
                 {"title": "Statistics", "error": "Please restart your database. Probably it had an update or it just down"},
             )
-        return render(request, "statistics.html", {"title": "Statistics", "statistics": details, "days": days})
+        return render(request, "statistics.html", {"title": "Statistics", "panels": panels, "days": days})
     return render(request, "error.html", {"title": "Statistics", "error": "Provide days as number"})
 
 
@@ -4037,6 +4463,7 @@ on_demand_config_mapper = {
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
 @ratelimit(key="ip", rate=my_rate_minutes, block=rateblock)
+@require_task_manage
 def on_demand(request, service: str, task_id: str, category: str, sha256):
     """
     This aux function allows to generate some details on demand, this is specially useful for long running libraries and we don't need them in many cases due to scripted submissions
@@ -4164,7 +4591,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
     if details is not False:
         # Use no_hooks=True to avoid running heavy hooks just to get the _id for update
-        buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1}, no_hooks=True)
+        buf = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"_id": 1, category: 1}, no_hooks=True)
         if not buf:
             return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
 
@@ -4217,7 +4644,10 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def ban_all_user_tasks(request, user_id: int):
-    if request.user.is_staff or request.user.is_superuser:
+    # can_ban_user is the SINGLE authority: MT-off -> upstream staff/superuser boundary (facade fallback);
+    # MT-on -> break-glass admin bans anyone, tenant admin only within their own tenant. Gating on raw
+    # is_staff let a tenant operator ban ANOTHER tenant's users (adversarial-review MEDIUM, priv-esc).
+    if can_ban_user(request.user, user_id):
         db.ban_user_tasks(user_id)
         return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
     return render(request, "error.html", {"error": "Nice try! You don't have permission to ban user tasks"})
@@ -4225,7 +4655,7 @@ def ban_all_user_tasks(request, user_id: int):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def ban_user(request, user_id: int):
-    if request.user.is_staff or request.user.is_superuser:
+    if can_ban_user(request.user, user_id):
         success = disable_user(user_id)
         if success:
             return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
@@ -4235,6 +4665,7 @@ def ban_user(request, user_id: int):
 
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_manage
 def reprocess_tasks(request, task_id: int):
     if not settings.REPROCESS_TASKS:
         return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/"))
@@ -4248,6 +4679,7 @@ def reprocess_tasks(request, task_id: int):
 
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@require_task_visibility
 def failed_processing(request, task_id):
     task = db.view_task(task_id)
     if not task:
@@ -4328,8 +4760,15 @@ def hunt(request):
         start_date = (datetime.datetime.utcnow() - delta).strftime("%Y-%m-%d %H:%M:%S")
         match_query["info.started"] = {"$gte": start_date}
 
-    # Tenant isolation: restrict the docs the aggregation sees to the viewer's
-    # entitled scopes (no-op for break-glass / shared / multitenancy-disabled).
+    # Tenant isolation: restrict the docs the aggregation sees to the viewer's entitled scopes
+    # (mode-independent; None only for break-glass / multitenancy-disabled). viewer_scope wraps
+    # the MT predicate and degrades to None (see-all) when the MT layer is absent.
+    # NOTE: the facet task_ids ($addToSet $info.id) are scoped SOLELY by this $match on the
+    # stamped info.* — unlike the per-record surfaces (search/compare/capeyara) there is no
+    # per-id can_view_task SQL backstop here, because a $facet count can't be post-filtered
+    # per task without changing its semantics. This is safe given the report stamp is written
+    # fail-closed on every path (see modules/reporting/mongodb.py stamp_tenant_info + the
+    # backfill), so a doc can never carry a spoofed cross-tenant stamp. See docs/MULTITENANCY-SUPPORT.md.
     from analysis.central_scope import viewer_scope
     from lib.cuckoo.common.central_mode import central_mode_config
     from lib.cuckoo.common.hunt_query import build_hunt_facets
@@ -4412,7 +4851,8 @@ def tag_tasks(request):
     try:
         for tid in task_ids:
             task = db.session.get(Task, int(tid))
-            if task:
+            # only the task's owner / tenant-admin (or break-glass) may tag it
+            if task and can_manage_task(request.user, task):
                 existing_tags = task.tags_tasks or ""
                 current_tags = [t.strip() for t in existing_tags.split(",") if t.strip()]
                 if tag not in current_tags:

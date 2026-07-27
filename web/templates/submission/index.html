@@ -963,6 +963,16 @@
                                     </select>
                                 </div>
                                 {% endif %}
+                                {% if visibility_levels %}
+                                <div class="col-md-6">
+                                    <label for="form_visibility" class="text-white-50">Visibility</label>
+                                    <select class="form-select border-secondary" id="form_visibility" name="visibility">
+                                        {% for level in visibility_levels %}
+                                        <option value="{{ level }}" {% if level == default_visibility %}selected{% endif %}>{{ level }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                {% endif %}
                             </div>
 
                             <div id="non-pcap-2">

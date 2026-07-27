@@ -251,6 +251,13 @@ unused_files_in_mongodb = no
 # Central control-plane mode (off = current single-node behavior; analyses stay on the local
 # storage/analyses tree). When on, analysis artifacts are pushed to a shared object store and
 # interactive Guac routing resolves job->worker via a directory backend.
+#
+# TENANT ISOLATION: when central mode AND multitenancy are BOTH enabled, tenant-isolated access
+# requires the submit-bridge -- only a bridged task (job_id "ui-<central_id>", globally unique and
+# reconcile-mapped to a tenant) is a tenant-scoped own doc. A direct worker submission (keyed
+# "local-<id>", worker-local info.id, no tenancy by construction) is SINGLE-TENANT only: it is not
+# addressable through the tenant-scoped own-doc read/write/delete paths. See
+# lib.cuckoo.common.central_mode.central_bridge_required.
 enabled = no
 # Artifact storage backend when central mode is ON: "s3" (any S3-compatible store — AWS S3, MinIO,
 # Ceph RGW — via boto3, which is an optional/lazy import: pip install boto3 to use it) or "local"
@@ -276,10 +283,56 @@ broker_api_token =
 broker_table =
 # Interactive-Guac worker access: how the central node reaches the worker that hosts a live task's
 # VM. Defaults match the standard CAPE deb layout; override for other topologies.
-# File holding the worker apiv2 Token (blank/absent => requests go unauthenticated).
+# File holding the token the central node presents to the worker's apiv2 for the interactive
+# live-VM lookup (apiv2 tasks/machine). The worker authorizes that call by matching this value
+# (constant-time) against its own [api] control_plane_token, so this MUST equal the worker's
+# control_plane_token (in the AWS deploy: the same Secrets Manager value on both tiers). That
+# shared-secret path works on the shipped token_auth_enabled=no worker, where DRF leaves the
+# request anonymous. (On a token_auth_enabled=yes worker the endpoint ALSO accepts an
+# is_local_admin principal's token — but do NOT flip local_admins_manage_all_tenants=yes just
+# for this: that widens cross-tenant break-glass fleet-wide. Use an IdP-linked superuser
+# instead if you go that route.) Blank/absent => requests go unauthenticated.
 worker_api_token_file = /etc/cape/api-token
 # The worker's apiv2/web port.
 worker_api_port = 8000
 # The central node's libvirt-over-SSH identity onto workers (must be authorized on the workers).
 worker_ssh_user = cape
 worker_ssh_keyfile = /home/cape/.ssh/id_ed25519
+# SQLAlchemy URL of the CENTRAL control-plane RDS, used by WORKERS only to resolve a central task's
+# tenancy (tenant_id/user_id/visibility) when stamping the shared DocumentDB analysis doc under
+# multitenancy. A worker's own [database] is its LOCAL per-worker task DB (different id space) and
+# centralstore rewrites info.id to the central task id, so the stamp must be resolved here. Blank
+# (default) => central-mode analyses stamp fail-closed (private/unowned) rather than leak.
+# IMPORTANT: point this at the WRITER/PRIMARY endpoint (the same Postgres the central node uses as
+# its [database]), NOT a read replica/standby. Read-only credentials on the primary are fine, but a
+# reader endpoint breaks the reconcile's cross-node advisory-lock serialization (pg_advisory_lock on
+# a standby doesn't exclude the primary) and the under-lock re-read would be replication-lag-stale;
+# the worker detects pg_is_in_recovery() and warns + runs unserialized-but-fail-closed in that case.
+# Set on workers in a central + multitenancy deployment. Single-node and non-MT installs ignore this.
+central_database_url =
+# Management/UI node opt-in. A central UI node advertises the fleet's route options on the submission
+# form but runs NO rooter (only workers route traffic). When yes, init_rooter/init_routing tolerate an
+# unreachable rooter (warn + skip route verification/NAT while still populating the VPN list for the
+# form) instead of raising CuckooStartupError at web import. Default no, so single-node AND workers
+# keep failing fast on a missing rooter. Set yes ONLY on the central UI node, never on a worker.
+tolerate_missing_rooter = no
+
+[multitenancy]
+# Multi-tenant identity & job-visibility (off = current single-tenant behavior).
+# IMPORTANT: enabling this on an EXISTING populated install stamps NEW analyses only.
+# Pre-existing mongo reports have no tenant/visibility stamp and stay invisible to
+# every tenant (fail-closed) on the search/statistics/compare surfaces until you run
+# the one-shot backfill: `python utils/db_migration/mongo_backfill_tenant.py`
+# (stamps tenant_id/user_id/visibility from each report's Postgres task). See
+# docs/MULTITENANCY-SUPPORT.md.
+enabled = no
+# shared = tenant-less collaborative pool (submit default public);
+# locked = per-tenant isolation (submit default tenant).
+mode = shared
+# Blank = per-mode default (shared->public, locked->tenant). Override with one
+# of: public | tenant | private.
+default_visibility =
+# Operator break-glass: local Django superusers manage ALL tenants (cross-tenant
+# read + management) when yes. Set no to force admin access through the IdP.
+# Server-side only — a tenant/user cannot grant themselves this.
+local_admins_manage_all_tenants = yes

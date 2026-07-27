@@ -41,14 +41,34 @@ def multitenancy_config():
     return real()
 
 
+def _mt_enabled():
+    """Is MT CONFIGURED on, read from the PURE lib.cuckoo.common.tenancy config -- independent of the
+    users.tenancy web layer whose import chain may have broken. Lets the `except ImportError` arms below
+    tell 'MT layer genuinely absent' (upstream / single-tenant build -> see-all is correct) from 'MT
+    enabled but its import broke' (-> FAIL CLOSED; never silently degrade the sole isolation gate to
+    see-all -- the comment on Viewer above records this exact class already caused a cross-tenant leak
+    once). If the pure config is present but unreadable, assume enabled (fail closed)."""
+    try:
+        from lib.cuckoo.common.tenancy import multitenancy_config as _pure
+    except ImportError:
+        return False  # pure MT predicate layer absent => genuinely single-tenant => see-all OK
+    try:
+        return bool(_pure().enabled)
+    except Exception:
+        return True  # layer present but config unreadable => fail closed
+
+
 def viewer_for(user):
     # viewer_for lives in the web `users` MT app (needs the Django ORM), NOT the pure predicate
     # lib.cuckoo.common.tenancy -- importing it from there always ImportError'd -> the facade
     # silently degraded to see-all even when MT WAS deployed (cross-tenant leak). Resolve it from
-    # users.tenancy (present => real viewer; absent/non-Django => fall back to see-all).
+    # users.tenancy (present => real viewer; absent => single-tenant see-all, UNLESS MT is enabled but
+    # the import broke -> fail closed to a non-admin, tenantless viewer that matches no other tenant).
     try:
         from users.tenancy import viewer_for as real
     except ImportError:
+        if _mt_enabled():
+            return Viewer(user_id=0, tenant_id=0, is_tenant_admin=False, is_local_admin=False)
         return Viewer()
     return real(user)
 

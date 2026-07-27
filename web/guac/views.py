@@ -11,6 +11,7 @@ from django.shortcuts import render, redirect
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
+from web.tenancy_optional import can_manage_task, multitenancy_config, viewer_for
 
 logger = logging.getLogger("guac-session")
 
@@ -53,6 +54,21 @@ def _error(request, task_id, msg):
 
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id, session_data):
+    # tenant isolation: minting a live-VM session grants keyboard/mouse/framebuffer
+    # control of the running analysis VM — a task ACTION, not passive report viewing.
+    # Gate it on can_manage_task (owner / tenant-admin / break-glass), NOT mere read
+    # visibility, so a read-only viewer of a public/tenant task can't tunnel into the
+    # live VM. hidden == "not found" (no cross-tenant enumeration).
+    #
+    # MT-OFF INVARIANT: this gate is ADDITIVE. When multitenancy is disabled we skip it
+    # entirely and fall through to upstream's original ordering (libvirt/machinery checks
+    # first, then the existence check + exact "The specified task doesn't seem to exist"
+    # message below) so MT-off behavior is byte-for-byte identical to upstream.
+    if multitenancy_config().enabled:
+        _task = db.view_task(int(task_id))
+        if _task is None or not can_manage_task(request.user, _task):
+            return _error(request, task_id, "No analysis found with specified ID")
+
     if not LIBVIRT_AVAILABLE:
         return _error(request, task_id, "Libvirt not available")
 
@@ -156,6 +172,13 @@ def index(request, task_id, session_data):
 def direct_vnc_host_port(request, host, port):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
+    # Direct VNC opens a raw tunnel to a caller-chosen host:port with no task/tenant
+    # scoping (task_id=0). Restrict to break-glass admins (viewer_for().is_local_admin
+    # — config-aware: a plain tenant user or non-break-glass superuser is denied) —
+    # it is an operator console, never a tenant-user surface; without this a logged-in
+    # tenant user could reach any reachable host:port. Config-gated + admin-gated.
+    if not viewer_for(request.user).is_local_admin:
+        return _error(request, 0, "VNC Console is restricted to administrators")
 
     token = uuid.uuid4()
     try:
@@ -195,6 +218,8 @@ def direct_vnc_host_port(request, host, port):
 def direct_vnc_vm(request, vm_name):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
+    if not viewer_for(request.user).is_local_admin:
+        return _error(request, 0, "VNC Console is restricted to administrators")
 
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
@@ -585,6 +610,8 @@ sys.exit(res.returncode)
 def direct_vnc_vm_start(request, vm_name):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
+    if not viewer_for(request.user).is_local_admin:
+        return _error(request, 0, "VNC Console is restricted to administrators")
 
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
@@ -696,6 +723,8 @@ def direct_vnc_vm_start(request, vm_name):
 def direct_vnc_vm_shutdown(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+    if not viewer_for(request.user).is_local_admin:
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
@@ -798,6 +827,8 @@ def get_route_params(route_name, routing, configured_vpns):
 def direct_vnc_vm_route(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+    if not viewer_for(request.user).is_local_admin:
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
@@ -884,6 +915,8 @@ def direct_vnc_vm_route(request, vm_name):
 def direct_vnc_vm_snapshots_list(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+    if not viewer_for(request.user).is_local_admin:
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
@@ -944,6 +977,8 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
 def direct_vnc_vm_snapshot_create(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+    if not viewer_for(request.user).is_local_admin:
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
@@ -1033,6 +1068,8 @@ def direct_vnc_vm_snapshot_create(request, vm_name):
 def direct_vnc_vm_snapshot_delete(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
+    if not viewer_for(request.user).is_local_admin:
+        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)

@@ -4,10 +4,14 @@ from base64 import urlsafe_b64decode
 
 import json
 import logging
+from functools import wraps
+
 from django.conf import settings
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
 from django.http import JsonResponse
 from django.shortcuts import render, redirect
+
+from guac.channels_auth import resolve_session_user
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
@@ -25,6 +29,33 @@ class conditional_login_required:
         if not self.condition:
             return func
         return self.decorator(func)
+
+
+def guac_login_required(view_func):
+    """Backend-agnostic ``@login_required`` for guac-web's HTTP views.
+
+    guac-web (``web.guac_settings``) shares the main web's session store but deliberately
+    does NOT install the allauth app stack. Django's stock ``login_required`` resolves
+    ``request.user`` via ``auth.get_user()``, which ``load_backend()``s the exact auth
+    backend the session was created with; for an OIDC/allauth session that backend is not
+    in guac-web's ``AUTHENTICATION_BACKENDS`` (importing ``allauth.account.*`` is exactly
+    what guac_settings avoids), so ``get_user()`` returns ``AnonymousUser`` and every
+    interactive-console request for an OIDC user is bounced to the login page — even though
+    the browser is logged in on the main web. The websocket path already solved this with a
+    backend-agnostic resolver (``guac.channels_auth.resolve_session_user``); the HTTP views
+    must do the same. Resolve identity straight from the session (user id + auth-hash check,
+    the same security gate ``get_user`` enforces) without loading the backend. Redirect to
+    the login page only for a genuinely anonymous session, identical to ``login_required``.
+    """
+    @wraps(view_func)
+    def _wrapped(request, *args, **kwargs):
+        user = resolve_session_user(request.session)
+        if not user.is_authenticated:
+            return redirect_to_login(request.get_full_path())
+        request.user = user
+        return view_func(request, *args, **kwargs)
+
+    return _wrapped
 
 try:
     import libvirt
@@ -52,7 +83,7 @@ def _error(request, task_id, msg):
     })
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id, session_data):
     # tenant isolation: minting a live-VM session grants keyboard/mouse/framebuffer
     # control of the running analysis VM — a task ACTION, not passive report viewing.
@@ -168,7 +199,7 @@ def index(request, task_id, session_data):
                 pass
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_host_port(request, host, port):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
@@ -214,7 +245,7 @@ def direct_vnc_host_port(request, host, port):
     return response
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm(request, vm_name):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
@@ -606,7 +637,7 @@ sys.exit(res.returncode)
                 pass
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_start(request, vm_name):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
@@ -719,7 +750,7 @@ def direct_vnc_vm_start(request, vm_name):
                 pass
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_shutdown(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
@@ -823,7 +854,7 @@ def get_route_params(route_name, routing, configured_vpns):
     return None, None, None, None
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_route(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
@@ -911,7 +942,7 @@ def direct_vnc_vm_route(request, vm_name):
         }, status=500)
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_snapshots_list(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
@@ -973,7 +1004,7 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
                 pass
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_snapshot_create(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
@@ -1064,7 +1095,7 @@ def direct_vnc_vm_snapshot_create(request, vm_name):
                 pass
 
 
-@conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
+@conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def direct_vnc_vm_snapshot_delete(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)

@@ -338,6 +338,21 @@ def check_webgui_mongo():
             index_configs.append(("analysis", [("detections.family", 1), ("_id", -1)], {"name": "detections_family_id_desc"}))
         if repconf.mongodb.get("index_filenames", False):
             index_configs.append(("analysis", [("target.file.name", 1), ("_id", -1)], {"name": "target_file_name_id_desc"}))
+        if repconf.mongodb.get("index_hunt", False):
+            index_configs.extend([
+                ("analysis", "network.domains.domain", {"name": "hunt_domains"}),
+                ("analysis", "network.hosts.ip", {"name": "hunt_ips"}),
+                ("analysis", "behavior.summary.mutexes", {"name": "hunt_mutexes"}),
+                ("analysis", "dropped.filepath", {"name": "hunt_dropped_files"}),
+                ("analysis", "behavior.summary.executed_commands", {"name": "hunt_commands"}),
+                ("analysis", "behavior.summary.keys", {"name": "hunt_registry_keys"}),
+                ("analysis", "dropped._id", {"name": "hunt_dropped_hashes"}),
+                ("analysis", "procdump._id", {"name": "hunt_procdump_hashes"}),
+                ("analysis", "CAPE.payloads._id", {"name": "hunt_extracted_hashes"}),
+                ("analysis", "static.pe.imphash", {"name": "hunt_imphashes"}),
+                ("analysis", "network.http.uri", {"name": "hunt_http_uris"}),
+                ("analysis", "signatures.name", {"name": "hunt_signatures"}),
+            ])
 
         # Obsolete indexes to drop
         obsolete_indexes = {

@@ -361,3 +361,8 @@ enabled = no
 # Code-similarity engine(s). See conf/integrations.conf [similarity].
 [similarity]
 enabled = no
+
+# Threat-intelligence enrichment. Engine and API settings live in
+# conf/threat_intel.conf.
+[threatintelligence]
+enabled = no

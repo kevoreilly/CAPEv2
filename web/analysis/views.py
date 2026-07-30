@@ -2903,6 +2903,7 @@ def report(request, task_id):
             "network.hosts": 1,
             "reversinglabs": 1,
             "tcr_config_lookup": 1,
+            "threatintelligence": 1,
             "_id": 0,
         }
         if CUSTOM_SERVICES:

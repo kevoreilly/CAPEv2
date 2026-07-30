@@ -130,10 +130,14 @@ USE_TZ = True
 
 STATIC_URL = "/static/"
 
-# Additional locations of static files
-# STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]
-
 STATIC_ROOT = os.path.join(BASE_DIR, "static")
+
+# NOTE: Do NOT uncomment STATICFILES_DIRS pointing at BASE_DIR / "static" -- it is
+# the same path as STATIC_ROOT above, and Django's staticfiles.E002 check rejects a
+# STATICFILES_DIRS entry equal to STATIC_ROOT (source dirs must not overlap the
+# collectstatic destination). If guac-web ever needs extra source dirs, use a
+# DIFFERENT directory, e.g. STATICFILES_DIRS = [os.path.join(BASE_DIR, "static_src")].
+# STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")]  # <-- would trip staticfiles.E002
 
 STATICFILES_FINDERS = (
     "django.contrib.staticfiles.finders.FileSystemFinder",

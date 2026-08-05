@@ -1092,6 +1092,12 @@ BINARY_TO_TOOL_MAPPING = {
     "trid": ("trid", "cape-trid"),
 }
 
+try:
+    import docker
+    HAVE_DOCKER_SDK = True
+except ImportError:
+    HAVE_DOCKER_SDK = False
+
 
 class ToolDispatcher:
     def __init__(self):
@@ -1113,12 +1119,9 @@ class ToolDispatcher:
             log.debug("Docker extra info config not fully loaded, using defaults: %s", str(e))
 
         # Gracefully load docker-py SDK
-        if self.enabled and not self.sudo_restriction:
+        if self.enabled and not self.sudo_restriction and HAVE_DOCKER_SDK:
             try:
-                import docker
                 self.docker_client = docker.from_env()
-            except ImportError:
-                log.debug("docker-py SDK not installed. Subprocess fallback will be used.")
             except Exception as e:
                 log.error("Failed to initialize Docker SDK: %s. Falling back to subprocess execution.", str(e))
 

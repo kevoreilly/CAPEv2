@@ -1,9 +1,6 @@
-import os
-import json
-import pytest
 from unittest.mock import MagicMock, patch, mock_open
 
-from lib.cuckoo.common.integrations.file_extra_info import ToolDispatcher, BINARY_TO_TOOL_MAPPING
+from lib.cuckoo.common.integrations.file_extra_info import ToolDispatcher
 
 
 class TestDockerExtraInfo:

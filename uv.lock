@@ -556,7 +556,7 @@ requires-dist = [
     { name = "ruff", specifier = ">=0.7.2" },
     { name = "setproctitle", specifier = "==1.3.2" },
     { name = "setuptools", specifier = "==78.1.1" },
-    { name = "sflock2", extras = ["linux", "shellcode"], specifier = ">=0.3.76" },
+    { name = "sflock2", extras = ["linux", "shellcode"], specifier = ">=0.3.84" },
     { name = "sqlalchemy", specifier = "==2.0.41" },
     { name = "sqlalchemy-utils", specifier = "==0.41.1" },
     { name = "tldextract", specifier = ">=5.1.2" },

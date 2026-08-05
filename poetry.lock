@@ -5757,14 +5757,14 @@ type = ["importlib_metadata (>=7.0.2) ; python_version < \"3.10\"", "jaraco.deve
 
 [[package]]
 name = "sflock2"
-version = "0.3.76"
+version = "0.3.87"
 description = "Sample staging and detonation utility"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "sflock2-0.3.76-py3-none-any.whl", hash = "sha256:3d989d142fc49ebd049f75eb8d402451fcd20148cf27aaa20c540ac95a9c81ff"},
-    {file = "sflock2-0.3.76.tar.gz", hash = "sha256:eed75b32adf3c82a60d9339fda63a151355f9be7639d7d583de8f43ea6604e4c"},
+    {file = "sflock2-0.3.87-py3-none-any.whl", hash = "sha256:1007ebdfa0d4505f6afc3cb24e362f70efc8bf79def8a67524281aff1e5fe344"},
+    {file = "sflock2-0.3.87.tar.gz", hash = "sha256:ac05f55f13525ebf318ef1b27ec2737def608c1b701f31afb4ba9c33c9d9a6d5"},
 ]
 
 [package.dependencies]
@@ -5772,6 +5772,7 @@ click = "*"
 cryptography = ">=44.0.0"
 olefile = ">=0.43"
 pefile = "*"
+python-dateutil = "*"
 python-magic = {version = ">=0.4.13", optional = true, markers = "sys_platform == \"linux\" and extra == \"linux\""}
 unicorn = {version = ">=2.0.0", optional = true, markers = "extra == \"shellcode\""}
 yara-python = {version = ">=4.1.0", optional = true, markers = "extra == \"shellcode\""}
@@ -7083,4 +7084,4 @@ yara = ["plyara"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "6498cff0467e22c4423f6669349822b1218db41223ee142ead281ec3b7d0a325"
+content-hash = "f697094f5bba08bc55f1b59d1336611e976aca37039c610efc5df05431b9793e"

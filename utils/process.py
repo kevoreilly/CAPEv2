@@ -44,7 +44,7 @@ from lib.cuckoo.core.data.task import (
     TASK_REPORTED
 )
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
-from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, init_modules
+from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, check_webgui_mongo, init_modules
 
 cfg = Config()
 logconf = Config("logging")
@@ -639,6 +639,7 @@ def main():
 
     init_database()
     handlers = init_logging(debug=args.debug)
+    check_webgui_mongo(exit_on_connection_failure=False)
     init_modules()
     if args.id == "auto":
         autoprocess(

@@ -1213,7 +1213,12 @@ class ToolDispatcher:
         copied_files = []
         new_args = []
 
-        for arg in cmd_args:
+        for i, arg in enumerate(cmd_args):
+            # Skip the first argument (index 0) because it is always the binary executable path
+            if i == 0:
+                new_args.append(arg)
+                continue
+
             if isinstance(arg, str) and os.path.isabs(arg) and not arg.startswith(shared_volume_path):
                 if os.path.isfile(arg):
                     filename = os.path.basename(arg)

@@ -626,7 +626,12 @@ class File:
                     addresses = {}
                     for yara_string in match.patterns:
                         for x in yara_string.matches:
-                            y_string = self._yara_encode_string(x.data)
+                            matched_bytes = b""
+                            if self.file_data and len(self.file_data) >= x.offset + x.length:
+                                matched_bytes = self.file_data[x.offset : x.offset + x.length]
+                                if getattr(x, "xor_key", None) is not None:
+                                    matched_bytes = bytes(b ^ x.xor_key for b in matched_bytes)
+                            y_string = self._yara_encode_string(matched_bytes)
                             if y_string not in strings:
                                 strings.append(y_string)
                             addresses.update({yara_string.identifier.strip("$"): x.offset})
@@ -664,7 +669,7 @@ class File:
                     log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
                 else:
                     log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
-            elif HAVE_YARA_X and isinstance(e, yara_x.Error):
+            elif HAVE_YARA_X and isinstance(e, (yara_x.CompileError, yara_x.ScanError, yara_x.TimeoutError)):
                 log.exception("Unable to match Yara signatures (yara-x) for %s: %s", self.file_path, e)
             else:
                 log.exception("Unable to match Yara signatures for %s: %s", self.file_path, e)

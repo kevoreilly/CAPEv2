@@ -4,7 +4,19 @@ autoprocess loop, parameterized behind the engine seam. max_tasks defaults to 0
 joining the nested extractor pool — see the redesign spec."""
 import logging
 import os
+import sys
 import time
+import types
+
+# Workaround for Rust/PyO3 PanicException serialization failures.
+# Since pyo3_runtime is not a real package on disk, we register a dynamic
+# module to allow pickle/unpickle operations of PanicException to succeed.
+if "pyo3_runtime" not in sys.modules:
+    pyo3_runtime = types.ModuleType("pyo3_runtime")
+    class PanicException(BaseException):
+        pass
+    pyo3_runtime.PanicException = PanicException
+    sys.modules["pyo3_runtime"] = pyo3_runtime
 
 import pebble
 from concurrent.futures import TimeoutError
@@ -39,7 +51,7 @@ class PebbleEngine(ProcessingEngine):
     """
 
     def __init__(self, task_fn, worker_init, source, parallel, timeout,
-                 max_tasks=0, max_count=0):
+                max_tasks=0, max_count=0):
         super().__init__(task_fn, worker_init, source, parallel, timeout)
         self.max_tasks = max_tasks
         self.max_count = max_count
@@ -85,7 +97,7 @@ class PebbleEngine(ProcessingEngine):
                     continue
 
                 tasks = self.source.fetch(limit=self.parallel,
-                                          exclude_ids=set(self._pending.values()))
+                                        exclude_ids=set(self._pending.values()))
                 added = False
                 # Schedule at most one task per iteration to avoid overshooting
                 # max_count (same rationale as the original "For loop to add

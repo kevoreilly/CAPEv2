@@ -11,6 +11,7 @@ import mmap
 import os
 import struct
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict
 
@@ -174,6 +175,15 @@ class File:
     yara_rules = {}
     yara_rules_hash = None
     yara_initialized = False
+    # category -> time.monotonic() of the last failed forced recompile.
+    # get_yara() forces a recompile when a category is missing; without this it
+    # would force a full six-category recompile for every scanned file (~3s each
+    # on a production ruleset). It is a BACKOFF, not a permanent skip: workers
+    # run with max_tasks=0 (no recycling), so permanently disabling a category
+    # after one transient failure -- rules mid-update, storage briefly
+    # unreadable -- would silently return no matches for the rest of the run.
+    yara_uncompilable = {}
+    yara_recompile_backoff = 300
     # static fields which indicate whether the user has been
     # notified about missing dependencies already
     notified_yara = False
@@ -587,6 +597,13 @@ class File:
                     log.debug("\t |-- %s %s", category, entry)
         cls.yara_rules_hash = hasher.hexdigest()
         cls.yara_initialized = True
+        # Any category that compiled this time is healthy again, so drop its
+        # backoff. Dropping only what actually compiled (rather than clearing the
+        # whole record) matters when SEVERAL categories are broken: clearing would
+        # make each one forget the others and force a fresh full recompile on
+        # every alternating call.
+        for compiled_category in cls.yara_rules:
+            cls.yara_uncompilable.pop(compiled_category, None)
 
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.
@@ -622,9 +639,22 @@ class File:
                 # short-circuits and leaves this category missing. Force ONE full recompile
                 # before giving up so a live category is never silently skipped (returning []
                 # here would look like "no matches" and hide the misconfiguration).
+                last_failure = File.yara_uncompilable.get(category)
+                if last_failure is not None and time.monotonic() - last_failure < File.yara_recompile_backoff:
+                    # Recently forced a recompile for this category and it still
+                    # produced nothing. Back off rather than paying another full
+                    # recompile for every remaining file in the task.
+                    return []
                 File.init_yara(force=True)
                 rules = self.yara_rules.get(category)
                 if not rules:
+                    File.yara_uncompilable[category] = time.monotonic()
+                    log.warning(
+                        "Yara category '%s' produced no rules after a forced recompile; backing off for %ss "
+                        "before retrying it.",
+                        category,
+                        File.yara_recompile_backoff,
+                    )
                     return []
 
             if HAVE_YARA_X:

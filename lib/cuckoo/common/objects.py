@@ -525,6 +525,14 @@ class File:
                     else:
                         # This runs if the inner for loop finishes WITHOUT break (no errors)
                         compiled_rules = compiler.build()
+                        # Cache the compiled Rules, NOT a Scanner. yara_x.Scanner is
+                        # unsendable: PyO3 panics with "Scanner is unsendable, but sent
+                        # to another thread" if one is touched off its constructing
+                        # thread, and writes an unraisable RuntimeError if one is
+                        # DROPPED off it (which happens on fork, and at shutdown for
+                        # daemon threads -- so caching a Scanner per-thread does not
+                        # help either). Rules is sendable; get_yara() builds the
+                        # Scanner on the thread that scans.
                         cls.yara_rules[category] = compiled_rules
                         if category == "memory":
                             index_memory = os.path.join(yara_root, "index_memory.yarc")
@@ -620,6 +628,8 @@ class File:
                     return []
 
             if HAVE_YARA_X:
+                # Built here, on the scanning thread, and deliberately not cached
+                # anywhere that outlives the scan -- see init_yara().
                 yara_results = yara_x.Scanner(rules).scan_file(self.file_path)
                 for match in yara_results.matching_rules:
                     strings = []

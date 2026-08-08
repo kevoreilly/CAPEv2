@@ -14,6 +14,10 @@ hwp = no
 # Number of workers for pool to run them in parallel
 max_workers = 6
 
+# If docker_extra_info is enabled in processing.conf, you can override the 
+# default container name for each tool under its respective section by specifying:
+# container_name = <custom_container_name>
+
 # Create your apikey: https://threatfox.abuse.ch/api/#auth_key
 # MalwareBazaar uses this key too
 [abusech]

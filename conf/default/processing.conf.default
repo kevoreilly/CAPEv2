@@ -159,6 +159,18 @@ definitions = data/trid/triddefs.trd
 enabled = no
 binary = /usr/bin/diec
 
+[docker_extra_info]
+# Enable modular multi-container Docker integration for file extra info tools.
+enabled = no
+# Execution mode: 'mounted' (local docker exec with shared volume) or 'api' (remote API Gateway server)
+mode = mounted
+# Restrict Docker access using /etc/sudoers (running 'sudo docker exec' instead of direct docker-py SDK socket)
+sudo_restriction = no
+# Directory mapped to the tool containers as a shared volume (used in 'mounted' mode)
+shared_volume_path = /tmp/cape-external
+# API Gateway URL (used in 'api' mode)
+api_url = http://127.0.0.1:8000
+
 [virustotal]
 enabled = yes
 on_demand = no

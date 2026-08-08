@@ -201,7 +201,7 @@ def main() -> Optional[bool]:
     try:
         args = parser.parse_args()
     except IOError as e:
-        parser.error(e)
+        print(f"Error: {e}", file=sys.stderr)
         return False
 
     # If the quiet flag has been set, then we also disable the "warning"

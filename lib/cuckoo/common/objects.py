@@ -525,7 +525,7 @@ class File:
                     else:
                         # This runs if the inner for loop finishes WITHOUT break (no errors)
                         compiled_rules = compiler.build()
-                        cls.yara_rules[category] = yara_x.Scanner(compiled_rules)
+                        cls.yara_rules[category] = compiled_rules
                         if category == "memory":
                             index_memory = os.path.join(yara_root, "index_memory.yarc")
                             with open(index_memory, "wb") as f:
@@ -620,7 +620,7 @@ class File:
                     return []
 
             if HAVE_YARA_X:
-                yara_results = rules.scan_file(self.file_path)
+                yara_results = yara_x.Scanner(rules).scan_file(self.file_path)
                 for match in yara_results.matching_rules:
                     strings = []
                     addresses = {}

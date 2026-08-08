@@ -175,7 +175,7 @@ if GCS_ENABLED:
         GCS_ENABLED = False
 
 
-def download_from_gcs(gcs_uri: str, destination_path: str, logger: Optional[Any] = None, client: Optional[storage.Client] = None) -> bool:
+def download_from_gcs(gcs_uri: str, destination_path: str, logger: Optional[Any] = None, client: Optional["storage.Client"] = None) -> bool:
     """
     Downloads a file from GCS.
     gcs_uri: gs://bucket_name/object_name

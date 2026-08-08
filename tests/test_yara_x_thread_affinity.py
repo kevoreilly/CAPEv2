@@ -58,7 +58,7 @@ def test_init_yara_does_not_cache_a_scanner(monkeypatch, tmp_path):
     from lib.cuckoo.common import objects as objects_mod
     from lib.cuckoo.common.objects import File
 
-    for category in ("binaries", "urls", "memory", "scripts", "macro", "CAPE"):
+    for category in ("binaries", "urls", "memory", "CAPE", "macro", "monitor"):
         for tree in ("data", "custom"):
             (tmp_path / tree / "yara" / category).mkdir(parents=True, exist_ok=True)
     (tmp_path / "data" / "yara" / "binaries" / "marla.yar").write_text(RULE)
@@ -118,7 +118,7 @@ def test_forced_reinit_clears_the_uncompilable_record(monkeypatch, tmp_path):
     from lib.cuckoo.common import objects as objects_mod
     from lib.cuckoo.common.objects import File
 
-    for category in ("binaries", "urls", "memory", "scripts", "macro", "CAPE"):
+    for category in ("binaries", "urls", "memory", "CAPE", "macro", "monitor"):
         for tree in ("data", "custom"):
             (tmp_path / tree / "yara" / category).mkdir(parents=True, exist_ok=True)
     (tmp_path / "data" / "yara" / "binaries" / "marla.yar").write_text(RULE)
@@ -182,7 +182,7 @@ def test_forced_reinit_forgets_only_categories_that_actually_compiled(monkeypatc
     from lib.cuckoo.common import objects as objects_mod
     from lib.cuckoo.common.objects import File
 
-    for category in ("binaries", "urls", "memory", "scripts", "macro", "CAPE"):
+    for category in ("binaries", "urls", "memory", "CAPE", "macro", "monitor"):
         for tree in ("data", "custom"):
             (tmp_path / tree / "yara" / category).mkdir(parents=True, exist_ok=True)
     (tmp_path / "data" / "yara" / "binaries" / "marla.yar").write_text(RULE)

@@ -602,7 +602,12 @@ class File:
         # whole record) matters when SEVERAL categories are broken: clearing would
         # make each one forget the others and force a fresh full recompile on
         # every alternating call.
-        for compiled_category in cls.yara_rules:
+        # Snapshot the keys first: yara_rules is class-level and two threads can
+        # be inside a forced init at once (get_yara's fallback triggers one), so
+        # iterating it directly can raise "dictionary changed size during
+        # iteration". Snapshotting also keeps categories that were injected
+        # outside the built-in list, which iterating `categories` would miss.
+        for compiled_category in tuple(cls.yara_rules):
             cls.yara_uncompilable.pop(compiled_category, None)
 
     def get_yara(self, category="binaries", externals=None):

@@ -95,7 +95,7 @@ def test_reaper_fails_a_task_that_was_never_picked_up():
         stall_grace=1
     )
     future = _MockFuture()
-    
+
     with engine._lock:
         engine._pending[future] = 77
         engine._scheduled_at[future] = time.monotonic() - 3600  # long overdue
@@ -120,7 +120,7 @@ def test_reaper_leaves_a_task_that_is_still_within_its_deadline():
         stall_grace=5
     )
     future = _MockFuture()
-    
+
     with engine._lock:
         engine._pending[future] = 88
         engine._scheduled_at[future] = time.monotonic()  # brand new
@@ -145,7 +145,7 @@ def test_done_handles_base_exception_robustly():
         stall_grace=5
     )
     future = _BaseExceptionRaisingFuture()
-    
+
     with engine._lock:
         engine._pending[future] = 99
         engine._scheduled_at[future] = time.monotonic()

@@ -205,15 +205,22 @@ def run_task(task, memory_debugging=False, debug=False):
             if sample:
                 sample_hash = sample.sha256
     try:
-        process(
-            task.target,
-            sample_hash,
-            report=True,
-            auto=True,
-            task=task,
-            memory_debugging=memory_debugging,
-            debug=debug,
-        )
+        try:
+            process(
+                task.target,
+                sample_hash,
+                report=True,
+                auto=True,
+                task=task,
+                memory_debugging=memory_debugging,
+                debug=debug,
+            )
+        except Exception:
+            raise
+        except BaseException as e:
+            import traceback
+            tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+            raise RuntimeError(f"{type(e).__module__}.{type(e).__name__}: {e}\n\n{tb}") from None
     finally:
         set_formatter_fmt()
         setproctitle(original_proctitle)

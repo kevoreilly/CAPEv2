@@ -4,6 +4,7 @@ autoprocess loop, parameterized behind the engine seam. max_tasks defaults to 0
 joining the nested extractor pool — see the redesign spec."""
 import logging
 import os
+import sys
 import time
 import threading
 

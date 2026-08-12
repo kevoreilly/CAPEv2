@@ -81,6 +81,8 @@ if gcp_conf.samples_pubsub.enabled:
         gcs_upload_report,
         gcs_uploader,
     )
+    if not GCS_ENABLED or not HAVE_GCP:
+        sys.exit("Run: poetry install --extras gcp or poetry run pip install --upgrade google-cloud-compute google-cloud-storage")
 
     cloud = GCP()
 

@@ -4,7 +4,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-# https://github.com/cuckoosandbox/cuckoo/pull/1694/files
 import argparse
 import distutils.util
 import hashlib
@@ -1230,9 +1229,21 @@ class StatusThread(threading.Thread):
                     # print(t.category, t.target)
                     if t.category in ("file", "pcap", "static"):
                         if not path_exists(t.target):
-                            log.info("Task id: %d - File doesn't exist: %s", t.id, t.target)
-                            main_db.set_status(t.id, TASK_BANNED)
-                            continue
+                            sample_sha256 = None
+                            try:
+                                if t.sample:
+                                    sample_sha256 = t.sample.sha256
+                            except Exception as e:
+                                log.debug("Failed to lazy load sample relation for task %d: %s", t.id, e)
+
+                            bin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256) if sample_sha256 else None
+                            if bin_path and path_exists(bin_path):
+                                log.info("Task id: %d - Target file not found at original path, but found in binaries storage: %s. Updating target path.", t.id, bin_path)
+                                t.target = bin_path
+                            else:
+                                log.info("Task id: %d - File doesn't exist: %s", t.id, t.target)
+                                main_db.set_status(t.id, TASK_BANNED)
+                                continue
                         if not web_conf.general.allow_ignore_size and "ignore_size_check" not in t.options:
                             # We can't upload size bigger than X to our workers. In case we extract archive that contains bigger file.
                             file_size = path_get_size(t.target)

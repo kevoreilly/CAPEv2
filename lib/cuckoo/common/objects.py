@@ -28,6 +28,7 @@ from lib.cuckoo.common.defines import (
     PAGE_WRITECOPY,
 )
 from lib.cuckoo.common.integrations.clamav import get_clamav
+from lib.cuckoo.common.integrations.magika import MAGIKA_ENABLED, magika_info
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386, IsPEImage
 from lib.cuckoo.common.path_utils import path_exists
 
@@ -206,6 +207,7 @@ class File:
         self._sha512 = None
         self._pefile = False
         self.file_type = None
+        self._magika = None
         self.pe = None
 
     def get_name(self):
@@ -427,6 +429,19 @@ class File:
             self.file_type = self.get_content_type()
 
         return self.file_type
+
+    def get_magika(self):
+        """Get the Google Magika content type prediction.
+        Enable in: processing.conf -> [magika] -> enabled
+
+        Reported alongside, never instead of, get_type(): the libmagic
+        verdict is left untouched so both are visible and comparable.
+
+        @return: dict with label/description/mime_type/group/score, or {}.
+        """
+        if self._magika is None:
+            self._magika = magika_info(self.file_path_ansii)
+        return self._magika
 
     def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
@@ -843,6 +858,16 @@ class File:
             "tlsh": self.get_tlsh(),
             "sha3_384": self.get_sha3_384(),
         }
+
+        # Sits alongside (below) "type" for every category that goes through
+        # File.get_all(): target, dropped, procdumps, CAPE payloads, extracted
+        # files, suricata files and process memory dumps. Absent -- not empty
+        # -- when magika is disabled or returns nothing, so the UI row simply
+        # does not render.
+        if MAGIKA_ENABLED:
+            magika_result = self.get_magika()
+            if magika_result:
+                infos["magika"] = magika_result
 
         return infos, self.pe
 

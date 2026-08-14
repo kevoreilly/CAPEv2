@@ -1344,6 +1344,7 @@ search_term_map_repetetive_blocks = {
     "crc32": "crc32",
     "die": "die",
     "trid": "trid",
+    "magika": "magika.label",
     "imphash": "imphash",
 }
 

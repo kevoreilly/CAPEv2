@@ -240,7 +240,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         since (int, optional): The timestamp to fetch tasks completed after. Defaults to 0.
 
     Returns:
-        list: A list of tasks fetched from the remote server. Returns an empty list if an error occurs.
+        list: A list of tasks fetched from the remote server. Returns None if an error occurs.
     """
     try:
         url = urljoin(url, "tasks/list/")
@@ -251,12 +251,12 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         if not r.ok:
             log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
             _ = path_write_file("/tmp/dist_error.html", r.content)
-            return []
+            return None
         return r.json().get("data", [])
     except Exception as e:
         log.warning("Error listing completed tasks (node %s): %s", url, e)
 
-    return []
+    return None
 
 
 def node_list_machines(url, apikey):
@@ -806,12 +806,12 @@ class Retriever(threading.Thread):
                 try:
                     nodes = db.execute(select(Node).where(Node.enabled.is_(True)))
                     for node in nodes or []:
-                        failed_task_ids = [
-                            task["id"]
-                            for task in node_fetch_tasks(
-                                "failed_analysis|failed_processing", node.url, node.apikey, action="delete"
-                            )
-                        ]
+                        tasks_data = node_fetch_tasks(
+                            "failed_analysis|failed_processing", node.url, node.apikey, action="delete"
+                        )
+                        if tasks_data is None:
+                            continue
+                        failed_task_ids = [task["id"] for task in tasks_data]
 
                         if not failed_task_ids:
                             continue
@@ -888,7 +888,16 @@ class Retriever(threading.Thread):
                         last_check = 0
                         last_checks[node.name] = 0
 
-                    task_ids = [task["id"] for task in node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check)]
+                    tasks_data = node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check)
+                    if tasks_data is None:
+                        self.status_count[node.name] += 1
+                        if self.status_count[node.name] >= dead_count:
+                            log.warning("[-] Node %s is unreachable/dead (attempt %d/%d)", node.name, self.status_count[node.name], dead_count)
+                        continue
+                    else:
+                        self.status_count[node.name] = 0
+
+                    task_ids = [task["id"] for task in tasks_data]
 
                     if task_ids:
                         stmt = select(Task.task_id).where(
@@ -908,17 +917,8 @@ class Retriever(threading.Thread):
                             queue_task_ids = set()
 
                         for task_id in tasks_to_fetch:
-                            try:
-                                if task_id not in processed_task_ids and task_id not in queue_task_ids:
-                                    self.fetcher_queue.put(({"id": task_id}, node.id))
-                            except Exception as e:
-                                self.status_count[node.name] += 1
-                                log.exception(e)
-                                if self.status_count[node.name] == dead_count:
-                                    log.info("[-] %s dead", node.name)
-                                    # node_data = db.query(Node).filter_by(name=node.name).first()
-                                    # node_data.enabled = False
-                                    # db.commit()
+                            if task_id not in processed_task_ids and task_id not in queue_task_ids:
+                                self.fetcher_queue.put(({"id": task_id}, node.id))
                 db.commit()
                 time.sleep(5)
 

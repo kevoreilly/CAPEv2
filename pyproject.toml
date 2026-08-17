@@ -97,9 +97,8 @@ gcp = ["google-cloud-storage", "google-cloud-pubsub"]
 yara = ["plyara"]
 mcp = ["fastmcp", "httpx"]
 dist = [
-    "flask",
-    "flask-restful",
-    "flask-sqlalchemy>=3.1.1",
+    "fastapi",
+    "python-multipart",
 ]
 
 [dependency-groups]

@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional, Set
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="google.*")
+
 try:
     from google.api_core.exceptions import Forbidden
     from google.cloud import compute_v1

@@ -136,20 +136,14 @@ def required(package):
     sys.exit("The %s package is required: poetry run pip install %s" % (package, package))
 
 
-# todo, consider to migrate to fastAPI?
 try:
-    from flask import Flask, jsonify, make_response
+    from fastapi import FastAPI, Form, HTTPException
+    from typing import Optional
 except ImportError:
-    required("flask")
-
-try:
-    from flask_restful import Api as RestApi
-    from flask_restful import Resource as RestResource
-    from flask_restful import abort, reqparse
-except ImportError:
-    required("flask-restful")
+    required("fastapi")
 
 _session_maker = create_session(dist_conf.distributed.db, echo=False)
+log = logging.getLogger("cuckoo.dist")
 
 
 def restart_db_connection():
@@ -1644,201 +1638,7 @@ class StatusThread(threading.Thread):
             time.sleep(INTERVAL)
 
 
-def output_json(data, code, headers=None):
-    """
-    Create a JSON response with the given data, HTTP status code, and optional headers.
-
-    Args:
-        data (dict): The data to be serialized to JSON.
-        code (int): The HTTP status code for the response.
-        headers (dict, optional): Additional headers to include in the response. Defaults to None.
-
-    Returns:
-        Response: A Flask response object with the JSON data and specified headers.
-    """
-    resp = make_response(json.dumps(data), code)
-    resp.headers.extend(headers or {})
-    return resp
-
-
-class NodeBaseApi(RestResource):
-    def __init__(self, *args, **kwargs):
-        RestResource.__init__(self, *args, **kwargs)
-
-        self._parser = reqparse.RequestParser()
-        self._parser.add_argument("name", type=str, location="form")
-        self._parser.add_argument("url", type=str, location="form")
-        self._parser.add_argument("apikey", type=str, default="", location="form")
-        self._parser.add_argument("exitnodes", type=distutils.util.strtobool, default=None, location="form")
-        self._parser.add_argument("enabled", type=distutils.util.strtobool, default=None, location="form")
-
-
-class NodeRootApi(NodeBaseApi):
-    def get(self):
-        nodes = {}
-        with session() as db:
-            for node in db.scalars(select(Node)):
-                machines = [
-                    dict(
-                        name=machine.name,
-                        platform=machine.platform,
-                        tags=machine.tags,
-                    )
-                    for machine in node.machines.all()
-                ]
-
-                nodes[node.name] = dict(
-                    name=node.name,
-                    url=node.url,
-                    machines=machines,
-                    enabled=node.enabled,
-                )
-        return dict(nodes=nodes)
-
-    def post(self):
-        with session() as db:
-            args = self._parser.parse_args()
-            node_exist = False
-            # On autoscaling we might get the same name but different IP for server. Kinda PUT friendly POST
-            node = db.scalar(select(Node).where(Node.name == args["name"]))
-            if node:
-                if node.url == args["url"]:
-                    return dict(success=False, message=f"Node called {args['name']} already exists")
-                else:
-                    node.url = args["url"]
-            else:
-                node = Node(name=args["name"], url=args["url"], apikey=args["apikey"])
-
-            machines = []
-            for machine in node_list_machines(args["url"], args["apikey"]):
-                machines.append(dict(name=machine.name, platform=machine.platform, tags=machine.tags))
-                node.machines.append(machine)
-                db.add(machine)
-
-            exitnodes = []
-            for exitnode in node_list_exitnodes(args["url"], args.get("apikey")):
-                exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
-                if exitnode_db:
-                    exitnode = exitnode_db
-                else:
-                    exitnode = ExitNodes(name=exitnode)
-                exitnodes.append(dict(name=exitnode.name))
-                node.exitnodes.append(exitnode)
-                db.add(exitnode)
-
-            if args.get("enabled"):
-                node.enabled = bool(args["enabled"])
-
-            if not node_exist:
-                db.add(node)
-            db.commit()
-
-        if NFS_FETCH:
-            # Add entry to /etc/fstab, create folder and mount server
-            hostname = urlparse(args["url"]).netloc.split(":")[0]
-            if hostname != main_server_name:
-                send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[hostname, args["name"]])
-
-        return dict(name=args["name"], machines=machines, exitnodes=exitnodes)
-
-
-class NodeApi(NodeBaseApi):
-    def get(self, name):
-        with session() as db:
-            node = db.scalar(select(Node).where(Node.name == name))
-        return dict(name=node.name, url=node.url)
-
-    def put(self, name):
-        with session() as db:
-            args = self._parser.parse_args()
-            node = db.scalar(select(Node).where(Node.name == name))
-
-            if not node:
-                return dict(error=True, error_value="Node doesn't exist")
-
-            for k, v in args.items():
-                if k == "exitnodes":
-                    exitnodes = []
-                    for exitnode in node_list_exitnodes(node.url, node.apikey):
-                        exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
-                        if exitnode_db:
-                            exitnode = exitnode_db
-                        else:
-                            exitnode = ExitNodes(name=exitnode)
-                        exitnodes.append(dict(name=exitnode.name))
-                        node.exitnodes.append(exitnode)
-                        db.add(exitnode)
-                    db.add(node)
-                else:
-                    if v is not None:
-                        setattr(node, k, v)
-            db.commit()
-        return dict(error=False, error_value=f"Successfully modified node: {name}")
-
-    def delete(self, name):
-        with session() as db:
-            node = db.scalar(select(Node).where(Node.name == name))
-            node.enabled = False
-            db.commit()
-
-
-class TaskBaseApi(RestResource):
-    def __init__(self, *args, **kwargs):
-        RestResource.__init__(self, *args, **kwargs)
-
-        self._parser = reqparse.RequestParser()
-        self._parser.add_argument("package", type=str, default="", location="form")
-        self._parser.add_argument("timeout", type=int, default=0, location="form")
-        self._parser.add_argument("priority", type=int, default=1, location="form")
-        self._parser.add_argument("options", type=str, default="", location="form")
-        self._parser.add_argument("machine", type=str, default="", location="form")
-        self._parser.add_argument("platform", type=str, default="windows", location="form")
-        self._parser.add_argument("tags", type=str, default="", location="form")
-        self._parser.add_argument("custom", type=str, default="", location="form")
-        self._parser.add_argument("memory", type=str, default="0", location="form")
-        self._parser.add_argument("clock", type=int, location="form")
-        self._parser.add_argument("enforce_timeout", type=bool, default=False, location="form")
-
-
-class TaskInfo(RestResource):
-    def get(self, main_task_id):
-        response = {"status": 0}
-        with session() as db:
-            task_db = db.scalar(select(Task).where(Task.main_task_id == main_task_id))
-            if task_db and task_db.node_id:
-                node_stmt = select(Node).where(Node.id == task_db.node_id)
-                node = db.scalar(node_stmt)
-                response = {"status": 1, "task_id": task_db.task_id, "url": node.url, "name": node.name}
-            else:
-                response = {"status": "pending"}
-        return response
-
-
-class StatusRootApi(RestResource):
-    def get(self):
-        # null = None
-        with session() as db:
-            unified_counts = db.execute(
-                select(
-                    func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(False)), Task.id))).label("processing"),
-                    func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(True)), Task.id))).label("processed"),
-                    func.count(case((Task.node_id.is_(None), Task.id))).label("pending"),
-                )
-            ).first()
-            tasks_counts = {
-                "processing": unified_counts.processing,
-                "processed": unified_counts.processed,
-                "pending": unified_counts.pending,
-            }
-        return jsonify({"nodes": STATUSES, "tasks": tasks_counts})
-
-
-class DistRestApi(RestApi):
-    def __init__(self, *args, **kwargs):
-        RestApi.__init__(self, *args, **kwargs)
-        self.representations = {
-            "application/json": output_json,
-        }
+# FastAPI endpoints will be registered dynamically inside create_app() below
 
 
 def update_machine_table(node_name):
@@ -2024,18 +1824,167 @@ def cron_cleaner(clean_x_hours=False):
 
 
 def create_app(database_connection):
-    # http://flask-sqlalchemy.pocoo.org/2.1/config/
-    # https://github.com/tmeryu/flask-sqlalchemy/blob/master/flask_sqlalchemy/__init__.py#L787
-    app = Flask("Distributed CAPE")
-    # app.config["SQLALCHEMY_DATABASE_URI"] = database_connection
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = True
-    app.config["SQLALCHEMY_POOL_SIZE"] = int(dist_conf.distributed.dist_threads) + 5
-    app.config["SECRET_KEY"] = os.urandom(32)
-    restapi = DistRestApi(app)
-    restapi.add_resource(NodeRootApi, "/node")
-    restapi.add_resource(NodeApi, "/node/<string:name>")
-    restapi.add_resource(StatusRootApi, "/status")
-    restapi.add_resource(TaskInfo, "/task/<int:main_task_id>")
+    from pydantic import BaseModel
+
+    class NodeRegister(BaseModel):
+        name: str
+        url: str
+        apikey: str = ""
+        enabled: Optional[bool] = None
+
+    class NodeUpdate(BaseModel):
+        url: Optional[str] = None
+        apikey: Optional[str] = None
+        exitnodes: Optional[bool] = None
+        enabled: Optional[bool] = None
+
+    app = FastAPI(title="Distributed CAPE")
+
+    @app.get("/node")
+    def get_nodes():
+        nodes = {}
+        with session() as db:
+            for node in db.scalars(select(Node)):
+                machines = [
+                    dict(
+                        name=machine.name,
+                        platform=machine.platform,
+                        tags=machine.tags,
+                    )
+                    for machine in node.machines.all()
+                ]
+
+                nodes[node.name] = dict(
+                    name=node.name,
+                    url=node.url,
+                    machines=machines,
+                    enabled=node.enabled,
+                )
+        return dict(nodes=nodes)
+
+    @app.post("/node")
+    def post_node(payload: NodeRegister):
+        with session() as db:
+            node_exist = False
+            # On autoscaling we might get the same name but different IP for server. Kinda PUT friendly POST
+            node = db.scalar(select(Node).where(Node.name == payload.name))
+            if node:
+                node_exist = True
+                if node.url == payload.url:
+                    return dict(success=False, message=f"Node called {payload.name} already exists")
+                else:
+                    node.url = payload.url
+            else:
+                node = Node(name=payload.name, url=payload.url, apikey=payload.apikey)
+
+            machines = []
+            for machine in node_list_machines(payload.url, payload.apikey):
+                machines.append(dict(name=machine.name, platform=machine.platform, tags=machine.tags))
+                node.machines.append(machine)
+                db.add(machine)
+
+            exitnodes = []
+            for exitnode in node_list_exitnodes(payload.url, payload.apikey):
+                exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
+                if exitnode_db:
+                    exitnode = exitnode_db
+                else:
+                    exitnode = ExitNodes(name=exitnode)
+                exitnodes.append(dict(name=exitnode.name))
+                node.exitnodes.append(exitnode)
+                db.add(exitnode)
+
+            if payload.enabled is not None:
+                node.enabled = payload.enabled
+
+            if not node_exist:
+                db.add(node)
+            db.commit()
+
+        if NFS_FETCH:
+            # Add entry to /etc/fstab, create folder and mount server
+            hostname = urlparse(payload.url).netloc.split(":")[0]
+            if hostname != main_server_name:
+                send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[hostname, payload.name])
+
+        return dict(name=payload.name, machines=machines, exitnodes=exitnodes)
+
+    @app.get("/node/{name}")
+    def get_node(name: str):
+        with session() as db:
+            node = db.scalar(select(Node).where(Node.name == name))
+            if not node:
+                raise HTTPException(status_code=404, detail="Node doesn't exist")
+            return dict(name=node.name, url=node.url)
+
+    @app.put("/node/{name}")
+    def put_node(name: str, payload: NodeUpdate):
+        with session() as db:
+            node = db.scalar(select(Node).where(Node.name == name))
+
+            if not node:
+                return dict(error=True, error_value="Node doesn't exist")
+
+            if payload.url is not None:
+                node.url = payload.url
+            if payload.apikey is not None:
+                node.apikey = payload.apikey
+            if payload.enabled is not None:
+                node.enabled = payload.enabled
+
+            if payload.exitnodes:
+                exit_list = []
+                for exitnode in node_list_exitnodes(node.url, node.apikey):
+                    exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
+                    if exitnode_db:
+                        exitnode = exitnode_db
+                    else:
+                        exitnode = ExitNodes(name=exitnode)
+                    exit_list.append(dict(name=exitnode.name))
+                    node.exitnodes.append(exitnode)
+                    db.add(exitnode)
+                db.add(node)
+            db.commit()
+        return dict(error=False, error_value=f"Successfully modified node: {name}")
+
+    @app.delete("/node/{name}")
+    def delete_node(name: str):
+        with session() as db:
+            node = db.scalar(select(Node).where(Node.name == name))
+            if node:
+                node.enabled = False
+                db.commit()
+        return None
+
+    @app.get("/status")
+    def get_status():
+        with session() as db:
+            unified_counts = db.execute(
+                select(
+                    func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(False)), Task.id))).label("processing"),
+                    func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(True)), Task.id))).label("processed"),
+                    func.count(case((Task.node_id.is_(None), Task.id))).label("pending"),
+                )
+            ).first()
+            tasks_counts = {
+                "processing": unified_counts.processing,
+                "processed": unified_counts.processed,
+                "pending": unified_counts.pending,
+            }
+        return {"nodes": STATUSES, "tasks": tasks_counts}
+
+    @app.get("/task/{main_task_id}")
+    def get_task_info(main_task_id: int):
+        response = {"status": 0}
+        with session() as db:
+            task_db = db.scalar(select(Task).where(Task.main_task_id == main_task_id))
+            if task_db and task_db.node_id:
+                node_stmt = select(Node).where(Node.id == task_db.node_id)
+                node = db.scalar(node_stmt)
+                response = {"status": 1, "task_id": task_db.task_id, "url": node.url, "name": node.name}
+            else:
+                response = {"status": "pending"}
+        return response
 
     return app
 
@@ -2067,78 +2016,156 @@ def init_logging(debug=False):
     return log
 
 
-if __name__ == "__main__":
-    p = argparse.ArgumentParser()
-    p.add_argument("host", nargs="?", default="0.0.0.0", help="Host to listen on")
-    p.add_argument("port", nargs="?", type=int, default=9003, help="Port to listen on")
-    p.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
-    p.add_argument("--uptime-logfile", type=str, help="Uptime logfile path")
-    p.add_argument("--node", type=str, help="Node name to update in distributed DB")
-    p.add_argument("--delete-vm", type=str, help="VM name to delete from Node")
-    p.add_argument("--disable", action="store_true", help="Disable Node provided in --node")
-    p.add_argument("--enable", action="store_true", help="Enable Node provided in --node")
-    p.add_argument("--clean-workers", action="store_true", help="Delete reported and notificated tasks from workers")
-    p.add_argument(
-        "-ec",
-        "--enable-clean",
-        action="store_true",
-        help="Enable delete tasks from nodes, also will remove tasks submited by humands and not dist",
-    )
-    p.add_argument(
-        "-ef",
-        "--enable-failed-clean",
-        action="store_true",
-        default=False,
-        help="Enable delete failed tasks from nodes, also will remove tasks submited by humands and not dist",
-    )
-    p.add_argument("-fr", "--force-reported", action="store", help="change report to reported")
-    p.add_argument(
-        "-ch",
-        "--clean-hours",
-        action="store",
-        type=int,
-        default=0,
-        help="Clean tasks for last X hours",
-    )
-    p.add_argument(
-        "--submit-only",
-        action="store_true",
-        help="Disable retrieval threads (use when running Go Fast-Fetcher)",
-    )
-    p.add_argument(
-        "--gcs-replay",
-        action="store",
-        help="Replay GCS upload for a range of tasks (e.g., 1-100 or 1,2,3)",
-    )
-    p.add_argument(
-        "--gcs-sync",
-        action="store",
-        help="Sync GCS with DB for a given time range (e.g., 12h, 1d, 2d)",
-    )
-    p.add_argument(
-        "--gcs-refetch-banned",
-        action="store",
-        help="Refetch banned tasks from GCS for a given time range (e.g., 12h, 1d, 2d)",
-    )
-    p.add_argument(
-        "--samples-bucket",
-        action="store",
-        help="Specify GCS bucket for samples (used with --gcs-refetch-banned)",
-    )
+def show_status_cli():
+    with session() as db:
+        unified_counts = db.execute(
+            select(
+                func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(False)), Task.id))).label("processing"),
+                func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(True)), Task.id))).label("processed"),
+                func.count(case((Task.node_id.is_(None), Task.id))).label("pending"),
+            )
+        ).first()
+        print("Cluster Status Summary:")
+        print("-" * 30)
+        print(f"Processing tasks : {unified_counts.processing}")
+        print(f"Processed tasks  : {unified_counts.processed}")
+        print(f"Pending tasks    : {unified_counts.pending}")
+        print("-" * 30)
+        print("Active Nodes:")
+        for node_name, status in STATUSES.items():
+            print(f"  Node: {node_name:<15} | Status: {status.get('status', 'unknown')}")
+
+
+def list_nodes_cli():
+    with session() as db:
+        nodes = db.scalars(select(Node)).all()
+        if not nodes:
+            print("No registered CAPE nodes found.")
+            return
+        print(f"{'Node Name':<20} | {'Enabled':<8} | {'API URL':<50}")
+        print("-" * 84)
+        for node in nodes:
+            print(f"{node.name:<20} | {str(node.enabled):<8} | {node.url:<50}")
+            machines = node.machines.all()
+            if machines:
+                print("  Virtual Machines:")
+                for machine in machines:
+                    print(f"    --> {machine.name} ({machine.platform}) - Tags: {machine.tags}")
+            print("-" * 84)
+
+
+def register_node_cli(name, url, apikey, enabled):
+    if not name or not url:
+        print("Error: Registering a node requires both --node <name> and --url <url>")
+        sys.exit(1)
+    with session() as db:
+        node_exist = False
+        node = db.scalar(select(Node).where(Node.name == name))
+        if node:
+            node_exist = True
+            if node.url == url:
+                print(f"Node called {name} already exists.")
+                return
+            else:
+                node.url = url
+        else:
+            node = Node(name=name, url=url, apikey=apikey)
+
+        machines = []
+        try:
+            for machine in node_list_machines(url, apikey):
+                machines.append(machine)
+                node.machines.append(machine)
+                db.add(machine)
+        except Exception as e:
+            print(f"Warning: Could not fetch machines from node: {e}")
+
+        try:
+            for exitnode in node_list_exitnodes(url, apikey):
+                exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
+                if exitnode_db:
+                    exitnode = exitnode_db
+                else:
+                    exitnode = ExitNodes(name=exitnode)
+                node.exitnodes.append(exitnode)
+                db.add(exitnode)
+        except Exception as e:
+            print(f"Warning: Could not fetch exitnodes from node: {e}")
+
+        if enabled is not None:
+            node.enabled = enabled
+
+        if not node_exist:
+            db.add(node)
+        db.commit()
+        print(f"Successfully registered node '{name}' with {len(machines)} machines.")
+
+
+def modify_node_cli(name, url=None, apikey=None, enabled=None):
+    if not name:
+        print("Error: Modifying a node requires --node <name>")
+        sys.exit(1)
+    with session() as db:
+        node = db.scalar(select(Node).where(Node.name == name))
+        if not node:
+            print(f"Error: Node '{name}' does not exist.")
+            sys.exit(1)
+        if url is not None:
+            node.url = url
+        if apikey is not None:
+            node.apikey = apikey
+        if enabled is not None:
+            node.enabled = enabled
+        db.commit()
+        print(f"Successfully modified node '{name}'.")
+
+
+def main():
+    p = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="Distributed CAPE Daemon & Admin Utility")
+    
+    g_daemon = p.add_argument_group("Daemon / Server Options")
+    g_daemon.add_argument("host", nargs="?", default="0.0.0.0", help="Host to listen on")
+    g_daemon.add_argument("port", nargs="?", type=int, default=9003, help="Port to listen on")
+    g_daemon.add_argument("-d", "--debug", action="store_true", help="Enable debug logging")
+    g_daemon.add_argument("--uptime-logfile", type=str, help="Uptime logfile path")
+    g_daemon.add_argument("--submit-only", action="store_true", help="Disable retrieval threads")
+    g_daemon.add_argument("-ec", "--enable-clean", action="store_true", help="Enable delete tasks from nodes")
+    g_daemon.add_argument("-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes")
+    g_daemon.add_argument("-ch", "--clean-hours", action="store", type=int, default=0, help="Clean tasks for last X hours")
+
+    g_admin = p.add_argument_group("Cluster Administration (CLI Admin Tools)")
+    g_admin.add_argument("--status", action="store_true", help="Show cluster status summary")
+    g_admin.add_argument("--list-nodes", action="store_true", help="List all registered nodes and their VMs")
+    g_admin.add_argument("--register-node", action="store_true", help="Register a new CAPE worker node (requires --node, --url)")
+    g_admin.add_argument("--modify-node", action="store_true", help="Modify an existing registered node (requires --node)")
+
+    g_vm = p.add_argument_group("VM Maintenance & Node Control")
+    g_vm.add_argument("--node", type=str, help="Node name to update, register, or modify")
+    g_vm.add_argument("--url", type=str, help="API URL of the node (for register / modify)")
+    g_vm.add_argument("--apikey", type=str, default="", help="API Key of the node (for register / modify)")
+    g_vm.add_argument("--delete-vm", type=str, help="VM name to delete from Node")
+    g_vm.add_argument("--disable", action="store_true", help="Disable/deactivate the Node")
+    g_vm.add_argument("--enable", action="store_true", help="Enable/activate the Node")
+
+    g_sync = p.add_argument_group("Storage, GCS, & Sync Options")
+    g_sync.add_argument("--clean-workers", action="store_true", help="Delete reported tasks from workers")
+    g_sync.add_argument("-fr", "--force-reported", action="store", help="Change task status to reported")
+    g_sync.add_argument("--gcs-replay", action="store", help="Replay GCS upload for a range of tasks")
+    g_sync.add_argument("--gcs-sync", action="store", help="Sync GCS with DB for a given time range")
+    g_sync.add_argument("--gcs-refetch-banned", action="store", help="Refetch banned tasks from GCS")
+    g_sync.add_argument("--samples-bucket", action="store", help="Specify GCS bucket for samples")
 
     args = p.parse_args()
+    global log
     log = init_logging(args.debug)
     init_database()
 
     if args.enable_clean:
         cron_cleaner(args.clean_hours)
-        # sys.exit()
 
     if args.force_reported:
         with main_db.session.begin():
-            # set completed_on time
             main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)
-            # set reported time
             main_db.set_status(args.force_reported, TASK_REPORTED)
         sys.exit()
 
@@ -2154,8 +2181,28 @@ if __name__ == "__main__":
         gcs_refetch_banned(args.gcs_refetch_banned, samples_bucket=args.samples_bucket)
         sys.exit()
 
+    # CLI Admin Commands execution
+    if args.status:
+        show_status_cli()
+        sys.exit()
+
+    if args.list_nodes:
+        list_nodes_cli()
+        sys.exit()
+
+    if args.register_node:
+        enabled_val = True if args.enable else (False if args.disable else True)
+        register_node_cli(args.node, args.url, args.apikey, enabled_val)
+        sys.exit()
+
+    if args.modify_node:
+        enabled_val = True if args.enable else (False if args.disable else None)
+        modify_node_cli(args.node, args.url, args.apikey, enabled_val)
+        sys.exit()
+
     delete_enabled = args.enable_clean
     failed_clean_enabled = args.enable_failed_clean
+
     if args.node:
         if args.delete_vm:
             delete_vm_on_node(args.node, args.delete_vm)
@@ -2167,22 +2214,26 @@ if __name__ == "__main__":
             update_machine_table(args.node)
         sys.exit()
 
+    # Starts Daemon Server
+    app = create_app(database_connection=dist_conf.distributed.db)
+
+    t = StatusThread(name="StatusThread")
+    t.daemon = True
+    t.start()
+
+    if not args.submit_only and not dist_conf.distributed.get("submit_only"):
+        retrieve = Retriever(name="Retriever")
+        retrieve.daemon = True
+        retrieve.start()
     else:
-        app = create_app(database_connection=dist_conf.distributed.db)
+        log.info("Submit-only mode: Retriever thread disabled.")
 
-        t = StatusThread(name="StatusThread")
-        t.daemon = True
-        t.start()
+    import uvicorn
+    uvicorn.run(app, host=args.host, port=args.port, log_level="debug" if args.debug else "info")
 
-        if not args.submit_only and not dist_conf.distributed.get("submit_only"):
-            retrieve = Retriever(name="Retriever")
-            retrieve.daemon = True
-            retrieve.start()
-        else:
-            log.info("Submit-only mode: Retriever thread disabled.")
 
-        app.run(host=args.host, port=args.port, debug=args.debug, use_reloader=False)
-
+if __name__ == "__main__":
+    main()
 else:
     init_database(exists_ok=True)
     app = create_app(database_connection=dist_conf.distributed.db)

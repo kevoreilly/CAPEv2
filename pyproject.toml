@@ -98,7 +98,6 @@ yara = ["plyara"]
 mcp = ["fastmcp", "httpx"]
 dist = [
     "fastapi",
-    "python-multipart",
 ]
 
 [dependency-groups]

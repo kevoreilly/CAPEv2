@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import logging
 import os
+import re
 import queue
 import shutil
 import sys
@@ -1976,8 +1977,104 @@ def create_app(database_connection):
     return app
 
 
+class ColoredFormatter(logging.Formatter):
+    GREY = "\x1b[38;20m"
+    GREEN = "\x1b[32;20m"
+    YELLOW = "\x1b[33;20m"
+    RED = "\x1b[31;20m"
+    BOLD_RED = "\x1b[31;1m"
+    CYAN = "\x1b[36;20m"
+    RESET = "\x1b[0m"
+
+    # Pre-compiled regex patterns (C-level high-performance parsing)
+    RE_WORKER = re.compile(r"\b(cape-worker[-\w]*)\b", re.IGNORECASE)
+    RE_SETSTAT = re.compile(r"\b(task)\b\s+(\d+)\s+(status)", re.IGNORECASE)
+    RE_MAIN_TASK = re.compile(r"\b(main(?:_task)?_id|main|analysis(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE)
+    RE_WORKER_TASK = re.compile(r"\b(task(?:s|\(s\))?|task_id)\b[:\s=]+([\d,]+)", re.IGNORECASE)
+    RE_PERF = re.compile(r"\bin\s+([0-9.]+s)\b")
+
+    FORMATS = {
+        logging.DEBUG: f"%(asctime)s [{CYAN}%(levelname)-7s{RESET}] %(module)-8s (%(threadName)s): %(message)s",
+        logging.INFO: f"%(asctime)s [{GREEN}%(levelname)-7s{RESET}] %(module)-8s (%(threadName)s): %(message)s",
+        logging.WARNING: f"%(asctime)s [{YELLOW}%(levelname)-7s{RESET}] %(module)-8s (%(threadName)s): %(message)s",
+        logging.ERROR: f"%(asctime)s [{RED}%(levelname)-7s{RESET}] %(module)-8s (%(threadName)s): %(message)s",
+        logging.CRITICAL: f"%(asctime)s [{BOLD_RED}%(levelname)-7s{RESET}] %(module)-8s (%(threadName)s): %(message)s",
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno, "%(asctime)s [%(levelname)-7s] %(module)-8s (%(threadName)s): %(message)s")
+        formatter = logging.Formatter(log_fmt)
+        formatted_message = formatter.format(record)
+
+        # ANSI Colors
+        BOLD_CYAN = "\x1b[36;1m"
+        BOLD_GREEN = "\x1b[32;1m"
+        BOLD_YELLOW = "\x1b[33;1m"
+        BOLD_MAGENTA = "\x1b[35;1m"
+        BOLD_BLUE = "\x1b[34;1m"
+        BOLD_RED = "\x1b[31;1m"
+        CYAN = "\x1b[36m"
+        GREEN = "\x1b[32m"
+        YELLOW = "\x1b[33m"
+        MAGENTA = "\x1b[35m"
+        RESET = "\x1b[0m"
+
+        # 1. Highlight all worker/node names dynamically (e.g. "cape-worker", "cape-worker-2")
+        formatted_message = self.RE_WORKER.sub(
+            rf"{CYAN}\1{RESET}",
+            formatted_message
+        )
+
+        # 2. Highlight specialized parent/main task updates first (e.g. "task 3319058 status")
+        formatted_message = self.RE_SETSTAT.sub(
+            rf"\1 {MAGENTA}\2{RESET} \3",
+            formatted_message
+        )
+
+        # 3. Highlight parent/main task IDs (e.g. "Main ID: 3319058", "Main: 3319058", "main_task_id=3319058", "analysis ID 3319058", "analysis 3319058")
+        formatted_message = self.RE_MAIN_TASK.sub(
+            rf"\1: {MAGENTA}\2{RESET}",
+            formatted_message
+        )
+
+        # 4. Highlight general task IDs (e.g. "Task: 16399266", "Task(s): 614534,614541", "task_id=495972")
+        formatted_message = self.RE_WORKER_TASK.sub(
+            rf"\1: {YELLOW}\2{RESET}",
+            formatted_message
+        )
+
+        # 5. Highlight performance copy benchmarks (e.g. "in 0.08s", "in 0.15s")
+        formatted_message = self.RE_PERF.sub(
+            rf"in {GREEN}\1{RESET}",
+            formatted_message
+        )
+
+        # 6. Highlight core operations
+        replacements = {
+            "[FETCH ]": f"{BOLD_GREEN}[FETCH ]{RESET}",
+            "[SUBMIT]": f"{BOLD_CYAN}[SUBMIT]{RESET}",
+            "[REMOVE]": f"{BOLD_RED}[REMOVE]{RESET}",
+            "[GCS]": f"{BOLD_MAGENTA}[GCS]{RESET}",
+            "[PERF  ]": f"{BOLD_YELLOW}[PERF  ]{RESET}",
+        }
+
+        for old, new in replacements.items():
+            if old in formatted_message:
+                formatted_message = formatted_message.replace(old, new)
+
+        # 7. Highlight Status Metrics
+        if "STATUS | " in formatted_message:
+            formatted_message = formatted_message.replace("STATUS |", f"{BOLD_BLUE}STATUS{RESET} |")
+            formatted_message = formatted_message.replace("Pend:", f"{BOLD_YELLOW}Pend:{RESET}")
+            formatted_message = formatted_message.replace("Run:", f"{BOLD_GREEN}Run:{RESET}")
+            formatted_message = formatted_message.replace("Done:", f"{BOLD_BLUE}Done:{RESET}")
+            formatted_message = formatted_message.replace("Rep:", f"{BOLD_MAGENTA}Rep:{RESET}")
+
+        return formatted_message
+
+
 def init_logging(debug=False):
-    formatter = logging.Formatter("%(asctime)s %(levelname)s:%(module)s:%(threadName)s - %(message)s")
+    formatter = logging.Formatter("%(asctime)s [%(levelname)-7s] %(module)-8s (%(threadName)s): %(message)s")
     log = logging.getLogger()
 
     for h in log.handlers[:]:
@@ -1992,7 +2089,7 @@ def init_logging(debug=False):
     log.addHandler(fh)
 
     handler_stdout = logging.StreamHandler(sys.stdout)
-    handler_stdout.setFormatter(formatter)
+    handler_stdout.setFormatter(ColoredFormatter())
     log.addHandler(handler_stdout)
 
     if debug:
@@ -2221,7 +2318,6 @@ def main():
         log.info("Submit-only mode: Retriever thread disabled.")
 
     import uvicorn
-
     uvicorn.run(app, host=args.host, port=args.port, log_level="debug" if args.debug else "info")
 
 

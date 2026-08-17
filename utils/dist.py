@@ -1419,56 +1419,26 @@ class StatusThread(threading.Thread):
                     db.commit()
                     log.info("Pushed all tasks")
                     return True
-                # ToDo not finished
-                # Only get tasks that have not been pushed yet.
-                """
-                q = db.query(Task).filter(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
-                if q is None:
-                    db.commit()
-                    return True
-                # Order by task priority and task id.
-                q = q.order_by(-Task.priority, Task.main_task_id)
-                # if we have node set in options push
-                if dist_conf.distributed.enable_tags:
-                    # Create filter query from tasks in ta
-                    tags = [getattr(Task, "tags") == ""]
-                    for tg in SERVER_TAGS[node.name]:
-                        if len(tg.split(",")) == 1:
-                            tags.append(getattr(Task, "tags") == (tg + ","))
-                        else:
-                            tg = tg.split(",")
-                            # ie. LIKE "%,%,%,"
-                            t_combined = [getattr(Task, "tags").like("%s" % ("%," * len(tg)))]
-                            for tag in tg:
-                                t_combined.append(getattr(Task, "tags").like("%%%s%%" % (tag + ",")))
-                            tags.append(and_(*t_combined))
-                    # Filter by available tags
-                    q = q.filter(or_(*tags))
-                to_upload = q.limit(pend_tasks_num).all()
-                """
                 # 1. Start with a select() statement and initial filters.
                 stmt = (
                     select(Task)
                     .where(or_(Task.node_id.is_(None), Task.task_id.is_(None)), Task.finished.is_(False))
                     .order_by(Task.priority.desc(), Task.main_task_id)
                 )
-                # print(stmt, "stmt")
-                # ToDo broken
-                """
-                # 3. Apply the dynamic tag filter.
-                if dist_conf.distributed.enable_tags:
+
+                # 2. Apply the dynamic tag filter.
+                if dist_conf.distributed.enable_tags and node.name in SERVER_TAGS:
                     tags_conditions = [Task.tags == ""]
                     for tg in SERVER_TAGS[node.name]:
                         tags_list = tg.split(",")
                         if len(tags_list) == 1:
                             tags_conditions.append(Task.tags == f"{tg},")
                         else:
-                            # The pattern of building a list of conditions for `and_` or `or_`
-                            # works the same way with the modern .where() clause.
-                            t_combined = [Task.tags.like(f"%{tag},%") for tag in tags_list]
+                            t_combined = [Task.tags.like("%" + "%," * len(tags_list))]
+                            for tag in tags_list:
+                                t_combined.append(Task.tags.like(f"%{tag},%"))
                             tags_conditions.append(and_(*t_combined))
                     stmt = stmt.where(or_(*tags_conditions))
-                """
                 # 4. Apply the limit and execute the query.
                 to_upload = db.scalars(stmt.limit(pend_tasks_num)).all()
                 # print(to_upload, node.name, pend_tasks_num)

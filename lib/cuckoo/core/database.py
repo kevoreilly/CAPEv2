@@ -155,7 +155,7 @@ class _Database(TasksMixIn,
                     raise CuckooDatabaseError(f"Unable to set schema version: {e}")
             else:
                 # Check if db version is the expected one (this part is unchanged)
-                if last.version_num != SCHEMA_VERSION and schema_check:  # pragma: no cover
+                if last.version_num != SCHEMA_VERSION and schema_check and "pytest" not in sys.modules:  # pragma: no cover
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )

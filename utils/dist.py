@@ -149,7 +149,57 @@ try:
 except ImportError:
     required("flask-restful")
 
-session = create_session(dist_conf.distributed.db, echo=False)
+_session_maker = create_session(dist_conf.distributed.db, echo=False)
+
+
+def restart_db_connection():
+    """
+    Disposes of the existing database engine and pool to force recreation of connection pool and all connections.
+    """
+    logger = logging.getLogger("cuckoo.dist")
+    logger.warning("Restarting database connection pool due to connection error/timeout.")
+    try:
+        if hasattr(_session_maker, "kw") and "bind" in _session_maker.kw:
+            engine = _session_maker.kw["bind"]
+            engine.dispose()
+            logger.info("Database connection pool successfully disposed and reset.")
+        else:
+            logger.warning("Could not locate bound engine on session maker to dispose.")
+    except Exception as e:
+        logger.exception("Error while trying to restart database connection pool: %s", e)
+
+
+class SessionWrapper:
+    def __init__(self, session_obj):
+        self._session = session_obj
+
+    def __getattr__(self, name):
+        attr = getattr(self._session, name)
+        if callable(attr):
+            def wrapper(*args, **kwargs):
+                try:
+                    return attr(*args, **kwargs)
+                except Exception as e:
+                    if any(term in str(e) for term in ("QueuePool", "TimeoutError", "connection timed out", "Timeout 30.00")):
+                        restart_db_connection()
+                    raise e
+            return wrapper
+        return attr
+
+    def __enter__(self):
+        self._session.__enter__()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_val is not None:
+            if any(term in str(exc_val) for term in ("QueuePool", "TimeoutError", "connection timed out", "Timeout 30.00")):
+                restart_db_connection()
+        return self._session.__exit__(exc_type, exc_val, exc_tb)
+
+
+def session():
+    db = _session_maker()
+    return SessionWrapper(db)
 
 binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
 if not path_exists(binaries_folder):
@@ -1111,36 +1161,35 @@ class Retriever(threading.Thread):
                 details.setdefault(node_id, set()).add(str(task_id))
                 if len(self.t_is_none.get(node_id)) > 50:
                     break
-            db = session()
-            for node_id in details:
-                node = nodes[node_id]
-                if node and details.get(node_id):
-                    ids = ",".join(list(set(details[node_id])))
-                    if not _delete_many(node_id, ids, nodes, db):
-                        # The ids were consumed off the queue with .get() and this session has no writes to
-                        # roll back, so a failed sweep would silently LOSE them (the worker's analyses/ leak).
-                        # Re-queue so a frozen/down node's cleanup is retried on the next pass -- but BOUND it:
-                        # retrying a stale (node_id, task_id) forever risks deleting a FRESH task after the
-                        # worker is re-provisioned (node-local ids are reused). Drop (with a log) after
-                        # CLEANER_MAX_RETRIES. Re-queue as int (details holds numeric strings) to match the
-                        # int the t_is_none bookkeeping + original enqueue sites use.
-                        for _tid in details[node_id]:
-                            key = (node_id, int(_tid) if str(_tid).isdigit() else _tid)
-                            attempts = self.cleaner_retries.get(key, 0) + 1
-                            if attempts >= CLEANER_MAX_RETRIES:
-                                log.warning("[REMOVE] giving up on task %s @ node %s after %d failed cleanup "
-                                            "attempts (worker down/re-provisioned?)", _tid, node_id, attempts)
-                                self.cleaner_retries.pop(key, None)
-                            else:
-                                self.cleaner_retries[key] = attempts
-                                self.cleaner_queue.put(key)
-                    else:
-                        # Node cleanup succeeded -> clear any retry counters for its ids so the cap is per
-                        # sustained-failure streak, not lifetime.
-                        for _tid in details[node_id]:
-                            self.cleaner_retries.pop((node_id, int(_tid) if str(_tid).isdigit() else _tid), None)
-            db.commit()
-            db.close()
+            with session() as db:
+                for node_id in details:
+                    node = nodes[node_id]
+                    if node and details.get(node_id):
+                        ids = ",".join(list(set(details[node_id])))
+                        if not _delete_many(node_id, ids, nodes, db):
+                            # The ids were consumed off the queue with .get() and this session has no writes to
+                            # roll back, so a failed sweep would silently LOSE them (the worker's analyses/ leak).
+                            # Re-queue so a frozen/down node's cleanup is retried on the next pass -- but BOUND it:
+                            # retrying a stale (node_id, task_id) forever risks deleting a FRESH task after the
+                            # worker is re-provisioned (node-local ids are reused). Drop (with a log) after
+                            # CLEANER_MAX_RETRIES. Re-queue as int (details holds numeric strings) to match the
+                            # int the t_is_none bookkeeping + original enqueue sites use.
+                            for _tid in details[node_id]:
+                                key = (node_id, int(_tid) if str(_tid).isdigit() else _tid)
+                                attempts = self.cleaner_retries.get(key, 0) + 1
+                                if attempts >= CLEANER_MAX_RETRIES:
+                                    log.warning("[REMOVE] giving up on task %s @ node %s after %d failed cleanup "
+                                                "attempts (worker down/re-provisioned?)", _tid, node_id, attempts)
+                                    self.cleaner_retries.pop(key, None)
+                                else:
+                                    self.cleaner_retries[key] = attempts
+                                    self.cleaner_queue.put(key)
+                        else:
+                            # Node cleanup succeeded -> clear any retry counters for its ids so the cap is per
+                            # sustained-failure streak, not lifetime.
+                            for _tid in details[node_id]:
+                                self.cleaner_retries.pop((node_id, int(_tid) if str(_tid).isdigit() else _tid), None)
+                db.commit()
             time.sleep(20)
 
 
@@ -1627,64 +1676,62 @@ class NodeBaseApi(RestResource):
 class NodeRootApi(NodeBaseApi):
     def get(self):
         nodes = {}
-        db = session()
-        for node in db.scalars(select(Node)):
-            machines = [
-                dict(
-                    name=machine.name,
-                    platform=machine.platform,
-                    tags=machine.tags,
-                )
-                for machine in node.machines.all()
-            ]
+        with session() as db:
+            for node in db.scalars(select(Node)):
+                machines = [
+                    dict(
+                        name=machine.name,
+                        platform=machine.platform,
+                        tags=machine.tags,
+                    )
+                    for machine in node.machines.all()
+                ]
 
-            nodes[node.name] = dict(
-                name=node.name,
-                url=node.url,
-                machines=machines,
-                enabled=node.enabled,
-            )
-        db.close()
+                nodes[node.name] = dict(
+                    name=node.name,
+                    url=node.url,
+                    machines=machines,
+                    enabled=node.enabled,
+                )
         return dict(nodes=nodes)
 
     def post(self):
-        db = session()
-        args = self._parser.parse_args()
-        node_exist = False
-        # On autoscaling we might get the same name but different IP for server. Kinda PUT friendly POST
-        node = db.scalar(select(Node).where(Node.name == args["name"]))
-        if node:
-            if node.url == args["url"]:
-                return dict(success=False, message=f"Node called {args['name']} already exists")
+        with session() as db:
+            args = self._parser.parse_args()
+            node_exist = False
+            # On autoscaling we might get the same name but different IP for server. Kinda PUT friendly POST
+            node = db.scalar(select(Node).where(Node.name == args["name"]))
+            if node:
+                if node.url == args["url"]:
+                    return dict(success=False, message=f"Node called {args['name']} already exists")
+                else:
+                    node.url = args["url"]
             else:
-                node.url = args["url"]
-        else:
-            node = Node(name=args["name"], url=args["url"], apikey=args["apikey"])
+                node = Node(name=args["name"], url=args["url"], apikey=args["apikey"])
 
-        machines = []
-        for machine in node_list_machines(args["url"], args["apikey"]):
-            machines.append(dict(name=machine.name, platform=machine.platform, tags=machine.tags))
-            node.machines.append(machine)
-            db.add(machine)
+            machines = []
+            for machine in node_list_machines(args["url"], args["apikey"]):
+                machines.append(dict(name=machine.name, platform=machine.platform, tags=machine.tags))
+                node.machines.append(machine)
+                db.add(machine)
 
-        exitnodes = []
-        for exitnode in node_list_exitnodes(args["url"], args.get("apikey")):
-            exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
-            if exitnode_db:
-                exitnode = exitnode_db
-            else:
-                exitnode = ExitNodes(name=exitnode)
-            exitnodes.append(dict(name=exitnode.name))
-            node.exitnodes.append(exitnode)
-            db.add(exitnode)
+            exitnodes = []
+            for exitnode in node_list_exitnodes(args["url"], args.get("apikey")):
+                exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
+                if exitnode_db:
+                    exitnode = exitnode_db
+                else:
+                    exitnode = ExitNodes(name=exitnode)
+                exitnodes.append(dict(name=exitnode.name))
+                node.exitnodes.append(exitnode)
+                db.add(exitnode)
 
-        if args.get("enabled"):
-            node.enabled = bool(args["enabled"])
+            if args.get("enabled"):
+                node.enabled = bool(args["enabled"])
 
-        if not node_exist:
-            db.add(node)
-        db.commit()
-        db.close()
+            if not node_exist:
+                db.add(node)
+            db.commit()
 
         if NFS_FETCH:
             # Add entry to /etc/fstab, create folder and mount server
@@ -1697,45 +1744,42 @@ class NodeRootApi(NodeBaseApi):
 
 class NodeApi(NodeBaseApi):
     def get(self, name):
-        db = session()
-        node = db.scalar(select(Node).where(Node.name == name))
-        db.close()
+        with session() as db:
+            node = db.scalar(select(Node).where(Node.name == name))
         return dict(name=node.name, url=node.url)
 
     def put(self, name):
-        db = session()
-        args = self._parser.parse_args()
-        node = db.scalar(select(Node).where(Node.name == name))
+        with session() as db:
+            args = self._parser.parse_args()
+            node = db.scalar(select(Node).where(Node.name == name))
 
-        if not node:
-            return dict(error=True, error_value="Node doesn't exist")
+            if not node:
+                return dict(error=True, error_value="Node doesn't exist")
 
-        for k, v in args.items():
-            if k == "exitnodes":
-                exitnodes = []
-                for exitnode in node_list_exitnodes(node.url, node.apikey):
-                    exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
-                    if exitnode_db:
-                        exitnode = exitnode_db
-                    else:
-                        exitnode = ExitNodes(name=exitnode)
-                    exitnodes.append(dict(name=exitnode.name))
-                    node.exitnodes.append(exitnode)
-                    db.add(exitnode)
-                db.add(node)
-            else:
-                if v is not None:
-                    setattr(node, k, v)
-        db.commit()
-        db.close()
+            for k, v in args.items():
+                if k == "exitnodes":
+                    exitnodes = []
+                    for exitnode in node_list_exitnodes(node.url, node.apikey):
+                        exitnode_db = db.scalar(select(ExitNodes).where(ExitNodes.name == exitnode))
+                        if exitnode_db:
+                            exitnode = exitnode_db
+                        else:
+                            exitnode = ExitNodes(name=exitnode)
+                        exitnodes.append(dict(name=exitnode.name))
+                        node.exitnodes.append(exitnode)
+                        db.add(exitnode)
+                    db.add(node)
+                else:
+                    if v is not None:
+                        setattr(node, k, v)
+            db.commit()
         return dict(error=False, error_value=f"Successfully modified node: {name}")
 
     def delete(self, name):
-        db = session()
-        node = db.scalar(select(Node).where(Node.name == name))
-        node.enabled = False
-        db.commit()
-        db.close()
+        with session() as db:
+            node = db.scalar(select(Node).where(Node.name == name))
+            node.enabled = False
+            db.commit()
 
 
 class TaskBaseApi(RestResource):
@@ -1759,34 +1803,33 @@ class TaskBaseApi(RestResource):
 class TaskInfo(RestResource):
     def get(self, main_task_id):
         response = {"status": 0}
-        db = session()
-        task_db = db.scalar(select(Task).where(Task.main_task_id == main_task_id))
-        if task_db and task_db.node_id:
-            node_stmt = select(Node).where(Node.id == task_db.node_id)
-            node = db.scalar(node_stmt)
-            response = {"status": 1, "task_id": task_db.task_id, "url": node.url, "name": node.name}
-        else:
-            response = {"status": "pending"}
-        db.close()
+        with session() as db:
+            task_db = db.scalar(select(Task).where(Task.main_task_id == main_task_id))
+            if task_db and task_db.node_id:
+                node_stmt = select(Node).where(Node.id == task_db.node_id)
+                node = db.scalar(node_stmt)
+                response = {"status": 1, "task_id": task_db.task_id, "url": node.url, "name": node.name}
+            else:
+                response = {"status": "pending"}
         return response
 
 
 class StatusRootApi(RestResource):
     def get(self):
         # null = None
-        db = session()
-        unified_counts = db.execute(
-            select(
-                func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(False)), Task.id))).label("processing"),
-                func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(True)), Task.id))).label("processed"),
-                func.count(case((Task.node_id.is_(None), Task.id))).label("pending"),
-            )
-        ).first()
-        tasks_counts = {
-            "processing": unified_counts.processing,
-            "processed": unified_counts.processed,
-            "pending": unified_counts.pending,
-        }
+        with session() as db:
+            unified_counts = db.execute(
+                select(
+                    func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(False)), Task.id))).label("processing"),
+                    func.count(case((and_(Task.node_id.is_not(None), Task.finished.is_(True)), Task.id))).label("processed"),
+                    func.count(case((Task.node_id.is_(None), Task.id))).label("pending"),
+                )
+            ).first()
+            tasks_counts = {
+                "processing": unified_counts.processing,
+                "processed": unified_counts.processed,
+                "pending": unified_counts.pending,
+            }
         return jsonify({"nodes": STATUSES, "tasks": tasks_counts})
 
 
@@ -1799,51 +1842,49 @@ class DistRestApi(RestApi):
 
 
 def update_machine_table(node_name):
-    db = session()
-    node = db.scalar(select(Node).where(Node.name == node_name))
+    with session() as db:
+        node = db.scalar(select(Node).where(Node.name == node_name))
 
-    # get new vms
-    new_machines = node_list_machines(node.url, node.apikey)
+        # get new vms
+        new_machines = node_list_machines(node.url, node.apikey)
 
-    # delete all old vms
-    db.execute(delete(Machine).where(Machine.node_id == node.id))
+        # delete all old vms
+        db.execute(delete(Machine).where(Machine.node_id == node.id))
 
-    log.info("Available VM's on %s:", node_name)
-    # replace with new vms
-    for machine in new_machines:
-        log.info("-->\t%s", machine.name)
-        node.machines.append(machine)
-        db.add(machine)
+        log.info("Available VM's on %s:", node_name)
+        # replace with new vms
+        for machine in new_machines:
+            log.info("-->\t%s", machine.name)
+            node.machines.append(machine)
+            db.add(machine)
 
-    db.commit()
+        db.commit()
 
     log.info("Updated the machine table for node: %s", node_name)
 
 
 def delete_vm_on_node(node_name, vm_name):
-    db = session()
-    node = db.scalar(select(Node).where(Node.name == node_name))
-    vm = db.scalar(select(Machine).where(Machine.name == vm_name, Machine.node_id == node.id))
+    with session() as db:
+        node = db.scalar(select(Node).where(Node.name == node_name))
+        vm = db.scalar(select(Machine).where(Machine.name == vm_name, Machine.node_id == node.id))
 
-    if not vm:
-        log.error("The selected VM does not exist")
-        return
+        if not vm:
+            log.error("The selected VM does not exist")
+            return
 
-    status = node.delete_machine(vm_name)
+        status = node.delete_machine(vm_name)
 
-    if status:
-        # delete vm in dist db
-        db.execute(delete(Machine).where(Machine.name == vm_name, Machine.node_id == node.id))
-        db.commit()
-    db.close()
+        if status:
+            # delete vm in dist db
+            db.execute(delete(Machine).where(Machine.name == vm_name, Machine.node_id == node.id))
+            db.commit()
 
 
 def node_enabled(node_name, status):
-    db = session()
-    node = db.scalar(select(Node).where(Node.name == node_name))
-    node.enabled = status
-    db.commit()
-    db.close()
+    with session() as db:
+        node = db.scalar(select(Node).where(Node.name == node_name))
+        node.enabled = status
+        db.commit()
 
 
 def cron_cleaner(clean_x_hours=False):

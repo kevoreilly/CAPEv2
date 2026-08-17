@@ -5,9 +5,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import argparse
-import distutils.util
 import hashlib
-import json
 import logging
 import os
 import queue
@@ -46,7 +44,7 @@ from lib.cuckoo.core.data.task import (
     TASK_FAILED_REPORTING,
     TASK_PENDING,
     TASK_REPORTED,
-    TASK_RUNNING
+    TASK_RUNNING,
 )
 from lib.cuckoo.core.database import (
     Database,
@@ -80,6 +78,7 @@ if gcp_conf.samples_pubsub.enabled:
         gcs_upload_report,
         gcs_uploader,
     )
+
     if not GCS_ENABLED or not HAVE_GCP:
         sys.exit("Run: poetry install --extras gcp or poetry run pip install --upgrade google-cloud-compute google-cloud-storage")
 
@@ -137,7 +136,7 @@ def required(package):
 
 
 try:
-    from fastapi import FastAPI, Form, HTTPException
+    from fastapi import FastAPI, HTTPException
     from typing import Optional
 except ImportError:
     required("fastapi")
@@ -170,6 +169,7 @@ class SessionWrapper:
     def __getattr__(self, name):
         attr = getattr(self._session, name)
         if callable(attr):
+
             def wrapper(*args, **kwargs):
                 try:
                     return attr(*args, **kwargs)
@@ -177,6 +177,7 @@ class SessionWrapper:
                     if any(term in str(e) for term in ("QueuePool", "TimeoutError", "connection timed out", "Timeout 30.00")):
                         restart_db_connection()
                     raise e
+
             return wrapper
         return attr
 
@@ -194,6 +195,7 @@ class SessionWrapper:
 def session():
     db = _session_maker()
     return SessionWrapper(db)
+
 
 binaries_folder = os.path.join(CUCKOO_ROOT, "storage", "binaries")
 if not path_exists(binaries_folder):
@@ -276,7 +278,7 @@ def node_list_machines(url, apikey):
         for machine in r.json()["data"]:
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
-        abort(404, message="Invalid CAPE node (%s): %s" % (url, e))
+        raise HTTPException(status_code=404, detail="Invalid CAPE node (%s): %s" % (url, e))
 
 
 def node_list_exitnodes(url, apikey):
@@ -298,7 +300,7 @@ def node_list_exitnodes(url, apikey):
         for exitnode in r.json()["data"]:
             yield exitnode
     except Exception as e:
-        abort(404, message="Invalid CAPE node (%s): %s" % (url, e))
+        raise HTTPException(status_code=404, detail="Invalid CAPE node (%s): %s" % (url, e))
 
 
 def node_get_report(task_id, fmt, url, apikey, stream=False):
@@ -417,8 +419,12 @@ def _delete_many(node, ids, nodes, db):
         # shared session ourselves -- a session-wide rollback in a multi-node sweep reverts the OTHER nodes'
         # progress; the caller scopes the failure to this node / re-queues its ids).
         if res is None or res.status_code != 200:
-            log.warning("[REMOVE] %-15s ==> non-200 %s: %s", nodes[node].name,
-                        getattr(res, "status_code", "no-response"), getattr(res, "content", b"")[:200])
+            log.warning(
+                "[REMOVE] %-15s ==> non-200 %s: %s",
+                nodes[node].name,
+                getattr(res, "status_code", "no-response"),
+                getattr(res, "content", b"")[:200],
+            )
             return False
         # delete_many answers HTTP 200 even on a per-id failure; a GENUINE failure sets error=True /
         # status=partial_error (NOT an idempotent 'not exists', which stays error-absent). Surface that so
@@ -428,8 +434,12 @@ def _delete_many(node, ids, nodes, db):
         except Exception:
             _body = {}
         if isinstance(_body, dict) and _body.get("error") is True:
-            log.warning("[REMOVE] %-15s ==> partial failure (%s): %s", nodes[node].name,
-                        _body.get("status"), {k: v for k, v in _body.items() if v in ("error", "deleted_orphan_report")})
+            log.warning(
+                "[REMOVE] %-15s ==> partial failure (%s): %s",
+                nodes[node].name,
+                _body.get("status"),
+                {k: v for k, v in _body.items() if v in ("error", "deleted_orphan_report")},
+            )
             return False
         return True
 
@@ -720,7 +730,7 @@ class Retriever(threading.Thread):
             thread_targets.append((self.notification_loop, "notification_loop", ()))
 
         # Supervisor Loop
-        active_threads = {} # name -> thread_obj
+        active_threads = {}  # name -> thread_obj
 
         log.info("Retriever supervisor started. Monitoring %d threads.", len(thread_targets))
 
@@ -1114,7 +1124,6 @@ class Retriever(threading.Thread):
                 self.current_queue[node_id].remove(task["id"])
                 db.commit()
 
-
     def remove_from_worker(self):
         """
         Removes tasks from worker nodes.
@@ -1172,8 +1181,13 @@ class Retriever(threading.Thread):
                                 key = (node_id, int(_tid) if str(_tid).isdigit() else _tid)
                                 attempts = self.cleaner_retries.get(key, 0) + 1
                                 if attempts >= CLEANER_MAX_RETRIES:
-                                    log.warning("[REMOVE] giving up on task %s @ node %s after %d failed cleanup "
-                                                "attempts (worker down/re-provisioned?)", _tid, node_id, attempts)
+                                    log.warning(
+                                        "[REMOVE] giving up on task %s @ node %s after %d failed cleanup "
+                                        "attempts (worker down/re-provisioned?)",
+                                        _tid,
+                                        node_id,
+                                        attempts,
+                                    )
                                     self.cleaner_retries.pop(key, None)
                                 else:
                                     self.cleaner_retries[key] = attempts
@@ -1281,7 +1295,11 @@ class StatusThread(threading.Thread):
 
                             bin_path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sample_sha256) if sample_sha256 else None
                             if bin_path and path_exists(bin_path):
-                                log.info("Task id: %d - Target file not found at original path, but found in binaries storage: %s. Updating target path.", t.id, bin_path)
+                                log.info(
+                                    "Task id: %d - Target file not found at original path, but found in binaries storage: %s. Updating target path.",
+                                    t.id,
+                                    bin_path,
+                                )
                                 t.target = bin_path
                             else:
                                 log.info("Task id: %d - File doesn't exist: %s", t.id, t.target)
@@ -1291,9 +1309,7 @@ class StatusThread(threading.Thread):
                             # We can't upload size bigger than X to our workers. In case we extract archive that contains bigger file.
                             file_size = path_get_size(t.target)
                             if file_size > web_conf.general.max_sample_size:
-                                log.debug(
-                                    "File size: %d is bigger than allowed: %d", file_size, web_conf.general.max_sample_size
-                                )
+                                log.debug("File size: %d is bigger than allowed: %d", file_size, web_conf.general.max_sample_size)
                                 main_db.set_status(t.id, TASK_BANNED)
                                 continue
                     options = get_options(t.options)
@@ -1464,8 +1480,7 @@ class StatusThread(threading.Thread):
                 max_workers = int(dist_conf.distributed.dist_threads)
                 with ThreadPoolExecutor(max_workers=max_workers) as executor:
                     future_to_task = {
-                        executor.submit(node_submit_task, task.id, node.id, task.main_task_id, db=None): task
-                        for task in to_upload
+                        executor.submit(node_submit_task, task.id, node.id, task.main_task_id, db=None): task for task in to_upload
                     }
                     count_submitted = 0
                     for future in as_completed(future_to_task):
@@ -1600,9 +1615,11 @@ class StatusThread(threading.Thread):
                             # Balance the tasks, works fine if no tags are set
                             node_name = min(
                                 STATUSES,
-                                key=lambda k: STATUSES[k]["tasks"]["completed"]
-                                + STATUSES[k]["tasks"]["pending"]
-                                + STATUSES[k]["tasks"]["running"],
+                                key=lambda k: (
+                                    STATUSES[k]["tasks"]["completed"]
+                                    + STATUSES[k]["tasks"]["pending"]
+                                    + STATUSES[k]["tasks"]["running"]
+                                ),
                             )
                             if node_name != node.name:
                                 node = db.scalar(select(Node).where(Node.name == node_name))
@@ -2121,8 +2138,10 @@ def modify_node_cli(name, url=None, apikey=None, enabled=None):
 
 
 def main():
-    p = argparse.ArgumentParser(formatter_class=argparse.RawDescriptionHelpFormatter, description="Distributed CAPE Daemon & Admin Utility")
-    
+    p = argparse.ArgumentParser(
+        formatter_class=argparse.RawDescriptionHelpFormatter, description="Distributed CAPE Daemon & Admin Utility"
+    )
+
     g_daemon = p.add_argument_group("Daemon / Server Options")
     g_daemon.add_argument("host", nargs="?", default="0.0.0.0", help="Host to listen on")
     g_daemon.add_argument("port", nargs="?", type=int, default=9003, help="Port to listen on")
@@ -2130,7 +2149,9 @@ def main():
     g_daemon.add_argument("--uptime-logfile", type=str, help="Uptime logfile path")
     g_daemon.add_argument("--submit-only", action="store_true", help="Disable retrieval threads")
     g_daemon.add_argument("-ec", "--enable-clean", action="store_true", help="Enable delete tasks from nodes")
-    g_daemon.add_argument("-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes")
+    g_daemon.add_argument(
+        "-ef", "--enable-failed-clean", action="store_true", default=False, help="Enable delete failed tasks from nodes"
+    )
     g_daemon.add_argument("-ch", "--clean-hours", action="store", type=int, default=0, help="Clean tasks for last X hours")
 
     g_admin = p.add_argument_group("Cluster Administration (CLI Admin Tools)")
@@ -2200,6 +2221,7 @@ def main():
         modify_node_cli(args.node, args.url, args.apikey, enabled_val)
         sys.exit()
 
+    global delete_enabled, failed_clean_enabled
     delete_enabled = args.enable_clean
     failed_clean_enabled = args.enable_failed_clean
 
@@ -2229,6 +2251,7 @@ def main():
         log.info("Submit-only mode: Retriever thread disabled.")
 
     import uvicorn
+
     uvicorn.run(app, host=args.host, port=args.port, log_level="debug" if args.debug else "info")
 
 

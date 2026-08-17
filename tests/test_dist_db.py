@@ -113,7 +113,7 @@ def test_cli_admin_commands():
         mock_db = MagicMock()
         mock_sess.return_value.__enter__.return_value = mock_db
         mock_db.execute.return_value.first.return_value = MagicMock(processing=1, processed=2, pending=3)
-        
+
         with patch("builtins.print") as mock_print:
             show_status_cli()
             mock_print.assert_any_call("Processing tasks : 1")
@@ -126,14 +126,14 @@ def test_cli_admin_commands():
         mock_node.name = "master"
         mock_node.enabled = True
         mock_node.url = "http://localhost:8000"
-        
+
         mock_machine = MagicMock()
         mock_machine.name = "vm1"
         mock_machine.platform = "windows"
         mock_machine.tags = ""
         mock_node.machines.all.return_value = [mock_machine]
         mock_db.scalars.return_value.all.return_value = [mock_node]
-        
+
         with patch("builtins.print") as mock_print:
             list_nodes_cli()
             assert any("master" in str(args[0]) for args, _ in mock_print.call_args_list)
@@ -143,10 +143,12 @@ def test_cli_admin_commands():
         mock_db = MagicMock()
         mock_sess.return_value.__enter__.return_value = mock_db
         mock_db.scalar.return_value = None  # Node doesn't exist
-        
-        with patch("utils.dist.node_list_machines", return_value=[]), \
-             patch("utils.dist.node_list_exitnodes", return_value=[]), \
-             patch("builtins.print") as mock_print:
+
+        with (
+            patch("utils.dist.node_list_machines", return_value=[]),
+            patch("utils.dist.node_list_exitnodes", return_value=[]),
+            patch("builtins.print") as mock_print,
+        ):
             register_node_cli("worker", "http://worker", "apikey", True)
             mock_print.assert_any_call("Successfully registered node 'worker' with 0 machines.")
 
@@ -156,7 +158,7 @@ def test_cli_admin_commands():
         mock_sess.return_value.__enter__.return_value = mock_db
         mock_node = MagicMock()
         mock_db.scalar.return_value = mock_node
-        
+
         with patch("builtins.print") as mock_print:
             modify_node_cli("worker", enabled=False)
             assert mock_node.enabled is False

@@ -279,6 +279,25 @@
                 </td>
             </tr>
             {% endif %}
+
+            {% if file.magika %}
+            <tr>
+                <th class="text-end text-info" style="width: 15%;">Magika File Type</th>
+                <td class="text-break">
+                    {{file.magika.description|default:file.magika.label}}
+                    <a href="/analysis/search/magika:{{file.magika.label}}" class="badge bg-secondary ms-1 text-decoration-none">{{file.magika.label}}</a>
+                    {% if file.magika.mime_type %}<span class="badge bg-secondary ms-1">{{file.magika.mime_type}}</span>{% endif %}
+                    {% if file.magika.score %}
+                        <span class="badge {% if file.magika.low_confidence %}bg-warning text-dark{% else %}bg-success{% endif %} ms-1"
+                              data-bs-toggle="tooltip"
+                              title="{% if file.magika.low_confidence %}Model confidence, below the configured min_score{% else %}Model confidence{% endif %}">{{file.magika.score}}</span>
+                    {% endif %}
+                    {% if file.magika.dl_label %}
+                        <span class="badge bg-dark border border-secondary ms-1" data-bs-toggle="tooltip" title="Raw model guess before {{file.magika.overwrite_reason}} override">raw: {{file.magika.dl_label}}</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endif %}
         </table>
     </div>
 

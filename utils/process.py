@@ -40,6 +40,7 @@ from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import get_options, option_dict_enabled
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.data.task import (
+    TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
     TASK_REPORTED
 )
@@ -190,6 +191,13 @@ def process(
 def run_task(task, memory_debugging=False, debug=False):
     """Run exactly one completed task to completion (processing -> report).
     Extracted from autoprocess so every engine shares identical per-task setup."""
+    analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task.id))
+    if not path_exists(analysis_path):
+        log.error("Analysis directory %s does not exist. Marking task %s as failed.", analysis_path, task.id)
+        with db.session.begin():
+            db.set_status(task.id, TASK_FAILED_PROCESSING)
+        return
+
     sample_hash = ""
     if task.category != "url":
         with db.session.begin():
@@ -197,15 +205,22 @@ def run_task(task, memory_debugging=False, debug=False):
             if sample:
                 sample_hash = sample.sha256
     try:
-        process(
-            task.target,
-            sample_hash,
-            report=True,
-            auto=True,
-            task=task,
-            memory_debugging=memory_debugging,
-            debug=debug,
-        )
+        try:
+            process(
+                task.target,
+                sample_hash,
+                report=True,
+                auto=True,
+                task=task,
+                memory_debugging=memory_debugging,
+                debug=debug,
+            )
+        except Exception:
+            raise
+        except BaseException as e:
+            import traceback
+            tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+            raise RuntimeError(f"{type(e).__module__}.{type(e).__name__}: {e}\n\n{tb}") from None
     finally:
         set_formatter_fmt()
         setproctitle(original_proctitle)

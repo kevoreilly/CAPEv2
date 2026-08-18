@@ -84,6 +84,35 @@ if repconf.mongodb.enabled:
         def __getattr__(self, name): return getattr(get_mongodb(), name)
 
     results_db = LegacyDB()
+else:
+    class AutoReconnect(Exception):
+        pass
+
+    class OperationFailure(Exception):
+        pass
+
+    def connect_to_mongo():
+        return None
+
+    def get_mongodb():
+        class DummyMongo:
+            @property
+            def client(self):
+                class DummyClient:
+                    @property
+                    def admin(self):
+                        class DummyAdmin:
+                            def command(self, *args, **kwargs):
+                                raise OperationFailure("MongoDB is disabled")
+                        return DummyAdmin()
+                return DummyClient()
+        return DummyMongo()
+
+    class LegacyDB:
+        def __getattr__(self, name):
+            raise AttributeError("MongoDB is disabled")
+
+    results_db = LegacyDB()
 
 MAX_AUTO_RECONNECT_ATTEMPTS = 5
 

@@ -1,6 +1,7 @@
 import functools
 import os
 import pickle
+import time
 
 from lib.cuckoo.core.data.task import TASK_COMPLETED
 from lib.cuckoo.core.processing_engine.pebble import PebbleEngine
@@ -56,3 +57,104 @@ def test_autoprocess_task_fn_is_picklable():
     from utils.process import run_task
     task_fn = functools.partial(run_task, memory_debugging=False, debug=False)
     pickle.dumps(task_fn)  # would raise PicklingError for a lambda
+
+
+class _CountingSource:
+    def __init__(self):
+        self.failed = []
+
+    def mark_failed(self, task_id):
+        self.failed.append(task_id)
+
+
+class _MockFuture:
+    def __init__(self):
+        self._cancelled = False
+
+    def cancel(self):
+        self._cancelled = True
+        return True
+
+    def result(self):
+        return None
+
+
+class _BaseExceptionRaisingFuture(_MockFuture):
+    def result(self):
+        raise BaseException("panic!")
+
+
+def test_reaper_fails_a_task_that_was_never_picked_up():
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=1,
+        stall_grace=1
+    )
+    future = _MockFuture()
+
+    with engine._lock:
+        engine._pending[future] = 77
+        engine._scheduled_at[future] = time.monotonic() - 3600  # long overdue
+
+    engine._reap_stalled()
+
+    with engine._lock:
+        assert engine._pending == {}, "overdue task left in _pending"
+        assert engine._scheduled_at == {}, "overdue task left in _scheduled_at"
+    assert source.failed == [77], "overdue task was never marked failed"
+    assert future._cancelled, "overdue task future was not cancelled"
+
+
+def test_reaper_leaves_a_task_that_is_still_within_its_deadline():
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=10,
+        stall_grace=5
+    )
+    future = _MockFuture()
+
+    with engine._lock:
+        engine._pending[future] = 88
+        engine._scheduled_at[future] = time.monotonic()  # brand new
+
+    engine._reap_stalled()
+
+    with engine._lock:
+        assert engine._pending == {future: 88}, "in-flight task was reaped early"
+        assert engine._scheduled_at == {future: engine._scheduled_at[future]}, "in-flight task scheduled_at cleared"
+    assert source.failed == [], "in-flight task was marked failed"
+    assert not future._cancelled, "in-flight task future was cancelled"
+
+
+def test_done_handles_base_exception_robustly():
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=10,
+        stall_grace=5
+    )
+    future = _BaseExceptionRaisingFuture()
+
+    with engine._lock:
+        engine._pending[future] = 99
+        engine._scheduled_at[future] = time.monotonic()
+
+    # _done should handle the BaseException from future.result() and not raise/propagate it.
+    engine._done(future)
+
+    with engine._lock:
+        assert future not in engine._pending, "future not removed from pending"
+        assert future not in engine._scheduled_at, "future not removed from scheduled_at"
+    assert source.failed == [99], "task was not marked failed on BaseException"
+

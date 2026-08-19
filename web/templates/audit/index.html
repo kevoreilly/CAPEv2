@@ -212,6 +212,7 @@
                                 </td>
 
                                 <td class="text-end">
+                                    {% if session.can_delete %}
                                     <form action="{% url 'delete_test_session' session.id %}" method="POST"
                                           onsubmit="return confirm('Are you sure you want to delete Session #{{ session.id }} and all its run data?');">
                                         {% csrf_token %}
@@ -219,6 +220,7 @@
                                             <i class="fas fa-trash-alt"></i>
                                         </button>
                                     </form>
+                                    {% endif %}
                                 </td>
                             </tr>
                             {% empty %}

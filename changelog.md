@@ -1,3 +1,6 @@
+### [31.07.2026]
+* Remus detection & dynamic config extraction
+
 ### [15.07.2026]
 * Monitor update: Fix issue with NtWriteFile hook causing detonation failures (e.g. 9b1717eb154011b52aa24e4d6848976a9aafff2665f3171265aa767d5951be6c)
 

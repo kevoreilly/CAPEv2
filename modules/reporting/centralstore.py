@@ -16,25 +16,18 @@ import os
 import re
 
 from lib.cuckoo.common.abstracts import Report
-from lib.cuckoo.common.central_mode import central_mode_config, upload_target_realpath
+from lib.cuckoo.common.central_mode import central_bridge_required, central_mode_config, upload_target_realpath
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.storage_backend import get_artifact_store
 
 log = logging.getLogger(__name__)
 
-# job_id becomes an S3 key segment, so it must not contain path separators or
-# traversal. The broker should stamp an authenticated job_id; this is the last
-# line of defence against a tenant-supplied `custom` poisoning another job's
-# prefix (audit CRITICAL-1). local-<int> fallback satisfies the allowlist.
-# Must start with an alnum (no leading '.'/'-'/'_') AND contain no '..' run, so a
-# value like '.', '..', '.foo' or 'a..b' can never collapse 'results/<job_id>/' to a
-# parent ref ('results/../') in an S3 key or the local staging path. _is_safe_job_id
-# applies both rules (the regex alone permitted '.'/'..').
-_JOB_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
-
-
-def _is_safe_job_id(job_id):
-    return bool(job_id) and _JOB_ID_RE.match(job_id) is not None and ".." not in job_id
+# job_id becomes an S3 key / local-mount container segment, so it must be path-safe (no separators, no '..').
+# The safety guard is defined ONCE in lib.cuckoo.common.artifact_storage and shared by the read seam
+# (job_id_from_custom) and this write seam so they can never drift -- the last line of defence against a
+# tenant-supplied `custom` poisoning another job's prefix (audit CRITICAL-1). local-<int> fallback satisfies
+# it. (The read seam now rejects a path-unsafe custom at the parser, so this is belt-and-suspenders.)
+from lib.cuckoo.common.artifact_storage import _SAFE_JOB_ID_RE, _is_safe_job_id
 
 # Upload the whole analysis tree to S3 (the "heavy detail" tier): shots, dropped
 # files, pcap, procdump, AND reports/ (report.json/html/pdf are downloadable
@@ -45,22 +38,37 @@ _EXCLUDE_DIRS = set()
 
 
 def resolve_job_id(custom, analysis_id):
-    """The broker passes the global job_id through the task `custom` field, carried
-    all the way to reporting. Accept 'job_id=<v>' (optionally among other
-    comma-separated k=v pairs) or a bare token. Fall back to 'local-<id>' so central
-    mode also works when an analysis was submitted directly (no broker)."""
-    if custom:
-        text = str(custom)
-        for part in text.split(","):
-            part = part.strip()
-            if part.startswith("job_id="):
-                v = part.split("=", 1)[1].strip()
-                if v:
-                    return v
-        token = text.strip()
-        if token and "=" not in token and "," not in token:
-            return token
-    return f"local-{analysis_id}"
+    """The broker passes the global job_id through the task `custom` field, carried all the way to
+    reporting. This is the CONSUMER that turns `custom` into the job_id that keys info.job_id, the
+    info.id rewrite below, the S3 container prefix, and the pre-insert scoped delete -- i.e. the site
+    (with the container build in run() and the pre-insert delete in mongodb.py) that actually TRUSTS
+    `custom`. So it must NOT honour a submitter-influenceable value that could steer another task's id.
+
+    Accept 'job_id=<v>' ONLY in the FIRST comma-position -- exactly what the broker dispatcher sends
+    (custom = f"job_id={job_id}") and what the central submit-bridge's enqueue filter
+    (`custom NOT LIKE 'job_id=%'`, prefix-anchored) is written against. Accepting it at ANY position, or
+    accepting a bare 'ui-<N>' token, would let a client `custom` that EVADES that prefix filter
+    ("foo=bar,job_id=ui-<victim>" or a bare "ui-<victim>") still resolve to a foreign id. Keeping the
+    consumer's parse anchored the same way the filter is makes the in-tree code enforce the containment
+    rather than leaning on the (out-of-tree) bridge alone.
+
+    A bare token with no '=' and no ',' is the direct-submission fallback (central mode also works when an
+    analysis was submitted without the broker), but a bare 'ui-<N>' is NEVER honoured -- that is the
+    bridge's reserved central-id form, which no direct submitter produces. Fall back to 'local-<id>' when
+    nothing usable is present.
+
+    Shares ONE parser with the read/delete consumers -- job_id_from_custom (lib.cuckoo.common.artifact_storage)
+    -- so the write and read keys can't drift; this just adds the write-side 'local-<analysis_id>' fallback.
+
+    On the broker path the bridge OVERWRITES custom with its own 'job_id=ui-<own_tid>' (SQL UPDATE) and the
+    dispatcher builds custom from the SQS message's job_id (not the RDS custom field), so a forged custom does
+    not reach here at all. The anchoring above closes the two filter-EVASION forms (non-first-position
+    'job_id=' and a bare 'ui-<N>') on any path; a FIRST-position 'custom=job_id=ui-<victim>' is still honoured
+    verbatim and, in a bridge-less / direct deployment, remains contained only by topology -- NOT closed here.
+    DURABLE FIX (upstream): a signed / out-of-band job_id authenticated against the delivering broker."""
+    from lib.cuckoo.common.artifact_storage import job_id_from_custom
+
+    return job_id_from_custom(custom) or f"local-{analysis_id}"
 
 
 class CentralStore(Report):
@@ -95,7 +103,7 @@ class CentralStore(Report):
             # Refuse a job_id that could escape/poison another job's S3 prefix.
             raise CuckooReportError(
                 "centralstore: refusing unsafe job_id %r (must match %s and contain no '..')"
-                % (job_id, _JOB_ID_RE.pattern))
+                % (job_id, _SAFE_JOB_ID_RE.pattern))
         info["job_id"] = job_id  # carried into the DocumentDB doc; read seam keys S3 by it
 
         # Align info.id to the CENTRAL task id when the broker assigned a
@@ -107,6 +115,17 @@ class CentralStore(Report):
         # so the report view, all report-tab lookups, and the artifact seam work without
         # touching ~25 info.id call sites in the upstream-synced views.py.
         _m = re.match(r"^ui-(\d+)$", job_id)
+        # BRIDGE-REQUIRED (central + MT): only a bridged 'ui-<central_id>' doc has a tenant-resolvable identity.
+        # A non-bridged doc ('local-<id>' / bare-token custom) has NO tenancy by construction, so persisting it
+        # to the shared DocumentDB would create a single-tenant doc the tenant-scoped own-doc filters
+        # deliberately can't address (an unreachable-on-delete orphan, or a restrictive toggle that never
+        # reaches it). Refuse it HERE -- the single choke point where the central analysis doc is written -- so
+        # a non-bridged submission can never produce a doc in an MT deployment (direct worker submission is
+        # single-tenant only; see lib.cuckoo.common.central_mode.central_bridge_required).
+        if not _m and central_bridge_required():
+            raise CuckooReportError(
+                "centralstore: refusing non-bridged analysis (job_id=%r) under multitenancy -- tenant-isolated "
+                "central submission requires the submit-bridge (ui-<central_id>)" % job_id)
         if _m:
             info["id"] = int(_m.group(1))
 

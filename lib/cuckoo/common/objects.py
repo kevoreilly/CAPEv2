@@ -11,6 +11,7 @@ import mmap
 import os
 import struct
 import subprocess
+import time
 from pathlib import Path
 from typing import Any, Dict
 
@@ -27,6 +28,7 @@ from lib.cuckoo.common.defines import (
     PAGE_WRITECOPY,
 )
 from lib.cuckoo.common.integrations.clamav import get_clamav
+from lib.cuckoo.common.integrations.magika import MAGIKA_ENABLED, magika_info
 from lib.cuckoo.common.integrations.parse_pe import IMAGE_FILE_MACHINE_AMD64, IMAGE_FILE_MACHINE_I386, IsPEImage
 from lib.cuckoo.common.path_utils import path_exists
 
@@ -174,6 +176,15 @@ class File:
     yara_rules = {}
     yara_rules_hash = None
     yara_initialized = False
+    # category -> time.monotonic() of the last failed forced recompile.
+    # get_yara() forces a recompile when a category is missing; without this it
+    # would force a full six-category recompile for every scanned file (~3s each
+    # on a production ruleset). It is a BACKOFF, not a permanent skip: workers
+    # run with max_tasks=0 (no recycling), so permanently disabling a category
+    # after one transient failure -- rules mid-update, storage briefly
+    # unreadable -- would silently return no matches for the rest of the run.
+    yara_uncompilable = {}
+    yara_recompile_backoff = 300
     # static fields which indicate whether the user has been
     # notified about missing dependencies already
     notified_yara = False
@@ -196,6 +207,7 @@ class File:
         self._sha512 = None
         self._pefile = False
         self.file_type = None
+        self._magika = None
         self.pe = None
 
     def get_name(self):
@@ -418,6 +430,19 @@ class File:
 
         return self.file_type
 
+    def get_magika(self):
+        """Get the Google Magika content type prediction.
+        Enable in: processing.conf -> [magika] -> enabled
+
+        Reported alongside, never instead of, get_type(): the libmagic
+        verdict is left untouched so both are visible and comparable.
+
+        @return: dict with label/description/mime_type/group/score, or {}.
+        """
+        if self._magika is None:
+            self._magika = magika_info(self.file_path_ansii)
+        return self._magika
+
     def _yara_encode_string(self, yara_string):
         # Beware, spaghetti code ahead.
         if not isinstance(yara_string, bytes):
@@ -525,7 +550,15 @@ class File:
                     else:
                         # This runs if the inner for loop finishes WITHOUT break (no errors)
                         compiled_rules = compiler.build()
-                        cls.yara_rules[category] = yara_x.Scanner(compiled_rules)
+                        # Cache the compiled Rules, NOT a Scanner. yara_x.Scanner is
+                        # unsendable: PyO3 panics with "Scanner is unsendable, but sent
+                        # to another thread" if one is touched off its constructing
+                        # thread, and writes an unraisable RuntimeError if one is
+                        # DROPPED off it (which happens on fork, and at shutdown for
+                        # daemon threads -- so caching a Scanner per-thread does not
+                        # help either). Rules is sendable; get_yara() builds the
+                        # Scanner on the thread that scans.
+                        cls.yara_rules[category] = compiled_rules
                         if category == "memory":
                             index_memory = os.path.join(yara_root, "index_memory.yarc")
                             with open(index_memory, "wb") as f:
@@ -579,6 +612,18 @@ class File:
                     log.debug("\t |-- %s %s", category, entry)
         cls.yara_rules_hash = hasher.hexdigest()
         cls.yara_initialized = True
+        # Any category that compiled this time is healthy again, so drop its
+        # backoff. Dropping only what actually compiled (rather than clearing the
+        # whole record) matters when SEVERAL categories are broken: clearing would
+        # make each one forget the others and force a fresh full recompile on
+        # every alternating call.
+        # Snapshot the keys first: yara_rules is class-level and two threads can
+        # be inside a forced init at once (get_yara's fallback triggers one), so
+        # iterating it directly can raise "dictionary changed size during
+        # iteration". Snapshotting also keeps categories that were injected
+        # outside the built-in list, which iterating `categories` would miss.
+        for compiled_category in tuple(cls.yara_rules):
+            cls.yara_uncompilable.pop(compiled_category, None)
 
     def get_yara(self, category="binaries", externals=None):
         """Get Yara signatures matches.
@@ -614,19 +659,39 @@ class File:
                 # short-circuits and leaves this category missing. Force ONE full recompile
                 # before giving up so a live category is never silently skipped (returning []
                 # here would look like "no matches" and hide the misconfiguration).
+                last_failure = File.yara_uncompilable.get(category)
+                if last_failure is not None and time.monotonic() - last_failure < File.yara_recompile_backoff:
+                    # Recently forced a recompile for this category and it still
+                    # produced nothing. Back off rather than paying another full
+                    # recompile for every remaining file in the task.
+                    return []
                 File.init_yara(force=True)
                 rules = self.yara_rules.get(category)
                 if not rules:
+                    File.yara_uncompilable[category] = time.monotonic()
+                    log.warning(
+                        "Yara category '%s' produced no rules after a forced recompile; backing off for %ss "
+                        "before retrying it.",
+                        category,
+                        File.yara_recompile_backoff,
+                    )
                     return []
 
             if HAVE_YARA_X:
-                yara_results = rules.scan_file(self.file_path)
+                # Built here, on the scanning thread, and deliberately not cached
+                # anywhere that outlives the scan -- see init_yara().
+                yara_results = yara_x.Scanner(rules).scan_file(self.file_path)
                 for match in yara_results.matching_rules:
                     strings = []
                     addresses = {}
                     for yara_string in match.patterns:
                         for x in yara_string.matches:
-                            y_string = self._yara_encode_string(x.data)
+                            matched_bytes = b""
+                            if self.file_data and len(self.file_data) >= x.offset + x.length:
+                                matched_bytes = self.file_data[x.offset : x.offset + x.length]
+                                if getattr(x, "xor_key", None) is not None:
+                                    matched_bytes = bytes(b ^ x.xor_key for b in matched_bytes)
+                            y_string = self._yara_encode_string(matched_bytes)
                             if y_string not in strings:
                                 strings.append(y_string)
                             addresses.update({yara_string.identifier.strip("$"): x.offset})
@@ -664,7 +729,7 @@ class File:
                     log.exception("Unable to match Yara signatures for %s: %s", self.file_path, yara_error[errcode])
                 else:
                     log.exception("Unable to match Yara signatures for %s: unknown code %s", self.file_path, errcode)
-            elif HAVE_YARA_X and isinstance(e, yara_x.Error):
+            elif HAVE_YARA_X and isinstance(e, (yara_x.CompileError, yara_x.ScanError, yara_x.TimeoutError)):
                 log.exception("Unable to match Yara signatures (yara-x) for %s: %s", self.file_path, e)
             else:
                 log.exception("Unable to match Yara signatures for %s: %s", self.file_path, e)
@@ -793,6 +858,16 @@ class File:
             "tlsh": self.get_tlsh(),
             "sha3_384": self.get_sha3_384(),
         }
+
+        # Sits alongside (below) "type" for every category that goes through
+        # File.get_all(): target, dropped, procdumps, CAPE payloads, extracted
+        # files, suricata files and process memory dumps. Absent -- not empty
+        # -- when magika is disabled or returns nothing, so the UI row simply
+        # does not render.
+        if MAGIKA_ENABLED:
+            magika_result = self.get_magika()
+            if magika_result:
+                infos["magika"] = magika_result
 
         return infos, self.pe
 

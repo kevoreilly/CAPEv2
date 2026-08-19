@@ -763,6 +763,10 @@
                                                                     <td>Dynamically unhook functions (colon-separated)</td>
                                                                 </tr>
                                                                 <tr>
+                                                                    <td class="text-end"><code>unhook-on-terminate</code></td>
+                                                                    <td>Restore all hooked API original bytes to memory when the process terminates</td>
+                                                                </tr>
+                                                                <tr>
                                                                     <td class="text-end"><code>coverage-modules</code></td>
                                                                     <td>Colon-separated list of DLLs to include in monitoring (exclude from 'dll range' filtering)</td>
                                                                 </tr>
@@ -820,6 +824,18 @@
                                                                 <tr>
                                                                     <td class="text-end"><code>amsidump</code></td>
                                                                     <td>Enable AMSI buffer dumping (Win10+)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>yarascan</code></td>
+                                                                    <td>Enable in-memory YARA scanning of process memory and JIT-compiled native code</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>yara-timeout</code></td>
+                                                                    <td>Timeout limit in milliseconds for in-memory YARA scanning (default: 60000)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>dumpsize</code></td>
+                                                                    <td>Maximum size in bytes allowed for a single raw memory dump</td>
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="text-end"><code>tlsdump</code></td>
@@ -897,6 +913,18 @@
                                                                     <td>Break on return from specific APIs</td>
                                                                 </tr>
                                                                 <tr>
+                                                                    <td class="text-end"><code>break-on-jit</code></td>
+                                                                    <td>Break on .NET JIT compiled native code</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>softbpmode</code></td>
+                                                                    <td>Execution mode behavior for software breakpoints</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>idbg</code></td>
+                                                                    <td>Enable interactive remote debugger interface / locks</td>
+                                                                </tr>
+                                                                <tr>
                                                                     <td class="text-end"><code>base-on-api</code></td>
                                                                     <td>Set base address for breakpoints based on API</td>
                                                                 </tr>
@@ -960,6 +988,16 @@
                                         <option value="green" data-color="#198754" style="color: #198754;">Green</option>
                                         <option value="amber" data-color="#ffc107" style="color: #ffc107;">Amber</option>
                                         <option value="red" data-color="#dc3545" style="color: #dc3545;">Red</option>
+                                    </select>
+                                </div>
+                                {% endif %}
+                                {% if visibility_levels %}
+                                <div class="col-md-6">
+                                    <label for="form_visibility" class="text-white-50">Visibility</label>
+                                    <select class="form-select border-secondary" id="form_visibility" name="visibility">
+                                        {% for level in visibility_levels %}
+                                        <option value="{{ level }}" {% if level == default_visibility %}selected{% endif %}>{{ level }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 {% endif %}

@@ -5,6 +5,7 @@ joining the nested extractor pool — see the redesign spec."""
 import logging
 import os
 import time
+import threading
 
 import pebble
 from concurrent.futures import TimeoutError
@@ -39,15 +40,21 @@ class PebbleEngine(ProcessingEngine):
     """
 
     def __init__(self, task_fn, worker_init, source, parallel, timeout,
-                 max_tasks=0, max_count=0):
+                 max_tasks=0, max_count=0, stall_grace=300):
         super().__init__(task_fn, worker_init, source, parallel, timeout)
         self.max_tasks = max_tasks
         self.max_count = max_count
+        self.stall_grace = stall_grace
+        self._lock = threading.Lock()
         self._pending = {}  # future -> task_id
+        self._scheduled_at = {}  # future -> time.monotonic() when scheduled
 
     def _done(self, future):
         """Pebble done-callback: fires in the pool's internal thread."""
-        task_id = self._pending.pop(future, None)
+        with self._lock:
+            task_id = self._pending.pop(future, None)
+            self._scheduled_at.pop(future, None)
+
         try:
             future.result()
             log.info("Reports generation completed for Task #%s", task_id)
@@ -55,8 +62,52 @@ class PebbleEngine(ProcessingEngine):
             log.error("[%s] Processing timeout: %s. Function: %s", task_id, error, error.args[1] if len(error.args) > 1 else "")
             if task_id is not None:
                 self.source.mark_failed(task_id)
-        except (pebble.ProcessExpired, Exception) as error:
+        except BaseException as error:
+            # BaseException, not Exception: anything escaping this callback
+            # propagates into pebble's message-manager thread and kills it.
             log.exception("[%s] Exception when processing task: %s", task_id, error)
+            if task_id is not None:
+                self.source.mark_failed(task_id)
+
+    def _reap_stalled(self):
+        """Fail tasks that were scheduled but never ran.
+
+        pebble only applies a task's timeout once that task is RUNNING. If the
+        worker dies before picking it up, pebble cannot associate the dead
+        worker with any task, so the future never resolves: the task never
+        runs, never times out, is never marked failed, and stays in
+        ``_pending`` forever. Both the scheduling loop (via the saturation
+        check) and the drain loop then spin indefinitely.
+
+        Anything still pending past ``timeout + stall_grace`` is therefore
+        presumed dead and failed explicitly."""
+        if not self.stall_grace:
+            return
+
+        with self._lock:
+            if not self._pending:
+                return
+            pending_keys = list(self._pending.keys())
+
+        deadline = self.timeout + self.stall_grace
+        now = time.monotonic()
+        for future in pending_keys:
+            with self._lock:
+                if future not in self._pending:
+                    continue
+                if now - self._scheduled_at.get(future, now) < deadline:
+                    continue
+                task_id = self._pending.pop(future, None)
+                self._scheduled_at.pop(future, None)
+
+            log.error(
+                "[%s] Task never ran (worker died before pickup?); marking it failed after %ss",
+                task_id, deadline,
+            )
+            try:
+                future.cancel()
+            except Exception:
+                pass
             if task_id is not None:
                 self.source.mark_failed(task_id)
 
@@ -71,6 +122,10 @@ class PebbleEngine(ProcessingEngine):
         with pebble.ProcessPool(max_workers=self.parallel, max_tasks=self.max_tasks,
                                 initializer=self.worker_init) as pool:
             while not self.max_count or count < self.max_count:
+                # Fail anything that was scheduled but never picked up, so a
+                # dead worker can't wedge the saturation check below forever.
+                self._reap_stalled()
+
                 # If not enough free disk space is available, block until space
                 # is reclaimed.  Mirrors the original autoprocess freespace check
                 # (only when cfg.cuckoo.freespace_processing is non-zero).
@@ -80,12 +135,15 @@ class PebbleEngine(ProcessingEngine):
                     free_space_monitor(dir_path, processing=True)
 
                 # If the pool is saturated, wait before polling again.
-                if len(self._pending) >= self.parallel:
+                with self._lock:
+                    pending_count = len(self._pending)
+                if pending_count >= self.parallel:
                     time.sleep(1)
                     continue
 
-                tasks = self.source.fetch(limit=self.parallel,
-                                          exclude_ids=set(self._pending.values()))
+                with self._lock:
+                    exclude = set(self._pending.values())
+                tasks = self.source.fetch(limit=self.parallel, exclude_ids=exclude)
                 added = False
                 # Schedule at most one task per iteration to avoid overshooting
                 # max_count (same rationale as the original "For loop to add
@@ -93,7 +151,9 @@ class PebbleEngine(ProcessingEngine):
                 for task in tasks:
                     log.info("Processing analysis data for Task #%d", task.id)
                     future = pool.schedule(self.task_fn, args=(task,), timeout=self.timeout)
-                    self._pending[future] = task.id
+                    with self._lock:
+                        self._pending[future] = task.id
+                        self._scheduled_at[future] = time.monotonic()
                     future.add_done_callback(self._done)
                     count += 1
                     added = True
@@ -108,5 +168,10 @@ class PebbleEngine(ProcessingEngine):
                     break
 
             # Drain: wait for all in-flight tasks to finish before returning.
-            while self._pending:
+            while True:
+                with self._lock:
+                    pending_exists = bool(self._pending)
+                if not pending_exists:
+                    break
+                self._reap_stalled()
                 time.sleep(0.2)

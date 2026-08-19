@@ -108,6 +108,22 @@ class CentralModeConfig:
     # The report doc -> central DocumentDB write is the NATIVE mongodb.py reporting module
     # pointed at DocumentDB via [mongodb] (tls=yes, retrywrites=no); central_mode therefore
     # only carries the FS->S3 artifact location.
+    #
+    # Read-only SQLAlchemy URL of the CENTRAL control-plane RDS, used by workers ONLY to
+    # resolve a central task's authoritative tenancy (tenant_id/user_id/visibility) when
+    # stamping the shared DocumentDB analysis doc. A worker's own [database] is its LOCAL
+    # per-worker task DB (a different id space), and centralstore rewrites info.id to the
+    # CENTRAL task id — so the stamp must be resolved against the central RDS, not locally.
+    # Empty (default) => the worker cannot resolve central tenancy and stamps FAIL-CLOSED
+    # (private/unowned). Set this (read-only creds) on workers in a central+MT deployment.
+    central_database_url: str = ""
+    # Management/UI node opt-in: this node advertises the fleet's route options on the
+    # submission form but runs NO rooter (only workers route traffic). When yes, init_rooter
+    # and init_routing tolerate an unreachable rooter (warn + skip route verification/NAT while
+    # still populating vpns/socks5s for the form) instead of raising CuckooStartupError. Default
+    # no, so single-node AND workers keep failing fast on a missing rooter. Set yes ONLY on the
+    # central UI node.
+    tolerate_missing_rooter: bool = False
 
 
 def _parse(sec) -> "CentralModeConfig":
@@ -131,6 +147,8 @@ def _parse(sec) -> "CentralModeConfig":
         worker_api_port=_as_port(get("worker_api_port", 8000), 8000),
         worker_ssh_user=str(get("worker_ssh_user", "cape") or "cape"),
         worker_ssh_keyfile=str(get("worker_ssh_keyfile", "/home/cape/.ssh/id_ed25519") or "/home/cape/.ssh/id_ed25519"),
+        central_database_url=str(get("central_database_url", "") or ""),
+        tolerate_missing_rooter=_as_bool(get("tolerate_missing_rooter", False), False),
     )
 
 
@@ -144,3 +162,88 @@ def central_mode_config() -> "CentralModeConfig":
     except Exception:
         sec = {}
     return _parse(sec)
+
+
+def central_bridge_required():
+    """True when tenant isolation REQUIRES the submit-bridge: central mode AND multitenancy are both enabled.
+
+    In that mode only a bridged 'ui-<central_id>' doc has a globally-unique, tenant-resolvable identity (the
+    bridge assigns it, centralstore stamps it, the reconcile maps it to a tenant via the central RDS). A
+    non-bridged / direct-submit 'local-<id>' doc has NO tenancy by construction -- the worker never knew a
+    tenant, there is no central RDS row for the reconcile to map, so its info.tenant_id stays null forever and
+    its worker-local info.id collides across workers. So when the bridge is required the own-doc read/write/
+    delete filters MUST refuse the ambiguous info.id arms and key ONLY on the ui- id; a non-bridged doc is
+    single-tenant only. Fail-closed on BOTH probes: if the central config read RAISES we can't rule out
+    central+MT, so assume bridge-required (the MOST restrictive own-doc filter -- a ui-only key that can never
+    match a foreign collision); _mt_enabled() is itself fail-closed (assumes enabled if its config layer is
+    present but unreadable). This MUST NOT propagate an exception -- its callers build a Mongo filter inline
+    (e.g. set_task_visibility's except arm) and can't handle a raise."""
+    try:
+        if not central_mode_config().enabled:
+            return False
+    except Exception:
+        return True  # mode indeterminate -> fail closed (ui-only own-doc filter)
+    try:
+        from lib.cuckoo.common.tenancy_optional import _mt_enabled
+
+        return _mt_enabled()
+    except Exception:
+        return True  # MT layer indeterminate -> fail closed
+
+
+def central_own_analysis_filter(task_id, tenant_id):
+    """The Mongo filter identifying the caller's OWN analysis doc for a central task, DERIVED from the
+    authorized task_id. The SINGLE key used by every central WRITE that mutates a task's own doc -- the
+    visibility-toggle write (lib.cuckoo.core.data.tasking.set_task_visibility), the central DELETE and the
+    comment write (web.analysis.central_views / views.comments) -- so they can't drift.
+
+    CRITICAL Mongo semantics: an equality on null ({info.tenant_id: None}) ALSO matches documents where the
+    field is ABSENT, and every doc is inserted unstamped (stamp_tenant_info / reconcile write the tenant only
+    at report time; a reconcile-skipped doc stays stranded). So a bare {info.id: tid} arm ANDed with only a
+    null-or-ours tenant guard would re-admit a FOREIGN worker-local doc that collides on info.id (audit HIGH:
+    it backs a destructive delete + a re-owning $set). The own-doc arms are therefore qualified by job_id:
+
+      * info.job_id == 'ui-<task_id>' -- the bridge assigns this GLOBALLY-UNIQUE id and centralstore stamps it
+        (rewriting info.id to the same central id), so it uniquely + unforgeably (DERIVED, never read from the
+        user `custom`) addresses a bridged task's doc.
+      * info.id == task_id AND info.job_id in {absent/null, 'ui-<task_id>'} -- an OWN doc not yet keyed (before
+        centralstore stamps job_id). A foreign doc that has already been stamped 'local-<n>' fails this arm.
+      * info.id == task_id AND info.job_id == 'local-<task_id>' AND info.tenant_id == ours -- an OWN
+        direct-submit / non-bridged doc: central mode explicitly supports this topology (resolve_job_id's
+        non-broker fallback, mongodb.py's direct-submit handling, central_analysis_query's read fallback), so
+        the write MUST address it -- but 'local-<n>' is NOT globally unique (two workers both mint it), so it
+        is OURS only once it carries OUR tenant stamp. (This means a restrictive toggle of an own NON-bridged
+        doc is a safe no-op until reconcile stamps it -- bounded, and preferable to admitting a foreign doc.)
+
+    All ANDed with a {tenant_id null-or-ours} guard: a FOREIGN doc STAMPED for another tenant that collides on
+    info.id is excluded, so the $set can't relabel/re-own it. Pass the TASK's tenant_id (the doc's expected
+    owner), which also lets a break-glass toggle of another tenant's task match (the task carries that tenant).
+
+    This is NOT identical to the READ filter (central_analysis_query ANDs its non-bridged arm with the full
+    viewer_scope); it is the WRITE-side own-doc key, deliberately tenant-guarded. A 0-match is a safe no-op
+    (no own doc yet; reconcile stamps it from the authoritative SQL value on report).
+
+    BRIDGE-REQUIRED (central + MT, central_bridge_required()): the info.id arms are DROPPED entirely -- only a
+    bridged 'ui-<tid>' doc is a tenant-isolated own doc, so the filter is {info.job_id: ui-<tid>} AND the
+    tenant guard. This fully closes the residual below (no bare info.id surface at all); a non-bridged doc is
+    single-tenant only in that mode, and centralstore/mongodb refuse to PERSIST one under central+MT so the
+    ui-only key always resolves an existing own doc.
+
+    NON-bridge-required (single-node / MT-off): the three-arm form supports direct-submit docs. RESIDUAL there:
+    a FOREIGN doc inserted but NOT YET keyed (info.job_id absent) that collides on info.id still passes the
+    second arm during that transient window -- acceptable when MT is off (no tenant boundary to cross)."""
+    _tid = int(task_id)
+    _tenant_guard = {"$or": [{"info.tenant_id": None}, {"info.tenant_id": tenant_id}]}
+    if central_bridge_required():
+        # Only a globally-unique bridged id is a tenant-isolated own doc; no ambiguous info.id arm.
+        return {"$and": [{"info.job_id": f"ui-{_tid}"}, _tenant_guard]}
+    return {"$and": [
+        {"$or": [
+            {"info.job_id": f"ui-{_tid}"},
+            # own not-yet-keyed doc: our info.id AND no foreign job_id stamped on it
+            {"$and": [{"info.id": _tid}, {"info.job_id": {"$in": [None, f"ui-{_tid}"]}}]},
+            # own direct-submit doc: 'local-<tid>' is OURS only once it carries OUR tenant stamp
+            {"$and": [{"info.id": _tid}, {"info.job_id": f"local-{_tid}"}, {"info.tenant_id": tenant_id}]},
+        ]},
+        _tenant_guard,
+    ]}

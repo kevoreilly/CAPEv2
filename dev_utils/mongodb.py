@@ -29,6 +29,15 @@ def is_regex_query(query):
     return False
 
 
+def _truthy(val, default=False):
+    """Coerce a conf value (bool or 'yes'/'no'/'on'/'off'/...) to bool."""
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return default
+    return str(val).strip().lower() in ("1", "true", "yes", "on")
+
+
 if repconf.mongodb.enabled:
     from pymongo import MongoClient, version_tuple
     from pymongo.errors import AutoReconnect, ConnectionFailure, OperationFailure, ServerSelectionTimeoutError
@@ -46,7 +55,13 @@ if repconf.mongodb.enabled:
                 username=repconf.mongodb.get("username"),
                 password=repconf.mongodb.get("password"),
                 authSource=repconf.mongodb.get("authsource", "cuckoo"),
+                # DocumentDB (central mode) needs TLS explicitly on (a CA file alone
+                # does NOT enable TLS in pymongo) and retryWrites OFF (DocumentDB
+                # rejects retryable writes). Both default to today's single-node
+                # behavior: tls off, retryWrites on (pymongo's own default).
+                tls=_truthy(repconf.mongodb.get("tls", False), False),
                 tlsCAFile=repconf.mongodb.get("tlscafile", None),
+                retryWrites=_truthy(repconf.mongodb.get("retrywrites", True), True),
                 connect=True, # Force connection now to catch issues
                 serverSelectionTimeoutMS=5000,
                 socketTimeoutMS=30000,
@@ -100,14 +115,34 @@ else:
     class OperationFailure(Exception):
         pass
 
-    def get_mongodb():
-        raise ConnectionFailure("MongoDB is disabled in reporting.conf")
-
     class DisabledDB:
         def __getattr__(self, name):
             raise ConnectionFailure("MongoDB is disabled in reporting.conf")
 
     results_db = DisabledDB()
+
+    def connect_to_mongo():
+        return None
+
+    def get_mongodb():
+        class DummyMongo:
+            @property
+            def client(self):
+                class DummyClient:
+                    @property
+                    def admin(self):
+                        class DummyAdmin:
+                            def command(self, *args, **kwargs):
+                                raise OperationFailure("MongoDB is disabled in reporting.conf")
+                        return DummyAdmin()
+                return DummyClient()
+        return DummyMongo()
+
+    class LegacyDB:
+        def __getattr__(self, name):
+            raise AttributeError("MongoDB is disabled")
+
+    results_db = LegacyDB()
 
 MAX_AUTO_RECONNECT_ATTEMPTS = 5
 

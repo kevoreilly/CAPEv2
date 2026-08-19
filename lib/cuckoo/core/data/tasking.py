@@ -935,7 +935,7 @@ class TasksMixIn:
         @param status: status string
         @return: operation status
         """
-        log.info("setstat task %s status %s", task_id, status)
+        log.debug("setstat task %s status %s", task_id, status)
         task = self.session.get(Task, task_id)
 
         if not task:

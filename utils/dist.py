@@ -401,8 +401,17 @@ def _delete_many(node, ids, nodes, db):
     try:
         url = urljoin(nodes[node].url, "tasks/delete_many/")
         apikey = nodes[node].apikey
-        # log.debug("Removing task id(s): %s - from node: %s", ids, nodes[node].name)
-        log.info("[REMOVE] %-15s ==> Task(s) %s", nodes[node].name, ids)
+        # Try to map worker task IDs back to CAPE Main IDs for superior UX/traceability
+        id_list = [int(i.strip()) for i in ids.split(",") if i.strip().isdigit()]
+        cape_ids = []
+        if id_list and db:
+            stmt = select(Task.main_task_id).where(Task.node_id == node, Task.task_id.in_(id_list))
+            cape_ids = db.scalars(stmt).all()
+
+        if cape_ids:
+            log.info("[REMOVE] %-15s ==> CAPE ID: %s (Worker ID: %s)", nodes[node].name, ",".join(map(str, cape_ids)), ids)
+        else:
+            log.info("[REMOVE] %-15s ==> Worker ID: %s", nodes[node].name, ids)
         res = requests.post(
             url,
             headers={"Authorization": f"Token {apikey}"},
@@ -627,7 +636,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                     main_db.set_status(task.main_task_id, TASK_BANNED)
             if task.task_id:
                 # log.debug("Submitted task to worker: %s - %d - %d", node.name, task.task_id, task.main_task_id)
-                log.info("[SUBMIT] %-15s <== Task %-6d (Main: %d)", node.name, task.task_id, task.main_task_id)
+                log.info("[SUBMIT] %-15s <== CAPE ID: %-6d (Worker ID: %d)", node.name, task.main_task_id, task.task_id)
         elif r and r.status_code == 500:
             log.info("Saving error to /tmp/dist_error.html")
             _ = path_write_file("/tmp/dist_error.html", r.content)
@@ -708,27 +717,27 @@ class Retriever(threading.Thread):
         thread_targets = []
 
         if dist_conf.GCP.enabled and HAVE_GCP:
-            thread_targets.append((cloud.autodiscovery, "autodiscovery", ()))
+            thread_targets.append((cloud.autodiscovery, "gcp_discovery", ()))
 
         # Data fetchers
         for i in range(int(dist_conf.distributed.dist_threads)):
             if NFS_FETCH:
-                thread_targets.append((self.fetch_latest_reports_nfs, f"fetch_latest_reports_nfs_{i}", ()))
+                thread_targets.append((self.fetch_latest_reports_nfs, f"nfs_{i}", ()))
             elif RESTAPI_FETCH:
-                thread_targets.append((self.fetch_latest_reports, f"fetch_latest_reports_{i}", ()))
+                thread_targets.append((self.fetch_latest_reports, f"api_{i}", ()))
 
         thread_targets.append((self.fetcher, "fetcher", ()))
 
         if dist_conf.distributed.remove_task_on_worker or delete_enabled:
-            thread_targets.append((self.remove_from_worker, "remove_from_worker", ()))
+            thread_targets.append((self.remove_from_worker, "remover", ()))
 
         if dist_conf.distributed.failed_cleaner or failed_clean_enabled:
-            thread_targets.append((self.failed_cleaner, "failed_to_clean", ()))
+            thread_targets.append((self.failed_cleaner, "cleaner", ()))
 
-        thread_targets.append((self.free_space_mon, "free_space_mon", ()))
+        thread_targets.append((self.free_space_mon, "space_mon", ()))
 
         if reporting_conf.callback.enabled:
-            thread_targets.append((self.notification_loop, "notification_loop", ()))
+            thread_targets.append((self.notification_loop, "notifier", ()))
 
         # Supervisor Loop
         active_threads = {}  # name -> thread_obj
@@ -1023,7 +1032,7 @@ class Retriever(threading.Thread):
                         ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id,
                     )
                     """
-                    dbg_line = f"[FETCH ] {ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id:<15} <== Task {t.id:<6} - (Main ID: {t.main_task_id})"
+                    dbg_line = f"[FETCH ] {ID2NAME[t.node_id] if t.node_id in ID2NAME else t.node_id:<15} <== CAPE ID: {t.main_task_id:<6} (Worker ID: {t.task_id}) [Dist ID: {t.id}]"
                     log.debug(dbg_line)
                     with main_db.session.begin():
                         # set completed_on time
@@ -1053,7 +1062,7 @@ class Retriever(threading.Thread):
                         t.main_task_id,
                     )
                     """
-                    dbg_line = f"[PERF  ] Copied Task {t.task_id} in {timediff:.2f}s"
+                    dbg_line = f"[PERF  ] Copied CAPE ID: {t.main_task_id} (Worker ID: {t.task_id}) in {timediff:.2f}s"
                     log.debug(dbg_line)
                     self.cleaner_queue.put((node_id, task.get("id")))
                     # this doesn't exist for some reason
@@ -1399,7 +1408,7 @@ class StatusThread(threading.Thread):
                 # Process collected force_push tasks in parallel
                 if tasks_to_push:
                     max_workers = int(dist_conf.distributed.dist_threads)
-                    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                    with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="submit") as executor:
                         # future -> (task, main_task_id)
                         future_to_info = {
                             executor.submit(node_submit_task, task.id, node.id, main_task_id, db=None): (task, main_task_id)
@@ -1449,7 +1458,7 @@ class StatusThread(threading.Thread):
                     return False
                 # Parallel execution
                 max_workers = int(dist_conf.distributed.dist_threads)
-                with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="submit") as executor:
                     future_to_task = {
                         executor.submit(node_submit_task, task.id, node.id, task.main_task_id, db=None): task for task in to_upload
                     }
@@ -1989,8 +1998,8 @@ class ColoredFormatter(logging.Formatter):
     # Pre-compiled regex patterns (C-level high-performance parsing)
     RE_WORKER = re.compile(r"\b(cape-worker[-\w]*)\b", re.IGNORECASE)
     RE_SETSTAT = re.compile(r"\b(task)\b\s+(\d+)\s+(status)", re.IGNORECASE)
-    RE_MAIN_TASK = re.compile(r"\b(main(?:_task)?_id|main|analysis(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE)
-    RE_WORKER_TASK = re.compile(r"\b(task(?:s|\(s\))?|task_id)\b[:\s=]+([\d,]+)", re.IGNORECASE)
+    RE_MAIN_TASK = re.compile(r"\b(main(?:_task)?_id|main|analysis(?:[\s_-]?id)?|cape(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE)
+    RE_WORKER_TASK = re.compile(r"\b(task(?:s|\(s\))?|task_id|worker(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE)
     RE_PERF = re.compile(r"\bin\s+([0-9.]+s)\b")
 
     FORMATS = {
@@ -2054,7 +2063,7 @@ class ColoredFormatter(logging.Formatter):
             "[FETCH ]": f"{BOLD_GREEN}[FETCH ]{RESET}",
             "[SUBMIT]": f"{BOLD_CYAN}[SUBMIT]{RESET}",
             "[REMOVE]": f"{BOLD_RED}[REMOVE]{RESET}",
-            "[GCS]": f"{BOLD_MAGENTA}[GCS]{RESET}",
+            "[GCS   ]": f"{BOLD_MAGENTA}[GCS   ]{RESET}",
             "[PERF  ]": f"{BOLD_YELLOW}[PERF  ]{RESET}",
         }
 
@@ -2306,12 +2315,12 @@ def main():
     # Starts Daemon Server
     app = create_app(database_connection=dist_conf.distributed.db)
 
-    t = StatusThread(name="StatusThread")
+    t = StatusThread(name="status")
     t.daemon = True
     t.start()
 
     if not args.submit_only and not dist_conf.distributed.get("submit_only"):
-        retrieve = Retriever(name="Retriever")
+        retrieve = Retriever(name="supervisor")
         retrieve.daemon = True
         retrieve.start()
     else:
@@ -2330,12 +2339,12 @@ else:
     # this allows run it with gunicorn/uwsgi
     log = init_logging(True)
     if not dist_conf.distributed.get("submit_only"):
-        retrieve = Retriever(name="Retriever")
+        retrieve = Retriever(name="supervisor")
         retrieve.daemon = True
         retrieve.start()
     else:
         log.info("Submit-only mode (config): Retriever thread disabled.")
 
-    t = StatusThread(name="StatusThread")
+    t = StatusThread(name="status")
     t.daemon = True
     t.start()

@@ -1507,6 +1507,8 @@ def perform_search(
         query_val = {"$gte": float(value)}
     else:
         if re.search(r"[\^\$\|\?\*\+\(\)\[\]\{\}]", value):
+            if len(value) > 256:
+                raise ValueError("Regex too long")
             query_val = {"$regex": value, "$options": "i"}
         else:
             query_val = value

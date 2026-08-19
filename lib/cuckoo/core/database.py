@@ -242,22 +242,19 @@ class _Database(TasksMixIn,
 
     def create_guac_session(self, token, task_id, vm_label, guest_ip):
         """Create a new guac session for a task."""
-        session = self.session()
         try:
-            guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
-            session.add(guac)
-            session.commit()
+            with self.session.begin():
+                guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
+                self.session.add(guac)
             return guac
         except Exception:
-            session.rollback()
             raise
 
     def get_guac_session(self, token):
         """Look up a guac session by token. Returns dict or None."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            row = session.query(GuacSession).filter_by(token=str(token)).first()
+            row = self.session.query(GuacSession).filter_by(token=str(token)).first()
             if row:
                 return {"task_id": row.task_id, "vm_label": row.vm_label, "guest_ip": getattr(row, "guest_ip", None)}
             return None
@@ -267,22 +264,20 @@ class _Database(TasksMixIn,
     def delete_guac_session(self, token):
         """Delete a guac session token."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            session.query(GuacSession).filter_by(token=str(token)).delete()
-            session.commit()
+            with self.session.begin():
+                self.session.query(GuacSession).filter_by(token=str(token)).delete()
         except Exception:
-            session.rollback()
+            raise
 
     def delete_guac_sessions_for_task(self, task_id):
         """Delete all guac sessions for a task."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            session.query(GuacSession).filter_by(task_id=task_id).delete()
-            session.commit()
+            with self.session.begin():
+                self.session.query(GuacSession).filter_by(task_id=task_id).delete()
         except Exception:
-            session.rollback()
+            raise
 
 _DATABASE: Optional[_Database] = None
 

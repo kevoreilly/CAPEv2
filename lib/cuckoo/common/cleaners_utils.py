@@ -238,7 +238,11 @@ def is_reporting_db_connected():
         if not webconf.web_reporting.enabled:
             return True
         if repconf.mongodb.enabled:
-            results_db = connect_to_mongo()[mdb]
+            client = connect_to_mongo()
+            if client is None:
+                log.info("Can't connect to mongo")
+                return False
+            results_db = client[mdb]
             # Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
             if results_db is None:
                 log.info("Can't connect to mongo")

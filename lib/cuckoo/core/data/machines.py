@@ -27,7 +27,7 @@ try:
         Mapped,
         mapped_column,
         relationship,
-        subqueryload,
+        selectinload,
     )
 
 except ImportError:  # pragma: no cover
@@ -200,7 +200,7 @@ class MachinesMixIn:
         task_archs, task_tags = self._task_arch_tags_helper(task)
         os_version = self._package_vm_requires_check(task.package)
 
-        base_stmt = select(Machine).options(subqueryload(Machine.tags))
+        base_stmt = select(Machine).options(selectinload(Machine.tags))
 
         # This helper now encapsulates the final ordering, locking, and execution.
         # It takes a Select statement as input.
@@ -294,9 +294,9 @@ class MachinesMixIn:
         78 | cape2  | win10 | x64  |
         """
         # ToDo do we really need it
-        with self.session.begin_nested():
+        with self.session.begin():
             # with self.session.no_autoflush:
-            stmt = select(Machine).options(subqueryload(Machine.tags))
+            stmt = select(Machine).options(selectinload(Machine.tags))
 
             if locked is not None:
                 stmt = stmt.where(Machine.locked.is_(locked))
@@ -369,7 +369,7 @@ class MachinesMixIn:
 
     def get_available_machines(self) -> List[Machine]:
         """Which machines are available"""
-        stmt = select(Machine).options(subqueryload(Machine.tags)).where(Machine.locked.is_(False))
+        stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.locked.is_(False))
         return self.session.scalars(stmt).all()
 
     def count_machines_running(self) -> int:
@@ -392,10 +392,10 @@ class MachinesMixIn:
 
     def view_machine(self, name: str) -> Optional[Machine]:
         """Shows virtual machine details by name."""
-        stmt = select(Machine).options(subqueryload(Machine.tags)).where(Machine.name == name)
+        stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.name == name)
         return self.session.scalar(stmt)
 
     def view_machine_by_label(self, label: str) -> Optional[Machine]:
         """Shows virtual machine details by label."""
-        stmt = select(Machine).options(subqueryload(Machine.tags)).where(Machine.label == label)
+        stmt = select(Machine).options(selectinload(Machine.tags)).where(Machine.label == label)
         return self.session.scalar(stmt)

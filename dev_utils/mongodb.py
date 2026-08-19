@@ -133,7 +133,7 @@ else:
                     def admin(self):
                         class DummyAdmin:
                             def command(self, *args, **kwargs):
-                                raise OperationFailure("MongoDB is disabled")
+                                raise OperationFailure("MongoDB is disabled in reporting.conf")
                         return DummyAdmin()
                 return DummyClient()
         return DummyMongo()

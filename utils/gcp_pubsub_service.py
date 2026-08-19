@@ -136,7 +136,7 @@ def init_logging(debug=False):
 
     if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
         path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
-        
+
     fh = handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "gcp_pubsub.log"), when="midnight", backupCount=10)
     fh.setFormatter(formatter)
     log_obj.addHandler(fh)

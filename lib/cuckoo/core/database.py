@@ -129,6 +129,21 @@ class _Database(TasksMixIn,
         # Get db session.
         self.session = scoped_session(sessionmaker(bind=self.engine, expire_on_commit=False, future=True))
 
+        # Safe begin context manager to prevent transaction nesting issues
+        original_begin = self.session.begin
+        from contextlib import contextmanager
+
+        @contextmanager
+        def safe_begin(*args, **kwargs):
+            if self.session().in_transaction():
+                yield
+                self.session().flush()
+            else:
+                with original_begin(*args, **kwargs) as tx:
+                    yield tx
+
+        self.session.begin = safe_begin
+
         # ToDo this breaks tests
         """
         # There should be a better way to clean up orphans. This runs after every flush, which is crazy.

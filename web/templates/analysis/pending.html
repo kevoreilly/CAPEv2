@@ -42,9 +42,11 @@
                         </div>
                     </td>
                     <td class="text-center">
+                        {% if task.can_delete %}
                         <a href="/apiv2/tasks/delete/{{task.id}}/pending" class="btn btn-sm btn-outline-danger" data-bs-toggle="tooltip" title="Delete Task">
                             <i class="fas fa-trash-alt"></i>
                         </a>
+                        {% endif %}
                     </td>
                 </tr>
             {% endfor %}

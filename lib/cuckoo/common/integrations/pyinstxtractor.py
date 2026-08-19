@@ -89,6 +89,7 @@ import os
 import struct
 import sys
 import zlib
+import urllib.parse
 from contextlib import suppress
 from uuid import uuid4 as uniquename
 
@@ -226,9 +227,17 @@ class PyInstArchive:
                 log.warning("[!] File name %s contains invalid bytes. Using random name %s", name, newName)
                 name = newName
 
+            while "%" in name:
+                new_name = urllib.parse.unquote(name)
+                if new_name == name:
+                    break
+                name = new_name
+
             # Prevent writing outside the extraction directory
             if name.startswith("/"):
                 name = name.lstrip("/")
+            name = name.replace("\\", "/")
+            name = name.replace("..", "__")
 
             if len(name) == 0:
                 name = str(uniquename())
@@ -241,14 +250,30 @@ class PyInstArchive:
             parsedLen += entrySize
         log.info("[+] Found %d files in CArchive", len(self.tocList))
 
+    def _get_unique_fd(self, filepath):
+        flags = os.O_CREAT | os.O_EXCL | os.O_WRONLY
+        current_path = filepath
+        while True:
+            try:
+                fd = os.open(current_path, flags)
+                return fd, current_path
+            except FileExistsError:
+                base, ext = os.path.splitext(filepath)
+                current_path = base + "_" + str(uniquename()) + ext
+
     def _writeRawData(self, filepath, data):
         nm = filepath.replace("\\", os.path.sep).replace("/", os.path.sep).replace("..", "__")
         nmDir = os.path.dirname(nm)
         if nmDir != "" and not os.path.exists(nmDir):  # Check if path exists, create if not
-            os.makedirs(nmDir)
+            try:
+                os.makedirs(nmDir)
+            except FileExistsError:
+                pass
 
-        with open(nm, "wb") as f:
+        fd, final_filename = self._get_unique_fd(nm)
+        with os.fdopen(fd, "wb") as f:
             f.write(data)
+        return final_filename
 
     def extractFiles(self):
         log.debug("[+] Beginning extraction...please standby")
@@ -260,7 +285,10 @@ class PyInstArchive:
         # os.chdir(extractionDir)
 
         for entry in self.tocList:
-            destination_entry = os.path.join(self.destination_folder, entry.name)
+            destination_entry = os.path.abspath(os.path.join(self.destination_folder, entry.name))
+            if not destination_entry.startswith(os.path.abspath(self.destination_folder) + os.sep):
+                log.warning("[!] Path traversal attempt detected. Skipping %s", entry.name)
+                continue
             self.fPtr.seek(entry.position, os.SEEK_SET)
             data = self.fPtr.read(entry.cmprsdDataSize)
 
@@ -280,7 +308,7 @@ class PyInstArchive:
                 # These are runtime options, not files
                 continue
 
-            basePath = os.path.dirname(entry.name)
+            basePath = os.path.dirname(destination_entry)
             if basePath != "":
                 # Check if path exists, create if not
                 if not os.path.exists(basePath):
@@ -290,11 +318,10 @@ class PyInstArchive:
                 # s -> ARCHIVE_ITEM_PYSOURCE
                 # Entry point are expected to be python scripts
                 log.info("[+] Possible entry point: %s.pyc", entry.name)
-
+                final_filename = self._writePyc(destination_entry + ".pyc", data)
                 if self.pycMagic == b"\0" * 4:
                     # if we don't have the pyc header yet, fix them in a later pass
-                    self.barePycList.append(destination_entry + ".pyc")
-                self._writePyc(destination_entry + ".pyc", data)
+                    self.barePycList.append(final_filename)
 
             elif entry.typeCmprsData == (b"M", b"m") and not self.only_entrypoints:
                 # M -> ARCHIVE_ITEM_PYPACKAGE
@@ -310,16 +337,16 @@ class PyInstArchive:
                     self._writeRawData(destination_entry + ".pyc", data)
                 else:
                     # >= pyinstaller 5.3
+                    final_filename = self._writePyc(destination_entry + ".pyc", data)
                     if self.pycMagic == b"\0" * 4:
                         # if we don't have the pyc header yet, fix them in a later pass
-                        self.barePycList.append(destination_entry + ".pyc")
-                    self._writePyc(destination_entry + ".pyc", data)
+                        self.barePycList.append(final_filename)
             else:
                 if not self.only_entrypoints:
-                    self._writeRawData(destination_entry, data)
+                    final_filename = self._writeRawData(destination_entry, data)
 
                     if entry.typeCmprsData in (b"z", b"Z"):
-                        self._extractPyz(destination_entry)
+                        self._extractPyz(final_filename)
 
         # Fix bare pyc's if any
         self._fixBarePycs()
@@ -331,7 +358,8 @@ class PyInstArchive:
                 pycFile.write(self.pycMagic)
 
     def _writePyc(self, filename, data):
-        with open(filename, "wb") as pycFile:
+        fd, final_filename = self._get_unique_fd(filename)
+        with os.fdopen(fd, "wb") as pycFile:
             pycFile.write(self.pycMagic)  # pyc magic
 
             if self.pymaj >= 3 and self.pymin >= 7:  # PEP 552 -- Deterministic pycs
@@ -344,6 +372,7 @@ class PyInstArchive:
                     pycFile.write(b"\0" * 4)  # Size parameter added in Python 3.3
 
             pycFile.write(data)
+        return final_filename
 
     def _extractPyz(self, name):
         dirName = name + "_extracted"
@@ -407,14 +436,19 @@ class PyInstArchive:
 
                 fileDir = os.path.dirname(filePath)
                 if not os.path.exists(fileDir):
-                    os.makedirs(fileDir)
+                    try:
+                        os.makedirs(fileDir)
+                    except FileExistsError:
+                        pass
 
                 try:
                     data = f.read(length)
                     data = zlib.decompress(data)
                 except Exception as e:
                     print("[!] Error: Failed to decompress %s, probably encrypted. Extracting as is. Error: %s", filePath, str(e))
-                    open(filePath + ".encrypted", "wb").write(data)
+                    fd, final_enc_filename = self._get_unique_fd(filePath + ".encrypted")
+                    with os.fdopen(fd, "wb") as f_enc:
+                        f_enc.write(data)
                 else:
                     self._writePyc(filePath, data)
 

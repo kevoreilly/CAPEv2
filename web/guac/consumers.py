@@ -31,14 +31,16 @@ TASK_POLL_INTERVAL = 10
 ACTIVE_GUAC_TASK_STATUSES = ("pending", "running")
 
 
-def _get_vnc_port(vm_label):
-    """Look up VNC port for a VM from libvirt. Must be called from sync context."""
+def _get_vnc_port(vm_label, dsn=machinery_dsn):
+    """Look up VNC port for a VM from libvirt. Must be called from sync context.
+    `dsn` is the local hypervisor for single-node, or a worker's libvirt-over-SSH
+    in central mode (the VM lives on the worker hosting the job)."""
     if not LIBVIRT_AVAILABLE:
         return None
 
     conn = None
     try:
-        conn = libvirt.open(machinery_dsn)
+        conn = libvirt.open(dsn)
         if not conn:
             return None
         dom = conn.lookupByName(vm_label)
@@ -167,6 +169,7 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             vm_label = self.vm_label
 
             vnc_port = None
+            worker_ip = None  # central mode: set to the worker's IP when the task's VM is remote
             if self.guac_task_id > 0:
                 # 3. Verify task can still host an interactive session
                 task = await sync_to_async(db.view_task)(self.guac_task_id)
@@ -178,8 +181,47 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
 
-                # 4. Look up VNC port server-side from libvirt
-                vnc_port = await sync_to_async(_get_vnc_port)(vm_label)
+                # 3b. Defense-in-depth: confirm the socket's user may MANAGE this task.
+                # Opening the tunnel grants live keyboard/mouse/framebuffer control, a
+                # task ACTION — so it follows the same owner/tenant-admin/break-glass
+                # boundary as the mint (guac index / submission status), NOT mere read
+                # visibility. A leaked/replayed cookie must not tunnel into another
+                # tenant's (or another user's public) VM. Check UNCONDITIONALLY — do
+                # NOT skip for an anonymous/absent socket user: viewer_for resolves
+                # anonymous to a non-manager when MT is on (and break-glass when MT is
+                # off), so a replay is denied here rather than tunnelling on token
+                # possession alone.
+                from web.tenancy_optional import can_manage_task
+
+                ws_user = self.scope.get("user")
+                if not await sync_to_async(can_manage_task)(ws_user, task):
+                    logger.warning(
+                        "WebSocket rejected: user not entitled to task %s", self.guac_task_id
+                    )
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
+
+                # 4. Central mode: a broker-dispatched job's VM lives on a worker. worker_ip
+                # (from the broker record) is truthy => central; None => single-node/local. The
+                # tunnel targets the worker's guacd (guacd_hostname=worker_ip below).
+                from lib.cuckoo.common.central_guac import libvirt_dsn_for_task
+
+                vnc_dsn, worker_ip = await sync_to_async(libvirt_dsn_for_task)(self.guac_task_id, machinery_dsn)
+
+                # 4b. Resolve the VNC port.
+                if worker_ip:
+                    # Central: the WORKER resolves its own VNC port via apiv2 (local libvirt,
+                    # reliable). Do NOT open the worker's libvirt over SSH from here -- that
+                    # lookup intermittently hangs / returns -1 during VM boot and was the cause
+                    # of guac 519 (UPSTREAM_NOT_FOUND).
+                    from lib.cuckoo.common.central_guac import worker_vnc_port_for_task
+
+                    vnc_port = await sync_to_async(worker_vnc_port_for_task)(self.guac_task_id)
+                else:
+                    # Single-node/non-central: guacd + libvirt are local, so read the port from
+                    # LOCAL libvirt exactly as before (unchanged behavior).
+                    vnc_port = await sync_to_async(_get_vnc_port)(vm_label, vnc_dsn)
                 if not vnc_port:
                     logger.warning(
                         "WebSocket rejected: no VNC port for VM %s", vm_label
@@ -187,6 +229,22 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                     await self.close()
                     return
             else:
+                # Direct VNC connection (task_id=0): no per-task gate applies and
+                # the mint endpoints are break-glass-admin-only, so re-validate that
+                # here too — a replayed direct-VNC guac_session cookie from a tenant
+                # or anonymous socket must not open the raw VM/host console on token
+                # possession alone. viewer_for resolves anonymous to non-admin when
+                # MT is on, and to local-admin when MT is off (legacy console works).
+                from web.tenancy_optional import viewer_for as _viewer_for
+
+                ws_user = self.scope.get("user")
+                _is_admin = await sync_to_async(lambda: _viewer_for(ws_user).is_local_admin)()
+                if not _is_admin:
+                    logger.warning("WebSocket rejected: direct VNC requires a break-glass admin")
+                    await self._delete_guac_session()
+                    await self.close()
+                    return
+
                 # Direct VNC connection
                 guest_ip = session_data.get("guest_ip")
                 if not guest_ip:
@@ -208,8 +266,9 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                         await self.close()
                         return
 
-            # 5. Parse config
-            guacd_hostname = web_cfg.guacamole.guacd_host or "localhost"
+            # 5. Parse config. Central mode: target the WORKER's guacd (which
+            # reaches the VM's VNC on its own localhost); single-node uses configured guacd.
+            guacd_hostname = worker_ip or web_cfg.guacamole.guacd_host or "localhost"
             guacd_port = int(web_cfg.guacamole.guacd_port) or 4822
             guacd_recording_path = web_cfg.guacamole.guacd_recording_path or ""
             guest_protocol = web_cfg.guacamole.guest_protocol or "vnc"
@@ -240,7 +299,10 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
                         "disable-theming": "true",
                     }
                 else:
-                    guest_host = web_cfg.guacamole.vnc_host or "localhost"
+                    # Central: the task's VM is on a worker, whose guacd (guacd_hostname=
+                    # worker_ip) reaches the VM's VNC on its OWN localhost; single-node uses
+                    # the configured vnc_host.
+                    guest_host = "localhost" if worker_ip else (web_cfg.guacamole.vnc_host or "localhost")
                     guest_port = vnc_port
                     ignore_cert = "false"
                     vnc_color_depth = str(

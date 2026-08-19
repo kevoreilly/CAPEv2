@@ -41,7 +41,11 @@ def calc_scoring(results: dict, matched: list):
     4. Benign: The file is likely trusted and digitally signed.
         - Score: 0-3/10 (Benign)
     5. Undetected/Failed: The file does not trigger any signatures.
-        - Score: 0/10 (Undetected/Failed)
+        - Static analysis: Undetected, or Suspicious if raw YARA rules matched
+          the target file without being tied to a known family.
+        - Dynamic analysis: Undetected if a process tree exists, otherwise
+          Failed (the sample never ran).
+        - Score: 0/10 (Undetected/Failed), or 4.0/10 for the Suspicious static case above.
 
     Parameters:
     results (dict): The analysis results containing details about the file and its behavior.
@@ -156,7 +160,20 @@ def calc_scoring(results: dict, matched: list):
         # 5. Undetected/Failed
         else:
             finalMalscore = 0
-            if results.get("behavior", {}).get("processtree", []):
+            if category == "static":
+                # Static analysis never executes the sample, so there is never a
+                # process tree by design. Fall back to raw YARA matches on the
+                # target file (not tied to a known family) to decide between
+                # Undetected and Suspicious instead of assuming failure.
+                target_file = results.get("target") or {}
+                file_info = target_file.get("file") or {}
+                yara_hits = file_info.get("yara") or file_info.get("cape_yara") or []
+                if yara_hits:
+                    status = "Suspicious"
+                    finalMalscore = 4.0
+                else:
+                    status = "Undetected"
+            elif results.get("behavior", {}).get("processtree", []):
                 status = "Undetected"
             else:
                 status = "Failed"

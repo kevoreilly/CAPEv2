@@ -19,6 +19,25 @@ def is_string(value):
     return isinstance(value, str)
 
 
+@register.simple_tag
+def can_delete_task(user, task):
+    """Template gate: may `user` DELETE `task`? `task` may be a SQL Task object or a task id (mongo
+    analysis.info.id). Used to HIDE the irreversible Delete control from a caller can_delete_task would
+    refuse (e.g. a tenant-admin viewing a public job's admin page) instead of offering a button that
+    403s. Fails CLOSED (no button) on any resolution error, and is a no-op True when MT is off (the
+    import-optional shim returns allow for a single-tenant box)."""
+    try:
+        from web.tenancy_optional import can_delete_task as _can_delete
+        if isinstance(task, (int, str)):
+            from lib.cuckoo.core.database import Database
+            task = Database().view_task(int(task))
+            if task is None:
+                return False
+        return bool(_can_delete(user, task))
+    except Exception:
+        return False
+
+
 @register.filter("comma_join")
 def comma_join(value):
     return ",".join(str(task) for task in value)

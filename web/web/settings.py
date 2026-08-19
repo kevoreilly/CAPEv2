@@ -533,3 +533,12 @@ except NameError:
 from lib.cuckoo.core.database import init_database
 
 init_database()
+
+# Prevent Django's auto-reloader from watching/reloading when files inside workers/ folder change
+from django.dispatch import receiver
+from django.utils.autoreload import file_changed
+
+@receiver(file_changed)
+def ignore_workers_changes(sender, file_path, **kwargs):
+    if "/workers/" in str(file_path).replace("\\", "/"):
+        return True

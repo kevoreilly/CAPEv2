@@ -299,7 +299,7 @@ def test_start_retries_vm_status_get_until_success(
     mocker: MockerFixture,
 ):
     machinery = make_machinery(proxmox_module, timeout=10)
-    clock = install_fake_clock(proxmox_module, mocker)
+    install_fake_clock(proxmox_module, mocker)
 
     vm = mocker.Mock()
     node = mocker.Mock()

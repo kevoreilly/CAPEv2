@@ -264,22 +264,20 @@ class _Database(TasksMixIn,
     def delete_guac_session(self, token):
         """Delete a guac session token."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            session.query(GuacSession).filter_by(token=str(token)).delete()
-            session.commit()
+            with self.session.begin():
+                self.session.query(GuacSession).filter_by(token=str(token)).delete()
         except Exception:
-            session.rollback()
+            raise
 
     def delete_guac_sessions_for_task(self, task_id):
         """Delete all guac sessions for a task."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            session.query(GuacSession).filter_by(task_id=task_id).delete()
-            session.commit()
+            with self.session.begin():
+                self.session.query(GuacSession).filter_by(task_id=task_id).delete()
         except Exception:
-            session.rollback()
+            raise
 
 _DATABASE: Optional[_Database] = None
 

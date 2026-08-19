@@ -292,3 +292,27 @@ def test_wait_for_task_retries_vm_status_get_until_success(
     assert task == completed_task
     assert vm.status.current.get.call_count == 2
     assert clock.now < machinery.timeout
+
+
+def test_start_retries_vm_status_get_until_success(
+    proxmox_module,
+    mocker: MockerFixture,
+):
+    machinery = make_machinery(proxmox_module, timeout=10)
+    clock = install_fake_clock(proxmox_module, mocker)
+
+    vm = mocker.Mock()
+    node = mocker.Mock()
+
+    mocker.patch.object(machinery, "find_vm", return_value=(vm, node))
+    mocker.patch.object(machinery, "rollback")
+
+    vm.status.current.get.side_effect = [
+        RequestException("temporary transport failure"),
+        {"status": "running"},
+    ]
+
+    machinery.start("analysis-vm")
+
+    assert vm.status.current.get.call_count == 2
+    machinery.rollback.assert_called_once_with("analysis-vm", vm, node)

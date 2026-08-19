@@ -240,10 +240,12 @@ class Proxmox(Machinery):
         vm, node = self.find_vm(label)
         self.rollback(label, vm, node)
 
-        try:
-            status = vm.status.current.get()
-        except ResourceException as e:
-            raise CuckooMachineError(f"Couldn't get status: {e}")
+        deadline = time.monotonic() + self.timeout
+        status = self._get_with_retry(
+            vm.status.current,
+            deadline=deadline,
+            description=f"{label}: Couldn't get VM status",
+        )
 
         if status["status"] == "running":
             log.debug("%s: Already running after rollback, no need to start it", label)

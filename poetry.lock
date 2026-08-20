@@ -7158,6 +7158,7 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 
 [extras]
 dist = ["fastapi"]
+docker = ["docker"]
 gcp = ["google-cloud-pubsub", "google-cloud-storage"]
 maco = ["maco"]
 mcp = ["fastmcp", "httpx"]
@@ -7166,4 +7167,4 @@ yara = ["plyara"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "75600dd93a68227ac75940a4e134c1409bebc3f7a92ed1f28b3b4f002b92bcc2"
+content-hash = "b36ba5d0e96e33e53d7cbfde6be4856a18a1269b17d17c9fe164cd03311b7dd6"

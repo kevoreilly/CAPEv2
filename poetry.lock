@@ -197,7 +197,7 @@ description = "Document parameters, class attributes, return types, and variable
 optional = true
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "extra == \"mcp\""
+markers = "extra == \"mcp\" or extra == \"dist\""
 files = [
     {file = "annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:571ac1dc6991c450b25a9c2d84a3705e2ae7a53467b5d111c24fa8baabbed320"},
     {file = "annotated_doc-0.0.4.tar.gz", hash = "sha256:fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4"},
@@ -1465,6 +1465,31 @@ files = [
 
 [package.extras]
 testing = ["hatch", "pre-commit", "pytest", "tox"]
+
+[[package]]
+name = "fastapi"
+version = "0.141.1"
+description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
+optional = true
+python-versions = ">=3.10"
+groups = ["main"]
+markers = "extra == \"dist\""
+files = [
+    {file = "fastapi-0.141.1-py3-none-any.whl", hash = "sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"},
+    {file = "fastapi-0.141.1.tar.gz", hash = "sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1"},
+]
+
+[package.dependencies]
+annotated-doc = ">=0.0.2"
+pydantic = ">=2.9.0"
+starlette = ">=0.46.0"
+typing-extensions = ">=4.8.0"
+typing-inspection = ">=0.4.2"
+
+[package.extras]
+all = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.32)", "httpx (>=0.23.0,<1.0.0)", "itsdangerous (>=1.1.0)", "jinja2 (>=3.1.5)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "pyyaml (>=5.3.1)", "uvicorn[standard] (>=0.12.0)"]
+standard = ["email-validator (>=2.0.0)", "fastapi-cli[standard] (>=0.0.32)", "fastar (>=0.9.0)", "httpx (>=0.23.0,<1.0.0)", "jinja2 (>=3.1.5)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "uvicorn[standard] (>=0.12.0)"]
+standard-no-fastapi-cloud-cli = ["email-validator (>=2.0.0)", "fastapi-cli[standard-no-fastapi-cloud-cli] (>=0.0.32)", "httpx (>=0.23.0,<1.0.0)", "jinja2 (>=3.1.5)", "pydantic-extra-types (>=2.0.0)", "pydantic-settings (>=2.0.0)", "python-multipart (>=0.0.18)", "uvicorn[standard] (>=0.12.0)"]
 
 [[package]]
 name = "fastmcp"
@@ -6070,7 +6095,7 @@ description = "The little ASGI library that shines."
 optional = true
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "extra == \"mcp\""
+markers = "extra == \"mcp\" or extra == \"dist\""
 files = [
     {file = "starlette-0.52.1-py3-none-any.whl", hash = "sha256:0029d43eb3d273bc4f83a08720b4912ea4b071087a3b48db01b7c839f7954d74"},
     {file = "starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933"},
@@ -7132,7 +7157,7 @@ test = ["coverage[toml]", "zope.event", "zope.testing"]
 testing = ["coverage[toml]", "zope.event", "zope.testing"]
 
 [extras]
-docker = ["docker"]
+dist = ["fastapi"]
 gcp = ["google-cloud-pubsub", "google-cloud-storage"]
 maco = ["maco"]
 mcp = ["fastmcp", "httpx"]
@@ -7141,4 +7166,4 @@ yara = ["plyara"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "21f32c606f31adfa88358023bd0f05591ccca4a8860f6fd704663f7951b94906"
+content-hash = "75600dd93a68227ac75940a4e134c1409bebc3f7a92ed1f28b3b4f002b92bcc2"

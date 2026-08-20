@@ -304,21 +304,26 @@ def check_working_directory():
         raise CuckooStartupError(f"Fix permission on tmpfs path: chown cape:cape {cuckoo.tmpfs.path}")
 
 
-def check_webgui_mongo():
+def check_webgui_mongo(exit_on_connection_failure=True):
     if repconf.mongodb.enabled:
         from dev_utils.mongodb import connect_to_mongo, mongo_create_index
 
         client = connect_to_mongo()
         if not client:
-            sys.exit(
-                "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration\nrun `systemctl status mongodb` for more info"
+            message = (
+                "You have enabled webgui but mongo isn't working, see mongodb manual for correct installation and configuration\n"
+                "run `systemctl status mongodb` for more info"
             )
+            if exit_on_connection_failure:
+                sys.exit(message)
+            log.warning(message)
+            return
 
-        # Create an index based on the info.id dict key. Increases overall scalability
-        # with large amounts of data.
-        # Note: Silently ignores the creation if the index already exists.
+        # Create required indexes to improve scalability with large amounts of data.
+        # Note: Silently ignores creation if an equivalent index already exists.
         index_configs = [
             ("analysis", [("info.id", -1)], {"name": "info_id_desc"}),
+            ("calls", [("task_id", 1)], {"name": "task_id_1"}),
             ("files", [("_task_ids", 1)], {}),
         ]
         if repconf.mongodb.get("index_yara", False):

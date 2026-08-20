@@ -96,9 +96,8 @@ maco = ["maco"]
 gcp = ["google-cloud-storage", "google-cloud-pubsub"]
 yara = ["plyara"]
 mcp = ["fastmcp", "httpx"]
-dist = [
-    "fastapi",
-]
+docker = ["docker"]
+dist = ["fastapi"]
 
 [dependency-groups]
 dev = [

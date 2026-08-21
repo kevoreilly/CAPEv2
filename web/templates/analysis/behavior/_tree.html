@@ -1,13 +1,13 @@
 {% load generic_tags %}
 {% load analysis_tags %}
 
-<div class="card bg-dark border-secondary mb-3">
-    <div class="card-header border-secondary d-flex justify-content-between align-items-center">
-        <h5 class="mb-0 text-white"><i class="fas fa-sitemap me-2 text-info"></i> Process Tree</h5>
-        <button class="btn btn-sm btn-outline-secondary" onclick="resetTreeZoom()">Reset View</button>
+<div class="card bg-dark border-secondary mb-3 shadow-sm">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center bg-transparent py-3">
+        <h5 class="mb-0 text-white"><i class="fas fa-sitemap me-2 text-info"></i>Interactive Process Tree</h5>
+        <span class="badge bg-secondary">D3.js Collapsible</span>
     </div>
-    <div class="card-body p-0" style="overflow: hidden; background: #111;">
-        <div id="process-tree-viz" style="width: 100%; height: 500px; cursor: grab;"></div>
+    <div class="card-body p-0" style="background: #111; border-bottom-left-radius: 0.375rem; border-bottom-right-radius: 0.375rem;">
+        <div id="process-tree-viz" class="custom-scrollbar" style="width: 100%; max-height: 550px; overflow-y: auto; overflow-x: auto; padding: 15px 0;"></div>
     </div>
 </div>
 
@@ -21,153 +21,155 @@
     // Support multiple root nodes by wrapping in a virtual root if needed
     const rootData = data.length > 1 ? { name: "Analysis Root", pid: 0, children: data } : data[0];
 
-    const width = document.getElementById('process-tree-viz').clientWidth;
-    const height = 500;
-    const margin = {top: 20, right: 120, bottom: 20, left: 120};
+    const container = document.getElementById('process-tree-viz');
+    const width = container.clientWidth;
+    const margin = {top: 20, right: 30, bottom: 20, left: 30};
 
-    const dx = 30;
-    const dy = width / 4;
-    const tree = d3.tree().nodeSize([dx, dy]);
-    const diagonal = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+    const dx = 32; // Vertical spacing per node
+    const dy = 24; // Horizontal indentation per level
 
     const root = d3.hierarchy(rootData);
-
-    root.x0 = dy / 2;
-    root.y0 = 0;
-    root.descendants().forEach((d, i) => {
+    root.eachBefore((d, i) => {
         d.id = i;
         d._children = d.children;
-        // Collapse noisy nodes or deep levels by default if desired
-        // if (d.depth > 2) d.children = null;
+        // Keep top levels expanded, but collapse deeper levels by default to keep clean
+        if (d.depth > 3) d.children = null;
     });
 
     const svg = d3.select("#process-tree-viz").append("svg")
-        .attr("width", width)
-        .attr("height", height)
-        .attr("viewBox", [-margin.left, -margin.top, width, dx])
-        .style("font", "12px sans-serif")
+        .attr("width", "100%")
+        .style("font-family", "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace")
+        .style("font-size", "13px")
         .style("user-select", "none");
 
-    const gMain = svg.append("g");
-
-    const zoom = d3.zoom()
-        .scaleExtent([0.1, 3])
-        .on("zoom", (event) => {
-            gMain.attr("transform", event.transform);
-        });
-
-    svg.call(zoom);
-
-    window.resetTreeZoom = function() {
-        svg.transition().duration(750).call(
-            zoom.transform,
-            d3.zoomIdentity
-        );
-    };
-
-    const gLink = gMain.append("g")
+    const gLink = svg.append("g")
         .attr("fill", "none")
-        .attr("stroke", "#555")
-        .attr("stroke-opacity", 0.4)
+        .attr("stroke", "#444")
         .attr("stroke-width", 1.5);
 
-    const gNode = gMain.append("g")
-        .attr("cursor", "pointer")
-        .attr("pointer-events", "all");
+    const gNode = svg.append("g");
 
-    function update(source) {
-        const duration = 250;
-        const nodes = root.descendants().reverse();
-        const links = root.links();
+    function update() {
+        const nodes = [];
+        function recurse(node) {
+            nodes.push(node);
+            if (node.children) {
+                node.children.forEach(recurse);
+            }
+        }
+        recurse(root);
 
-        // Compute the new tree layout.
-        tree(root);
-
-        let left = root;
-        let right = root;
-        root.eachBefore(node => {
-            if (node.x < left.x) left = node;
-            if (node.x > right.x) right = node;
+        // Assign vertical and horizontal positions
+        nodes.forEach((node, i) => {
+            node.x = i * dx + margin.top;
+            node.y = node.depth * dy + margin.left;
         });
 
-        const height = right.x - left.x + margin.top + margin.bottom;
+        const newHeight = nodes.length * dx + margin.top + margin.bottom;
+        svg.attr("height", newHeight);
 
-        const transition = svg.transition()
-            .duration(duration)
-            .attr("viewBox", [-margin.left, left.x - margin.top, width, height])
-            .tween("resize", window.ResizeObserver ? null : () => () => svg.dispatch("toggle"));
+        const transition = svg.transition().duration(250);
 
-        // Update the nodes…
+        // Update nodes
         const node = gNode.selectAll("g")
             .data(nodes, d => d.id);
 
-        // Enter any new nodes at the parent's previous position.
         const nodeEnter = node.enter().append("g")
-            .attr("transform", d => `translate(${source.y0},${source.x0})`)
+            .attr("transform", d => `translate(${d.y},${d.x})`)
             .attr("fill-opacity", 0)
             .attr("stroke-opacity", 0)
+            .attr("cursor", d => d._children ? "pointer" : "default")
             .on("click", (event, d) => {
-                d.children = d.children ? null : d._children;
-                update(d);
+                // Toggle children on click
+                if (d._children) {
+                    d.children = d.children ? null : d._children;
+                    update();
+                }
             });
 
+        // Toggle Folder/Node indicator (Plus/Minus)
+        nodeEnter.append("path")
+            .attr("d", d => d.children ? "M-4,0 H4" : "M-4,0 H4 M0,-4 V4")
+            .attr("stroke", d => d._children ? "#0dcaf0" : "#999")
+            .attr("stroke-width", 2)
+            .attr("fill", "none")
+            .attr("class", "toggle-icon")
+            .style("display", d => d._children ? "inline" : "none");
+
+        // Small dot for leaf nodes (no children)
         nodeEnter.append("circle")
-            .attr("r", 4)
-            .attr("fill", d => d._children ? "#555" : "#999")
-            .attr("stroke-width", 10);
+            .attr("r", 3)
+            .attr("fill", "#666")
+            .style("display", d => d._children ? "none" : "inline");
 
-        nodeEnter.append("text")
-            .attr("dy", "0.31em")
-            .attr("x", d => d._children ? -8 : 8)
-            .attr("text-anchor", d => d._children ? "end" : "start")
-            .attr("fill", "#fff")
-            .text(d => d.data.name + (d.data.pid ? " ("+d.data.pid+")" : ""))
-          .clone(true).lower()
-            .attr("stroke-linejoin", "round")
-            .attr("stroke-width", 3)
-            .attr("stroke", "#111");
+        // Label group container
+        const textGroup = nodeEnter.append("g")
+            .attr("transform", "translate(12, 4)");
 
-        // Transition nodes to their new position.
-        const nodeUpdate = node.merge(nodeEnter).transition(transition)
+        // Process Name text
+        textGroup.append("text")
+            .attr("fill", d => d.data.pid === 0 ? "#6c757d" : "#ffffff")
+            .style("font-weight", d => d._children ? "bold" : "normal")
+            .text(d => d.data.name);
+
+        // PID badge/text
+        textGroup.append("text")
+            .attr("dx", d => d.data.name.length * 8 + 12)
+            .attr("fill", "#0dcaf0")
+            .style("font-size", "11px")
+            .style("font-weight", "bold")
+            .text(d => d.data.pid ? `(${d.data.pid})` : "");
+
+        // Command line (if present)
+        textGroup.append("text")
+            .attr("dx", d => {
+                const nameLen = d.data.name.length * 8;
+                const pidLen = d.data.pid ? String(d.data.pid).length * 8 + 15 : 0;
+                return nameLen + pidLen + 24;
+            })
+            .attr("fill", "#888")
+            .style("font-size", "11px")
+            .text(d => {
+                const cmd = d.data.environ && d.data.environ.CommandLine ? d.data.environ.CommandLine : "";
+                if (cmd && cmd.length > 140) return cmd.slice(0, 140) + "...";
+                return cmd;
+            });
+
+        // Transition nodes
+        node.merge(nodeEnter).transition(transition)
             .attr("transform", d => `translate(${d.y},${d.x})`)
             .attr("fill-opacity", 1)
             .attr("stroke-opacity", 1);
 
-        // Transition exiting nodes to the parent's new position.
-        const nodeExit = node.exit().transition(transition).remove()
-            .attr("transform", d => `translate(${source.y},${source.x})`)
+        // Update the fold icons (Minus if expanded, Plus if collapsed)
+        node.merge(nodeEnter).select(".toggle-icon")
+            .attr("d", d => d.children ? "M-4,0 H4" : "M-4,0 H4 M0,-4 V4");
+
+        // Exit nodes
+        node.exit().transition(transition).remove()
             .attr("fill-opacity", 0)
             .attr("stroke-opacity", 0);
 
-        // Update the links…
+        // Update links
+        const links = [];
+        nodes.forEach(d => {
+            if (d.parent) {
+                links.push({source: d.parent, target: d});
+            }
+        });
+
         const link = gLink.selectAll("path")
             .data(links, d => d.target.id);
 
-        // Enter any new links at the parent's previous position.
         const linkEnter = link.enter().append("path")
-            .attr("d", d => {
-                const o = {x: source.x0, y: source.y0};
-                return diagonal({source: o, target: o});
-            });
+            .attr("d", d => `M${d.source.y},${d.source.x} V${d.target.x} H${d.target.y}`);
 
-        // Transition links to their new position.
         link.merge(linkEnter).transition(transition)
-            .attr("d", diagonal);
+            .attr("d", d => `M${d.source.y},${d.source.x} V${d.target.x} H${d.target.y}`);
 
-        // Transition exiting nodes to the parent's new position.
-        link.exit().transition(transition).remove()
-            .attr("d", d => {
-                const o = {x: source.x, y: source.y};
-                return diagonal({source: o, target: o});
-            });
-
-        // Stash the old positions for transition.
-        root.eachBefore(d => {
-            d.x0 = d.x;
-            d.y0 = d.y;
-        });
+        link.exit().transition(transition).remove();
     }
 
-    update(root);
+    update();
 })();
 </script>

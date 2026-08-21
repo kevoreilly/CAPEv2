@@ -68,7 +68,7 @@ CAPE (Config And Payload Extraction) is a malware analysis sandbox derived from 
 
 ### Coding Standards (PEP 8+)
 *   **Imports:** Explicit imports only (`from lib import a, b`). No `from lib import *`. Group standard library, 3rd party, and local imports.
-*   **Strings:** Use double quotes (`"`) for strings. (This line was corrected from the original prompt to reflect the actual change needed for the example.)
+*   **Strings:** Use double quotes (`"`) for strings.
 *   **Logging:** Use `import logging; log = logging.getLogger(__name__)`. Do not use `print()`.
 *   **Exceptions:** Use custom exceptions from `lib/cuckoo/common/exceptions.py` (e.g., `CuckooOperationalError`).
 

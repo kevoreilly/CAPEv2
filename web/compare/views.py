@@ -316,6 +316,8 @@ def both(request, left_id, right_id):
         counts = compare.helper_percentages_elastic(es, left_id, right_id)
         summary_compare = compare.helper_summary_elastic(es, left_id, right_id)
 
+    categories = ["registry", "filesystem", "system", "network", "process", "services", "synchronization", "windows"]
+
     return render(
         request,
         "compare/both.html",

@@ -1867,7 +1867,7 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
     # Central mode: several tab loaders below read the local analysis tree (bingraph /
     # vba2graph svgs, evtx.zip, ETW aux/*.json). report() stages the S3 tree on first
     # view, but a deep-link straight to a tab can arrive before any report view — stage
@@ -2219,7 +2219,7 @@ def chunk(request, task_id, pid, pagenum):
     except Exception:
         raise PermissionDenied
 
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
     if is_ajax:
         if enabledconf["mongodb"]:
             record = mongo_find_one(
@@ -2281,7 +2281,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
     @param category: call category type
     @param apilist: comma-separated list of APIs to include, if preceded by ! specifies to exclude the list
     """
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
     if is_ajax:
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
@@ -3324,7 +3324,7 @@ def report(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @require_task_visibility
 def load_evtx_channel(request, task_id):
-    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+    if request.headers.get("x-requested-with") != "XMLHttpRequest" and request.headers.get("hx-request") != "true":
         raise PermissionDenied
 
     # Central mode: evtx.zip lives in S3 until staged locally. A deep-link straight to the Event Logs tab
@@ -3359,7 +3359,7 @@ def load_evtx_channel(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @require_task_visibility
 def load_evtx_channel_count(request, task_id):
-    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+    if request.headers.get("x-requested-with") != "XMLHttpRequest" and request.headers.get("hx-request") != "true":
         raise PermissionDenied
 
     # Central mode: stage the S3 tree first (see load_evtx_channel) so the count endpoint doesn't 403 on a

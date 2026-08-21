@@ -1,18 +1,60 @@
 {% extends "base.html" %}
 {% block content %}
 
-{% if running %}
-    <script>
-        window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_self");
-    </script>
-{% else %}
-    <script type="text/JavaScript">setTimeout("location.reload(true);",5000);</script>
-    <div class="alert alert-secondary bg-dark text-info">
-        <h4>Hang on...</h4>
-        <p>The task is not running yet. This page will refresh every 5 seconds.</p>
-        <div class="progress progress-striped active" style="margin-top: 10px;">
-            <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
-        </div>
+<div class="row justify-content-center">
+    <div class="col-lg-6" id="remote-status-card"
+         {% if not running %}
+         hx-get="{% url 'remote_session' task_id %}" 
+         hx-trigger="every 3s" 
+         hx-select="#remote-status-card" 
+         hx-swap="outerHTML"
+         {% endif %}>
+        {% if running %}
+            <script>
+                window.open(window.location.origin + "/guac/{{task_id}}/{{session_data}}", "_self");
+            </script>
+            <div class="card bg-dark border-success shadow-lg text-center">
+                <div class="card-body p-5">
+                    <i class="fas fa-external-link-alt fa-4x text-success mb-4"></i>
+                    <h3>Redirecting...</h3>
+                    <p class="text-white-50">Your interactive session is ready. Redirecting you to the console.</p>
+                    <a href="/guac/{{task_id}}/{{session_data}}" class="btn btn-success mt-3">Click here if not redirected</a>
+                </div>
+            </div>
+        {% else %}
+            <div class="card bg-dark border-secondary shadow-lg text-center">
+                <div class="card-header border-secondary bg-transparent py-3">
+                    <h4 class="mb-0 text-white"><i class="fas fa-desktop me-2 text-info"></i>Remote Session Status</h4>
+                </div>
+                <div class="card-body p-5">
+                    <div class="status-pulse mb-5 mx-auto"></div>
+                    <h3>Waiting for VM...</h3>
+                    <p class="text-white-50">The task is being prepared. We'll redirect you as soon as the VM is ready for interaction.</p>
+                    
+                    <div class="mt-4 text-info small">
+                        <i class="fas fa-sync fa-spin me-2"></i>Checking status every 3 seconds
+                    </div>
+                </div>
+            </div>
+        {% endif %}
     </div>
-{% endif %}
+</div>
+
+<style>
+.status-pulse {
+  width: 60px;
+  height: 60px;
+  background-color: #17a2b8;
+  border-radius: 50%;
+  position: relative;
+  animation: pulse-teal 2s infinite ease-in-out;
+}
+
+@keyframes pulse-teal {
+  0% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(23, 162, 184, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 15px rgba(23, 162, 184, 0); }
+  100% { transform: scale(0.8); box-shadow: 0 0 0 0 rgba(23, 162, 184, 0); }
+}
+</style>
+
 {% endblock %}

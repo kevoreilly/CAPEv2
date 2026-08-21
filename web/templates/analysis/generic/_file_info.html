@@ -1,7 +1,6 @@
 {% load key_tags %}
 
-<div id="file-info-{{file.sha256}}" class="card bg-dark border-secondary mb-3" hx-ext="response-targets" hx-target-4*="#on-demand-error-{{file.sha256}}">
-    <div id="on-demand-error-{{file.sha256}}" class="mt-2"></div>
+<div id="file-info-{{file.sha256}}" class="card bg-dark border-secondary mb-3">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white"><i class="fas fa-file-alt me-2 text-info"></i> File Information</h5>
         <div class="d-flex align-items-center">
@@ -50,7 +49,7 @@
                 <th class="text-end text-info" style="width: 15%;">File Name</th>
                 <td class="text-break">
                     {% for name in file.name|str2list %}
-                        <div><strong>{{name}}</strong></div>
+                        <div><strong>{{name|safe}}</strong></div>
                     {% endfor %}
                 </td>
             </tr>
@@ -236,32 +235,6 @@
             </tr>
             {% endif %}
 
-{# similarity-inline-rows BEGIN #}
-{% if file.code_similarity_matches %}
-            <tr>
-                <th class="text-end text-info" style="width: 15%;">Code Similarity</th>
-                <td>
-                    <ul class="list-unstyled mb-0">
-                    {% for m in file.code_similarity_matches %}
-                        <li class="mb-1">
-                            {% if m.family %}
-                                <span class="badge bg-danger me-1">{{ m.family }}</span>
-                                {% if m.version %}<span class="badge bg-dark me-1">{{ m.version }}</span>{% endif %}
-                            {% else %}
-                                <span class="badge bg-secondary me-1">unlabelled</span>
-                            {% endif %}
-                            <span class="{% if m.similarity >= 80 %}text-danger{% elif m.similarity >= 50 %}text-warning{% else %}text-muted{% endif %} fw-bold me-2">{{ m.similarity }}%</span>
-                            {% if m.low_confidence %}<span class="badge bg-warning text-dark me-2" title="Below minimum_similarity; best available match">low</span>{% endif %}
-                            <span class="text-muted font-monospace small">{% if m.sample_sha256 %}{{ m.sample_sha256 }}{% endif %}</span>
-                            <span class="badge bg-dark border border-secondary ms-2">{{ m.engine }}</span>
-                        </li>
-                    {% endfor %}
-                    </ul>
-                </td>
-            </tr>
-{% endif %}
-{# similarity-inline-rows END #}
-
             {% if file.trid %}
             <tr>
                 <th class="text-end text-info" style="width: 15%;">TriD</th>
@@ -280,25 +253,6 @@
                     <ul class="list-unstyled mb-0">
                         {% for str in file.die %}<li>{{str}}</li>{% endfor %}
                     </ul>
-                </td>
-            </tr>
-            {% endif %}
-
-            {% if file.magika %}
-            <tr>
-                <th class="text-end text-info" style="width: 15%;">Magika File Type</th>
-                <td class="text-break">
-                    {{file.magika.description|default:file.magika.label}}
-                    <a href="/analysis/search/magika:{{file.magika.label}}" class="badge bg-secondary ms-1 text-decoration-none">{{file.magika.label}}</a>
-                    {% if file.magika.mime_type %}<span class="badge bg-secondary ms-1">{{file.magika.mime_type}}</span>{% endif %}
-                    {% if file.magika.score %}
-                        <span class="badge {% if file.magika.low_confidence %}bg-warning text-dark{% else %}bg-success{% endif %} ms-1"
-                              data-bs-toggle="tooltip"
-                              title="{% if file.magika.low_confidence %}Model confidence, below the configured min_score{% else %}Model confidence{% endif %}">{{file.magika.score}}</span>
-                    {% endif %}
-                    {% if file.magika.dl_label %}
-                        <span class="badge bg-dark border border-secondary ms-1" data-bs-toggle="tooltip" title="Raw model guess before {{file.magika.overwrite_reason}} override">raw: {{file.magika.dl_label}}</span>
-                    {% endif %}
                 </td>
             </tr>
             {% endif %}
@@ -322,13 +276,11 @@
 
             {% if config.flare_capa %}
                 {% if not file.flare_capa and on_demand.flare_capa %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2"
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
                        href="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "flare_capa" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-target-4*="#res-flare_capa-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       id="btn-flare_capa-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: CAPA</a>
                 {% elif file.flare_capa %}
                     <a class="btn btn-sm btn-outline-warning me-2 mb-2" data-bs-toggle="collapse" href="#flare_capa_{{file.sha256}}">View CAPA</a>
@@ -337,13 +289,11 @@
 
             {% if config.strings %}
                 {% if "strings" not in file %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2"
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
                        href="{% url "on_demand" "strings" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "strings" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-target-4*="#res-strings-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       id="btn-strings-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: Strings</a>
                 {% elif file.strings %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#strings_{{file.sha256}}">Strings</a>
@@ -352,13 +302,11 @@
 
             {% if config.floss %}
                 {% if not file.floss %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2"
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
                        href="{% url "on_demand" "floss" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "floss" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-target-4*="#res-floss-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       id="btn-floss-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: Floss</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#floss_{{file.sha256}}">Floss</a>
@@ -367,13 +315,11 @@
 
             {% if config.bingraph %}
                 {% if not graphs.bingraph.content|getkey:file.sha256 and on_demand.bingraph %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2"
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
                        href="{% url "on_demand" "bingraph" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "bingraph" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-target-4*="#res-bingraph-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       id="btn-bingraph-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: BinGraph</a>
                 {% else %}
                     <a class="btn btn-sm btn-outline-light me-2 mb-2" href="{% url "file_nl" "bingraph" id file.sha256 %}">BinGraph</a>
@@ -382,39 +328,33 @@
 
             {% if config.vba2graph %}
                 {% if not graphs.vba2graph.content|getkey:file.sha256 and on_demand.vba2graph %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2"
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
                        href="{% url "on_demand" "vba2graph" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "vba2graph" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-target-4*="#res-vba2graph-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       id="btn-vba2graph-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: VBA2Graph</a>
                 {% endif %}
             {% endif %}
 
             {% if config.xlsdeobf %}
                 {% if not file.office.XLMMacroDeobfuscator and on_demand.xlsdeobf %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2"
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
                        href="{% url "on_demand" "xlsdeobf" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "xlsdeobf" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-target-4*="#res-xlsdeobf-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       id="btn-xlsdeobf-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: XLMDeobf</a>
                 {% endif %}
             {% endif %}
 
             {% if config.virustotal %}
                 {% if not file.virustotal and on_demand.virustotal %}
-                    <a class="btn btn-sm btn-secondary me-2 mb-2"
+                    <a class="btn btn-sm btn-secondary me-2 mb-2" 
                        href="{% url "on_demand" "virustotal" id tab_name file.sha256 %}"
                        hx-get="{% url "on_demand" "virustotal" id tab_name file.sha256 %}"
                        hx-target="#file-info-{{file.sha256}}"
-                       hx-target-4*="#res-virustotal-{{file.sha256}}"
                        hx-swap="outerHTML"
-                       id="btn-virustotal-{{file.sha256}}"
                        hx-indicator="#indicator-{{file.sha256}}">Extract: VT</a>
                 {% endif %}
             {% endif %}
@@ -445,7 +385,7 @@
         {% if file.flare_capa %}
             <div class="collapse mb-3" id="flare_capa_{{file.sha256}}">
                 <div class="card bg-dark border-secondary">
-    <div class="card-header border-secondary"><h6 class="mb-0 text-white">CAPA Results</h6></div>
+                    <div class="card-header border-secondary"><h6 class="mb-0 text-white">CAPA Results</h6></div>
                     <div class="card-body">
                         {% if file.flare_capa.CAPABILITY or file.flare_capa.ATTCK or file.flare_capa.MBC %}
                             {% if file.flare_capa.CAPABILITY %}{{ file.flare_capa|flare_capa_capability }}{% endif %}
@@ -459,14 +399,12 @@
             </div>
         {% endif %}
 
-        <div id="res-vba2graph-{{file.sha256}}"></div>
         {% if graphs.vba2graph.enabled and graphs.vba2graph.content|getkey:file.sha256 %}
             <div class="card bg-dark border-secondary mb-3">
                 <div class="card-body text-center">{{ graphs.vba2graph.content|getkey:file.sha256|safe }}</div>
             </div>
         {% endif %}
 
-        <div id="res-virustotal-{{file.sha256}}"></div>
         {% if file.virustotal %}
             <div class="mb-3">{% include "analysis/generic/_virustotal.html" %}</div>
         {% endif %}
@@ -478,7 +416,7 @@
         {% if file.strings %}
             <div class="collapse mb-3" id="strings_{{file.sha256}}">
                 <div class="card bg-dark border-secondary text-white">
-    <div class="card-header"><h6 class="mb-0 text-white-50">Strings</h6></div>
+                    <div class="card-header"><h6 class="mb-0 text-white-50">Strings</h6></div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.strings %}{{string}}<br>{% endfor %}</pre>
                     </div>
@@ -489,7 +427,7 @@
         {% if file.dotnet_strings %}
             <div class="collapse mb-3" id="dotnet_strings_{{file.sha256}}">
                 <div class="card bg-dark text-white">
-    <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
+                    <div class="card-header"><h6 class="mb-0">.NET Strings</h6></div>
                     <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                         <pre class="mb-0 text-light small">{% for string in file.dotnet_strings %}{{string}}<br>{% endfor %}</pre>
                     </div>
@@ -500,7 +438,7 @@
         {% if file.data %}
             <div class="collapse mb-3" id="text_{{file.sha256}}">
                 <div class="card bg-dark text-white">
-    <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
+                    <div class="card-header"><h6 class="mb-0">Extracted Text</h6></div>
                     <div class="card-body">
                         <pre class="mb-0 text-light small">{{file.data|escape}}</pre>
                     </div>
@@ -511,7 +449,7 @@
         {% if file.decoded_files %}
             <div class="collapse mb-3" id="decoded_files_{{file.sha256}}">
                 <div class="card bg-dark text-white">
-    <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
+                    <div class="card-header"><h6 class="mb-0">Decoded File Content</h6></div>
                     <div class="card-body">
                         <pre class="mb-0 text-light small">{{file.decoded_files|escape}}</pre>
                     </div>
@@ -540,7 +478,7 @@
             {% for name, details in file.selfextract.items %}
                 <div class="collapse mb-3" id="selfextract_{{name}}">
                     <div class="card bg-dark border-secondary">
-    <div class="card-header border-secondary"><h6 class="mb-0 text-white">Archive: {{name}}</h6></div>
+                        <div class="card-header border-secondary"><h6 class="mb-0 text-white">Archive: {{name}}</h6></div>
                         <div class="card-body">
                             {% if details.password %}
                                 <div class="alert alert-info">Password: <strong>{{details.password}}</strong></div>
@@ -568,12 +506,10 @@
         {% if file.rdp %} <div class="collapse mb-3" id="rdp_{{file.sha256}}"> {% include "analysis/generic/_rdp.html" %}</div>{% endif %}
         {% if file.java %} <div class="collapse mb-3" id="java_{{file.sha256}}"> {% include "analysis/generic/_java.html" %}</div>{% endif %}
         {% if file.office %} <div class="collapse mb-3" id="office_{{file.sha256}}"> {% include "analysis/generic/_office.html" %}</div>{% endif %}
-        <div id="res-xlsdeobf-{{file.sha256}}"></div>
         {% if file.office.XLMMacroDeobfuscator %} <div class="collapse mb-3" id="xlmmacro_{{file.sha256}}"> {% include "analysis/generic/_xlmmacro.html" %}</div>{% endif %}
         {% if file.floss %} <div class="collapse mb-3" id="floss_{{file.sha256}}"> {% include "analysis/generic/_floss.html" %}</div>{% endif %}
         {% if file.msi %} <div class="collapse mb-3" id="msi_{{file.sha256}}"> {% include "analysis/generic/_msi.html" %}</div></br>{% endif %}
 
-        <div id="res-bingraph-{{file.sha256}}"></div>
         {% if graphs.bingraph.enabled and graphs.bingraph.content|getkey:file.sha256 %}
             <div class="card bg-dark border-secondary mb-3">
                 <div class="card-body text-center">{{ graphs.bingraph.content|getkey:file.sha256|safe }}</div>
@@ -581,3 +517,4 @@
         {% endif %}
     </div>
 </div>
+

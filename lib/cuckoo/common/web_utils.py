@@ -25,7 +25,6 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.utils import (
     generate_fake_name,
-    get_files_storage_path,
     get_ip_address,
     get_options,
     get_user_filename,
@@ -1209,25 +1208,10 @@ def category_all_files(task_id: str, category: str, base_path: str, analysis_fil
     #    analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
 
     if analysis:
-        files = []
         if query_category == "CAPE":
-            for block in analysis.get(query_category, {}).get("payloads", []):
-                # Path in files.json now stores only the SHA256, not a relative path
-                sha256 = block.get("path") or block.get("sha256")
-                if sha256:
-                    p = get_files_storage_path(sha256)
-                    if path_exists(p):
-                        files.append(p)
+            return [os.path.join(base_path, block["sha256"]) for block in analysis.get(query_category, {}).get("payloads", [])]
         else:
-            for block in analysis.get(category, []):
-                # Path in files.json now stores only the SHA256, not a relative path
-                sha256 = block.get("path") or block.get("sha256")
-                if sha256:
-                    p = get_files_storage_path(sha256)
-                    if path_exists(p):
-                        files.append(p)
-
-        return files
+            return [os.path.join(base_path, block["sha256"]) for block in analysis.get(category, [])]
 
 
 def validate_task(tid, status=TASK_REPORTED):
@@ -1579,6 +1563,8 @@ def perform_search(
                 # Join with the analysis collection
                 {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
                 {"$unwind": "$task_doc"},
+                # Stage 8: Make the task doc the new root (type check to prevent $replaceRoot crashes)
+                {"$match": {"task_doc": {"$type": "object"}}},
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
 

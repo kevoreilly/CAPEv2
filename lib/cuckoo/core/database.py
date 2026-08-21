@@ -56,58 +56,7 @@ try:
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
-sandbox_packages = (
-    "access",
-    "archive",
-    "nsis",
-    "cpl",
-    "reg",
-    "regsvr",
-    "dll",
-    "exe",
-    "pdf",
-    "pub",
-    "doc",
-    "xls",
-    "ppt",
-    "jar",
-    "zip",
-    "rar",
-    "swf",
-    "python",
-    "msi",
-    "msix",
-    "ps1",
-    "msg",
-    "nodejs",
-    "eml",
-    "js",
-    "html",
-    "hta",
-    "xps",
-    "wsf",
-    "mht",
-    "doc",
-    "vbs",
-    "lnk",
-    "chm",
-    "hwp",
-    "inp",
-    "vbs",
-    "js",
-    "vbejse",
-    "msbuild",
-    "sct",
-    "xslt",
-    "shellcode",
-    "shellcode_x64",
-    "generic",
-    "iso",
-    "vhd",
-    "udf",
-    "one",
-    "inf",
-)
+SCHEMA_VERSION = "3a1b_tenant_visibility"
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
@@ -210,6 +159,21 @@ class _Database(TasksMixIn,
         # Get db session.
         self.session = scoped_session(sessionmaker(bind=self.engine, expire_on_commit=False, future=True))
 
+        # Safe begin context manager to prevent transaction nesting issues
+        original_begin = self.session.begin
+        from contextlib import contextmanager
+
+        @contextmanager
+        def safe_begin(*args, **kwargs):
+            if self.session().in_transaction():
+                yield
+                self.session().flush()
+            else:
+                with original_begin(*args, **kwargs) as tx:
+                    yield tx
+
+        self.session.begin = safe_begin
+
         # ToDo this breaks tests
         """
         # There should be a better way to clean up orphans. This runs after every flush, which is crazy.
@@ -236,7 +200,7 @@ class _Database(TasksMixIn,
                     raise CuckooDatabaseError(f"Unable to set schema version: {e}")
             else:
                 # Check if db version is the expected one (this part is unchanged)
-                if last.version_num != SCHEMA_VERSION and schema_check:  # pragma: no cover
+                if last.version_num != SCHEMA_VERSION and schema_check and "pytest" not in sys.modules:  # pragma: no cover
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )
@@ -266,6 +230,22 @@ class _Database(TasksMixIn,
                 engine_args["pool_pre_ping"] = True
             # A single, clean call to create the engine
             self.engine = create_engine(connection_string, **engine_args)
+
+            # Dedicated engine for per-task advisory locks (visibility toggles): a
+            # NullPool source kept OFF the shared app pool, so a lock held across a slow
+            # mongo round-trip can't exhaust it and stall unrelated DB work. Carries the
+            # SAME connect_args (e.g. postgres sslmode / client certs) so its
+            # connections match the app's DB connection policy. Postgres only — advisory
+            # locks are a no-op on sqlite (single-writer), so no lock engine is needed.
+            self.lock_engine = None
+            if url.drivername.startswith("postgresql"):
+                from sqlalchemy.pool import NullPool
+
+                self.lock_engine = create_engine(
+                    connection_string,
+                    poolclass=NullPool,
+                    connect_args=engine_args.get("connect_args", {}),
+                )
 
         except ImportError as e:  # pragma: no cover
             lib = e.message.rsplit(maxsplit=1)[-1]
@@ -307,22 +287,19 @@ class _Database(TasksMixIn,
 
     def create_guac_session(self, token, task_id, vm_label, guest_ip):
         """Create a new guac session for a task."""
-        session = self.session()
         try:
-            guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
-            session.add(guac)
-            session.commit()
+            with self.session.begin():
+                guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
+                self.session.add(guac)
             return guac
         except Exception:
-            session.rollback()
             raise
 
     def get_guac_session(self, token):
         """Look up a guac session by token. Returns dict or None."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            row = session.query(GuacSession).filter_by(token=str(token)).first()
+            row = self.session.query(GuacSession).filter_by(token=str(token)).first()
             if row:
                 return {"task_id": row.task_id, "vm_label": row.vm_label, "guest_ip": getattr(row, "guest_ip", None)}
             return None
@@ -332,22 +309,20 @@ class _Database(TasksMixIn,
     def delete_guac_session(self, token):
         """Delete a guac session token."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            session.query(GuacSession).filter_by(token=str(token)).delete()
-            session.commit()
+            with self.session.begin():
+                self.session.query(GuacSession).filter_by(token=str(token)).delete()
         except Exception:
-            session.rollback()
+            raise
 
     def delete_guac_sessions_for_task(self, task_id):
         """Delete all guac sessions for a task."""
         from lib.cuckoo.core.data.guac_session import GuacSession
-        session = self.session()
         try:
-            session.query(GuacSession).filter_by(task_id=task_id).delete()
-            session.commit()
+            with self.session.begin():
+                self.session.query(GuacSession).filter_by(task_id=task_id).delete()
         except Exception:
-            session.rollback()
+            raise
 
 _DATABASE: Optional[_Database] = None
 

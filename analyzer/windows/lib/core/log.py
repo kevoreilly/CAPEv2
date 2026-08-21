@@ -5,7 +5,7 @@
 import logging
 import socket
 import traceback
-from ctypes import addressof, byref, c_int, create_string_buffer, sizeof
+from ctypes import addressof, byref, c_int, c_void_p, create_string_buffer, sizeof
 from threading import Thread
 
 from lib.common.defines import (
@@ -27,6 +27,10 @@ log = logging.getLogger()
 
 BUFSIZE = 512
 LOGBUFSIZE = 16384
+INVALID_HANDLE_VALUE_PTR = c_void_p(-1).value
+
+# Ensure WinAPI returns proper handle-sized values on 64-bit.
+KERNEL32.CreateNamedPipeW.restype = c_void_p
 
 
 class LogServerThread(Thread):
@@ -123,7 +127,7 @@ class LogServer:
             byref(sa),
         )
 
-        if h_pipe == INVALID_HANDLE_VALUE:
+        if h_pipe in (None, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE_PTR):
             log.warning("Unable to create log server pipe")
             return False
 

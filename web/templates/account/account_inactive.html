@@ -1,11 +1,18 @@
 {% extends "base.html" %}
-
 {% load i18n %}
 
 {% block head_title %}{% trans "Account Inactive" %}{% endblock %}
 
 {% block content %}
-<h1>{% trans "Account Inactive" %}</h1>
-
-<p>{% trans "This account is inactive/Admin set manual approve." %}</p>
+<div class="container my-5" style="max-width: 540px;">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h4 class="mb-0 text-white"><i class="fas fa-user-slash me-2 text-danger"></i>{% trans "Account Inactive" %}</h4>
+        </div>
+        <div class="card-body">
+            <p>{% trans "This account is inactive. Contact an administrator if you believe this is in error." %}</p>
+            <a href="{% url 'account_login' %}" class="btn btn-outline-secondary text-white"><i class="fas fa-arrow-left me-1"></i>{% trans "Back to login" %}</a>
+        </div>
+    </div>
+</div>
 {% endblock %}

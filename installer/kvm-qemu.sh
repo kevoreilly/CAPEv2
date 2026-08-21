@@ -115,6 +115,14 @@ src_fw_smbios_date="11\/03\/2018"
 # what to use as a replacement for QEMU in the tablet info (e.g., 'Wacom', 'Synaptics')
 PEN_REPLACER='<WOOT>'
 
+# fake PCI vendor ID to replace Red Hat's 0x1b36 (VEN_1B36) in include/hw/pci/pci.h
+# e.g.
+#   0x8086 = Intel
+#   0x1022 = AMD
+#   0x10de = NVIDIA
+PCI_VENDOR_ID_REPLACEMENT='0x8086'
+
+
 # what to use as a replacement for QEMU in the scsi disk info (e.g., 'Samsung', 'Seagate', 'WD')
 SCSI_REPLACER='<WOOT>'
 
@@ -135,12 +143,19 @@ BXPC_REPLACER='<WOOT>'
 # what to use as a replacement for seabios in config.h (e.g., 'AMI', 'Award', 'Phoenix')
 BOCHS_SEABIOS_BLOCK_REPLACER='<WOOT>'
 
+# If apt-daily-upgrade.timer should be masked or not.
+# 1 = mask it
+# 0 = don't mask it
+MASK_APT_DAILY_UPGRADE=1
 
 # if a config file is present, read it in
 if [ -f "./kvm-config.sh" ]; then
         . ./kvm-config.sh
 fi
 
+if [ "$MASK_APT_DAILY_UPGRADE" -ge 1 ]; then
+	systemctl mask apt-daily-upgrade.timer
+fi
 
 # ToDO add to see if cpu supports VTx
 # egrep '(vmx|svm)' --color=always /proc/cpuinfo
@@ -601,6 +616,18 @@ EOH
         echo "[+] You should logout and login "
     fi
 
+    _set_libvirt_default_uri
+}
+
+function _set_libvirt_default_uri() {
+    local rc_file
+    if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ]; then
+        rc_file="$HOME/.zshrc"
+    else
+        rc_file="$HOME/.bashrc"
+    fi
+    grep -qxF 'export LIBVIRT_DEFAULT_URI=qemu:///system' "$rc_file" 2>/dev/null \
+        || echo 'export LIBVIRT_DEFAULT_URI=qemu:///system' >> "$rc_file"
 }
 
 function install_virt_manager() {
@@ -681,13 +708,7 @@ function install_virt_manager() {
     # https://github.com/virt-manager/virt-manager/blob/main/INSTALL.md
     meson setup build
     meson install -C build
-    if [ "$SHELL" = "/bin/zsh" ] || [ "$SHELL" = "/usr/bin/zsh" ] ; then
-        echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> "$HOME/.zsh"
-        # echo "export GI_TYPELIB_PATH=/usr/local/lib/girepository-1.0:$GI_TYPELIB_PATH" >> "$HOME/.zsh"
-    else
-        echo "export LIBVIRT_DEFAULT_URI=qemu:///system" >> "$HOME/.bashrc"
-        # echo "export GI_TYPELIB_PATH=/usr/local/lib/girepository-1.0:$GI_TYPELIB_PATH" >> "$HOME/.bashrc"
-    fi
+    _set_libvirt_default_uri
 
     if [ -f /usr/share/virt-manager/local/share/glib-2.0/schemas/org.virt-manager.virt-manager.gschema.xml ]; then
         cp /usr/share/virt-manager/local/share/glib-2.0/schemas/org.virt-manager.virt-manager.gschema.xml /usr/share/glib-2.0/schemas/
@@ -769,6 +790,7 @@ function replace_qemu_clues_public() {
     _sed_aux 's/"BOCHS "/"ALASKA"/g' qemu*/include/hw/acpi/aml-build.h 'BOCHS was not replaced in block/bochs.c'
     _sed_aux 's/Bochs Pseudo/Intel RealTime/g' qemu*/roms/ipxe/src/drivers/net/pnic.c 'Bochs Pseudo was not replaced in roms/ipxe/src/drivers/net/pnic.c'
     _sed_aux 's/BXPC/'"$BXPC_REPLACER"'/g' qemu*/include/hw/acpi/aml-build.h 'BXPC was not replaced in include/hw/acpi/aml-build.h'
+    _sed_aux 's/define PCI_VENDOR_ID_REDHAT.*0x1b36/define PCI_VENDOR_ID_REDHAT             '"$PCI_VENDOR_ID_REPLACEMENT"'/' qemu*/include/hw/pci/pci.h 'PCI_VENDOR_ID_REDHAT was not replaced in include/hw/pci/pci.h'
 }
 
 function replace_seabios_clues_public() {

@@ -232,6 +232,32 @@
             </tr>
             {% endif %}
 
+{# similarity-inline-rows BEGIN #}
+{% if file.code_similarity_matches %}
+            <tr>
+                <th class="text-end text-info" style="width: 15%;">Code Similarity</th>
+                <td>
+                    <ul class="list-unstyled mb-0">
+                    {% for m in file.code_similarity_matches %}
+                        <li class="mb-1">
+                            {% if m.family %}
+                                <span class="badge bg-danger me-1">{{ m.family }}</span>
+                                {% if m.version %}<span class="badge bg-dark me-1">{{ m.version }}</span>{% endif %}
+                            {% else %}
+                                <span class="badge bg-secondary me-1">unlabelled</span>
+                            {% endif %}
+                            <span class="{% if m.similarity >= 80 %}text-danger{% elif m.similarity >= 50 %}text-warning{% else %}text-muted{% endif %} fw-bold me-2">{{ m.similarity }}%</span>
+                            {% if m.low_confidence %}<span class="badge bg-warning text-dark me-2" title="Below minimum_similarity; best available match">low</span>{% endif %}
+                            <span class="text-muted font-monospace small">{% if m.sample_sha256 %}{{ m.sample_sha256 }}{% endif %}</span>
+                            <span class="badge bg-dark border border-secondary ms-2">{{ m.engine }}</span>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+{% endif %}
+{# similarity-inline-rows END #}
+
             {% if file.trid %}
             <tr>
                 <th class="text-end text-info" style="width: 15%;">TriD</th>
@@ -250,6 +276,25 @@
                     <ul class="list-unstyled mb-0">
                         {% for str in file.die %}<li>{{str}}</li>{% endfor %}
                     </ul>
+                </td>
+            </tr>
+            {% endif %}
+
+            {% if file.magika %}
+            <tr>
+                <th class="text-end text-info" style="width: 15%;">Magika File Type</th>
+                <td class="text-break">
+                    {{file.magika.description|default:file.magika.label}}
+                    <a href="/analysis/search/magika:{{file.magika.label}}" class="badge bg-secondary ms-1 text-decoration-none">{{file.magika.label}}</a>
+                    {% if file.magika.mime_type %}<span class="badge bg-secondary ms-1">{{file.magika.mime_type}}</span>{% endif %}
+                    {% if file.magika.score %}
+                        <span class="badge {% if file.magika.low_confidence %}bg-warning text-dark{% else %}bg-success{% endif %} ms-1"
+                              data-bs-toggle="tooltip"
+                              title="{% if file.magika.low_confidence %}Model confidence, below the configured min_score{% else %}Model confidence{% endif %}">{{file.magika.score}}</span>
+                    {% endif %}
+                    {% if file.magika.dl_label %}
+                        <span class="badge bg-dark border border-secondary ms-1" data-bs-toggle="tooltip" title="Raw model guess before {{file.magika.overwrite_reason}} override">raw: {{file.magika.dl_label}}</span>
+                    {% endif %}
                 </td>
             </tr>
             {% endif %}
@@ -309,6 +354,10 @@
 
             {% if file.decoded_files %}
                 <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#decoded_files_{{file.sha256}}">{{file.decoded_files_tool}}</a>
+            {% endif %}
+
+            {% if file.extracted_files %}
+                <a class="btn btn-sm btn-outline-light me-2 mb-2" data-bs-toggle="collapse" href="#extracted_files_{{file.sha256}}">{{file.extracted_files_tool|default:"Extracted Files"}}</a>
             {% endif %}
 
             {% if file.selfextract %}
@@ -397,6 +446,23 @@
             </div>
         {% endif %}
 
+        {% if file.extracted_files %}
+            <div class="collapse mb-3" id="extracted_files_{{file.sha256}}">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header border-secondary"><h6 class="mb-0 text-white">Extracted Files</h6></div>
+                    <div class="card-body">
+                        {% for sub_file in file.extracted_files %}
+                            {% if tab_name == "static" %}
+                                {% include "analysis/generic/_file_info.html" with file=sub_file tab_name="dropped" %}
+                            {% else %}
+                                {% include "analysis/generic/_file_info.html" with file=sub_file %}
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
         {% if file.selfextract %}
             {% for name, details in file.selfextract.items %}
                 <div class="collapse mb-3" id="selfextract_{{name}}">
@@ -407,7 +473,11 @@
                                 <div class="alert alert-info">Password: <strong>{{details.password}}</strong></div>
                             {% endif %}
                             {% for sub_file in details.extracted_files %}
-                                {% include "analysis/generic/_subfile_info.html" %}
+                                {% if tab_name == "static" %}
+                                    {% include "analysis/generic/_file_info.html" with file=sub_file tab_name="dropped" %}
+                                {% else %}
+                                    {% include "analysis/generic/_file_info.html" with file=sub_file %}
+                                {% endif %}
                             {% endfor %}
                         </div>
                     </div>

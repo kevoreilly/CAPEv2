@@ -2,7 +2,14 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from django.contrib.auth.models import User
 
-from .models import UserProfile
+from .models import Tenant, UserProfile
+
+# Tenancy-privilege fields: the SOLE authority reconcile_tenant() trusts to assign a user's tenant
+# and tenant-admin status on SSO login. Editable only by superusers -- a non-superuser holding a
+# delegated change_tenant / change_userprofile grant must NOT be able to escalate (add themselves to
+# admin_idp_groups, flip is_tenant_admin, or move a user's tenant). Enforced via get_readonly_fields.
+_TENANT_PRIV_FIELDS = ("idp_groups", "admin_idp_groups")
+_PROFILE_PRIV_FIELDS = ("tenant", "is_tenant_admin")
 
 
 # Django 3.2
@@ -27,6 +34,12 @@ class ProfileInline(admin.StackedInline):
     verbose_name_plural = "Profile"
     fk_name = "user"
 
+    def get_readonly_fields(self, request, obj=None):
+        ro = tuple(super().get_readonly_fields(request, obj))
+        if not request.user.is_superuser:
+            ro = ro + _PROFILE_PRIV_FIELDS  # non-superusers can't set a user's tenant / tenant-admin
+        return ro
+
 
 class CustomUserAdmin(UserAdmin):
     inlines = (ProfileInline,)
@@ -48,3 +61,16 @@ class CustomUserAdmin(UserAdmin):
 
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
+
+
+@admin.register(Tenant)
+class TenantAdmin(admin.ModelAdmin):
+    list_display = ("slug", "name", "active", "created_at")
+    search_fields = ("slug", "name")
+    list_filter = ("active",)
+
+    def get_readonly_fields(self, request, obj=None):
+        ro = tuple(super().get_readonly_fields(request, obj))
+        if not request.user.is_superuser:
+            ro = ro + _TENANT_PRIV_FIELDS  # non-superusers can't edit the group->tenant/admin maps
+        return ro

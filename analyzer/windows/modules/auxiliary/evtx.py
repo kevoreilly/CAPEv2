@@ -12,6 +12,15 @@ log = logging.getLogger(__name__)
 
 
 class Evtx(Thread, Auxiliary):
+    # Stop AFTER capemon-related auxiliaries so the final EVTX snapshot
+    # captures sysmon events from late-fire callbacks that fire between
+    # the analysis-stopping signal and the VM teardown (e.g. C2 callbacks
+    # the malware schedules after a delay). Without this priority bump,
+    # those events happen after the last EVTX snapshot and never reach
+    # the host-side processing modules.
+    start_priority = 0
+    stop_priority = -20
+
     evtx_dump = "evtx.zip"
 
     # Event log channels to collect

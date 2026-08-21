@@ -130,40 +130,43 @@ def denormalize_files_from_reports(reports):
     """Pull the file info from the FILES_COLL collection in to associated parts of
     the reports.
     """
-    # Make sure we have a list whose objects we can modify in place instead of a mongo
-    # cursor as returned from mongo_find.
-    reports = list(reports)
-    file_dicts = [
-        file_dict
-        for file_dict in itertools.chain.from_iterable(collect_file_dicts(report) for report in reports)
-        if FILE_REF_KEY in file_dict
-    ]
-    if not file_dicts:
-        # These are likely partial reports (like for an ajax request of a specific
-        # part of the report), had a projection applied that does not include any file
-        # information, or only the old-style of storing file information is present in
-        # these documents.
-        return reports
+    def denormalize_generator(reports_iterable):
+        # Optimization: Ensure we have an iterator to avoid infinite loops on lists
+        reports_iter = iter(reports_iterable)
+        batch_size = 50
+        while True:
+            # Grab a batch of reports from the cursor
+            reports_batch = list(itertools.islice(reports_iter, batch_size))
+            if not reports_batch:
+                break
 
-    file_refs = {file_dict[FILE_REF_KEY] for file_dict in file_dicts}
+            file_dicts = [
+                file_dict
+                for file_dict in itertools.chain.from_iterable(collect_file_dicts(report) for report in reports_batch)
+                if FILE_REF_KEY in file_dict
+            ]
 
-    file_docs = {}
-    batch_size = 50
-    file_ref_iter = iter(file_refs)
-    while batch := tuple(itertools.islice(file_ref_iter, batch_size)):
-        # Reduce the size of the $in clause when there are large numbers of file refs by
-        # making multiple requests, passing batches of refs in.
-        for file_doc in mongo_find(FILES_COLL, {"_id": {"$in": batch}}, {TASK_IDS_KEY: 0}):
-            file_docs[file_doc.pop("_id")] = file_doc
+            if file_dicts:
+                file_refs = {file_dict[FILE_REF_KEY] for file_dict in file_dicts}
+                file_docs = {}
+                file_ref_batch_size = 50
+                file_ref_iter = iter(file_refs)
+                while batch := tuple(itertools.islice(file_ref_iter, file_ref_batch_size)):
+                    # Reduce the size of the $in clause when there are large numbers of file refs by
+                    # making multiple requests, passing batches of refs in.
+                    for file_doc in mongo_find(FILES_COLL, {"_id": {"$in": batch}}, {TASK_IDS_KEY: 0}):
+                        file_docs[file_doc.pop("_id")] = file_doc
 
-    for file_dict in file_dicts:
-        if file_dict[FILE_REF_KEY] not in file_docs:
-            log.warning("Failed to find %s in %s collection.", FILES_COLL, file_dict[FILE_REF_KEY])
-            continue
-        file_doc = file_docs[file_dict.pop(FILE_REF_KEY)]
-        file_dict.update(file_doc)
+                for file_dict in file_dicts:
+                    if file_dict[FILE_REF_KEY] not in file_docs:
+                        log.warning("Failed to find %s in %s collection.", FILES_COLL, file_dict[FILE_REF_KEY])
+                        continue
+                    file_doc = file_docs[file_dict.pop(FILE_REF_KEY)]
+                    file_dict.update(file_doc)
 
-    return reports
+            yield from reports_batch
+
+    return denormalize_generator(reports)
 
 
 @mongo_hook(mongo_find_one, "analysis")
@@ -171,7 +174,8 @@ def denormalize_files(report):
     """Pull the file info from the FILES_COLL collection in to associated parts of
     the report.
     """
-    denormalize_files_from_reports([report])
+    # Consume the generator so the report is denormalized in-place
+    list(denormalize_files_from_reports([report]))
     return report
 
 

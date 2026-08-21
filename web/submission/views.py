@@ -14,6 +14,9 @@ from base64 import urlsafe_b64encode
 from contextlib import suppress
 
 from django.conf import settings
+
+from web.tenancy_optional import submission_scope, can_view_task, can_manage_task, can_view_sample, viewer_for
+from web.tenancy_optional import multitenancy_config, default_visibility, PUBLIC, TENANT, PRIVATE
 from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 
@@ -54,6 +57,34 @@ aux_conf = Config("auxiliary")
 web_conf = Config("web")
 
 db = Database()
+
+
+def _scope_existent(request, records):
+    """Tenant isolation for the existent_tasks resubmit-by-hash display:
+    perform_search applies only the legacy TLP/public_searches filter, so in
+    locked mode it would surface other tenants' task id / sha256 / malware-family
+    for a known hash. Drop records the requester may not view — mirroring
+    analysis.search. No-op when MT disabled (can_view_task -> is_local_admin)."""
+    if not multitenancy_config().enabled:
+        # Upstream showed every search record verbatim (no per-task SQL-existence
+        # intersection). Return them unchanged so a record whose SQL Task was
+        # purged is still displayed = upstream byte-for-byte.
+        return records or []
+    out = []
+    for record in records or []:
+        if not isinstance(record, dict):
+            continue
+        rid = (record.get("info") or {}).get("id")
+        if rid is None:
+            continue
+        try:
+            vt = db.view_task(int(rid))
+        except (ValueError, TypeError):
+            continue
+        if vt is not None and can_view_task(request.user, vt):
+            out.append(record)
+    return out
+
 
 from urllib3 import disable_warnings
 
@@ -273,6 +304,12 @@ def force_int(value):
 async def index(request, task_id=None, resubmit_hash=None):
     remote_console = False
     if request.method == "POST":
+        try:
+            _tenant_id, _visibility = submission_scope(request)
+        except ValueError:
+            # Client input validation failure -> 400 (machine-detectable), per the
+            # submission_scope() contract that the view turns the bad value into a 400.
+            return render(request, "error.html", {"error": "Invalid visibility value"}, status=400)
         (
             static,
             package,
@@ -392,6 +429,8 @@ async def index(request, task_id=None, resubmit_hash=None):
             "options": options,
             "only_extraction": False,
             "user_id": request.user.id or 0,
+            "tenant_id": _tenant_id,
+            "visibility": _visibility,
             "package": package,
         }
         if opt_apikey:
@@ -436,7 +475,8 @@ async def index(request, task_id=None, resubmit_hash=None):
         if task_category in ("url", "dlnexec"):
             if not samples:
                 return render(request, "error.html", {"error": "You specified an invalid URL!"})
-            for url in samples.split(web_conf.general.url_splitter):
+            urls = [u.strip() for u in samples.split(web_conf.general.url_splitter) if u.strip()] if web_conf.general.url_splitter else [samples]
+            for url in urls:
                 url = url.replace("hxxps://", "https://").replace("hxxp://", "http://").replace("[.]", ".")
                 if task_category == "dlnexec":
                     path, content, sha256 = await sync_to_async(process_new_dlnexec_task)(url, route, options, custom)
@@ -456,8 +496,23 @@ async def index(request, task_id=None, resubmit_hash=None):
             for hash in samples:
                 paths = []
                 if len(hash) in (32, 40, 64):
+                    # by-hash resubmit hits the global content-addressed store —
+                    # enforce the visible-task-referencing-the-sample boundary
+                    # before touching it, else a tenant exfiltrates another
+                    # tenant's sample bytes AND gets a full fresh analysis they
+                    # own. Deny path is byte-identical to genuinely-missing.
+                    _kw = {"sha256": hash} if len(hash) == 64 else ({"sha1": hash} if len(hash) == 40 else {"md5": hash})
+                    if not await sync_to_async(can_view_sample)(request.user, **_kw):
+                        details["errors"].append({hash: "File not found on hdd for resubmission"})
+                        continue
                     paths = await sync_to_async(db.sample_path_by_hash)(hash)
                 else:
+                    # task_id-based resubmit: the submit view is not task-gated,
+                    # so authorize the source task before reading its binary.
+                    _src = db.view_task(task_id)
+                    if _src is None or not can_view_task(request.user, _src):
+                        details["errors"].append({hash: "Task not found for resubmission"})
+                        continue
                     task_binary = os.path.join(settings.CUCKOO_PATH, "storage", "analyses", str(task_id), "binary")
                     if path_exists(task_binary):
                         paths.append(task_binary)
@@ -505,11 +560,16 @@ async def index(request, task_id=None, resubmit_hash=None):
                 if opt_filename:
                     filename = base_dir + "/" + opt_filename
                 else:
-                    # Try to recover the original filename from the task
+                    # Try to recover the original filename from the task. This runs
+                    # for the by-HASH branch too, where the route task_id is NOT
+                    # can_view_task-gated — so require read access before trusting it,
+                    # else a by-hash resubmit carrying another tenant's task_id in the
+                    # URL would leak that hidden task's target basename into the new
+                    # submission. No read access -> fall back to the hash.
                     original_filename = ""
                     if task_id:
                         task = db.view_task(task_id)
-                        if task and task.target:
+                        if task and task.target and can_view_task(request.user, task):
                             original_filename = sanitize_filename(os.path.basename(task.target))
                     filename = base_dir + "/" + (original_filename or sanitize_filename(hash))
                 path = store_temp_file(content, filename)
@@ -531,7 +591,10 @@ async def index(request, task_id=None, resubmit_hash=None):
                     if tasks_details.get("errors"):
                         details["errors"].extend(tasks_details["errors"])
                     if web_conf.web_reporting.get("enabled", False) and web_conf.general.get("existent_tasks", False):
-                        records = await sync_to_async(perform_search)("target_sha256", hash, search_limit=5)
+                        records = await sync_to_async(lambda: _scope_existent(
+                            request,
+                            perform_search("target_sha256", hash, search_limit=5, viewer=viewer_for(request.user))
+                        ))()
                         if records:
                             for record in records or []:
                                 existent_tasks.setdefault(record["target"]["file"]["sha256"], []).append(record)
@@ -552,7 +615,10 @@ async def index(request, task_id=None, resubmit_hash=None):
                     if tasks_details.get("errors"):
                         details["errors"].extend(tasks_details["errors"])
                     if web_conf.general.get("existent_tasks", False):
-                        records = await sync_to_async(perform_search)("target_sha256", sha256, search_limit=5)
+                        records = await sync_to_async(lambda: _scope_existent(
+                            request,
+                            perform_search("target_sha256", sha256, search_limit=5, viewer=viewer_for(request.user))
+                        ))()
                         if records:
                             for record in records:
                                 if record.get("target").get("file", {}).get("sha256"):
@@ -560,7 +626,7 @@ async def index(request, task_id=None, resubmit_hash=None):
 
         elif task_category == "static":
             for content, path, sha256 in list_of_tasks:
-                task_id = await sync_to_async(db.add_static)(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0)
+                task_id = await sync_to_async(db.add_static)(file_path=path, priority=priority, tlp=tlp, options=options, user_id=request.user.id or 0, tenant_id=_tenant_id, visibility=_visibility)
                 if not task_id:
                     return render(request, "error.html", {"error": "We don't have static extractor for this"})
                 details["task_ids"] += task_id
@@ -577,7 +643,8 @@ async def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].append({os.path.basename(path): "Conversion from SAZ to PCAP failed."})
                         continue
 
-                task_id = await sync_to_async(db.add_pcap)(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0)
+                task_id = await sync_to_async(db.add_pcap)(file_path=path, priority=priority, tlp=tlp, user_id=request.user.id or 0,
+                                                           tenant_id=_tenant_id, visibility=_visibility)
                 if task_id:
                     details["task_ids"].append(task_id)
 
@@ -617,6 +684,8 @@ async def index(request, task_id=None, resubmit_hash=None):
                         cape=cape,
                         tags_tasks=tags_tasks,
                         user_id=request.user.id or 0,
+                        tenant_id=_tenant_id,
+                        visibility=_visibility,
                     )
                     details["task_ids"].append(task_id)
 
@@ -635,6 +704,9 @@ async def index(request, task_id=None, resubmit_hash=None):
                         details["errors"].extend(tasks_details["errors"])
 
         elif task_category == "downloading_service":
+            # viewer gates local-cache reuse inside download_from_3rdparty (no
+            # cross-tenant bytes via a "Local" hit). No-op when MT disabled.
+            details["viewer"] = viewer_for(request.user)
             details = await sync_to_async(download_from_3rdparty)(samples, opt_filename, details)
 
         if details.get("task_ids"):
@@ -743,25 +815,71 @@ async def index(request, task_id=None, resubmit_hash=None):
             {"name": v["name"], "description": v["description"], "interface": v["interface"], "type": "vpn"} for v in vpns.values()
         ]
 
+        # nexthop gateway pool: expose the configured [gwX] profiles (and the "nexthop" pool
+        # sentinel) as route options so GUI submissions can select the pool, mirroring vpns_data.
+        # Defensive: a malformed [nexthop] config must never 500 the submission page.
+        nexthop_enabled = False
+        gateways_data = []
+        try:
+            if getattr(routing.nexthop, "enabled", False):
+                nexthop_enabled = True
+                for gw_name in str(getattr(routing.nexthop, "gateways", "") or "").split(","):
+                    gw_name = gw_name.strip()
+                    if not gw_name:
+                        continue
+                    gw = routing.get(gw_name) if hasattr(routing, gw_name) else None
+                    desc = getattr(gw, "description", None) if gw is not None else None
+                    gateways_data.append({"name": gw_name, "description": desc or gw_name})
+        except Exception:
+            nexthop_enabled, gateways_data = False, []
+
         existent_tasks = {}
         if resubmit_hash:
             if web_conf.general.get("existent_tasks", False):
-                records = await sync_to_async(perform_search)("target_sha256", resubmit_hash, search_limit=5)
+                records = await sync_to_async(lambda: _scope_existent(
+                    request,
+                    perform_search("target_sha256", resubmit_hash, search_limit=5, viewer=viewer_for(request.user))
+                ))()
                 if records:
                     for record in records:
                         existent_tasks.setdefault(record["target"]["file"]["sha256"], [])
                         existent_tasks[record["target"]["file"]["sha256"]].append(record)
 
+        # Visibility control is a MT-only addition. When MT is disabled, leave the
+        # context keys empty so the template "{% if visibility_levels %}" block
+        # collapses = upstream byte-for-byte (no new <select> rendered, and the
+        # value would be ignored by submission_scope anyway).
+        _visibility_levels = []
+        _form_default_visibility = None
+        if multitenancy_config().enabled:
+            # Offer TENANT iff the submitter actually has a tenant — this matches
+            # submission_scope, which honors an explicit 'tenant' for a tenant member (in
+            # BOTH modes) and rejects it for a tenant-less user. The default must also be
+            # a level that is actually OFFERED and must match what submission_scope would
+            # persist for an unchanged form: a tenant-less user in locked mode resolves to
+            # 'tenant' (not offered), so the browser would select the first option (public)
+            # and submit it explicitly — bypassing submission_scope's fail-closed private
+            # downgrade. Downgrade that default to PRIVATE here to keep the two in sync.
+            _sub_viewer = viewer_for(request.user)
+            _has_tenant = _sub_viewer.tenant_id is not None
+            _visibility_levels = [PUBLIC, TENANT, PRIVATE] if _has_tenant else [PUBLIC, PRIVATE]
+            _form_default_visibility = default_visibility(multitenancy_config())
+            if _form_default_visibility == TENANT and not _has_tenant:
+                _form_default_visibility = PRIVATE
         return render(
             request,
             "submission/index.html",
             {
                 "title": "Submit",
+                "visibility_levels": _visibility_levels,
+                "default_visibility": _form_default_visibility,
                 "packages": sorted(packages, key=lambda i: i["name"].lower()),
                 "machines": machines,
                 "vpns": vpns_data,
                 "random_route": random_route,
                 "socks5s": socks5s_data,
+                "gateways": gateways_data,
+                "nexthop_enabled": nexthop_enabled,
                 "route": routing.routing.route,
                 "internet": routing.routing.internet,
                 "inetsim": routing.inetsim.enabled,
@@ -778,7 +896,9 @@ async def index(request, task_id=None, resubmit_hash=None):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
     task = db.view_task(task_id)
-    if not task:
+    # tenant isolation: hidden == missing. The status body is a READ (can_view_task);
+    # the live-VM guac session_data is emitted only to a MANAGER below.
+    if not task or not can_view_task(request.user, task):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     completed = False
@@ -797,12 +917,28 @@ def status(request, task_id):
         "session_data": "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
-    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1":
-        machine = db.view_machine_by_label(task.machine)
-        if machine:
-            guest_ip = machine.ip
+    # Live-VM session token: only for a caller who may MANAGE the task (owner /
+    # tenant-admin / break-glass). A read-only viewer sees status but no session_data,
+    # so they can't drive another user's/tenant's live VM.
+    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1" and can_manage_task(request.user, task):
+        machine = db.view_machine_by_label(task.machine) if task.machine else None
+        vm_label, guest_ip = (task.machine, machine.ip) if machine else (None, None)
+        if not machine:
+            # Central mode ONLY: the VM lives on a worker, so it's not in the central machines
+            # table — resolve the worker's VM label via the broker record + worker API. Gated on
+            # central mode so single-node behaves exactly as upstream (no session_data unless a
+            # real machine record resolved — never a degenerate empty-guest_ip session).
+            from lib.cuckoo.common.central_mode import central_mode_config
+
+            if central_mode_config().enabled:
+                from lib.cuckoo.common.central_guac import worker_vm_for_task
+
+                w_label, w_ip = worker_vm_for_task(task_id)
+                if w_label:
+                    vm_label, guest_ip = w_label, (w_ip or "")
+        if vm_label:
             session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-            session_data = urlsafe_b64encode(f"{session_id}|{task.machine}|{guest_ip}".encode("utf8")).decode("utf8")
+            session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip or ''}".encode("utf8")).decode("utf8")
             response["session_data"] = session_data
 
     return render(request, "submission/status.html", response)
@@ -811,20 +947,35 @@ def status(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def remote_session(request, task_id):
     task = db.view_task(task_id)
-    if not task:
+    # This endpoint exists only to mint the live-VM guac session_data, i.e. keyboard/
+    # mouse/framebuffer control — a task ACTION. Gate it on can_manage_task (owner /
+    # tenant-admin / break-glass), not read visibility; hidden == missing.
+    if not task or not can_manage_task(request.user, task):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
 
     machine_status = False
     session_data = ""
 
     if task.status == "running":
-        machine = db.view_machine_by_label(task.machine)
+        machine = db.view_machine_by_label(task.machine) if task.machine else None
+        vm_label, guest_ip = (machine.label, machine.ip) if machine else (None, None)
         if not machine:
+            # Central mode ONLY: the VM lives on a worker (not in the central machines table) —
+            # resolve it via the broker record + worker API. Gated on central mode so single-node
+            # is byte-for-byte upstream: no machine record -> the "Machine is not set" error below.
+            from lib.cuckoo.common.central_mode import central_mode_config
+
+            if central_mode_config().enabled:
+                from lib.cuckoo.common.central_guac import worker_vm_for_task
+
+                w_label, w_ip = worker_vm_for_task(task_id)
+                if w_label:
+                    vm_label, guest_ip = w_label, (w_ip or "")
+        if not vm_label:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
-        guest_ip = machine.ip
         machine_status = True
         session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
-        session_data = urlsafe_b64encode(f"{session_id}|{machine.label}|{guest_ip}".encode("utf8")).decode("utf8")
+        session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip or ''}".encode("utf8")).decode("utf8")
 
     return render(
         request,

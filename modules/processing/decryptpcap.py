@@ -14,6 +14,56 @@ log = logging.getLogger(__name__)
 PCAP_HEADER_SIZE = 24
 
 
+def _get_option(options, key, default=None):
+    """Read `key` from `options` whether it's a dict-like or an attribute bag.
+
+    CAPE's processing modules receive `self.options` from different callers
+    in slightly different shapes (dict from task options, namespace from
+    config parsing). This helper handles both without TypeErrors."""
+    if options is None:
+        return default
+    getter = getattr(options, "get", None)
+    if callable(getter):
+        try:
+            return getter(key, default)
+        except TypeError:
+            pass
+    return getattr(options, key, default)
+
+
+def _is_usable_pcap(path):
+    return bool(path and os.path.exists(path) and os.path.getsize(path) > PCAP_HEADER_SIZE)
+
+
+def resolve_processing_pcap_path(analysis_path, default_pcap_path, pcapsrc="auto"):
+    """Pick the best PCAP for downstream processing modules.
+
+    `pcapsrc` may explicitly request `mixed`, `decrypted`, or `original`.
+    Any other value falls back to auto-selection: prefer `dump_mixed.pcap`,
+    then `dump_decrypted.pcap`, then the original capture.
+    """
+    mixed_path = os.path.join(analysis_path, "dump_mixed.pcap")
+    decrypted_path = os.path.join(analysis_path, "dump_decrypted.pcap")
+    requested = (pcapsrc or "auto").lower()
+
+    explicit = {
+        "mixed": mixed_path,
+        "decrypted": decrypted_path,
+        "original": default_pcap_path,
+        "default": default_pcap_path,
+        "dump": default_pcap_path,
+    }
+    if requested in explicit:
+        candidate = explicit[requested]
+        return candidate if candidate == default_pcap_path or _is_usable_pcap(candidate) else default_pcap_path
+
+    for candidate in (mixed_path, decrypted_path, default_pcap_path):
+        if candidate == default_pcap_path or _is_usable_pcap(candidate):
+            return candidate
+
+    return default_pcap_path
+
+
 class DecryptPcap(Processing):
     """Generate decrypted pcaps from TLS traffic using GoGoRoboCap.
 

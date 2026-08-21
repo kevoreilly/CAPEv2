@@ -259,6 +259,14 @@
                                         <option value="{{ route_name }}">{{ route_name }} (Auto-pick)</option>
                                         {% endfor %}
                                         {% endif %}
+                                        {% if nexthop_enabled %}
+                                        <option value="nexthop" {% if route == "nexthop" %} selected{% endif %}>nexthop pool
+                                            (default policy)</option>
+                                        {% for gw in gateways %}
+                                        <option value="{{ gw.name }}" {% if route == gw.name %} selected{% endif %}>{{ gw.description }}
+                                            ({{ gw.name }}, nexthop gateway)</option>
+                                        {% endfor %}
+                                        {% endif %}
                                         <option value="none" {% if route == "none" %} selected{% endif %}>Drop all VM
                                             traffic</option>
                                     </select>
@@ -429,7 +437,7 @@
                                                 </div>
                                                 <!-- Debug Options -->
                                                 <div class="tab-pane fade" id="lin-cat-debug" role="tabpanel">
-                                                     <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                                                    <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                                                         <table class="table table-sm table-striped table-hover table-dark table-bordered mb-0">
                                                             <thead>
                                                                 <tr>
@@ -438,9 +446,13 @@
                                                                 </tr>
                                                             </thead>
                                                             <tbody>
-                                                                 <tr>
+                                                                <tr>
                                                                     <td class="text-end"><code>debug</code></td>
                                                                     <td>Enable debugging features</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>minproc</code></td>
+                                                                    <td>Run minimal processing modules and skip signatures</td>
                                                                 </tr>
                                                             </tbody>
                                                         </table>
@@ -565,6 +577,10 @@
                                                                     <td>URL for started browser</td>
                                                                 </tr>
                                                                 <tr>
+                                                                    <td class="text-end"><code>background_processes</code></td>
+                                                                    <td>Number of hidden background processes to launch (default 1, 0 disables, max 10)</td>
+                                                                </tr>
+                                                                <tr>
                                                                     <td class="text-end"><code>servicedesc</code></td>
                                                                     <td>Service description (Service package)</td>
                                                                 </tr>
@@ -607,6 +623,10 @@
                                                                 <tr>
                                                                     <td class="text-end"><code>startup-time</code></td>
                                                                     <td>MS since system startup</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>recursion_depth</code></td>
+                                                                    <td>Depth of archive extraction (nested archives)</td>
                                                                 </tr>
                                                             </tbody>
                                                         </table>
@@ -743,6 +763,10 @@
                                                                     <td>Dynamically unhook functions (colon-separated)</td>
                                                                 </tr>
                                                                 <tr>
+                                                                    <td class="text-end"><code>unhook-on-terminate</code></td>
+                                                                    <td>Restore all hooked API original bytes to memory when the process terminates</td>
+                                                                </tr>
+                                                                <tr>
                                                                     <td class="text-end"><code>coverage-modules</code></td>
                                                                     <td>Colon-separated list of DLLs to include in monitoring (exclude from 'dll range' filtering)</td>
                                                                 </tr>
@@ -800,6 +824,18 @@
                                                                 <tr>
                                                                     <td class="text-end"><code>amsidump</code></td>
                                                                     <td>Enable AMSI buffer dumping (Win10+)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>yarascan</code></td>
+                                                                    <td>Enable in-memory YARA scanning of process memory and JIT-compiled native code</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>yara-timeout</code></td>
+                                                                    <td>Timeout limit in milliseconds for in-memory YARA scanning (default: 60000)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>dumpsize</code></td>
+                                                                    <td>Maximum size in bytes allowed for a single raw memory dump</td>
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="text-end"><code>tlsdump</code></td>
@@ -861,6 +897,10 @@
                                                                     <td>1 = Report critical exceptions, 2 = All exceptions</td>
                                                                 </tr>
                                                                 <tr>
+                                                                    <td class="text-end"><code>minproc</code></td>
+                                                                    <td>Run minimal processing modules and skip signatures</td>
+                                                                </tr>
+                                                                <tr>
                                                                     <td class="text-end"><code>bp0...bp3</code></td>
                                                                     <td>Hardware breakpoints (Address or Module:Export)</td>
                                                                 </tr>
@@ -871,6 +911,18 @@
                                                                 <tr>
                                                                     <td class="text-end"><code>break-on-return</code></td>
                                                                     <td>Break on return from specific APIs</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>break-on-jit</code></td>
+                                                                    <td>Break on .NET JIT compiled native code</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>softbpmode</code></td>
+                                                                    <td>Execution mode behavior for software breakpoints</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>idbg</code></td>
+                                                                    <td>Enable interactive remote debugger interface / locks</td>
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="text-end"><code>base-on-api</code></td>
@@ -922,9 +974,9 @@
                                     <label for="form_priority" class="text-white-50">Priority</label>
                                     <select class="form-select border-secondary" id="form_priority"
                                         name="priority">
-                                        <option value="1">Low</option>
-                                        <option value="2" selected>Medium</option>
-                                        <option value="3">High</option>
+                                        <option value="1" data-color="#0dcaf0" style="color: #0dcaf0;">Low</option>
+                                        <option value="2" selected data-color="#ffc107" style="color: #ffc107;">Medium</option>
+                                        <option value="3" data-color="#dc3545" style="color: #dc3545;">High</option>
                                     </select>
                                 </div>
                                 {% if config.tlp %}
@@ -932,10 +984,20 @@
                                     <label for="form_tlp" class="text-white-50">TLP</label>
                                     <select class="form-select border-secondary" id="form_tlp"
                                         name="tlp">
-                                        <option value="" selected>White</option>
-                                        <option value="Green">Green</option>
-                                        <option value="Amber">Amber</option>
-                                        <option value="Red">Red</option>
+                                        <option value="" selected data-color="#ffffff" style="color: #ffffff;">White</option>
+                                        <option value="green" data-color="#198754" style="color: #198754;">Green</option>
+                                        <option value="amber" data-color="#ffc107" style="color: #ffc107;">Amber</option>
+                                        <option value="red" data-color="#dc3545" style="color: #dc3545;">Red</option>
+                                    </select>
+                                </div>
+                                {% endif %}
+                                {% if visibility_levels %}
+                                <div class="col-md-6">
+                                    <label for="form_visibility" class="text-white-50">Visibility</label>
+                                    <select class="form-select border-secondary" id="form_visibility" name="visibility">
+                                        {% for level in visibility_levels %}
+                                        <option value="{{ level }}" {% if level == default_visibility %}selected{% endif %}>{{ level }}</option>
+                                        {% endfor %}
                                     </select>
                                 </div>
                                 {% endif %}
@@ -1177,6 +1239,24 @@
             };
             interactive.addEventListener("change", syncManualCheckbox);
         }
+
+        // Color sync for Priority and TLP
+        function updateSelectColor(selectId) {
+            const select = $(selectId);
+            const selectedOption = select.find('option:selected');
+            const color = selectedOption.data('color');
+            if (color) {
+                select.css('color', color);
+            }
+        }
+
+        $('#form_priority, #form_tlp').on('change', function() {
+            updateSelectColor('#' + $(this).attr('id'));
+        });
+
+        // Initialize colors
+        updateSelectColor('#form_priority');
+        updateSelectColor('#form_tlp');
     });
 </script>
 {% endblock %}

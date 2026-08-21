@@ -35,6 +35,7 @@ browsermonitor = no
 wmi_etw = no
 dns_etw = no
 amsi_etw = no
+network_etw = no
 watchdownloads = no
 
 [AzSniffer]

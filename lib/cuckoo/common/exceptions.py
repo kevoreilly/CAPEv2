@@ -38,6 +38,15 @@ class CuckooOperationalError(Exception):
     pass
 
 
+class CuckooVisibilityConflict(CuckooOperationalError):
+    """A visibility transition was authorized against a task state that a concurrent write changed
+    before the serialization lock was taken (optimistic compare-and-swap mismatch). The caller must
+    re-read + re-authorize and retry. Subclasses CuckooOperationalError so an un-specialized handler
+    still treats it as retryable rather than a 500."""
+
+    pass
+
+
 class CuckooUnserviceableTaskError(CuckooOperationalError):
     """There are no machines in the pool that can service the task."""
 

@@ -1,0 +1,44 @@
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <h6 class="mb-0 text-white"><i class="fas fa-file-code me-2 text-danger"></i>AMSI ETW</h6>
+        <small class="text-white-50">AMSI (Antimalware Scan Interface) buffers — every script body the loader handed Defender for inspection. PowerShell, VBScript, JScript, .NET IL. Click a row to expand the actual scanned content.</small>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-dark table-striped etw-table mb-0">
+            <thead>
+                <tr>
+                    <th style="width:170px;">Time (UTC)</th>
+                    <th style="width:170px;">Process</th>
+                    <th style="width:140px;">App</th>
+                    <th>Content</th>
+                    <th style="width:80px;">Size</th>
+                    <th style="width:100px;">Hash</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in etw.amsi %}
+                <tr data-bs-toggle="collapse" data-bs-target="#amsi-c-{{ forloop.counter }}" style="cursor: pointer;">
+                    <td class="etw-mono">{{ r.time }}</td>
+                    <td class="etw-mono">{% if r.process_name %}{{ r.process_name }} ({{ r.pid }}){% else %}{{ r.pid }}{% endif %}</td>
+                    <td><span class="badge bg-secondary text-truncate d-inline-block" style="max-width: 130px;" title="{{ r.app }}">{{ r.app }}</span></td>
+                    <td class="etw-mono text-truncate" style="max-width: 360px;" title="{{ r.content_name }}">{{ r.content_name }}</td>
+                    <td class="etw-mono">{{ r.content_size }}</td>
+                    <td class="etw-mono small text-white-50">{{ r.hash|slice:"2:14" }}…</td>
+                </tr>
+                <tr class="bg-dark">
+                    <td colspan="6" class="p-0 border-0">
+                        <div id="amsi-c-{{ forloop.counter }}" class="collapse">
+                            <div class="amsi-preview p-3">
+                                <p class="small mb-2"><strong>Hash:</strong> <span class="etw-mono">{{ r.hash }}</span></p>
+                                <pre>{{ r.body }}{% if r.truncated %}
+
+[truncated at 5 MiB — full buffer is {{ r.body_size }} bytes. Use the apiv2 etw/amsi endpoint to fetch the unbounded archive.]{% endif %}</pre>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

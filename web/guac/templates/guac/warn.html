@@ -1,0 +1,39 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="datatable-dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Active Session Warning · CAPE Sandbox</title>
+    <link rel="icon" type="image/png" href="{% static 'img/cape.png' %}">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'css/atlas.css' %}" rel="stylesheet">
+    <link href="{% static 'css/all.min.css' %}" rel="stylesheet">
+</head>
+<body class="bg-dark text-white">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card bg-dark border-warning text-center py-4">
+                    <div class="card-body">
+                        <div class="mb-4">
+                            <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                        </div>
+                        <h4 class="text-white mb-3">Active Session Warning</h4>
+                        <p class="text-secondary mb-4">
+                            A VNC connection to VM <strong>{{ vm_name }}</strong> is already active. 
+                            Connecting now will share control or may disrupt the existing session.
+                        </p>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="/" class="btn btn-outline-secondary"><i class="fas fa-home me-1"></i> Go Home</a>
+                            <a href="?override=true" class="btn btn-warning"><i class="fas fa-sign-in-alt me-1"></i> Connect Anyway</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

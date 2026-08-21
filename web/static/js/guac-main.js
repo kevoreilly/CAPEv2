@@ -1,29 +1,78 @@
-function GuacMe(element, session_id, recording_name) {
-    "use strict";
+"use strict";
 
-    var terminal_connected = false;
-    var terminal_client;
-    var terminal_element;
-    var dialog_container;
+const KEYSYM = {
+    SHIFT:   0xFFE1,
+    CTRL:    0xFFE3,
+    INSERT:  0xFF63,
+    V_UPPER: 0x0056,
+    V_LOWER: 0x0076,
+};
 
-    var init = function() {
-        dialog_container = $(element).find('.guaconsole')[0];
+const PASTE_COMPONENT_KEYS = new Set([
+    KEYSYM.SHIFT, KEYSYM.CTRL, KEYSYM.INSERT,
+    KEYSYM.V_UPPER, KEYSYM.V_LOWER,
+]);
 
-        var terminal_ws_url = location.origin.replace(/^http(s?):/, function(match, p1) {
-            return (p1 ? 'wss:' : 'ws:');
-        });
+const PASTE_DELAY_MS = 50;
 
-        terminal_client = new Guacamole.Client(
-            new Guacamole.WebSocketTunnel(terminal_ws_url + '/guac/websocket-tunnel/' + session_id)
+const NON_FATAL_STATUS_CODES = new Set([0, 256]);
+
+const ICON_ERROR = 'fas fa-exclamation-circle text-danger';
+const ICON_WARNING = 'fas fa-exclamation-triangle text-warning';
+const ICON_SUCCESS = 'fas fa-check-circle text-success';
+
+class GuacSession {
+    constructor(element, config) {
+        this.config = config;
+        this.client = null;
+        this.tunnel = null;
+        this.display = null;
+        this.keyboard = null;
+        this.connected = false;
+        this.ctrl = false;
+        this.shift = false;
+        this.dialogContainer = $(element).find('.guaconsole')[0];
+
+        this._init();
+    }
+
+    _buildWsUrl() {
+        return location.origin.replace(/^http(s?):/, (match, p1) =>
+            p1 ? 'wss:' : 'ws:'
         );
-        terminal_connect(recording_name);
+    }
 
-        terminal_element = terminal_client.getDisplay().getElement();
-        $('#terminal').append(terminal_element);
+    _isPasteShortcut(keysym) {
+        return (this.ctrl && this.shift && keysym === KEYSYM.V_UPPER)
+            || (this.ctrl && keysym === KEYSYM.V_LOWER)
+            || (this.shift && keysym === KEYSYM.INSERT);
+    }
 
-        /* Scale display to fit the browser window. */
-        var scaleDisplay = function() {
-            var display = terminal_client.getDisplay();
+    _init() {
+        const wsUrl = this._buildWsUrl();
+        this.tunnel = new Guacamole.WebSocketTunnel(
+            wsUrl + '/guac/websocket-tunnel/' + this.config.session_id
+        );
+        this.client = new Guacamole.Client(this.tunnel);
+
+        this.connect();
+
+        this.display = this.client.getDisplay().getElement();
+        $('#terminal').append(this.display);
+
+        this._setupScaling();
+
+        window.onunload = () => this.disconnect();
+
+        this._setupMouse();
+        this._setupKeyboard();
+        this._setupClipboard();
+        this._setupErrorHandler();
+    }
+
+    _setupScaling() {
+        const scaleDisplay = () => {
+            var display = this.client.getDisplay();
             var displayWidth = display.getWidth();
             var displayHeight = display.getHeight();
             if (!displayWidth || !displayHeight) return;
@@ -40,144 +89,179 @@ function GuacMe(element, session_id, recording_name) {
             display.scale(scale);
         };
 
-        /* Re-scale when the display size changes (initial connect). */
-        terminal_client.getDisplay().onresize = function() {
+        this.client.getDisplay().onresize = function() {
             scaleDisplay();
         };
 
-        /* Re-scale on browser window resize (debounced). */
         var resizeTimeout;
         window.addEventListener('resize', function() {
             clearTimeout(resizeTimeout);
             resizeTimeout = setTimeout(scaleDisplay, 100);
         });
+    }
 
-        /* Disconnect on tab close. */
-        window.onunload = function() {
-            terminal_client.disconnect();
-        };
+    _setupMouse() {
+        const mouse = new Guacamole.Mouse(this.display);
+        const sendState = (state) => this.client.sendMouseState(state, true);
+        mouse.onmousedown = sendState;
+        mouse.onmouseup   = sendState;
+        mouse.onmousemove = sendState;
+    }
 
-        /* Mouse handling */
-        var mouse = new Guacamole.Mouse(terminal_element);
+    _setupKeyboard() {
+        this.keyboard = new Guacamole.Keyboard(this.display);
 
-        mouse.onmousedown =
-        mouse.onmouseup   =
-        mouse.onmousemove = function(mouseState) {
-            terminal_client.sendMouseState(mouseState, true);
-        };
+        this.keyboard.onkeydown = (keysym) => {
+            if (keysym === KEYSYM.SHIFT)  this.shift = true;
+            else if (keysym === KEYSYM.CTRL) this.ctrl = true;
 
-        var keyboard = new Guacamole.Keyboard(terminal_element);
-        var ctrl, shift = false;
-
-        keyboard.onkeydown = function (keysym) {
-            var cancel_event = true;
-
-            if (keysym == 0xFFE1 || keysym == 0xFFE3 || keysym == 0xFF63
-                || keysym == 0x0056 || keysym == 0x0076) {
-                cancel_event = false;
-            }
-
-            if (keysym == 0xFFE1) { shift = true; }
-            else if (keysym == 0xFFE3) { ctrl = true; }
-
-            if ((ctrl && shift && keysym == 0x0056)
-                || (ctrl && keysym == 0x0076)
-                || (shift && keysym == 0xFF63)) {
-                window.setTimeout(function() {
-                    terminal_client.sendKeyEvent(1, keysym);
-                }, 50);
+            if (this._isPasteShortcut(keysym)) {
+                setTimeout(() => this.client.sendKeyEvent(1, keysym), PASTE_DELAY_MS);
             } else {
-                terminal_client.sendKeyEvent(1, keysym);
+                this.client.sendKeyEvent(1, keysym);
             }
 
-            return !cancel_event;
+            return !PASTE_COMPONENT_KEYS.has(keysym);
         };
 
-        keyboard.onkeyup = function (keysym) {
-            if (keysym == 0xFFE1) { shift = false; }
-            else if (keysym == 0xFFE3) { ctrl = false; }
+        this.keyboard.onkeyup = (keysym) => {
+            if (keysym === KEYSYM.SHIFT)  this.shift = false;
+            else if (keysym === KEYSYM.CTRL) this.ctrl = false;
 
-            if ((ctrl && shift && keysym == 0x0056)
-                || (ctrl && keysym == 0x0076)
-                || (shift && keysym == 0xFF63)) {
-                window.setTimeout(function() {
-                    terminal_client.sendKeyEvent(0, keysym);
-                }, 50);
+            if (this._isPasteShortcut(keysym)) {
+                setTimeout(() => this.client.sendKeyEvent(0, keysym), PASTE_DELAY_MS);
             } else {
-                terminal_client.sendKeyEvent(0, keysym);
+                this.client.sendKeyEvent(0, keysym);
             }
         };
 
-        $(terminal_element)
+        $(this.display)
             .attr('tabindex', 1)
             .hover(
-                function() {
-                    var x = window.scrollX, y = window.scrollY;
+                function () {
+                    const x = window.scrollX, y = window.scrollY;
                     $(this).focus();
                     window.scrollTo(x, y);
                 },
-                function() { $(this).blur(); }
+                function () { $(this).blur(); }
             )
-            .blur(function() { keyboard.reset(); });
+            .blur(() => this.keyboard.reset());
+    }
 
-        $(document).on('paste', function(e) {
-            var text = e.originalEvent.clipboardData.getData('text/plain');
-            if ($(terminal_element).is(":focus")) {
-                terminal_client.setClipboard(text);
+    _setupClipboard() {
+        $(document).on('paste', (e) => {
+            const text = e.originalEvent.clipboardData.getData('text/plain');
+            if ($(this.display).is(':focus')) {
+                this.client.setClipboard(text);
             }
         });
+    }
 
-        terminal_client.onerror = function(guac_error) {
-            terminal_client.disconnect();
+    _showDialog(title, detail, icon) {
+        const dialog = $('#launch_error');
+        const iconHtml = icon ? `<i class="${icon} me-1"></i>` : '';
+        dialog.find('#dialog-heading').html(`${iconHtml}${title}`);
+        dialog.find('#dialog-message').html(detail);
+        dialog.dialog({ dialogClass: 'no-close' });
+        dialog.dialog(this.dialogContainer);
+    }
 
-            var dialog = $('#launch_error');
-            var dialog_message =
-                "Could not connect to guest vm. " +
-                "The client detected an unexpected error. " +
-                "The server's error message was:";
-            var error_message = guac_error.message;
+    _showError(title, detail) {
+        this._showDialog(title, detail, ICON_ERROR);
+    }
 
-            if (guac_error.message.toLowerCase().startsWith('aborted')) {
-                dialog_message = "Remote session terminated.";
-                error_message = "Close tab.";
+    _showWarning(title, detail) {
+        this._showDialog(title, detail, ICON_WARNING);
+    }
+
+    _showSuccess(title, detail) {
+        this._showDialog(title, detail, ICON_SUCCESS);
+    }
+
+    _setupErrorHandler() {
+        const handler = (error) => {
+            console.log(`guac error ${error.code}: ${error.message}`);
+
+            if (NON_FATAL_STATUS_CODES.has(error.code)) {
+                return;
             }
-            dialog.find('.message').html(dialog_message);
-            dialog.find('.error_msg').html(error_message);
-            dialog.dialog({dialogClass: 'no-close'});
-            dialog.dialog(dialog_container);
-        };
-    };
 
-    var terminal_connect = function(recording_name) {
-        if (terminal_connected) {
-            terminal_client.disconnect();
-            terminal_connected = false;
+            this.disconnect();
+
+            if (error.code === 514) {
+                this._showError("Connection error", "Server timeout.");
+            } else if (error.code === 515) {
+                this._showSuccess("Session complete", "Backing VM has disconnected.");
+            } else if (error.code === 522) {
+                this._showWarning("Session ended", "Session timed out due to inactivity.");
+            } else {
+                const _msg = `An unexpected error occurred: ${error.message}`;
+                this._showError("Connection error", _msg);
+            }
+        };
+
+        this.tunnel.onerror = handler;
+        this.client.onerror = handler;
+    }
+
+    connect() {
+        if (this.connected) {
+            this.client.disconnect();
+            this.connected = false;
         }
 
         try {
-            terminal_client.connect($.param({
-                'recording_name': recording_name,
+            this.client.connect($.param({
+                'recording_name': this.config.recording_name,
             }));
-            terminal_connected = true;
+            this.connected = true;
         } catch (e) {
             console.warn(e);
-            terminal_connected = false;
+            this.connected = false;
             throw e;
         }
-    };
+    }
 
-    init();
+    disconnect() {
+        if (this.connected) {
+            this.client.disconnect();
+            this.connected = false;
+        }
+    }
 }
 
-function stopTask(taskId) {
-    var apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
+function GuacMe(element, session_id, recording_name) {
+    return new GuacSession(element, { session_id, recording_name });
+}
+
+function getCsrfToken() {
+    var match = document.cookie.match(/csrftoken=([^;]+)/);
+    return match ? match[1] : '';
+}
+
+function stopTask(taskId, onSuccess, onError) {
+    var btn = document.getElementById('stopTask');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Stopping...'; }
+  
+    const apiUrl = location.origin + "/apiv2/tasks/status/" + taskId + "/";
 
     fetch(apiUrl, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCsrfToken(),
+        },
         body: JSON.stringify({ status: 'finish' }),
     })
     .then(response => response.json())
-    .then(data => console.log('Response:', data))
-    .catch(error => console.error('Error:', error));
+    .then(data => {
+        console.log('Response:', data);
+        if (onSuccess) onSuccess(data);
+        location.replace(location.origin + '/submit/status/' + taskId + '/');
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        if (onError) onError(error);
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-stop-circle me-1"></i>End Session'; }
+    });
 }

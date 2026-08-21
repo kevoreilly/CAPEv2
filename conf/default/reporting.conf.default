@@ -96,14 +96,32 @@ db = cuckoo
 # password =
 # authsource = cuckoo
 
+# Extended search indexes (may increase disk/RAM usage)
+index_yara = no
+index_clamav = no
+index_hashes = no
+index_detections = no
+index_filenames = no
+
 # Set this value if you are using mongodb with TLS enabled
 # tlscafile =
+# Enable TLS on the connection. Required for managed backends like Amazon DocumentDB
+# (a tlscafile alone does NOT enable TLS in pymongo). Default off = today's behavior.
+# tls = no
+# Retryable writes. Amazon DocumentDB rejects them, so set this to no when pointing at
+# DocumentDB. Default yes = pymongo's own default (unchanged for stock MongoDB).
+# retrywrites = yes
 
 # Automatically delete large dict values that exceed mongos 16MB limitation
 # Note: This only deletes dict keys from data stored in MongoDB. You would
 # still get the full dataset if you parsed the results dict in another
 # reporting module or from the jsondump module.
 fix_large_docs = yes
+
+# Default timeout for MongoDB queries in milliseconds
+query_timeout = 20000
+# Stricter timeout for regex queries in milliseconds
+regex_timeout = 10000
 
 # Community
 # Latest known working version is 7.16.2
@@ -219,24 +237,16 @@ enabled = no
 
 # Google Cloud Storage
 [gcs]
+# Note: Further GCS configuration (bucket name, credentials, mode, etc.)
+# MUST be done in conf/gcp.conf. This section only controls the enabled state.
 enabled = no
-# The name of your Google Cloud Storage bucket where files will be uploaded.
-bucket_name = your-gcs-bucket-name
 
-# Comma-separated list of DIRECTORY names to exclude from the upload.
-# Good examples are 'shots' (contains all screenshots) or 'memory' (for full memory dumps).
-exclude_dirs = logs, shots
-
-# Comma-separated list of exact FILENAMES to exclude from the upload.
-# Good examples are large report formats you don't need in GCS.
-exclude_files =
-
-# Mode: zip - will submit all files and folders as unique zip archive. Useful to not spam pubsub notification on file creation.
-# Mode: file - will submit one by one.
-mode = zip
-
-# Can be vm or json
-auth_by = vm
-# only if auth_by = json. The absolute path to your Google Cloud service account JSON key file.
-# This file is required for authentication.
-credentials_path = data/gcp-credentials.json
+# Central mode: ship the analysis tree to shared object storage (S3/compatible or a
+# shared mount) and stamp the central job_id onto the report. This module is a
+# PREREQUISITE for central mode -- with it disabled, [central_mode] is non-functional
+# (no artifacts uploaded, info.job_id never stamped, info.id never rewritten to the
+# central task id, and the visibility reconcile has no job_id to key on). Storage
+# targets are configured under [central_mode] in conf/cuckoo.conf. Leave disabled on a
+# standard single-node install.
+[centralstore]
+enabled = no

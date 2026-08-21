@@ -8,14 +8,29 @@ from typing import Any, Dict
 
 from lib.cuckoo.common.utils import convert_to_printable
 
-try:
-    from peepdf.JSAnalysis import analyseJS, isJavascript
-    from peepdf.PDFCore import PDFParser
+# Lazy-loaded peepdf bindings. The peepdf library imports STPyV8 (V8 bindings)
+# at module load time, which spawns 16 native V8 worker threads in the
+# importing process. We do NOT want those threads in the supervisor — see
+# PreforkEngine._assert_single_threaded. _load_peepdf() defers the import
+# until the first peepdf_parse() call (which runs in a worker / forked child,
+# not the supervisor), so the supervisor stays single-threaded at the kernel level.
 
-    HAVE_PEEPDF = True
-except ImportError:
-    HAVE_PEEPDF = False
-    print("OPTIONAL! Missed dependency: poetry run pip install peepdf-3")
+_PEEPDF_BINDINGS = None  # None = not probed; tuple = loaded; () = unavailable
+
+
+def _load_peepdf():
+    """Import peepdf on demand, cache the bindings, return (PDFParser, isJavascript, analyseJS) or () if peepdf is unavailable."""
+    global _PEEPDF_BINDINGS
+    if _PEEPDF_BINDINGS is not None:
+        return _PEEPDF_BINDINGS
+    try:
+        from peepdf.JSAnalysis import analyseJS, isJavascript
+        from peepdf.PDFCore import PDFParser
+        _PEEPDF_BINDINGS = (PDFParser, isJavascript, analyseJS)
+    except ImportError:
+        print("OPTIONAL! Missed dependency: poetry run pip install peepdf-3")
+        _PEEPDF_BINDINGS = ()
+    return _PEEPDF_BINDINGS
 
 log = logging.getLogger(__name__)
 
@@ -65,9 +80,10 @@ def _set_base_uri(pdf):
 
 def peepdf_parse(filepath: str, pdfresult: Dict[str, Any]) -> Dict[str, Any]:
     """Extract JavaScript from PDF objects."""
-
-    if not HAVE_PEEPDF:
+    bindings = _load_peepdf()
+    if not bindings:
         return pdfresult
+    PDFParser, isJavascript, analyseJS = bindings
 
     log.debug("About to parse with PDFParser")
     parser = PDFParser()

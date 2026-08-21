@@ -1,33 +1,101 @@
 {% load static %}
 <!DOCTYPE html>
-<html>
+<html class="datatable-dark" lang="en">
 <head>
-    <link rel="icon" href="{% static 'img/cape.png' %}">
-    <script src="{% static 'js/jquery.js' %}"></script>
-    <script src="{% static 'js/jquery-ui.min.js' %}"></script>
     <meta charset="utf-8"/>
-    <title>Guacamole Console</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guacamole Console · CAPE Sandbox</title>
+    <link rel="icon" type="image/png" href="{% static 'img/cape.png' %}">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'css/atlas.css' %}" rel="stylesheet">
+    <link href="{% static 'css/all.min.css' %}" rel="stylesheet">
+    <script src="{% static 'js/jquery.js' %}"></script>
 </head>
-<body>
-    {% block content %}
-        <div class="alert alert-secondary">
-            <h4>Hang on...</h4>
-            <p>The VM is not running, yet. This page will refresh every 5 seconds.</p>
-            <div class="progress progress-striped active" style="margin-top: 10px;"></div>
-            <button type="button" id="taskStatus">View Task</button>
-            <script>
-                var task_url = location.origin + '/submit/status/{{task_id}}/'
-                document.getElementById("taskStatus").addEventListener("click", function() {
-                    location.replace(task_url);
-                }, false);
-            </script>
+<body class="bg-dark text-white">
+
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card bg-dark border-secondary text-center py-5">
+                    <div class="card-body">
+                        <div class="mb-4">
+                            <i class="fas fa-desktop fa-3x text-secondary mb-3"></i>
+                        </div>
+                        <h4 class="text-white mb-2">Hang on...</h4>
+                        {% if vm_name %}
+                        <p class="text-secondary mb-4">The VM {{ vm_name }} is starting. This page will refresh every second.</p>
+                        {% else %}
+                        <p class="text-secondary mb-4">The VM is not running yet. This page will refresh every 5 seconds.</p>
+                        {% endif %}
+                        <div class="progress mb-4" style="height: 4px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated bg-danger w-100"></div>
+                        </div>
+                        {% if task_id and task_id != 0 and task_id != '0' %}
+                        <button type="button" id="taskStatus" class="btn btn-outline-secondary">
+                            <i class="fas fa-tasks me-1"></i> View Task
+                        </button>
+                        {% else %}
+                        <button type="button" id="taskStatus" class="btn btn-outline-secondary">
+                            <i class="fas fa-home me-1"></i> Go Home
+                        </button>
+                        {% endif %}
+                        {% if vm_name %}
+                        <button type="button" id="cancelStart" class="btn btn-outline-danger ms-2">
+                            <i class="fas fa-times me-1"></i> Cancel
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
         </div>
-        <script type="text/JavaScript">
-            function reloadpage() {
-                location.reload(true);
-            }
-            setTimeout(reloadpage, 5000);
-        </script>
-    {% endblock %}
+    </div>
+
+    <script>
+        document.getElementById("taskStatus").addEventListener("click", function() {
+            {% if task_id and task_id != 0 and task_id != '0' %}
+            location.replace(location.origin + '/submit/status/{{ task_id }}/');
+            {% else %}
+            location.replace(location.origin + '/');
+            {% endif %}
+        });
+
+        {% if vm_name %}
+        var cancelBtn = document.getElementById("cancelStart");
+        if (cancelBtn) {
+            cancelBtn.addEventListener("click", function() {
+                cancelBtn.disabled = true;
+                cancelBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i> Cancelling...';
+                
+                fetch('/guac/direct/vnc/{{ vm_name }}/shutdown/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ force: true })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        location.replace(location.origin + '/guac/direct/vnc/{{ vm_name }}/');
+                    } else {
+                        alert('Error cancelling startup: ' + (data.message || 'Unknown error'));
+                        cancelBtn.disabled = false;
+                        cancelBtn.innerHTML = '<i class="fas fa-times me-1"></i> Cancel';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error cancelling startup');
+                    cancelBtn.disabled = false;
+                    cancelBtn.innerHTML = '<i class="fas fa-times me-1"></i> Cancel';
+                });
+            });
+        }
+        {% endif %}
+
+        setTimeout(function() { location.reload(true); }, {% if vm_name %}1000{% else %}5000{% endif %});
+    </script>
 </body>
 </html>

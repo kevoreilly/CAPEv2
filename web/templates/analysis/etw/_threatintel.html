@@ -1,0 +1,252 @@
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary">
+        <h6 class="mb-0 text-white"><i class="fas fa-shield-virus me-2 text-danger"></i>Microsoft-Windows-Threat-Intelligence</h6>
+        <small class="text-white-50">PPL-protected ETW provider. The raw stream is firehose-noisy on self-process AllocVM events — we surface drivers/devices the sample touched, an aggregate AllocVM summary by (caller→target) pair, and the genuinely suspicious individual events (cross-process, RWX-landing, trust-uplift). Click any expandable row for event detail.</small>
+    </div>
+</div>
+
+{# ---------------- Drivers / Devices Accessed (deduped) ---------------- #}
+{% if etw.threatintel_drivers %}
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary">
+        <h6 class="mb-0 text-white"><i class="fas fa-microchip me-2 text-info"></i>Drivers / Devices Accessed</h6>
+        <small class="text-white-50">Deduped IRP-target list from the TI provider. Non-system drivers and any non-standard device names are likely BYOD or kernel-driver abuse signal.</small>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-dark table-striped table-hover etw-table mb-0">
+            <thead>
+                <tr>
+                    <th>Driver</th>
+                    <th>Device</th>
+                    <th style="width:80px;">IRPs</th>
+                    <th style="width:170px;">First Seen</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for d in etw.threatintel_drivers %}
+                <tr {% if not d.system_noise %}class="event-create"{% else %}class="text-white-50"{% endif %}>
+                    <td class="etw-mono">
+                        {% if d.system_noise %}
+                            <span class="badge bg-secondary me-1" title="known system / OS driver — collapsed because almost everything touches these">system</span>
+                        {% else %}
+                            <span class="badge bg-danger me-1" title="non-system driver — likely interesting">non-system</span>
+                        {% endif %}
+                        {{ d.driver_name|default:"(unnamed)" }}
+                    </td>
+                    <td class="etw-mono">{{ d.device_name|default:"-" }}</td>
+                    <td class="etw-mono">{{ d.hit_count }}</td>
+                    <td class="etw-mono small">{{ d.first_seen }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{# ---------------- AllocVM aggregated by (caller, target) ---------------- #}
+{% if etw.threatintel_alloc_summary %}
+<div class="card bg-dark border-secondary mb-3">
+    <div class="card-header border-secondary">
+        <h6 class="mb-0 text-white"><i class="fas fa-microchip me-2 text-warning"></i>VirtualAlloc Activity (aggregated)</h6>
+        <small class="text-white-50">One row per (caller&nbsp;→&nbsp;target) pair. Cross-process pairs are highlighted — those are the injection-relevant signal. Self-process traffic is included for completeness but is dominated by the in-process allocator and CAPE's own monitor hooks (so per-pid RWX counts only meaningful for cross-process pairs).</small>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-dark table-striped table-hover etw-table mb-0">
+            <thead>
+                <tr>
+                    <th style="width:170px;">Calling</th>
+                    <th style="width:170px;">Target</th>
+                    <th style="width:100px;">Allocs</th>
+                    <th style="width:80px;">RWX</th>
+                    <th style="width:90px;">≥256K</th>
+                    <th>Size range</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for a in etw.threatintel_alloc_summary %}
+                <tr {% if a.cross_process %}class="event-create"{% else %}class="text-white-50"{% endif %}>
+                    <td class="etw-mono">
+                        {% if a.calling_process_name %}{{ a.calling_process_name }} ({{ a.calling_pid }}){% else %}{{ a.calling_pid }}{% endif %}
+                    </td>
+                    <td class="etw-mono">
+                        {% if a.cross_process %}<span class="badge bg-danger me-1" title="caller != target — injection candidate">cross</span>{% endif %}
+                        {% if a.target_process_name %}{{ a.target_process_name }} ({{ a.target_pid }}){% else %}{{ a.target_pid }}{% endif %}
+                    </td>
+                    <td class="etw-mono">{{ a.count }}</td>
+                    <td class="etw-mono">
+                        {% if a.cross_process %}
+                            {% if a.rwx %}<span class="badge bg-danger" title="PAGE_EXECUTE_READWRITE in another process's address space">{{ a.rwx }}</span>{% else %}0{% endif %}
+                        {% else %}
+                            <span title="self-process RWX is dominated by CAPE monitor hooks — not surfaced">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="etw-mono">{{ a.large }}</td>
+                    <td class="etw-mono small">
+                        {% if a.min_size %}{{ a.min_size }} – {{ a.max_size }}{% else %}-{% endif %}
+                    </td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<div class="card bg-dark border-danger mb-3">
+    <div class="card-header bg-danger bg-opacity-25 border-danger">
+        <h6 class="mb-0 text-white"><i class="fas fa-bolt me-2"></i>Suspicious operations</h6>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-dark table-striped table-hover etw-table mb-0">
+            <thead>
+                <tr>
+                    <th style="width:170px;">Time (UTC)</th>
+                    <th style="width:60px;">EID</th>
+                    <th>Task</th>
+                    <th style="width:170px;">Calling</th>
+                    <th style="width:170px;">Target</th>
+                    <th>Base</th>
+                    <th style="width:90px;">Size</th>
+                    <th style="width:160px;">Protection</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in etw.threatintel %}{% if r.suspicious %}
+                <tr {% if r.cross_process or r.trust_uplift or r.rwx_landing %}class="event-create"{% endif %}
+                    data-bs-toggle="collapse" data-bs-target="#ti-d-{{ forloop.counter }}" style="cursor:pointer;">
+                    <td class="etw-mono">{{ r.time }}</td>
+                    <td class="etw-mono"><span class="badge bg-dark border">{{ r.event_id }}</span></td>
+                    <td>
+                        <span class="badge bg-danger" title="{{ r.task_full }}">{{ r.task }}</span>
+                        {% if r.trust_uplift %} <span class="badge bg-warning text-dark" title="calling has lower signature level than target">trust↑</span>{% endif %}
+                        {% if r.rwx_landing %} <span class="badge bg-warning text-dark" title="executes into a non-file-backed RWX mapping — classic shellcode signal">RWX</span>{% endif %}
+                    </td>
+                    <td class="etw-mono">{% if r.calling_process_name %}{{ r.calling_process_name }} ({{ r.calling_pid }}){% else %}{{ r.calling_pid }}{% endif %}</td>
+                    <td class="etw-mono">{% if r.target_process_name %}{{ r.target_process_name }} ({{ r.target_pid }}){% else %}{{ r.target_pid }}{% endif %}</td>
+                    <td class="etw-mono">{{ r.base_address }}</td>
+                    <td class="etw-mono">{{ r.region_size }}</td>
+                    <td class="etw-mono">
+                        {% if r.protection_name %}
+                            <span class="badge {% if 'EXECUTE' in r.protection_name %}bg-danger{% else %}bg-secondary{% endif %}" title="raw: {{ r.protection }}">{{ r.protection_name }}</span>
+                        {% else %}{{ r.protection }}{% endif %}
+                    </td>
+                </tr>
+                <tr class="bg-dark"><td colspan="8" class="p-0 border-0">
+                    <div id="ti-d-{{ forloop.counter }}" class="collapse">
+                        <div class="p-3 small">
+                            <div class="row g-3">
+                                <div class="col-md-4">
+                                    <h6 class="text-white-50 mb-2">Operation</h6>
+                                    <table class="table table-dark table-sm table-borderless mb-0">
+                                        <tr><td class="text-white-50">Task name</td><td class="etw-mono">{{ r.task_full }}</td></tr>
+                                        <tr><td class="text-white-50">Event ID</td><td class="etw-mono">{{ r.event_id }}</td></tr>
+                                        <tr><td class="text-white-50">Allocation</td><td class="etw-mono">{{ r.alloc_type }}{% if r.alloc_type_raw %} <span class="text-white-50">({{ r.alloc_type_raw }})</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">Description</td><td>{{ r.description }}</td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="text-white-50 mb-2">Calling</h6>
+                                    <table class="table table-dark table-sm table-borderless mb-0">
+                                        <tr><td class="text-white-50">PID</td><td class="etw-mono">{{ r.calling_pid }}{% if r.calling_process_name %} <span class="text-white-50">{{ r.calling_process_name }}</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">Thread</td><td class="etw-mono">{{ r.calling_thread_id }}</td></tr>
+                                        <tr><td class="text-white-50">Started</td><td class="etw-mono">{{ r.calling_create }}</td></tr>
+                                        <tr><td class="text-white-50">Signature</td><td class="etw-mono">{{ r.calling_sig }}{% if r.calling_sig_raw != "" %} <span class="text-white-50">({{ r.calling_sig_raw }})</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">Protection</td><td class="etw-mono">{{ r.calling_ppl }}{% if r.calling_ppl_raw != "" %} <span class="text-white-50">({{ r.calling_ppl_raw }})</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">Original PID</td><td class="etw-mono">{{ r.original_pid }}</td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-4">
+                                    <h6 class="text-white-50 mb-2">Target</h6>
+                                    <table class="table table-dark table-sm table-borderless mb-0">
+                                        <tr><td class="text-white-50">PID</td><td class="etw-mono">{{ r.target_pid }}{% if r.target_process_name %} <span class="text-white-50">{{ r.target_process_name }}</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">Signature</td><td class="etw-mono">{{ r.target_sig }}{% if r.target_sig_raw != "" %} <span class="text-white-50">({{ r.target_sig_raw }})</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">Protection</td><td class="etw-mono">{{ r.target_ppl }}{% if r.target_ppl_raw != "" %} <span class="text-white-50">({{ r.target_ppl_raw }})</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">Base</td><td class="etw-mono">{{ r.base_address }}</td></tr>
+                                        <tr><td class="text-white-50">Size</td><td class="etw-mono">{{ r.region_size }}</td></tr>
+                                        <tr><td class="text-white-50">Protection mask</td><td class="etw-mono">{{ r.protection_name }} <span class="text-white-50">({{ r.protection }})</span></td></tr>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {# Task-specific extras: APC routines, thread-context registers, driver/device names. #}
+                            {% if r.apc %}
+                            <hr class="border-secondary my-3">
+                            <h6 class="text-white-50 mb-2"><i class="fas fa-bell me-1"></i>APC injection details</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <table class="table table-dark table-sm table-borderless mb-0">
+                                        <tr><td class="text-white-50" style="width:160px;">Target thread</td><td class="etw-mono">{{ r.apc.target_thread_id }}{% if r.apc.target_thread_alertable %} <span class="badge bg-warning text-dark ms-1">alertable</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">Thread created</td><td class="etw-mono">{{ r.apc.target_thread_create }}</td></tr>
+                                        <tr><td class="text-white-50"><strong>ApcRoutine</strong></td><td class="etw-mono"><strong>{{ r.apc.routine }}</strong>{% if r.apc.routine_vad.suspicious %} <span class="badge bg-danger ms-1">RWX private</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">↳ in mapping</td><td class="etw-mono">{{ r.apc.routine_vad.mmf_name|default:"(non-file-backed)" }}</td></tr>
+                                        <tr><td class="text-white-50">↳ alloc base</td><td class="etw-mono">{{ r.apc.routine_vad.alloc_base }} <span class="text-white-50">({{ r.apc.routine_vad.region_size }} bytes, {{ r.apc.routine_vad.region_type }})</span></td></tr>
+                                        <tr><td class="text-white-50">↳ alloc protect</td><td class="etw-mono"><span class="badge {% if 'EXECUTE' in r.apc.routine_vad.alloc_protect %}bg-danger{% else %}bg-secondary{% endif %}">{{ r.apc.routine_vad.alloc_protect }}</span></td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <table class="table table-dark table-sm table-borderless mb-0">
+                                        <tr><td class="text-white-50" style="width:160px;"><strong>ApcArgument1</strong></td><td class="etw-mono"><strong>{{ r.apc.arg1 }}</strong>{% if r.apc.arg1_vad.suspicious %} <span class="badge bg-danger ms-1">RWX private</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">↳ in mapping</td><td class="etw-mono">{{ r.apc.arg1_vad.mmf_name|default:"(non-file-backed)" }}</td></tr>
+                                        <tr><td class="text-white-50">↳ alloc base</td><td class="etw-mono">{{ r.apc.arg1_vad.alloc_base }} <span class="text-white-50">({{ r.apc.arg1_vad.region_size }} bytes, {{ r.apc.arg1_vad.region_type }})</span></td></tr>
+                                        <tr><td class="text-white-50">↳ alloc protect</td><td class="etw-mono"><span class="badge {% if 'EXECUTE' in r.apc.arg1_vad.alloc_protect %}bg-danger{% else %}bg-secondary{% endif %}">{{ r.apc.arg1_vad.alloc_protect }}</span></td></tr>
+                                        <tr><td class="text-white-50">ApcArgument2</td><td class="etw-mono">{{ r.apc.arg2 }}</td></tr>
+                                        <tr><td class="text-white-50">ApcArgument3</td><td class="etw-mono">{{ r.apc.arg3 }}</td></tr>
+                                    </table>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if r.thread_ctx %}
+                            <hr class="border-secondary my-3">
+                            <h6 class="text-white-50 mb-2"><i class="fas fa-share me-1"></i>Thread-context hijack details</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <table class="table table-dark table-sm table-borderless mb-0">
+                                        <tr><td class="text-white-50" style="width:160px;">Target thread</td><td class="etw-mono">{{ r.thread_ctx.target_thread_id }}</td></tr>
+                                        <tr><td class="text-white-50">Thread created</td><td class="etw-mono">{{ r.thread_ctx.target_thread_create }}</td></tr>
+                                        <tr><td class="text-white-50">ContextFlags</td><td class="etw-mono">{{ r.thread_ctx.context_flags }}</td></tr>
+                                        <tr><td class="text-white-50">ContextMask</td><td class="etw-mono">{{ r.thread_ctx.context_mask }}</td></tr>
+                                        <tr><td class="text-white-50"><strong>Pc</strong> (new IP)</td><td class="etw-mono"><strong>{{ r.thread_ctx.pc }}</strong>{% if r.thread_ctx.pc_vad.suspicious %} <span class="badge bg-danger ms-1">RWX private</span>{% endif %}</td></tr>
+                                        <tr><td class="text-white-50">↳ in mapping</td><td class="etw-mono">{{ r.thread_ctx.pc_vad.mmf_name|default:"(non-file-backed)" }}</td></tr>
+                                        <tr><td class="text-white-50">↳ alloc base</td><td class="etw-mono">{{ r.thread_ctx.pc_vad.alloc_base }} <span class="text-white-50">({{ r.thread_ctx.pc_vad.region_size }} bytes, {{ r.thread_ctx.pc_vad.region_type }})</span></td></tr>
+                                        <tr><td class="text-white-50">↳ alloc protect</td><td class="etw-mono"><span class="badge {% if 'EXECUTE' in r.thread_ctx.pc_vad.alloc_protect %}bg-danger{% else %}bg-secondary{% endif %}">{{ r.thread_ctx.pc_vad.alloc_protect }}</span></td></tr>
+                                    </table>
+                                </div>
+                                <div class="col-md-6">
+                                    <table class="table table-dark table-sm table-borderless mb-0">
+                                        <tr><td class="text-white-50" style="width:80px;">Sp</td><td class="etw-mono">{{ r.thread_ctx.sp }}</td></tr>
+                                        <tr><td class="text-white-50">Lr</td><td class="etw-mono">{{ r.thread_ctx.lr }}</td></tr>
+                                        <tr><td class="text-white-50">Fp</td><td class="etw-mono">{{ r.thread_ctx.fp }}</td></tr>
+                                        {% for name, val in r.thread_ctx.regs %}
+                                        <tr><td class="text-white-50">{{ name }}</td><td class="etw-mono">{{ val }}</td></tr>
+                                        {% endfor %}
+                                    </table>
+                                </div>
+                            </div>
+                            {% endif %}
+
+                            {% if r.driver_device %}
+                            <hr class="border-secondary my-3">
+                            <h6 class="text-white-50 mb-2"><i class="fas fa-microchip me-1"></i>Driver / device handle</h6>
+                            <table class="table table-dark table-sm table-borderless mb-0">
+                                <tr><td class="text-white-50" style="width:160px;">DeviceName</td><td class="etw-mono">{{ r.driver_device.device_name }}</td></tr>
+                                <tr><td class="text-white-50">DriverName</td><td class="etw-mono">{{ r.driver_device.driver_name }}</td></tr>
+                            </table>
+                            {% endif %}
+                        </div>
+                    </div>
+                </td></tr>
+            {% endif %}{% empty %}
+                <tr><td colspan="8" class="text-center text-white-50 py-3">No suspicious threat-intel events for this task.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# The previous "Show other events" collapse for self-process AllocVM /
+   DRIVER_DEVICE noise is gone — those events are now folded into the
+   aggregated VirtualAlloc Activity and Drivers / Devices Accessed cards
+   above. The remaining "Suspicious operations" table only contains
+   genuinely interesting events. #}

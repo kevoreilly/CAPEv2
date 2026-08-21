@@ -19,9 +19,6 @@ import sys
 import tempfile
 import threading
 
-if sys.version_info[:2] < (3, 8):
-    sys.exit("You are running an incompatible version of Python, please use >= 3.8")
-
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
@@ -58,8 +55,8 @@ def add_nfs_entry(hostname: str, worker_folder: str):
         if any(hostname in entry for entry in fstab if not entry.startswith("#")):
             return
 
-        # hostname:/opt/CAPEv2 /opt/CAPEv2/2 nfs, auto,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0
-        fstab.append(f"{hostname}:/opt/CAPEv2 {worker_path} nfs, auto,user,users,nofail,noatime,nolock,intr,tcp,actimeo=1800, 0 0")
+        # hostname:/opt/CAPEv2 /opt/CAPEv2/2 nfs _netdev,nofail,noatime,nolock,intr,tcp,actimeo=1800,x-systemd.automount,x-systemd.mount-timeout=30s 0 0
+        fstab.append(f"{hostname}:/opt/CAPEv2 {worker_path} nfs _netdev,nofail,noatime,nolock,intr,tcp,actimeo=1800,x-systemd.automount,x-systemd.mount-timeout=30s 0 0")
         _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
 
         try:
@@ -74,7 +71,7 @@ def remove_nfs_entry(hostname: str):
     with lock:
         fstab = path_read_file("/etc/fstab", mode="text").split("\n")
         for entry in fstab:
-            if entry.startswith(hostname) and " nfs, " in entry:
+            if entry.startswith(hostname) and " nfs " in entry:
                 fstab.remove(entry)
                 _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
                 break

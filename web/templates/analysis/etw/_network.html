@@ -1,0 +1,38 @@
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <h6 class="mb-0 text-white"><i class="fas fa-network-wired me-2 text-danger"></i>Microsoft-Windows-Kernel-Network</h6>
+        <small class="text-white-50">Per-PID TCP/UDP connect, accept, and disconnect events from the kernel networking stack. PID is the originating process (this is what process_network attribution joins on).</small>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-dark table-striped table-hover etw-table mb-0">
+            <thead>
+                <tr>
+                    <th style="width:170px;">Time (UTC)</th>
+                    <th style="width:170px;">Process</th>
+                    <th style="width:90px;">Direction</th>
+                    <th style="width:80px;">Protocol</th>
+                    <th>Src</th>
+                    <th>Dst</th>
+                    <th>Event</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in etw.network %}
+                <tr>
+                    <td class="etw-mono">{{ r.time }}</td>
+                    <td class="etw-mono">{% if r.process_name %}{{ r.process_name }} ({{ r.pid }}){% else %}{{ r.pid }}{% endif %}</td>
+                    <td>
+                        {% if r.direction == "outbound" %}<span class="badge bg-warning text-dark">→ out</span>
+                        {% elif r.direction == "inbound" %}<span class="badge bg-info">← in</span>
+                        {% else %}<span class="badge bg-secondary">{{ r.direction }}</span>{% endif %}
+                    </td>
+                    <td>{{ r.protocol }}</td>
+                    <td class="etw-mono">{{ r.src }}</td>
+                    <td class="etw-mono">{{ r.dst }}</td>
+                    <td><span class="badge bg-dark border">{{ r.event }}</span></td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

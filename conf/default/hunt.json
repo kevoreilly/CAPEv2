@@ -1,0 +1,143 @@
+{
+    "domains": {
+        "title": "Top Shared Domains",
+        "icon": "fas fa-globe text-info",
+        "badge_color": "info",
+        "form_key": "cat_domains",
+        "db_unwind": "$network.domains",
+        "db_group": "$network.domains.domain",
+        "validator": "is_valid_domain",
+        "pivots": [
+            {"name": "VirusTotal", "icon": "fas fa-external-link-alt", "url": "https://www.virustotal.com/gui/domain/"},
+            {"name": "AlienVault OTX", "icon": "fas fa-shield-alt", "url": "https://otx.alienvault.com/indicator/domain/"}
+        ]
+    },
+    "ips": {
+        "title": "Top Shared IPs",
+        "icon": "fas fa-network-wired text-info",
+        "badge_color": "info",
+        "form_key": "cat_ips",
+        "db_unwind": "$network.hosts",
+        "db_group": "$network.hosts.ip",
+        "validator": "is_valid_ip",
+        "pivots": [
+            {"name": "VirusTotal", "icon": "fas fa-external-link-alt", "url": "https://www.virustotal.com/gui/ip-address/"},
+            {"name": "Shodan", "icon": "fas fa-search", "url": "https://www.shodan.io/host/"}
+        ]
+    },
+    "mutexes": {
+        "title": "Top Shared Mutexes",
+        "icon": "fas fa-lock text-warning",
+        "badge_color": "warning",
+        "form_key": "cat_mutexes",
+        "db_unwind": "$behavior.summary.mutexes",
+        "db_group": "$behavior.summary.mutexes",
+        "validator": "is_valid_mutex",
+        "pivots": []
+    },
+    "dropped_files": {
+        "title": "Shared Dropped Files",
+        "icon": "fas fa-file-alt text-success",
+        "badge_color": "success",
+        "form_key": "cat_files",
+        "db_unwind": "$behavior.summary.files",
+        "db_group": "$behavior.summary.files",
+        "validator": "is_valid_file",
+        "pivots": []
+    },
+    "executed_commands": {
+        "title": "Shared Executed Commands",
+        "icon": "fas fa-terminal text-success",
+        "badge_color": "success",
+        "form_key": "cat_commands",
+        "db_unwind": "$behavior.summary.executed_commands",
+        "db_group": "$behavior.summary.executed_commands",
+        "validator": "is_valid_command",
+        "pivots": []
+    },
+    "registry_keys": {
+        "title": "Shared Registry Keys",
+        "icon": "fas fa-key text-danger",
+        "badge_color": "danger",
+        "form_key": "cat_registry",
+        "db_unwind": "$behavior.summary.keys",
+        "db_group": "$behavior.summary.keys",
+        "validator": "is_valid_registry",
+        "pivots": []
+    },
+    "dropped_hashes": {
+        "title": "Top Dropped File Hashes",
+        "icon": "fas fa-hashtag text-white",
+        "badge_color": "light",
+        "form_key": "cat_dropped_hashes",
+        "db_unwind": "$dropped",
+        "db_group": "$dropped.sha256",
+        "validator": "is_valid_hash",
+        "pivots": [
+            {"name": "VirusTotal", "icon": "fas fa-external-link-alt", "url": "https://www.virustotal.com/gui/file/"},
+            {"name": "MalwareBazaar", "icon": "fas fa-database", "url": "https://bazaar.abuse.ch/sample/"}
+        ]
+    },
+    "procdump_hashes": {
+        "title": "Unpacked Memory Hashes",
+        "icon": "fas fa-memory text-white",
+        "badge_color": "light",
+        "form_key": "cat_procdump_hashes",
+        "db_unwind": "$procdump",
+        "db_group": "$procdump.sha256",
+        "validator": "is_valid_hash",
+        "pivots": [
+            {"name": "VirusTotal", "icon": "fas fa-external-link-alt", "url": "https://www.virustotal.com/gui/file/"},
+            {"name": "MalwareBazaar", "icon": "fas fa-database", "url": "https://bazaar.abuse.ch/sample/"}
+        ]
+    },
+    "extracted_hashes": {
+        "title": "Extracted Payload Hashes",
+        "icon": "fas fa-file-medical text-white",
+        "badge_color": "light",
+        "form_key": "cat_extracted_hashes",
+        "db_unwind": "$extracted",
+        "db_group": "$extracted.sha256",
+        "validator": "is_valid_hash",
+        "pivots": [
+            {"name": "VirusTotal", "icon": "fas fa-external-link-alt", "url": "https://www.virustotal.com/gui/file/"},
+            {"name": "MalwareBazaar", "icon": "fas fa-database", "url": "https://bazaar.abuse.ch/sample/"}
+        ]
+    },
+    "imphashes": {
+        "title": "PE Import Hashes (ImpHashes)",
+        "icon": "fas fa-file-invoice text-white",
+        "badge_color": "light",
+        "form_key": "cat_imphashes",
+        "db_unwind": null,
+        "db_group": "$static.pe.imphash",
+        "validator": "is_valid_md5",
+        "pivots": [
+            {"name": "VirusTotal", "icon": "fas fa-external-link-alt", "url": "https://www.virustotal.com/gui/search/"},
+            {"name": "MalwareBazaar", "icon": "fas fa-database", "url": "https://bazaar.abuse.ch/browse.php?search=imphash%3A"}
+        ],
+        "db_match": {"_id": {"$ne": null}}
+    },
+    "http_uris": {
+        "title": "Shared HTTP Request URIs",
+        "icon": "fas fa-link text-info",
+        "badge_color": "info",
+        "form_key": "cat_http_uris",
+        "db_unwind": "$network.http",
+        "db_group": "$network.http.uri",
+        "validator": "is_valid_string",
+        "pivots": [
+            {"name": "VirusTotal", "icon": "fas fa-external-link-alt", "url": "https://www.virustotal.com/gui/search/"}
+        ]
+    },
+    "signatures": {
+        "title": "Shared Signatures",
+        "icon": "fas fa-signature text-warning",
+        "badge_color": "warning",
+        "form_key": "cat_signatures",
+        "db_unwind": "$signatures",
+        "db_group": "$signatures.name",
+        "validator": "is_valid_string",
+        "pivots": []
+    }
+}

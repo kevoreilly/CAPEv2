@@ -1,3 +1,55 @@
+### [31.07.2026]
+* Remus detection & dynamic config extraction
+
+### [15.07.2026]
+* Monitor update: Fix issue with NtWriteFile hook causing detonation failures (e.g. 9b1717eb154011b52aa24e4d6848976a9aafff2665f3171265aa767d5951be6c)
+
+### [07.07.2026]
+* Monitor updates:
+    * New hooks for SystemFunction036, SystemFunction040, SystemFunction041 (RtlGenRandom, RtlEncryptMemory, RtlDecryptMemory), Thread32First, Thread32Next, clipboard functions
+    * Enable hooks: MapFileAndCheckSumA, GetVolumeInformationA, GetVolumeInformationW & NtQueryVolumeInformationFile
+    * Crypto hook overhaul
+    * Misc fixes
+
+### [08.06.2026]
+* Threat Discovery & Hunting Workstation Dashboard:
+    * Integrated centralized dynamic multi-faceted database clustering across 12 categories (Domains, IPs, Mutexes, Dropped Files, Commands, Registry Keys, Hashes, ImpHashes, and Signatures).
+    * Created dynamic, cascading, auto-reloaded JSON configuration cacher (`conf/hunt.json`) with hierarchical lookup order (`custom/conf` ➔ `conf` ➔ `conf/default`).
+    * Built high-performance, memory-speed caching system utilizing OS modification-time (`mtime`) checks for instant reloading without disk parsing or server restarts.
+    * Integrated inline threat intelligence OSINT pivoting links (VirusTotal, Shodan, Censys, MalwareBazaar, and AlienVault OTX) and transaction-safe, sanitized AJAX-based task tagging group actions.
+    * Added comprehensive unit testing covering all view states, error handling, and security measures.
+
+### [05.06.2026]
+* Monitor updates:
+    * NtCreateUserProcess hook: Dynamically patch ping commandline to thwart ping delays (e.g. Formbook/Xloader)
+    * Debugger: Persistent software breakpoints via softbpmode=1 (default is one-shot)
+    * TLS capture improvements
+
+### [01.06.2026]
+* Monitor update: Fix standalone mode broken since August
+
+### [29.05.2026]
+* Monitor updates:
+    * Debugger: Action target argument enhanced with keywords "src", "dst", "&src" & "&dst" (e.g. action0=dumpimage:&src) for instruction parsing
+    * Debugger: Add ignored non-internal breakpoints to analysis log
+
+### [28.05.2026]
+* Monitor update: Fix issue with hooking very small 32-bit functions (e.g. GetCommandLineA/W)
+
+### [13.05.2026]
+* Update Formbook (Xloader) dynamic config extractor
+* Monitor updates:
+    * Enhance 'string' debugger action to work without target by iterating through registers
+    * Add pid to log output in DumpSectionViewsForPid()
+    * Fix bug with GetAccessibleSize() causing rare access violations
+
+### [08.05.2026]
+* Monitor update: fix COM hooks
+
+### [05.05.2026]
+* Monitor updates:
+    * Instrumentation callback: refine dll filtering and add kernelbase.dll (syscall hooks)
+    * Unpacker: refine entropy-based detection of shellcode within mapped images, don't drop tracked regions in FreeHandler()
 
 ### [21.04.2026]
 * **Async Web Server Core**:

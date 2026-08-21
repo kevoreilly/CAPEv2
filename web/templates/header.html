@@ -12,8 +12,12 @@
           <ul class="navbar-nav">
             <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><i class="fas fa-list me-1"></i> Recent</a></li>
+            <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><i class="fas fa-upload me-1"></i> Submit</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "pending" %}"><i class="fas fa-clock me-1"></i> Pending</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "search" %}"><i class="fas fa-search me-1"></i> Search</a></li>
+            {% if settings.HUNT_ENABLED %}
+            <li class="nav-item"><a class="nav-link" href="{% url "hunt" %}"><i class="fas fa-bullseye me-1"></i> Hunt</a></li>
+            {% endif %}
             <li class="nav-item"><a class="nav-link" href="{% url "apiv2" %}"><i class="fas fa-cog me-1"></i> API</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><i class="fas fa-upload me-1"></i> Submit</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "statistics_data" 7 %}"><i class="fas fa-chart-area me-1"></i> Statistics</a></li>
@@ -32,12 +36,35 @@
                 <a class="dropdown-item text-light" href="/accounts/password/change/"><i class="fas fa-key me-2 text-white-50"></i> Change password</a>
                 <a class="dropdown-item text-light" href="/accounts/password/reset/"><i class="fas fa-unlock-alt me-2 text-white-50"></i> Reset password</a>
                 <a class="dropdown-item text-light" href="/accounts/email/"><i class="fas fa-envelope me-2 text-white-50"></i> Email configuration</a>
+                {% if user.is_authenticated and may_manage_apikeys %}
+                <div class="dropdown-divider border-secondary"></div>
+                <a class="dropdown-item text-light" href="{% url 'apikey:list' %}"><i class="fas fa-id-badge me-2 text-white-50"></i> API Keys</a>
+                {% endif %}
+              </div>
+            </li>
+            {% endif %}
+            {% if vnc_console_enabled %}
+            <li class="nav-item dropdown">
+              <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownVNC" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false"><i class="fas fa-desktop me-1"></i> VNC Console</a>
+              <div class="dropdown-menu dropdown-menu-end bg-dark border-secondary" aria-labelledby="navbarDropdownVNC">
+                {% if vnc_console_machines %}
+                  {% for machine_label in vnc_console_machines %}
+                    <a class="dropdown-item text-light" href="{% url 'direct_vnc_vm' machine_label %}"{% if vnc_console_new_tab %} target="_blank"{% endif %}><i class="fas fa-terminal me-2 text-white-50"></i> {{ machine_label }}</a>
+                  {% endfor %}
+                {% else %}
+                  <span class="dropdown-item text-muted small">No machines configured</span>
+                {% endif %}
               </div>
             </li>
             {% endif %}
             <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/" target="_blank"><i class="fas fa-info-circle me-1"></i> Docs</a></li>
             <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md" target="_blank"><i class="far fa-newspaper me-1"></i> Changelog</a></li>
-          </ul>
+           <li class="nav-item">
+                <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#shortcutsHelpModal" title="Keyboard Shortcuts (?)">
+                    <i class="fas fa-keyboard"></i>
+                </a>
+            </li>
+	  </ul>
 
         </div>
         <form class="d-flex me-auto" action="{% url "search" %}" method="get">

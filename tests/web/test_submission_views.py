@@ -181,7 +181,7 @@ class TestSubmissionViews(SimpleTestCase):
         actual = get_lib_common_constants(platform="windows")
         self.assertIsInstance(actual, dict)
         self.assertEqual("runasx86", actual["OPT_RUNASX86"])
-        self.assertCountEqual(("file", "password"), actual["ARCHIVE_OPTIONS"])
+        self.assertCountEqual(("file", "password", "recursion_depth"), actual["ARCHIVE_OPTIONS"])
         self.assertCountEqual(("arguments", "dllloader", "function"), actual["DLL_OPTIONS"])
         self.assertIn("SystemDrive", actual["TRUSTED_PATH_TEXT"])
         self.assertIn("SystemDrive", actual["MSOFFICE_TRUSTED_PATH"])

@@ -351,7 +351,7 @@
                 <div class="collapse" id="extracted_files_{{file.sha256}}">
                     <div class="table">
                         {% for sub_file in file.extracted_files %}
-                            {% include "generic/_subfile_info.html" %}
+                            {% include "generic/_file_info.html" with file=sub_file %}
                         {% endfor %}
                     </div>
                 </div>

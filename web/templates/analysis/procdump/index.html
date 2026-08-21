@@ -2,8 +2,10 @@
 <div class="dynamic-layout-target layout-centered">
 {% if procdump|length > 0 %}
     {% if settings.ZIPPED_DOWNLOAD_ALL and tab_name in 'dropped,procdump,CAPE' %}
+        {% if procdump|length > 0 %}
         <center><a href="{% url 'file' tab_name|add:'zipall' id '1' %}" class="btn btn-secondary btn-sm" data-bs-toggle="tooltip" title="Download password-protected file archive with all files"><span class="fas fa-file-archive"></span> <span class="fas fa-download"></span> Download All Files</a></center>
         </br>
+        {% endif %}
     {% endif %}
     {% for file in procdump %}
         {% include "analysis/generic/_file_info.html" %}

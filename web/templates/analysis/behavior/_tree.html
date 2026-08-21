@@ -2,44 +2,172 @@
 {% load analysis_tags %}
 
 <div class="card bg-dark border-secondary mb-3">
-    <div class="card-header border-secondary">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center">
         <h5 class="mb-0 text-white"><i class="fas fa-sitemap me-2 text-info"></i> Process Tree</h5>
+        <button class="btn btn-sm btn-outline-secondary" onclick="resetTreeZoom()">Reset View</button>
     </div>
-    <div class="card-body">
-        <ul class="list-unstyled mb-0" style="font-family: monospace;">
-        {% for process in behavior.processtree|proctreetolist %}
-            {% if process.startchildren %}
-              <ul class="ps-4 border-left border-secondary ms-2">
-            {% elif process.endchildren %}
-              </ul>
-            {% else %}
-              <li class="mb-1">
-                <i class="text-white-50 me-1"></i>
-                <strong><a href="javascript:show_tab('process_{{process.pid}}');" class="text-white">{{process.name}}</a></strong>
-                <span class="text-white-50 ms-1">({{process.pid}})</span>
-                {% if process.commandline %}
-                    <span class="text-light small ms-2">{{ process.commandline }}</span>
-                {% endif %}
-                {% if detections2pid|get_detection_by_pid:process.pid %}
-                    <span class="badge bg-danger ms-2">{{ detections2pid|get_detection_by_pid:process.pid }}</span>
-                {% endif %}
-                {% if process.com_logical_parent_pid %}
-                <div class="text-warning-emphasis small mt-1 ms-1" style="border-left:2px dashed #ffc107;padding-left:6px;">
-                    <i class="fas fa-arrow-up me-1 text-warning"></i>
-                    <span class="text-warning">COM-activated by</span>
-                    <a href="javascript:show_tab('process_{{ process.com_logical_parent_pid }}');" class="text-warning fw-bold">
-                        {{ process.com_logical_parent_name }} ({{ process.com_logical_parent_pid }})
-                    </a>
-                    {% if process.com_progid %}
-                    <span class="text-muted">via <code class="text-warning-emphasis">{{ process.com_progid }}</code></span>
-                    {% elif process.com_clsid %}
-                    <span class="text-muted">via CLSID <code class="text-warning-emphasis">{{ process.com_clsid }}</code></span>
-                    {% endif %}
-                </div>
-                {% endif %}
-            </li>
-            {% endif %}
-        {% endfor %}
-        </ul>
+    <div class="card-body p-0" style="overflow: hidden; background: #111;">
+        <div id="process-tree-viz" style="width: 100%; height: 500px; cursor: grab;"></div>
     </div>
 </div>
+
+{{ behavior.processtree|json_script:"process-tree-data" }}
+
+<script type="text/javascript">
+(function() {
+    const data = JSON.parse(document.getElementById('process-tree-data').textContent);
+    if (!data || data.length === 0) return;
+
+    // Support multiple root nodes by wrapping in a virtual root if needed
+    const rootData = data.length > 1 ? { name: "Analysis Root", pid: 0, children: data } : data[0];
+
+    const width = document.getElementById('process-tree-viz').clientWidth;
+    const height = 500;
+    const margin = {top: 20, right: 120, bottom: 20, left: 120};
+
+    const dx = 30;
+    const dy = width / 4;
+    const tree = d3.tree().nodeSize([dx, dy]);
+    const diagonal = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+
+    const root = d3.hierarchy(rootData);
+
+    root.x0 = dy / 2;
+    root.y0 = 0;
+    root.descendants().forEach((d, i) => {
+        d.id = i;
+        d._children = d.children;
+        // Collapse noisy nodes or deep levels by default if desired
+        // if (d.depth > 2) d.children = null;
+    });
+
+    const svg = d3.select("#process-tree-viz").append("svg")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("viewBox", [-margin.left, -margin.top, width, dx])
+        .style("font", "12px sans-serif")
+        .style("user-select", "none");
+
+    const gMain = svg.append("g");
+
+    const zoom = d3.zoom()
+        .scaleExtent([0.1, 3])
+        .on("zoom", (event) => {
+            gMain.attr("transform", event.transform);
+        });
+
+    svg.call(zoom);
+
+    window.resetTreeZoom = function() {
+        svg.transition().duration(750).call(
+            zoom.transform,
+            d3.zoomIdentity
+        );
+    };
+
+    const gLink = gMain.append("g")
+        .attr("fill", "none")
+        .attr("stroke", "#555")
+        .attr("stroke-opacity", 0.4)
+        .attr("stroke-width", 1.5);
+
+    const gNode = gMain.append("g")
+        .attr("cursor", "pointer")
+        .attr("pointer-events", "all");
+
+    function update(source) {
+        const duration = 250;
+        const nodes = root.descendants().reverse();
+        const links = root.links();
+
+        // Compute the new tree layout.
+        tree(root);
+
+        let left = root;
+        let right = root;
+        root.eachBefore(node => {
+            if (node.x < left.x) left = node;
+            if (node.x > right.x) right = node;
+        });
+
+        const height = right.x - left.x + margin.top + margin.bottom;
+
+        const transition = svg.transition()
+            .duration(duration)
+            .attr("viewBox", [-margin.left, left.x - margin.top, width, height])
+            .tween("resize", window.ResizeObserver ? null : () => () => svg.dispatch("toggle"));
+
+        // Update the nodes…
+        const node = gNode.selectAll("g")
+            .data(nodes, d => d.id);
+
+        // Enter any new nodes at the parent's previous position.
+        const nodeEnter = node.enter().append("g")
+            .attr("transform", d => `translate(${source.y0},${source.x0})`)
+            .attr("fill-opacity", 0)
+            .attr("stroke-opacity", 0)
+            .on("click", (event, d) => {
+                d.children = d.children ? null : d._children;
+                update(d);
+            });
+
+        nodeEnter.append("circle")
+            .attr("r", 4)
+            .attr("fill", d => d._children ? "#555" : "#999")
+            .attr("stroke-width", 10);
+
+        nodeEnter.append("text")
+            .attr("dy", "0.31em")
+            .attr("x", d => d._children ? -8 : 8)
+            .attr("text-anchor", d => d._children ? "end" : "start")
+            .attr("fill", "#fff")
+            .text(d => d.data.name + (d.data.pid ? " ("+d.data.pid+")" : ""))
+          .clone(true).lower()
+            .attr("stroke-linejoin", "round")
+            .attr("stroke-width", 3)
+            .attr("stroke", "#111");
+
+        // Transition nodes to their new position.
+        const nodeUpdate = node.merge(nodeEnter).transition(transition)
+            .attr("transform", d => `translate(${d.y},${d.x})`)
+            .attr("fill-opacity", 1)
+            .attr("stroke-opacity", 1);
+
+        // Transition exiting nodes to the parent's new position.
+        const nodeExit = node.exit().transition(transition).remove()
+            .attr("transform", d => `translate(${source.y},${source.x})`)
+            .attr("fill-opacity", 0)
+            .attr("stroke-opacity", 0);
+
+        // Update the links…
+        const link = gLink.selectAll("path")
+            .data(links, d => d.target.id);
+
+        // Enter any new links at the parent's previous position.
+        const linkEnter = link.enter().append("path")
+            .attr("d", d => {
+                const o = {x: source.x0, y: source.y0};
+                return diagonal({source: o, target: o});
+            });
+
+        // Transition links to their new position.
+        link.merge(linkEnter).transition(transition)
+            .attr("d", diagonal);
+
+        // Transition exiting nodes to the parent's new position.
+        link.exit().transition(transition).remove()
+            .attr("d", d => {
+                const o = {x: source.x, y: source.y};
+                return diagonal({source: o, target: o});
+            });
+
+        // Stash the old positions for transition.
+        root.eachBefore(d => {
+            d.x0 = d.x;
+            d.y0 = d.y;
+        });
+    }
+
+    update(root);
+})();
+</script>

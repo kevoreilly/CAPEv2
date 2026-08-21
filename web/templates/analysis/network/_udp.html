@@ -49,3 +49,44 @@
         {% endif %}
     </div>
 </section>
+<script type='text/javascript'>
+$(function () {
+    $("section#udp table tr.connrow").click(function(e) {
+        var $section = $(this).closest("section");
+
+        $section.find("table tr.connrow").removeClass("row-active");
+        $(this).addClass("row-active");
+
+        var choice = $(this).closest('tr').attr('data');
+
+        $.get("/analysis/{{id}}/pcapstream/"+choice+"/", function(data, status, xhr) {
+            if (status == "error") {
+                $section.find("div.stream").html("Error loading data. Please reload the page and if the error persists contact us.");
+            } else {
+                var out = $("<ul class=\"tcp-flow\">");
+                var first = undefined;
+                for (var i in data) {
+                    var p = data[i];
+                    var tuple = p.src + ":" + p.sport + " &rarr; " + p.dst + ":" + p.dport;
+
+                    if (first == undefined) first = tuple;
+                    if (first != tuple) {
+                        tcpclass = "tcp-in";
+                        icon = "<i class=\"fa fa-chevron-down\" title=\"Inbound\"></i>";
+                    } else {
+                        tcpclass = "tcp-out";
+                        icon = "<i class=\"fa fa-chevron-up\" title=\"Outbound\"></i>";
+                    }
+
+                    var li = $("<li class=\"" + tcpclass + "\">" + icon + tuple + "</li>").append("<div id='udp-stream-hex-" + i + "'></div>");
+                    out.append(li);
+                    CapeHexView.render("udp-stream-hex-" + i, p.raw);
+                }
+                $section.find("div.stream").html(out);
+            }
+        });
+    });
+    // autoload first one
+    $("section#udp table tr.connrow").first().click();
+})
+</script>

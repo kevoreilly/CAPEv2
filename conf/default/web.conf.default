@@ -7,8 +7,8 @@ enabled = no
 captcha = no
 2fa = no
 # To enable Oauth check https://django-allauth.readthedocs.io and web/web/settings.py.
-# Allow only SSO for users with specific domain. Can be allow to all if empty.
-social_auth_email_domain = example.com
+# Allow only SSO for users with a specific email domain. Leave blank to allow any.
+social_auth_email_domain =
 
 [registration]
 enabled = no
@@ -35,6 +35,13 @@ async_enabled = no
 real_time_updates = no
 
 timezone = UTC
+# Set to yes only when CAPE is served behind a reverse proxy (e.g. nginx) that
+# terminates TLS and strips/overwrites X-Forwarded-Proto / X-Forwarded-Host from
+# clients. Enables Django's SECURE_PROXY_SSL_HEADER + USE_X_FORWARDED_HOST so
+# request.is_secure() and absolute URLs (incl. the OIDC redirect_uri) are correct.
+# Leave no for a directly-exposed app — trusting forwarded headers would allow
+# proto/host spoofing.
+behind_proxy = no
 # Prescan new file tasks with YARA for sample identification and custom execution
 # Useful to set options, tags, timeout, etc for packers/obfuscators/cryptors
 yara_recon = no
@@ -71,8 +78,8 @@ expose_process_log = no
 reprocess_tasks = no
 # Allow to reprocess failed processing tasks
 reprocess_failed_processing = no
-# Allows you to define URL splitter, "," is default
-url_splitter = ,
+# Allows you to define URL splitter (for example comma). Empty value disables splitting
+url_splitter =
 # Limit number of files extracted from archive in demux.py
 demux_files_limit = 10
 public_searches = yes
@@ -155,6 +162,47 @@ github = no
 gitlab = no
 twitter = no
 
+
+# OpenID Connect SSO. Generic — works with Okta / Azure AD / Auth0 / Google
+# Workspace / Keycloak or any OIDC-compliant IdP via django-allauth's
+# openid_connect provider. Set enabled = yes and fill in the fields below.
+[oauth_oidc]
+enabled = no
+# Arbitrary identifier; becomes part of the callback URL:
+#   /accounts/oidc/<provider_id>/login/callback/
+# Must match the redirect URI registered in your IdP app.
+provider_id = oidc
+# Display name shown on the login button.
+name = SSO
+# OAuth2 client credentials from your IdP app.
+client_id =
+client_secret =
+# IdP discovery root — the /.well-known/openid-configuration is appended
+# automatically. Examples:
+#   Okta:     https://<domain>/oauth2/default
+#   Azure:    https://login.microsoftonline.com/<tenant>/v2.0
+#   Auth0:    https://<domain>
+#   Keycloak: https://<host>/realms/<realm>
+server_url =
+# Group-claim -> Django role mapping. The IdP must include group names in the
+# ID token under `groups_claim` (default: "groups").
+# required_groups: if set, only users in at least one of these groups get a
+# CAPE account provisioned. Leave blank to allow any IdP-authenticated user.
+# admin_groups / superadmin_groups: membership maps to is_staff / is_superuser
+# and is reconciled on every login (removal from the group demotes the user).
+# Leave both blank to manage roles manually in Django.
+required_groups =
+admin_groups =
+superadmin_groups =
+groups_claim = groups
+# Optional: periodic Okta account-status reconciliation (okta_user_sync
+# management command, run via systemd timer). When a user with active API keys
+# is no longer ACTIVE in Okta, they are deactivated locally and their keys are
+# revoked. Requires an Okta admin API base URL and an SSWS token with the
+# okta.users.read scope. Leave blank to disable.
+admin_api_url =
+admin_api_token =
+
 [display_browser_martians]
 enabled = no
 
@@ -217,6 +265,12 @@ ignore_rdp_cert = false
 rdp_disable_wallpaper = yes
 rdp_disable_theming = yes
 rdp_enable_font_smoothing = no
+# Idle timeout settings for interactive sessions
+# idle_timeout_seconds: Maximum idle time before session is terminated
+# Defaults to 0 (disabled) when omitted or set to an invalid value
+idle_timeout_seconds = 0
+# activity_check_interval: How often to check for timeout in seconds when enabled
+activity_check_interval = 30
 rdp_enable_full_window_drag = no
 rdp_enable_desktop_composition = no
 rdp_enable_menu_animations = no
@@ -228,6 +282,10 @@ vnc_color_depth = 16
 vnc_cursor = local
 # Audio (enable only if needed, consumes bandwidth)
 enable_audio = no
+# Show a VNC Console dropdown of VM guests in the navigation bar
+vnc_console_enabled = no
+# Open VNC console sessions in a new tab
+vnc_console_new_tab = no
 
 [packages]
 # VM tags may be used to specify on which guest machines a sample should be run
@@ -256,4 +314,24 @@ enabled = no
 enabled = no
 
 [audit_framework]
+enabled = no
+
+[display_etw]
+# Show ETW Telemetry tab on analysis report (requires network_etw processing module)
+enabled = no
+
+[display_cape_yara]
+# Show CAPE YARA hit count column on analysis list and search results
+enabled = no
+
+[display_submitter]
+# Show submitting user column on analysis list (requires WEB_AUTHENTICATION)
+enabled = no
+
+[display_authenticode]
+# Show Authenticode certificate chain card on the analysis overview tab
+enabled = no
+
+[hunt]
+# Proactively discover new emerging campaigns by grouping undetected analyses by shared indicators
 enabled = no

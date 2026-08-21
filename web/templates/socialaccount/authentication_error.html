@@ -1,11 +1,25 @@
 {% extends "base.html" %}
-
 {% load i18n %}
 
-{% block head_title %}{% trans "Social Network Login Failure" %}{% endblock %}
+{% block head_title %}{% trans "Authentication Error" %}{% endblock %}
 
 {% block content %}
-<h1>{% trans "Social Network Login Failure" %}</h1>
-
-<p>{% trans "An error occurred while attempting to login via your social network account." %}</p>
+<div class="container my-5" style="max-width: 540px;">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h4 class="mb-0 text-white"><i class="fas fa-exclamation-triangle me-2 text-danger"></i>{% trans "Authentication Error" %}</h4>
+        </div>
+        <div class="card-body">
+            {% if reason %}
+            <p>{{ reason }}</p>
+            {% else %}
+            <p>{% trans "An error occurred while attempting to sign in." %}</p>
+            {% endif %}
+            {% if auth_error.code %}
+            <p class="text-white-50 small">{% trans "Code:" %} <code>{{ auth_error.code }}</code></p>
+            {% endif %}
+            <a href="{% url 'account_login' %}" class="btn btn-danger"><i class="fas fa-redo me-1"></i>{% trans "Try again" %}</a>
+        </div>
+    </div>
+</div>
 {% endblock %}

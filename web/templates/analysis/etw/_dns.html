@@ -1,0 +1,34 @@
+<div class="card bg-dark border-secondary">
+    <div class="card-header border-secondary">
+        <h6 class="mb-0 text-white"><i class="fas fa-globe me-2 text-danger"></i>DNS Client ETW</h6>
+        <small class="text-white-50">Microsoft-Windows-DNS-Client. Each query/response from the DNS Client service. The PID here is the DNS Client itself (svchost) — for the originating process, see DNS rows under the Network section.</small>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-dark table-striped table-hover etw-table mb-0">
+            <thead>
+                <tr>
+                    <th style="width:80px;">Type</th>
+                    <th style="width:170px;">Process</th>
+                    <th style="width:80px;">TID</th>
+                    <th>Query Name</th>
+                    <th style="width:140px;">DNS Server</th>
+                </tr>
+            </thead>
+            <tbody>
+            {% for r in etw.dns %}
+                <tr>
+                    <td>
+                        {% if r.type == "Query" %}<span class="badge bg-info">Query</span>
+                        {% elif r.type == "Response" %}<span class="badge bg-secondary">Response</span>
+                        {% else %}<span class="badge bg-dark border">{{ r.type }}</span>{% endif %}
+                    </td>
+                    <td class="etw-mono">{% if r.process_name %}{{ r.process_name }} ({{ r.pid }}){% else %}{{ r.pid }}{% endif %}</td>
+                    <td class="etw-mono">{{ r.tid }}</td>
+                    <td class="etw-mono">{{ r.query }}</td>
+                    <td class="etw-mono">{{ r.server }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>

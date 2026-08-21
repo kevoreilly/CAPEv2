@@ -3,6 +3,7 @@ import logging
 import os
 import shutil
 import sys
+import threading
 import time
 from contextlib import suppress
 from datetime import datetime, timedelta
@@ -17,6 +18,7 @@ from lib.cuckoo.common.path_utils import path_delete, path_exists, path_get_date
 from lib.cuckoo.core.database import Database, _Database
 from lib.cuckoo.core.data.samples import Sample
 from lib.cuckoo.core.data.task import (
+    TASK_BANNED,
     TASK_FAILED_ANALYSIS,
     TASK_FAILED_PROCESSING,
     TASK_FAILED_REPORTING,
@@ -32,8 +34,41 @@ log = logging.getLogger(__name__)
 config = Config()
 repconf = Config("reporting")
 webconf = Config("web")
-resolver_pool = ThreadPool(50)
-atexit.register(resolver_pool.close)
+class _LazyThreadPool:
+    """Defers ThreadPool(50) creation until the first .map()/attribute use.
+
+    Importing this module used to eagerly spawn 53 threads (50 workers + 3
+    handler threads) in *every* process that imports it -- including
+    utils/process.py, which only needs free_space_monitor() and never touches
+    the resolver pool. Those live threads sat in the processor before it forked
+    its workers, and forking a heavily-multithreaded process deadlocks the
+    forked children in multiprocessing bootstrap/atexit (_exit_function -> join
+    -> waitpid), and trips the prefork single-threaded-before-fork invariant.
+    Only the cleaner/deletion paths actually call resolver_pool.map(), so the
+    pool is now created on demand by those callers and the processor forks clean.
+    """
+
+    _pool = None
+    _lock = threading.Lock()
+
+    def _get(self):
+        if self._pool is None:
+            with self._lock:
+                if self._pool is None:
+                    self._pool = ThreadPool(50)
+        return self._pool
+
+    def __getattr__(self, name):
+        return getattr(self._get(), name)
+
+
+resolver_pool = _LazyThreadPool()
+
+
+@atexit.register
+def _close_resolver_pool():
+    if resolver_pool._pool is not None:
+        resolver_pool._pool.close()
 
 HAVE_TMPFS = False
 if hasattr(config, "tmpfs"):
@@ -58,6 +93,9 @@ if repconf.mongodb.enabled:
     )
 elif repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import all_docs, delete_analysis_and_related_calls, get_analysis_index
+
+
+DB_BATCH_SIZE = 1000
 
 
 def convert_into_time(time_range: str) -> datetime:
@@ -186,11 +224,35 @@ def delete_folder(folder):
     @param folder: path to delete.
     @raise CuckooOperationalError: if fails to delete folder.
     """
+    import os
+    import stat
+
+    def remove_readonly(func, path, excinfo):
+        try:
+            # Attempt to heal permissions of the file/dir to make it writable and deletable
+            os.chmod(path, stat.S_IWRITE | stat.S_IREAD)
+            func(path)
+        except Exception:
+            try:
+                # Log detailed ownership and permission information to make debugging easy for the admin
+                st = os.stat(path)
+                import pwd
+                import grp
+                owner = pwd.getpwuid(st.st_uid).pw_name
+                group = grp.getgrgid(st.st_gid).gr_name
+                mode = stat.filemode(st.st_mode)
+                log.error("Failed to delete %s (Mode: %s, Owner: %s, Group: %s)", path, mode, owner, group)
+            except Exception:
+                log.error("Failed to delete %s and failed to fetch ownership details", path)
+
     if path_exists(folder):
         try:
-            shutil.rmtree(folder)
+            shutil.rmtree(folder, onerror=remove_readonly)
+            if path_exists(folder):
+                raise OSError(f"Directory {folder} was not completely removed due to permission errors on child files.")
         except OSError as e:
-            raise CuckooOperationalError(f"Unable to delete folder: {folder}") from e
+            log.error("Unable to delete folder %s: %s", folder, e)
+            raise CuckooOperationalError(f"Unable to delete folder: {folder}. System error: {e}") from e
 
 
 def connect_to_es():
@@ -206,7 +268,11 @@ def is_reporting_db_connected():
         if not webconf.web_reporting.enabled:
             return True
         if repconf.mongodb.enabled:
-            results_db = connect_to_mongo()[mdb]
+            client = connect_to_mongo()
+            if client is None:
+                log.info("Can't connect to mongo")
+                return False
+            results_db = client[mdb]
             # Database objects do not implement truth value testing or bool(). Please compare with None instead: database is not None
             if results_db is None:
                 log.info("Can't connect to mongo")
@@ -220,7 +286,19 @@ def is_reporting_db_connected():
         return False
 
 
-def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=False):
+def is_contiguous_range(ids: list) -> bool:
+    """Helper to check if a list of IDs is contiguous (has no gaps)."""
+    if not ids:
+        return False
+    sorted_ids = sorted(ids)
+    return (sorted_ids[-1] - sorted_ids[0] + 1) == len(ids)
+
+
+def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=False, db_batch_size=None):
+    if db_batch_size is None:
+        db_batch_size = DB_BATCH_SIZE
+
+    # 1. Delete folders sequentially in small batches of 10 to yield disk I/O
     for i in range(0, len(ids), 10):
         ids_tmp = ids[i : i + 10]
         for id in ids_tmp:
@@ -231,17 +309,34 @@ def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=F
             except Exception as e:
                 log.error(e)
 
-        if delete_mongo:
-            if mongo_is_cluster():
-                response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
-                if response.lower() in ("n", "not"):
-                    sys.exit()
-            mongo_delete_data(ids_tmp)
-            if delete_db_tasks:
-                try:
-                    db.delete_tasks(task_ids=ids_tmp)
-                except Exception as e:
-                    log.error("Failed to delete tasks from DB: %s", str(e))
+    # 2. Delete from MongoDB in larger, highly-efficient batches or range
+    if delete_mongo and ids:
+        if mongo_is_cluster():
+            response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
+            if response.lower() in ("n", "not"):
+                sys.exit()
+
+        # Check for fast range deletion
+        if is_contiguous_range(ids) and len(ids) > 100:
+            range_start = min(ids)
+            range_end = max(ids) + 1
+            log.info("Contiguous range detected. Deleting MongoDB calls/analyses in range: %d to %d", range_start, range_end)
+            from dev_utils.mongodb import mongo_delete_data_range
+            mongo_delete_data_range(range_start=range_start, range_end=range_end)
+        else:
+            # Otherwise delete in larger batches
+            for i in range(0, len(ids), db_batch_size):
+                ids_batch = ids[i : i + db_batch_size]
+                mongo_delete_data(ids_batch)
+
+    # 3. Delete from SQL database in larger, highly-efficient batches
+    if delete_db_tasks and ids:
+        for i in range(0, len(ids), db_batch_size):
+            ids_batch = ids[i : i + db_batch_size]
+            try:
+                db.delete_tasks(task_ids=ids_batch)
+            except Exception as e:
+                log.error("Failed to delete tasks from DB: %s", str(e))
 
 
 def fail_job(tid):
@@ -258,11 +353,24 @@ def delete_data(tid):
             delete_analysis_and_related_calls(tid)
     except Exception as e:
         log.exception("failed to remove analysis info (may not exist) %s due to %s", tid, e)
+    _sql_deleted = False
     with db.session.begin():
         if db.delete_task(tid):
-            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid)))
+            _sql_deleted = True
         else:
             log.info("failed to remove faile task %s from DB", tid)
+    # delete_folder OUTSIDE the begin() block: an rmtree failure mid-delete must NOT roll back the (committed)
+    # SQL delete and resurrect a task pointing at a half-deleted tree, re-broken every nightly run. A folder
+    # failure is a disk orphan-by-path (logged).
+    # NOTE: unlike the apiv2/remove() paths (SQL commit -> THEN Mongo), the report delete above runs FIRST and
+    # mongo_delete_data() swallows its own exceptions (returns None; the elif arm is Elasticsearch-only), so a
+    # surviving report + committed SQL delete (an unreapable doc) is still reachable here and is NOT detected.
+    # Closing that needs a status-returning Mongo delete so the commit can be conditioned on it.
+    if _sql_deleted:
+        try:
+            delete_folder(os.path.join(CUCKOO_ROOT, "storage", "analyses", str(tid)))
+        except Exception as e:
+            log.error("delete_data: folder delete failed for task %s (disk orphan-by-path): %s", tid, e)
 
 
 def dist_delete_data(data, dist_db):
@@ -355,6 +463,18 @@ def cuckoo_clean_failed_tasks():
     ids = [task.id for task in tasks_list]
     delete_bulk_tasks_n_folders(ids, delete_mongo=True)
     tasks_list = db.delete_tasks(status=f"{TASK_FAILED_ANALYSIS}|{TASK_FAILED_PROCESSING}|{TASK_FAILED_REPORTING}|{TASK_RECOVERED}")
+
+
+def cuckoo_clean_banned_tasks():
+    """Clean up banned tasks
+    It deletes all stored data from file system and configured databases (SQL
+    and MongoDB) for banned tasks.
+    """
+    create_structure()
+
+    tasks_list = db.list_tasks(status=TASK_BANNED)
+    ids = [task.id for task in tasks_list]
+    delete_bulk_tasks_n_folders(ids, delete_mongo=True, delete_db_tasks=True)
 
 
 def cuckoo_clean_bson_suri_logs():
@@ -451,7 +571,7 @@ def tmp_clean_before(timerange: str):
     older_than = convert_into_time(timerange)
     tmp_folder_path = config.cuckoo.get("tmppath")
     # 3rd party?
-    for folder in ("cuckoo-tmp", "cape-external", "cuckoo-sflock"):
+    for folder in ("cuckoo-tmp", "cape-external", "cuckoo-sflock", "cape-pubsub"):
         for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
             for name in files + directories:
                 path = os.path.join(root, name)
@@ -823,6 +943,10 @@ def cleanup_files_collection_by_id(task_id: int):
 
 
 def execute_cleanup(args: dict, init_log=True):
+    global DB_BATCH_SIZE
+    if args.get("db_batch_size"):
+        DB_BATCH_SIZE = args["db_batch_size"]
+
     if init_log:
         init_console_logging()
 
@@ -834,6 +958,9 @@ def execute_cleanup(args: dict, init_log=True):
 
     if args.get("failed_clean"):
         cuckoo_clean_failed_tasks()
+
+    if args.get("banned_clean"):
+        cuckoo_clean_banned_tasks()
 
     if args.get("failed_url_clean"):
         cuckoo_clean_failed_url_tasks()

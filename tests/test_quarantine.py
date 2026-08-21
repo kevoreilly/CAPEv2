@@ -140,11 +140,11 @@ class TestUnquarantine:
     """
 
     def test_ext_err(self, empty_file):
-        assert unquarantine(empty_file.name) is None
+        assert unquarantine(empty_file.name) == empty_file.name.encode()
 
     def test_trend_unquarantine_normal_file(self, temp_pe32):
         """Test only the file header (first 10 bytes) is XOR'd for non-quarantined files."""
-        # The expected output is None
+        # The expected output is None for the sub-function direct call
         expected = None
 
         def bytearray_xor_wrapper(data, key):

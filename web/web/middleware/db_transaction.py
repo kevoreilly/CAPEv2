@@ -7,7 +7,13 @@ class DBTransactionMiddleware:
 
     def __call__(self, request):
         db = Database()
-        with db.session.begin():
+        session = db.session()
+        try:
             resp = self.get_response(request)
-        db.session.remove()
+            session.commit()
+        except Exception:
+            session.rollback()
+            raise
+        finally:
+            db.session.remove()
         return resp

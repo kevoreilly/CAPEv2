@@ -28,10 +28,15 @@ urlpatterns = [
     re_path(r"^tasks/list/(?P<limit>\d+)/(?P<offset>\d+)/$", views.tasks_list),
     re_path(r"^tasks/list/(?P<limit>\d+)/(?P<offset>\d+)/(?P<window>\d+)/$", views.tasks_list),
     re_path(r"^tasks/view/(?P<task_id>\d+)/$", views.tasks_view),
+    # Central-mode control-plane infra read (is_local_admin only; returns ONLY the
+    # analysis VM label). Used by lib.cuckoo.common.central_guac to broker the guac
+    # live-VM tunnel. Allowlisted in apiv2/test_visibility.py with justification.
+    re_path(r"^tasks/machine/(?P<task_id>\d+)/$", views.tasks_machine),
+    re_path(r"^tasks/visibility/(?P<task_id>\d+)/$", views.tasks_set_visibility),
     re_path(r"^tasks/reschedule/(?P<task_id>\d+)/$", views.tasks_reschedule),
     re_path(r"^tasks/reprocess/(?P<task_id>\d+)/$", views.tasks_reprocess),
-    re_path(r"^tasks/delete/(?P<task_id>(\d+|[0-9,-]+))/$", views.tasks_delete),
-    re_path(r"^tasks/delete/(?P<task_id>(\d+|[0-9,-]+))/(?P<status>\w+)/$", views.tasks_delete),
+    re_path(r"^tasks/delete/(?P<task_id>\d+(?:[,-]\d+)*)/$", views.tasks_delete),
+    re_path(r"^tasks/delete/(?P<task_id>\d+(?:[,-]\d+)*)/(?P<status>\w+)/$", views.tasks_delete),
     re_path(r"^tasks/delete_many/$", views.tasks_delete_many),
     re_path(r"^tasks/status/(?P<task_id>\d+)/$", views.tasks_status),
     re_path(r"^tasks/get/report/(?P<task_id>\d+)/$", views.tasks_report),
@@ -48,7 +53,11 @@ urlpatterns = [
     re_path(r"^tasks/get/procmemory/(?P<task_id>\d+)/(?P<pid>\d{1,5})/$", views.tasks_procmemory),
     re_path(r"^tasks/get/fullmemory/(?P<task_id>\d+)/$", views.tasks_fullmemory),
     re_path(r"^tasks/get/pcap/(?P<task_id>\d+)/$", views.tasks_pcap),
+    re_path(r"^tasks/get/pcap/(?P<task_id>\d+)/(?P<variant>\w+)/$", views.tasks_pcap_variant),
     re_path(r"^tasks/get/tlspcap/(?P<task_id>\d+)/$", views.tasks_tlspcap),
+    re_path(r"^tasks/get/keys/(?P<task_id>\d+)/(?P<kind>\w+)/$", views.tasks_keys),
+    re_path(r"^tasks/get/etw/(?P<task_id>\d+)/(?P<kind>\w+)/$", views.tasks_etw),
+    re_path(r"^tasks/get/bulkzip/(?P<task_id>\d+)/(?P<folder>\w+)/$", views.tasks_bulkzip),
     re_path(r"^tasks/get/evtx/(?P<task_id>\d+)/$", views.tasks_evtx),
     re_path(r"^tasks/get/dropped/(?P<task_id>\d+)/$", views.tasks_dropped),
     re_path(r"^tasks/get/selfextracted/(?P<task_id>\d+)/$", views.tasks_selfextracted),
@@ -72,6 +81,7 @@ urlpatterns = [
     # re_path(r"^tasks/add/(?P<category>[A-Za-z0-9]+)/(?P<task_id>\d+)/$", views.post_processing),
     re_path(r"^tasks/statistics/(?P<days>\d+)/$", views.statistics_data),
     re_path(r"^exitnodes/$", views.exit_nodes_list),
+    re_path(r"^yara_uploader/$", views.yara_uploader, name="yara_uploader"),
     # re_path(r"^dist/tasks_reported$", views.dist_tasks_reported),
     # re_path(r"^dist/tasks_notification/(?P<task_id>\d+)$", views.dist_tasks_notification),
 ]

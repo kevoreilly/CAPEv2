@@ -17,7 +17,7 @@ import sys
 import tempfile
 import traceback
 from base64 import b64encode
-from collections import OrderedDict, namedtuple, defaultdict
+from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
@@ -33,7 +33,7 @@ import utils.profiling as profiling
 from data.safelist.domains import domain_passlist_re
 from lib.cuckoo.common.abstracts import Processing
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.dns import resolve
+from lib.cuckoo.common.dns import resolve, resolve_doh, set_doh, set_doh_url
 from lib.cuckoo.common.exceptions import CuckooProcessingError
 from lib.cuckoo.common.irc import ircMessage
 from lib.cuckoo.common.network_utils import _norm_domain
@@ -41,6 +41,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir, path_read_file, path_write_file
 from lib.cuckoo.common.safelist import is_safelisted_domain
 from lib.cuckoo.common.utils import convert_to_printable
+from modules.processing.decryptpcap import resolve_processing_pcap_path
 
 # from lib.cuckoo.common.safelist import is_safelisted_ip
 log = logging.getLogger(__name__)
@@ -97,6 +98,13 @@ routing_cfg = Config("routing")
 enabled_passlist = proc_cfg.network.dnswhitelist
 passlist_file = proc_cfg.network.dnswhitelist_file
 
+# Enable DNS-over-HTTPS if configured
+if getattr(cfg.processing, "dns_over_https", False):
+    set_doh(True)
+    doh_url = getattr(cfg.processing, "doh_url", "")
+    if doh_url:
+        set_doh_url(doh_url)
+
 enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
 
@@ -107,12 +115,25 @@ network_passlist_file = proc_cfg.network.network_passlist_file
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 comment_re = re.compile(r"\s*#.*")
+# Build the DNS passlist once, pre-compiled. Do NOT append to the imported
+# domain_passlist_re module-global: that list is shared with suricata.py, so
+# mutating it here polluted that module's passlist with duplicates. Pre-compiling
+# also removes the per-event recompile cost in the match loops below.
+dns_passlist_re = []
+for pattern in domain_passlist_re:
+    try:
+        dns_passlist_re.append(re.compile(pattern))
+    except re.error:
+        log.warning("Network: invalid base passlist regex %r; skipping", pattern)
 if enabled_passlist and passlist_file:
     f = path_read_file(os.path.join(CUCKOO_ROOT, passlist_file), mode="text")
     for domain in f.splitlines():
         domain = comment_re.sub("", domain).strip()
         if domain:
-            domain_passlist_re.append(domain)
+            try:
+                dns_passlist_re.append(re.compile(domain))
+            except re.error:
+                log.warning("Network: invalid passlist domain regex %r; skipping", domain)
 
 ip_passlist = set()
 network_passlist = []
@@ -319,7 +340,8 @@ class Pcap:
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
 
-        if cfg.processing.reverse_dns:
+        use_doh = getattr(cfg.processing, "dns_over_https", False)
+        if cfg.processing.reverse_dns and not use_doh:
             d = dns.resolver.Resolver()
             d.timeout = 5.0
             d.lifetime = 5.0
@@ -329,8 +351,13 @@ class Pcap:
             inaddrarpa = ""
             hostname = ""
             if cfg.processing.reverse_dns:
-                with suppress(Exception):
-                    inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text()
+                if use_doh:
+                    with suppress(Exception):
+                        ptr_name = str(from_address(ip))
+                        inaddrarpa = resolve_doh(ptr_name, rdtype="PTR")
+                else:
+                    with suppress(Exception):
+                        inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text().rstrip(".")
             for request in self.dns_requests.values():
                 for answer in request["answers"]:
                     if answer["data"] == ip:
@@ -513,8 +540,8 @@ class Pcap:
                 query["answers"].append(ans)
 
             if enabled_passlist:
-                for reject in domain_passlist_re:
-                    if re.search(reject, query["request"]):
+                for reject in dns_passlist_re:
+                    if reject.search(query["request"]):
                         for addip in query["answers"]:
                             if routing_cfg.inetsim.enabled and addip["data"] == routing_cfg.inetsim.server:
                                 continue
@@ -595,8 +622,8 @@ class Pcap:
                 entry["host"] = conn["dst"]
 
             if enabled_passlist:
-                for reject in domain_passlist_re:
-                    if re.search(reject, entry["host"]):
+                for reject in dns_passlist_re:
+                    if reject.search(entry["host"]):
                         return False
 
             entry["port"] = conn["dport"]
@@ -797,8 +824,8 @@ class Pcap:
                         self._tcp_dissect(connection, tcp.data, ts)
                         src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                         if not (
-                                (dst, dport, src, sport) in self.tcp_connections_seen
-                                or (src, sport, dst, dport) in self.tcp_connections_seen
+                            (dst, dport, src, sport) in self.tcp_connections_seen
+                            or (src, sport, dst, dport) in self.tcp_connections_seen
                         ):
                             self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                             self.tcp_connections_seen.add((src, sport, dst, dport))
@@ -829,8 +856,8 @@ class Pcap:
 
                     src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                     if not (
-                            (dst, dport, src, sport) in self.udp_connections_seen
-                            or (src, sport, dst, dport) in self.udp_connections_seen
+                        (dst, dport, src, sport) in self.udp_connections_seen
+                        or (src, sport, dst, dport) in self.udp_connections_seen
                     ):
                         self.udp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.udp_connections_seen.add((src, sport, dst, dport))
@@ -979,9 +1006,10 @@ class Pcap2:
                     hostname = sent.headers.get("host")
 
                 included_to_passlist = False
-                for reject in domain_passlist_re:
-                    if hostname and re.search(reject, hostname):
+                for reject in dns_passlist_re:
+                    if hostname and reject.search(hostname):
                         included_to_passlist = True
+                        break
 
                 if included_to_passlist:
                     continue
@@ -1378,17 +1406,9 @@ class NetworkAnalysis(Processing):
         winhttp_sessions = net_map.get("winhttp_sessions")
         if winhttp_sessions:
             # Recompute current http host set (includes http/http_ex/https_ex)
-            http_events = (
-                (network.get("http", []) or []) +
-                (network.get("http_ex", []) or []) +
-                (network.get("https_ex", []) or [])
-            )
+            http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
 
-            existing_hosts = {
-                _norm_domain(h.get("host"))
-                for h in http_events
-                if h.get("host")
-            }
+            existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
 
             for p in winhttp_sessions:
                 proc_sessions = (p or {}).get("sessions") or {}
@@ -1561,7 +1581,12 @@ class NetworkAnalysis(Processing):
                 target_list = "udp" if port == 53 else "tcp"
                 network.setdefault(target_list, []).append(entry)
 
+    def _resolve_pcap_path(self):
+        pcapsrc = self.options.get("pcapsrc", "auto") if self.options else "auto"
+        return resolve_processing_pcap_path(self.analysis_path, self.pcap_path, pcapsrc=pcapsrc)
+
     def run(self):
+        self.pcap_path = self._resolve_pcap_path()
         if not path_exists(self.pcap_path):
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}

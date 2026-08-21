@@ -11,6 +11,31 @@ logging.getLogger("pymongo").setLevel(logging.ERROR)
 repconf = Config("reporting")
 
 mdb = repconf.mongodb.get("db", "cuckoo")
+query_timeout = int(repconf.mongodb.get("query_timeout", 20000))
+regex_timeout = int(repconf.mongodb.get("regex_timeout", 10000))
+
+
+def is_regex_query(query):
+    if isinstance(query, dict):
+        for k, v in query.items():
+            if k == "$regex":
+                return True
+            if is_regex_query(v):
+                return True
+    elif isinstance(query, list):
+        for v in query:
+            if is_regex_query(v):
+                return True
+    return False
+
+
+def _truthy(val, default=False):
+    """Coerce a conf value (bool or 'yes'/'no'/'on'/'off'/...) to bool."""
+    if isinstance(val, bool):
+        return val
+    if val is None:
+        return default
+    return str(val).strip().lower() in ("1", "true", "yes", "on")
 
 
 if repconf.mongodb.enabled:
@@ -22,17 +47,31 @@ if repconf.mongodb.enabled:
 
     def connect_to_mongo() -> MongoClient:
         try:
-            return MongoClient(
-                host=repconf.mongodb.get("host", "127.0.0.1"),
-                port=repconf.mongodb.get("port", 27017),
+            host = repconf.mongodb.get("host", "127.0.0.1")
+            port = repconf.mongodb.get("port", 27017)
+            client = MongoClient(
+                host=host,
+                port=port,
                 username=repconf.mongodb.get("username"),
                 password=repconf.mongodb.get("password"),
                 authSource=repconf.mongodb.get("authsource", "cuckoo"),
+                # DocumentDB (central mode) needs TLS explicitly on (a CA file alone
+                # does NOT enable TLS in pymongo) and retryWrites OFF (DocumentDB
+                # rejects retryable writes). Both default to today's single-node
+                # behavior: tls off, retryWrites on (pymongo's own default).
+                tls=_truthy(repconf.mongodb.get("tls", False), False),
                 tlsCAFile=repconf.mongodb.get("tlscafile", None),
-                connect=False,
+                retryWrites=_truthy(repconf.mongodb.get("retrywrites", True), True),
+                connect=True, # Force connection now to catch issues
+                serverSelectionTimeoutMS=5000,
+                socketTimeoutMS=30000,
             )
-        except (ConnectionFailure, ServerSelectionTimeoutError):
-            log.error("Cannot connect to MongoDB")
+            # Ping the server to ensure it's alive
+            client.admin.command('ping')
+            log.info("Successfully connected to MongoDB at %s:%s", host, port)
+            return client
+        except (ConnectionFailure, ServerSelectionTimeoutError) as e:
+            log.error("Cannot connect to MongoDB: %s", e)
         except Exception as e:
             log.warning("Unable to connect to MongoDB database: %s, %s", mdb, e)
 
@@ -40,8 +79,70 @@ if repconf.mongodb.enabled:
     # q = results_db.analysis.find({"info.id": 26}, {"memory": 1})
     # https://pymongo.readthedocs.io/en/stable/changelog.html
 
-    conn = connect_to_mongo()
-    results_db = conn[mdb]
+    _client = None
+    _results_db = None
+
+    def get_mongodb():
+        global _client, _results_db
+        if _client is None:
+            _client = connect_to_mongo()
+            if _client is not None:
+                _results_db = _client[mdb]
+
+        if _results_db is None:
+            raise ConnectionFailure("MongoDB connection is not established. Check your configuration and ensure MongoDB is running.")
+
+        return _results_db
+
+    # For legacy code that expects results_db to be an object
+    class LegacyDB:
+        @property
+        def analysis(self): return get_mongodb().analysis
+        @property
+        def calls(self): return get_mongodb().calls
+        @property
+        def files(self): return get_mongodb().files
+        def __getattr__(self, name): return getattr(get_mongodb(), name)
+
+    results_db = LegacyDB()
+else:
+    class ConnectionFailure(Exception):
+        pass
+
+    class AutoReconnect(Exception):
+        pass
+
+    class OperationFailure(Exception):
+        pass
+
+    class DisabledDB:
+        def __getattr__(self, name):
+            raise ConnectionFailure("MongoDB is disabled in reporting.conf")
+
+    results_db = DisabledDB()
+
+    def connect_to_mongo():
+        return None
+
+    def get_mongodb():
+        class DummyMongo:
+            @property
+            def client(self):
+                class DummyClient:
+                    @property
+                    def admin(self):
+                        class DummyAdmin:
+                            def command(self, *args, **kwargs):
+                                raise OperationFailure("MongoDB is disabled in reporting.conf")
+                        return DummyAdmin()
+                return DummyClient()
+        return DummyMongo()
+
+    class LegacyDB:
+        def __getattr__(self, name):
+            raise AttributeError("MongoDB is disabled")
+
+    results_db = LegacyDB()
 
 MAX_AUTO_RECONNECT_ATTEMPTS = 5
 
@@ -111,40 +212,51 @@ def mongo_insert_one(collection: str, doc):
 
 
 @graceful_auto_reconnect
-def mongo_find(collection: str, query, projection=False, sort=None, limit=None):
+def mongo_find(collection: str, query, projection=False, sort=None, limit=None, max_time_ms=None, no_hooks=False):
     if sort is None:
         sort = [("_id", -1)]
 
-    find_by = functools.partial(getattr(results_db, collection).find, query, sort=sort)
+    if max_time_ms is None:
+        max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
+
+    find_by = functools.partial(getattr(results_db, collection).find, query, sort=sort, max_time_ms=max_time_ms)
     if projection:
         find_by = functools.partial(find_by, projection=projection)
     if limit:
         find_by = functools.partial(find_by, limit=limit)
 
     result = find_by()
-    if result:
+    if result and not no_hooks:
         for hook in hooks[mongo_find][collection]:
             result = hook(result)
     return result
 
 
 @graceful_auto_reconnect
-def mongo_find_one(collection: str, query, projection=False, sort=None):
+def mongo_find_one(collection: str, query, projection=False, sort=None, max_time_ms=None, no_hooks=False):
     if sort is None:
         sort = [("_id", -1)]
+
+    if max_time_ms is None:
+        max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
+
+    kwargs = {"sort": sort, "max_time_ms": max_time_ms}
+
     if projection:
-        result = getattr(results_db, collection).find_one(query, projection, sort=sort)
+        result = getattr(results_db, collection).find_one(query, projection, **kwargs)
     else:
-        result = getattr(results_db, collection).find_one(query, sort=sort)
-    if result:
+        result = getattr(results_db, collection).find_one(query, **kwargs)
+
+    if result and not no_hooks:
         for hook in hooks[mongo_find_one][collection]:
             result = hook(result)
+
     return result
 
 
 @graceful_auto_reconnect
 def mongo_delete_one(collection: str, query):
-    return getattr(results_db, collection).delete_one(query)
+    return getattr(results_db, collection).delete_one(query, hint=[("_id", 1)])
 
 
 @graceful_auto_reconnect
@@ -162,12 +274,14 @@ def mongo_update_one(collection: str, query, update, bypass_document_validation:
     if isinstance(update, dict) and update.get("$set"):
         for hook in hooks[mongo_update_one][collection]:
             update["$set"] = hook(update["$set"])
-    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation)
+    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation, hint=[("_id", 1)])
 
 
 @graceful_auto_reconnect
-def mongo_aggregate(collection: str, query):
-    return getattr(results_db, collection).aggregate(query)
+def mongo_aggregate(collection: str, query, max_time_ms=None):
+    if max_time_ms is None:
+        max_time_ms = regex_timeout if is_regex_query(query) else query_timeout
+    return getattr(results_db, collection).aggregate(query, maxTimeMS=max_time_ms)
 
 
 @graceful_auto_reconnect
@@ -184,7 +298,7 @@ def mongo_find_one_and_update(collection, query, update, projection=None):
 
 @graceful_auto_reconnect
 def mongo_drop_database(database: str):
-    conn.drop_database(database)
+    get_mongodb().client.drop_database(database)
 
 
 def mongo_delete_data(task_ids: int | Sequence[int]) -> None:
@@ -251,7 +365,7 @@ def mongo_delete_calls_by_task_id_in_range(*, range_start: int = 0, range_end: i
 def mongo_is_cluster():
     # This is only useful at the moment for clean to prevent destruction of cluster database
     try:
-        conn.admin.command("listShards")
+        get_mongodb().client.admin.command("listShards")
         return True
     except OperationFailure:
         return False
@@ -259,4 +373,5 @@ def mongo_is_cluster():
 
 # Mongodb hooks are registered by importing this module.
 # Import it down here because mongo_hooks import this module.
-from . import mongo_hooks  # noqa: F401
+if repconf.mongodb.enabled:
+    from . import mongo_hooks  # noqa: F401

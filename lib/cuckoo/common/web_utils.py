@@ -975,8 +975,9 @@ def download_file(**kwargs):
     generic_demux = False
     if DYNAMIC_PLATFORM_DETERMINATION:
         check_shellcode = "check_shellcode=0" not in kwargs["options"]
+        path_bytes = kwargs["path"] if isinstance(kwargs["path"], bytes) else kwargs["path"].encode()
         _, _, generic_demux = db.identify_submission_package(
-            kwargs["path"].decode(),
+            path_bytes,
             package,
             check_shellcode=check_shellcode,
         )

@@ -80,6 +80,10 @@ default operating system, and other significant additions include interactive de
 AMSI (Anti-Malware Scan Interface) payload capture, 'syscall hooking' based on Microsoft
 Nirvana and debugger-based direct/indirect syscall countermeasures.
 
+In 2024 enzok created [CAPEsolo](https://github.com/CAPESandbox/CAPEsolo), an interactive Windows desktop version of CAPE,
+using wxPython for the graphical interface, as well as introducing 64-bit guest Python compatibility.
+In 2026, support for added for all Windows 10 versions and Windows 11 23H2.
+
 ### Classification
 ![image](https://github.com/kevoreilly/CAPEv2/assets/22219888/15b34a87-6b2a-49bd-a58a-d16d5fee438e)
 

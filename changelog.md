@@ -1,4 +1,4 @@
-### [13.07.2026]
+### [21.08.2026]
 * Major WebGUI Modernization:
     * Switched to modern frontend patterns using HTMX for declarative AJAX and partial page updates
     * Integrated Alpine.js for reactive UI state management (submission form, overlays)
@@ -13,6 +13,12 @@
     * Added global keyboard shortcuts system (discoverable via '?')
     * Internalized all 3rd-party frontend assets for full air-gap compatibility
     * Refactored and unified file information components across the entire interface
+
+### [31.07.2026]
+* Remus detection & dynamic config extraction
+
+### [15.07.2026]
+* Monitor update: Fix issue with NtWriteFile hook causing detonation failures (e.g. 9b1717eb154011b52aa24e4d6848976a9aafff2665f3171265aa767d5951be6c)
 
 ### [07.07.2026]
 * Monitor updates:

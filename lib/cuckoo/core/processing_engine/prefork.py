@@ -202,7 +202,12 @@ class PreforkEngine(ProcessingEngine):
             launchable = free if not self.max_count else min(free, self.max_count - count)
             launched = 0
             if launchable > 0:
-                tasks = self.source.fetch(limit=launchable, exclude_ids=self._inflight_task_ids())
+                try:
+                    tasks = self.source.fetch(limit=launchable, exclude_ids=self._inflight_task_ids())
+                except Exception as db_error:
+                    log.error("Database connection error during task fetch: %s. Retrying in 10s...", db_error)
+                    time.sleep(10)
+                    continue
                 for task in tasks[:launchable]:
                     self._launch(task)
                     count += 1

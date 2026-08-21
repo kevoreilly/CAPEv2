@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import MagicMock, patch
 
-from lib.cuckoo.common.cape_utils import cape_name_from_yara, static_config_parsers
+from lib.cuckoo.common.cape_utils import cape_name_from_yara, static_config_lookup, static_config_parsers
 
 
 class TestCapeUtils(unittest.TestCase):
@@ -68,6 +68,56 @@ class TestStaticConfigParsers(unittest.TestCase):
         file_data = b"test data"
         result = static_config_parsers(cape_name, file_path, file_data)
         self.assertEqual(result, {})
+
+
+class TestStaticConfigLookupES(unittest.TestCase):
+    """static_config_lookup ES branch: MT-off must be byte-for-byte upstream;
+    MT-on must scope + return None on no hits."""
+
+    def _run(self, es_hits, esf):
+        # Force the ES branch: mongo disabled, es enabled.
+        with patch("lib.cuckoo.common.cape_utils.repconf") as mock_repconf, patch(
+            "lib.cuckoo.common.cape_utils.es", create=True
+        ) as mock_es, patch(
+            "lib.cuckoo.common.cape_utils.get_analysis_index", return_value="cuckoo-*", create=True
+        ), patch(
+            "lib.cuckoo.common.cape_utils._config_lookup_es_filter", return_value=esf
+        ):
+            mock_repconf.mongodb.enabled = False
+            mock_repconf.elasticsearchdb.enabled = True
+            mock_es.search.return_value = {"hits": {"hits": es_hits}}
+            result = static_config_lookup("/path/to/file", sha256="a" * 64, viewer=object())
+            return result, mock_es
+
+    def test_es_mt_off_uses_upstream_match_query(self):
+        # MT off => filter is None => original upstream query (match) + [0]["_source"].
+        hit_source = {"CAPE": {"configs": [{"x": 1}]}, "info": {"id": 7}}
+        result, mock_es = self._run(es_hits=[{"_source": hit_source}], esf=None)
+        self.assertEqual(result, {"id": 7})
+        body = mock_es.search.call_args.kwargs["body"]
+        # Upstream shape: match query, no bool/filter.
+        self.assertEqual(body["query"], {"match": {"target.file.sha256": "a" * 64}})
+        self.assertNotIn("bool", body["query"])
+
+    def test_es_mt_off_no_hits_raises_indexerror(self):
+        # Preserve upstream no-hits behavior (IndexError) when MT off.
+        with self.assertRaises(IndexError):
+            self._run(es_hits=[], esf=None)
+
+    def test_es_mt_on_uses_scoped_term_query_and_returns_none_on_empty(self):
+        esf = {"bool": {"should": [{"term": {"info.visibility": "public"}}], "minimum_should_match": 1}}
+        result, mock_es = self._run(es_hits=[], esf=esf)
+        self.assertIsNone(result)
+        body = mock_es.search.call_args.kwargs["body"]
+        self.assertIn("bool", body["query"])
+        self.assertEqual(body["query"]["bool"]["must"], [{"term": {"target.file.sha256": "a" * 64}}])
+        self.assertEqual(body["query"]["bool"]["filter"], [esf])
+
+    def test_es_mt_on_returns_scoped_hit(self):
+        esf = {"bool": {"should": [{"term": {"info.visibility": "public"}}], "minimum_should_match": 1}}
+        hit_source = {"CAPE": {"configs": [{"x": 1}]}, "info": {"id": 9}}
+        result, _ = self._run(es_hits=[{"_source": hit_source}], esf=esf)
+        self.assertEqual(result, {"id": 9})
 
 
 if __name__ == "__main__":

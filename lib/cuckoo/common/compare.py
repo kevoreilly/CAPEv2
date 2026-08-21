@@ -49,16 +49,20 @@ def combine_behavior_percentages(stats: dict) -> dict:
     return percentages
 
 
-def helper_percentages_mongo(tid1, tid2, ignore_categories: set = None) -> dict:
+def helper_percentages_mongo(tid1, tid2, ignore_categories: set = None, filter1=None, filter2=None) -> dict:
+    # filter1/filter2: caller-supplied central-mode-scoped Mongo filters for tid1/tid2 (built by the web
+    # layer's scoped_analysis_query, which this lib module must not import -- lib->web layering). None ->
+    # bare {info.id} (single-node / non-central). Central mode a colliding tenant doc sharing the bare
+    # info.id would otherwise leak its call percentages into another tenant's compare view (audit MEDIUM).
     if ignore_categories is None:
         ignore_categories = {"misc"}
     counts = {}
 
-    for tid in (tid1, tid2):
+    for tid, _filter in ((tid1, filter1), (tid2, filter2)):
         counts[tid] = {}
 
         pids_calls = mongo_find_one(
-            "analysis", {"info.id": int(tid)}, {"behavior.processes.process_id": 1, "behavior.processes.calls": 1}
+            "analysis", _filter or {"info.id": int(tid)}, {"behavior.processes.process_id": 1, "behavior.processes.calls": 1}
         )
 
         if not pids_calls:
@@ -79,10 +83,12 @@ def helper_percentages_mongo(tid1, tid2, ignore_categories: set = None) -> dict:
     return combine_behavior_percentages(counts)
 
 
-def helper_summary_mongo(tid1, tid2):
+def helper_summary_mongo(tid1, tid2, filter1=None, filter2=None):
+    # filter1/filter2: caller-supplied central-mode-scoped filters (see helper_percentages_mongo); None
+    # -> bare {info.id}. Prevents a colliding tenant doc leaking its behavior.summary into compare/both.
     left_sum, right_sum = None, None
-    left_sum = mongo_find_one("analysis", {"info.id": int(tid1)}, {"behavior.summary": 1})
-    right_sum = mongo_find_one("analysis", {"info.id": int(tid2)}, {"behavior.summary": 1})
+    left_sum = mongo_find_one("analysis", filter1 or {"info.id": int(tid1)}, {"behavior.summary": 1})
+    right_sum = mongo_find_one("analysis", filter2 or {"info.id": int(tid2)}, {"behavior.summary": 1})
     return get_similar_summary(left_sum, right_sum) if left_sum and right_sum else {}
 
 

@@ -1,0 +1,353 @@
+
+<script type="text/javascript">
+class ProcessTablePaginator {
+    constructor(pid, pageSize = 100) {
+        this.pid = pid;
+        this.defaultPageSize = pageSize;
+        this.pageSize = pageSize;
+        this.currentPage = 1;
+
+        // api type filters
+        this.activeCategory = 'default';
+        this.searchTerm = '';
+        
+        // advanced filters
+        this.callerTerm = '';
+        this.tidTerm = '';
+
+        this.pane = document.getElementById(`process_${pid}`);
+        if (!this.pane) return;
+
+        this.table = this.pane.querySelector('table');
+        this.allRows = Array.from(this.table.querySelectorAll('tr')).slice(1);
+        this.filteredRows = [...this.allRows];
+
+        this.topPagEl = this.pane.querySelector(`.pagination_top_${pid}`);
+        this.bottomPagEl = this.pane.querySelector(`.pagination_bottom_${pid}`);
+
+        this.initEvents();
+        this.applyFilters();
+    }
+
+    initEvents() {
+        // handle api type filter clicks
+        this.pane.querySelectorAll('.badge-filter').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const parts = btn.id.split('_');
+                let cat = parts[1];
+                if (cat === 'sync') cat = 'synchronization';
+
+                this.activeCategory = cat;
+                this.currentPage = 1;
+
+                this.pane.querySelectorAll('.badge-filter').forEach(b => b.classList.remove('active', 'btn-light'));
+                btn.classList.add('active', 'btn-light');
+
+                this.applyFilters();
+            });
+        });
+
+        // API type text search
+        const filterInput = document.getElementById(`apifilter_${this.pid}`);
+        const filterBtn = document.getElementById(`search_button_${this.pid}`);
+
+        const runTextSearch = () => {
+            this.searchTerm = filterInput.value.trim().toLowerCase();
+            this.currentPage = 1;
+            this.applyFilters();
+        };
+
+        if (filterBtn) filterBtn.addEventListener('click', runTextSearch);
+        if (filterInput) {
+            filterInput.addEventListener('keyup', (e) => {
+                if (e.key === 'Enter') runTextSearch();
+            });
+        }
+
+        // advanced filters (Caller & Thread ID)
+        const callerInput = document.getElementById(`callerfilter_${this.pid}`);
+        const tidInput = document.getElementById(`tidfilter_${this.pid}`);
+        const submitAdvBtn = document.getElementById(`submit_filter_${this.pid}`);
+
+        const runAdvSearch = () => {
+            this.callerTerm = callerInput ? callerInput.value.trim().toLowerCase() : '';
+            this.tidTerm = tidInput ? tidInput.value.trim().toLowerCase() : '';
+            this.currentPage = 1;
+            this.applyFilters();
+        };
+
+        if (submitAdvBtn) submitAdvBtn.addEventListener('click', runAdvSearch);
+        
+        [callerInput, tidInput].forEach(input => {
+            if (input) {
+                input.addEventListener('keyup', (e) => {
+                    if (e.key === 'Enter') runAdvSearch();
+                });
+            }
+        });
+    }
+
+    applyFilters() {
+        this.filteredRows = this.allRows.filter(row => {
+            const cells = row.querySelectorAll('td');
+            if (cells.length < 3) return false;
+
+            // Extract table cell data (0: Timestamp, 1: Thread ID, 2: Function, 3: Arguments...)
+            const tidText = cells[1].textContent.trim().toLowerCase();
+            const rowText = row.textContent.toLowerCase();
+
+            // Category Filter Check
+            let matchesCategory = true;
+            if (this.activeCategory !== 'all' && this.activeCategory !== 'default') {
+                matchesCategory = row.classList.contains(this.activeCategory) || 
+                                  row.classList.contains(`cat-${this.activeCategory}`) ||
+                                  row.className.includes(this.activeCategory);
+            }
+
+            // Main API Search Check
+            let matchesSearch = true;
+            if (this.searchTerm) {
+                if (this.searchTerm.startsWith('!')) {
+                    const negTerm = this.searchTerm.substring(1);
+                    matchesSearch = negTerm ? !rowText.includes(negTerm) : true;
+                } else {
+                    matchesSearch = rowText.includes(this.searchTerm);
+                }
+            }
+
+            // Advanced Thread ID Filter Check (Cell 1)
+            let matchesTID = true;
+            if (this.tidTerm) {
+                matchesTID = tidText.includes(this.tidTerm);
+            }
+
+            // Advanced Caller Filter Check
+            // Matches against entire row (or specifically against arguments / attributes if present in row data)
+            let matchesCaller = true;
+            if (this.callerTerm) {
+                matchesCaller = rowText.includes(this.callerTerm);
+            }
+
+            return matchesCategory && matchesSearch && matchesTID && matchesCaller;
+        });
+
+        // Toggle pagination sizing
+        this.pageSize = (this.activeCategory === 'all') ? Infinity : this.defaultPageSize;
+
+        this.renderPage();
+        this.renderPaginationUI();
+    }
+
+    renderPage() {
+        if (this.pageSize === Infinity) {
+            this.allRows.forEach(row => row.style.display = 'none');
+            this.filteredRows.forEach(row => row.style.display = '');
+            return;
+        }
+
+        const totalPages = Math.ceil(this.filteredRows.length / this.pageSize) || 1;
+        if (this.currentPage > totalPages) this.currentPage = totalPages;
+
+        const startIndex = (this.currentPage - 1) * this.pageSize;
+        const endIndex = startIndex + this.pageSize;
+
+        this.allRows.forEach(row => row.style.display = 'none');
+
+        const visibleSlice = this.filteredRows.slice(startIndex, endIndex);
+        visibleSlice.forEach(row => row.style.display = '');
+    }
+
+    renderPaginationUI() {
+        if (this.pageSize === Infinity) {
+            if (this.topPagEl) this.topPagEl.innerHTML = '';
+            if (this.bottomPagEl) this.bottomPagEl.innerHTML = '';
+            return;
+        }
+
+        const totalPages = Math.ceil(this.filteredRows.length / this.pageSize) || 1;
+        const html = this.buildPaginationHTML(totalPages);
+
+        if (this.topPagEl) this.topPagEl.innerHTML = html;
+        if (this.bottomPagEl) this.bottomPagEl.innerHTML = html;
+
+        [this.topPagEl, this.bottomPagEl].forEach(container => {
+            if (!container) return;
+            container.querySelectorAll('.page-link').forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const targetPage = parseInt(link.dataset.page, 10);
+                    if (targetPage && targetPage !== this.currentPage && targetPage >= 1 && targetPage <= totalPages) {
+                        this.currentPage = targetPage;
+                        this.renderPage();
+                        this.renderPaginationUI();
+                    }
+                });
+            });
+        });
+    }
+
+    buildPaginationHTML(totalPages) {
+        if (totalPages <= 1) return '';
+
+        let html = '';
+        const prevDisabled = this.currentPage === 1 ? 'disabled' : '';
+        html += `<li class="page-item ${prevDisabled}"><a class="page-link" href="#" data-page="${this.currentPage - 1}">Previous</a></li>`;
+
+        let startPage = Math.max(1, this.currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+
+        if (startPage > 1) {
+            html += `<li class="page-item"><a class="page-link" href="#" data-page="1">1</a></li>`;
+            if (startPage > 2) html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            const active = i === this.currentPage ? 'active' : '';
+            html += `<li class="page-item ${active}"><a class="page-link" href="#" data-page="${i}">${i}</a></li>`;
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) html += `<li class="page-item disabled"><span class="page-link">...</span></li>`;
+            html += `<li class="page-item"><a class="page-link" href="#" data-page="${totalPages}">${totalPages}</a></li>`;
+        }
+
+        const nextDisabled = this.currentPage === totalPages ? 'disabled' : '';
+        html += `<li class="page-item ${nextDisabled}"><a class="page-link" href="#" data-page="${this.currentPage + 1}">Next</a></li>`;
+
+        return html;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.processPaginators = {};
+    document.querySelectorAll('.tab-pane[data-pid]').forEach(pane => {
+        const pid = pane.getAttribute('data-pid');
+        window.processPaginators[pid] = new ProcessTablePaginator(pid, 100);
+    });
+});
+</script>
+
+<div class="card-body">
+    <div class="tab-content" id="processTabsContent">
+        {% if results.behavior and results.behavior.processes %}
+            {% for process in results.behavior.processes %}
+                <div class="tab-pane fade {% if loop.index == 1 %}show active{% endif %}" id="process_{{ process.process_id }}" role="tabpanel" aria-labelledby="process-{{ process.process_id }}-tab" data-pid="{{ process.process_id }}" data-length="{{ process.calls|length }}">
+                    <div class="alert alert-primary text-info border-primary text-center shadow-sm mb-4">
+                        <h5 class="alert-heading fw-bold">{{process.process_name}}</h5>
+                        <p class="mb-0">
+                            PID: <strong>{{process.process_id}}</strong> | Parent PID: <strong>{{process.parent_id}}</strong>
+                            <br>Path: <code class="text-white">{{process.module_path}}</code>
+                            {% if process.environ %}
+                                {% if process.environ.CommandLine %}<br>Cmd: <code class="text-white">{{ process.environ.CommandLine }}</code>{% endif %}
+                                <br>Image Base: <strong>{% if process.environ.MainExeBase %}{{ process.environ.MainExeBase }}{% else %}{{process.image_base}}{% endif %}</strong> |
+                                Size: <strong>{% if process.environ.MainExeSize %}{{ process.environ.MainExeSize }}{% else %}{{process.size}}{% endif %}</strong> |
+                                Bitness: <strong>{% if process.environ.Bitness %}{{ process.environ.Bitness }}{% else %}{{process.bitness}}{% endif %}</strong>
+                                {% if process.environ.DllBase %}<br />Dll Image Base: <b>{{ process.environ.DllBase }}</b>{% endif %}
+                            {% endif %}
+                        </p>
+                    </div>
+                    <div class="row mb-4 align-items-center justify-content-center">
+                        <div class="col-12 text-center">
+                            <div class="btn-group flex-wrap mb-3" role="group">
+                                <button id="badge_default_{{process.process_id}}" type="button" class="btn btn-cat-default badge-filter">Default</button>
+                                <button id="badge_registry_{{process.process_id}}" type="button" class="btn btn-cat-registry badge-filter">Registry</button>
+                                <button id="badge_filesystem_{{process.process_id}}" type="button" class="btn btn-cat-filesystem badge-filter">Filesystem</button>
+                                <button id="badge_network_{{process.process_id}}" type="button" class="btn btn-cat-network badge-filter">Network</button>
+                                <button id="badge_process_{{process.process_id}}" type="button" class="btn btn-cat-process badge-filter">Process</button>
+                                <button id="badge_threading_{{process.process_id}}" type="button" class="btn btn-cat-threading badge-filter">Threading</button>
+                                <button id="badge_services_{{process.process_id}}" type="button" class="btn btn-cat-services badge-filter">Services</button>
+                                <button id="badge_sync_{{process.process_id}}" type="button" class="btn btn-cat-synchronization badge-filter">Sync</button>
+                                <button id="badge_crypto_{{process.process_id}}" type="button" class="btn btn-cat-crypto badge-filter">Crypto</button>
+                                <button id="badge_browser_{{process.process_id}}" type="button" class="btn btn-cat-browser badge-filter">Browser</button>
+                                <button id="badge_device_{{process.process_id}}" type="button" class="btn btn-cat-device badge-filter">Device</button>
+                                <button id="badge_all_{{process.process_id}}" type="button" class="btn btn-cat-all badge-filter">All</button>
+                            </div>
+
+                            <div class="input-group mb-3 w-50 mx-auto">
+                                <input type="text" class="form-control bg-dark text-white border-secondary" id="apifilter_{{process.process_id}}" placeholder="Filter API calls (e.g. 'CreateFile, !CloseHandle')">
+                                <button class="btn btn-outline-info" type="button" id="search_button_{{process.process_id}}"><i class="fas fa-filter"></i> Apply</button>
+                            </div>
+
+                            <button class="btn btn-sm btn-link text-white-50" type="button" data-bs-toggle="collapse" data-bs-target="#advFilter_{{process.process_id}}">
+                                Advanced Filters <i class="fas fa-chevron-down float-end text-white-50 ms-1"></i>
+                            </button>
+
+                            <div class="collapse mt-2" id="advFilter_{{process.process_id}}">
+                                <div class="card card-body bg-dark">
+                                    <div class="row g-3">
+                                        <div class="col">
+                                            <input type="text" class="form-control text-white bg-dark border-1" id="callerfilter_{{process.process_id}}" placeholder="Caller">
+                                        </div>
+                                        <div class="col">
+                                            <input type="text" class="form-control text-white bg-dark border-1" id="tidfilter_{{process.process_id}}" placeholder="Thread ID">
+                                        </div>
+                                        <div class="col-auto">
+                                            <button class="btn btn-outline-info" id="submit_filter_{{process.process_id}}">
+                                                <i class="fas fa-filter"></i>Filter</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <nav aria-label="Page navigation" class="mb-3">
+                        <ul class="pagination justify-content-center pagination_top_{{process.process_id}}" data-bs-theme="dark"></ul>
+                    </nav>
+
+                    <table class="table-bordered table-condensed" style="width: 100%; word-wrap:break-word;table-layout: fixed;">
+                        <tr>
+                            <th width="10%">Time</th>
+                            <th width="3%">TID</th>
+                            <th width="8%">Caller</th>
+                            <th width="15%">API</th>
+                            <th width="42%">Arguments</th>
+                            <th width="5%">Status</th>
+                            <th width="11%">Return</th>
+                            <th width="6%">Repeated</th>
+                        </tr>
+                        {% for call in process.calls %}
+                            <tr class="{{call.category}}">
+                                <td>{{call.timestamp[11:]}}</td>
+                                <td>{{call.thread_id}}</td>
+                                <td>{{call.caller}}<br />{{call.parentcaller}}</td>
+                                <td><span class="mono">{{call.api}}</span></td>
+                                <td style="word-wrap: break-word;">
+                                {% for argument in call.arguments %}
+                                    {% if argument.pretty_value %}
+                                        {{argument.name}} => <span class="mono" title="{{argument.value}}">{{argument.pretty_value}}</span><br />
+                                    {% else %}
+                                        {{argument.name}} => <span class="mono">{{argument.value}}</span><br />
+                                    {% endif %}
+                                {% endfor %}
+                                </td>
+                                <td>{% if call.status %}SUCCESS{% else %}FAILURE{% endif %}</td>
+                                {% if call.pretty_return %}
+                                    <td style="word-wrap: break-word;"><span class="mono" title="{{call.return}}">{{call.pretty_return}}</span></td>
+                                {% else %}
+                                    <td><span class="mono">{{call.return}}</span></td>
+                                {% endif %}
+                                <td>
+                                {% if call.repeated and call.repeated > 0 %}
+                                    {{call.repeated}}
+                                    {% if call.repeated == 1 %}
+                                    time
+                                    {% elif call.repeated > 1 %}
+                                    times
+                                    {% endif %}
+                                {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </table>
+                    <nav aria-label="Page navigation" class="mt-3">
+                        <ul class="pagination justify-content-center pagination_bottom_{{process.process_id}}" data-bs-theme="dark"></ul>
+                    </nav>
+                </div>
+            {% endfor %}
+        {% endif %}
+    </div>
+</div>

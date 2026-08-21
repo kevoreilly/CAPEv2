@@ -8,6 +8,10 @@ from typing import Any, Dict, List, Optional, Set
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning, module="google.*")
+
 try:
     from google.api_core.exceptions import Forbidden
     from google.cloud import compute_v1
@@ -120,7 +124,7 @@ class GCSUploader:
             self.upload_files_individually(analysis_id, source_directory, tlp=tlp, metadata=metadata)
 
     def upload_zip_archive(self, analysis_id: int, source_directory: str, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
-        log.debug("Compressing and uploading files for analysis ID %s to GCS", analysis_id)
+        log.debug("[GCS   ] CAPE ID: %s ==> Compressing and uploading files to GCS", analysis_id)
         blob_name = f"{analysis_id}_tlp_{tlp}.zip" if tlp else f"{analysis_id}.zip"
 
         with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
@@ -129,19 +133,19 @@ class GCSUploader:
                 for local_path, relative_path in self._iter_files_to_upload(source_directory):
                     archive.write(local_path, os.path.join(str(analysis_id), relative_path))
         try:
-            log.debug("Uploading '%s' to '%s'", tmp_zip_file_name, blob_name)
+            log.debug("[GCS   ] CAPE ID: %s ==> Uploading '%s' as '%s'", analysis_id, tmp_zip_file_name, blob_name)
             blob = self.bucket.blob(blob_name)
             if metadata:
                 blob.metadata = metadata
             blob.upload_from_filename(tmp_zip_file_name)
         finally:
             os.unlink(tmp_zip_file_name)
-        log.info("Successfully uploaded archive for analysis %s to GCS.", analysis_id)
+        log.info("[GCS   ] CAPE ID: %s ==> Successfully uploaded archive to GCS.", analysis_id)
 
     def upload_files_individually(
         self, analysis_id: int, source_directory: str, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None
     ):
-        log.debug("Uploading files for analysis ID %s to GCS", analysis_id)
+        log.debug("[GCS   ] CAPE ID: %s ==> Uploading individual files to GCS", analysis_id)
         folder_name = f"{analysis_id}_tlp_{tlp}" if tlp else str(analysis_id)
 
         for local_path, relative_path in self._iter_files_to_upload(source_directory):
@@ -152,7 +156,7 @@ class GCSUploader:
                 blob.metadata = metadata
             blob.upload_from_filename(local_path)
 
-        log.info("Successfully uploaded files for analysis %s to GCS.", analysis_id)
+        log.info("[GCS   ] CAPE ID: %s ==> Successfully uploaded files to GCS.", analysis_id)
 
     def check_exists(self, analysis_id: int) -> bool:
         """Check if any blobs exist for the given analysis ID."""
@@ -175,7 +179,7 @@ if GCS_ENABLED:
         GCS_ENABLED = False
 
 
-def download_from_gcs(gcs_uri: str, destination_path: str, logger: Optional[Any] = None, client: Optional[storage.Client] = None) -> bool:
+def download_from_gcs(gcs_uri: str, destination_path: str, logger: Optional[Any] = None, client: Optional["storage.Client"] = None) -> bool:
     """
     Downloads a file from GCS.
     gcs_uri: gs://bucket_name/object_name
@@ -400,7 +404,7 @@ def gcs_upload_report(report_path: str, analysis_id: int, tlp: Optional[str] = N
         return
 
     try:
-        log.info("[GCS] Task %d ==> GCS", analysis_id)
+        log.info("[GCS   ] CAPE ID: %d ==> Syncing to Google Cloud Storage", analysis_id)
         gcs_uploader.upload(report_path, analysis_id, tlp=tlp, metadata=metadata)
 
         if GCS_DELETE_AFTER_UPLOAD:

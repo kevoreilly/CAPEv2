@@ -80,6 +80,8 @@ HAVE_FLOSS = False
 if integration_conf.floss.enabled and not integration_conf.floss.on_demand:
     from lib.cuckoo.common.integrations.floss import HAVE_FLOSS, Floss
 
+from lib.cuckoo.common.integrations.magika import magika_info
+
 log = logging.getLogger(__name__)
 
 logging.getLogger("Kixtart-Detokenizer").setLevel(logging.CRITICAL)
@@ -247,6 +249,14 @@ def static_file_info(
 
         if processing_conf.die.enabled and "die" not in data_dictionary:
             data_dictionary["die"] = detect_it_easy_info(file_path)
+
+        # Below the libmagic "type" already present in data_dictionary. Cached
+        # in the magika integration, so this is a no-op lookup for anything
+        # that already went through File.get_all().
+        if processing_conf.magika.enabled and "magika" not in data_dictionary:
+            magika_result = magika_info(file_path)
+            if magika_result:
+                data_dictionary["magika"] = magika_result
 
         if HAVE_FLOSS and processing_conf.floss.enabled and "Mono" not in data_dictionary.get("type", "") and "floss" not in data_dictionary:
             floss_strings = Floss(file_path, package).run()

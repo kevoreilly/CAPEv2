@@ -975,8 +975,9 @@ def download_file(**kwargs):
     generic_demux = False
     if DYNAMIC_PLATFORM_DETERMINATION:
         check_shellcode = "check_shellcode=0" not in kwargs["options"]
+        path_bytes = kwargs["path"] if isinstance(kwargs["path"], bytes) else kwargs["path"].encode()
         _, _, generic_demux = db.identify_submission_package(
-            kwargs["path"].encode(),
+            path_bytes,
             package,
             check_shellcode=check_shellcode,
         )
@@ -1562,8 +1563,8 @@ def perform_search(
                 # Join with the analysis collection
                 {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
                 {"$unwind": "$task_doc"},
-                # Stage 8: Make the task doc the new root
-                {"$match": {"task_doc": {"$exists": True}}},
+                # Stage 8: Make the task doc the new root (type check to prevent $replaceRoot crashes)
+                {"$match": {"task_doc": {"$type": "object"}}},
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
 

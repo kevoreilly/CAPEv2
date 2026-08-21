@@ -68,6 +68,12 @@
                     {% endfor %}
                 </table>
             </div>
+        {% else %}
+            <div class="card-body">
+                <div class="alert alert-info text-center shadow-sm">
+                    <i class="fas fa-info-circle me-2"></i>No host connections recorded.
+                </div>
+            </div>
         {% endif %}
     </div>
 </section>

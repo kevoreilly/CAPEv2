@@ -136,32 +136,34 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             raise
 
     async def connect(self):
-        """Validate session token, look up VNC server-side, connect to guacd."""
-        try:
-            # 1. Read and validate the session cookie
-            cookies = self.scope.get("cookies", {})
-            token_str = cookies.get("guac_session")
+        """
+        Initiate the GuacamoleClient and create a connection to it.
+        """
+        guacd_hostname = web_cfg.guacamole.guacd_host or "localhost"
+        guacd_port = int(web_cfg.guacamole.guacd_port) or 4822
+        guacd_recording_path = web_cfg.guacamole.guacd_recording_path or ""
+        guest_protocol = web_cfg.guacamole.guest_protocol or "vnc"
+        guest_width = int(web_cfg.guacamole.guest_width) or 1280
+        guest_height = int(web_cfg.guacamole.guest_height) or 1024
+        guest_username = web_cfg.guacamole.username or ""
+        guest_password = web_cfg.guacamole.password or ""
 
-            if not token_str:
-                logger.warning("WebSocket rejected: no guac_session cookie")
-                await self.close()
-                return
+        params = urllib.parse.parse_qs(self.scope["query_string"].decode())
 
-            try:
-                token = uuid.UUID(token_str)
-            except ValueError:
-                logger.warning("WebSocket rejected: invalid token format")
-                await self.close()
-                return
+        if "rdp" in guest_protocol:
+            hosts = params.get("guest_ip", "")
+            guest_host = hosts[0]
+            guest_port = int(web_cfg.guacamole.guest_rdp_port) or 3389
+            ignore_cert = "true" if web_cfg.guacamole.ignore_rdp_cert is True else "false"
+        else:
+            guest_host = web_cfg.guacamole.vnc_host or "localhost"
+            ports = params.get("vncport", ["5900"])
+            guest_port = int(ports[0])
+            ignore_cert = "false"
 
-            # 2. Look up session in DB
-            db = Database()
-            session_data = await sync_to_async(db.get_guac_session)(token)
+        guacd_recording_name = params.get("recording_name", ["task-recording"])[0]
 
-            if not session_data:
-                logger.warning("WebSocket rejected: token not found in DB")
-                await self.close()
-                return
+        self.client = GuacamoleClient(guacd_hostname, guacd_port)
 
             self.guac_token = str(token)
             self.guac_task_id = session_data["task_id"]
@@ -445,6 +447,37 @@ class GuacamoleWebSocketConsumer(AsyncWebsocketConsumer):
             logger.error("Error in VM monitor: %s", e)
 
     async def disconnect(self, code):
+        """
+        Close the GuacamoleClient connection on WebSocket disconnect.
+        """
+        if self.task:
+            self.task.cancel()
+        if self.client:
+            await sync_to_async(self.client.close)()
+
+    async def receive(self, text_data=None, bytes_data=None):
+        """
+        Handle data received in the WebSocket, send to GuacamoleClient.
+        """
+        if text_data is not None:
+            # logger.debug("To server: %s", text_data)
+            await sync_to_async(self.client.send)(text_data)
+
+    async def open(self):
+        """
+        Receive data from GuacamoleClient and pass it to the WebSocket
+        """
+        try:
+            while True:
+                content = await sync_to_async(self.client.receive)()
+                if content:
+                    # logger.debug("From server: %s", content)
+                    await self.send(text_data=content)
+                else:
+                    break
+        except Exception:
+            # Connection lost
+            pass
         """Clean up on WebSocket disconnect."""
         self.is_closing = True
         self._disconnect_seen = True

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load analysis_tags %}
 {% block content %}
 
 <script type='text/javascript'>
@@ -39,15 +40,19 @@ $(function () {
         <div class="row">
             <div class="col-md-6 border-right border-secondary d-flex justify-content-center">
                 <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-dark">
-                    {% for cat, count in left_counts.items %}
-                        <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="right" title="{{count}}% {{cat}}"></div>
+                    {% for cat in categories %}
+                        {% with count=left_counts|get_item:cat|default:0 %}
+                            <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="right" title="{{count}}% {{cat}}"></div>
+                        {% endwith %}
                     {% endfor %}
                 </div>
             </div>
             <div class="col-md-6 d-flex justify-content-center">
                 <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-dark">
-                    {% for cat, count in right_counts.items %}
-                        <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="left" title="{{count}}% {{cat}}"></div>
+                    {% for cat in categories %}
+                        {% with count=right_counts|get_item:cat|default:0 %}
+                            <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="left" title="{{count}}% {{cat}}"></div>
+                        {% endwith %}
                     {% endfor %}
                 </div>
             </div>

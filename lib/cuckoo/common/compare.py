@@ -4,13 +4,16 @@
 
 import contextlib
 from typing import Dict
-
+from contextlib import suppress
 from lib.cuckoo.common.config import Config
 
 repconf = Config("reporting")
 
+mongo_find_one = None
 if repconf.mongodb.enabled:
+with suppress(ImportError)
     from dev_utils.mongodb import mongo_find_one
+
 
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import get_analysis_index, get_calls_index, get_query_by_info_id
@@ -84,6 +87,8 @@ def helper_percentages_mongo(tid1, tid2, ignore_categories: set = None, filter1=
 
 
 def helper_summary_mongo(tid1, tid2, filter1=None, filter2=None):
+    if not mongo_find_one:
+        return {}
     # filter1/filter2: caller-supplied central-mode-scoped filters (see helper_percentages_mongo); None
     # -> bare {info.id}. Prevents a colliding tenant doc leaking its behavior.summary into compare/both.
     left_sum, right_sum = None, None
@@ -148,6 +153,8 @@ def get_similar_summary(left_sum, right_sum):
 
 
 def helper_different_summary_mongo(tid1, tid2, filter1=None, filter2=None):
+    if not mongo_find_one:
+        return {}
     left_sum, right_sum = None, None
     left_sum = mongo_find_one("analysis", filter1 or {"info.id": int(tid1)}, {"behavior.summary": 1})
     right_sum = mongo_find_one("analysis", filter2 or {"info.id": int(tid2)}, {"behavior.summary": 1})

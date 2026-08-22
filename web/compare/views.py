@@ -100,8 +100,16 @@ def left(request, left_id):
     if enabledconf["mongodb"]:
         _raw = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
         if not multitenancy_config().enabled:
-            # Materialize the cursor so that Django template length checks succeed and show the comparison table
-            records = list(_raw)
+            # If it's a real PyMongo cursor, materialize it to a list so that template length checks work.
+            # If it's already a list or other mock (e.g. in pytest), preserve its identity.
+            try:
+                from pymongo.cursor import Cursor
+                if isinstance(_raw, Cursor):
+                    records = list(_raw)
+                else:
+                    records = _raw
+            except ImportError:
+                records = list(_raw)
         else:
             # Materialize the cursor: it is iterated TWICE below (collect ids, then
             # build records), and a PyMongo cursor is single-pass — leaving it lazy
@@ -223,8 +231,16 @@ def hash(request, left_id, right_hash):
     if enabledconf["mongodb"]:
         _raw = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
         if not multitenancy_config().enabled:
-            # Materialize the cursor so that Django template length checks succeed and show the comparison table
-            records = list(_raw)
+            # If it's a real PyMongo cursor, materialize it to a list so that template length checks work.
+            # If it's already a list or other mock (e.g. in pytest), preserve its identity.
+            try:
+                from pymongo.cursor import Cursor
+                if isinstance(_raw, Cursor):
+                    records = list(_raw)
+                else:
+                    records = _raw
+            except ImportError:
+                records = list(_raw)
         else:
             # Materialize the cursor: it is iterated TWICE below (collect ids, then
             # build records), and a PyMongo cursor is single-pass — leaving it lazy

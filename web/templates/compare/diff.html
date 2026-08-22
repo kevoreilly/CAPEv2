@@ -1,12 +1,17 @@
 {% extends "base.html" %}
 {% block content %}
 
+<div class="dynamic-layout-target layout-centered">
+
 <div class="row mb-4">
     <div class="col-12">
         <div class="card bg-dark border-secondary shadow-sm">
             <div class="card-header border-secondary bg-transparent d-flex justify-content-between align-items-center">
                 <h5 class="mb-0 text-white"><i class="fas fa-columns me-2 text-primary"></i>Behavioral Diff</h5>
-                <div>
+                <div class="d-flex align-items-center">
+                    <button id="btn-toggle-layout" class="btn btn-sm btn-outline-info me-2" title="Toggle between Centered and Full Screen layout">
+                        <i class="fas fa-expand me-1"></i> Full Screen
+                    </button>
                     <a href="{% url 'compare_both' left_id right_id %}" class="btn btn-sm btn-outline-light me-2">Back to Similarity</a>
                     <button class="btn btn-sm btn-primary" onclick="runDiff()">Run Comparison</button>
                 </div>
@@ -148,4 +153,35 @@ function escapeHtml(unsafe) {
 #diff-table td { vertical-align: top; border-color: #333; }
 </style>
 
+</div> <!-- Close dynamic-layout-target -->
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    const toggleBtn = $('#btn-toggle-layout');
+    if (toggleBtn.length) {
+        function applyLayout(layout) {
+            const targets = $('.dynamic-layout-target');
+            if (layout === 'fluid') {
+                targets.removeClass('layout-centered');
+                toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
+            } else { // centered
+                targets.addClass('layout-centered');
+                toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
+            }
+        }
+
+        let currentLayout = localStorage.getItem('report-layout') || 'centered';
+        applyLayout(currentLayout);
+
+        toggleBtn.on('click', function() {
+            currentLayout = (currentLayout === 'centered') ? 'fluid' : 'centered';
+            localStorage.setItem('report-layout', currentLayout);
+            applyLayout(currentLayout);
+        });
+    }
+});
+</script>
 {% endblock %}

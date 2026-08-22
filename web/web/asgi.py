@@ -22,28 +22,18 @@ django_asgi_app = get_asgi_application()
 # --- 3. CHANNELS IMPORTS ---
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
+from channels.auth import AuthMiddlewareStack
 
 # Import local routing after Django is setup
 import web.routing
-import guac.routing
-from guac.channels_auth import GuacAuthMiddlewareStack
-
-# Combine URL patterns from both web and guacamole
-websocket_patterns = web.routing.websocket_urlpatterns + guac.routing.websocket_urlpatterns
 
 # --- 4. APPLICATION DEFINITION ---
 application = ProtocolTypeRouter(
     {
         "http": django_asgi_app,
-        # Backend-agnostic websocket auth. channels' stock AuthMiddlewareStack resolves
-        # scope["user"] by load_backend()-ing the session's exact auth backend; for an
-        # OIDC/allauth session that imports allauth.account.*, which guac_settings does NOT
-        # install -> RuntimeError -> ws handshake 500 for every OIDC user (local ModelBackend
-        # sessions load fine, masking it). GuacAuthMiddlewareStack resolves the user straight
-        # from the session (id + auth-hash check) without loading the backend. See guac/channels_auth.py.
         "websocket": AllowedHostsOriginValidator(
-            GuacAuthMiddlewareStack(
-                URLRouter(websocket_patterns)
+            AuthMiddlewareStack(
+                URLRouter(web.routing.websocket_urlpatterns)
             )
         ),
     }

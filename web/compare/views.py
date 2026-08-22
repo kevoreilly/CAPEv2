@@ -358,10 +358,20 @@ def both(request, left_id, right_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def diff(request, left_id, right_id):
+    # tenant isolation: caller must be able to read both analyses (hidden == missing).
+    # No-op when multitenancy is disabled: fall through to the mongo/ES existence check
+    # below so a mongo-only analysis (no SQL row) still renders exactly as upstream.
+    if multitenancy_config().enabled:
+        _db = Database()
+        _left_task = _db.view_task(int(left_id))
+        _right_task = _db.view_task(int(right_id))
+        if _left_task is None or not can_view_task(request.user, _left_task) or _right_task is None or not can_view_task(request.user, _right_task):
+            return render(request, "error.html", {"error": "No analysis found with specified ID"})
+
     left, right = None, None
     if enabledconf["mongodb"]:
-        left = mongo_find_one("analysis", {"info.id": int(left_id)}, {"target": 1, "info": 1, "behavior.processes": 1})
-        right = mongo_find_one("analysis", {"info.id": int(right_id)}, {"target": 1, "info": 1, "behavior.processes": 1})
+        left = mongo_find_one("analysis", scoped_analysis_query(request, left_id), {"target": 1, "info": 1, "behavior.processes": 1})
+        right = mongo_find_one("analysis", scoped_analysis_query(request, right_id), {"target": 1, "info": 1, "behavior.processes": 1})
     elif es_as_db:
         left_results = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id), _source=["target", "info", "behavior.processes"])["hits"]["hits"]
         right_results = es.search(index=get_analysis_index(), query=get_query_by_info_id(right_id), _source=["target", "info", "behavior.processes"])["hits"]["hits"]
@@ -382,6 +392,15 @@ def diff(request, left_id, right_id):
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def diff_data(request, left_id, right_id):
+    # tenant isolation: caller must be able to read both analyses (hidden == missing).
+    # No-op when multitenancy is disabled.
+    if multitenancy_config().enabled:
+        _db = Database()
+        _left_task = _db.view_task(int(left_id))
+        _right_task = _db.view_task(int(right_id))
+        if _left_task is None or not can_view_task(request.user, _left_task) or _right_task is None or not can_view_task(request.user, _right_task):
+            return JsonResponse({"error": True, "error_value": "No analysis found with specified ID"}, status=403)
+
     left_pid = request.GET.get("left_pid")
     right_pid = request.GET.get("right_pid")
 
@@ -391,7 +410,10 @@ def diff_data(request, left_id, right_id):
     def fetch_calls(analysis_id, pid):
         record = None
         if enabledconf["mongodb"]:
-            record = mongo_find_one("analysis", {"info.id": int(analysis_id), "behavior.processes.process_id": int(pid)}, {"behavior.processes.calls": 1})
+            _q = scoped_analysis_query(request, analysis_id)
+            if _q:
+                _q["behavior.processes.process_id"] = int(pid)
+            record = mongo_find_one("analysis", _q, {"behavior.processes.calls": 1})
         elif es_as_db:
             es_results = es.search(index=get_analysis_index(), body={"query": {"bool": {"must": [{"match": {"behavior.processes.process_id": pid}}, {"match": {"info.id": analysis_id}}]}}}, _source=["behavior.processes"])["hits"]["hits"]
             record = es_results[0]["_source"] if es_results else None

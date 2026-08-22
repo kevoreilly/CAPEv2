@@ -356,8 +356,6 @@ def both(request, left_id, right_id):
 
     categories = ["registry", "filesystem", "system", "network", "process", "services", "synchronization", "windows"]
 
-    categories = ["registry", "filesystem", "system", "network", "process", "services", "synchronization", "windows"]
-
     return render(
         request,
         "compare/both.html",

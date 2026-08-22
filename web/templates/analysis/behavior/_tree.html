@@ -18,7 +18,7 @@
                 <strong><a href="javascript:show_tab('process_{{process.pid}}');" class="text-white">{{process.name}}</a></strong>
                 <span class="text-white-50 ms-1">({{process.pid}})</span>
                 {% if process.commandline %}
-                    <span class="text-light small ms-2">{{ process.commandline }}</span>
+                    <span class="small ms-2">{{ process.commandline }}</span>
                 {% endif %}
                 {% if detections2pid|get_detection_by_pid:process.pid %}
                     <span class="badge bg-danger ms-2">{{ detections2pid|get_detection_by_pid:process.pid }}</span>

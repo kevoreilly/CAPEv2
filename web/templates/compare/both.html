@@ -80,7 +80,7 @@ $(function () {
                                     {% with left_val=left_counts|get_item:cat|default:0 right_val=right_counts|get_item:cat|default:0 %}
                                         {% if left_val > 0 or right_val > 0 %}
                                             <tr>
-                                                <td class="text-center font-weight-bold">
+                                                <td class="text-start font-weight-bold">
                                                     <span class="badge {{cat}} text-dark fw-bold me-2" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;"></span>
                                                     {{cat}}
                                                 </td>

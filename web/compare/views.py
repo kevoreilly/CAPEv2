@@ -90,13 +90,8 @@ def left(request, left_id):
     if enabledconf["mongodb"]:
         _raw = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
         if not multitenancy_config().enabled:
-            # MT off: byte-for-byte upstream — assign the raw mongo cursor unchanged
-            # (upstream did `records = mongo_find(...)`). Do NOT list()/intersect it:
-            # compare/left.html + hash.html gate on `{% if records|length %}`, which is
-            # 0 for a len-less PyMongo cursor, so listing it would render the sibling
-            # table where upstream (cursor) hides it. Reproducing upstream — quirk and
-            # all — is the invariant; an upstream compare-table fix is a separate PR.
-            records = _raw
+            # Materialize the cursor so that Django template length checks succeed and show the comparison table
+            records = list(_raw)
         else:
             # Materialize the cursor: it is iterated TWICE below (collect ids, then
             # build records), and a PyMongo cursor is single-pass — leaving it lazy
@@ -197,20 +192,21 @@ def hash(request, left_id, right_hash):
     # tenants so the md5 pivot can't enumerate other tenants' analyses.
     from dashboard.views import entitled_scope_filter
 
-    _and = [{"target.file.md5": left["target"]["file"]["md5"]}, {"info.id": {"$ne": int(left_id)}}]
+    hash_field = "target.file.md5"
+    if len(right_hash) == 64:
+        hash_field = "target.file.sha256"
+    elif len(right_hash) == 40:
+        hash_field = "target.file.sha1"
+
+    _and = [{hash_field: right_hash}, {"info.id": {"$ne": int(left_id)}}]
     _scope = entitled_scope_filter(request.user)
     if _scope:
         _and.append(_scope)
     if enabledconf["mongodb"]:
         _raw = mongo_find("analysis", {"$and": _and}, {"target": 1, "info": 1})
         if not multitenancy_config().enabled:
-            # MT off: byte-for-byte upstream — assign the raw mongo cursor unchanged
-            # (upstream did `records = mongo_find(...)`). Do NOT list()/intersect it:
-            # compare/left.html + hash.html gate on `{% if records|length %}`, which is
-            # 0 for a len-less PyMongo cursor, so listing it would render the sibling
-            # table where upstream (cursor) hides it. Reproducing upstream — quirk and
-            # all — is the invariant; an upstream compare-table fix is a separate PR.
-            records = _raw
+            # Materialize the cursor so that Django template length checks succeed and show the comparison table
+            records = list(_raw)
         else:
             # Materialize the cursor: it is iterated TWICE below (collect ids, then
             # build records), and a PyMongo cursor is single-pass — leaving it lazy
@@ -242,10 +238,16 @@ def hash(request, left_id, right_hash):
                     continue
     if es_as_db:
         records = []
+        hash_field = "target.file.md5"
+        if len(right_hash) == 64:
+            hash_field = "target.file.sha256"
+        elif len(right_hash) == 40:
+            hash_field = "target.file.sha1"
+
         q = {
             "query": {
                 "bool": {
-                    "must": [{"match": {"target.file.md5": right_hash}}],
+                    "must": [{"match": {hash_field: right_hash}}],
                     "must_not": [{"match": {"info.id": left_id}}],
                 }
             }

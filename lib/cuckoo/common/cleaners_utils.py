@@ -823,9 +823,8 @@ def files_clean_before(timerange: str):
     if not path_exists(files_folder):
         return
 
-    # 1. Build set of referenced hashes
+    # 1. Build set of referenced hashes from BOTH MongoDB (fast) and filesystem symlinks (absolute truth)
     referenced = set()
-    used_mongo = False
 
     if is_reporting_db_connected() and repconf.mongodb.enabled and "mongo_find" in globals():
         try:
@@ -833,12 +832,12 @@ def files_clean_before(timerange: str):
             cursor = mongo_find("files", {}, {"_id": 1})
             for doc in cursor:
                 referenced.add(doc["_id"])
-            used_mongo = True
             log.info("Loaded %d referenced files from MongoDB", len(referenced))
         except Exception as e:
-            log.error("Failed to query MongoDB for files: %s. Falling back to filesystem scan.", e)
+            log.error("Failed to query MongoDB for files: %s.", e)
 
-    if not used_mongo and path_exists(analyses_folder):
+    # Always scan the filesystem to verify actual active symlinks (safety gate to prevent broken symlinks)
+    if path_exists(analyses_folder):
         log.info("Scanning analysis folders for file references...")
         with os.scandir(analyses_folder) as it:
             for entry in it:
@@ -852,8 +851,8 @@ def files_clean_before(timerange: str):
                                 if se_entry.is_symlink():
                                     try:
                                         target = os.readlink(se_entry.path)
-                                        # Check if it points to storage/files
-                                        if os.path.abspath(target).startswith(os.path.abspath(files_folder)):
+                                        # Check if it points to storage/files using realpath
+                                        if os.path.realpath(target).startswith(os.path.realpath(files_folder)):
                                             referenced.add(os.path.basename(target))
                                     except OSError:
                                         pass

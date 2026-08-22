@@ -607,12 +607,12 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             return
 
         # encoding problem
-        if r.status_code == 500 and task.category == "file":
+        if r is not None and r.status_code == 500 and task.category == "file":
             with open(task.path, "rb") as f:
                 r = requests.post(url, data=data, files={"file": ("file", f.read())}, verify=False)
 
         # Zip files preprocessed, so only one id
-        if r and r.status_code == 200:
+        if r is not None and r.status_code == 200:
             if (
                 "task_ids" in r.json().get("data", {})
                 and len(r.json().get("data", {})["task_ids"]) > 0
@@ -637,19 +637,31 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             if task.task_id:
                 # log.debug("Submitted task to worker: %s - %d - %d", node.name, task.task_id, task.main_task_id)
                 log.info("[SUBMIT] %-15s <== CAPE ID: %-6d (Worker ID: %d)", node.name, task.main_task_id, task.task_id)
-        elif r and r.status_code == 500:
+        elif r is not None and r.status_code == 500:
             log.info("Saving error to /tmp/dist_error.html")
             _ = path_write_file("/tmp/dist_error.html", r.content)
             log.info((r.status_code, r.text[:200]))
 
-        elif r and r.status_code == 429:
+        elif r is not None and r.status_code == 429:
             log.info((r.status_code, "see api auth for more details"))
 
         else:
-            if r:
-                log.info("Node: %d - Task submit to worker failed: %d - %s", node.id, r.status_code, r.text)
+            if r is not None:
+                log.info(
+                    "Node: %d - Task submit to worker failed (CAPE ID: %d, Task ID: %d): %d - %s",
+                    node.id,
+                    task.main_task_id,
+                    task.id,
+                    r.status_code,
+                    r.text,
+                )
             else:
-                log.info("Node: %d - Task submit to worker failed: No response", node.id)
+                log.info(
+                    "Node: %d - Task submit to worker failed (CAPE ID: %d, Task ID: %d): No response",
+                    node.id,
+                    task.main_task_id,
+                    task.id,
+                )
 
         if check:
             task.node_id = node.id
@@ -816,9 +828,7 @@ class Retriever(threading.Thread):
                 try:
                     nodes = db.execute(select(Node).where(Node.enabled.is_(True)))
                     for node in nodes or []:
-                        tasks_data = node_fetch_tasks(
-                            "failed_analysis|failed_processing", node.url, node.apikey, action="delete"
-                        )
+                        tasks_data = node_fetch_tasks("failed_analysis|failed_processing", node.url, node.apikey, action="delete")
                         if tasks_data is None:
                             continue
                         failed_task_ids = [task["id"] for task in tasks_data]
@@ -902,7 +912,12 @@ class Retriever(threading.Thread):
                     if tasks_data is None:
                         self.status_count[node.name] += 1
                         if self.status_count[node.name] >= dead_count:
-                            log.warning("[-] Node %s is unreachable/dead (attempt %d/%d)", node.name, self.status_count[node.name], dead_count)
+                            log.warning(
+                                "[-] Node %s is unreachable/dead (attempt %d/%d)",
+                                node.name,
+                                self.status_count[node.name],
+                                dead_count,
+                            )
                         continue
                     else:
                         self.status_count[node.name] = 0
@@ -1473,7 +1488,13 @@ class StatusThread(threading.Thread):
                                 else:
                                     main_db.set_status(task.main_task_id, TASK_DISTRIBUTED)
                             else:
-                                log.info("something is wrong with submission of task: %d", task.id)
+                                log.info(
+                                    "something is wrong with submission of task %d (CAPE ID: %d) to node %s (Node ID: %d)",
+                                    task.id,
+                                    task.main_task_id,
+                                    node.name,
+                                    node.id,
+                                )
                                 # Since task object is bound to 'db' session which is active in this thread,
                                 # we can use it.
                                 main_db.set_status(task.main_task_id, TASK_BANNED)
@@ -1998,7 +2019,9 @@ class ColoredFormatter(logging.Formatter):
     # Pre-compiled regex patterns (C-level high-performance parsing)
     RE_WORKER = re.compile(r"\b(cape-worker[-\w]*)\b", re.IGNORECASE)
     RE_SETSTAT = re.compile(r"\b(task)\b\s+(\d+)\s+(status)", re.IGNORECASE)
-    RE_MAIN_TASK = re.compile(r"\b(main(?:_task)?_id|main|analysis(?:[\s_-]?id)?|cape(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE)
+    RE_MAIN_TASK = re.compile(
+        r"\b(main(?:_task)?_id|main|analysis(?:[\s_-]?id)?|cape(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE
+    )
     RE_WORKER_TASK = re.compile(r"\b(task(?:s|\(s\))?|task_id|worker(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE)
     RE_PERF = re.compile(r"\bin\s+([0-9.]+s)\b")
 
@@ -2029,34 +2052,19 @@ class ColoredFormatter(logging.Formatter):
         RESET = "\x1b[0m"
 
         # 1. Highlight all worker/node names dynamically (e.g. "cape-worker", "cape-worker-2")
-        formatted_message = self.RE_WORKER.sub(
-            rf"{CYAN}\1{RESET}",
-            formatted_message
-        )
+        formatted_message = self.RE_WORKER.sub(rf"{CYAN}\1{RESET}", formatted_message)
 
         # 2. Highlight specialized parent/main task updates first (e.g. "task 3319058 status")
-        formatted_message = self.RE_SETSTAT.sub(
-            rf"\1 {MAGENTA}\2{RESET} \3",
-            formatted_message
-        )
+        formatted_message = self.RE_SETSTAT.sub(rf"\1 {MAGENTA}\2{RESET} \3", formatted_message)
 
         # 3. Highlight parent/main task IDs (e.g. "Main ID: 3319058", "Main: 3319058", "main_task_id=3319058", "analysis ID 3319058", "analysis 3319058")
-        formatted_message = self.RE_MAIN_TASK.sub(
-            rf"\1: {MAGENTA}\2{RESET}",
-            formatted_message
-        )
+        formatted_message = self.RE_MAIN_TASK.sub(rf"\1: {MAGENTA}\2{RESET}", formatted_message)
 
         # 4. Highlight general task IDs (e.g. "Task: 16399266", "Task(s): 614534,614541", "task_id=495972")
-        formatted_message = self.RE_WORKER_TASK.sub(
-            rf"\1: {YELLOW}\2{RESET}",
-            formatted_message
-        )
+        formatted_message = self.RE_WORKER_TASK.sub(rf"\1: {YELLOW}\2{RESET}", formatted_message)
 
         # 5. Highlight performance copy benchmarks (e.g. "in 0.08s", "in 0.15s")
-        formatted_message = self.RE_PERF.sub(
-            rf"in {GREEN}\1{RESET}",
-            formatted_message
-        )
+        formatted_message = self.RE_PERF.sub(rf"in {GREEN}\1{RESET}", formatted_message)
 
         # 6. Highlight core operations
         replacements = {
@@ -2327,6 +2335,7 @@ def main():
         log.info("Submit-only mode: Retriever thread disabled.")
 
     import uvicorn
+
     uvicorn.run(app, host=args.host, port=args.port, log_level="debug" if args.debug else "info")
 
 

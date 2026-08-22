@@ -27,6 +27,9 @@ from channels.auth import AuthMiddlewareStack
 # Import local routing after Django is setup
 import web.routing
 
+# Combine URL patterns from both web and guacamole
+websocket_patterns = web.routing.websocket_urlpatterns + guac.routing.websocket_urlpatterns
+
 # --- 4. APPLICATION DEFINITION ---
 application = ProtocolTypeRouter(
     {

@@ -328,6 +328,7 @@ def both(request, left_id, right_id):
         # doc in central mode (audit MEDIUM); None-safe -> bare {info.id} single-node.
         counts = compare.helper_percentages_mongo(left_id, right_id, filter1=_lf, filter2=_rf)
         summary_compare = compare.helper_summary_mongo(left_id, right_id, filter1=_lf, filter2=_rf)
+        summary_diff = compare.helper_different_summary_mongo(left_id, right_id, filter1=_lf, filter2=_rf)
     elif es_as_db:
         left_res = es.search(index=get_analysis_index(), query=get_query_by_info_id(left_id), _source=["target", "info"])["hits"]["hits"]
         right_res = es.search(index=get_analysis_index(), query=get_query_by_info_id(right_id), _source=["target", "info"])["hits"]["hits"]
@@ -335,6 +336,7 @@ def both(request, left_id, right_id):
         right = right_res[-1]["_source"] if right_res else None
         counts = compare.helper_percentages_elastic(es, left_id, right_id)
         summary_compare = compare.helper_summary_elastic(es, left_id, right_id)
+        summary_diff = compare.helper_different_summary_elastic(es, left_id, right_id)
 
     categories = ["registry", "filesystem", "system", "network", "process", "services", "synchronization", "windows"]
 
@@ -347,6 +349,7 @@ def both(request, left_id, right_id):
             "left_counts": counts.get(left_id, {}),
             "right_counts": counts.get(right_id, {}),
             "summary": summary_compare,
+            "summary_diff": summary_diff,
             "categories": categories,
         },
     )

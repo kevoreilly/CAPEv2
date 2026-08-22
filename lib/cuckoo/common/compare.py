@@ -4,15 +4,13 @@
 
 import contextlib
 from typing import Dict
-from contextlib import suppress
 from lib.cuckoo.common.config import Config
 
 repconf = Config("reporting")
 
 mongo_find_one = None
 if repconf.mongodb.enabled:
-    with suppress(ImportError):
-        from dev_utils.mongodb import mongo_find_one
+    from dev_utils.mongodb import mongo_find_one
 
 
 if repconf.elasticsearchdb.enabled:

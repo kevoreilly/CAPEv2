@@ -180,7 +180,7 @@ sort_pcap = on
 # Specify the database connection string.
 # Examples, see documentation for more:
 # sqlite:///foo.db
-# postgresql://foo:bar@localhost:5432/mydatabase
+# postgresql+psycopg://foo:bar@localhost:5432/mydatabase
 # mysql://foo:bar@localhost/mydatabase
 # If empty, default is a SQLite in db/cuckoo.db.
 # SQLite doens't support database upgrades!
@@ -246,6 +246,8 @@ analysis = 0
 mongo = no
 # Clean orphan files in mongodb
 unused_files_in_mongodb = no
+# Deduplicated files
+files = no
 
 [central_mode]
 # Central control-plane mode (off = current single-node behavior; analyses stay on the local

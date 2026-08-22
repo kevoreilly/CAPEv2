@@ -9,6 +9,7 @@ import hashlib
 import logging
 import os
 import re
+import json
 import queue
 import shutil
 import sys

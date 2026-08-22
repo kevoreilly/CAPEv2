@@ -36,17 +36,11 @@ $(function () {
 <div class="card bg-dark border-secondary mb-4 shadow-sm">
     <div class="card-header border-secondary d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#collapse-execution-graph" role="button" aria-expanded="true">
         <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-primary"></i> Execution Graph</h5>
-        <div class="d-flex align-items-center">
-            <a href="{% url 'compare_diff' left.info.id right.info.id %}" class="btn btn-sm btn-outline-info me-3" onclick="event.stopPropagation()">
-                <i class="fas fa-columns me-1"></i> Open Behavioral Diff
-            </a>
-            <i class="fas fa-chevron-down text-muted"></i>
-        </div>
     </div>
     <div class="collapse show" id="collapse-execution-graph">
         <div class="card-body">
             <p class="text-white-50">This graph visualizes the behavioral events by category. Larger blocks indicate higher activity in that category.</p>
-            
+
             <div class="mb-4 text-center">
                 <span class="badge registry text-dark fw-bold border border-secondary me-1">registry</span>
                 <span class="badge filesystem text-dark fw-bold border border-secondary me-1">filesystem</span>
@@ -76,7 +70,7 @@ $(function () {
                         <table class="table table-dark table-striped table-bordered table-sm text-center mb-0" style="max-width: 450px; margin: 0 auto;">
                             <thead>
                                 <tr>
-                                    <th width="40%" class="text-center">Category</th>
+                                    <th width="40%" class="text-start">Category</th>
                                     <th width="30%" class="text-info">Analysis 1 (Left)</th>
                                     <th width="30%" class="text-warning">Analysis 2 (Right)</th>
                                 </tr>

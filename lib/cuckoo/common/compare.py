@@ -11,8 +11,8 @@ repconf = Config("reporting")
 
 mongo_find_one = None
 if repconf.mongodb.enabled:
-with suppress(ImportError)
-    from dev_utils.mongodb import mongo_find_one
+    with suppress(ImportError):
+        from dev_utils.mongodb import mongo_find_one
 
 
 if repconf.elasticsearchdb.enabled:

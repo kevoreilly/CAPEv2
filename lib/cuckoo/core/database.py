@@ -186,6 +186,14 @@ class _Database(TasksMixIn,
         """Connect to a Database.
         @param connection_string: Connection string specifying the database
         """
+        # Auto-upgrade connection string to postgresql+psycopg if postgresql:// is used with psycopg v3 installed
+        if connection_string.startswith("postgresql://"):
+            try:
+                import psycopg
+                connection_string = connection_string.replace("postgresql://", "postgresql+psycopg://", 1)
+            except ImportError:
+                pass
+
         url = make_url(connection_string)
         engine_args = {}
 

@@ -1,3 +1,8 @@
+### [22.08.2026]
+* Performance & Database Infrastructure:
+    * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.
+    * **In-Memory Connection Upgrader**: Added a seamless backward-compatibility layer in `lib/cuckoo/core/database.py`. If `postgresql://` is used with psycopg v3 installed, CAPEv2 automatically and transparently upgrades it in-memory to use the `postgresql+psycopg://` driver, preventing any startup `ImportError` or configuration crashes!
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

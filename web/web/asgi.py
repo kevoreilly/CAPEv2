@@ -24,12 +24,10 @@ from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.security.websocket import AllowedHostsOriginValidator
 
 # Import local routing after Django is setup
-import web.routing
 import guac.routing
 from guac.channels_auth import GuacAuthMiddlewareStack
 
-# Combine URL patterns from both web and guacamole
-websocket_patterns = web.routing.websocket_urlpatterns + guac.routing.websocket_urlpatterns
+websocket_patterns = guac.routing.websocket_urlpatterns
 
 # --- 4. APPLICATION DEFINITION ---
 application = ProtocolTypeRouter(

@@ -60,7 +60,7 @@ $(function () {
 
             <div class="row align-items-center">
                 <!-- Left Graph Column -->
-                <div class="col-md-3 d-flex justify-content-center">
+                <div class="col-md-3 d-flex justify-content-end">
                     <div style="height: 300px; width: 60%; border: 1px solid #444;" class="bg-dark shadow-sm">
                         {% for cat in categories %}
                             {% with count=left_counts|get_item:cat|default:0 %}
@@ -76,7 +76,7 @@ $(function () {
                         <table class="table table-dark table-striped table-bordered table-sm text-center mb-0" style="max-width: 450px; margin: 0 auto;">
                             <thead>
                                 <tr>
-                                    <th width="40%" class="text-start">Category</th>
+                                    <th width="40%" class="text-center">Category</th>
                                     <th width="30%" class="text-info">Analysis 1 (Left)</th>
                                     <th width="30%" class="text-warning">Analysis 2 (Right)</th>
                                 </tr>
@@ -86,7 +86,7 @@ $(function () {
                                     {% with left_val=left_counts|get_item:cat|default:0 right_val=right_counts|get_item:cat|default:0 %}
                                         {% if left_val > 0 or right_val > 0 %}
                                             <tr>
-                                                <td class="text-start font-weight-bold">
+                                                <td class="text-center font-weight-bold">
                                                     <span class="badge {{cat}} text-dark fw-bold me-2" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;"></span>
                                                     {{cat}}
                                                 </td>
@@ -102,7 +102,7 @@ $(function () {
                 </div>
 
                 <!-- Right Graph Column -->
-                <div class="col-md-3 d-flex justify-content-center">
+                <div class="col-md-3 d-flex justify-content-start">
                     <div style="height: 300px; width: 60%; border: 1px solid #444;" class="bg-dark shadow-sm">
                         {% for cat in categories %}
                             {% with count=right_counts|get_item:cat|default:0 %}

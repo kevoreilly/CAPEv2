@@ -8,11 +8,18 @@ $(function () {
 })
 </script>
 
+<div class="dynamic-layout-target layout-centered">
+
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h3 class="text-white mb-0"><i class="fas fa-balance-scale me-2 text-info"></i>Analysis Comparison</h3>
-    <a href="{% url 'compare_left' left.info.id %}" class="btn btn-outline-light btn-sm shadow-sm">
-        <i class="fas fa-arrow-left me-1"></i> Compare Sibling Tasks / Select Another File
-    </a>
+    <div class="d-flex">
+        <button id="btn-toggle-layout" class="btn btn-outline-info btn-sm me-2 shadow-sm" title="Toggle between Centered and Full Screen layout">
+            <i class="fas fa-expand me-1"></i> Full Screen
+        </button>
+        <a href="{% url 'compare_left' left.info.id %}" class="btn btn-outline-light btn-sm shadow-sm">
+            <i class="fas fa-arrow-left me-1"></i> Compare Sibling Tasks / Select Another File
+        </a>
+    </div>
 </div>
 
 <div class="row mb-4">
@@ -70,6 +77,34 @@ $(function () {
                         {% endfor %}
                     </div>
                 </div>
+            </div>
+
+            <div class="table-responsive mt-4">
+                <table class="table table-dark table-striped table-bordered table-sm text-center mb-0" style="max-width: 600px; margin: 0 auto;">
+                    <thead>
+                        <tr>
+                            <th width="40%" class="text-start">Category</th>
+                            <th width="30%" class="text-info">Analysis 1 (Left)</th>
+                            <th width="30%" class="text-warning">Analysis 2 (Right)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for cat in categories %}
+                            {% with left_val=left_counts|get_item:cat|default:0 right_val=right_counts|get_item:cat|default:0 %}
+                                {% if left_val > 0 or right_val > 0 %}
+                                    <tr>
+                                        <td class="text-start font-weight-bold">
+                                            <span class="badge {{cat}} text-dark fw-bold me-2" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;"></span>
+                                            {{cat}}
+                                        </td>
+                                        <td class="text-info font-monospace">{{left_val}}%</td>
+                                        <td class="text-warning font-monospace">{{right_val}}%</td>
+                                    </tr>
+                                {% endif %}
+                            {% endwith %}
+                        {% endfor %}
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
@@ -405,6 +440,9 @@ $(function () {
     </div>
 </div>
 
+</div> <!-- Close dynamic-layout-target -->
+
+{% block extra_scripts %}
 <script>
 $(document).ready(function() {
     // Dynamically find and activate the first non-empty tab for Similarities
@@ -421,6 +459,30 @@ $(document).ready(function() {
         $firstDiffTab.addClass('active');
         var diffTargetId = $firstDiffTab.attr('href');
         $(diffTargetId).addClass('show active');
+    }
+
+    // Full Screen / Centered Layout toggle
+    const toggleBtn = $('#btn-toggle-layout');
+    if (toggleBtn.length) {
+        function applyLayout(layout) {
+            const targets = $('.dynamic-layout-target');
+            if (layout === 'fluid') {
+                targets.removeClass('layout-centered');
+                toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
+            } else { // centered
+                targets.addClass('layout-centered');
+                toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
+            }
+        }
+
+        let currentLayout = localStorage.getItem('report-layout') || 'centered';
+        applyLayout(currentLayout);
+
+        toggleBtn.on('click', function() {
+            currentLayout = (currentLayout === 'centered') ? 'fluid' : 'centered';
+            localStorage.setItem('report-layout', currentLayout);
+            applyLayout(currentLayout);
+        });
     }
 });
 </script>

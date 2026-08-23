@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cape-mcp"
+version = "0.1.0"
+description = "Model Context Protocol (MCP) server for CAPE Sandbox"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+dependencies = [
+    "fastmcp>=0.4.1",
+    "httpx>=0.24.0",
+]
+
+[project.scripts]
+cape-mcp = "cape_mcp.server:main"

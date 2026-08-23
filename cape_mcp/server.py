@@ -5,63 +5,101 @@ import mimetypes
 import re
 from typing import Any, Dict
 
-# Ensure CAPE root is in path for lib imports
-CAPE_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
-sys.path.append(CAPE_ROOT)
-
+# Try to import FastMCP and httpx
 try:
     import httpx
     from fastmcp import FastMCP
 except ImportError:
-    sys.exit("poetry run pip install .[mcp]")
+    sys.exit("pip install fastmcp httpx")
 
+# Try to import schemas from the local package/directory first (for standalone use)
 try:
-    from lib.cuckoo.common.config import Config
-    from lib.cuckoo.common.web_utils import (
+    from cape_mcp.schemas import (
         search_term_map,
         perform_search_filters,
         hash_searches,
         normalized_lower_terms,
     )
 except ImportError:
-    sys.exit("Could not import lib.cuckoo.common.config. Ensure you are running from CAPE root.")
+    try:
+        from schemas import (
+            search_term_map,
+            perform_search_filters,
+            hash_searches,
+            normalized_lower_terms,
+        )
+    except ImportError:
+        # Fallback to local import from lib.cuckoo.common.web_utils if running from CAPE root
+        try:
+            from lib.cuckoo.common.web_utils import (
+                search_term_map,
+                perform_search_filters,
+                hash_searches,
+                normalized_lower_terms,
+            )
+        except ImportError:
+            sys.exit("Could not import search schemas.")
 
-# Initialize CAPE Config
-api_config = Config("api")
+# Try to import CAPE Config
+api_config = None
+try:
+    # Ensure CAPE root is in path for lib imports
+    CAPE_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
+    sys.path.append(CAPE_ROOT)
+    from lib.cuckoo.common.config import Config
+    api_config = Config("api")
+except Exception:
+    pass
 
 # Configuration from Environment or Config File
-# Run with: CAPE_API_URL=http://127.0.0.1:8000/apiv2 CAPE_API_TOKEN=your_token poetry run python mcp/server.py
 API_URL = os.environ.get("CAPE_API_URL")
 if not API_URL:
-    # Try to get from api.conf [api] url
-    try:
-        base_url = api_config.api.url.rstrip("/")
-        API_URL = f"{base_url}/apiv2"
-    except AttributeError:
+    if api_config:
+        try:
+            base_url = api_config.api.url.rstrip("/")
+            API_URL = f"{base_url}/apiv2"
+        except AttributeError:
+            pass
+    if not API_URL:
         API_URL = "http://127.0.0.1:8000/apiv2"
 
 API_TOKEN = os.environ.get("CAPE_API_TOKEN", "")
 
-# Proactively map enabled MCP tools. Default is NO.
+# Determine which tools are enabled (default: enable ALL in standalone mode, parse api.conf in local mode)
 ENABLED_MCP_TOOLS = set()
-for section_name in api_config.get_config():
-    if section_name == "api":
-        continue
-    try:
-        section = api_config.get(section_name)
-        if getattr(section, "mcp", False):
-            ENABLED_MCP_TOOLS.add(section_name)
-    except Exception:
-        continue
+env_enabled_tools = os.environ.get("CAPE_ENABLED_MCP_TOOLS")
+
+if env_enabled_tools:
+    if env_enabled_tools == "*":
+        # Enable all tools
+        ENABLED_MCP_TOOLS = None  # None indicates "All are enabled"
+    else:
+        ENABLED_MCP_TOOLS = set(name.strip() for name in env_enabled_tools.split(",") if name.strip())
+elif api_config:
+    # Read from api.conf
+    for section_name in api_config.get_config():
+        if section_name == "api":
+            continue
+        try:
+            section = api_config.get(section_name)
+            if getattr(section, "mcp", False):
+                ENABLED_MCP_TOOLS.add(section_name)
+        except Exception:
+            continue
+else:
+    # Standalone mode: default to enabling all tools
+    ENABLED_MCP_TOOLS = None
 
 def check_mcp_enabled(section: str) -> bool:
     """Check if a specific section is enabled for MCP."""
+    if ENABLED_MCP_TOOLS is None:
+        return True
     return section in ENABLED_MCP_TOOLS
 
 def mcp_tool(section: str):
     """
     Conditional decorator that only registers the tool with FastMCP
-    if the corresponding section is enabled in api.conf.
+    if the corresponding section is enabled in api.conf or via env variables.
     """
     def decorator(func):
         if check_mcp_enabled(section):
@@ -71,14 +109,18 @@ def mcp_tool(section: str):
 
 def is_auth_required() -> bool:
     """Check if token authorization is enabled globally."""
-    try:
-        return api_config.api.token_auth_enabled
-    except AttributeError:
-        return False
+    if os.environ.get("CAPE_AUTH_REQUIRED") in ("1", "true", "True", "yes", "Yes"):
+        return True
+    if api_config:
+        try:
+            return api_config.api.token_auth_enabled
+        except AttributeError:
+            pass
+    return False
 
 # Startup Check: Warn if Auth is enabled but no default token is provided
 if is_auth_required() and not API_TOKEN:
-    print("WARNING: Token authentication is enabled in api.conf, but CAPE_API_TOKEN is not set.", file=sys.stderr)
+    print("WARNING: Token authentication is enabled, but CAPE_API_TOKEN is not set.", file=sys.stderr)
     print("         All MCP tool calls must include a valid 'token' argument.", file=sys.stderr)
 
 # Initialize FastMCP
@@ -626,7 +668,7 @@ async def verify_auth(token: str = "") -> str:
 
     return json.dumps({"authenticated": True, "message": "Token is valid.", "user": "Authenticated User"}, indent=2)
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="CAPE MCP Server")
@@ -640,3 +682,6 @@ if __name__ == "__main__":
         mcp.run(transport=args.transport, host=args.host, port=args.port)
     else:
         mcp.run(transport="stdio")
+
+if __name__ == "__main__":
+    main()

@@ -163,3 +163,49 @@ def test_cli_admin_commands():
             modify_node_cli("worker", enabled=False)
             assert mock_node.enabled is False
             mock_print.assert_any_call("Successfully modified node 'worker'.")
+
+
+def test_node_submit_task_error_logging(caplog):
+    import logging
+    from unittest.mock import MagicMock, patch
+    from utils.dist import node_submit_task
+
+    # Setup mock node
+    mock_node = MagicMock()
+    mock_node.id = 42
+    mock_node.name = "worker1"
+    mock_node.url = "http://worker1.local/"
+    mock_node.apikey = "test_key"
+
+    # Setup mock task
+    mock_task = MagicMock()
+    mock_task.id = 16410102
+    mock_task.main_task_id = 3330442
+    mock_task.category = "url"
+    mock_task.path = "http://malicious.url"
+    mock_task.options = {}
+    mock_task.tags = ""
+
+    # Setup mock DB session
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_node
+    mock_db.get.return_value = mock_task
+
+    # Mock response from requests.post
+    mock_response = MagicMock()
+    mock_response.status_code = 503
+    mock_response.text = "Service Unavailable"
+    # To simulate bool(r) is False (requests' Response behavior)
+    mock_response.__bool__.return_value = False
+
+    with patch("utils.dist.requests.post", return_value=mock_response) as mock_post:
+        with caplog.at_level(logging.INFO):
+            result = node_submit_task(task_id=16410102, node_id=42, main_task_id=3330442, db=mock_db)
+
+            assert result is False
+            mock_post.assert_called_once()
+            assert any(
+                "Node: 42 - Task submit to worker failed (CAPE ID: 3330442, Task ID: 16410102): 503 - Service Unavailable"
+                in record.message
+                for record in caplog.records
+            )

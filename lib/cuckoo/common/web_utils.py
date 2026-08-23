@@ -1563,6 +1563,8 @@ def perform_search(
                 # Join with the analysis collection
                 {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
                 {"$unwind": "$task_doc"},
+                # Stage 8: Make the task doc the new root (type check to prevent $replaceRoot crashes)
+                {"$match": {"task_doc": {"$type": "object"}}},
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
 

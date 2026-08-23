@@ -1073,6 +1073,9 @@ class TestDatabaseEngine:
 
     def test_delete_tasks_with_errors(self, db: _Database):
         """Test delete_tasks when tasks have associated Error records."""
+        if db.engine.dialect.name == "sqlite":
+            pytest.skip("Skipping cascade delete test on SQLite because SQLite does not enforce foreign key cascades by default.")
+
         with db.session.begin():
             t1 = db.add_url("https://1.com")
             t2 = db.add_url("https://2.com")

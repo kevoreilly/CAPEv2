@@ -1514,65 +1514,59 @@ class TasksMixIn:
         Returns:
             bool: True if the operation was successful (including no tasks to delete), False otherwise.
         """
-        clauses = []
+        delete_stmt = delete(Task)
         filters_applied = False
 
         # 2. Chain .where() clauses for all filters
         if status:
             if "|" in status:
-                clauses.append(Task.status.in_(status.split("|")))
+                delete_stmt = delete_stmt.where(Task.status.in_(status.split("|")))
             else:
-                clauses.append(Task.status == status)
+                delete_stmt = delete_stmt.where(Task.status == status)
             filters_applied = True
         if not_status:
-            clauses.append(Task.status != not_status)
+            delete_stmt = delete_stmt.where(Task.status != not_status)
             filters_applied = True
         if category:
-            clauses.append(Task.category.in_([category] if isinstance(category, str) else category))
+            delete_stmt = delete_stmt.where(Task.category.in_([category] if isinstance(category, str) else category))
             filters_applied = True
         if sample_id is not None:
-            clauses.append(Task.sample_id == sample_id)
+            delete_stmt = delete_stmt.where(Task.sample_id == sample_id)
             filters_applied = True
         if id_before is not None:
-            clauses.append(Task.id < id_before)
+            delete_stmt = delete_stmt.where(Task.id < id_before)
             filters_applied = True
         if id_after is not None:
-            clauses.append(Task.id > id_after)
+            delete_stmt = delete_stmt.where(Task.id > id_after)
             filters_applied = True
         if completed_after:
-            clauses.append(Task.completed_on > completed_after)
+            delete_stmt = delete_stmt.where(Task.completed_on > completed_after)
             filters_applied = True
         if added_before:
-            clauses.append(Task.added_on < added_before)
+            delete_stmt = delete_stmt.where(Task.added_on < added_before)
             filters_applied = True
         if options_like:
-            clauses.append(Task.options.like(f"%{options_like.replace('*', '%')}%"))
+            delete_stmt = delete_stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
             filters_applied = True
         if options_not_like:
-            clauses.append(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
+            delete_stmt = delete_stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
             filters_applied = True
         if tags_tasks_like:
-            clauses.append(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
+            delete_stmt = delete_stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
             filters_applied = True
         if task_ids:
-            clauses.append(Task.id.in_(task_ids))
+            delete_stmt = delete_stmt.where(Task.id.in_(task_ids))
             filters_applied = True
         if user_id is not None:
-            clauses.append(Task.user_id == user_id)
+            delete_stmt = delete_stmt.where(Task.user_id == user_id)
             filters_applied = True
 
         if not filters_applied:
             log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
             return True
 
-        delete_stmt = delete(Task).where(*clauses)
-        subquery_stmt = select(Task.id).where(*clauses)
-
         try:
             with self.session.begin():
-                # Explicitly delete associated Error records first to satisfy SQLite (which disables DB cascades by default)
-                # and legacy production DBs where migrations were not fully executed.
-                self.session.execute(delete(Error).where(Error.task_id.in_(subquery_stmt)))
                 result = self.session.execute(delete_stmt)
                 log.info("Deleted %d tasks matching the criteria.", result.rowcount)
             return True

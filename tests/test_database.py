@@ -1071,6 +1071,30 @@ class TestDatabaseEngine:
             assert len(tasks) == 1
             assert tasks[0].id == t3
 
+    def test_delete_tasks_with_errors(self, db: _Database):
+        """Test delete_tasks when tasks have associated Error records."""
+        with db.session.begin():
+            t1 = db.add_url("https://1.com")
+            t2 = db.add_url("https://2.com")
+
+        # Add error messages associated with the tasks
+        db.add_error("Test error message 1", t1)
+        db.add_error("Test error message 2", t2)
+
+        # Assert that the tasks are deleted successfully
+        with db.session.begin():
+            assert db.delete_tasks(task_ids=[t1])
+
+        with db.session.begin():
+            # Check tasks and errors remaining
+            tasks = db.session.scalars(select(Task)).all()
+            assert len(tasks) == 1
+            assert tasks[0].id == t2
+
+            errors = db.session.scalars(select(Error)).all()
+            assert len(errors) == 1
+            assert errors[0].task_id == t2
+
     def test_view_sample(self, db: _Database):
         with db.session.begin():
             samples = []

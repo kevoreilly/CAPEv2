@@ -40,54 +40,21 @@ except ImportError:
         except ImportError:
             sys.exit("Could not import search schemas.")
 
-# Try to import CAPE Config
-api_config = None
-try:
-    # Ensure CAPE root is in path for lib imports
-    CAPE_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
-    sys.path.append(CAPE_ROOT)
-    from lib.cuckoo.common.config import Config
-    api_config = Config("api")
-except Exception:
-    pass
-
-# Configuration from Environment or Config File
-API_URL = os.environ.get("CAPE_API_URL")
-if not API_URL:
-    if api_config:
-        try:
-            base_url = api_config.api.url.rstrip("/")
-            API_URL = f"{base_url}/apiv2"
-        except AttributeError:
-            pass
-    if not API_URL:
-        API_URL = "http://127.0.0.1:8000/apiv2"
-
+# Configuration from Environment or command line
+API_URL = os.environ.get("CAPE_API_URL", "http://127.0.0.1:8000/apiv2")
 API_TOKEN = os.environ.get("CAPE_API_TOKEN", "")
 
-# Determine which tools are enabled (default: enable ALL in standalone mode, parse api.conf in local mode)
+# Determine which tools are enabled (default: enable ALL in standalone mode)
 ENABLED_MCP_TOOLS = set()
 env_enabled_tools = os.environ.get("CAPE_ENABLED_MCP_TOOLS")
 
 if env_enabled_tools:
     if env_enabled_tools == "*":
-        # Enable all tools
         ENABLED_MCP_TOOLS = None  # None indicates "All are enabled"
     else:
         ENABLED_MCP_TOOLS = set(name.strip() for name in env_enabled_tools.split(",") if name.strip())
-elif api_config:
-    # Read from api.conf
-    for section_name in api_config.get_config():
-        if section_name == "api":
-            continue
-        try:
-            section = api_config.get(section_name)
-            if getattr(section, "mcp", False):
-                ENABLED_MCP_TOOLS.add(section_name)
-        except Exception:
-            continue
 else:
-    # Standalone mode: default to enabling all tools
+    # Default to enabling all tools
     ENABLED_MCP_TOOLS = None
 
 def check_mcp_enabled(section: str) -> bool:
@@ -99,29 +66,13 @@ def check_mcp_enabled(section: str) -> bool:
 def mcp_tool(section: str):
     """
     Conditional decorator that only registers the tool with FastMCP
-    if the corresponding section is enabled in api.conf or via env variables.
+    if the corresponding section is enabled.
     """
     def decorator(func):
         if check_mcp_enabled(section):
             return mcp.tool()(func)
         return func
     return decorator
-
-def is_auth_required() -> bool:
-    """Check if token authorization is enabled globally."""
-    if os.environ.get("CAPE_AUTH_REQUIRED") in ("1", "true", "True", "yes", "Yes"):
-        return True
-    if api_config:
-        try:
-            return api_config.api.token_auth_enabled
-        except AttributeError:
-            pass
-    return False
-
-# Startup Check: Warn if Auth is enabled but no default token is provided
-if is_auth_required() and not API_TOKEN:
-    print("WARNING: Token authentication is enabled, but CAPE_API_TOKEN is not set.", file=sys.stderr)
-    print("         All MCP tool calls must include a valid 'token' argument.", file=sys.stderr)
 
 # Initialize FastMCP
 mcp = FastMCP("cape-sandbox")
@@ -139,12 +90,6 @@ def get_headers(token: str = "") -> Dict[str, str]:
     return headers
 
 async def _request(method: str, endpoint: str, token: str = "", **kwargs) -> Any:
-    # Auth Check
-    if is_auth_required():
-        auth_token = token if token else API_TOKEN
-        if not auth_token:
-             return {"error": True, "message": "Authentication required but no token provided."}
-
     url = f"{API_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     async with httpx.AsyncClient() as client:
         try:
@@ -167,12 +112,6 @@ async def _request(method: str, endpoint: str, token: str = "", **kwargs) -> Any
 
 async def _download_file(endpoint: str, destination: str, default_filename: str = "downloaded_file.bin", token: str = "") -> str:
     """Helper to download a file from an API endpoint."""
-    # Auth Check
-    if is_auth_required():
-        auth_token = token if token else API_TOKEN
-        if not auth_token:
-             return json.dumps({"error": True, "message": "Authentication required but no token provided."}, indent=2)
-
     if not os.path.isdir(destination):
          return json.dumps({"error": True, "message": "Destination directory does not exist"})
 

@@ -65,12 +65,20 @@ class Guest(Base):
 class GuestsMixIn:
     def guest_get_status(self, task_id: int):
         """Gets the status for a given guest."""
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return None
         stmt = select(Guest).where(Guest.task_id == task_id)
         guest = self.session.scalar(stmt)
         return guest.status if guest else None
 
     def guest_set_status(self, task_id: int, status: str):
         """Sets the status for a given guest."""
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return
         stmt = select(Guest).where(Guest.task_id == task_id)
         guest = self.session.scalar(stmt)
         if guest is not None:

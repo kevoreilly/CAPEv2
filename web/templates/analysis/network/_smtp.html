@@ -2,88 +2,110 @@
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-envelope me-2 text-info"></i>SMTP Traffic</h5>
     </div>
-{% if network.smtp_ex %}
-<div class="card-body">
-<table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
-    <tr>
-        <th>Destination</th>
-        <th>Data</th>
-        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
-    </tr>
-    {% for req in network.smtp_ex %}
-    <tr>
-        <td style="word-wrap: break-word;">{{req.dst}}:{{req.dport}} {% if req.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
-        <td style="word-wrap: break-word;">
-            <table class="table table-dark table-striped table-bordered">
-            {% if req %}
-                <tr><td>
-                    Request:
-                    {% for key, value in req.req.items %}
-                    {% if key in "headers,mail_body" %}
-                        <li><b>{{key}}:</b> <pre style="display: inline-block;white-space: pre-wrap;overflow-x: auto;width: 100%;">{{value}}</pre></li>
-                    {% else %}
-                        <li><b>{{key}}:</b> <pre style="display: inline">{{value}}</pre></li>
-                    {% endif %}
-                    {% endfor %}
-                </td></tr>
-            {% endif %}
-            <tr><td>
-            {% if req.resp %}
-                Response:
-                {% for key, value in req.resp.items %}
-                    {% if key in "banner" %}
-                        <li><b>{{key}}:</b> <pre style="display: inline-block;white-space: pre-wrap;overflow-x: auto;width: 100%;">{{value}}</pre></li>
-                    {% else %}
-                        <li><b>{{key}}:</b> <pre style="display: inline">{{value}}</pre></li>
-                    {% endif %}
-                {% endfor %}
-            {% else %}
-                No response
-            {% endif %}
-            </td></tr>
-            </table>
-        </td>
-        {% if settings.NETWORK_PROC_MAP %}
-            <td>
-                {% if req.process_name %}
-                    {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
-                {% else %}
-                    -
-                {% endif %}
-            </td>
-        {% endif %}
-    </tr>
-    {% endfor %}
-</table>
-</div>
-{% elif network.smtp %}
-<div class="card-body">
-<table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
-    <tr>
-        <th>Destination</th>
-        <th>Data</th>
-        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
-    </tr>
-    {% for req in network.smtp %}
-    <tr>
-        <td style="word-wrap: break-word;">{{req.dst}} {% if req.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
-        <td style="word-wrap: break-word;"><pre>{{req.raw}}</pre></td>
-        {% if settings.NETWORK_PROC_MAP %}
-            <td>
-                {% if req.process_name %}
-                    {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
-                {% else %}
-                    -
-                {% endif %}
-            </td>
-        {% endif %}
-    </tr>
-    {% endfor %}
-</table>
-</div>
-{% else %}
-<div class="card-body">
-<div class="alert alert-info">No SMTP traffic performed.</div>
-</div>
-{% endif %}
+    {% if network.smtp_ex %}
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-hover table-bordered mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Destination</th>
+                            <th>Data</th>
+                            {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in network.smtp_ex %}
+                            <tr>
+                                <td class="text-break">{{req.dst}}:{{req.dport}} {% if req.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
+                                <td class="text-break">
+                                    {% if req %}
+                                        <div class="bg-black bg-opacity-25 p-2 rounded border border-secondary mb-2">
+                                            <span class="small text-muted d-block mb-1">Request:</span>
+                                            <ul class="list-unstyled mb-0">
+                                                {% for key, value in req.req.items %}
+                                                    <li class="mb-1">
+                                                        <b>{{key}}:</b>
+                                                        {% if key in "headers,mail_body" %}
+                                                            <pre class="font-monospace small text-break mb-0" style="white-space: pre-wrap; overflow-x: auto; width: 100%;">{{value}}</pre>
+                                                        {% else %}
+                                                            <pre class="font-monospace small d-inline mb-0">{{value}}</pre>
+                                                        {% endif %}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    <div class="bg-black bg-opacity-25 p-2 rounded border border-secondary">
+                                        <span class="small text-muted d-block mb-1">Response:</span>
+                                        {% if req.resp %}
+                                            <ul class="list-unstyled mb-0">
+                                                {% for key, value in req.resp.items %}
+                                                    <li class="mb-1">
+                                                        <b>{{key}}:</b>
+                                                        {% if key in "banner" %}
+                                                            <pre class="font-monospace small text-break mb-0" style="white-space: pre-wrap; overflow-x: auto; width: 100%;">{{value}}</pre>
+                                                        {% else %}
+                                                            <pre class="font-monospace small d-inline mb-0">{{value}}</pre>
+                                                        {% endif %}
+                                                    </li>
+                                                {% endfor %}
+                                            </ul>
+                                        {% else %}
+                                            <span class="text-muted small">No response</span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                {% if settings.NETWORK_PROC_MAP %}
+                                    <td>
+                                        {% if req.process_name %}
+                                            {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% elif network.smtp %}
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-hover table-bordered mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Destination</th>
+                            <th>Data</th>
+                            {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for req in network.smtp %}
+                            <tr>
+                                <td class="text-break">{{req.dst}} {% if req.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
+                                <td class="text-break">
+                                    <pre class="font-monospace small mb-0">{{req.raw}}</pre>
+                                </td>
+                                {% if settings.NETWORK_PROC_MAP %}
+                                    <td>
+                                        {% if req.process_name %}
+                                            {{ req.process_name }}{% if req.process_id %} ({{ req.process_id }}){% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="card-body">
+            <div class="alert alert-info">No SMTP traffic performed.</div>
+        </div>
+    {% endif %}
 </div>

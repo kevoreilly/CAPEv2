@@ -4,76 +4,86 @@
             <h5 class="mb-0 text-white"><i class="fas fa-lock me-2 text-info"></i>Suricata TLS</h5>
         </div>
         {% if suricata.tls %}
-            <div class="card-body">
-                <table class="table table-dark table-striped table-bordered">
-                    <tr>
-                        <th>Timestamp</th>
-                        <th>Source IP</th>
-                        <th>Source Port</th>
-                        <th>Destination IP</th>
-                        <th>Destination Port</th>
-                        <th>Subject</th>
-                        <th>Issuer</th>
-                        <th>Fingerprint</th>
-                        <th>JA3</th>
-                        <th>Version</th>
-                    </tr>
-                    {% for tls in suricata.tls %}
-                    <tr>
-                        <td>{{tls.timestamp}}</td>
-                        <td>{{tls.srcip}}
-                            <a href="https://www.virustotal.com/en/ip-address/{{tls.srcip}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                            <a href="https://threatintel.proofpoint.com/search?q={{tls.srcip}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{tls.srcip}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if tls.moloch_src_ip_url %}
-                            <a href={{tls.moloch_src_ip_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
-                        </td>
-                        <td>{{tls.srcport}}
-                            {% if tls.moloch_src_port_url %}
-                            <a href={{tls.moloch_src_port_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
-                        </td>
-                        <td>{{tls.dstip}}
-                           <a href="https://www.virustotal.com/en/ip-address/{{tls.dstip}}/information/">[VT]</a>
-                            {% if config.display_et_portal %}
-                            <a href="https://threatintel.proofpoint.com/search?q={{tls.dstip}}" target="_blank">[ET]</a>
-                            {% endif %}
-                            {% if config.display_pt_portal %}
-                            <a href="https://www.passivetotal.org/passive/{{tls.dstip}}" target="_blank">[PT]</a>
-                            {% endif %}
-                            {% if tls.moloch_dst_ip_url %}
-                            <a href={{tls.moloch_dst_ip_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
-                        </td>
-                        <td>{{tls.dstport}}
-                            {% if tls.moloch_dst_port_url %}
-                            <a href={{tls.moloch_dst_port_url}} target="_blank">[MLCH]</a>
-                            {% endif %}
-                        </td>
-                        <td>{{tls.subject}}</td>
-                        <td>{{tls.issuerdn}}</td>
-                        <td>{{tls.fingerprint}} </td>
-                        <td>
-                            {% if tls.ja3 %}
-                                <ul>
-                                <li><strong>hash:</strong> {{tls.ja3.hash}}</li>
-                                <li><strong>string:</strong> {{tls.ja3.string}}</li>
-                                </ul>
-                            {% endif %}
-                        </td>
-                        <td>{{tls.version}}</td>
-                    </tr>
-                    {% endfor %}
-                </table>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover table-bordered table-sm mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Source IP</th>
+                                <th>Source Port</th>
+                                <th>Destination IP</th>
+                                <th>Destination Port</th>
+                                <th>Subject</th>
+                                <th>Issuer</th>
+                                <th>Fingerprint</th>
+                                <th>JA3</th>
+                                <th>Version</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for tls in suricata.tls %}
+                            <tr>
+                                <td class="text-nowrap small font-monospace">{{tls.timestamp}}</td>
+                                <td class="font-monospace small">
+                                    {{tls.srcip}}
+                                    <a href="https://www.virustotal.com/en/ip-address/{{tls.srcip}}/information/">[VT]</a>
+                                    {% if config.display_et_portal %}
+                                        <a href="https://threatintel.proofpoint.com/search?q={{tls.srcip}}" target="_blank">[ET]</a>
+                                    {% endif %}
+                                    {% if config.display_pt_portal %}
+                                        <a href="https://www.passivetotal.org/passive/{{tls.srcip}}" target="_blank">[PT]</a>
+                                    {% endif %}
+                                    {% if tls.moloch_src_ip_url %}
+                                        <a href="{{tls.moloch_src_ip_url}}" target="_blank">[MLCH]</a>
+                                    {% endif %}
+                                </td>
+                                <td class="font-monospace small">
+                                    {{tls.srcport}}
+                                    {% if tls.moloch_src_port_url %}
+                                        <a href="{{tls.moloch_src_port_url}}" target="_blank">[MLCH]</a>
+                                    {% endif %}
+                                </td>
+                                <td class="font-monospace small">
+                                    {{tls.dstip}}
+                                    <a href="https://www.virustotal.com/en/ip-address/{{tls.dstip}}/information/">[VT]</a>
+                                    {% if config.display_et_portal %}
+                                        <a href="https://threatintel.proofpoint.com/search?q={{tls.dstip}}" target="_blank">[ET]</a>
+                                    {% endif %}
+                                    {% if config.display_pt_portal %}
+                                        <a href="https://www.passivetotal.org/passive/{{tls.dstip}}" target="_blank">[PT]</a>
+                                    {% endif %}
+                                    {% if tls.moloch_dst_ip_url %}
+                                        <a href="{{tls.moloch_dst_ip_url}}" target="_blank">[MLCH]</a>
+                                    {% endif %}
+                                </td>
+                                <td class="font-monospace small">
+                                    {{tls.dstport}}
+                                    {% if tls.moloch_dst_port_url %}
+                                        <a href="{{tls.moloch_dst_port_url}}" target="_blank">[MLCH]</a>
+                                    {% endif %}
+                                </td>
+                                <td class="text-break small">{{tls.subject}}</td>
+                                <td class="text-break small">{{tls.issuerdn}}</td>
+                                <td class="text-break font-monospace small">{{tls.fingerprint}}</td>
+                                <td class="small">
+                                    {% if tls.ja3 %}
+                                        <ul class="list-unstyled mb-0 font-monospace small">
+                                            <li><strong>hash:</strong> <span class="text-break text-info">{{tls.ja3.hash}}</span></li>
+                                            <li><strong>string:</strong> <span class="text-break text-muted">{{tls.ja3.string}}</span></li>
+                                        </ul>
+                                    {% endif %}
+                                </td>
+                                <td class="text-nowrap small">{{tls.version}}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         {% else %}
             <div class="card-body">
-                <div class="alert alert-info">No Suricata TLS</div>
+                <div class="alert alert-info mb-0">No Suricata TLS</div>
             </div>
         {% endif %}
     </div>

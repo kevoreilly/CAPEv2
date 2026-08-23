@@ -5,68 +5,75 @@
         </div>
         {% if network.hosts %}
             <div class="card-body">
-                <table class="table table-dark table-striped table-bordered" style="width: 100%;margin-left: auto;margin-right: auto;">
-                    <tr>
-                        <th width="10%">Direct</th>
-                        <th>IP</th>
-                        <th>Country Name</th>
-                        <th>ASN</th>
-                        {% if settings.NETWORK_PROC_MAP %} <th>Processes</th> {% endif %}
-                    </tr>
-                    {% for host in network.hosts %}
-                    <tr>
-                        {% if host.ip|slice:":7" != "192.168" %}
-                            {% if "hostname" in host and host.hostname == "" %}
-                                <td>Y</td>
-                            {% elif "hostname" in host %}
-                                <td>N</td>
-                            {% else %}
-                                <td>N/A</td>
-                            {% endif %}
-                            <td>{{host.ip}} <a href="https://www.virustotal.com/gui/ip-address/{{host.ip}}/">[VT]</a>
-                                {% if config.display_et_portal %}
-                                    <a href="https://threatintel.proofpoint.com/search?q={{host.ip}}" target="_blank">[ET]</a>
-                                {% endif %}
-                                {% if config.display_pt_portal %}
-                                    <a href="https://www.passivetotal.org/passive/{{host.ip}}" target="_blank">[PT]</a>
-                                {% endif %}
-{# threatintel-host-tags-v1 BEGIN #}
-                                {% if host.threatintel %}
-                                    <span class="ms-1">
-                                    {% for ti in host.threatintel %}
-                                        <span class="badge bg-danger" title="{{ ti.tooltip }}">{{ ti.tag }}</span>{% if ti.indicator_url %}<a href="{{ ti.indicator_url }}" target="_blank" class="small text-muted" title="View this indicator on ThreatFox">[TF]</a>{% endif %}
-                                    {% endfor %}
-                                    </span>
-                                {% endif %}
-{# threatintel-host-tags-v1 END #}
-                            </td>
-                            <td>{{host.country_name}}</td>
-                            <td>
-                                {% if host.asn %}{{host.asn}}{% if host.asn_name %} - {{host.asn_name}}{% endif %}{% else %}<span class="text-muted">-</span>{% endif %}
-                            </td>
-                            {% if settings.NETWORK_PROC_MAP %}
-                                <td>
-                                    {% if host.processes %}
-                                        {% for p in host.processes %}
-                                            <span class="badge bg-warning text-dark"
-                                                  title="{% if p.source %}source: {{p.source}}{% endif %}{% if p.resolved_hostname %} | resolved via {{p.resolved_hostname}}{% endif %}{% if p.protocol %} | {{p.protocol}}{% endif %}{% if p.dst_port %}:{{p.dst_port}}{% endif %}">
-                                                {% if p.process_name %}{{ p.process_name }}{% else %}(unknown){% endif %}{% if p.pid %} ({{ p.pid }}){% endif %}
-                                            </span>
-                                        {% endfor %}
-                                    {% elif host.process_name or host.process_id %}
-                                        {# Legacy single-owner attribution from CAPE's existing process_map enrichment in network.py — used when network_etw module isn't enabled #}
-                                        <span class="badge bg-warning text-dark">
-                                            {% if host.process_name %}{{ host.process_name }}{% else %}(unknown){% endif %}{% if host.process_id %} ({{ host.process_id }}){% endif %}
-                                        </span>
-                                    {% else %}
-                                        <span class="text-muted">-</span>
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover table-bordered mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th style="width: 10%;">Direct</th>
+                                <th>IP</th>
+                                <th>Country Name</th>
+                                <th>ASN</th>
+                                {% if settings.NETWORK_PROC_MAP %} <th>Processes</th> {% endif %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for host in network.hosts %}
+                                <tr>
+                                    {% if host.ip|slice:":7" != "192.168" %}
+                                        {% if "hostname" in host and host.hostname == "" %}
+                                            <td>Y</td>
+                                        {% elif "hostname" in host %}
+                                            <td>N</td>
+                                        {% else %}
+                                            <td>N/A</td>
+                                        {% endif %}
+                                        <td class="text-break">
+                                            {{host.ip}} <a href="https://www.virustotal.com/gui/ip-address/{{host.ip}}/">[VT]</a>
+                                            {% if config.display_et_portal %}
+                                                <a href="https://threatintel.proofpoint.com/search?q={{host.ip}}" target="_blank">[ET]</a>
+                                            {% endif %}
+                                            {% if config.display_pt_portal %}
+                                                <a href="https://www.passivetotal.org/passive/{{host.ip}}" target="_blank">[PT]</a>
+                                            {% endif %}
+                                            {# threatintel-host-tags-v1 BEGIN #}
+                                            {% if host.threatintel %}
+                                                <span class="ms-1">
+                                                {% for ti in host.threatintel %}
+                                                    <span class="badge bg-danger" title="{{ ti.tooltip }}">{{ ti.tag }}</span>{% if ti.indicator_url %}<a href="{{ ti.indicator_url }}" target="_blank" class="small text-muted" title="View this indicator on ThreatFox">[TF]</a>{% endif %}
+                                                {% endfor %}
+                                                </span>
+                                            {% endif %}
+                                            {# threatintel-host-tags-v1 END #}
+                                        </td>
+                                        <td>{{host.country_name}}</td>
+                                        <td>
+                                            {% if host.asn %}{{host.asn}}{% if host.asn_name %} - {{host.asn_name}}{% endif %}{% else %}<span class="text-muted">-</span>{% endif %}
+                                        </td>
+                                        {% if settings.NETWORK_PROC_MAP %}
+                                            <td>
+                                                {% if host.processes %}
+                                                    {% for p in host.processes %}
+                                                        <span class="badge bg-warning text-dark"
+                                                              title="{% if p.source %}source: {{p.source}}{% endif %}{% if p.resolved_hostname %} | resolved via {{p.resolved_hostname}}{% endif %}{% if p.protocol %} | {{p.protocol}}{% endif %}{% if p.dst_port %}:{{p.dst_port}}{% endif %}">
+                                                            {% if p.process_name %}{{ p.process_name }}{% else %}(unknown){% endif %}{% if p.pid %} ({{ p.pid }}){% endif %}
+                                                        </span>
+                                                    {% endfor %}
+                                                {% elif host.process_name or host.process_id %}
+                                                    {# Legacy single-owner attribution from CAPE's existing process_map enrichment in network.py — used when network_etw module isn't enabled #}
+                                                    <span class="badge bg-warning text-dark">
+                                                        {% if host.process_name %}{{ host.process_name }}{% else %}(unknown){% endif %}{% if host.process_id %} ({{ host.process_id }}){% endif %}
+                                                    </span>
+                                                {% else %}
+                                                    <span class="text-muted">-</span>
+                                                {% endif %}
+                                            </td>
+                                        {% endif %}
                                     {% endif %}
-                                </td>
-                            {% endif %}
-                        {% endif %}
-                    </tr>
-                    {% endfor %}
-                </table>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         {% else %}
             <div class="card-body">

@@ -1349,7 +1349,8 @@ class TasksMixIn:
             stmt = stmt.where(or_(*conds))
 
         # 2. Execute the statement and return the single integer result.
-        return self.session.scalar(stmt)
+        with self.session.begin():
+            return self.session.scalar(stmt)
 
     def list_tasks(
         self,
@@ -1457,8 +1458,9 @@ class TasksMixIn:
         if for_update:
             stmt = stmt.with_for_update(of=Task)
 
-        tasks = self.session.scalars(stmt).all()
-        return tasks
+        with self.session.begin():
+            tasks = self.session.scalars(stmt).unique().all()
+            return tasks
 
     def delete_task(self, task_id):
         """Delete information on a task.
@@ -1695,7 +1697,8 @@ class TasksMixIn:
             )
         else:
             query = query.options(selectinload(Task.tags), joinedload(Task.sample))
-        return self.session.scalar(query)
+        with self.session.begin():
+            return self.session.scalar(query)
 
     # This function is used by the runstatistics community module.
     def add_statistics_to_task(self, task_id, details):  # pragma: no cover

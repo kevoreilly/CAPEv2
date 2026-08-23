@@ -155,19 +155,14 @@ class _Database(TasksMixIn,
 
         # Deal with schema versioning.
         # TODO: it's a little bit dirty, needs refactoring.
-        with self.session() as tmp_session:
+        with self.session.begin():
             # Use the modern select() and scalar() to fetch the first object
             query = select(AlembicVersion)
-            last = tmp_session.scalar(query)
+            last = self.session.scalar(query)
 
             if last is None:
                 # Set database schema version (this part is unchanged)
-                tmp_session.add(AlembicVersion(version_num=SCHEMA_VERSION))
-                try:
-                    tmp_session.commit()
-                except SQLAlchemyError as e:  # pragma: no cover
-                    tmp_session.rollback()
-                    raise CuckooDatabaseError(f"Unable to set schema version: {e}")
+                self.session.add(AlembicVersion(version_num=SCHEMA_VERSION))
             else:
                 # Check if db version is the expected one (this part is unchanged)
                 if last.version_num != SCHEMA_VERSION and schema_check and "pytest" not in sys.modules:  # pragma: no cover
@@ -226,7 +221,7 @@ class _Database(TasksMixIn,
                 )
 
         except ImportError as e:  # pragma: no cover
-            lib = e.message.rsplit(maxsplit=1)[-1]
+            lib = str(e).rsplit(maxsplit=1)[-1]
             raise CuckooDependencyError(f"Missing database driver, unable to import {lib} (install with `pip install {lib}`)")
 
     def _get_or_create(self, model, **kwargs):

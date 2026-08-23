@@ -179,12 +179,6 @@ async def submit_file(
     """
     Submit a local file for analysis.
     """
-    # Auth Check (Manual check needed here because we stream file)
-    if is_auth_required():
-        auth_token = token if token else API_TOKEN
-        if not auth_token:
-             return json.dumps({"error": True, "message": "Authentication required but no token provided."})
-
     if not os.path.exists(file_path):
         return json.dumps({"error": True, "message": "File not found"})
 
@@ -281,12 +275,6 @@ async def submit_static(
     token: str = ""
 ) -> str:
     """Submit a file for static extraction only."""
-    # Auth Check (Manual check needed here because we stream file)
-    if is_auth_required():
-        auth_token = token if token else API_TOKEN
-        if not auth_token:
-             return json.dumps({"error": True, "message": "Authentication required but no token provided."})
-
     if not os.path.exists(file_path):
         return json.dumps({"error": True, "message": "File not found"})
 

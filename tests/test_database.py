@@ -1591,3 +1591,33 @@ class TestDatabaseEngine:
                 assert len(output_machines) == expected_result
             else:
                 assert output_machines.count() == expected_result
+
+    def test_id_coercion_robustness(self, db: _Database, temp_filename: str):
+        with db.session.begin():
+            t1 = db.add_path(temp_filename)
+
+        with db.session.begin():
+            # Test view_task with string task_id
+            task = db.view_task(str(t1))
+            assert task is not None
+            assert task.id == t1
+
+            # Test view_task with invalid task_id
+            assert db.view_task("not-an-int") is None
+
+            # Test view_errors with invalid task_id
+            assert db.view_errors("not-an-int") == []
+
+            # Test set_vnc_port with invalid task_id (should not raise exception)
+            db.set_vnc_port("not-an-int", 5901)
+
+        with db.session.begin():
+            # Test guest_get_status/set_status with string and invalid task_id
+            assert db.guest_get_status(str(t1)) is None
+            assert db.guest_get_status("not-an-int") is None
+            db.guest_set_status("not-an-int", "running")
+
+        with db.session.begin():
+            assert db.get_parent_sample_from_task(str(t1)) is None
+            assert db.get_parent_sample_from_task("not-an-int") is None
+

@@ -919,6 +919,10 @@ class TasksMixIn:
         )
 
     def set_vnc_port(self, task_id: int, port: int):
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return
         stmt = select(Task).where(Task.id == task_id)
         task = self.session.scalar(stmt)
 
@@ -1680,6 +1684,10 @@ class TasksMixIn:
         @param task_id: ID of the task to query.
         @return: details on the task.
         """
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return None
         query = select(Task).where(Task.id == task_id)
         if details:
             query = query.options(
@@ -1755,6 +1763,10 @@ class TasksMixIn:
 
     def view_errors(self, task_id: int) -> List[Error]:
         """Gets all errors related to a task."""
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return []
         stmt = select(Error).where(Error.task_id == task_id)
         return self.session.scalars(stmt).all()
 

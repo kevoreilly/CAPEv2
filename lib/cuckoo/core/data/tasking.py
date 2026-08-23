@@ -1513,77 +1513,50 @@ class TasksMixIn:
             bool: True if the operation was successful (including no tasks to delete), False otherwise.
         """
         delete_stmt = delete(Task)
-        select_stmt = select(Task.id)
         filters_applied = False
 
         # 2. Chain .where() clauses for all filters
         if status:
             if "|" in status:
-                cond = Task.status.in_(status.split("|"))
+                delete_stmt = delete_stmt.where(Task.status.in_(status.split("|")))
             else:
-                cond = Task.status == status
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+                delete_stmt = delete_stmt.where(Task.status == status)
             filters_applied = True
         if not_status:
-            cond = Task.status != not_status
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.status != not_status)
             filters_applied = True
         if category:
-            cond = Task.category.in_([category] if isinstance(category, str) else category)
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.category.in_([category] if isinstance(category, str) else category))
             filters_applied = True
         if sample_id is not None:
-            cond = Task.sample_id == sample_id
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.sample_id == sample_id)
             filters_applied = True
         if id_before is not None:
-            cond = Task.id < id_before
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.id < id_before)
             filters_applied = True
         if id_after is not None:
-            cond = Task.id > id_after
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.id > id_after)
             filters_applied = True
         if completed_after:
-            cond = Task.completed_on > completed_after
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.completed_on > completed_after)
             filters_applied = True
         if added_before:
-            cond = Task.added_on < added_before
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.added_on < added_before)
             filters_applied = True
         if options_like:
-            cond = Task.options.like(f"%{options_like.replace('*', '%')}%")
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.options.like(f"%{options_like.replace('*', '%')}%"))
             filters_applied = True
         if options_not_like:
-            cond = Task.options.notlike(f"%{options_not_like.replace('*', '%')}%")
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.options.notlike(f"%{options_not_like.replace('*', '%')}%"))
             filters_applied = True
         if tags_tasks_like:
-            cond = Task.tags_tasks.like(f"%{tags_tasks_like}%")
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.tags_tasks.like(f"%{tags_tasks_like}%"))
             filters_applied = True
         if task_ids:
-            cond = Task.id.in_(task_ids)
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.id.in_(task_ids))
             filters_applied = True
         if user_id is not None:
-            cond = Task.user_id == user_id
-            delete_stmt = delete_stmt.where(cond)
-            select_stmt = select_stmt.where(cond)
+            delete_stmt = delete_stmt.where(Task.user_id == user_id)
             filters_applied = True
 
         if not filters_applied:
@@ -1596,9 +1569,6 @@ class TasksMixIn:
         # in a with self.session.begin(): block, which handles transactions automatically.
         try:
             with self.session.begin():
-                # Delete any associated Error records first to satisfy database foreign key constraints
-                self.session.execute(delete(Error).where(Error.task_id.in_(select_stmt)))
-                # Then execute the main task deletion
                 result = self.session.execute(delete_stmt)
                 log.info("Deleted %d tasks matching the criteria.", result.rowcount)
             return True

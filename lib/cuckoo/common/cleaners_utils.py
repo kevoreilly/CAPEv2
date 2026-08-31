@@ -292,7 +292,7 @@ def is_contiguous_range(ids: list) -> bool:
     return (sorted_ids[-1] - sorted_ids[0] + 1) == len(ids)
 
 
-def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=False, db_batch_size=None):
+def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=False, db_batch_size=None, force=False):
     if db_batch_size is None:
         db_batch_size = DB_BATCH_SIZE
 
@@ -309,7 +309,7 @@ def delete_bulk_tasks_n_folders(ids: list, delete_mongo: bool, delete_db_tasks=F
 
     # 2. Delete from MongoDB in larger, highly-efficient batches or range
     if delete_mongo and ids:
-        if mongo_is_cluster():
+        if mongo_is_cluster() and not force:
             response = input("You are deleting mongo data in cluster, are you sure you want to continue? y/n")
             if response.lower() in ("n", "not"):
                 sys.exit()
@@ -473,7 +473,10 @@ def cuckoo_clean_banned_tasks():
 
     tasks_list = db.list_tasks(status=TASK_BANNED)
     ids = [task.id for task in tasks_list]
-    delete_bulk_tasks_n_folders(ids, delete_mongo=True, delete_db_tasks=True)
+    if ids:
+        delete_bulk_tasks_n_folders(ids, delete_mongo=True, delete_db_tasks=False, force=True)
+
+    db.delete_tasks(status=TASK_BANNED)
 
 
 def cuckoo_clean_bson_suri_logs():

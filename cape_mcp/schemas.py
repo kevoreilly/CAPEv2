@@ -1,0 +1,130 @@
+# Static definitions of search schemas decoupled from lib.cuckoo core
+# This allows running the MCP server standalone without importing the CAPE backend codebase.
+
+search_term_map = {
+    "id": "info.id",
+    "ids": "info.id",
+    "tags_tasks": "info.id",
+    "package": "info.package",
+    "ttp": "ttps.ttp",
+    "malscore": "malscore",
+    "name": "target.file.name",
+    "type": "target.file.type",
+    "file": "behavior.summary.files",
+    "command": "behavior.summary.executed_commands",
+    "configs": "CAPE.configs",
+    "resolvedapi": "behavior.summary.resolved_apis",
+    "key": "behavior.summary.keys",
+    "mutex": "behavior.summary.mutexes",
+    "domain": "network.domains.domain",
+    "ip": "network.hosts.ip",
+    "asn": "network.hosts.asn",
+    "asn_name": "network.hosts.asn_name",
+    "signature": "signatures.description",
+    "signame": "signatures.name",
+    "detections": "detections.family",
+    "url": "target.url",
+    "iconhash": "static.pe.icon_hash",
+    "iconfuzzy": "static.pe.icon_fuzzy",
+    "surihttp": "suricata.http",
+    "suritls": "suricata.tls",
+    "surisid": "suricata.alerts.sid",
+    "surialert": "suricata.alerts.signature",
+    "surimsg": "suricata.alerts.signature",
+    "suriurl": "suricata.http.uri",
+    "suriua": "suricata.http.ua",
+    "surireferrer": "suricata.http.referrer",
+    "surihost": "suricata.http.hostname",
+    "suritlssubject": "suricata.tls.subject",
+    "suritlsissuerdn": "suricata.tls.issuer",
+    "suritlsfingerprint": "suricata.tls.fingerprint",
+    "procmemyara": ("procmemory.yara.name", "procmemory.cape_yara.name"),
+    "procdumpyara": ("procdump.yara.name", "procdump.cape_yara.name"),
+    "virustotal": "virustotal.results.sig",
+    "machinename": "info.machine.name",
+    "machinelabel": "info.machine.label",
+    "comment": "info.comments.Data",
+    "custom": "info.custom",
+    "target_sha256": "target.file.sha256",
+    "tlp": "info.tlp",
+    "ja3_hash": "suricata.tls.ja3.hash",
+    "ja3_string": "suricata.tls.ja3.string",
+    "dhash": "static.pe.icon_dhash",
+    "dport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "sport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "port": (
+        "network.tcp.dport",
+        "network.udp.dport",
+        "network.smtp_ex.dport",
+        "network.tcp.dport",
+        "network.udp.dport",
+        "network.smtp_ex.dport",
+    ),
+    "extracted_tool": (
+        "info.parent_sample.selfextract",
+        "target.file.selfextract",
+        "dropped.selfextract",
+        "procdump.selfextract",
+        "CAPE.payloads.selfextract",
+    ),
+}
+
+# Add standard repetitive blocks (like those created in loops dynamically in web_utils.py)
+search_term_map_base_naming = (
+    "target.file",
+    "dropped",
+    "procdump",
+    "CAPE.payloads",
+)
+search_term_map_repetetive_blocks = {
+    "md5": "md5",
+    "sha1": "sha1",
+    "sha256": "sha256",
+    "sha512": "sha512",
+    "ssdeep": "ssdeep",
+    "crc32": "crc32",
+    "yara": "yara.name",
+    "capeyara": "cape_yara.name",
+}
+
+for key, value in search_term_map_repetetive_blocks.items():
+    search_term_map.update({key: [f"{path}.{value}" for path in search_term_map_base_naming]})
+
+perform_search_filters = {
+    "info": 1,
+    "virustotal_summary": 1,
+    "detections.family": 1,
+    "malfamily_tag": 1,
+    "malscore": 1,
+    "network.pcap_sha256": 1,
+    "mlist_cnt": 1,
+    "f_mlist_cnt": 1,
+    "target.file.clamav": 1,
+    "target.file.sha256": 1,
+}
+
+hash_searches = {
+    "ssdeep": "ssdeep",
+    "crc32": "crc32",
+    "md5": "md5",
+    "sha1": "sha1",
+    "sha3": "sha3_384",
+    "sha256": "_id",
+    "sha512": "sha512",
+}
+
+normalized_lower_terms = (
+    "target_sha256",
+    "md5",
+    "sha1",
+    "sha3",
+    "sha256",
+    "sha512",
+    "ip",
+    "domain",
+    "ja3_hash",
+    "dhash",
+    "iconhash",
+    "imphash",
+    "package",
+)

@@ -5,81 +5,74 @@ import mimetypes
 import re
 from typing import Any, Dict
 
-# Ensure CAPE root is in path for lib imports
-CAPE_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
-sys.path.append(CAPE_ROOT)
-
+# Try to import FastMCP and httpx
 try:
     import httpx
     from fastmcp import FastMCP
 except ImportError:
-    sys.exit("poetry run pip install .[mcp]")
+    sys.exit("pip install fastmcp httpx")
 
+# Try to import schemas from the local package/directory first (for standalone use)
 try:
-    from lib.cuckoo.common.config import Config
-    from lib.cuckoo.common.web_utils import (
+    from cape_mcp.schemas import (
         search_term_map,
         perform_search_filters,
         hash_searches,
         normalized_lower_terms,
     )
 except ImportError:
-    sys.exit("Could not import lib.cuckoo.common.config. Ensure you are running from CAPE root.")
-
-# Initialize CAPE Config
-api_config = Config("api")
-
-# Configuration from Environment or Config File
-# Run with: CAPE_API_URL=http://127.0.0.1:8000/apiv2 CAPE_API_TOKEN=your_token poetry run python mcp/server.py
-API_URL = os.environ.get("CAPE_API_URL")
-if not API_URL:
-    # Try to get from api.conf [api] url
     try:
-        base_url = api_config.api.url.rstrip("/")
-        API_URL = f"{base_url}/apiv2"
-    except AttributeError:
-        API_URL = "http://127.0.0.1:8000/apiv2"
+        from schemas import (
+            search_term_map,
+            perform_search_filters,
+            hash_searches,
+            normalized_lower_terms,
+        )
+    except ImportError:
+        # Fallback to local import from lib.cuckoo.common.web_utils if running from CAPE root
+        try:
+            from lib.cuckoo.common.web_utils import (
+                search_term_map,
+                perform_search_filters,
+                hash_searches,
+                normalized_lower_terms,
+            )
+        except ImportError:
+            sys.exit("Could not import search schemas.")
 
+# Configuration from Environment or command line
+API_URL = os.environ.get("CAPE_API_URL", "http://127.0.0.1:8000/apiv2")
 API_TOKEN = os.environ.get("CAPE_API_TOKEN", "")
 
-# Proactively map enabled MCP tools. Default is NO.
+# Determine which tools are enabled (default: enable ALL in standalone mode)
 ENABLED_MCP_TOOLS = set()
-for section_name in api_config.get_config():
-    if section_name == "api":
-        continue
-    try:
-        section = api_config.get(section_name)
-        if getattr(section, "mcp", False):
-            ENABLED_MCP_TOOLS.add(section_name)
-    except Exception:
-        continue
+env_enabled_tools = os.environ.get("CAPE_ENABLED_MCP_TOOLS")
+
+if env_enabled_tools:
+    if env_enabled_tools == "*":
+        ENABLED_MCP_TOOLS = None  # None indicates "All are enabled"
+    else:
+        ENABLED_MCP_TOOLS = set(name.strip() for name in env_enabled_tools.split(",") if name.strip())
+else:
+    # Default to enabling all tools
+    ENABLED_MCP_TOOLS = None
 
 def check_mcp_enabled(section: str) -> bool:
     """Check if a specific section is enabled for MCP."""
+    if ENABLED_MCP_TOOLS is None:
+        return True
     return section in ENABLED_MCP_TOOLS
 
 def mcp_tool(section: str):
     """
     Conditional decorator that only registers the tool with FastMCP
-    if the corresponding section is enabled in api.conf.
+    if the corresponding section is enabled.
     """
     def decorator(func):
         if check_mcp_enabled(section):
             return mcp.tool()(func)
         return func
     return decorator
-
-def is_auth_required() -> bool:
-    """Check if token authorization is enabled globally."""
-    try:
-        return api_config.api.token_auth_enabled
-    except AttributeError:
-        return False
-
-# Startup Check: Warn if Auth is enabled but no default token is provided
-if is_auth_required() and not API_TOKEN:
-    print("WARNING: Token authentication is enabled in api.conf, but CAPE_API_TOKEN is not set.", file=sys.stderr)
-    print("         All MCP tool calls must include a valid 'token' argument.", file=sys.stderr)
 
 # Initialize FastMCP
 mcp = FastMCP("cape-sandbox")
@@ -97,12 +90,6 @@ def get_headers(token: str = "") -> Dict[str, str]:
     return headers
 
 async def _request(method: str, endpoint: str, token: str = "", **kwargs) -> Any:
-    # Auth Check
-    if is_auth_required():
-        auth_token = token if token else API_TOKEN
-        if not auth_token:
-             return {"error": True, "message": "Authentication required but no token provided."}
-
     url = f"{API_URL.rstrip('/')}/{endpoint.lstrip('/')}"
     async with httpx.AsyncClient() as client:
         try:
@@ -125,12 +112,6 @@ async def _request(method: str, endpoint: str, token: str = "", **kwargs) -> Any
 
 async def _download_file(endpoint: str, destination: str, default_filename: str = "downloaded_file.bin", token: str = "") -> str:
     """Helper to download a file from an API endpoint."""
-    # Auth Check
-    if is_auth_required():
-        auth_token = token if token else API_TOKEN
-        if not auth_token:
-             return json.dumps({"error": True, "message": "Authentication required but no token provided."}, indent=2)
-
     if not os.path.isdir(destination):
          return json.dumps({"error": True, "message": "Destination directory does not exist"})
 
@@ -198,12 +179,6 @@ async def submit_file(
     """
     Submit a local file for analysis.
     """
-    # Auth Check (Manual check needed here because we stream file)
-    if is_auth_required():
-        auth_token = token if token else API_TOKEN
-        if not auth_token:
-             return json.dumps({"error": True, "message": "Authentication required but no token provided."})
-
     if not os.path.exists(file_path):
         return json.dumps({"error": True, "message": "File not found"})
 
@@ -300,12 +275,6 @@ async def submit_static(
     token: str = ""
 ) -> str:
     """Submit a file for static extraction only."""
-    # Auth Check (Manual check needed here because we stream file)
-    if is_auth_required():
-        auth_token = token if token else API_TOKEN
-        if not auth_token:
-             return json.dumps({"error": True, "message": "Authentication required but no token provided."})
-
     if not os.path.exists(file_path):
         return json.dumps({"error": True, "message": "File not found"})
 
@@ -626,7 +595,7 @@ async def verify_auth(token: str = "") -> str:
 
     return json.dumps({"authenticated": True, "message": "Token is valid.", "user": "Authenticated User"}, indent=2)
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(description="CAPE MCP Server")
@@ -640,3 +609,6 @@ if __name__ == "__main__":
         mcp.run(transport=args.transport, host=args.host, port=args.port)
     else:
         mcp.run(transport="stdio")
+
+if __name__ == "__main__":
+    main()

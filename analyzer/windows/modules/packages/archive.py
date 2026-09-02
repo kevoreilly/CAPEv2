@@ -187,6 +187,9 @@ class Archive(Package):
                     log.warning("Couldn't copy %s to root of C: %s", d, str(e))
 
         file_name = self.options.get(OPT_FILE)
+        if file_name:
+            file_name = file_name.replace("/", "\\\\")
+
         # If no file name is provided via option, discover files to execute.
         if not file_name:
             ret_list = []

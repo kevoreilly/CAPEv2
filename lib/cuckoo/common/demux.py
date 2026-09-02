@@ -367,7 +367,8 @@ def demux_sflock(
                 # Find interesting files (exe/dll) and submit the ORIGINAL archive
                 # with instructions to run specifically those files.
                 execs = find_payload_to_run(unpacked.filepaths)
-                submit_opts = [f"file={runable}" for runable in execs]
+                execs_fixed = [r.replace("/", "\\\\") for r in execs]
+                submit_opts = [f"file={runable}" for runable in execs_fixed]
                 # returning empty retlist so it will use parent file
                 return [], "", submit_opts
 
@@ -388,7 +389,8 @@ def demux_sflock(
                         extracted = _sf_children(current_child)
                         path = extracted[0]
                         if path:
-                            submit_opts += [f"file={runable}" for runable in execs]
+                            execs_fixed = [r.replace("/", "\\\\") for r in execs]
+                            submit_opts += [f"file={runable}" for runable in execs_fixed]
                             retlist.append(extracted)
                 else:
                     # It's just a single regular file (e.g., malware.exe inside a zip).

@@ -1239,7 +1239,7 @@ function install_clamav() {
     sudo wget https://raw.githubusercontent.com/extremeshok/clamav-unofficial-sigs/master/config/os/os.ubuntu.conf -O /etc/clamav-unofficial-sigs/os.conf
 
     # Override configurations in user.conf
-    cat >> /etc/clamav-unofficial-sigs/user.conf << EOF
+    sudo tee -a /etc/clamav-unofficial-sigs/user.conf > /dev/null << EOF
 
 # CAPEv2 custom additions
 user_configuration_complete="yes"
@@ -1251,7 +1251,7 @@ additional_dbs=(
 )
 EOF
 
-    usermod -a -G ${USER} clamav
+    sudo usermod -a -G ${USER} clamav
     echo "$CAPE_ROOT/storage/** r," | sudo tee -a /etc/apparmor.d/local/usr.sbin.clamd
     sudo apparmor_parser -r /etc/apparmor.d/usr.sbin.clamd
     sudo systemctl enable clamav-daemon

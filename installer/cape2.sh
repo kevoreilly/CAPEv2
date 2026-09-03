@@ -927,8 +927,24 @@ function install_mongo(){
             fi
         fi
 
+        CODENAME=$(lsb_release -cs)
+        if [ "$MONGO_VERSION" = "4.4" ]; then
+            # MongoDB 4.4 only has repositories up to Ubuntu 20.04 (focal)
+            if [ "$CODENAME" != "focal" ] && [ "$CODENAME" != "bionic" ] && [ "$CODENAME" != "xenial" ]; then
+                CODENAME="focal"
+            fi
+
+            # MongoDB 4.4 depends on libssl1.1, which is not present in Ubuntu 22.04 (jammy) and 24.04 (noble)
+            if ! dpkg -l | grep -q "libssl1.1"; then
+                echo "[+] Installing libssl1.1 for MongoDB 4.4 compatibility"
+                wget -q http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb -O /tmp/libssl1.1.deb
+                sudo dpkg -i /tmp/libssl1.1.deb || true
+                rm -f /tmp/libssl1.1.deb
+            fi
+        fi
+
         sudo curl -fsSL "https://pgp.mongodb.com/server-${MONGO_VERSION}.asc" | sudo gpg --dearmor -o /etc/apt/keyrings/mongo.gpg --yes
-        echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
+        echo "deb [signed-by=/etc/apt/keyrings/mongo.gpg arch=amd64] https://repo.mongodb.org/apt/ubuntu ${CODENAME}/mongodb-org/${MONGO_VERSION} multiverse" > /etc/apt/sources.list.d/mongodb.list
 
         sudo apt-get update 2>/dev/null
         sudo apt-get install -y libpcre3-dev numactl cron
@@ -944,7 +960,7 @@ cat >> /lib/systemd/system/enable-transparent-huge-pages.service <<EOF
 Description=Enable Transparent Hugepages (THP)
 DefaultDependencies=no
 After=sysinit.target local-fs.target
-Before=mongod.service
+Before=mongod.service mongodb.service
 [Service]
 Type=oneshot
 ExecStart=/bin/sh -c 'echo always | tee /sys/kernel/mm/transparent_hugepage/enabled > /dev/null && echo defer+madvise | tee /sys/kernel/mm/transparent_hugepage/defrag > /dev/null && echo 0 | tee /sys/kernel/mm/transparent_hugepage/khugepaged/max_ptes_none > /dev/null && echo 1 | tee /proc/sys/vm/overcommit_memory > /dev/null'
@@ -963,6 +979,18 @@ EOF
             systemctl daemon-reload
         fi
 
+        # Determine optimal GLIBC_TUNABLES setting based on kernel version.
+        # On Linux kernel 6.19 and newer, glibc.pthread.rseq=0 causes tcmalloc/rseq conflicts leading to crashes or refusal to start.
+        # We set it to 1 on kernel versions >= 6.19, allowing glibc to register rseq and tcmalloc to fall back safely.
+        RSEQ_VAL=0
+        KERNEL_MAJOR=$(uname -r | cut -d. -f1)
+        KERNEL_MINOR=$(uname -r | cut -d. -f2)
+        if [[ "$KERNEL_MAJOR" =~ ^[0-9]+$ ]] && [[ "$KERNEL_MINOR" =~ ^[0-9]+$ ]]; then
+            if [ "$KERNEL_MAJOR" -gt 6 ] || { [ "$KERNEL_MAJOR" -eq 6 ] && [ "$KERNEL_MINOR" -ge 19 ]; }; then
+                RSEQ_VAL=1
+            fi
+        fi
+
         if [ ! -f /lib/systemd/system/mongodb.service ]; then
             crontab -l | { cat; echo "@reboot /bin/mkdir -p /data/configdb && /bin/mkdir -p /data/db && /bin/chown mongodb:mongodb /data -R"; } | crontab -
             cat >> /lib/systemd/system/mongodb.service << EOF
@@ -972,7 +1000,7 @@ Wants=network.target
 After=network.target
 [Service]
 PermissionsStartOnly=true
-Environment="GLIBC_TUNABLES=glibc.pthread.rseq=0"
+Environment="GLIBC_TUNABLES=glibc.pthread.rseq=${RSEQ_VAL}"
 #ExecStartPre=/bin/mkdir -p /data/{config,}db && /bin/chown mongodb:mongodb /data -R
 # https://www.tutorialspoint.com/mongodb/mongodb_replication.htm
 ExecStart=/usr/bin/numactl --interleave=all /usr/bin/mongod --setParameter "tcmallocReleaseRate=5.0"
@@ -990,6 +1018,14 @@ LimitNOFILE=1048576
 [Install]
 WantedBy=multi-user.target
 EOF
+        else
+            # Ensure GLIBC_TUNABLES is correctly set in existing service file
+            if grep -q 'GLIBC_TUNABLES' /lib/systemd/system/mongodb.service; then
+                sed -i "s|Environment=\"GLIBC_TUNABLES=glibc.pthread.rseq=.*\"|Environment=\"GLIBC_TUNABLES=glibc.pthread.rseq=${RSEQ_VAL}\"|g" /lib/systemd/system/mongodb.service
+            else
+                # Inject GLIBC_TUNABLES environment variable under [Service] section
+                sed -i "/\[Service\]/a Environment=\"GLIBC_TUNABLES=glibc.pthread.rseq=${RSEQ_VAL}\"" /lib/systemd/system/mongodb.service
+            fi
         fi
         sudo mkdir -p /data/{config,}db
         sudo chown mongodb:mongodb /data/ -R

@@ -1,46 +1,82 @@
 {% extends "base.html" %}
 {% block content %}
 
-<div class="alert alert-secondary bg-dark text-white-50"><h4>Submission complete!</h4>
-    The following tasks were added successfully:
-    {% for task in tasks %}
-        <a href="{% url "submission_status" task %}">{{task}}</a>
-    {% endfor %}.
-    Click on the links to monitor the status of the submission.
-</div>
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card bg-dark shadow-sm border-secondary mb-4">
+            <div class="card-header border-secondary bg-transparent py-3">
+                <h4 class="mb-0 text-white"><i class="fas fa-check-circle me-2 text-success"></i>Submission Complete</h4>
+            </div>
+            <div class="card-body p-4">
+                <div class="mb-4">
+                    <p class="text-white-50">The following tasks were added successfully. Click on a task ID to monitor its progress.</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for task in tasks %}
+                            <a href="{% url "submission_status" task %}" class="btn btn-outline-info btn-lg">
+                                <i class="fas fa-microscope me-2"></i>Task #{{task}}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
 
-{% if remote_console %}
-    <div class="alert alert-secondary bg-dark text-white-50"><h4>Remote Control Session</h4>
-        Tasks:
-        {% for task in tasks %}
-            <a href="{% url "remote_session" task %}">{{task}}</a>
-        {% endfor %}.
-        Click on the link to start an interactive remote session.
-    </div>
-{% endif %}
+                {% if remote_console %}
+                <div class="alert alert-primary bg-opacity-10 border-primary mb-4">
+                    <h5 class="alert-heading text-info"><i class="fas fa-desktop me-2"></i>Interactive Sessions</h5>
+                    <p class="small mb-3">You can start an interactive remote session for these tasks:</p>
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for task in tasks %}
+                            <a href="{% url "remote_session" task %}" class="btn btn-info btn-sm">
+                                <i class="fas fa-external-link-alt me-1"></i>Start Session #{{task}}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
 
-{% if existent_tasks %}
-    {% for sha256, details in existent_tasks.items %}
-        <div class="alert alert-secondary bg-dark text-white-50"><h4>Existent tasks for this hash: {{sha256}}!</h4>
-            <ul>
-                {% for block in details %}
-                    <li>Task id: <a href="{% url "report" block.info.id %}"><span>{{block.info.id}}</span></a> {% if block.family  %} - Detection: <span style="color:#EE1B2F;">{{block.malfamily}}</span>{% endif %}</li>
-                {% endfor %}
-            </ul>
+                {% if existent_tasks %}
+                <div class="mt-5 pt-3 border-top border-secondary">
+                    <h5 class="text-white-50 mb-3 small text-uppercase">Existing Results for these Samples</h5>
+                    {% for sha256, details in existent_tasks.items %}
+                        <div class="card bg-dark border-secondary mb-3">
+                            <div class="card-header border-secondary py-2 bg-transparent">
+                                <code class="text-info small font-monospace">{{sha256}}</code>
+                            </div>
+                            <div class="list-group list-group-flush">
+                                {% for block in details %}
+                                    <a href="{% url "report" block.info.id %}" class="list-group-item list-group-item-action bg-dark text-white border-secondary d-flex justify-content-between align-items-center py-2">
+                                        <span class="small">Task #{{block.info.id}}</span>
+                                        {% if block.family %}<span class="badge bg-danger">{{block.malfamily}}</span>{% endif %}
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if errors %}
+                <div class="mt-4 pt-3 border-top border-danger">
+                    <h5 class="text-danger mb-3"><i class="fas fa-exclamation-circle me-2"></i>Errors Encountered</h5>
+                    <div class="alert alert-danger bg-opacity-10 border-danger text-white-50 p-0">
+                        <ul class="mb-0 py-2 ps-4">
+                        {% for block in errors %}
+                            {% for k, v in block.items %}
+                                <li class="mb-1"><strong>{{k}}:</strong> {{v}}</li>
+                            {% endfor %}
+                        {% endfor %}
+                        </ul>
+                    </div>
+                </div>
+                {% endif %}
+
+                <div class="text-center mt-5">
+                    <a href="{% url "submission" %}" class="btn btn-secondary px-4">
+                        <i class="fas fa-plus me-2"></i>Submit Another
+                    </a>
+                </div>
+            </div>
         </div>
-    {% endfor %}
-{% endif %}
-
-{% if errors %}
-    <div class="alert alert-danger"><h4>Errors</h4>
-    <ul>
-    {% for block in errors %}
-        {% for k, v in block.items %}
-            <li><b>{{k}}</b> - {{v}}</li>
-        {% endfor %}
-    {% endfor %}
-    </ul>
     </div>
-{% endif %}
+</div>
 
 {% endblock %}

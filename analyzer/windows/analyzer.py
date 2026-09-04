@@ -1300,7 +1300,13 @@ class CommandPipeHandler:
 
         fields = data.decode().split(",", 1) if isinstance(data, bytes) else str(data).split(",", 1)
         pid = int(fields[0])
-        reported_identity = int(fields[1][2:]) if len(fields) == 2 and fields[1].startswith("i:") else None
+        reported_identity = None
+        if len(fields) == 2 and fields[1].startswith("i:"):
+            identity = fields[1][2:]
+            if not identity.isdigit():
+                log.warning("Received loaded command with invalid process identity, skipping it")
+                return
+            reported_identity = int(identity)
 
         with self.analyzer.process_lock:
             pending_identity = INJECT_IDENTITIES.get(pid)

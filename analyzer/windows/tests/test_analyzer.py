@@ -721,6 +721,21 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         pending_process.close.assert_not_called()
         self.assertIn(4242, self.analyzer.process_list.pids)
 
+    def test_handle_loaded_rejects_malformed_process_identity(self):
+        pending_process = MagicMock()
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 100}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+            patch("analyzer.MONITORED_PROCESSES", {}) as monitored,
+        ):
+            self.pipe_handler._handle_loaded(data="4242,i:-- UNKNOWN FORMAT STRING -- lu")
+
+            self.assertEqual([4242], pending)
+            self.assertEqual({}, monitored)
+        pending_process.close.assert_not_called()
+        self.assertNotIn(4242, self.analyzer.process_list.pids)
+
     def test_handle_loaded_accepts_legacy_track_field(self):
         pending_process = MagicMock()
         with (

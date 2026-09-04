@@ -76,3 +76,17 @@ class ProcessTests(unittest.TestCase):
             mock_k32.GetLastError.return_value = 5
             self.assertFalse(p.execute("C:\\Users\\Bruno\\Desktop\\installer.exe"))
             self.assertEqual(mock_k32.CreateProcessW.call_count, 2)
+
+    @patch("lib.api.process.nt_path_to_dos_path_ansi", return_value=r"C:\malware.exe")
+    @patch("lib.api.process.os.path.exists", return_value=True)
+    @patch("lib.api.process.subprocess.run")
+    def test_inject_reports_loader_failure(self, mock_run, mock_exists, mock_nt_path):
+        mock_run.return_value.returncode = 0
+        process = Process(pid=4242)
+        process.is_alive = MagicMock(return_value=True)
+        process.is_64bit = MagicMock(return_value=True)
+        process.write_monitor_config = MagicMock()
+        process.get_filepath = MagicMock(return_value=r"C:\malware.exe")
+        process.detect_dll_sideloading = MagicMock(return_value=False)
+
+        assert process.inject() is False

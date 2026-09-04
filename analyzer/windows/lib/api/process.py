@@ -952,8 +952,9 @@ class Process:
 
             if ret.returncode == 1:
                 log.info("Injected into %s %s", bit_str, self)
-            elif ret.returncode != 0:
+            else:
                 log.error("Unable to inject into %s process with pid %d, error: %d", bit_str, self.pid, ret.returncode)
+                return False
         except Exception as e:
             log.error("Error running process: %s", e)
             return False

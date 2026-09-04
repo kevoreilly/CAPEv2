@@ -8,36 +8,42 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <table class="table table-dark table-striped table-bordered">
-                            <tr>
-                                <th>Source</th>
-                                <th>Source Port</th>
-                                <th>Destination</th>
-                                <th>Destination Port</th>
-                                {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
-                            </tr>
-                            {% for p in network.udp %}
-                                <tr class="connrow" data="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},udp">
-                                    <td>{{p.src}} {% if p.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
-                                    <td>{{p.sport}}</td>
-                                    <td>{{p.dst}}
-                                        {% if network.iplookups %}
-                                            {{ network.iplookups|get_item:p.dst }}
-                                        {% endif %}
-                                        </td>
-                                    <td>{{p.dport}}</td>
-                                    {% if settings.NETWORK_PROC_MAP %}
-                                        <td>
-                                            {% if p.process_name %}
-                                                {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
-                                            {% else %}
-                                                -
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped table-hover table-bordered mb-0 align-middle">
+                                <thead>
+                                    <tr>
+                                        <th>Source</th>
+                                        <th>Source Port</th>
+                                        <th>Destination</th>
+                                        <th>Destination Port</th>
+                                        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for p in network.udp %}
+                                        <tr class="connrow" data-info="{{p.src}},{{p.sport}},{{p.dst}},{{p.dport}},udp">
+                                            <td>{{p.src}} {% if p.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
+                                            <td>{{p.sport}}</td>
+                                            <td>{{p.dst}}
+                                                {% if network.iplookups %}
+                                                    {{ network.iplookups|get_item:p.dst }}
+                                                {% endif %}
+                                                </td>
+                                            <td>{{p.dport}}</td>
+                                            {% if settings.NETWORK_PROC_MAP %}
+                                                <td>
+                                                    {% if p.process_name %}
+                                                        {{ p.process_name }}{% if p.process_id %} ({{ p.process_id }}){% endif %}
+                                                    {% else %}
+                                                        -
+                                                    {% endif %}
+                                                </td>
                                             {% endif %}
-                                        </td>
-                                    {% endif %}
-                                </tr>
-                            {% endfor %}
-                        </table>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                     <div class="stream col-md-6"></div>
                 </div>

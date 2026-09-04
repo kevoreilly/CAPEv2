@@ -2,38 +2,44 @@
     <div class="card-header border-secondary">
         <h5 class="mb-0 text-white"><i class="fas fa-stream me-2 text-info"></i>ICMP Traffic</h5>
     </div>
-{% if network.icmp %}
-<div class="card-body">
-<table class="table table-dark table-striped table-bordered" style="table-layout: fixed;">
-    <tr>
-        <th>Source</th>
-        <th>Destination</th>
-        <th>ICMP Type</th>
-        <th>Data</th>
-        {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
-    </tr>
-    {% for packet in network.icmp %}
-    <tr>
-        <td style="word-wrap: break-word;">{{packet.src}} {% if packet.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
-        <td style="word-wrap: break-word;">{{packet.dst}}</td>
-        <td style="word-wrap: break-word;">{{packet.type}}</td>
-        <td style="word-wrap: break-word;">{{packet.data}}</td>
-        {% if settings.NETWORK_PROC_MAP %}
-            <td>
-                {% if packet.process_name %}
-                    {{ packet.process_name }}{% if packet.process_id %} ({{ packet.process_id }}){% endif %}
-                {% else %}
-                    -
-                {% endif %}
-            </td>
-        {% endif %}
-    </tr>
-    {% endfor %}
-</table>
-</div>
-{% else %}
-<div class="card-body">
-<div class="alert alert-info">No ICMP traffic performed.</div>
-</div>
-{% endif %}
+    {% if network.icmp %}
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-dark table-striped table-hover table-bordered mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Source</th>
+                            <th>Destination</th>
+                            <th>ICMP Type</th>
+                            <th>Data</th>
+                            {% if settings.NETWORK_PROC_MAP %} <th>Process Name (PID)</th> {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for packet in network.icmp %}
+                            <tr>
+                                <td class="text-break">{{packet.src}} {% if packet.source == "behavior" %}<span class="badge bg-primary">behavior</span>{% endif %}</td>
+                                <td class="text-break">{{packet.dst}}</td>
+                                <td class="text-break">{{packet.type}}</td>
+                                <td class="text-break">{{packet.data}}</td>
+                                {% if settings.NETWORK_PROC_MAP %}
+                                    <td>
+                                        {% if packet.process_name %}
+                                            {{ packet.process_name }}{% if packet.process_id %} ({{ packet.process_id }}){% endif %}
+                                        {% else %}
+                                            -
+                                        {% endif %}
+                                    </td>
+                                {% endif %}
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% else %}
+        <div class="card-body">
+            <div class="alert alert-info">No ICMP traffic performed.</div>
+        </div>
+    {% endif %}
 </div>

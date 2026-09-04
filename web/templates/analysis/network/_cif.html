@@ -4,35 +4,47 @@
             <h5 class="mb-0 text-white"><i class="fas fa-shield-alt me-2 text-info"></i>CIF Results</h5>
         </div>
         {% if cif %}
-            <div class="card-body">
-                <table class="table table-dark table-striped table-bordered">
-                    <tr>
-                        <th width="20%">Address</th>
-                        <th width="15%">Detection Time</th>
-                        <th width="15%">Report Time</th>
-                        <th width="10%">Restriction</th>
-                        <th width="5%">Confidence</th>
-                        <th width="5%">Assessment</th>
-                        <th width="30%">Description</th>
-                    </tr>
-                    {% for result in cif %}
-                        {% if result.address %}
-                        <tr>
-                            <td>{{result.address}}</td>
-                            <td>{{result.detecttime}}</td>
-                            <td>{{result.reporttime}}</td>
-                            <td>{{result.restriction}}</td>
-                            <td>{{result.confidence}}</td>
-                            <td>{{result.assessment}}</td>
-                            <td>{{result.description}}</td>
-                        </tr>
-                        {% endif %}
-                    {% endfor %}
-                </table>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-dark table-striped table-hover table-bordered mb-0 align-middle">
+                        <thead>
+                            <tr>
+                                <th scope="col" style="width: 20%;">Address</th>
+                                <th scope="col" style="width: 15%;">Detection Time</th>
+                                <th scope="col" style="width: 15%;">Report Time</th>
+                                <th scope="col" style="width: 15%;">Restriction</th>
+                                <th scope="col" style="width: 10%;">Confidence</th>
+                                <th scope="col" style="width: 10%;">Assessment</th>
+                                <th scope="col" style="width: 15%;">Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for result in cif %}
+                                {% if result.address %}
+                                <tr>
+                                    <td class="font-monospace small text-break text-info">{{result.address}}</td>
+                                    <td class="small text-nowrap">{{result.detecttime}}</td>
+                                    <td class="small text-nowrap">{{result.reporttime}}</td>
+                                    <td><span class="badge bg-secondary">{{result.restriction}}</span></td>
+                                    <td>
+                                        <div class="progress bg-black bg-opacity-25" style="height: 16px;" title="{{result.confidence}}%">
+                                            <div class="progress-bar {% if result.confidence >= 75 %}bg-success{% elif result.confidence >= 50 %}bg-warning text-dark{% else %}bg-danger{% endif %}" role="progressbar" style="width: {{result.confidence}}%; font-size: 10px; line-height: 16px;" aria-valuenow="{{result.confidence}}" aria-valuemin="0" aria-valuemax="100">
+                                                {{result.confidence}}%
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td><span class="badge {% if result.assessment == "botnet" or result.assessment == "malware" %}bg-danger{% else %}bg-warning text-dark{% endif %}">{{result.assessment}}</span></td>
+                                    <td class="small text-break">{{result.description}}</td>
+                                </tr>
+                                {% endif %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         {% else %}
             <div class="card-body">
-                <div class="alert alert-info">No CIF Results</div>
+                <div class="alert alert-info mb-0">No CIF Results</div>
             </div>
         {% endif %}
     </div>

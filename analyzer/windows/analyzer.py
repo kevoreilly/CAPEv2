@@ -1260,6 +1260,33 @@ class CommandPipeHandler:
                 servproc.close()
                 KERNEL32.Sleep(2000)
 
+            # WMI provider hosts run as NETWORK SERVICE and must be able to read
+            # the randomized monitor DLL and per-process configuration.
+            icacls_path = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"), "System32", "icacls.exe")
+            acl_result = subprocess.run(
+                [icacls_path, str(Path.cwd()), "/grant", "*S-1-5-20:(OI)(CI)(RX)", "/t", "/c", "/q"],
+                capture_output=True,
+                text=True,
+            )
+            if acl_result.returncode:
+                log.warning("Unable to grant NETWORK SERVICE access to analyzer files: %s", acl_result.stderr.strip())
+
+            # WMI providers may already be running before winmgmt is monitored.
+            # Inject those hosts now so children created through WMI are reported
+            # to the analyzer instead of escaping the monitored process tree.
+            for provider_pid in pids_from_image_names(["WmiPrvSE.exe"]):
+                if provider_pid in INJECT_LIST or self.analyzer.process_list.has_pid(provider_pid):
+                    continue
+
+                INJECT_LIST.append(provider_pid)
+                provider = Process(options=self.analyzer.options, config=self.analyzer.config, pid=provider_pid)
+                self.analyzer.CRITICAL_PROCESS_LIST.append(int(provider_pid))
+                filepath = provider.get_filepath()
+                provider.inject(interest=filepath, nosleepskip=True)
+                self.analyzer.LASTINJECT_TIME = timeit.default_timer()
+                provider.close()
+                KERNEL32.Sleep(2000)
+
     def _handle_tasksched(self, data):
         if not self.analyzer.MONITORED_TASKSCHED and not ANALYSIS_TIMED_OUT:
             self.analyzer.MONITORED_TASKSCHED = True
@@ -1466,8 +1493,11 @@ class CommandPipeHandler:
                 # monitored already, otherwise we would generate
                 # polluted logs.
                 if process_id not in self.analyzer.process_list.pids:
-                    if process_id not in INJECT_LIST:
-                        INJECT_LIST.append(process_id)
+                    if process_id in INJECT_LIST:
+                        log.debug("Injection is already pending for process with pid %d, skipped", process_id)
+                        return
+
+                    INJECT_LIST.append(process_id)
                     # Open the process and inject the DLL.
                     proc = Process(
                         options=self.analyzer.options,

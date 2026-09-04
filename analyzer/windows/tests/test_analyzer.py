@@ -772,8 +772,10 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         mock_process.assert_not_called()
         self.call.assert_not_called()
 
+    @patch("analyzer.pids_from_image_names", return_value=[])
+    @patch("analyzer.subprocess.run")
     @patch("analyzer.pid_from_service_name")
-    def test_handle_wmi(self, mock_pid_from_service_name):
+    def test_handle_wmi(self, mock_pid_from_service_name, mock_run, mock_pids_from_image_names):
         random_pid1 = random.randint(1, 99999999)
         random_pid2 = random.randint(1, 99999999)
         mock_pid_from_service_name.side_effect = [random_pid1, random_pid2]
@@ -789,6 +791,61 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         self.assertIn(random_pid1, ana.CRITICAL_PROCESS_LIST)
         self.assertIn(random_pid2, ana.CRITICAL_PROCESS_LIST)
+        mock_run.assert_called_once_with(
+            [
+                analyzer.os.path.join(analyzer.os.environ.get("SystemRoot", r"C:\Windows"), "System32", "icacls.exe"),
+                str(analyzer.Path.cwd()),
+                "/grant",
+                "*S-1-5-20:(OI)(CI)(RX)",
+                "/t",
+                "/c",
+                "/q",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        mock_pids_from_image_names.assert_called_once_with(["WmiPrvSE.exe"])
+
+    @patch("analyzer.pids_from_image_names")
+    @patch("analyzer.subprocess.run")
+    @patch("analyzer.pid_from_service_name")
+    @patch("analyzer.Process")
+    def test_handle_wmi_injects_existing_provider_hosts(
+        self, mock_process, mock_pid_from_service_name, mock_run, mock_pids_from_image_names
+    ):
+        dcom_pid = random.randint(1, 99999999)
+        winmgmt_pid = random.randint(1, 99999999)
+        provider_pids = [random.randint(1, 99999999), random.randint(1, 99999999)]
+        mock_pid_from_service_name.side_effect = [dcom_pid, winmgmt_pid]
+        mock_pids_from_image_names.return_value = provider_pids
+
+        with patch("analyzer.INJECT_LIST", []) as inject_list:
+            self.pipe_handler._handle_wmi(None)
+            self.assertEqual(set(provider_pids), set(inject_list))
+
+        mock_pids_from_image_names.assert_called_once_with(["WmiPrvSE.exe"])
+        self.assertEqual(
+            {dcom_pid, winmgmt_pid, *provider_pids},
+            set(self.analyzer.CRITICAL_PROCESS_LIST),
+        )
+        self.assertEqual(4, mock_process.call_count)
+        mock_run.assert_called_once()
+
+    @patch("analyzer.pids_from_image_names")
+    @patch("analyzer.subprocess.run")
+    @patch("analyzer.pid_from_service_name", return_value=None)
+    @patch("analyzer.Process")
+    def test_handle_wmi_does_not_reinject_announced_provider(
+        self, mock_process, mock_pid_from_service_name, mock_run, mock_pids_from_image_names
+    ):
+        provider_pid = random.randint(1, 99999999)
+        mock_pids_from_image_names.return_value = [provider_pid]
+
+        with patch("analyzer.INJECT_LIST", [provider_pid]):
+            self.pipe_handler._handle_wmi(None)
+
+        mock_process.assert_not_called()
+        mock_run.assert_called_once()
 
     @patch("analyzer.pid_from_service_name")
     def test_handle_wmi_already(self, mock_pid_from_service_name):
@@ -1020,6 +1077,19 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         mock_process.assert_called_once()
         self.assertEqual(1, ana.NUM_INJECTED)
+
+    @patch("analyzer.Process")
+    def test_handle_process_does_not_repeat_pending_injection(self, mock_process):
+        random_pid = random.randint(1, 99999999)
+        random_tid = random.randint(1, 9999999)
+        data = bytes(f"{random_pid},{random_tid}".encode())
+
+        with patch("analyzer.INJECT_LIST", [random_pid]):
+            self.pipe_handler._handle_process(data=data)
+
+        mock_process.assert_not_called()
+        self.assertIsNone(self.analyzer.LASTINJECT_TIME)
+        self.assertEqual(0, self.analyzer.NUM_INJECTED)
 
 
 class TestAnalyzerEnforceTimeoutPackageFailure(unittest.TestCase):

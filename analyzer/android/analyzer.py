@@ -106,7 +106,12 @@ class Analyzer:
 
         if self.config.get("clock"):
             clock = datetime.datetime.strptime(self.config.clock, "%Y%m%dT%H:%M:%S")
-            subprocess.run(["date", "-s", clock.strftime("%y-%m-%d %H:%M:%S")], check=True)
+            # Android's /system/bin/date is toybox, not GNU coreutils -- it
+            # has no -s flag at all ("date: Unknown option s"). toybox's SET
+            # syntax accepts a bare "@UNIXTIME" positional argument, which
+            # sidesteps toybox's other SET format (MMDDhhmm[[CC]YY][.ss])
+            # entirely rather than trying to match it.
+            subprocess.run(["date", f"@{int(clock.timestamp())}"], check=True)
 
         # The target is always a file (the submitted APK) on this platform.
         # This must match wherever the host's guest.py placed it -- upstream

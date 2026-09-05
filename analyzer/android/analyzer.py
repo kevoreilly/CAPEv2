@@ -7,6 +7,7 @@ import hashlib
 import logging
 import os
 import pkgutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -65,17 +66,48 @@ def get_all_child_processes(parent_pid, all_children=None):
     return all_children
 
 
-def monitor_new_processes(parent_pid, interval=0.25):
-    """Continuously track new child processes of the target app so they stay
-    in the monitored PID set (e.g. if the app forks helper processes).
+def get_package_pids(package_name):
+    """Find all running processes belonging to the analyzed application package.
+    On Android, multi-process app components (such as Services and BroadcastReceivers)
+    are spawned as Zygote children and have Zygote as their PPID, making them siblings of
+    the main application process rather than direct child processes.
+    """
+    pids = []
+    if not package_name:
+        return pids
+    try:
+        for entry in os.listdir("/proc"):
+            if not entry.isdigit():
+                continue
+            try:
+                with open(f"/proc/{entry}/cmdline", "rb") as f:
+                    cmdline = f.read().split(b"\x00")[0].decode(errors="replace")
+            except (FileNotFoundError, ProcessLookupError):
+                continue
+            if cmdline == package_name or cmdline.startswith(package_name + ":"):
+                pids.append(int(entry))
+    except FileNotFoundError:
+        pass
+    return pids
+
+
+def monitor_new_processes(parent_pid, package_name=None, interval=0.25):
+    """Continuously track new child processes (via procfs) and sibling processes (via cmdline)
+    of the target app so they stay in the monitored PID set (e.g. if the app forks helper processes).
     """
     known_processes = set(get_all_child_processes(parent_pid))
+    if package_name:
+        known_processes.update(get_package_pids(package_name))
+
     while True:
         current_processes = set(get_all_child_processes(parent_pid))
+        if package_name:
+            current_processes.update(get_package_pids(package_name))
+
         new_processes = current_processes - known_processes
 
         for pid in new_processes:
-            log.info("New child process detected: %s", pid)
+            log.info("New application process detected: %s", pid)
             add_pids(pid)
 
         known_processes.update(new_processes)
@@ -195,7 +227,8 @@ class Analyzer:
 
         if PROCESS_LIST:
             root_pid = next(iter(PROCESS_LIST))
-            monitor_thread = Thread(target=monitor_new_processes, args=(root_pid,), daemon=True)
+            package_name = getattr(pack, "package_name", None)
+            monitor_thread = Thread(target=monitor_new_processes, args=(root_pid, package_name), daemon=True)
             monitor_thread.start()
 
         if self.config.enforce_timeout:
@@ -290,6 +323,18 @@ class Analyzer:
         return True
 
 
+def get_local_ip_via_routing(host_ip):
+    """Determine the default local interface IP used to route traffic to the CAPE host."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect((host_ip, 80))
+        local_ip = s.getsockname()[0]
+        s.close()
+        return local_ip
+    except Exception:
+        return None
+
+
 if __name__ == "__main__":
     success = False
     error = ""
@@ -313,10 +358,28 @@ if __name__ == "__main__":
                 "status": "failed" if error else "complete",
                 "description": success,
             }
-            with urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()) as response:
-                response.read()
+            payload = urlencode(data).encode()
+
+            # Try loopback first
+            urls = ["http://127.0.0.1:8000/status"]
+
+            # Fallback to the guest's concrete local IP in case the agent bound to it due to bionic's 0.0.0.0 binding issues
+            try:
+                local_ip = get_local_ip_via_routing(Config(cfg="analysis.conf").get("ip"))
+                if local_ip and local_ip != "127.0.0.1":
+                    urls.append(f"http://{local_ip}:8000/status")
+            except Exception as e:
+                print(f"Failed to resolve routing local IP: {e}")
+
+            for url in urls:
+                try:
+                    with urlopen(url, payload, timeout=2) as response:
+                        response.read()
+                    break
+                except Exception as e:
+                    print(f"Failed to POST status to {url}: {e}")
         except Exception as e:
-            print(e)
+            print(f"Error preparing final status post: {e}")
 
     # Without this, the process always exits 0, and agent.py's
     # get_subprocess_status() (polled by the host via /execpy) reports every

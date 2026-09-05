@@ -44,6 +44,8 @@ class Apk(Package):
         # -r: replace an existing install of the same package.
         # -g: grant all runtime permissions at install time, so a permission
         #     dialog can't block the app from ever reaching its payload.
+        # Try with -g first (supported on API >= 23). Fall back to omitting -g
+        # on older APIs if it fails with an invalid option error.
         result = subprocess.run(
             ["pm", "install", "-r", "-g", self.target],
             stdout=subprocess.PIPE,
@@ -51,6 +53,18 @@ class Apk(Package):
         )
         output = result.stdout.decode(errors="replace")
         log.info("pm install output: %s", output.strip())
+
+        # If -g is unrecognized/unsupported by this pm build, retry without it
+        if "Success" not in output and any(x in output.lower() for x in ("unknown option", "invalid option", "-g")):
+            log.warning("pm install -g failed (likely older Android version). Retrying without -g...")
+            result = subprocess.run(
+                ["pm", "install", "-r", self.target],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+            output = result.stdout.decode(errors="replace")
+            log.info("pm install (fallback) output: %s", output.strip())
+
         if "Success" not in output:
             raise Exception(f"Failed to install {self.target}: {output.strip()}")
 

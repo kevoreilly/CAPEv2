@@ -469,7 +469,8 @@ class TasksMixIn:
             # a package analyzer/android doesn't even implement -- instead
             # of routing to Android. Check our own libmagic-based type
             # detection first, which does distinguish them correctly.
-            if "Android package (APK)" in (File(file).get_type() or ""):
+            file_type = File(file).get_type() or ""
+            if "android package" in file_type.lower():
                 tmp_package = "apk"
             else:
                 f = SflockFile.from_path(file)

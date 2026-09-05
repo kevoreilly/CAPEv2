@@ -43,7 +43,40 @@ body {
 }
 
 .page-link {
-    background-color: #444
+    background-color: #444;
+}
+
+.page-link:hover {
+    background-color: #EE1B2F;
+}
+
+.page-link-active {
+    background-color: #EE1B2F;
+}
+
+.text-success {
+    color: #62c462 !important;
+}
+
+.text-success:hover {
+    color: #62c462 !important;
+}
+
+#top_pagination {
+    scroll-margin-top: 75px;
+}
+
+.pagination {
+    --bs-pagination-disabled-bg: #2c3034;        /* Dark pale grey background */
+    --bs-pagination-disabled-color: #6c757d;     /* Muted grey text */
+    --bs-pagination-disabled-border-color: #373b3e; /* Matching subtle border */
+}
+
+.page-item.active .page-link {
+    z-index: 3;
+    color: #fff;
+    background-color: #ee1b2f !important;
+    border-color: transparent;
 }
 
 .page-item.active .page-link {
@@ -183,6 +216,168 @@ h4, .h4 {
 	width : 40%;
 }
 
+
+/* Category buttons (base colors) */
+.btn-cat-default {
+    background-color: #696969;
+    color: #000;
+    border-color: #696969;
+}
+
+.btn-cat-filesystem {
+    background-color: #ffe3c5;
+    color: #000;
+    border-color: #ffe3c5;
+}
+
+.btn-cat-registry {
+    background-color: #ffc5c5;
+    color: #000;
+    border-color: #ffc5c5;
+}
+
+.btn-cat-process {
+    background-color: #c5e0ff;
+    color: #000;
+    border-color: #c5e0ff;
+}
+
+.btn-cat-threading {
+    background-color: #d3e0ff;
+    color: #000;
+    border-color: #d3e0ff;
+}
+
+.btn-cat-services {
+    background-color: #ccc5ff;
+    color: #000;
+    border-color: #ccc5ff;
+}
+
+.btn-cat-device {
+    background-color: #d3c5cc;
+    color: #000;
+    border-color: #d3c5cc;
+}
+
+.btn-cat-network {
+    background-color: #d3ffc5;
+    color: #000;
+    border-color: #d3ffc5;
+}
+
+.btn-cat-socket {
+    background-color: #d3ffc5;
+    color: #000;
+    border-color: #d3ffc5;
+}
+
+.btn-cat-synchronization {
+    background-color: #f9c5ff;
+    color: #000;
+    border-color: #f9c5ff;
+}
+
+.btn-cat-browser {
+    background-color: #dfffdf;
+    color: #000;
+    border-color: #dfffdf;
+}
+
+.btn-cat-crypto {
+    background-color: #f0f2c5;
+    color: #000;
+    border-color: #f0f2c5;
+}
+
+.btn-cat-all {
+    background-color: #198754;
+    color: #000;
+    border-color: #198754;
+}
+
+/* Active state border colors (your current behavior) */
+.btn-cat-default.active,
+.btn-cat-default:active,
+.show > .btn-cat-default.dropdown-toggle {
+    border-color: #696969;
+}
+
+.btn-cat-filesystem.active,
+.btn-cat-filesystem:active,
+.show > .btn-cat-filesystem.dropdown-toggle {
+    border-color: #ffe3c5;
+}
+
+.btn-cat-registry.active,
+.btn-cat-registry:active,
+.show > .btn-cat-registry.dropdown-toggle {
+    border-color: #ffc5c5;
+}
+
+.btn-cat-process.active,
+.btn-cat-process:active,
+.show > .btn-cat-process.dropdown-toggle {
+    border-color: #c5e0ff;
+}
+
+.btn-cat-threading.active,
+.btn-cat-threading:active,
+.show > .btn-cat-threading.dropdown-toggle {
+    border-color: #d3e0ff;
+}
+
+.btn-cat-services.active,
+.btn-cat-services:active,
+.show > .btn-cat-services.dropdown-toggle {
+    border-color: #ccc5ff;
+}
+
+.btn-cat-device.active,
+.btn-cat-device:active,
+.show > .btn-cat-device.dropdown-toggle {
+    border-color: #dcd1d6;
+}
+
+.btn-cat-network.active,
+.btn-cat-network:active,
+.show > .btn-cat-network.dropdown-toggle {
+    border-color: #dcffd1;
+}
+
+.btn-cat-socket.active,
+.btn-cat-socket:active,
+.show > .btn-cat-socket.dropdown-toggle {
+    border-color: #dcffd1;
+}
+
+.btn-cat-synchronization.active,
+.btn-cat-synchronization:active,
+.show > .btn-cat-synchronization.dropdown-toggle {
+    border-color: #fad1ff;
+}
+
+.btn-cat-browser.active,
+.btn-cat-browser:active,
+.show > .btn-cat-browser.dropdown-toggle {
+    border-color: #e5ffe5;
+}
+
+.btn-cat-crypto.active,
+.btn-cat-crypto:active,
+.show > .btn-cat-crypto.dropdown-toggle {
+    border-color: #f3f5d1;
+}
+
+.btn-cat-all.active,
+.btn-cat-all:active,
+.show > .btn-cat-all.dropdown-toggle {
+    border-color: #479f76;
+}
+
+
+
+
 td {
     word-wrap: break-word;
 }
@@ -227,4 +422,39 @@ pre {
 #filter-toggle {
     display: inline-block;
     cursor: pointer;
+}
+
+.alert-primary, .alert-info {
+    background-color: #1c1c1c;
+}
+
+/* Hover/focus states */
+.form-control[type="file"]::file-selector-button:hover {
+    background-color: #3f474e;
+}
+
+/* Mid-gray form controls */
+:root {
+    --form-bg: #5c5c5c;
+    --form-border: #666;
+    --form-text: #fff;
+    --form-placeholder: rgba(255, 255, 255, .55);
+}
+
+.form-control,
+.form-select {
+    background-color: var(--form-bg) !important;
+    color: var(--form-text) !important;
+    border-color: var(--form-border) !important;
+}
+
+.form-control::placeholder {
+    color: var(--form-placeholder) !important;
+}
+
+.form-control:focus,
+.form-select:focus {
+    background-color: var(--form-bg) !important;
+    border-color: #007ABCFF !important;
+    box-shadow: 0 0 0 .25rem rgba(0, 38, 60, 0.25);
 }

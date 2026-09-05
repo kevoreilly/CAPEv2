@@ -36,7 +36,7 @@ try:
         text,
         update,
     )
-    from sqlalchemy.orm import joinedload, subqueryload
+    from sqlalchemy.orm import joinedload, selectinload
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
@@ -253,7 +253,7 @@ class TasksMixIn:
             sample = self.session.scalar(select(Sample).where(Sample.sha256 == file_sha256))
             if not sample:
                 try:
-                    with self.session.begin_nested():
+                    with self.session.begin():
                         sample = Sample(
                             md5=file_md5,
                             crc32=fileobj.get_crc32(),
@@ -335,10 +335,9 @@ class TasksMixIn:
         task.cape = cape
         task.tags_tasks = tags_tasks
 
-        # Use a nested transaction so that we can return an ID.
-        with self.session.begin_nested():
+        # Use a transaction so that we can return an ID.
+        with self.session.begin():
             self.session.add(task)
-            self.session.flush()
 
         # Deal with tags format (i.e., foo,bar,baz)
         if tags:
@@ -456,10 +455,17 @@ class TasksMixIn:
             parent_sample=parent_sample,
         )
 
-    def _identify_aux_func(self, file: bytes, package: str, check_shellcode: bool = True) -> tuple:
-        # before demux we need to check as msix has zip mime and we don't want it to be extracted:
-        tmp_package = False
-        if not package:
+    def identify_submission_package(
+        self,
+        file: bytes,
+        package: str = "",
+        check_shellcode: bool = True,
+    ) -> tuple:
+        """Resolve package handling and whether generic demux should run."""
+        requested_package = package
+        identified_package = False
+
+        if not requested_package:
             # sflock_identify() shares APK's zip-based classification with
             # "jar" and returns "jar" for real APKs (verified directly:
             # sflock.unpack() correctly reports .package == "apk" for the
@@ -471,27 +477,48 @@ class TasksMixIn:
             # detection first, which does distinguish them correctly.
             file_type = File(file).get_type() or ""
             if "android package" in file_type.lower():
-                tmp_package = "apk"
+                identified_package = "apk"
             else:
-                f = SflockFile.from_path(file)
+                sf_file = SflockFile.from_path(file)
                 try:
-                    tmp_package = sflock_identify(f, check_shellcode=check_shellcode)
+                    identified_package = sflock_identify(
+                        sf_file,
+                        check_shellcode=check_shellcode,
+                    )
                 except Exception as e:
-                    log.error("Failed to sflock_ident due to %s", str(e))
-                    tmp_package = "generic"
+                    log.error("Failed to identify submission with SFlock: %s", e)
+                    identified_package = "generic"
 
-        if tmp_package and tmp_package in sandbox_packages:
-            # This probably should be way much bigger list of formats
-            if tmp_package in ("iso", "udf", "vhd"):
+        if identified_package and identified_package in sandbox_packages:
+            if identified_package in ("iso", "udf", "vhd"):
                 package = "archive"
-            elif tmp_package in ("zip", "rar"):
+            elif identified_package in ("zip", "rar"):
                 package = ""
-            elif tmp_package in ("html",):
+            elif identified_package == "html":
                 package = web_conf.url_analysis.package
             else:
-                package = tmp_package
+                package = identified_package
 
-        return package, tmp_package
+        generic_demux = (
+            not requested_package
+            and not package
+            and identified_package not in (False, None, "", "generic")
+        )
+
+        return package, identified_package, generic_demux
+
+    def _identify_aux_func(
+        self,
+        file: bytes,
+        package: str,
+        check_shellcode: bool = True,
+    ) -> tuple:
+        package, identified_package, _ = self.identify_submission_package(
+            file,
+            package,
+            check_shellcode=check_shellcode,
+        )
+        return package, identified_package
 
     def demux_sample_and_add_to_db(
         self,
@@ -708,30 +735,41 @@ class TasksMixIn:
                     else:
                         options = "dist_extract=1"
 
-                task_id = self.add_path(
-                    file_path=file.decode(),
-                    timeout=timeout,
-                    priority=priority,
-                    options=options,
-                    package=package,
-                    machine=machine,
-                    platform=platform,
-                    memory=memory,
-                    custom=custom,
-                    enforce_timeout=enforce_timeout,
-                    tags=tags,
-                    clock=clock,
-                    tlp=tlp,
-                    source_url=source_url,
-                    route=route,
-                    tags_tasks=tags_tasks,
-                    cape=cape,
-                    user_id=user_id, tenant_id=tenant_id, visibility=visibility,
-                    parent_sample=parent_sample,
-                )
+                if machine == "all":
+                    task_machines = [
+                        vm.label
+                        for vm in self.list_machines(platform=platform)
+                    ]
+                else:
+                    task_machines = [machine]
+
+                for task_machine in task_machines:
+                    task_id = self.add_path(
+                        file_path=file.decode(),
+                        timeout=timeout,
+                        priority=priority,
+                        options=options,
+                        package=package,
+                        machine=task_machine,
+                        platform=platform,
+                        memory=memory,
+                        custom=custom,
+                        enforce_timeout=enforce_timeout,
+                        tags=tags,
+                        clock=clock,
+                        tlp=tlp,
+                        source_url=source_url,
+                        route=route,
+                        tags_tasks=tags_tasks,
+                        cape=cape,
+                        user_id=user_id,
+                        tenant_id=tenant_id,
+                        visibility=visibility,
+                        parent_sample=parent_sample,
+                    )
+                    if task_id:
+                        task_ids.append(task_id)
                 package = None
-            if task_id:
-                task_ids.append(task_id)
 
         if config and isinstance(config, dict):
             details = {"config": config.get("cape_config", {})}
@@ -910,6 +948,10 @@ class TasksMixIn:
         )
 
     def set_vnc_port(self, task_id: int, port: int):
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return
         stmt = select(Task).where(Task.id == task_id)
         task = self.session.scalar(stmt)
 
@@ -965,7 +1007,7 @@ class TasksMixIn:
         @param status: status string
         @return: operation status
         """
-        log.info("setstat task %s status %s", task_id, status)
+        log.debug("setstat task %s status %s", task_id, status)
         task = self.session.get(Task, task_id)
 
         if not task:
@@ -1386,7 +1428,7 @@ class TasksMixIn:
         @return: list of tasks.
         """
         tasks: List[Task] = []
-        stmt = select(Task).options(joinedload(Task.guest), subqueryload(Task.errors), subqueryload(Task.tags))
+        stmt = select(Task).options(joinedload(Task.guest), selectinload(Task.errors), selectinload(Task.tags))
         if include_hashes:
             stmt = stmt.options(joinedload(Task.sample))
         if status:
@@ -1452,12 +1494,16 @@ class TasksMixIn:
         @param task_id: ID of the task to query.
         @return: operation status.
         """
-        task = self.session.get(Task, task_id)
-        if task is None:
+        try:
+            with self.session.begin():
+                task = self.session.get(Task, task_id)
+                if task is None:
+                    return False
+                self.session.delete(task)
+            return True
+        except SQLAlchemyError as e:
+            log.error("Error deleting task %s: %s", task_id, str(e))
             return False
-        self.session.delete(task)
-        # ToDo missed commits everywhere, check if autocommit is possible
-        return True
 
     def delete_tasks(
         self,
@@ -1551,13 +1597,12 @@ class TasksMixIn:
         # but the more idiomatic SQLAlchemy 2.0 approach would be to wrap the execution
         # in a with self.session.begin(): block, which handles transactions automatically.
         try:
-            result = self.session.execute(delete_stmt)
-            log.info("Deleted %d tasks matching the criteria.", result.rowcount)
-            self.session.commit()
+            with self.session.begin():
+                result = self.session.execute(delete_stmt)
+                log.info("Deleted %d tasks matching the criteria.", result.rowcount)
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting tasks: %s", str(e))
-            self.session.rollback()
             return False
 
     # ToDo replace with delete_tasks
@@ -1668,13 +1713,17 @@ class TasksMixIn:
         @param task_id: ID of the task to query.
         @return: details on the task.
         """
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return None
         query = select(Task).where(Task.id == task_id)
         if details:
             query = query.options(
-                joinedload(Task.guest), subqueryload(Task.errors), subqueryload(Task.tags), joinedload(Task.sample)
+                joinedload(Task.guest), selectinload(Task.errors), selectinload(Task.tags), joinedload(Task.sample)
             )
         else:
-            query = query.options(subqueryload(Task.tags), joinedload(Task.sample))
+            query = query.options(selectinload(Task.tags), joinedload(Task.sample))
         return self.session.scalar(query)
 
     # This function is used by the runstatistics community module.
@@ -1743,6 +1792,10 @@ class TasksMixIn:
 
     def view_errors(self, task_id: int) -> List[Error]:
         """Gets all errors related to a task."""
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return []
         stmt = select(Error).where(Error.task_id == task_id)
         return self.session.scalars(stmt).all()
 

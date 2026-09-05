@@ -25,6 +25,25 @@ def _calculate_generic_score(matched: list) -> float:
 # =============================================================================
 # Main scoring function.
 # =============================================================================
+def _suricata_alerts_are_noise_only(results: dict) -> bool:
+    """True when every Suricata alert is protocol/decoder noise.
+
+    Suricata built-in decoder events (signatures prefixed "SURICATA ") and
+    low-priority alerts (severity >= 3; Suricata convention: 1 is highest)
+    are not threat intelligence. Example: SID 2221033 ("SURICATA HTTP
+    Request abnormal Content-Encoding header") fires repeatedly on benign
+    browsing because modern Chrome/Edge use zstd Content-Encoding, and the
+    suricata_alert signature then dominates the score. A single real ET
+    alert (severity <= 2, not "SURICATA "-prefixed) makes this return
+    False so the signature counts normally.
+    """
+    alerts = (results.get("suricata") or {}).get("alerts") or []
+    return all(
+        (alert.get("signature") or "").startswith("SURICATA ") or (alert.get("severity") or 3) >= 3
+        for alert in alerts
+    )
+
+
 def calc_scoring(results: dict, matched: list):
     """
     Calculate the final malware score and status based on the analysis results and matched signatures.
@@ -54,6 +73,11 @@ def calc_scoring(results: dict, matched: list):
     Returns:
     tuple: A tuple containing the final malware score (float) and the status (str).
     """
+    # Keep suricata_alert visible in the report but exclude it from scoring
+    # when the alerts contain nothing but protocol/decoder noise.
+    if _suricata_alerts_are_noise_only(results):
+        matched = [m for m in matched if m.get("name") != "suricata_alert"]
+
     finalMalscore = 0.0
     status = None
     # Identify the analysis category (file or url).

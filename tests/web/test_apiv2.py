@@ -1,8 +1,10 @@
 import pathlib
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
 from django.test import SimpleTestCase
+from django.core.files.uploadedfile import SimpleUploadedFile
 
 from lib.cuckoo.common.config import ConfigMeta
 from lib.cuckoo.core.data.task import (
@@ -20,11 +22,24 @@ from lib.cuckoo.core.data.task import (
     Task,
 )
 
-
 @pytest.fixture
 def taskreprocess_enabled(custom_conf_path: pathlib.Path):
     with open(custom_conf_path / "api.conf", "wt") as fil:
         print("[taskreprocess]\nenabled = yes", file=fil)
+    ConfigMeta.refresh()
+    yield
+
+
+@pytest.fixture
+def dlnexeccreate_enabled(custom_conf_path: pathlib.Path):
+    with open(custom_conf_path / "api.conf", "wt") as fil:
+        print(
+            "[dlnexeccreate]\n"
+            "enabled = yes\n"
+            "allmachines = no\n"
+            "status = yes",
+            file=fil,
+        )
     ConfigMeta.refresh()
     yield
 
@@ -88,3 +103,125 @@ class ReprocessTask(SimpleTestCase):
                     assert response.status_code == 200
                     assert response.headers["content-type"] == "application/json"
                     assert response.json() == expected_response
+
+
+@pytest.mark.usefixtures("db", "tmp_cuckoo_root")
+class TestReservedMachineSubmission(SimpleTestCase):
+    def test_url_submission_accepts_explicit_reserved_machine(self):
+        normal_machine = SimpleNamespace(label="normal-machine")
+        reserved_machine = SimpleNamespace(label="reserved-machine")
+
+        def list_machines(*args, **kwargs):
+            if kwargs.get("include_reserved"):
+                return [normal_machine, reserved_machine]
+            return [normal_machine]
+
+        with (
+            patch(
+                "apiv2.views.db.list_machines",
+                side_effect=list_machines,
+            ),
+            patch(
+                "apiv2.views.db.add_url",
+                return_value=123,
+            ) as add_url,
+        ):
+            response = self.client.post(
+                "/apiv2/tasks/create/url/",
+                {
+                    "url": "https://example.com/",
+                    "machine": "reserved-machine",
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["task_ids"] == [123]
+        add_url.assert_called_once()
+        assert add_url.call_args.kwargs["machine"] == "reserved-machine"
+
+    def test_file_submission_accepts_explicit_reserved_machine(self):
+        normal_machine = SimpleNamespace(label="normal-machine")
+        reserved_machine = SimpleNamespace(label="reserved-machine")
+
+        def list_machines(*args, **kwargs):
+            if kwargs.get("include_reserved"):
+                return [normal_machine, reserved_machine]
+            return [normal_machine]
+
+        uploaded_file = SimpleUploadedFile(
+            "sample.exe",
+            b"MZ-test-content",
+            content_type="application/octet-stream",
+        )
+
+        processed_details = {
+            "errors": [],
+            "task_ids": [123],
+        }
+
+        with (
+            patch(
+                "apiv2.views.db.list_machines",
+                side_effect=list_machines,
+            ),
+            patch(
+                "apiv2.views.process_new_task_files",
+                return_value=(
+                    [(b"MZ-test-content", b"/tmp/sample.exe", "test-sha256")],
+                    processed_details,
+                ),
+            ),
+            patch(
+                "apiv2.views.download_file",
+                return_value=("ok", {"task_ids": [123], "errors": []}),
+            ),
+        ):
+            response = self.client.post(
+                "/apiv2/tasks/create/file/",
+                {
+                    "file": uploaded_file,
+                    "machine": "reserved-machine",
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["task_ids"] == [123]
+
+    @pytest.mark.usefixtures("dlnexeccreate_enabled")
+    def test_dlnexec_submission_accepts_explicit_reserved_machine(self):
+        normal_machine = SimpleNamespace(label="normal-machine")
+        reserved_machine = SimpleNamespace(label="reserved-machine")
+
+        def list_machines(*args, **kwargs):
+            if kwargs.get("include_reserved"):
+                return [normal_machine, reserved_machine]
+            return [normal_machine]
+
+        with (
+            patch(
+                "apiv2.views.db.list_machines",
+                side_effect=list_machines,
+            ),
+            patch(
+                "apiv2.views.process_new_dlnexec_task",
+                return_value=(
+                    b"/tmp/downloaded.exe",
+                    b"MZ-test-content",
+                    "",
+                ),
+            ),
+            patch(
+                "apiv2.views.download_file",
+                return_value=("ok", {"task_ids": [123], "errors": []}),
+            ),
+        ):
+            response = self.client.post(
+                "/apiv2/tasks/create/dlnexec/",
+                {
+                    "dlnexec": "https://example.com/sample.exe",
+                    "machine": "reserved-machine",
+                },
+            )
+
+        assert response.status_code == 200
+        assert response.json()["data"]["task_ids"] == [123]

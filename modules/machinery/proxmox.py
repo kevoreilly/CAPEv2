@@ -6,6 +6,8 @@ import logging
 import sys
 import time
 
+from requests.exceptions import RequestException
+
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooCriticalError, CuckooMachineError
@@ -14,6 +16,8 @@ try:
     from proxmoxer import ProxmoxAPI, ResourceException
 except ImportError:
     sys.exit("Install by yourself. Missed dependency: pip3 install proxmoxer -U")
+
+READ_RETRY_EXCEPTIONS = (ResourceException, RequestException)
 
 # silence overly verbose INFO level logging default of proxmoxer module
 logging.getLogger("proxmoxer").setLevel(logging.WARNING)
@@ -44,6 +48,23 @@ class Proxmox(Machinery):
 
         super(Proxmox, self)._initialize_check()
 
+    def _get_with_retry(self, resource, *, deadline, description, **kwargs):
+        """Retry a Proxmox GET operation until the supplied deadline."""
+        while True:
+            try:
+                return resource.get(**kwargs)
+            except READ_RETRY_EXCEPTIONS as e:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    raise CuckooMachineError(f"{description}: {e}") from e
+
+                delay = min(1, remaining)
+                log.warning("%s: %s; retrying in %.1f seconds", description, e, delay)
+                time.sleep(delay)
+
+                if time.monotonic() >= deadline:
+                    raise CuckooMachineError(f"{description}: {e}") from e
+
     def find_vm(self, label):
         """Find a VM in the Proxmox cluster and return its node and vm proxy
         objects for extraction of additional data by other methods.
@@ -59,10 +80,13 @@ class Proxmox(Machinery):
         )
 
         # /cluster/resources[type=vm] will give us all VMs no matter which node they reside on
-        try:
-            vms = proxmox.cluster.resources.get(type="vm")
-        except ResourceException as e:
-            raise CuckooMachineError(f"Error enumerating VMs: {e}")
+        deadline = time.monotonic() + self.timeout
+        vms = self._get_with_retry(
+            proxmox.cluster.resources,
+            deadline=deadline,
+            description=f"{label}: Error enumerating VMs",
+            type="vm",
+        )
 
         for vm in vms:
             if vm["name"] == label:
@@ -80,13 +104,18 @@ class Proxmox(Machinery):
         """Wait for long-running Proxmox task to finish.
 
         @param taskid: id of Proxmox task to wait for
-        @raise CuckooMachineError: if task status cannot be determined."""
-        elapsed = 0
-        while elapsed < self.timeout:
+        @return: task status, or None if the timeout expires."""
+        deadline = time.monotonic() + self.timeout
+
+        while time.monotonic() < deadline:
             try:
-                task = node.tasks(taskid).status.get()
-            except ResourceException as e:
-                raise CuckooMachineError(f"Error getting status of task {taskid}: {e}")
+                task = self._get_with_retry(
+                    node.tasks(taskid).status,
+                    deadline=deadline,
+                    description=f"{label}: Error getting status of task {taskid}",
+                )
+            except CuckooMachineError:
+                return None
 
             # extract operation name from task status for display
             operation = task["type"]
@@ -95,8 +124,10 @@ class Proxmox(Machinery):
 
             if task["status"] != "stopped":
                 log.debug("%s: Waiting for operation %s (%s) to finish", label, operation, taskid)
-                time.sleep(1)
-                elapsed += 1
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None
+                time.sleep(min(1, remaining))
                 continue
 
             # VMs sometimes remain locked for some seconds after a task
@@ -104,16 +135,22 @@ class Proxmox(Machinery):
             # is attempted. So query the current VM status to extract the lock
             # status.
             try:
-                status = vm.status.current.get()
-            except ResourceException as e:
-                raise CuckooMachineError(f"Couldn't get status: {e}")
+                status = self._get_with_retry(
+                    vm.status.current,
+                    deadline=deadline,
+                    description=f"{label}: Couldn't get VM status after task {taskid}",
+                )
+            except CuckooMachineError:
+                return None
 
             if "lock" in status:
                 log.debug("%s: Task finished but VM still locked", label)
                 if status["lock"] != operation:
                     log.warning("%s: Task finished but VM locked by different operation: %s", label, operation)
-                time.sleep(1)
-                elapsed += 1
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    return None
+                time.sleep(min(1, remaining))
                 continue
 
             # task is really, really done
@@ -136,10 +173,12 @@ class Proxmox(Machinery):
         # heuristically determine the most recent snapshot if no snapshot name
         # is explicitly configured.
         log.debug("%s: No snapshot configured, determining most recent one", label)
-        try:
-            snapshots = vm.snapshot.get()
-        except ResourceException as e:
-            raise CuckooMachineError(f"Error enumerating snapshots: {e}")
+        deadline = time.monotonic() + self.timeout
+        snapshots = self._get_with_retry(
+            vm.snapshot,
+            deadline=deadline,
+            description=f"{label}: Error enumerating snapshots",
+        )
 
         snaptime = 0
         snapshot = None
@@ -201,10 +240,12 @@ class Proxmox(Machinery):
         vm, node = self.find_vm(label)
         self.rollback(label, vm, node)
 
-        try:
-            status = vm.status.current.get()
-        except ResourceException as e:
-            raise CuckooMachineError(f"Couldn't get status: {e}")
+        deadline = time.monotonic() + self.timeout
+        status = self._get_with_retry(
+            vm.status.current,
+            deadline=deadline,
+            description=f"{label}: Couldn't get VM status",
+        )
 
         if status["status"] == "running":
             log.debug("%s: Already running after rollback, no need to start it", label)

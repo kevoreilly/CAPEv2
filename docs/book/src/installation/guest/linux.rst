@@ -31,41 +31,36 @@ avoid having to start as root, e.g.::
 with your user. You also have a script in utils/linux_mktaps.sh**
 
 
-Preparing x32/x64 Linux guests
-===========================================
+Preparing Linux guests (32-bit & 64-bit)
+========================================
 
-    .. warning::
+Historically, Windows-focused sandbox tools required 32-bit Python runtimes. However, for Linux guests in CAPEv2, **using 32-bit Python on a 64-bit system is not required and is highly discouraged.**
 
-        For Linux guests on an Azure hypervisor, installing Python3 32-bit breaks the way that the Azure agent starts: https://docs.microsoft.com/en-us/azure/virtual-machines/extensions/agent-linux#installation.
-        So the use of the monitor is limited to what can be run with the 64-bit version of Python3. You will have to comment out the architecture check in the CAPE `agent.py` for the CAPE agent to start. To
-        reiterate, this warning is only relevant if you are using an Azure hypervisor.
+Attempting to force-install 32-bit Python (via ``dpkg --add-architecture i386`` and ``apt install python3:i386``) on a 64-bit Linux guest (e.g., Ubuntu x86_64) will swap out the native 64-bit system Python. This conflicts with core system packages and breaks the operating system, making it impossible to boot the graphical desktop/UI interface (e.g., GNOME/GDM) or use standard system utilities.
 
-x32 guests
-----------
-Install support file dependencies::
+For all modern 64-bit (x86_64) Linux guests, you should use the native, standard 64-bit Python 3.
+
+.. note::
+    Starting with Python 3.12 (default on Ubuntu 24.04 LTS and later), ``distutils`` has been completely removed from the standard library. The package ``python3-distutils`` is no longer available in package repositories and is not required by CAPEv2's guest agent or Linux analyzer. If any of your custom scripts require it, you can install ``python3-setuptools`` instead.
+
+.. note::
+    On newer Linux distributions (Debian 12+, Ubuntu 23.04+), PIP blocks system-wide package installations by default under PEP 668 to avoid corrupting OS packages. Since the guest VM is a disposable sandbox environment, you can safely bypass this warning using the ``--break-system-packages`` flag.
+
+32-bit (i386) guests
+--------------------
+Install support file dependencies using native 32-bit packages::
 
     $ sudo apt update
-    $ sudo apt install python3-pip systemtap-runtime
-    $ sudo pip3 install pyinotify
-    $ sudo pip3 install Pillow       # optional
-    $ sudo pip3 install pyscreenshot # optional
-    $ sudo pip3 install pyautogui    # optional
+    $ sudo apt install python3-pip systemtap-runtime -y
+    $ sudo pip3 install pyinotify Pillow pyscreenshot pyautogui --break-system-packages
 
-x64 guests
-----------
-Install support file dependencies (we need Python3 32-bit)::
+64-bit (x86_64 / amd64) guests
+------------------------------
+Install support file dependencies using standard native 64-bit packages::
 
-    $ sudo dpkg --add-architecture i386
     $ sudo apt update
-    $ sudo apt install python3:i386 -y
-    $ sudo apt install python3-distutils -y
-    $ sudo apt install systemtap-runtime -y
-    $ curl -sSL https://bootstrap.pypa.io/get-pip.py -o get-pip.py
-    $ sudo python3 get-pip.py
-    $ sudo python3 -m pip install pyinotify
-    $ sudo python3 -m pip install Pillow       # optional
-    $ sudo python3 -m pip install pyscreenshot # optional
-    $ sudo python3 -m pip install pyautogui    # optional
+    $ sudo apt install python3 python3-pip systemtap-runtime -y
+    $ sudo pip3 install pyinotify Pillow pyscreenshot pyautogui --break-system-packages
 
 Ensure the agent automatically starts. The easiest way is to add it to crontab::
 

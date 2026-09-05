@@ -159,6 +159,24 @@ definitions = data/trid/triddefs.trd
 enabled = no
 binary = /usr/bin/diec
 
+[magika]
+# Google Magika - deep-learning content type identification.
+# https://github.com/google/magika
+# Install: poetry run pip install -U magika
+# Main benfit is classification of text file types i.e. PowerShell, ini files etc.
+enabled = no
+# Optional path to a custom/pinned model directory. Empty = use the model
+# shipped with the installed magika package.
+model_dir =
+# high_confidence (default, most conservative) | medium_confidence | best_guess
+prediction_mode = high_confidence
+# Display-only: results scoring below this are still recorded and shown, just
+# flagged low_confidence so a weak prediction isn't read as a confident one.
+min_score = 0.5
+# Skip files larger than this (MB). 0 = no limit. Magika only reads the head,
+# middle and tail of a file, so this is cheap to raise.
+max_file_size = 100
+
 [virustotal]
 enabled = yes
 on_demand = no

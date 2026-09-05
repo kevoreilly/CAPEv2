@@ -27,6 +27,11 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+def network_rn_func(value):
+    """get basename from path"""
+    if isinstance(value, bytes):
+        value = value.decode()
+    return list(filter(None, value.split("\r\n")))
 
 class ReportHTML(Report):
     """Stores report in HTML format."""
@@ -114,6 +119,7 @@ class ReportHTML(Report):
                     "flare_capa_attck": flare_capa_attck,
                     "flare_capa_mbc": flare_capa_mbc,
                     "datefmt": datefmt,
+                    "network_rn": network_rn_func
                 }
             )
             env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))

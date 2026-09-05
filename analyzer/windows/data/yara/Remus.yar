@@ -3,7 +3,7 @@ rule Remus
     meta:
         author = "kevoreilly"
         cape_options = "bp0=$c2*-11,action0=string:rsi,count=0,typestring=Remus Config"
-        hash = "f67a176503343855c88d9aac1217277ee4e2badc5e56fe403e56ca30e144b266"
+        packed = "f67a176503343855c88d9aac1217277ee4e2badc5e56fe403e56ca30e144b266"
     strings:
         $wmi = {48 89 F9 45 31 C0 FF D0 48 83 C4 30 85 C0 0F 99 C0 66 8B [1-4] 00 66 83 E9 08 0F 94 C1 20 C8}
         $dec1 = {0F B6 04 0B 41 88 04 (0A|0B) 0F B6 44 0B 01 41 88 44 (0A|0B) 01 0F B6 44 0B 02 41 88 44 (0A|0B) 02 0F B6 44 0B 03 41 88 44 (0A|0B) 03 48 83 C1 04 49 39 C9 75 D1 90}

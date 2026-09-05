@@ -356,12 +356,16 @@ if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": _api_auth_classes,
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-        "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
-        "DEFAULT_THROTTLE_RATES": {
-            "user": api_cfg.api.default_user_ratelimit,
-            "subscription": api_cfg.api.default_subscription_ratelimit,
-        },
     }
+
+    if api_cfg.api.ratelimit:
+        REST_FRAMEWORK.update({
+            "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
+            "DEFAULT_THROTTLE_RATES": {
+                "user": api_cfg.api.default_user_ratelimit,
+                "subscription": api_cfg.api.default_subscription_ratelimit,
+            },
+        })
 
 else:
     REST_FRAMEWORK = {
@@ -533,3 +537,12 @@ except NameError:
 from lib.cuckoo.core.database import init_database
 
 init_database()
+
+# Prevent Django's auto-reloader from watching/reloading when files inside workers/ folder change
+from django.dispatch import receiver
+from django.utils.autoreload import file_changed
+
+@receiver(file_changed)
+def ignore_workers_changes(sender, file_path, **kwargs):
+    if "/workers/" in str(file_path).replace("\\", "/"):
+        return True

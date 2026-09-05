@@ -4,13 +4,14 @@
 
 import contextlib
 from typing import Dict
-
 from lib.cuckoo.common.config import Config
 
 repconf = Config("reporting")
 
+mongo_find_one = None
 if repconf.mongodb.enabled:
     from dev_utils.mongodb import mongo_find_one
+
 
 if repconf.elasticsearchdb.enabled:
     from dev_utils.elasticsearchdb import get_analysis_index, get_calls_index, get_query_by_info_id
@@ -84,6 +85,8 @@ def helper_percentages_mongo(tid1, tid2, ignore_categories: set = None, filter1=
 
 
 def helper_summary_mongo(tid1, tid2, filter1=None, filter2=None):
+    if not mongo_find_one:
+        return {}
     # filter1/filter2: caller-supplied central-mode-scoped filters (see helper_percentages_mongo); None
     # -> bare {info.id}. Prevents a colliding tenant doc leaking its behavior.summary into compare/both.
     left_sum, right_sum = None, None
@@ -143,5 +146,51 @@ def get_similar_summary(left_sum, right_sum):
                 if summary not in list(ret.keys()):
                     ret[summary] = []
                 ret[summary].append(item)
+
+    return ret
+
+
+def helper_different_summary_mongo(tid1, tid2, filter1=None, filter2=None):
+    if not mongo_find_one:
+        return {}
+    left_sum, right_sum = None, None
+    left_sum = mongo_find_one("analysis", filter1 or {"info.id": int(tid1)}, {"behavior.summary": 1})
+    right_sum = mongo_find_one("analysis", filter2 or {"info.id": int(tid2)}, {"behavior.summary": 1})
+    return get_different_summary(left_sum, right_sum) if left_sum and right_sum else {}
+
+
+def helper_different_summary_elastic(es_obj, tid1, tid2):
+    left_sum, right_sum = None, None
+    buf = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid1))["hits"]["hits"]
+    if buf:
+        left_sum = buf[-1]["_source"]
+
+    buf = es_obj.search(index=get_analysis_index(), query=get_query_by_info_id(tid2))["hits"]["hits"]
+    if buf:
+        right_sum = buf[-1]["_source"]
+
+    return get_different_summary(left_sum, right_sum) if left_sum and right_sum else {}
+
+
+def get_different_summary(left_sum, right_sum):
+    ret = {}
+
+    left_behavior = left_sum.get("behavior", {}) or {}
+    left_summary_dict = left_behavior.get("summary", {}) or {}
+
+    right_behavior = right_sum.get("behavior", {}) or {}
+    right_summary_dict = right_behavior.get("summary", {}) or {}
+
+    for summary, left_items in left_summary_dict.items():
+        right_items = set(right_summary_dict.get(summary, []))
+        for item in left_items:
+            if item not in right_items:
+                ret.setdefault(summary, {}).setdefault("left_only", []).append(item)
+
+    for summary, right_items in right_summary_dict.items():
+        left_items = set(left_summary_dict.get(summary, []))
+        for item in right_items:
+            if item not in left_items:
+                ret.setdefault(summary, {}).setdefault("right_only", []).append(item)
 
     return ret

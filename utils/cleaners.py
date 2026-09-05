@@ -20,6 +20,7 @@ if __name__ == "__main__":
         "--clean", help="Remove all tasks and samples and their associated data", action="store_true", required=False
     )
     parser.add_argument("--failed-clean", help="Remove all tasks marked as failed", action="store_true", required=False)
+    parser.add_argument("--banned-clean", help="Remove all tasks marked as banned", action="store_true", required=False)
     parser.add_argument(
         "--failed-url-clean",
         help="Remove all tasks that are url tasks but we don't have any HTTP traffic",
@@ -102,6 +103,14 @@ if __name__ == "__main__":
         help="Pull out task(s) id lower than X from files collection",
         action="store",
         required=False,
+        type=int,
+    )
+
+    parser.add_argument(
+        "--db-batch-size",
+        help="Batch size for database deletions (MongoDB and SQL). Default is 1000",
+        required=False,
+        default=1000,
         type=int,
     )
 

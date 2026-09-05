@@ -972,13 +972,32 @@ def download_file(**kwargs):
     if not kwargs.get("task_machines", []):
         kwargs["task_machines"] = [None]
 
+    generic_demux = False
     if DYNAMIC_PLATFORM_DETERMINATION:
-        platform = File(kwargs["path"]).get_platform()
+        check_shellcode = "check_shellcode=0" not in kwargs["options"]
+        path_bytes = kwargs["path"] if isinstance(kwargs["path"], bytes) else kwargs["path"].encode()
+        _, _, generic_demux = db.identify_submission_package(
+            path_bytes,
+            package,
+            check_shellcode=check_shellcode,
+        )
+
+        # file= intentionally submits the container to the guest-side package.
+        if "file=" in kwargs["options"]:
+            generic_demux = False
+
+        platform = "" if generic_demux else File(kwargs["path"]).get_platform()
     if platform == "linux" and not linux_enabled and "Python" not in magic_type:
         return "error", {"error": "Linux binaries analysis isn't enabled"}
 
     if machine.lower() == "all":
-        kwargs["task_machines"] = [vm.label for vm in db.list_machines(platform=platform)]
+        if generic_demux:
+            # Preserve the user's intent until demux determines the platform.
+            kwargs["task_machines"] = ["all"]
+        else:
+            kwargs["task_machines"] = [
+                vm.label for vm in db.list_machines(platform=platform)
+            ]
     elif machine:
         machine_details = db.view_machine(machine)
         if platform and hasattr(machine_details, "platform") and not machine_details.platform == platform:
@@ -1344,6 +1363,7 @@ search_term_map_repetetive_blocks = {
     "crc32": "crc32",
     "die": "die",
     "trid": "trid",
+    "magika": "magika.label",
     "imphash": "imphash",
 }
 
@@ -1506,6 +1526,8 @@ def perform_search(
         query_val = {"$gte": float(value)}
     else:
         if re.search(r"[\^\$\|\?\*\+\(\)\[\]\{\}]", value):
+            if len(value) > 256:
+                raise ValueError("Regex too long")
             query_val = {"$regex": value, "$options": "i"}
         else:
             query_val = value
@@ -1541,6 +1563,8 @@ def perform_search(
                 # Join with the analysis collection
                 {"$lookup": {"from": "analysis", "localField": "_id", "foreignField": "info.id", "as": "task_doc"}},
                 {"$unwind": "$task_doc"},
+                # Stage 8: Make the task doc the new root (type check to prevent $replaceRoot crashes)
+                {"$match": {"task_doc": {"$type": "object"}}},
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
 

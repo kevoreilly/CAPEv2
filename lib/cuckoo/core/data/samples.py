@@ -474,6 +474,10 @@ class SamplesMixIn:
 
     def get_parent_sample_from_task(self, task_id: int) -> Optional[Sample]:
         """Finds the Parent Sample using the ID of the child's Task."""
+        try:
+            task_id = int(task_id)
+        except (TypeError, ValueError):
+            return None
 
         # This query joins the Sample table (as the parent) to the
         # association object and filters by the task_id.

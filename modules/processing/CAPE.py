@@ -249,6 +249,12 @@ class CAPE(Processing):
 
         if "type" not in file_info:
             file_info["type"] = f.get_type()
+        # `file_info` can come straight from the mongo file cache, which may
+        # predate magika being enabled (or a model change). Backfill it.
+        if processing_conf.magika.enabled and "magika" not in file_info:
+            magika_result = f.get_magika()
+            if magika_result:
+                file_info["magika"] = magika_result
         if "name" not in file_info:
             file_info["name"] = f.get_name()
         if "guest_paths" not in file_info:
@@ -460,6 +466,17 @@ class CAPE(Processing):
                 # Don't let a clamav prefetch error block analysis — the
                 # legacy serial fallback inside get_clamav() still works.
                 log.debug("clamav prefetch failed", exc_info=True)
+
+        # Same lifecycle contract as the clamav cache: drop per-path magika
+        # results at the task boundary so a long-lived worker can't serve a
+        # stale prediction for a path that has been reused by another task.
+        if processing_conf.magika.enabled:
+            try:
+                from lib.cuckoo.common.integrations.magika import clear_magika_cache
+
+                clear_magika_cache()
+            except Exception:
+                log.debug("magika cache clear failed", exc_info=True)
 
         #  Static processing of submitted file
         if self.task["category"] in ("file", "static"):

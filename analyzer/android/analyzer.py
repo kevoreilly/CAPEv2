@@ -310,7 +310,7 @@ if __name__ == "__main__":
     finally:
         try:
             data = {
-                "status": "complete",
+                "status": "failed" if error else "complete",
                 "description": success,
             }
             with urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()) as response:

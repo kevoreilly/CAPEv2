@@ -594,12 +594,16 @@ class TasksMixIn:
             else:
                 # Checking original file as some filetypes doesn't require demux
                 package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)
-                if package == "apk" and not platform:
-                    # package alone doesn't constrain machine selection --
-                    # find_machine_to_service_task() filters on task.platform
-                    # separately, and an unset platform matches any machine,
-                    # not just Android ones.
-                    platform = "android"
+
+        # Explicit --package apk still needs this: the block above is skipped
+        # when the caller already set package, and find_machine_to_service_task()
+        # filters on task.platform independently of task.package.
+        if package == "apk" and not platform:
+            # package alone doesn't constrain machine selection --
+            # find_machine_to_service_task() filters on task.platform
+            # separately, and an unset platform matches any machine,
+            # not just Android ones.
+            platform = "android"
 
         parent_sample = None
         # extract files from the (potential) archive
@@ -676,6 +680,11 @@ class TasksMixIn:
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
+
+                # extracted_files unpacks `platform`, which shadows the outer
+                # assignment. Re-pin APKs identified in this loop (archives).
+                if package == "apk" and not platform:
+                    platform = "android"
 
                 if package == "dll" and "function" not in options:
                     with PortableExecutable(file.decode()) as pe:

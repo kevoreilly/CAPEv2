@@ -97,9 +97,48 @@ Submit a sample::
     python utils/submit.py /path/to/sample.apk
     python utils/submit.py --package apk /path/to/sample.apk
 
-Out of scope here
-=================
+Architecture follow-ups (not this slice)
+========================================
 
-ARM APKs, Android Studio AVDs, eBPF, VNC/user interaction, and Frida are not
-part of this guest image. This slice is install / launch / process lifetime on
-x86_64 KVM.
+These are real product questions. They are **later machine types or later
+PRs**, not a rewrite of install / launch / process lifetime.
+
+ARM APKs and phone-like AVDs
+----------------------------
+
+Not tested. This guest is Android-x86 **x86_64** because it sits next to the
+Windows KVM domain: libvirt snapshot revert, ``agent.py`` on port 8000, and
+``platform=android`` in the machines table.
+
+x86 Android is a poor stand-in for a modern phone. The long-term shape is extra
+machine types (ARM64 AVD or a phone-like image), not a second analyzer tree.
+``analyzer/android`` can stay; ``kvm.conf`` / qemu machinery grows ``arch`` and
+network. Play APKs that ship only ``armeabi-v7a`` / ``arm64-v8a`` native libs
+will miss those ``.so`` files on this x86_64 guest (Java still runs).
+
+eBPF and detection bypass
+-------------------------
+
+Not in this PR. Linux CAPE already has a first-cut capture path (Tracee →
+``results["tracee"]``, no signatures). Android eBPF on a 4.19 Android-x86
+kernel is a different stack, and Magisk-style hide / bypass is image hardening,
+not the analyzer. Dynamic events on Android are a parallel Frida-capture track,
+not eBPF in this slice.
+
+User interaction / VNC
+----------------------
+
+This slice launches with ``monkey`` on the LAUNCHER activity. There is no CAPE
+web VNC (no Guacamole-style guest desktop). Operators can already attach
+``virt-manager`` / spice / VNC to the libvirt domain for debugging. Exposing
+that as a user-facing analysis feature is a later product decision.
+
+Root detectors (for example RootBeer)
+-------------------------------------
+
+This image is **userdebug with ``su``**; the agent runs as ``uid=0``. Root
+detectors are expected to report rooted. That is honest for this guest, not a
+failed analysis. A live ``scottyab/rootbeer`` sample run belongs in the PR
+thread (report + guest log), not in git. Native-only ARM checks may be a no-op
+on x86_64; Java checks (``su`` on ``PATH``, test-keys, dangerous packages)
+should still fire.

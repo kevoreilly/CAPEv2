@@ -204,7 +204,10 @@ class Analyzer:
 
         time_counter = 0
         complete_folder = hashlib.md5(f"cape-{self.config.id}".encode()).hexdigest()
-        complete_analysis_pattern = os.path.join(PATHS["root"], complete_folder)
+        # Must match the shared TMPDIR the host's stop-task API writes the
+        # marker into (web/apiv2/views.py), not PATHS["root"] -- that's a
+        # random per-run subdirectory the host has no way to address.
+        complete_analysis_pattern = os.path.join(os.environ.get("TMPDIR", "/data/local/tmp"), complete_folder)
         while True:
             time_counter += 1
             if time_counter > int(self.config.timeout):
@@ -314,3 +317,9 @@ if __name__ == "__main__":
                 response.read()
         except Exception as e:
             print(e)
+
+    # Without this, the process always exits 0, and agent.py's
+    # get_subprocess_status() (polled by the host via /execpy) reports every
+    # analysis -- including ones that crashed above -- as Status.COMPLETE.
+    # There is no other success/failure signal the host can see.
+    sys.exit(0 if not error else 1)

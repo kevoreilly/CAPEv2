@@ -168,6 +168,7 @@ class File:
     # ToDo python can be executed on windows too
     LINUX_TYPES = {"Bourne-Again", "POSIX shell script", "ELF"}  # , "Python"
     DARWIN_TYPES = {"Mach-O"}
+    ANDROID_TYPES = {"Android package (APK)"}
 
     # The yara rules should not change during one Cuckoo run and as such we're
     # caching 'em. This dictionary is filled during init_yara().
@@ -855,6 +856,8 @@ class File:
                 retval = "linux"
             elif any(x in ftype for x in File.DARWIN_TYPES):
                 retval = "darwin"
+            elif any(x in ftype for x in File.ANDROID_TYPES):
+                retval = "android"
         return retval
 
     def predict_arch(self):

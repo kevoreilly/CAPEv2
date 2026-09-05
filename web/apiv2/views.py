@@ -1564,6 +1564,8 @@ def tasks_status(request, task_id):
                     dest_folder = f"{guest_env['environ']['TMP']}\\{complete_folder}"
                 elif machine.platform == "linux":
                     dest_folder = f"{guest_env['environ'].get('TMP', '/tmp')}/{complete_folder}"
+                elif machine.platform == "android":
+                    dest_folder = f"{guest_env['environ'].get('TMPDIR', '/data/local/tmp')}/{complete_folder}"
                 r = requests.post(f"http://{machine.ip}:8000/mkdir", data={"dirpath": dest_folder})
                 resp = {"error": r.status_code == 200, "data": r.text}
             except requests.exceptions.ConnectionError as e:

@@ -28,6 +28,38 @@ import requests
 
 requests.packages.urllib3.disable_warnings()
 
+import socket
+import ipaddress
+
+def validate_url(url):
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"Invalid URL scheme: {parsed.scheme}")
+    
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("Invalid URL hostname")
+    
+    try:
+        # Get all IPs for this hostname
+        for res in socket.getaddrinfo(hostname, None):
+            ip = res[4][0]
+            ip_obj = ipaddress.ip_address(ip)
+            if ip_obj.is_loopback or ip_obj.is_link_local or ip_obj.is_multicast or ip_obj.is_unspecified:
+                raise ValueError(f"SSRF Prevention: Invalid IP address associated with hostname: {ip}")
+    except socket.gaierror:
+        pass
+
+def safe_request_get(url, *args, **kwargs):
+    validate_url(url)
+    kwargs.setdefault("allow_redirects", False)
+    return requests.get(url, *args, **kwargs)
+
+def safe_request_post(url, *args, **kwargs):
+    validate_url(url)
+    kwargs.setdefault("allow_redirects", False)
+    return requests.post(url, *args, **kwargs)
+
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
@@ -220,7 +252,7 @@ def node_status(url: str, name: str, apikey: str) -> dict:
             an empty dictionary is returned.
     """
     try:
-        r = requests.get(
+        r = safe_request_get(
             os.path.join(url, "cuckoo", "status/"), headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=5
         )
         return r.json().get("data", {})
@@ -248,7 +280,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         params = dict(status=status, ids=True)
         if action == "fetch":
             params["completed_after"] = since
-        r = requests.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False)
+        r = safe_request_get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False)
         if not r.ok:
             log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
             _ = path_write_file("/tmp/dist_error.html", r.content)
@@ -275,7 +307,7 @@ def node_list_machines(url, apikey):
         HTTPException: If the request to the CAPE node fails or returns an error.
     """
     try:
-        r = requests.get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
+        r = safe_request_get(urljoin(url, "machines/list/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for machine in r.json()["data"]:
             yield Machine(name=machine["name"], platform=machine["platform"], tags=machine["tags"])
     except Exception as e:
@@ -297,7 +329,7 @@ def node_list_exitnodes(url, apikey):
         HTTPException: If the request fails or the response is invalid.
     """
     try:
-        r = requests.get(urljoin(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
+        r = safe_request_get(urljoin(url, "exitnodes/"), headers={"Authorization": f"Token {apikey}"}, verify=False)
         for exitnode in r.json()["data"]:
             yield exitnode
     except Exception as e:
@@ -412,7 +444,7 @@ def _delete_many(node, ids, nodes, db):
             log.info("[REMOVE] %-15s ==> CAPE ID: %s (Worker ID: %s)", nodes[node].name, ",".join(map(str, cape_ids)), ids)
         else:
             log.info("[REMOVE] %-15s ==> Worker ID: %s", nodes[node].name, ids)
-        res = requests.post(
+        res = safe_request_post(
             url,
             headers={"Authorization": f"Token {apikey}"},
             data={"ids": ids, "delete_mongo": False},
@@ -547,7 +579,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             try:
                 # Use context manager for file
                 with open(task.path, "rb") as f:
-                    r = requests.post(
+                    r = safe_request_post(
                         url,
                         data=data,
                         files={"file": f},
@@ -571,7 +603,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         elif task.category == "url":
             url = urljoin(node.url, "tasks/create/url/")
             try:
-                r = requests.post(
+                r = safe_request_post(
                     url,
                     data={"url": task.path, "options": task.options},
                     headers={"Authorization": f"Token {apikey}"},
@@ -587,7 +619,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             url = urljoin(node.url, "tasks/create/static/")
             try:
                 with open(task.path, "rb") as f:
-                    r = requests.post(
+                    r = safe_request_post(
                         url,
                         data=data,
                         files={"file": f},
@@ -609,7 +641,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
         # encoding problem
         if r is not None and r.status_code == 500 and task.category == "file":
             with open(task.path, "rb") as f:
-                r = requests.post(url, data=data, files={"file": ("file", f.read())}, verify=False)
+                r = safe_request_post(url, data=data, files={"file": ("file", f.read())}, verify=False)
 
         # Zip files preprocessed, so only one id
         if r is not None and r.status_code == 200:
@@ -1843,6 +1875,22 @@ def cron_cleaner(clean_x_hours=False):
 
 def create_app(database_connection):
     from pydantic import BaseModel
+    from fastapi import APIRouter, Depends, HTTPException, Security
+    from fastapi.security import APIKeyHeader
+
+    AUTH_TOKEN = dist_conf.distributed.get("auth_token")
+    AUTH_ENABLED = dist_conf.distributed.get("enable_api_auth", True) if AUTH_TOKEN else False
+
+    api_key_header = APIKeyHeader(name="X-API-Token", auto_error=False)
+
+    def verify_auth_token(api_key: str = Security(api_key_header)):
+        if AUTH_ENABLED and api_key != AUTH_TOKEN:
+            raise HTTPException(status_code=401, detail="Invalid or missing auth token")
+        return True
+
+    auth_deps = [Depends(verify_auth_token)] if AUTH_ENABLED else []
+    app = FastAPI(title="Distributed CAPE")
+    secure_router = APIRouter(dependencies=auth_deps)
 
     class NodeRegister(BaseModel):
         name: str
@@ -1856,9 +1904,7 @@ def create_app(database_connection):
         exitnodes: Optional[bool] = None
         enabled: Optional[bool] = None
 
-    app = FastAPI(title="Distributed CAPE")
-
-    @app.get("/node")
+    @secure_router.get("/node")
     def get_nodes():
         nodes = {}
         with session() as db:
@@ -1880,7 +1926,7 @@ def create_app(database_connection):
                 )
         return dict(nodes=nodes)
 
-    @app.post("/node")
+    @secure_router.post("/node")
     def post_node(payload: NodeRegister):
         with session() as db:
             node_exist = False
@@ -1927,7 +1973,7 @@ def create_app(database_connection):
 
         return dict(name=payload.name, machines=machines, exitnodes=exitnodes)
 
-    @app.get("/node/{name}")
+    @secure_router.get("/node/{name}")
     def get_node(name: str):
         with session() as db:
             node = db.scalar(select(Node).where(Node.name == name))
@@ -1935,7 +1981,7 @@ def create_app(database_connection):
                 raise HTTPException(status_code=404, detail="Node doesn't exist")
             return dict(name=node.name, url=node.url)
 
-    @app.put("/node/{name}")
+    @secure_router.put("/node/{name}")
     def put_node(name: str, payload: NodeUpdate):
         with session() as db:
             node = db.scalar(select(Node).where(Node.name == name))
@@ -1965,7 +2011,7 @@ def create_app(database_connection):
             db.commit()
         return dict(error=False, error_value=f"Successfully modified node: {name}")
 
-    @app.delete("/node/{name}")
+    @secure_router.delete("/node/{name}")
     def delete_node(name: str):
         with session() as db:
             node = db.scalar(select(Node).where(Node.name == name))
@@ -1991,7 +2037,7 @@ def create_app(database_connection):
             }
         return {"nodes": STATUSES, "tasks": tasks_counts}
 
-    @app.get("/task/{main_task_id}")
+    @secure_router.get("/task/{main_task_id}")
     def get_task_info(main_task_id: int):
         response = {"status": 0}
         with session() as db:
@@ -2004,6 +2050,7 @@ def create_app(database_connection):
                 response = {"status": "pending"}
         return response
 
+    app.include_router(secure_router)
     return app
 
 

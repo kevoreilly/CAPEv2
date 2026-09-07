@@ -1,5 +1,7 @@
 [distributed]
+# Authentication token for Distributed CAPE Daemon API
 enabled = no
+auth_token =
 # Only save reports without analyze samples
 master_storage_only = no
 remove_task_on_worker = no

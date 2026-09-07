@@ -1,12 +1,38 @@
 import os
 import threading
 import unittest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, mock_open, patch
 
 from lib.api.process import Process
 
 
 class ProcessTests(unittest.TestCase):
+    @patch("lib.api.process.LogServer")
+    @patch("builtins.open", new_callable=mock_open)
+    def test_monitor_config_advertises_loaded_process_identity(self, mocked_open, _mocked_logserver):
+        process = Process(
+            options={
+                "loaded-process-identity": 0,
+                "norefer": 1,
+                "unsafe": "value\nloaded-process-identity=0",
+            },
+            config=MagicMock(ip="192.0.2.1", port=2042),
+            pid=4242,
+        )
+        old_process_num = Process.process_num
+        try:
+            Process.process_num = 0
+            with patch.dict("lib.api.process.LOGSERVER_POOL", {}, clear=True):
+                process.write_monitor_config(interest=r"C:\sample.exe")
+        finally:
+            Process.process_num = old_process_num
+
+        config_text = "".join(call.args[0] for call in mocked_open().write.call_args_list)
+        assert config_text.count("loaded-process-identity=1\n") == 1
+        assert "loaded-process-identity=0\n" not in config_text
+        assert "unsafe=" not in config_text
+        assert config_text.endswith("loaded-process-identity=1\n")
+
     @patch("lib.api.process.PSAPI", MagicMock(), create=True)
     def test_unknown_image_name(self):
         process = Process()

@@ -872,6 +872,7 @@ class Process:
                 "dll_64",
                 "loader",
                 "loader_64",
+                "loaded-process-identity",
                 "route",
                 "nohuman",
                 "main_task_id",
@@ -887,8 +888,15 @@ class Process:
 
             for optname, option in self.options.items():
                 if optname not in server_options:
+                    if any(char in f"{optname}{option}" for char in "\r\n"):
+                        log.warning("Option '%s' contains a line break and was not sent to monitor", optname)
+                        continue
                     config.write(f"{optname}={option}\n")
                     log.info("Option '%s' with value '%s' sent to monitor", optname, option)
+
+            # Analyzer-owned protocol capabilities must remain last so task
+            # options cannot override them, even if option handling changes.
+            config.write("loaded-process-identity=1\n")
 
     def inject(self, interest=None, nosleepskip=False):
         """Cuckoo DLL injection.

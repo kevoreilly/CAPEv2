@@ -15,6 +15,7 @@ class ProcessTests(unittest.TestCase):
                 "loaded-process-identity": 0,
                 "norefer": 1,
                 "unsafe": "value\nloaded-process-identity=0",
+                "eof": "value\x1aloaded-process-identity=0",
             },
             config=MagicMock(ip="192.0.2.1", port=2042),
             pid=4242,
@@ -31,6 +32,7 @@ class ProcessTests(unittest.TestCase):
         assert config_text.count("loaded-process-identity=1\n") == 1
         assert "loaded-process-identity=0\n" not in config_text
         assert "unsafe=" not in config_text
+        assert "eof=" not in config_text
         assert config_text.endswith("loaded-process-identity=1\n")
 
     @patch("lib.api.process.PSAPI", MagicMock(), create=True)

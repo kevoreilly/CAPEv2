@@ -888,8 +888,9 @@ class Process:
 
             for optname, option in self.options.items():
                 if optname not in server_options:
-                    if any(char in f"{optname}{option}" for char in "\r\n"):
-                        log.warning("Option '%s' contains a line break and was not sent to monitor", optname)
+                    option_text = f"{optname}{option}"
+                    if any(ord(char) < 0x20 or ord(char) == 0x7F for char in option_text):
+                        log.warning("Option '%s' contains a control character and was not sent to monitor", optname)
                         continue
                     config.write(f"{optname}={option}\n")
                     log.info("Option '%s' with value '%s' sent to monitor", optname, option)

@@ -1,10 +1,119 @@
 <section id="usage" class="mb-4">
     <div class="card bg-dark border-secondary">
-        <div class="card-header border-secondary">
-            <h5 class="mb-0 text-white"><i class="fas fa-chart-pie me-2 text-info"></i> Resource Usage</h5>
+        <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+            <h5 class="mb-0 text-white"><i class="fas fa-chart-line me-2 text-info"></i> Resource Usage</h5>
+            <small class="text-white-50">Timeline of CPU and Memory usage</small>
         </div>
-        <div class="card-body text-center">
-            <img src="{% url "file" "usage" analysis.info.id "0" %}" class="img-fluid rounded border border-secondary" style="max-height: 250px;" alt="Resource Usage Chart"/>
+        <div class="card-body p-0">
+            <div id="usage-chart" style="min-height: 250px;"></div>
         </div>
     </div>
 </section>
+
+{% if analysis.usage.cpu_usage or analysis.usage.mem_usage %}
+<script>
+$(document).ready(function() {
+    var options = {
+        series: [{
+            name: 'CPU Usage',
+            data: {{ analysis.usage.cpu_usage|default:"[]" }}
+        }, {
+            name: 'Memory Usage',
+            data: {{ analysis.usage.mem_usage|default:"[]" }}
+        }],
+        chart: {
+            height: 250,
+            type: 'area',
+            background: 'transparent',
+            foreColor: '#ccc',
+            toolbar: {
+                show: true,
+                tools: {
+                    download: true,
+                    selection: true,
+                    zoom: true,
+                    zoomin: true,
+                    zoomout: true,
+                    pan: true,
+                }
+            },
+            animations: {
+                enabled: true,
+                easing: 'easeinout',
+                speed: 800,
+                animateGradually: {
+                    enabled: true,
+                    delay: 150
+                },
+                dynamicAnimation: {
+                    enabled: true,
+                    speed: 350
+                }
+            }
+        },
+        colors: ['#00E396', '#FEB019'],
+        dataLabels: {
+            enabled: false
+        },
+        stroke: {
+            curve: 'smooth',
+            width: 2
+        },
+        fill: {
+            type: 'gradient',
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.4,
+                opacityTo: 0.1,
+                stops: [0, 90, 100]
+            }
+        },
+        grid: {
+            borderColor: '#333',
+            xaxis: {
+                lines: {
+                    show: false
+                }
+            }
+        },
+        xaxis: {
+            labels: {
+                show: false
+            },
+            axisBorder: {
+                show: false
+            },
+            axisTicks: {
+                show: false
+            },
+            tooltip: {
+                enabled: false
+            }
+        },
+        yaxis: {
+            min: 0,
+            max: 100,
+            tickAmount: 4,
+            labels: {
+                formatter: function (val) {
+                    return val.toFixed(0) + "%";
+                }
+            }
+        },
+        tooltip: {
+            theme: 'dark',
+            x: {
+                show: false
+            }
+        },
+        legend: {
+            position: 'top',
+            horizontalAlign: 'right'
+        }
+    };
+
+    var chart = new ApexCharts(document.querySelector("#usage-chart"), options);
+    chart.render();
+});
+</script>
+{% endif %}

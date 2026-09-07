@@ -12,6 +12,7 @@ def viewer_for(user) -> Viewer:
     crosses tenants; when off, only IdP-provisioned superusers (those with a
     linked allauth SocialAccount) do — a local createsuperuser does not.
     """
+    from django.conf import settings
     cfg = multitenancy_config()
     is_super = bool(getattr(user, "is_superuser", False))
     if not cfg.enabled:
@@ -23,8 +24,9 @@ def viewer_for(user) -> Viewer:
         # is_authenticated check, or anonymous requests on a disabled install get
         # is_local_admin=False and every can_read/visible_to guard denies the
         # private-default tasks upstream served (back-compat regression).
+        is_local = not getattr(settings, "WEB_AUTHENTICATION", False) or is_super or bool(getattr(user, "is_staff", False))
         return Viewer(user_id=getattr(user, "id", None), tenant_id=None, is_superuser=is_super,
-                      is_tenant_admin=False, is_local_admin=True)
+                      is_tenant_admin=False, is_local_admin=is_local)
 
     if not getattr(user, "is_authenticated", False):
         # MT enabled: an anonymous request stays public-only (no break-glass).
@@ -63,10 +65,14 @@ def viewer_for(user) -> Viewer:
 
 
 def _job_for(task) -> Job:
+    cfg = multitenancy_config()
+    visibility = getattr(task, "visibility", "private")
+    if not cfg.enabled and getattr(task, "user_id", None) is None:
+        visibility = "public"
     return Job(
         owner_id=getattr(task, "user_id", None),
         tenant_id=getattr(task, "tenant_id", None),
-        visibility=getattr(task, "visibility", "private"),
+        visibility=visibility,
     )
 
 

@@ -159,6 +159,54 @@ def test_disabled_anonymous_is_backcompat_see_all(monkeypatch):
 
 
 @pytest.mark.django_db
+def test_disabled_auth_enabled_enforces_ownership(monkeypatch, settings):
+    """If multitenancy is OFF but WEB_AUTHENTICATION is ON, non-staff users
+    should be denied access to other users' private tasks, but can access
+    legacy/ownerless tasks."""
+    from lib.cuckoo.common.tenancy import MTConfig
+    from users.tenancy import can_view_task, can_manage_task, can_delete_task, viewer_for
+    import users.tenancy as ut
+
+    monkeypatch.setattr(ut, "multitenancy_config", lambda: MTConfig(False, "shared", "", True))
+    settings.WEB_AUTHENTICATION = True
+
+    owner = User.objects.create_user("owner", "owner@x.com", "x")
+    nonowner = User.objects.create_user("nonowner", "nonowner@x.com", "x")
+    staff = User.objects.create_user("staff", "staff@x.com", "x")
+    staff.is_staff = True
+
+    class PrivateOwnedTask:
+        user_id = owner.id
+        tenant_id = None
+        visibility = "private"
+
+    class LegacyTask:
+        user_id = None
+        tenant_id = None
+        visibility = "private"
+
+    # Owner can view, manage, delete
+    assert can_view_task(owner, PrivateOwnedTask()) is True
+    assert can_manage_task(owner, PrivateOwnedTask()) is True
+    assert can_delete_task(owner, PrivateOwnedTask()) is True
+
+    # Staff can view, manage, delete
+    assert can_view_task(staff, PrivateOwnedTask()) is True
+    assert can_manage_task(staff, PrivateOwnedTask()) is True
+    assert can_delete_task(staff, PrivateOwnedTask()) is True
+
+    # Non-owner can NOT view, manage, or delete another user's task
+    assert can_view_task(nonowner, PrivateOwnedTask()) is False
+    assert can_manage_task(nonowner, PrivateOwnedTask()) is False
+    assert can_delete_task(nonowner, PrivateOwnedTask()) is False
+
+    # Non-owner CAN view, manage, and delete legacy (ownerless) task
+    assert can_view_task(nonowner, LegacyTask()) is True
+    assert can_manage_task(nonowner, LegacyTask()) is True
+    assert can_delete_task(nonowner, LegacyTask()) is True
+
+
+@pytest.mark.django_db
 def test_enabled_anonymous_stays_public_only(monkeypatch):
     """Counterpart to B0: when MT is ENABLED (locked), an anonymous viewer must
     remain public-only — the disabled short-circuit must NOT leak into enabled

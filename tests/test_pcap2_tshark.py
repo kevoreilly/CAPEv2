@@ -1,7 +1,5 @@
-import os
 import unittest
 from unittest.mock import patch, MagicMock
-import binascii
 from modules.processing.network import Pcap2
 
 class TestPcap2Tshark(unittest.TestCase):
@@ -19,7 +17,7 @@ class TestPcap2Tshark(unittest.TestCase):
     def test_pcap2_http_parsing(self, mock_run, mock_mkdir, mock_exists):
         # Setup mocks
         mock_exists.side_effect = lambda path: path == "mock.pcap" or path == "mock_network_dir"
-        
+
         # Mock tshark JSON output
         mock_tshark_json = [
             {
@@ -54,7 +52,7 @@ class TestPcap2Tshark(unittest.TestCase):
                 }
             }
         ]
-        
+
         import json
         mock_process = MagicMock()
         mock_process.stdout = json.dumps(mock_tshark_json).encode()
@@ -66,7 +64,7 @@ class TestPcap2Tshark(unittest.TestCase):
         # Assertions
         self.assertIn("https_ex", results)
         self.assertEqual(len(results["https_ex"]), 1)
-        
+
         flow = results["https_ex"][0]
         self.assertEqual(flow["src"], "192.168.1.10")
         self.assertEqual(flow["sport"], 12345)

@@ -11,10 +11,10 @@ class TestPcap2Tshark(unittest.TestCase):
         }
 
     @patch("subprocess.run")
-    @patch("modules.processing.network.path_mkdir")
-    @patch("modules.processing.network.path_exists")
-    @patch("modules.processing.network.path_delete")
-    @patch("modules.processing.network.path_write_file")
+    @patch("lib.cuckoo.common.path_utils.path_mkdir")
+    @patch("lib.cuckoo.common.path_utils.path_exists")
+    @patch("lib.cuckoo.common.path_utils.path_delete")
+    @patch("lib.cuckoo.common.path_utils.path_write_file")
     def test_pcap2_http_parsing(self, mock_write_file, mock_delete, mock_exists, mock_mkdir, mock_run):
         # Setup mocks first
         print("Setting up mocks...")

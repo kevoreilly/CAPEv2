@@ -24,6 +24,11 @@ class TestPcap2Tshark(unittest.TestCase):
         # Setup mocks
         mock_exists.side_effect = lambda path: True  # All paths exist
 
+        # Verify mocks are working
+        import modules.processing.network as net_module
+        print(f"enabled_passlist: {net_module.enabled_passlist}")
+        print(f"path_exists mock: {net_module.path_exists}")
+
         # Mock tshark JSON output
         mock_tshark_json = [
             {
@@ -53,7 +58,7 @@ class TestPcap2Tshark(unittest.TestCase):
                         "frame.time_epoch": ["1786193741.150"],
                         "http.response.code": ["200"],
                         "http.response.line": ["HTTP/1.1 200 OK\r\n", "Content-Type: text/html\r\n"],
-                        "http.file_data_raw": "4d5a900003000000"  # MZ header in hex
+                        "http.file_data_raw": ["4d5a900003000000"]  # MZ header in hex
                     }
                 }
             }
@@ -66,7 +71,16 @@ class TestPcap2Tshark(unittest.TestCase):
         mock_run.return_value = mock_process
 
         # Run Pcap2
-        results = self.pcap2.run()
+        try:
+            results = self.pcap2.run()
+            print(f"Results: {results}")
+            print(f"Mock run called: {mock_run.called}")
+            print(f"Mock run call count: {mock_run.call_count}")
+        except Exception as e:
+            print(f"Exception: {e}")
+            import traceback
+            traceback.print_exc()
+            raise
 
         # Assertions
         self.assertIn("https_ex", results)

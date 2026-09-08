@@ -95,6 +95,15 @@ maco = ["maco"]
 gcp = ["google-cloud-storage", "google-cloud-pubsub"]
 yara = ["plyara"]
 mcp = ["fastmcp", "httpx"]
+azure = [
+    "azure-identity",
+    "msrest",
+    "msrestazure",
+    "azure-mgmt-compute",
+    "azure-mgmt-network",
+    "azure-mgmt-storage",
+    "azure-storage-blob",
+]
 dist = [
     "fastapi",
 ]

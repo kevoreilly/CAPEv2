@@ -2,6 +2,8 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import os
+
 from lib.common.abstracts import Package
 from lib.common.common import check_file_extension
 from lib.common.constants import OPT_ARGUMENTS
@@ -23,6 +25,13 @@ class Python(Package):
             python = self.get_path_glob("python.exe")
         except CuckooPackageError:
             python = self.get_path_glob("py.exe")
+
+        # Set PYTHONHOME to help Python locate its standard library during initialization.
+        # Python may fail to load the 'encodings' module, resulting in: 
+        #       "ModuleNotFoundError: No module named 'encodings'"
+        # Might break if your Python is in VENV
+        python_home = os.path.dirname(python)
+        os.environ["PYTHONHOME"] = python_home
 
         arguments = self.options.get(OPT_ARGUMENTS, "")
 

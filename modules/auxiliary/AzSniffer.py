@@ -72,13 +72,33 @@ class AzSniffer(Auxiliary):
         self.create_packet_capture(custom_filters)
 
     def create_packet_capture(self, custom_filters):
+        # Determine the target resource ID for packet capture (standalone VM or specific VMSS instance)
+        target = None
+        if hasattr(self, "machine") and self.machine and hasattr(self.machine, "label") and self.machine.label:
+            parts = self.machine.label.rsplit("_", 1)
+            if len(parts) == 2 and parts[1].isdigit() and self.vmss_name:
+                instance_id = parts[1]
+                target = f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.Compute/virtualMachineScaleSets/{self.vmss_name}/virtualMachines/{instance_id}"
+            else:
+                # Standalone VM target fallback
+                target = f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.Compute/virtualMachines/{self.machine.label}"
+        
+        # Ultimate fallback to VMSS if target is still None
+        if not target and self.vmss_name:
+            target = f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.Compute/virtualMachineScaleSets/{self.vmss_name}"
+
+        if not target:
+            raise ValueError("No target VM or VMSS could be determined for AzSniffer")
+
+        log.debug("AzSniffer targeting resource ID: %s", target)
+
         storage_location = PacketCaptureStorageLocation(
             storage_id=f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.Storage/storageAccounts/{self.storage_account}",
             storage_path=f"https://{self.storage_account}.blob.core.windows.net/network-watcher-logs/{self.capture_name}.cap",
         )
 
         packet_capture = PacketCapture(
-            target=f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.Compute/virtualMachineScaleSets/{self.vmss_name}",
+            target=target,
             storage_location=storage_location,
             time_limit_in_seconds=18000,
             total_bytes_per_session=1073741824,
@@ -145,6 +165,23 @@ class AzSniffer(Auxiliary):
             blob_name = "/".join(parsed_url.path.split("/")[2:]).strip('"')
 
             blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+
+            # Check if the blob exists. If not (e.g. due to Azure-appended subfolders or timestamps),
+            # list blobs in the container to find any match for our capture name.
+            if not blob_client.exists():
+                log.info("Blob %s not found directly. Searching container %s for blobs matching %s", blob_name, container_name, self.capture_name)
+                container_client = self.blob_service_client.get_container_client(container_name)
+                matched_blob_name = None
+                for blob in container_client.list_blobs():
+                    if (self.capture_name in blob.name or f"_{self.task.id}" in blob.name) and blob.name.endswith(".cap"):
+                        matched_blob_name = blob.name
+                        break
+                
+                if matched_blob_name:
+                    log.info("Found matching blob: %s", matched_blob_name)
+                    blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=matched_blob_name)
+                else:
+                    log.error("No matching blob found in container %s containing %s", container_name, self.capture_name)
 
             self._download_to_file(blob_client, primary_output_file)
             log.info("Downloaded packet capture for task %s to %s", str(self.task.id), primary_output_file)

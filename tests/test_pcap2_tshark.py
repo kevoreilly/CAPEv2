@@ -11,13 +11,16 @@ class TestPcap2Tshark(unittest.TestCase):
         }
         self.pcap2 = Pcap2(self.pcap_path, self.tlsmaster, self.network_path)
 
-    @patch("modules.processing.network.enabled_passlist", False)
     @patch("modules.processing.network.path_write_file")
     @patch("modules.processing.network.path_delete")
     @patch("modules.processing.network.path_exists")
     @patch("modules.processing.network.path_mkdir")
     @patch("subprocess.run")
-    def test_pcap2_http_parsing(self, mock_run, mock_mkdir, mock_exists, mock_delete, mock_write_file, mock_enabled_passlist):
+    def test_pcap2_http_parsing(self, mock_run, mock_mkdir, mock_exists, mock_delete, mock_write_file):
+        # Disable passlist filtering
+        import modules.processing.network as network_module
+        network_module.enabled_passlist = False
+
         # Setup mocks
         mock_exists.side_effect = lambda path: True  # All paths exist
 

@@ -33,6 +33,11 @@ enabled = no
 enabled = no
 
 [behavior]
+# Detect API spamming and suggest exclude-apis in the web interface
+detect_apispam = yes
+# Limit at which to consider an API as spammed (default limit in capemon is 256 / 0x100)
+apispam_limit = 256
+
 enabled = yes
 # Toggle specific modules within the BehaviorAnalysis class
 anomaly = yes

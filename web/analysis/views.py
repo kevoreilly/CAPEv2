@@ -4497,7 +4497,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         return render(request, "error.html", {"error": f"Unsupported service: {service}"})
 
     # Restrict category to known report sections writable by this endpoint.
-    allowed_categories = {"static", "CAPE", "procdump", "procmemory", "dropped"}
+    allowed_categories = {"static", "CAPE", "procdump", "procmemory", "dropped", "target.file"}
     if category not in allowed_categories:
         return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
 
@@ -4510,7 +4510,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
         if not path_exists(path):
             extractedfile = False
-            if category == "static":
+            if category in ("static", "target.file"):
                 path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
                 category = "target.file"
             elif category == "dropped":
@@ -4519,7 +4519,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
         else:
             # selfextracted storage is shared by multiple categories; keep non-static category intact
-            if category == "static":
+            if category in ("static", "target.file"):
                 category = "target.file"
             extractedfile = True
 

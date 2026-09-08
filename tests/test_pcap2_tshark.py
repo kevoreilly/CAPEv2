@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock, mock_open
+from unittest.mock import patch, MagicMock
 from modules.processing.network import Pcap2
 
 class TestPcap2Tshark(unittest.TestCase):
@@ -30,7 +30,7 @@ class TestPcap2Tshark(unittest.TestCase):
 
         # Create Pcap2 after patches are applied
         pcap2 = Pcap2(self.pcap_path, self.tlsmaster, self.network_path)
-        print(f"Pcap2 created successfully")
+        print("Pcap2 created successfully")
 
         # Mock tshark JSON output
         mock_tshark_json = [
@@ -72,11 +72,11 @@ class TestPcap2Tshark(unittest.TestCase):
         mock_process.stdout = json.dumps(mock_tshark_json).encode()
         mock_process.returncode = 0
         mock_run.return_value = mock_process
-        print(f"Mock subprocess.run configured")
+        print("Mock subprocess.run configured")
 
         # Run Pcap2
         try:
-            print(f"Calling pcap2.run()...")
+            print("Calling pcap2.run()...")
             results = pcap2.run()
             print(f"Results keys: {list(results.keys())}")
             print(f"Results: {results}")

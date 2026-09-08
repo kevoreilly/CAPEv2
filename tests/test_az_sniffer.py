@@ -36,7 +36,24 @@ azure_mgmt_network_models_mock.PacketCaptureStorageLocation = MockPacketCaptureS
 
 
 # Now we can import AzSniffer safely
+import modules.auxiliary.AzSniffer as az_sniffer_module
 from modules.auxiliary.AzSniffer import AzSniffer
+
+# Ensure mock classes are present in the module namespace even if import was skipped
+if not hasattr(az_sniffer_module, "ClientSecretCredential"):
+    az_sniffer_module.ClientSecretCredential = MagicMock()
+if not hasattr(az_sniffer_module, "NetworkManagementClient"):
+    az_sniffer_module.NetworkManagementClient = MagicMock()
+if not hasattr(az_sniffer_module, "StorageManagementClient"):
+    az_sniffer_module.StorageManagementClient = MagicMock()
+if not hasattr(az_sniffer_module, "BlobServiceClient"):
+    az_sniffer_module.BlobServiceClient = MagicMock()
+if not hasattr(az_sniffer_module, "PacketCapture"):
+    az_sniffer_module.PacketCapture = MockPacketCapture
+if not hasattr(az_sniffer_module, "PacketCaptureStorageLocation"):
+    az_sniffer_module.PacketCaptureStorageLocation = MockPacketCaptureStorageLocation
+if not hasattr(az_sniffer_module, "AzureError"):
+    az_sniffer_module.AzureError = Exception
 
 
 class DummyMachine:

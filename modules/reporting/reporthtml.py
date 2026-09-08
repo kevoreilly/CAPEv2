@@ -20,6 +20,17 @@ from web.analysis.templatetags.pdf_tags import datefmt
 try:
     from jinja2.environment import Environment
     from jinja2.loaders import FileSystemLoader
+    from jinja2 import nodes
+    from jinja2.ext import Extension
+
+    class DjangoLoadExtension(Extension):
+        tags = {"load"}
+
+        def parse(self, parser):
+            next(parser.stream)
+            while parser.stream.current.type != "block_end":
+                next(parser.stream)
+            return []
 
     HAVE_JINJA2 = True
 except ImportError:
@@ -107,7 +118,7 @@ class ReportHTML(Report):
                 except Exception as e:
                     log.warning("Could not read debugger logs for HTML report: %s", e)
 
-            env = Environment(autoescape=True)
+            env = Environment(autoescape=True, extensions=[DjangoLoadExtension])
             env.filters.update(
                 {
                     "getkey": getkey,

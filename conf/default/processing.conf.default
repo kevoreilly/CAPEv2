@@ -116,6 +116,8 @@ ipwhitelist = yes
 ipwhitelist_file = extra/whitelist_ips.txt
 network_passlist = no
 network_passlist_file = extra/whitelist_network.txt
+# Enable extraction of decrypted HTTP/SMTP files to the analysis network folder
+extract_files = yes
 
 # Requires geoip2 and maxmind database
 country_lookup = no

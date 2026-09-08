@@ -15,7 +15,6 @@ import socket
 import struct
 import sys
 import tempfile
-import traceback
 from base64 import b64encode
 from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import suppress
@@ -80,7 +79,6 @@ CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..
 sys.path.append(CUCKOO_ROOT)
 
 TLS_HANDSHAKE = 22
-PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30 * 1024 * 1024
 
 DOMAIN_FILTERS = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
 DOMAIN_FILTERS_RE = [re.compile(filter) for filter in DOMAIN_FILTERS]
@@ -106,9 +104,6 @@ ip_passlist_file = proc_cfg.network.ipwhitelist_file
 
 enabled_network_passlist = proc_cfg.network.network_passlist
 network_passlist_file = proc_cfg.network.network_passlist_file
-
-# Be less verbose about httpreplay logging messages.
-logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 comment_re = re.compile(r"\s*#.*")
 # Build the DNS passlist once, pre-compiled. Do NOT append to the imported
@@ -1192,8 +1187,10 @@ class Pcap2:
                             req_md5 = md5(req_body).hexdigest()
                             req_sha1 = sha1(req_body).hexdigest()
                             req_sha256 = sha256(req_body).hexdigest()
-                            req_path = os.path.join(self.network_path, req_sha256)
-                            _ = path_write_file(req_path, req_body)
+                            req_path = ""
+                            if getattr(proc_cfg.network, "extract_files", True):
+                                req_path = os.path.join(self.network_path, req_sha256)
+                                _ = path_write_file(req_path, req_body)
 
                             tmp_dict["req"] = {
                                 "path": req_path,
@@ -1206,8 +1203,10 @@ class Pcap2:
                             resp_md5 = md5(body_bytes).hexdigest()
                             resp_sha1 = sha1(body_bytes).hexdigest()
                             resp_sha256 = sha256(body_bytes).hexdigest()
-                            resp_path = os.path.join(self.network_path, resp_sha256)
-                            _ = path_write_file(resp_path, body_bytes)
+                            resp_path = ""
+                            if getattr(proc_cfg.network, "extract_files", True):
+                                resp_path = os.path.join(self.network_path, resp_sha256)
+                                _ = path_write_file(resp_path, body_bytes)
 
                             resp_preview = []
                             try:

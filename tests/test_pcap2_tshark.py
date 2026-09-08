@@ -1,5 +1,5 @@
 import unittest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, mock_open
 from modules.processing.network import Pcap2
 
 class TestPcap2Tshark(unittest.TestCase):
@@ -9,25 +9,28 @@ class TestPcap2Tshark(unittest.TestCase):
         self.tlsmaster = {
             (b"client_random_1", b"server_random_1"): b"master_secret_1"
         }
-        self.pcap2 = Pcap2(self.pcap_path, self.tlsmaster, self.network_path)
 
-    @patch("modules.processing.network.path_write_file")
-    @patch("modules.processing.network.path_delete")
-    @patch("modules.processing.network.path_exists")
-    @patch("modules.processing.network.path_mkdir")
     @patch("subprocess.run")
-    def test_pcap2_http_parsing(self, mock_run, mock_mkdir, mock_exists, mock_delete, mock_write_file):
+    @patch("modules.processing.network.path_mkdir")
+    @patch("modules.processing.network.path_exists")
+    @patch("modules.processing.network.path_delete")
+    @patch("modules.processing.network.path_write_file")
+    def test_pcap2_http_parsing(self, mock_write_file, mock_delete, mock_exists, mock_mkdir, mock_run):
+        # Setup mocks first
+        print("Setting up mocks...")
+        mock_exists.return_value = True
+        mock_mkdir.return_value = None
+        mock_delete.return_value = None
+        mock_write_file.return_value = None
+
         # Disable passlist filtering
         import modules.processing.network as network_module
         network_module.enabled_passlist = False
+        print(f"enabled_passlist set to: {network_module.enabled_passlist}")
 
-        # Setup mocks
-        mock_exists.side_effect = lambda path: True  # All paths exist
-
-        # Verify mocks are working
-        import modules.processing.network as net_module
-        print(f"enabled_passlist: {net_module.enabled_passlist}")
-        print(f"path_exists mock: {net_module.path_exists}")
+        # Create Pcap2 after patches are applied
+        pcap2 = Pcap2(self.pcap_path, self.tlsmaster, self.network_path)
+        print(f"Pcap2 created successfully")
 
         # Mock tshark JSON output
         mock_tshark_json = [
@@ -69,18 +72,25 @@ class TestPcap2Tshark(unittest.TestCase):
         mock_process.stdout = json.dumps(mock_tshark_json).encode()
         mock_process.returncode = 0
         mock_run.return_value = mock_process
+        print(f"Mock subprocess.run configured")
 
         # Run Pcap2
         try:
-            results = self.pcap2.run()
+            print(f"Calling pcap2.run()...")
+            results = pcap2.run()
+            print(f"Results keys: {list(results.keys())}")
             print(f"Results: {results}")
-            print(f"Mock run called: {mock_run.called}")
-            print(f"Mock run call count: {mock_run.call_count}")
+            print(f"Mock exists called: {mock_exists.called}, call_count: {mock_exists.call_count}")
+            print(f"Mock run called: {mock_run.called}, call_count: {mock_run.call_count}")
         except Exception as e:
-            print(f"Exception: {e}")
+            print(f"Exception during run: {e}")
             import traceback
             traceback.print_exc()
             raise
+
+        # Debug: Check if mock was called
+        self.assertTrue(mock_exists.called, "path_exists mock was never called!")
+        print(f"mock_exists.call_args_list: {mock_exists.call_args_list}")
 
         # Assertions
         self.assertIn("https_ex", results)

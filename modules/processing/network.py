@@ -944,7 +944,9 @@ class Pcap2:
         if not path_exists(self.network_path):
             path_mkdir(self.network_path, exist_ok=True)
 
-        if not path_exists(self.pcap_path):
+        pcap_exists = path_exists(self.pcap_path)
+        log.info("DEBUG: path_exists(%s) = %s", self.pcap_path, pcap_exists)
+        if not pcap_exists:
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 

@@ -34,6 +34,11 @@ class TestPcap2Tshark(unittest.TestCase):
             network_module.path_delete = mock_delete
             network_module.path_write_file = mock_write_file
 
+            # Verify the patching worked
+            print(f"network_module.path_exists is mock_exists: {network_module.path_exists is mock_exists}")
+            print(f"network_module.path_exists: {network_module.path_exists}")
+            print(f"Calling path_exists directly: {network_module.path_exists('test')}")
+
             # Disable passlist filtering
             network_module.enabled_passlist = False
             print(f"enabled_passlist set to: {network_module.enabled_passlist}")
@@ -42,6 +47,7 @@ class TestPcap2Tshark(unittest.TestCase):
                 # Create Pcap2 after patches are applied
                 pcap2 = Pcap2(self.pcap_path, self.tlsmaster, self.network_path)
                 print("Pcap2 created successfully")
+                print(f"pcap2.__class__.__module__: {pcap2.__class__.__module__}")
 
                 # Mock tshark JSON output
                 mock_tshark_json = [

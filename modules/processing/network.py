@@ -935,11 +935,13 @@ class Pcap2:
         self.network_path = network_path
 
     def run(self):
+        log.info("DEBUG: Pcap2.run() started")
         import subprocess
         import json
         import email
 
         results = {"http_ex": [], "https_ex": [], "smtp_ex": []}
+        log.info("DEBUG: Results initialized")
 
         if not path_exists(self.network_path):
             path_mkdir(self.network_path, exist_ok=True)

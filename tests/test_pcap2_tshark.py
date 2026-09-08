@@ -75,22 +75,20 @@ class TestPcap2Tshark(unittest.TestCase):
         print("Mock subprocess.run configured")
 
         # Run Pcap2
-        try:
-            print("Calling pcap2.run()...")
-            results = pcap2.run()
-            print(f"Results keys: {list(results.keys())}")
-            print(f"Results: {results}")
-            print(f"Mock exists called: {mock_exists.called}, call_count: {mock_exists.call_count}")
-            print(f"Mock run called: {mock_run.called}, call_count: {mock_run.call_count}")
-        except Exception as e:
-            print(f"Exception during run: {e}")
-            import traceback
-            traceback.print_exc()
-            raise
+        print("Calling pcap2.run()...")
+        results = pcap2.run()
+        print(f"Results type: {type(results)}")
+        print(f"Results keys: {list(results.keys()) if isinstance(results, dict) else 'Not a dict'}")
+        print(f"Results: {results}")
+        print(f"Mock exists called: {mock_exists.called}, call_count: {mock_exists.call_count}")
+        print(f"Mock run called: {mock_run.called}, call_count: {mock_run.call_count}")
+        print(f"mock_exists.call_args_list: {mock_exists.call_args_list}")
 
         # Debug: Check if mock was called
+        if not mock_exists.called:
+            print("ERROR: path_exists mock was never called!")
+            print("This means run() returned early or never called path_exists")
         self.assertTrue(mock_exists.called, "path_exists mock was never called!")
-        print(f"mock_exists.call_args_list: {mock_exists.call_args_list}")
 
         # Assertions
         self.assertIn("https_ex", results)

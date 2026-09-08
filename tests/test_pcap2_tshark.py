@@ -11,12 +11,15 @@ class TestPcap2Tshark(unittest.TestCase):
         }
         self.pcap2 = Pcap2(self.pcap_path, self.tlsmaster, self.network_path)
 
+    @patch("modules.processing.network.enabled_passlist", False)
+    @patch("modules.processing.network.path_write_file")
+    @patch("modules.processing.network.path_delete")
     @patch("modules.processing.network.path_exists")
     @patch("modules.processing.network.path_mkdir")
     @patch("subprocess.run")
-    def test_pcap2_http_parsing(self, mock_run, mock_mkdir, mock_exists):
+    def test_pcap2_http_parsing(self, mock_run, mock_mkdir, mock_exists, mock_delete, mock_write_file, mock_enabled_passlist):
         # Setup mocks
-        mock_exists.side_effect = lambda path: path == "mock.pcap" or path == "mock_network_dir"
+        mock_exists.side_effect = lambda path: True  # All paths exist
 
         # Mock tshark JSON output
         mock_tshark_json = [
@@ -56,6 +59,7 @@ class TestPcap2Tshark(unittest.TestCase):
         import json
         mock_process = MagicMock()
         mock_process.stdout = json.dumps(mock_tshark_json).encode()
+        mock_process.returncode = 0
         mock_run.return_value = mock_process
 
         # Run Pcap2

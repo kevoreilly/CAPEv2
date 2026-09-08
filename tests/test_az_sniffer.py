@@ -1,8 +1,6 @@
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 # Inject mock modules for Azure SDK to allow importing/instantiating even if the Azure SDK is not installed
 azure_core_mock = MagicMock()
 azure_mgmt_network_mock = MagicMock()
@@ -52,7 +50,7 @@ def test_az_sniffer_target_resolution(mock_config_class):
     # Set up mock configuration values
     mock_aux_config = MagicMock()
     mock_aux_config.enabled = True
-    
+
     mock_az_config = MagicMock()
     mock_az_config.resource_group = "my-rg"
     mock_az_config.storage_account = "mystorage"
@@ -104,7 +102,7 @@ def test_az_sniffer_target_resolution(mock_config_class):
         packet_capture_param = kwargs.get("parameters") or args[0]  # depending on positional vs kwarg
         if not packet_capture_param and len(args) >= 4:
             packet_capture_param = args[3]
-        
+
         expected_target = "/subscriptions/sub-123/resourceGroups/my-rg/providers/Microsoft.Compute/virtualMachineScaleSets/myvmss/virtualMachines/10"
         assert packet_capture_param.target == expected_target
 
@@ -122,7 +120,7 @@ def test_az_sniffer_target_resolution(mock_config_class):
         mock_begin_create.assert_called_once()
         args, kwargs = mock_begin_create.call_args
         packet_capture_param = kwargs.get("parameters") or args[3]
-        
+
         expected_target = "/subscriptions/sub-123/resourceGroups/my-rg/providers/Microsoft.Compute/virtualMachines/standalone_vm"
         assert packet_capture_param.target == expected_target
 
@@ -133,7 +131,7 @@ def test_az_sniffer_download_fallback(mock_config_class):
     # Set up mock configuration values
     mock_aux_config = MagicMock()
     mock_aux_config.enabled = True
-    
+
     mock_az_config = MagicMock()
     mock_az_config.resource_group = "my-rg"
     mock_az_config.storage_account = "mystorage"
@@ -169,15 +167,15 @@ def test_az_sniffer_download_fallback(mock_config_class):
     # Mock the blob service client
     mock_blob_client = MagicMock()
     mock_container_client = MagicMock()
-    
+
     # Simulate that the direct blob does NOT exist
     mock_blob_client.exists.return_value = False
-    
+
     # Simulate that there is a matching blob found via container listing
     mock_found_blob = MagicMock()
     mock_found_blob.name = "subscriptions/sub-123/.../PacketCapture_42_20260908.cap"
     mock_container_client.list_blobs.return_value = [mock_found_blob]
-    
+
     sniffer.blob_service_client.get_blob_client.return_value = mock_blob_client
     sniffer.blob_service_client.get_container_client.return_value = mock_container_client
 

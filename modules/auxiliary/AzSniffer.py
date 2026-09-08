@@ -82,7 +82,7 @@ class AzSniffer(Auxiliary):
             else:
                 # Standalone VM target fallback
                 target = f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.Compute/virtualMachines/{self.machine.label}"
-        
+
         # Ultimate fallback to VMSS if target is still None
         if not target and self.vmss_name:
             target = f"/subscriptions/{self.subscription_id}/resourceGroups/{self.resource_group}/providers/Microsoft.Compute/virtualMachineScaleSets/{self.vmss_name}"
@@ -176,7 +176,7 @@ class AzSniffer(Auxiliary):
                     if (self.capture_name in blob.name or f"_{self.task.id}" in blob.name) and blob.name.endswith(".cap"):
                         matched_blob_name = blob.name
                         break
-                
+
                 if matched_blob_name:
                     log.info("Found matching blob: %s", matched_blob_name)
                     blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=matched_blob_name)

@@ -7,7 +7,7 @@ class TestPcap2Tshark(unittest.TestCase):
         self.pcap_path = "mock.pcap"
         self.network_path = "mock_network_dir"
         self.tlsmaster = {
-            b"client_random_1": b"master_secret_1"
+            (b"client_random_1", b"server_random_1"): b"master_secret_1"
         }
         self.pcap2 = Pcap2(self.pcap_path, self.tlsmaster, self.network_path)
 

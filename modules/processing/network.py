@@ -1093,7 +1093,8 @@ class Pcap2:
                     try:
                         ts = float(ts)
                     except ValueError:
-                        pass
+                        log.warning("Failed to parse timestamp '%s' as float in HTTP stream", ts)
+                        ts = None
 
                 if not srcip or not dstip:
                     continue
@@ -1245,7 +1246,8 @@ class Pcap2:
                 try:
                     ts = float(ts)
                 except ValueError:
-                    pass
+                    log.warning("Failed to parse timestamp '%s' as float in SMTP stream", ts)
+                    ts = None
 
             if not srcip or not dstip:
                 continue

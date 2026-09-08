@@ -20,7 +20,6 @@ from web.analysis.templatetags.pdf_tags import datefmt
 try:
     from jinja2.environment import Environment
     from jinja2.loaders import FileSystemLoader
-    from jinja2 import nodes
     from jinja2.ext import Extension
 
     class DjangoLoadExtension(Extension):

@@ -602,7 +602,10 @@ class Analyzer:
                 aux_modules.append(aux)
                 configure_aux_from_data(aux)
                 log.debug('Trying to start auxiliary module "%s"...', module.__module__)
-                aux.start()
+                if isinstance(aux, Thread):
+                    Thread.start(aux)
+                else:
+                    aux.start()
             except (NotImplementedError, AttributeError) as e:
                 log.warning("Auxiliary module %s was not implemented: %s", module.__name__, e)
             except Exception as e:
@@ -874,7 +877,7 @@ class Analyzer:
                 if isinstance(aux, Thread):
                     aux.join(timeout=10)
                     if aux.is_alive():
-                        log.warning("Failed to join {aux} thread.")
+                        log.warning("Failed to join %s thread.", aux.__class__.__name__)
             except (NotImplementedError, AttributeError):
                 continue
             except Exception as e:

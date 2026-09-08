@@ -27,9 +27,9 @@ class Python(Package):
             python = self.get_path_glob("py.exe")
 
         # Set PYTHONHOME to help Python locate its standard library during initialization.
-        # This is critical when the process is monitored via DLL injection, as the monitoring
-        # can interfere with Python's module search path. Without this, Python may fail to
-        # load the 'encodings' module, resulting in: "ModuleNotFoundError: No module named 'encodings'"
+        # Python may fail to load the 'encodings' module, resulting in: 
+        #       "ModuleNotFoundError: No module named 'encodings'"
+        # Might break if your Python is in VENV
         python_home = os.path.dirname(python)
         os.environ["PYTHONHOME"] = python_home
 

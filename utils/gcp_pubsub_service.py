@@ -413,13 +413,13 @@ class GCPPubSubService:
         """Periodically log status and queue depth (if monitoring is available)."""
         import time
         from lib.cuckoo.common.gcp import gcp_cfg
-        
+
         monitoring_client = None
         try:
             from google.cloud import monitoring_v3
             auth_by = gcp_cfg.gcp.get("auth_by", "vm")
             service_account_path = gcp_cfg.gcp.get("service_account_path")
-            
+
             if auth_by == "json" and service_account_path:
                 if not os.path.isabs(service_account_path):
                     from lib.cuckoo.common.constants import CUCKOO_ROOT
@@ -435,7 +435,7 @@ class GCPPubSubService:
 
         # Wait briefly before first check
         time.sleep(5)
-        
+
         while True:
             queue_size_str = "unknown (install google-cloud-monitoring)"
             if monitoring_client:
@@ -449,7 +449,7 @@ class GCPPubSubService:
                             "start_time": {"seconds": int(now - 600)},
                         }
                     )
-                    
+
                     results = monitoring_client.list_time_series(
                         request={
                             "name": project_name,
@@ -457,7 +457,7 @@ class GCPPubSubService:
                             "interval": interval,
                         }
                     )
-                    
+
                     latest_val = None
                     for result in results:
                         for point in result.points:
@@ -465,7 +465,7 @@ class GCPPubSubService:
                             break
                         if latest_val is not None:
                             break
-                            
+
                     if latest_val is not None:
                         queue_size_str = str(latest_val)
                     else:
@@ -476,7 +476,7 @@ class GCPPubSubService:
 
             with self.ids_lock:
                 active = len(self.processing_ids)
-                
+
             log.info("[HEARTBEAT] Subscriber is healthy. Actively processing: %d Tasks. Undelivered queue size: %s.", active, queue_size_str)
             time.sleep(300)
 

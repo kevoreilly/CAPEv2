@@ -2268,6 +2268,10 @@ def main():
     if args.enable_clean:
         cron_cleaner(args.clean_hours)
 
+    if args.clean_workers:
+        cron_cleaner(args.clean_hours)
+        sys.exit()
+
     if args.force_reported:
         with main_db.session.begin():
             main_db.set_status(args.force_reported, TASK_DISTRIBUTED_COMPLETED)

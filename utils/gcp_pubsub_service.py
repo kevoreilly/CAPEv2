@@ -409,8 +409,84 @@ class GCPPubSubService:
                 self.processing_ids.discard(msg_id)
             log.info("[%s] Total processing time: %.2f seconds", correlation_id, time.time() - start_time)
 
+    def _diagnostic_loop(self):
+        """Periodically log status and queue depth (if monitoring is available)."""
+        import time
+        from lib.cuckoo.common.gcp import gcp_cfg
+        
+        monitoring_client = None
+        try:
+            from google.cloud import monitoring_v3
+            auth_by = gcp_cfg.gcp.get("auth_by", "vm")
+            service_account_path = gcp_cfg.gcp.get("service_account_path")
+            
+            if auth_by == "json" and service_account_path:
+                if not os.path.isabs(service_account_path):
+                    from lib.cuckoo.common.constants import CUCKOO_ROOT
+                    service_account_path = os.path.join(CUCKOO_ROOT, service_account_path)
+                if os.path.exists(service_account_path):
+                    monitoring_client = monitoring_v3.MetricServiceClient.from_service_account_json(service_account_path)
+            else:
+                monitoring_client = monitoring_v3.MetricServiceClient()
+        except ImportError:
+            log.debug("google-cloud-monitoring not installed. Install via `pip install google-cloud-monitoring` for precise queue counts.")
+        except Exception as e:
+            log.debug("Failed to initialize monitoring client: %s", e)
+
+        # Wait briefly before first check
+        time.sleep(5)
+        
+        while True:
+            queue_size_str = "unknown (install google-cloud-monitoring)"
+            if monitoring_client:
+                try:
+                    from google.cloud.monitoring_v3 import types
+                    project_name = f"projects/{self.project_id}"
+                    now = time.time()
+                    interval = types.TimeInterval(
+                        {
+                            "end_time": {"seconds": int(now)},
+                            "start_time": {"seconds": int(now - 600)},
+                        }
+                    )
+                    
+                    results = monitoring_client.list_time_series(
+                        request={
+                            "name": project_name,
+                            "filter": f'metric.type = "pubsub.googleapis.com/subscription/num_undelivered_messages" AND resource.labels.subscription_id = "{self.subscription_id}"',
+                            "interval": interval,
+                        }
+                    )
+                    
+                    latest_val = None
+                    for result in results:
+                        for point in result.points:
+                            latest_val = point.value.int64_value
+                            break
+                        if latest_val is not None:
+                            break
+                            
+                    if latest_val is not None:
+                        queue_size_str = str(latest_val)
+                    else:
+                        queue_size_str = "0"
+                except Exception as e:
+                    log.debug("Error fetching queue size metric: %s", e)
+                    queue_size_str = "error (permission or API issue)"
+
+            with self.ids_lock:
+                active = len(self.processing_ids)
+                
+            log.info("[HEARTBEAT] Subscriber is healthy. Actively processing: %d Tasks. Undelivered queue size: %s.", active, queue_size_str)
+            time.sleep(300)
+
     def start(self):
         log.info("Starting GCP Pub/Sub subscriber on %s", self.subscription_path)
+
+        # Start a background diagnostic thread so the app doesn't seem 'hung' when idle
+        import threading
+        diag_thread = threading.Thread(target=self._diagnostic_loop, daemon=True)
+        diag_thread.start()
 
         from lib.cuckoo.common.gcp import gcp_cfg
         max_messages = 5

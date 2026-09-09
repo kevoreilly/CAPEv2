@@ -4510,7 +4510,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
         if not path_exists(path):
             extractedfile = False
-            if category == "static":
+            if category in ("static", "target.file"):
                 path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
                 category = "target.file"
             elif category == "dropped":

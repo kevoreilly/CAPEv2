@@ -363,7 +363,7 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
         path_mkdir(analyses_path, mode=0o755, exist_ok=False)
 
     try:
-        shutil.copytree(worker_path, analyses_path, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True)
+        shutil.copytree(worker_path, analyses_path, symlinks=True, ignore=dist_ignore_patterns, ignore_dangling_symlinks=True, dirs_exist_ok=True)
     except shutil.Error:
         log.error("Files doens't exist on worker")
     except Exception as e:
@@ -2267,6 +2267,10 @@ def main():
 
     if args.enable_clean:
         cron_cleaner(args.clean_hours)
+
+    if args.clean_workers:
+        cron_cleaner(args.clean_hours)
+        sys.exit()
 
     if args.force_reported:
         with main_db.session.begin():

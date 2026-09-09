@@ -123,6 +123,11 @@ OFFICE_TYPES = [
     "Microsoft OOXML",
 ]
 
+MS_EXCLUDE = [
+    "MSI Installer",
+    "Microsoft Cabinet archive"
+]
+
 
 IGNORABLE_PATTERNS = (
     re.compile(br"msvcp\d+\.dll$", re.IGNORECASE),
@@ -487,15 +492,18 @@ def demux_sample(
     magic = File(filename).get_type() or ""
 
     # --- 3. Handle Password-Protected Office Files ---
-    is_office = ("Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)) and "MSI Installer" not in magic
+    is_office = ("Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)) and not any(x in magic for x in MS_EXCLUDE)
     if is_office and use_sflock:
         password = options2passwd(options)
-        if HAS_SFLOCK and password:
+        if use_sflock and password:
             retlist = demux_office(filename, password, platform)
             return retlist, error_list
+        # elif use_sflock:
+        #    retlist = demux_office(filename, "", platform)
+        #    return retlist, error_list
         else:
-            log.error("Detected password protected office file, but no sflock is installed.")
-            return [], [{os.path.basename(filename).decode(errors='ignore'): "Detected password protected office file, but no sflock is installed"}]
+            log.error("Detected password protected office file, but no sflock is installed. Magic: %s, Password:%s", magic, str(password))
+            return [], [{os.path.basename(filename).decode(errors='ignore'): f"Detected password protected office file, but no sflock is installed. Magic: {magic}. Password: {password}"}]
 
     # --- 4. Skip Extraction for specific types ---
     ignored_signatures = [

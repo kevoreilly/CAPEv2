@@ -238,7 +238,9 @@ class BsonParser:
                     category = category[0][1] if category else "unknown"
 
                 argnames, converters = check_names_for_typeinfo(arginfo)  # self.determine_unserializers(arginfo)
-                self.infomap[index] = name, arginfo, argnames, converters, category
+                if index not in self.infomap:
+                    self.infomap[index] = []
+                self.infomap[index].append({"def": (name, arginfo, argnames, converters, category), "is_64bit": None})
 
                 if dec.get("flags_value"):
                     self.flags_value[name] = {}
@@ -269,7 +271,26 @@ class BsonParser:
                     log.warning("Got API with unknown index - monitor needs to explain first: %s", dec)
                     return True
 
-                apiname, arginfo, argnames, converters, category = self.infomap[index]
+                defs = self.infomap[index]
+                is_caller_64bit = dec.get("C", 0) > 0xFFFFFFFF
+                
+                best_dict = None
+                for d in defs:
+                    if d["is_64bit"] == is_caller_64bit:
+                        best_dict = d
+                        break
+                        
+                if not best_dict:
+                    for d in defs:
+                        if d["is_64bit"] is None:
+                            best_dict = d
+                            best_dict["is_64bit"] = is_caller_64bit
+                            break
+                            
+                if not best_dict:
+                    best_dict = defs[-1]
+
+                apiname, arginfo, argnames, converters, category = best_dict["def"]
                 args = dec.get("args", [])
 
                 if len(args) != len(argnames):
@@ -380,7 +401,9 @@ class ProtobufParser:
                 arginfo.append((arg.name, arg.type))
 
             argnames, converters = check_names_for_typeinfo(arginfo)
-            self.infomap[info.index] = name, arginfo, argnames, converters, category
+            if info.index not in self.infomap:
+                self.infomap[info.index] = []
+            self.infomap[info.index].append({"def": (name, arginfo, argnames, converters, category), "is_64bit": None})
 
         elif msg_type == "debug":
             log.info("Debug message from monitor: %s", msg.debug.message)
@@ -396,7 +419,26 @@ class ProtobufParser:
                 log.warning("Got Protobuf API with unknown index: %s", call.index)
                 return
 
-            apiname, _, argnames, converters, category = self.infomap[call.index]
+            defs = self.infomap[call.index]
+            is_caller_64bit = call.return_address > 0xFFFFFFFF
+            
+            best_dict = None
+            for d in defs:
+                if d["is_64bit"] == is_caller_64bit:
+                    best_dict = d
+                    break
+                    
+            if not best_dict:
+                for d in defs:
+                    if d["is_64bit"] is None:
+                        best_dict = d
+                        best_dict["is_64bit"] = is_caller_64bit
+                        break
+                        
+            if not best_dict:
+                best_dict = defs[-1]
+
+            apiname, _, argnames, converters, category = best_dict["def"]
 
             context[0] = call.index
             context[2] = 1 if call.is_success else 0

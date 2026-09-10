@@ -54,11 +54,24 @@ def multitenancy_config():
     return real()
 
 
+def _is_owner_or_staff(user, task):
+    from django.conf import settings
+    if getattr(settings, "WEB_AUTHENTICATION", False):
+        is_staff = bool(getattr(user, "is_staff", False) or getattr(user, "is_superuser", False))
+        if not is_staff:
+            owner_id = getattr(task, "user_id", None)
+            if owner_id is not None and owner_id != getattr(user, "id", None):
+                return False
+    return True
+
+
 def can_view_task(user, task):
     try:
         from users.tenancy import can_view_task as real
     except ImportError:
-        return not _mt_enabled()  # MT enabled+broken -> deny; genuinely absent -> allow (single-tenant)
+        if _mt_enabled():
+            return False
+        return _is_owner_or_staff(user, task)
     return real(user, task)
 
 
@@ -66,7 +79,9 @@ def can_toggle_task(user, task):
     try:
         from users.tenancy import can_toggle_task as real
     except ImportError:
-        return not _mt_enabled()
+        if _mt_enabled():
+            return False
+        return _is_owner_or_staff(user, task)
     return real(user, task)
 
 
@@ -74,7 +89,9 @@ def can_manage_task(user, task):
     try:
         from users.tenancy import can_manage_task as real
     except ImportError:
-        return not _mt_enabled()
+        if _mt_enabled():
+            return False
+        return _is_owner_or_staff(user, task)
     return real(user, task)
 
 
@@ -85,7 +102,9 @@ def can_delete_task(user, task):
     try:
         from users.tenancy import can_delete_task as real
     except ImportError:
-        return not _mt_enabled()
+        if _mt_enabled():
+            return False
+        return _is_owner_or_staff(user, task)
     return real(user, task)
 
 
@@ -96,7 +115,17 @@ def can_delete_job(viewer, task):
     try:
         from users.tenancy import can_delete_job as real
     except ImportError:
-        return not _mt_enabled()
+        if _mt_enabled():
+            return False
+        # If we only have a Viewer, we check viewer.user_id
+        from django.conf import settings
+        if getattr(settings, "WEB_AUTHENTICATION", False):
+            is_staff = getattr(viewer, "is_superuser", False) or getattr(viewer, "is_local_admin", False)
+            if not is_staff:
+                owner_id = getattr(task, "user_id", None)
+                if owner_id is not None and owner_id != getattr(viewer, "user_id", None):
+                    return False
+        return True
     return real(viewer, task)
 
 
@@ -107,7 +136,9 @@ def can_set_visibility_task(user, task, new_visibility):
     try:
         from users.tenancy import can_set_visibility_task as real
     except ImportError:
-        return not _mt_enabled()
+        if _mt_enabled():
+            return False
+        return _is_owner_or_staff(user, task)
     return real(user, task, new_visibility)
 
 

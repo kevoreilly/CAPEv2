@@ -164,7 +164,7 @@ def test_disabled_auth_enabled_enforces_ownership(monkeypatch, settings):
     should be denied access to other users' private tasks, but can access
     legacy/ownerless tasks."""
     from lib.cuckoo.common.tenancy import MTConfig
-    from users.tenancy import can_view_task, can_manage_task, can_delete_task, viewer_for
+    from users.tenancy import can_view_task, can_manage_task, can_delete_task
     import users.tenancy as ut
 
     monkeypatch.setattr(ut, "multitenancy_config", lambda: MTConfig(False, "shared", "", True))

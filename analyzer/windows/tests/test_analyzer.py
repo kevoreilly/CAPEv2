@@ -676,12 +676,94 @@ class TestAnalyzerMonitoring(unittest.TestCase):
 
     def test_handle_loaded(self):
         random_pid = random.randint(1, 99999999)
+        pending_process = MagicMock()
         ana = self.analyzer
-        with patch("analyzer.INJECT_LIST", [random_pid]):
+        with (
+            patch("analyzer.INJECT_LIST", [random_pid]),
+            patch("analyzer.INJECT_IDENTITIES", {random_pid: 100}),
+            patch("analyzer.INJECT_PROCESSES", {random_pid: pending_process}),
+            patch("analyzer.MONITORED_PROCESSES", {}) as monitored,
+        ):
             self.assertEqual(1, len(analyzer.INJECT_LIST))
             self.pipe_handler._handle_loaded(data=str(random_pid))
             self.assertEqual(0, len(analyzer.INJECT_LIST))
+            self.assertEqual({random_pid: pending_process}, monitored)
+        pending_process.close.assert_not_called()
         self.assertIn(random_pid, ana.process_list.pids)
+
+    def test_handle_loaded_rejects_stale_process_identity(self):
+        pending_process = MagicMock()
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 200}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+            patch("analyzer.MONITORED_PROCESSES", {}) as monitored,
+        ):
+            self.pipe_handler._handle_loaded(data="4242,i:100")
+
+            self.assertEqual([4242], pending)
+        pending_process.close.assert_not_called()
+        self.assertEqual({}, monitored)
+        self.assertNotIn(4242, self.analyzer.process_list.pids)
+
+    def test_handle_loaded_accepts_matching_process_identity(self):
+        pending_process = MagicMock()
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 100}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+            patch("analyzer.MONITORED_PROCESSES", {}) as monitored,
+        ):
+            self.pipe_handler._handle_loaded(data="4242,i:100")
+
+            self.assertEqual([], pending)
+            self.assertEqual({4242: pending_process}, monitored)
+        pending_process.close.assert_not_called()
+        self.assertIn(4242, self.analyzer.process_list.pids)
+
+    def test_handle_loaded_rejects_malformed_process_identity(self):
+        pending_process = MagicMock()
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 100}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+            patch("analyzer.MONITORED_PROCESSES", {}) as monitored,
+        ):
+            self.pipe_handler._handle_loaded(data="4242,i:-- UNKNOWN FORMAT STRING -- lu")
+
+            self.assertEqual([4242], pending)
+            self.assertEqual({}, monitored)
+        pending_process.close.assert_not_called()
+        self.assertNotIn(4242, self.analyzer.process_list.pids)
+
+    def test_handle_loaded_accepts_legacy_track_field(self):
+        pending_process = MagicMock()
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 100}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+            patch("analyzer.MONITORED_PROCESSES", {}) as monitored,
+        ):
+            self.pipe_handler._handle_loaded(data="4242,1")
+
+            self.assertEqual([], pending)
+            self.assertEqual({4242: pending_process}, monitored)
+        pending_process.close.assert_not_called()
+        self.assertIn(4242, self.analyzer.process_list.pids)
+
+    def test_duplicate_loaded_keeps_monitored_process_handle_open(self):
+        monitored_process = MagicMock()
+        self.analyzer.process_list.add_pid(4242)
+        with (
+            patch("analyzer.INJECT_LIST", []),
+            patch("analyzer.INJECT_IDENTITIES", {}),
+            patch("analyzer.INJECT_PROCESSES", {}),
+            patch("analyzer.MONITORED_PROCESSES", {4242: monitored_process}) as monitored,
+        ):
+            self.pipe_handler._handle_loaded(data="4242,i:100")
+
+            self.assertEqual({4242: monitored_process}, monitored)
+        monitored_process.close.assert_not_called()
 
     def test_handle_kterminate(self):
         ana = self.analyzer
@@ -690,6 +772,118 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertEqual(1, len(ana.process_list.pids))
         self.pipe_handler._handle_kterminate(data=str(random_pid))
         self.assertEqual(0, len(ana.process_list.pids))
+
+    def test_handle_kterminate_releases_pending_process(self):
+        pending_process = MagicMock()
+        pending_process.is_alive.return_value = False
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 100}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+        ):
+            self.pipe_handler._handle_kterminate(data="4242")
+
+            self.assertEqual([], pending)
+        pending_process.close.assert_called_once()
+
+    def test_stale_kterminate_does_not_release_live_pending_process(self):
+        pending_process = MagicMock()
+        pending_process.is_alive.return_value = True
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 100}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+        ):
+            self.pipe_handler._handle_kterminate(data="4242")
+
+            self.assertEqual([4242], pending)
+        pending_process.close.assert_not_called()
+
+    def test_stale_kterminate_does_not_untrack_live_monitored_process(self):
+        monitored_process = MagicMock()
+        monitored_process.is_alive.return_value = True
+        self.analyzer.process_list.add_pid(4242)
+        with patch("analyzer.MONITORED_PROCESSES", {4242: monitored_process}):
+            self.pipe_handler._handle_kterminate(data="4242")
+
+        self.assertIn(4242, self.analyzer.process_list.pids)
+        monitored_process.close.assert_not_called()
+
+    def test_kterminate_releases_dead_monitored_process(self):
+        monitored_process = MagicMock()
+        monitored_process.is_alive.return_value = False
+        self.analyzer.process_list.add_pid(4242)
+        with patch("analyzer.MONITORED_PROCESSES", {4242: monitored_process}):
+            self.pipe_handler._handle_kterminate(data="4242")
+
+        self.assertNotIn(4242, self.analyzer.process_list.pids)
+        monitored_process.close.assert_called_once()
+
+    def test_kill_keeps_process_tracked_until_termination_is_confirmed(self):
+        monitored_process = MagicMock()
+        self.analyzer.process_list.add_pid(4242)
+        with patch("analyzer.MONITORED_PROCESSES", {4242: monitored_process}):
+            self.pipe_handler._handle_kill(data="4242")
+
+        self.assertIn(4242, self.analyzer.process_list.pids)
+        monitored_process.close.assert_not_called()
+
+    def test_kill_retains_legacy_process_until_termination_is_confirmed(self):
+        monitored_process = MagicMock()
+        self.analyzer.process_list.add_pid(4242)
+        with (
+            patch("analyzer.INJECT_PROCESSES", {}),
+            patch("analyzer.MONITORED_PROCESSES", {}) as monitored,
+            patch.object(self.pipe_handler, "_open_process_instance", return_value=(monitored_process, 100)),
+        ):
+            self.pipe_handler._handle_kill(data="4242")
+
+            self.assertEqual({4242: monitored_process}, monitored)
+        self.assertIn(4242, self.analyzer.process_list.pids)
+        monitored_process.close.assert_not_called()
+
+    def test_kill_ignores_untracked_process(self):
+        with patch.object(self.pipe_handler, "_open_process_instance") as open_process:
+            self.pipe_handler._handle_kill(data="4242")
+
+        open_process.assert_not_called()
+
+    def test_pending_reaper_releases_process_that_exited_before_loaded(self):
+        pending_process = MagicMock()
+        pending_process.is_alive.return_value = False
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 100}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+        ):
+            self.analyzer.reap_pending_injections()
+
+            self.assertEqual([], pending)
+        pending_process.close.assert_called_once()
+
+    def test_pending_reaper_keeps_live_process(self):
+        pending_process = MagicMock()
+        pending_process.is_alive.return_value = True
+        with (
+            patch("analyzer.INJECT_LIST", [4242]) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {4242: 100}),
+            patch("analyzer.INJECT_PROCESSES", {4242: pending_process}),
+        ):
+            self.analyzer.reap_pending_injections()
+
+            self.assertEqual([4242], pending)
+        pending_process.close.assert_not_called()
+
+    def test_monitored_reaper_releases_dead_process(self):
+        monitored_process = MagicMock()
+        monitored_process.is_alive.return_value = False
+        self.analyzer.process_list.add_pid(4242)
+        with patch("analyzer.MONITORED_PROCESSES", {4242: monitored_process}) as monitored:
+            self.analyzer.reap_monitored_processes()
+
+            self.assertEqual({}, monitored)
+        self.assertNotIn(4242, self.analyzer.process_list.pids)
+        monitored_process.close.assert_called_once()
 
     @patch("analyzer.Process")
     def test_handle_kprocess(self, mock_process):
@@ -772,8 +966,10 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         mock_process.assert_not_called()
         self.call.assert_not_called()
 
+    @patch("analyzer.pids_from_image_names", return_value=[])
+    @patch("analyzer.subprocess.run")
     @patch("analyzer.pid_from_service_name")
-    def test_handle_wmi(self, mock_pid_from_service_name):
+    def test_handle_wmi(self, mock_pid_from_service_name, mock_run, mock_pids_from_image_names):
         random_pid1 = random.randint(1, 99999999)
         random_pid2 = random.randint(1, 99999999)
         mock_pid_from_service_name.side_effect = [random_pid1, random_pid2]
@@ -789,9 +985,126 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         self.assertIn(random_pid1, ana.CRITICAL_PROCESS_LIST)
         self.assertIn(random_pid2, ana.CRITICAL_PROCESS_LIST)
+        mock_run.assert_called_once_with(
+            [
+                analyzer.os.path.join(analyzer.os.environ.get("SystemRoot", r"C:\Windows"), "System32", "icacls.exe"),
+                str(analyzer.Path.cwd()),
+                "/grant",
+                "*S-1-5-20:(OI)(CI)(RX)",
+                "/t",
+                "/c",
+                "/q",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        mock_pids_from_image_names.assert_called_once_with(["WmiPrvSE.exe"])
 
+    @patch("analyzer.pids_from_image_names", return_value=[])
+    @patch("analyzer.subprocess.run", side_effect=FileNotFoundError("icacls.exe"))
+    @patch("analyzer.pid_from_service_name", return_value=None)
+    def test_handle_wmi_continues_when_icacls_is_unavailable(
+        self, mock_pid_from_service_name, mock_run, mock_pids_from_image_names
+    ):
+        self.pipe_handler._handle_wmi(None)
+
+        mock_run.assert_called_once()
+        mock_pids_from_image_names.assert_called_once_with(["WmiPrvSE.exe"])
+
+    @patch("analyzer.pids_from_image_names")
+    @patch("analyzer.subprocess.run")
     @patch("analyzer.pid_from_service_name")
-    def test_handle_wmi_already(self, mock_pid_from_service_name):
+    @patch("analyzer.process_instance_id", return_value=100)
+    @patch("analyzer.Process")
+    def test_handle_wmi_injects_existing_provider_hosts(
+        self, mock_process, mock_process_instance_id, mock_pid_from_service_name, mock_run, mock_pids_from_image_names
+    ):
+        dcom_pid = random.randint(1, 99999999)
+        winmgmt_pid = random.randint(1, 99999999)
+        provider_pids = [random.randint(1, 99999999), random.randint(1, 99999999)]
+        mock_pid_from_service_name.side_effect = [dcom_pid, winmgmt_pid]
+        mock_pids_from_image_names.return_value = provider_pids
+
+        with (
+            patch("analyzer.INJECT_LIST", []) as inject_list,
+            patch("analyzer.INJECT_IDENTITIES", {}),
+            patch("analyzer.INJECT_PROCESSES", {}),
+        ):
+            self.pipe_handler._handle_wmi(None)
+            self.assertEqual(set(provider_pids), set(inject_list))
+
+        mock_pids_from_image_names.assert_called_once_with(["WmiPrvSE.exe"])
+        self.assertEqual(
+            {dcom_pid, winmgmt_pid, *provider_pids},
+            set(self.analyzer.CRITICAL_PROCESS_LIST),
+        )
+        self.assertEqual(4, mock_process.call_count)
+        mock_run.assert_called_once()
+
+    @patch("analyzer.pids_from_image_names")
+    @patch("analyzer.subprocess.run")
+    @patch("analyzer.pid_from_service_name", return_value=None)
+    @patch("analyzer.process_instance_id", return_value=100)
+    @patch("analyzer.Process")
+    def test_handle_wmi_does_not_reinject_announced_provider(
+        self, mock_process, mock_process_instance_id, mock_pid_from_service_name, mock_run, mock_pids_from_image_names
+    ):
+        provider_pid = random.randint(1, 99999999)
+        mock_pids_from_image_names.return_value = [provider_pid]
+
+        with (
+            patch("analyzer.INJECT_LIST", [provider_pid]),
+            patch("analyzer.INJECT_IDENTITIES", {provider_pid: 100}),
+            patch("analyzer.INJECT_PROCESSES", {}),
+        ):
+            self.pipe_handler._handle_wmi(None)
+
+        mock_process.assert_not_called()
+        mock_run.assert_called_once()
+
+    @patch("analyzer.pids_from_image_names", return_value=[4242])
+    @patch("analyzer.subprocess.run")
+    @patch("analyzer.pid_from_service_name", return_value=None)
+    def test_handle_wmi_uses_atomic_reservation(self, mock_pid_from_service_name, mock_run, mock_pids_from_image_names):
+        with patch.object(self.pipe_handler, "_reserve_injection", return_value=None) as reserve:
+            self.pipe_handler._handle_wmi(None)
+
+        reserve.assert_called_once_with(4242)
+
+    @patch("analyzer.pids_from_image_names", return_value=[4242, 4343])
+    @patch("analyzer.subprocess.run")
+    @patch("analyzer.pid_from_service_name", return_value=None)
+    @patch("analyzer.process_instance_id", return_value=100)
+    @patch("analyzer.Process")
+    def test_handle_wmi_releases_failed_provider_and_continues(
+        self, mock_process, mock_process_instance_id, mock_pid_from_service_name, mock_run, mock_pids_from_image_names
+    ):
+        failed_process = MagicMock()
+        failed_process.h_process = 1
+        failed_process.inject.return_value = False
+        injected_process = MagicMock()
+        injected_process.h_process = 2
+        injected_process.inject.return_value = True
+        mock_process.side_effect = [failed_process, injected_process]
+
+        with (
+            patch("analyzer.INJECT_LIST", []) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {}),
+            patch("analyzer.INJECT_PROCESSES", {}),
+        ):
+            self.pipe_handler._handle_wmi(None)
+
+            self.assertEqual([4343], pending)
+        failed_process.close.assert_called_once()
+        injected_process.close.assert_not_called()
+        self.assertEqual([4343], self.analyzer.CRITICAL_PROCESS_LIST)
+
+    @patch("analyzer.pids_from_image_names", return_value=[4242])
+    @patch("analyzer.subprocess.run")
+    @patch("analyzer.pid_from_service_name")
+    def test_handle_wmi_already_does_not_rescan_without_retry(
+        self, mock_pid_from_service_name, mock_run, mock_pids_from_image_names
+    ):
         ana = self.analyzer
         ana.MONITORED_WMI = True
         self.assertEqual(0, len(ana.CRITICAL_PROCESS_LIST))
@@ -803,7 +1116,23 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         self.assertFalse(ana.MONITORED_DCOM)
         self.assertIsNone(ana.LASTINJECT_TIME)
         mock_pid_from_service_name.assert_not_called()
+        mock_run.assert_not_called()
+        mock_pids_from_image_names.assert_not_called()
         self.call.assert_not_called()
+
+    @patch("analyzer.pids_from_image_names", return_value=[4242])
+    @patch("analyzer.pid_from_service_name")
+    def test_handle_wmi_rescans_after_retry_delay(self, mock_pid_from_service_name, mock_pids_from_image_names):
+        self.analyzer.MONITORED_WMI = True
+        self.analyzer.WMI_PROVIDER_RETRY_AT = 10
+
+        with patch("analyzer.timeit.default_timer", return_value=11), patch.object(
+            self.pipe_handler, "_reserve_injection", return_value=None
+        ) as reserve:
+            self.pipe_handler._handle_wmi(None)
+
+        reserve.assert_called_once_with(4242)
+        mock_pid_from_service_name.assert_not_called()
 
     def test_handle_wmi_timed_out(self):
         ana = self.analyzer
@@ -1003,8 +1332,9 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         mock_process.assert_not_called()
         self.call.assert_not_called()
 
+    @patch("analyzer.process_instance_id", return_value=100)
     @patch("analyzer.Process")
-    def test_handle_process(self, mock_process):
+    def test_handle_process(self, mock_process, mock_process_instance_id):
         ana = self.analyzer
         ana.config = MagicMock()
         self.assertEqual(0, ana.NUM_INJECTED)
@@ -1013,10 +1343,58 @@ class TestAnalyzerMonitoring(unittest.TestCase):
         random_tid = random.randint(1, 9999999)
         data = bytes(f"{random_pid},{random_tid}".encode())
         # This produces something like b"910271,1819029"
-        with patch("analyzer.INJECT_LIST", []):
+        with (
+            patch("analyzer.INJECT_LIST", []),
+            patch("analyzer.INJECT_IDENTITIES", {}),
+            patch("analyzer.INJECT_PROCESSES", {}),
+        ):
             self.pipe_handler._handle_process(data=data)
             self.assertEqual(1, len(analyzer.INJECT_LIST))
             self.assertIn(random_pid, analyzer.INJECT_LIST)
         self.assertIsNotNone(ana.LASTINJECT_TIME)
         mock_process.assert_called_once()
         self.assertEqual(1, ana.NUM_INJECTED)
+
+    @patch("analyzer.process_instance_id", return_value=100)
+    @patch("analyzer.Process")
+    def test_handle_process_does_not_repeat_pending_injection(self, mock_process, mock_process_instance_id):
+        random_pid = random.randint(1, 99999999)
+        random_tid = random.randint(1, 9999999)
+        data = bytes(f"{random_pid},{random_tid}".encode())
+
+        with (
+            patch("analyzer.INJECT_LIST", [random_pid]),
+            patch("analyzer.INJECT_IDENTITIES", {random_pid: 100}),
+            patch("analyzer.INJECT_PROCESSES", {}),
+        ):
+            self.pipe_handler._handle_process(data=data)
+
+        mock_process.assert_not_called()
+        self.assertIsNone(self.analyzer.LASTINJECT_TIME)
+        self.assertEqual(0, self.analyzer.NUM_INJECTED)
+
+    def test_handle_process_uses_atomic_reservation(self):
+        with patch.object(self.pipe_handler, "_reserve_injection", return_value=None) as reserve:
+            self.pipe_handler._handle_process(data=b"4242,101")
+
+        reserve.assert_called_once_with(4242, 101, include_notrack=False)
+
+    @patch("analyzer.process_instance_id", return_value=100)
+    @patch("analyzer.Process")
+    def test_handle_process_releases_failed_injection(self, mock_process, mock_process_instance_id):
+        self.analyzer.config = MagicMock(category="file")
+        process = mock_process.return_value
+        process.h_process = 1
+        process.get_filepath.return_value = r"C:\malware.exe"
+        process.inject.return_value = False
+
+        with (
+            patch("analyzer.INJECT_LIST", []) as pending,
+            patch("analyzer.INJECT_IDENTITIES", {}),
+            patch("analyzer.INJECT_PROCESSES", {}),
+        ):
+            self.pipe_handler._handle_process(data=b"4242,101")
+
+            self.assertEqual([], pending)
+        process.close.assert_called_once()
+        self.assertEqual(0, self.analyzer.NUM_INJECTED)

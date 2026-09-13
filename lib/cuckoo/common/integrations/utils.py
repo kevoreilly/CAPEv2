@@ -10,6 +10,8 @@ log = logging.getLogger(__name__)
 
 # Global variable to store lazily loaded Docker ToolDispatcher
 _DOCKER_DISPATCHER = None
+# Set once the dispatcher failed to load, so a broken setup is not retried on every single tool run
+_DOCKER_DISPATCHER_FAILED = False
 
 
 def pass_signal(proc, signum, frame):
@@ -21,7 +23,7 @@ def run_tool(*args, **kwargs) -> Union[bytes, str]:
     Docker container if Docker integration is enabled and configured for this tool.
     Make sure to pass a SIGTERM signal to that process if it is received.
     """
-    global _DOCKER_DISPATCHER
+    global _DOCKER_DISPATCHER, _DOCKER_DISPATCHER_FAILED
 
     try:
         processing_conf = Config("processing")
@@ -29,14 +31,16 @@ def run_tool(*args, **kwargs) -> Union[bytes, str]:
     except Exception:
         docker_enabled = False
 
-    if docker_enabled:
+    if docker_enabled and not _DOCKER_DISPATCHER_FAILED:
         # Lazily load dispatcher to avoid circular dependency loops
         if _DOCKER_DISPATCHER is None:
             try:
                 from lib.cuckoo.common.integrations.file_extra_info import ToolDispatcher
+
                 _DOCKER_DISPATCHER = ToolDispatcher()
             except Exception as e:
-                log.error("Failed to load ToolDispatcher: %s", str(e))
+                _DOCKER_DISPATCHER_FAILED = True
+                log.error("Failed to load ToolDispatcher, running tools on the host: %s", str(e))
 
         if _DOCKER_DISPATCHER:
             cmd_args = args[0] if args else kwargs.get("args")

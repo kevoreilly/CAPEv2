@@ -140,12 +140,14 @@ To secure production environments, **do not** add the ``cape`` user to the ``doc
 1. Configure /etc/sudoers
 =========================
 
-Add the following lines to ``/etc/sudoers`` (use ``sudo visudo`` to edit safely):
+Add the following lines to ``/etc/sudoers`` (use ``sudo visudo`` to edit safely). The rule must match the
+command line CAPEv2 emits **exactly**, including the ``-w <shared_volume_path>`` arguments that precede the
+container name, otherwise sudo falls through to a password prompt:
 
 .. code-block:: sudoers
 
     # Allow cape user to run exec on specific container tools without password prompts
-    cape ALL=(ALL) NOPASSWD: /usr/bin/docker exec cape-innoextract *, /usr/bin/docker exec cape-7z *, /usr/bin/docker exec cape-upx *
+    cape ALL=(ALL) NOPASSWD: /usr/bin/docker exec -w /tmp/cape-external cape-innoextract *, /usr/bin/docker exec -w /tmp/cape-external cape-7z *, /usr/bin/docker exec -w /tmp/cape-external cape-upx *
 
 2. Enable in CAPEv2 Configuration
 =================================
@@ -164,7 +166,10 @@ When ``sudo_restriction`` is enabled, CAPEv2 bypasses the Python Docker SDK (whi
 
 .. code-block:: bash
 
-    $ sudo docker exec -w /tmp/cape-external cape-innoextract innoextract <file>
+    $ sudo -n docker exec -w /tmp/cape-external cape-innoextract innoextract <file>
+
+``sudo -n`` is used so that a missing or mismatched NOPASSWD rule fails immediately instead of blocking the
+processing worker on a password prompt.
 
 ----------------------------
 Hybrid Host/Docker Execution Mode
@@ -172,7 +177,7 @@ Hybrid Host/Docker Execution Mode
 
 CAPEv2 supports a hybrid configuration where some tools are executed inside Docker containers while others are executed directly on the host machine. This is useful for migrating incrementally or avoiding containerization latency on extremely simple/safe tools.
 
-To configure a specific tool to run on the host even if ``docker_extra_info`` is globally enabled, add ``run_in_docker = no`` under that specific tool's section in ``integrations.conf`` or ``processing.conf``:
+To configure a specific tool to run on the host even if ``docker_extra_info`` is globally enabled, add ``run_in_docker = no`` under that specific tool's section in ``integrations.conf``:
 
 .. code-block:: ini
 
@@ -181,10 +186,12 @@ To configure a specific tool to run on the host even if ``docker_extra_info`` is
     enabled = yes
     run_in_docker = no  # This tool will run directly on the host
 
-    # In processing.conf:
-    [trid]
-    enabled = yes
-    run_in_docker = no  # This tool will run directly on the host
+.. note::
+
+    Only tools invoked through ``run_tool`` can be containerised: ``innoextract``, ``7z``/``7zz``, ``upx``,
+    ``de4dot``, ``NETReactorSlayer.CLI``, ``UnAutoIt``, ``unrar`` and ``unzip``. ``detect-it-easy`` and
+    ``trid`` call ``subprocess`` directly and depend on host-side definition files, so they always run on
+    the host and ignore ``run_in_docker``.
 
 --------------------
 Operating Guidelines

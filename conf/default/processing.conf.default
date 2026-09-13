@@ -166,8 +166,12 @@ enabled = no
 mode = mounted
 # Restrict Docker access using /etc/sudoers (running 'sudo docker exec' instead of direct docker-py SDK socket)
 sudo_restriction = no
-# Directory mapped to the tool containers as a shared volume (used in 'mounted' mode)
+# Directory mapped to the tool containers as a shared volume (used in 'mounted' mode).
+# This MUST be <cuckoo.conf:tmppath>/cape-external, as that is where the extractors create
+# their working directories, and it MUST be mounted into every tool container.
 shared_volume_path = /tmp/cape-external
+# Timeout, in seconds, for a single in-container tool execution
+timeout = 120
 # API Gateway URL (used in 'api' mode)
 api_url = http://127.0.0.1:8000
 

@@ -8,6 +8,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import tempfile
 
 # from contextlib import suppress
 from typing import Any, DefaultDict, List, Optional, Set, Tuple, Union
@@ -1087,7 +1088,9 @@ file_info_funcs = [
 ]
 
 
-# Mapping of binary executable names to their corresponding integrations.conf section and default container name
+# Mapping of binary executable names to their corresponding integrations.conf section and default container name.
+# NOTE: detect-it-easy and trid are invoked through subprocess directly (not through run_tool) and rely on
+# host-side definition files, so they are deliberately not routed into containers.
 BINARY_TO_TOOL_MAPPING = {
     "innoextract": ("Inno_extract", "cape-innoextract"),
     "7z": ("SevenZip_unpack", "cape-7z"),
@@ -1098,15 +1101,39 @@ BINARY_TO_TOOL_MAPPING = {
     "UnAutoIt": ("UnAutoIt_extract", "cape-unautoit"),
     "unrar": ("RarSFX_extract", "cape-unrar"),
     "unzip": ("msix_extract", "cape-msix"),
-    "diec": ("die", "cape-die"),
-    "trid": ("trid", "cape-trid"),
 }
 
 try:
     import docker
+
     HAVE_DOCKER_SDK = True
 except ImportError:
     HAVE_DOCKER_SDK = False
+
+# Default timeout, in seconds, for a single in-container tool execution.
+DOCKER_EXEC_TIMEOUT = 120
+
+
+def _wants_text(kwargs: dict) -> bool:
+    """subprocess returns str instead of bytes when any of these are set."""
+    return bool(kwargs.get("universal_newlines") or kwargs.get("text") or kwargs.get("encoding") or kwargs.get("errors"))
+
+
+def _coerce_output(output: Union[bytes, str, None], kwargs: dict) -> Union[bytes, str]:
+    """Honour the bytes/str contract that the run_tool() caller asked for.
+
+    Callers pass universal_newlines=True and then do string operations on the result, so
+    returning raw bytes from the container would raise TypeError inside the extractors.
+    """
+    if output is None:
+        output = b""
+    if _wants_text(kwargs):
+        if isinstance(output, bytes):
+            return output.decode(kwargs.get("encoding") or "utf-8", errors=kwargs.get("errors") or "replace")
+        return output
+    if isinstance(output, str):
+        return output.encode()
+    return output
 
 
 class ToolDispatcher:
@@ -1115,23 +1142,33 @@ class ToolDispatcher:
         self.enabled = False
         self.mode = "mounted"
         self.sudo_restriction = False
-        self.shared_volume_path = "/tmp/cape-external"
+        self.shared_volume_path = tools_folder
         self.api_url = "http://127.0.0.1:8000"
+        self.exec_timeout = DOCKER_EXEC_TIMEOUT
 
         # Load configuration gracefully
         try:
             self.enabled = processing_conf.docker_extra_info.get("enabled", False)
             self.mode = processing_conf.docker_extra_info.get("mode", "mounted")
             self.sudo_restriction = processing_conf.docker_extra_info.get("sudo_restriction", False)
-            self.shared_volume_path = processing_conf.docker_extra_info.get("shared_volume_path", "/tmp/cape-external")
+            self.shared_volume_path = processing_conf.docker_extra_info.get("shared_volume_path", tools_folder)
             self.api_url = processing_conf.docker_extra_info.get("api_url", "http://127.0.0.1:8000")
+            self.exec_timeout = int(processing_conf.docker_extra_info.get("timeout", DOCKER_EXEC_TIMEOUT))
         except Exception as e:
             log.debug("Docker extra info config not fully loaded, using defaults: %s", str(e))
+
+        if self.enabled and self.shared_volume_path != tools_folder:
+            log.warning(
+                "docker_extra_info.shared_volume_path (%s) differs from the extractor working folder (%s); "
+                "tool output written by the containers will not be collected",
+                self.shared_volume_path,
+                tools_folder,
+            )
 
         # Gracefully load docker-py SDK
         if self.enabled and not self.sudo_restriction and HAVE_DOCKER_SDK:
             try:
-                self.docker_client = docker.from_env()
+                self.docker_client = docker.from_env(timeout=self.exec_timeout)
             except Exception as e:
                 log.error("Failed to initialize Docker SDK: %s. Falling back to subprocess execution.", str(e))
 
@@ -1148,41 +1185,36 @@ class ToolDispatcher:
         section_name, _ = BINARY_TO_TOOL_MAPPING[clean_name]
 
         # Verify if the tool is enabled and configured to run in Docker
-        if section_name in ("die", "trid"):
-            try:
-                sec_conf = getattr(processing_conf, section_name, {})
-                enabled = sec_conf.get("enabled", False)
-                run_in_docker = sec_conf.get("run_in_docker", True)
-                return enabled and run_in_docker
-            except Exception:
-                return False
         try:
             sec_conf = getattr(integration_conf, section_name, {})
-            enabled = sec_conf.get("enabled", False)
-            run_in_docker = sec_conf.get("run_in_docker", True)
-            return enabled and run_in_docker
+            return bool(sec_conf.get("enabled", False)) and bool(sec_conf.get("run_in_docker", True))
         except Exception:
             return False
+
+    def _resolve_container_name(self, section_name: str, default_container: str) -> str:
+        """Per-tool container_name override from integrations.conf.
+
+        Config.get() only accepts a section name and raises on missing sections, so getattr()
+        with a default is used instead.
+        """
+        try:
+            sec_conf = getattr(integration_conf, section_name, {})
+            return sec_conf.get("container_name") or default_container
+        except Exception:
+            return default_container
 
     def execute_in_container(self, binary_name: str, cmd_args: List[str], **kwargs) -> Union[bytes, str]:
         """Dispatches execution of the tool inside its designated Docker container."""
         clean_name = os.path.basename(binary_name)
         section_name, default_container = BINARY_TO_TOOL_MAPPING[clean_name]
-
-        # Determine the target container name
-        container_name = default_container
-        if section_name not in ("die", "trid"):
-            try:
-                container_name = integration_conf.get(section_name, {}).get("container_name", default_container)
-            except Exception:
-                pass
+        container_name = self._resolve_container_name(section_name, default_container)
 
         # 1. Route to Remote API Gateway
         if self.mode == "api":
-            return self._execute_via_api(container_name, cmd_args, **kwargs)
+            return _coerce_output(self._execute_via_api(container_name, cmd_args, **kwargs), kwargs)
 
         # 2. Prepare paths in shared volume
-        new_args, copied_files = self._prepare_paths_for_container(cmd_args, self.shared_volume_path)
+        new_args, copied_files, staging_dir = self._prepare_paths_for_container(cmd_args, self.shared_volume_path)
 
         # 3. Replace local host binary path with the simple binary execution name inside the container
         new_args[0] = clean_name
@@ -1193,7 +1225,7 @@ class ToolDispatcher:
                 stdout = self._execute_via_restricted_sudo(container_name, new_args, **kwargs)
             else:
                 stdout = self._execute_via_sdk_or_subprocess(container_name, new_args, **kwargs)
-            return stdout
+            return _coerce_output(stdout, kwargs)
         finally:
             # 5. Clean up any copied files on the host
             for path in copied_files:
@@ -1201,10 +1233,19 @@ class ToolDispatcher:
                     os.remove(path)
                 except Exception as e:
                     log.warning("Failed to clean up copied input file %s: %s", path, str(e))
+            if staging_dir:
+                shutil.rmtree(staging_dir, ignore_errors=True)
 
-    def _prepare_paths_for_container(self, cmd_args: List[str], shared_volume_path: str) -> Tuple[List[str], List[str]]:
-        """Ensures input files are located inside the shared volume before execution."""
+    def _prepare_paths_for_container(
+        self, cmd_args: List[str], shared_volume_path: str
+    ) -> Tuple[List[str], List[str], Optional[str]]:
+        """Ensures input files are located inside the shared volume before execution.
+
+        Returns the rewritten arguments, the list of copies made on the host and, when one had to
+        be created, the private staging directory that the caller must remove afterwards.
+        """
         tempdir = None
+        staging_dir = None
         for arg in cmd_args:
             if isinstance(arg, str) and arg.startswith(shared_volume_path):
                 if os.path.isdir(arg):
@@ -1217,9 +1258,6 @@ class ToolDispatcher:
                     tempdir = os.path.dirname(arg)
                     break
 
-        if not tempdir:
-            tempdir = shared_volume_path
-
         copied_files = []
         new_args = []
 
@@ -1229,24 +1267,61 @@ class ToolDispatcher:
                 new_args.append(arg)
                 continue
 
-            if isinstance(arg, str) and os.path.isabs(arg) and not arg.startswith(shared_volume_path):
-                if os.path.isfile(arg):
-                    filename = os.path.basename(arg)
-                    dest_path = os.path.join(tempdir, filename)
+            if isinstance(arg, str) and os.path.isabs(arg) and not arg.startswith(shared_volume_path) and os.path.isfile(arg):
+                if not tempdir:
+                    # Never stage into the root of the shared volume: concurrent tasks analysing
+                    # files with the same basename would overwrite (and delete) each other's input.
                     try:
-                        shutil.copy2(arg, dest_path)
-                        copied_files.append(dest_path)
-                        new_args.append(dest_path)
-                        log.debug("Copied file %s to shared volume at %s for Docker container", arg, dest_path)
+                        path_mkdir(shared_volume_path, exist_ok=True)
+                        staging_dir = tempfile.mkdtemp(prefix="dockerstage_", dir=shared_volume_path)
+                        tempdir = staging_dir
                     except Exception as e:
-                        log.error("Failed to copy file %s to %s: %s", arg, dest_path, str(e))
+                        log.error("Failed to create staging directory under %s: %s", shared_volume_path, str(e))
                         new_args.append(arg)
-                else:
+                        continue
+
+                dest_path = os.path.join(tempdir, os.path.basename(arg))
+                try:
+                    shutil.copy2(arg, dest_path)
+                    copied_files.append(dest_path)
+                    new_args.append(dest_path)
+                    log.debug("Copied file %s to shared volume at %s for Docker container", arg, dest_path)
+                except Exception as e:
+                    log.error("Failed to copy file %s to %s: %s", arg, dest_path, str(e))
                     new_args.append(arg)
             else:
                 new_args.append(arg)
 
-        return new_args, copied_files
+        return new_args, copied_files, staging_dir
+
+    def _log_stderr(self, container_name: str, stderr: Union[bytes, str, None]):
+        if not stderr:
+            return
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        log.debug("Container %s stderr: %s", container_name, stderr.strip())
+
+    def _run_docker_cli(self, exec_cmd: List[str], container_name: str) -> bytes:
+        """Runs a docker CLI command keeping stdout and stderr separated, as subprocess callers expect."""
+        try:
+            proc = subprocess.run(
+                exec_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                timeout=self.exec_timeout,
+                check=False,
+            )
+        except subprocess.TimeoutExpired:
+            log.error("Container %s execution timed out after %ds", container_name, self.exec_timeout)
+            return b""
+        except Exception as e:
+            log.error("Failed to run docker exec on %s: %s", container_name, str(e))
+            return b""
+
+        self._log_stderr(container_name, proc.stderr)
+        if proc.returncode != 0:
+            log.warning("Container %s execution returned non-zero exit code: %d", container_name, proc.returncode)
+        return proc.stdout or b""
 
     def _execute_via_sdk_or_subprocess(self, container_name: str, cmd_args: List[str], **kwargs) -> bytes:
         """Executes a command inside the target container using docker-py, falling back to subprocess docker exec."""
@@ -1257,29 +1332,29 @@ class ToolDispatcher:
                     log.info("Starting container %s as it is currently stopped", container_name)
                     container.start()
 
-                exit_code, output = container.exec_run(cmd=cmd_args, workdir=self.shared_volume_path)
+                # demux keeps stderr out of the returned buffer, matching stderr=subprocess.PIPE on the host
+                exit_code, (stdout, stderr) = container.exec_run(
+                    cmd=cmd_args, workdir=self.shared_volume_path, demux=True
+                )
+                self._log_stderr(container_name, stderr)
                 if exit_code != 0:
                     log.warning("Container %s execution returned non-zero exit code: %d", container_name, exit_code)
-                return output
+                return stdout or b""
             except Exception as e:
                 log.error("Docker SDK execution failed for %s: %s. Falling back to subprocess exec.", container_name, str(e))
 
         # Subprocess docker exec fallback
         exec_cmd = ["docker", "exec", "-w", self.shared_volume_path, container_name] + cmd_args
-        try:
-            return subprocess.check_output(exec_cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as err:
-            log.error("Subprocess docker exec failed on %s: %s", container_name, err.output)
-            return err.output
+        return self._run_docker_cli(exec_cmd, container_name)
 
     def _execute_via_restricted_sudo(self, container_name: str, cmd_args: List[str], **kwargs) -> bytes:
-        """Executes a command via restricted sudo command lines to satisfy /etc/sudoers hardening policy."""
-        exec_cmd = ["sudo", "docker", "exec", "-w", self.shared_volume_path, container_name] + cmd_args
-        try:
-            return subprocess.check_output(exec_cmd, stderr=subprocess.STDOUT)
-        except subprocess.CalledProcessError as err:
-            log.error("Restricted sudo docker exec failed on %s: %s", container_name, err.output)
-            return err.output
+        """Executes a command via restricted sudo command lines to satisfy /etc/sudoers hardening policy.
+
+        -n is mandatory: without it a missing NOPASSWD rule makes sudo block on the tty forever and
+        hangs the processing worker.
+        """
+        exec_cmd = ["sudo", "-n", "docker", "exec", "-w", self.shared_volume_path, container_name] + cmd_args
+        return self._run_docker_cli(exec_cmd, container_name)
 
     def _execute_via_api(self, container_name: str, cmd_args: List[str], **kwargs) -> bytes:
         """Sends a request to the remote FastAPI Gateway to orchestrate the container execution."""
@@ -1304,29 +1379,32 @@ class ToolDispatcher:
                     "cmd_args": json.dumps(cmd_args),
                 }
                 url = f"{self.api_url}/extract"
-                response = requests.post(url, files=files, data=data, timeout=120)
+                response = requests.post(url, files=files, data=data, timeout=self.exec_timeout)
 
-                if response.status_code == 200:
-                    content_type = response.headers.get("content-type", "")
-                    if "application/zip" in content_type:
-                        # Extract the ZIP to local destination directory
-                        dest_dir = None
-                        for arg in cmd_args:
-                            if isinstance(arg, str) and arg.startswith(self.shared_volume_path) and os.path.isdir(arg):
-                                dest_dir = arg
-                                break
-                        if dest_dir:
-                            import zipfile
-                            from io import BytesIO
-                            with zipfile.ZipFile(BytesIO(response.content)) as z:
-                                z.extractall(dest_dir)
-                        return b"Extraction completed via API Gateway"
-                    else:
-                        return response.content
-                else:
+                if response.status_code != 200:
                     log.error("API Gateway returned error %d: %s", response.status_code, response.text)
                     return b""
+
+                content_type = response.headers.get("content-type", "")
+                if "application/zip" not in content_type:
+                    return response.content
+
+                # Extract the ZIP to local destination directory
+                dest_dir = None
+                for arg in cmd_args:
+                    if isinstance(arg, str) and arg.startswith(self.shared_volume_path) and os.path.isdir(arg):
+                        dest_dir = arg
+                        break
+                if not dest_dir:
+                    log.error("API Mode: no destination directory inside %s was found in the arguments", self.shared_volume_path)
+                    return b""
+
+                import zipfile
+                from io import BytesIO
+
+                with zipfile.ZipFile(BytesIO(response.content)) as z:
+                    z.extractall(dest_dir)
+                return b"Extraction completed via API Gateway"
         except Exception as e:
             log.error("API Gateway connection failed: %s", str(e))
             return b""
-

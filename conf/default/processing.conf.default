@@ -118,6 +118,8 @@ network_passlist = no
 network_passlist_file = extra/whitelist_network.txt
 # Enable extraction of decrypted HTTP/SMTP files to the analysis network folder
 extract_files = yes
+# Maximum time, in seconds, a single tshark pass over the pcap may take
+tshark_timeout = 600
 
 # Requires geoip2 and maxmind database
 country_lookup = no

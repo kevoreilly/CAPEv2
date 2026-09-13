@@ -257,3 +257,35 @@ def test_parse_slug_handles_common_url_forms():
     assert agent_worktree.parse_slug("https://github.com/kevoreilly/CAPEv2") == ("kevoreilly", "CAPEv2")
     assert agent_worktree.parse_slug("ssh://git@github.com/kevoreilly/CAPEv2.git") == ("kevoreilly", "CAPEv2")
     assert agent_worktree.parse_slug("/some/local/path") is None
+
+
+def test_repo_slug_prefers_upstream_over_origin(repo):
+    # Fork layout: origin is the contributor's fork, upstream is canonical.
+    _git(repo, "remote", "set-url", "origin", "git@github.com:contributor/project.git")
+    _git(repo, "remote", "add", "upstream", "git@github.com:canonical/project.git")
+    assert agent_worktree.repo_slug(str(repo)) == "canonical/project"
+
+
+def test_new_branch_falls_back_to_other_remotes(capsys, repo, tmp_path, origin):
+    """A branch that exists only on upstream is still found."""
+    second = tmp_path / "second.git"
+    second.mkdir()
+    _git(second, "init", "--bare", "--initial-branch=master", ".")
+    _git(repo, "remote", "add", "upstream", str(second))
+
+    # Publish a branch to upstream only, then drop every local trace of it.
+    _git(repo, "checkout", "-b", "upstream-only")
+    _commit(repo, "upstream_only.txt")
+    _git(repo, "push", "upstream", "upstream-only")
+    _git(repo, "checkout", "master")
+    _git(repo, "branch", "-D", "upstream-only")
+
+    data = call(capsys, repo, tmp_path / "wt", "new", "--branch", "upstream-only")
+    assert data["upstream"] == "upstream/upstream-only"
+    assert any("not on origin" in w for w in data["warnings"])
+    assert os.path.isfile(os.path.join(data["path"], "upstream_only.txt"))
+
+
+def test_new_branch_reports_a_missing_branch(repo, tmp_path):
+    rc = agent_worktree.main(["--repo", str(repo), "--base-dir", str(tmp_path / "wt"), "new", "--branch", "nope"])
+    assert rc == 1

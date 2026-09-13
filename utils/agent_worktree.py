@@ -136,8 +136,15 @@ def parse_slug(url: str) -> Optional[Tuple[str, str]]:
 
 
 def repo_slug(repo: str) -> Optional[str]:
+    """Best guess at the canonical owner/repo for this checkout.
+
+    `upstream` wins over `origin`: in a fork workflow `origin` is the
+    contributor's own fork, while pull requests live on the canonical
+    repository that `upstream` points at. Clones made directly from the
+    canonical repository have no `upstream`, so `origin` is correct there.
+    """
     rem = remotes(repo)
-    for name in ("origin", "upstream"):
+    for name in ("upstream", "origin"):
         if name in rem:
             slug = parse_slug(rem[name])
             if slug:
@@ -361,10 +368,30 @@ def cmd_new(args: argparse.Namespace) -> Dict[str, Any]:
     elif args.branch:
         head_ref = args.branch
         default_name = sanitize(head_ref)
-        remote = args.remote or ("origin" if "origin" in remotes(repo) else None)
+        configured = remotes(repo)
+        if args.remote:
+            candidates = [args.remote]
+        else:
+            # Try origin first, then the canonical repo, then anything else:
+            # in a fork workflow the branch may live on either side.
+            candidates = [name for name in ("origin", "upstream") if name in configured]
+            candidates += [name for name in configured if name not in candidates]
+        if not candidates:
+            raise SystemExit("no remotes configured; pass --remote")
+
+        remote = None
+        for candidate in candidates:
+            try:
+                git(repo, "fetch", "--quiet", candidate, f"{head_ref}:refs/remotes/{candidate}/{head_ref}")
+            except CommandError:
+                continue
+            remote = candidate
+            break
         if not remote:
-            raise SystemExit("no origin remote; pass --remote")
-        git(repo, "fetch", "--quiet", remote, f"{head_ref}:refs/remotes/{remote}/{head_ref}")
+            raise SystemExit(f"branch {head_ref!r} not found on any of: {', '.join(candidates)}")
+        if remote != candidates[0]:
+            warnings.append(f"{head_ref} was not on {candidates[0]}; fetched from {remote}")
+
         start_point = f"{remote}/{head_ref}"
         upstream = start_point
         branch_pref = args.branch_name or head_ref

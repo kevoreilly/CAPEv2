@@ -3,8 +3,8 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import os
+import zipfile
 
-from lib.cuckoo.common.utils import create_zip
 from lib.cuckoo.common.abstracts import Report
 from lib.cuckoo.common.exceptions import CuckooReportError
 from lib.cuckoo.common.path_utils import path_write_file
@@ -17,6 +17,7 @@ except ImportError:
     import json
 
     HAVE_ORJSON = False
+
 
 class JsonDump(Report):
     """Saves analysis results in JSON format."""
@@ -51,10 +52,15 @@ class JsonDump(Report):
 
             # useful if you frequently fetch zipped reports to not compress in memory all the time
             if self.options.get("store_compressed") and os.path.exists(path):
-                zip_path = path + ".zip"
-                zipped_io = create_zip(path)
-                with open(zip_path, "wb") as f:
-                    f.write(zipped_io.getvalue())
+                zip_path = f"{path}.zip"
+                # Written straight to disk. Building this through BytesIO held the whole
+                # compressed report in memory and then copied it again via getvalue(),
+                # on top of the uncompressed results dict already resident.
+                # The arcname matches what create_zip produced ("<reports dir>/report.json")
+                # so existing consumers of the archive are unaffected.
+                arcname = os.path.join(os.path.basename(os.path.dirname(path)), os.path.basename(path))
+                with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
+                    zf.write(path, arcname=arcname)
 
         except (UnicodeError, TypeError, IOError) as e:
             raise CuckooReportError(f"Failed to generate JSON report: {e}")

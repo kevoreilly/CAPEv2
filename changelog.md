@@ -1,3 +1,10 @@
+### [14.09.2026]
+* Behaviour processing performance:
+    * `Summary` guarded roughly thirty appends with `value not in self.<list>`, once per matching API call, against lists that reach thousands of entries. The accumulators are now insertion-ordered containers with a set-backed membership test and are unwrapped to plain lists in `run()`. 100k appends across 10k unique values: 7.0s -> 4.8ms. Output verified identical with `replace_patterns` both off and on.
+    * `EncryptedBuffers` tested `buf not in self.bufs`, comparing a `str` against a list of `dict`s. That is always true, so no buffer was ever deduplicated and every check walked the whole list. 20k buffers: 3.0s -> 2.3ms. Reports now contain unique buffers per API.
+    * `EncryptedBuffers` also recorded every `CryptEncryptMessage` call twice, because `startswith("CryptEncrypt")` matches it as well.
+    * `ProcessTree.event_apicall` scanned the collected process list on every API call. 1M calls across 200 processes: 2.6s -> 18ms.
+
 ### [22.08.2026]
 * Performance & Database Infrastructure:
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.

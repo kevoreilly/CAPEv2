@@ -1,3 +1,9 @@
+### [14.09.2026]
+* `utils/community.py` install safety:
+    * **Blocklist now works**: entries were compared against the absolute destination path while the file documents them as `"signatures/my_amazing_signature.py"`, so nothing was ever blocklisted. The documented relative form, the bare path inside the category and an absolute path are all accepted now.
+    * **`--clean` is rooted at `CUCKOO_ROOT`**: it called `shutil.rmtree()` on the relative category path, deleting relative to the current working directory.
+    * **New `-sc/--shadow-core`**: community files install into the same directories as core modules, with no namespacing, so a community file with a core path replaces it. Those paths are now skipped and listed unless this flag is passed.
+
 ### [22.08.2026]
 * Performance & Database Infrastructure:
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.

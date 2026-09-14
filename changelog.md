@@ -1,3 +1,9 @@
+### [14.09.2026]
+* Elasticsearch reporting and JSON dump:
+    * `ElasticSearchDB.run()` performed `json.loads(json.dumps(report), object_hook=date_hook)` **before** `insert_calls`, so the entire behaviour log was serialised and re-parsed only to be discarded on the next line. The round-trip now runs after the calls have been moved to the calls index. 200k calls: 7.36s -> 2ms.
+    * `date_hook` attempted `strptime` on every value in the report tree, building an exception for each int, list and non-date string. A leading digit plus a `-` plus a `:` are all necessary for `"%Y-%m-%d %H:%M:%S"` to parse, so guarding on them converts exactly the same values: a further 4.2x on the remaining work.
+    * `jsondump` with `store_compressed` built the whole archive in a `BytesIO` and then copied it out with `getvalue()`. It now writes the zip directly to disk. No speed change, lower peak memory. The archive entry name is unchanged.
+
 ### [22.08.2026]
 * Performance & Database Infrastructure:
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.

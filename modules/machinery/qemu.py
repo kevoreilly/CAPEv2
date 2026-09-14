@@ -8,7 +8,6 @@ import logging
 import os
 import os.path
 import subprocess
-import time
 
 import magic
 
@@ -480,7 +479,6 @@ class QEMU(Machinery):
 
             proc = self.state.get(vm_info.name)
 
-            stop_me = 0
             log.debug("Freezing vm %s before shutdown", label)
             proc.stdin.write("stop\n")
 
@@ -490,25 +488,27 @@ class QEMU(Machinery):
             log.debug("Flushing snapshot commands to qemu.")
             proc.stdin.flush()
 
-            proc.wait()
-            log.debug("Shutdown done")
-
-            while proc.poll() is None:
-                if stop_me < cfg.timeouts.vm_state:
-                    stop_me += 1
-                else:
-                    log.debug("Stopping vm %s timed out, killing", label)
-                    proc.stdin.write("stop\n")
-
-                    log.debug("Force powerdown")
-                    proc.stdin.write("system_powerdown\n")
-
-                    log.debug("Flushing snapshot commands to qemu.")
-                    proc.stdin.flush()
-                    proc.wait(15)
+            # proc.wait() used to be called with no timeout, so a wedged qemu hung the
+            # machinery thread forever and the escalation below it was unreachable.
+            try:
+                proc.wait(timeout=int(cfg.timeouts.vm_state))
+                log.debug("Shutdown done")
+            except subprocess.TimeoutExpired:
+                log.debug("Stopping vm %s timed out, forcing powerdown", label)
+                proc.stdin.write("stop\n")
+                proc.stdin.write("system_powerdown\n")
+                proc.stdin.flush()
+                try:
+                    proc.wait(timeout=15)
+                except subprocess.TimeoutExpired:
+                    log.debug("Powerdown of vm %s timed out, terminating qemu", label)
                     proc.terminate()
-
-                time.sleep(1)
+                    try:
+                        proc.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        log.debug("qemu for vm %s ignored SIGTERM, killing", label)
+                        proc.kill()
+                        proc.wait()
         except Exception as e:
             raise CuckooMachineError(f"Shutdown failed : virtual machine {label}: {e}") from e
 

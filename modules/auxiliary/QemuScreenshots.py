@@ -8,6 +8,7 @@ import logging
 import math
 import os
 import time
+from contextlib import suppress
 from io import BytesIO
 from threading import Thread
 
@@ -82,6 +83,7 @@ class ScreenshotThread(Thread):
         self.task = task
         self.machine = machine
         self.do_run = do_run
+        self._conn = None
 
         self.screenshots_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "shots")
         os.makedirs(self.screenshots_path, exist_ok=True)
@@ -94,43 +96,65 @@ class ScreenshotThread(Thread):
         img_counter = 0
         img_last = None
 
-        while self.do_run:
-            time.sleep(SHOT_DELAY)
-            try:
-                img_current = self._take_screenshot()
-                if img_last and self._equal(img_last, img_current, SKIP_AREA):
-                    continue
+        try:
+            while self.do_run:
+                time.sleep(SHOT_DELAY)
+                try:
+                    img_current = self._take_screenshot()
+                    if img_last and self._equal(img_last, img_current, SKIP_AREA):
+                        continue
 
-                img_last = img_current
-                file_path = os.path.join(self.screenshots_path, f"{img_counter}.png")
-                img_current.save(file_path, format="PNG")
-                # log.info(f'Screenshot saved to {file_path}')
-                img_counter += 1
-            except (IOError, libvirt.libvirtError) as e:
-                log.error("Cannot take screenshot: %s", str(e))
-                continue
+                    img_last = img_current
+                    file_path = os.path.join(self.screenshots_path, f"{img_counter}.png")
+                    img_current.save(file_path, format="PNG")
+                    # log.info(f'Screenshot saved to {file_path}')
+                    img_counter += 1
+                except (IOError, libvirt.libvirtError) as e:
+                    log.error("Cannot take screenshot: %s", str(e))
+                    # The connection may be the thing that broke; drop it so the next
+                    # iteration reconnects instead of reusing a dead handle.
+                    self._close_connection()
+                    continue
+        finally:
+            self._close_connection()
+
+    def _close_connection(self):
+        if self._conn is not None:
+            with suppress(Exception):
+                self._conn.close()
+            self._conn = None
+
+    def _connection(self):
+        """One libvirt connection per thread rather than one per screenshot.
+
+        This used to open and close a connection every SHOT_DELAY seconds, for every
+        concurrent analysis.
+        """
+        if self._conn is None:
+            self._conn = libvirt.open("qemu:///system")
+        return self._conn
 
     def _take_screenshot(self):
         """Take screenshot from QEMU and return the PIL Image object."""
-        conn = libvirt.open("qemu:///system")
+        conn = self._connection()
+        dom = conn.lookupByName(self.machine.label)
+        stream = conn.newStream()
         try:
-            dom = conn.lookupByName(self.machine.label)
-            stream = conn.newStream()
             dom.screenshot(stream, 0)  # 0 for primary display
 
-            image_data = b""
+            chunks = []
             while True:
                 chunk = stream.recv(262120)
                 if not chunk:
                     break
-                image_data += chunk
+                chunks.append(chunk)
 
-            return Image.open(BytesIO(image_data))
+            return Image.open(BytesIO(b"".join(chunks)))
         finally:
-            if stream:
+            # `stream` used to be referenced here even when lookupByName raised before it
+            # was assigned, turning a libvirt error into a NameError.
+            with suppress(Exception):
                 stream.finish()
-            if conn:
-                conn.close()
 
     def _draw_rectangle(self, img, xy):
         """Draw a black rectangle.

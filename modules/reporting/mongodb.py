@@ -496,6 +496,14 @@ class MongoDB(Report):
                 except Exception as idx_err:
                     log.warning("Could not create tenant_scope_idx on analysis collection: %s", idx_err)
 
+                try:
+                    # _reconcile_write_filter and the central pre-insert lookup both
+                    # query info.job_id. Without an index on it that update falls back
+                    # to a collection scan of analysis.
+                    mongo_create_index("analysis", [("info.job_id", 1)], background=True, name="info_job_id_1")
+                except Exception as idx_err:
+                    log.warning("Could not create info_job_id_1 on analysis collection: %s", idx_err)
+
         # Create a copy of the dictionary. This is done in order to not modify
         # the original dictionary and possibly compromise the following
         # reporting modules.

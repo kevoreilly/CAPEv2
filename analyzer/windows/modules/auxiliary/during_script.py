@@ -84,11 +84,11 @@ class During_script(Thread, Auxiliary):
                 popen.terminate()
 
             stdout_data, stderr_data = popen.communicate()
-            nf.sock.send(stdout_data)
+            nf.send(stdout_data)
             if stderr_data:
-                nf.sock.send(b"Process stderr\n")
-                nf.sock.send(b"--------------\n")
-                nf.sock.send(stderr_data)
+                nf.send(b"Process stderr\n")
+                nf.send(b"--------------\n")
+                nf.send(stderr_data)
                 raise subprocess.CalledProcessError(return_code, str(self.executable))
             nf.close()
         except Exception as e:

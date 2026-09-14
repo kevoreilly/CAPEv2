@@ -68,6 +68,12 @@
     * ssh/scp use connection multiplexing (`ControlMaster`/`ControlPath`/`ControlPersist`) plus `BatchMode=yes`, so the remaining calls for a task share one TCP connection and one authentication instead of re-handshaking, and a missing key fails instead of blocking on a password prompt.
     * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
     * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
+
+* Windows analyzer result uploads:
+    * Screenshots, the DigiSig report and the pre/during script output were written to the result server with bare `socket.send()` calls, iterating the payload as *lines*. Binary data splits on every `0x0A` byte, so a 155 KB screenshot went out as 762 socket writes (smallest 1 byte) instead of one.
+    * Those calls also discarded the `send()` return value (a short write silently truncated the upload) and bypassed `NetlogConnection.send()`, which reconnects and retries once.
+    * Added `NetlogConnection.send_fileobj()`, which reads fixed-size chunks and sends them through `sendall()` with the existing retry. Upload granularity is unchanged: one connection and one file per upload.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

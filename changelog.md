@@ -3,6 +3,11 @@
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.
     * **In-Memory Connection Upgrader**: Added a seamless backward-compatibility layer in `lib/cuckoo/core/database.py`. If `postgresql://` is used with psycopg v3 installed, CAPEv2 automatically and transparently upgrades it in-memory to use the `postgresql+psycopg://` driver, preventing any startup `ImportError` or configuration crashes!
 
+* Windows analyzer result uploads:
+    * Screenshots, the DigiSig report and the pre/during script output were written to the result server with bare `socket.send()` calls, iterating the payload as *lines*. Binary data splits on every `0x0A` byte, so a 155 KB screenshot went out as 762 socket writes (smallest 1 byte) instead of one.
+    * Those calls also discarded the `send()` return value (a short write silently truncated the upload) and bypassed `NetlogConnection.send()`, which reconnects and retries once.
+    * Added `NetlogConnection.send_fileobj()`, which reads fixed-size chunks and sends them through `sendall()` with the existing retry. Upload granularity is unchanged: one connection and one file per upload.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

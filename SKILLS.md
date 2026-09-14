@@ -72,6 +72,105 @@ CAPE (Config And Payload Extraction) is a malware analysis sandbox derived from 
 *   **Logging:** Use `import logging; log = logging.getLogger(__name__)`. Do not use `print()`.
 *   **Exceptions:** Use custom exceptions from `lib/cuckoo/common/exceptions.py` (e.g., `CuckooOperationalError`).
 
+### Local Development Environment
+
+Dependencies are managed with **Poetry**; the test suite imports `sqlalchemy`,
+`django` and friends, so a system Python without the project environment will
+fail at collection time in `tests/conftest.py`.
+
+```bash
+poetry install
+poetry run pytest tests/ -q
+```
+
+Use `poetry run <cmd>` (or activate the venv) for *every* Python invocation -
+`pytest`, `ruff`, `black`, `alembic`, `python utils/...`.
+
+**Linting.** `ruff` is the fast gate and is expected to be clean:
+
+```bash
+poetry run ruff check <changed files>
+```
+
+`black` and `ruff format` are configured with `line-length = 132` in
+`pyproject.toml`. Some long-lived modules predate the current settings, so
+`black --check` reports findings unrelated to your change. Format only the
+lines you touched; reformatting a whole module turns a small fix into an
+unreviewable diff.
+
+**Tests.** Third-party dependencies emit several hundred deprecation warnings
+that bury the result; `-p no:warnings` keeps the output readable:
+
+```bash
+poetry run pytest tests/test_something.py -p no:warnings -q
+```
+
+### Isolated Checkouts for Review and Testing
+
+Reviewing a PR or reproducing a bug against another branch should never
+disturb your working clone - most clones carry uncommitted work, and
+`git checkout` / `git stash` in the wrong directory loses it. Use
+`utils/agent_worktree.py`, a thin wrapper over `git worktree` that handles the
+PR plumbing. It is stdlib-only and repository-agnostic.
+
+```bash
+python utils/agent_worktree.py new --pr 3219      # resolve PR head via gh, fetch, branch, check out
+python utils/agent_worktree.py new --branch topic # existing remote branch
+python utils/agent_worktree.py new --from origin/master --name scratch
+
+python utils/agent_worktree.py list               # flags: main / managed / dirty / pr#N
+python utils/agent_worktree.py path pr3219        # for use in $(...)
+python utils/agent_worktree.py update pr3219      # re-fetch after the author pushes
+python utils/agent_worktree.py remove pr3219      # also drops the branch it created
+python utils/agent_worktree.py cleanup            # remove every worktree it created
+python utils/agent_worktree.py info               # repo, remotes, virtualenv, dirty state
+```
+
+`new --pr N` asks `gh` which fork the head branch lives in, fetches from the
+matching remote (or straight from the fork URL if no remote is configured),
+creates a local branch tracking it, and prints the path plus the project
+virtualenv. Add `--json` to any command for scripted use.
+
+Notes:
+
+* Worktrees default to `~/.cache/agent-worktrees/<repo>/<name>`; override with
+  `--base-dir`, `--path`, or `$AGENT_WORKTREE_DIR`.
+* Only worktrees created by the tool are ever removed. They are tagged with an
+  `agent-meta.json` inside the repository's git admin directory, so nothing
+  extra shows up in `git status`.
+* `remove` and `cleanup` refuse to discard uncommitted changes or unpushed
+  commits; `cleanup` reports what it skipped and why. `--force` overrides.
+* Poetry keys virtualenvs by project path, so a fresh worktree has no
+  environment of its own. Run `poetry run` from your main clone, or use the
+  interpreter reported by `info`.
+
+Tests live in `tests/test_agent_worktree.py` and run against throwaway local
+repositories - no network, credentials or CAPE configuration required.
+
+### Codebase Gotchas
+
+Behaviours that regularly cause silent, hard-to-debug failures:
+
+* **`lib/cuckoo/common/dictionary.py`** - `Dictionary.__getattr__` returns
+  `None` for missing keys instead of raising. Consequently
+  `getattr(section, "key", default)` **never applies its default**; use
+  `section.get("key", default)`.
+* **`lib/cuckoo/common/config.py`** - `_BaseConfig.get(section)` takes exactly
+  one argument and raises `CuckooOperationalError` for an unknown section, so
+  `conf.get(name, default)` is a `TypeError`, not a fallback. `Config` is
+  cached per configuration file by its metaclass, so repeated
+  `Config("processing")` calls are cheap.
+* **`lib/cuckoo/common/integrations/utils.py`** - `run_tool()` returns
+  **stdout only**. Callers that need stderr must pass
+  `stderr=subprocess.PIPE` themselves.
+* **`lib/cuckoo/common/integrations/file_extra_info_modules/__init__.py`** -
+  `extractor_ctx()` wraps extractors in `except Exception: log.exception(...)`.
+  A `TypeError` or `NameError` therefore surfaces as an empty result rather
+  than a crash; check the log before assuming the logic is wrong.
+* Broad `except Exception` around encode/decode helpers hides missing
+  module-level imports, which then look like a working fallback path. Verify
+  the import exists.
+
 ### How to Add a Detection Signature
 Signatures live in `modules/signatures/`.
 *   **Ref:** `docs/book/src/customization/signatures.rst`
@@ -204,6 +303,7 @@ If the Python controller is unresponsive, use `py-spy` to inspect the stack trac
 *   **Clean All:** `sudo -u cape poetry run python utils/cleaners.py --clean` (Destructive!)
 *   **Download Signatures:** `sudo -u cape poetry run python utils/community.py -waf`
 *   **Test Rooter:** `sudo python3 utils/rooter.py -g cape -v`
+*   **Check Out a PR Safely:** `python utils/agent_worktree.py new --pr <pr_id>` (isolated worktree; your clone is untouched)
 
 ### Database Querying (MongoDB)
 CAPE stores unstructured analysis results in the `analysis` collection.

@@ -212,6 +212,19 @@ def mongo_insert_one(collection: str, doc):
 
 
 @graceful_auto_reconnect
+def mongo_insert_many(collection: str, docs, ordered: bool = True):
+    """Batched counterpart of mongo_insert_one.
+
+    Runs the same per-document hooks so a caller can switch between the two without
+    changing what ends up stored. ``inserted_ids`` comes back in submission order.
+    """
+    collection_hooks = hooks[mongo_insert_one][collection]
+    if collection_hooks:
+        docs = [functools.reduce(lambda d, hook: hook(d), collection_hooks, doc) for doc in docs]
+    return getattr(results_db, collection).insert_many(docs, ordered=ordered)
+
+
+@graceful_auto_reconnect
 def mongo_find(collection: str, query, projection=False, sort=None, limit=None, max_time_ms=None, no_hooks=False):
     if sort is None:
         sort = [("_id", -1)]
@@ -254,9 +267,33 @@ def mongo_find_one(collection: str, query, projection=False, sort=None, max_time
     return result
 
 
+def _id_hint(query):
+    """``[("_id", 1)]`` when the filter is keyed on ``_id``, otherwise no hint.
+
+    The hint used to be unconditional. For a filter on ``info.id`` or ``info.job_id``
+    that forces a full scan of the ``_id`` index and stops the planner using
+    ``info_id_desc``, which ``check_webgui_mongo`` creates precisely for those queries.
+    """
+    if not isinstance(query, dict):
+        return None
+    keys = set(query)
+    if keys == {"_id"}:
+        return [("_id", 1)]
+    # An $and wrapping an _id equality is still an _id lookup.
+    if keys == {"$and"} and isinstance(query["$and"], list):
+        clause_keys = set()
+        for clause in query["$and"]:
+            if not isinstance(clause, dict):
+                return None
+            clause_keys |= set(clause)
+        if "_id" in clause_keys:
+            return [("_id", 1)]
+    return None
+
+
 @graceful_auto_reconnect
 def mongo_delete_one(collection: str, query):
-    return getattr(results_db, collection).delete_one(query, hint=[("_id", 1)])
+    return getattr(results_db, collection).delete_one(query, hint=_id_hint(query))
 
 
 @graceful_auto_reconnect
@@ -274,7 +311,7 @@ def mongo_update_one(collection: str, query, update, bypass_document_validation:
     if isinstance(update, dict) and update.get("$set"):
         for hook in hooks[mongo_update_one][collection]:
             update["$set"] = hook(update["$set"])
-    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation, hint=[("_id", 1)])
+    return getattr(results_db, collection).update_one(query, update, bypass_document_validation=bypass_document_validation, hint=_id_hint(query))
 
 
 @graceful_auto_reconnect

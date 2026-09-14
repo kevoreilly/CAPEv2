@@ -1,3 +1,9 @@
+### [14.09.2026]
+* MongoDB write path:
+    * `insert_calls` issued one `insert_one` per `CHUNK_CALL_SIZE` (100) calls, so a 5M call behaviour log was 50,000 sequential round trips. Chunks are batched 200 at a time through a new `mongo_insert_many`, taking that to roughly 250. The batch is bounded because pymongo encodes the whole batch to BSON before sending. Failure isolation is preserved via `ordered=False` plus recovery of the ids that did land.
+    * `mongo_update_one` and `mongo_delete_one` passed `hint=[("_id", 1)]` unconditionally. For the callers filtering on `info.id` or `info.job_id` — `utils/dist.py`, `lib/cuckoo/common/cleaners_utils.py`, `lib/cuckoo/core/data/tasking.py`, `modules/reporting/mongodb.py` — that forced a full scan of the `_id` index and prevented the planner using `info_id_desc`. The hint is now applied only when the filter is keyed on `_id`.
+    * Added an `info.job_id` index on `analysis` under multitenancy, which `_reconcile_write_filter` and the central pre-insert lookup both query.
+
 ### [22.08.2026]
 * Performance & Database Infrastructure:
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.

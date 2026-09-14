@@ -7,7 +7,6 @@ import datetime
 import logging
 import os
 import re
-from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
@@ -17,10 +16,13 @@ log = logging.getLogger(__name__)
 repconf = Config("reporting")
 
 CHUNK_CALL_SIZE = 100
+# How many CHUNK_CALL_SIZE chunks go into a single insert_many. Bounded because pymongo
+# encodes the whole batch to BSON before sending: 200 * 100 = 20k calls per round trip.
+CHUNK_BATCH_SIZE = 200
 
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_insert_one
+    from dev_utils.mongodb import mongo_insert_many
 # NB: pas de elif — mongodb ET elasticsearchdb peuvent etre actifs ensemble ;
 # avec elif, parallel_bulk/get_daily_calls_index restent indefinis et le
 # module ElasticSearchDB crashe (bug upstream).
@@ -146,6 +148,24 @@ def chunks(lst, n):
         yield lst[i : i + n]
 
 
+def _insert_call_chunks(docs):
+    """Insert a batch of call chunks and return the ids that were stored.
+
+    The previous code wrapped every single-document insert in `suppress(Exception)`, so
+    one bad chunk was dropped and the rest continued. `ordered=False` keeps that
+    property for a batch: Mongo attempts every document and reports the failures at the
+    end, and the ids of the documents that did land are recovered from the error.
+    """
+    try:
+        return mongo_insert_many("calls", docs, ordered=False).inserted_ids
+    except Exception as e:
+        write_errors = getattr(e, "details", None) or {}
+        failed = {err.get("index") for err in write_errors.get("writeErrors", []) if isinstance(err, dict)}
+        inserted = [doc["_id"] for i, doc in enumerate(docs) if i not in failed and "_id" in doc]
+        log.warning("Failed to store %d of %d call chunks: %s", len(failed) or len(docs), len(docs), e)
+        return inserted
+
+
 def insert_calls(report, elastic_db=None, mongodb=False):
     ## Behaviour envolves storing stuffs in the DB
     # Store chunks of API calls in a different collection and reference
@@ -155,34 +175,26 @@ def insert_calls(report, elastic_db=None, mongodb=False):
     new_processes = []
     for process in report.get("behavior", {}).get("processes", []) or []:
         new_process = dict(process)
-        chunk = []
         chunks_ids = []
 
         # Upload for mongoDB
         # Loop on each process call.
         if mongodb:
-            for _, call in enumerate(process["calls"]):
-                chunk_id = None
-                # If the chunk size is CHUNK_CALL_SIZE or if the loop is completed then store the chunk in DB.
-                if len(chunk) == CHUNK_CALL_SIZE:
-                    to_insert = {"pid": process["process_id"], "calls": chunk, "task_id": report["info"]["id"]}
-                    with suppress(Exception):
-                        chunk_id = mongo_insert_one("calls", to_insert).inserted_id
-                    if chunk_id:
-                        chunks_ids.append(chunk_id)
-                    # Reset the chunk.
-                    chunk = []
-                # Append call to the chunk.
-                chunk.append(call)
+            # One insert_one per CHUNK_CALL_SIZE calls means a full network round trip
+            # per 100 calls: a 5M call log used to be 50k sequential round trips. Chunks
+            # are batched instead. The batch is bounded rather than unlimited because
+            # pymongo encodes the whole batch to BSON before sending it.
+            pending = []
+            task_id = report["info"]["id"]
+            for call_chunk in chunks(process["calls"], CHUNK_CALL_SIZE):
+                pending.append({"pid": process["process_id"], "calls": call_chunk, "task_id": task_id})
+                if len(pending) == CHUNK_BATCH_SIZE:
+                    chunks_ids.extend(_insert_call_chunks(pending))
+                    pending = []
 
             # Store leftovers.
-            if chunk:
-                chunk_id = None
-                to_insert = {"pid": process["process_id"], "calls": chunk, "task_id": report["info"]["id"]}
-                with suppress(Exception):
-                    chunk_id = mongo_insert_one("calls", to_insert).inserted_id
-                if chunk_id:
-                    chunks_ids.append(chunk_id)
+            if pending:
+                chunks_ids.extend(_insert_call_chunks(pending))
 
         elif elastic_db is not None:
             # Upload with parallel bulk for elastic

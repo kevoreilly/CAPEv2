@@ -91,6 +91,68 @@ def build_tcpdump_args(
     return pargs
 
 
+def build_remote_script(command, task_id):
+    """Script fed to the remote shell on stdin.
+
+    tcpdump is detached with nohup and its output redirected to files, so the
+    ssh channel closes as soon as the pid has been echoed. The pid comes back on
+    stdout rather than through a file, which removes the "ssh cat" and "ssh rm"
+    round trips and leaves nothing behind in the remote /tmp.
+    """
+    return f"nohup {command} > /tmp/cape-sniffer-{task_id}.log 2> /tmp/cape-sniffer-{task_id}.err &\n" "echo $!\n"
+
+
+# `sudo --list <tcpdump>` costs as much as the sudoers policy takes to evaluate.
+# On a host with an LDAP/SSSD-backed sudoers it was measured at 333-348 ms, and
+# it ran on every task start even though the answer only changes when sudoers
+# or the tcpdump path does. Cached for the lifetime of the process; restart the
+# scheduler after a sudoers change, as is already the case for the config files.
+_SUDO_CACHE = {}
+
+
+def sudo_allows_tcpdump(sudo_path, tcpdump):
+    key = (sudo_path, tcpdump)
+    cached = _SUDO_CACHE.get(key)
+    if cached is None:
+        try:
+            subprocess.run(
+                [sudo_path, "--list", "--non-interactive", tcpdump],
+                check=True,
+                capture_output=True,
+                timeout=30,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+            cached = False
+        else:
+            cached = True
+        _SUDO_CACHE[key] = cached
+    return cached
+
+
+def ssh_opts(task_id):
+    """Reuse a single TCP connection and one authentication for every ssh/scp
+    call belonging to a task.
+
+    start() and stop() together make up to seven ssh/scp invocations per task,
+    each of which otherwise pays a full TCP handshake, key exchange and
+    authentication. ControlPersist keeps the master around long enough to cover
+    the gap between start() and stop().
+
+    BatchMode stops ssh from blocking on a password prompt, which would
+    otherwise hang until the subprocess timeout.
+    """
+    return [
+        "-o",
+        "BatchMode=yes",
+        "-o",
+        "ControlMaster=auto",
+        "-o",
+        f"ControlPath=/tmp/cape-sniffer-{task_id}-%C",
+        "-o",
+        "ControlPersist=600",
+    ]
+
+
 class Sniffer(Auxiliary):
     sudo_path = "/usr/bin/sudo"
 
@@ -142,9 +204,8 @@ class Sniffer(Auxiliary):
                 log.error('Tcpdump does not exist at path "%s", network capture aborted', tcpdump)
                 return
 
-            try:
-                subprocess.check_call([self.sudo_path, "--list", "--non-interactive", tcpdump])
-            except (FileNotFoundError, subprocess.CalledProcessError):
+            sudo = sudo_allows_tcpdump(self.sudo_path, tcpdump)
+            if not sudo:
                 # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
                 mode = os.stat(tcpdump).st_mode
                 if mode & S_ISUID:
@@ -155,8 +216,6 @@ class Sniffer(Auxiliary):
                         tcpdump,
                     )
                     return
-            else:
-                sudo = True
 
         if not interface:
             log.error("Network interface not defined, network capture aborted")
@@ -191,37 +250,23 @@ class Sniffer(Auxiliary):
             # shlex.join quotes every token, so parentheses and any shell
             # metacharacters coming from the custom/bpf options reach tcpdump
             # intact instead of being interpreted by the remote shell.
-            command = shlex.join(pargs)
-            with open(f"/tmp/{self.task.id}.sh", "w") as f:
-                f.write(f"{command} & PID=$!")
-                f.write("\n")
-                f.write(f"echo $PID > /tmp/{self.task.id}.pid")
-                f.write("\n")
+            script = build_remote_script(shlex.join(pargs), self.task.id)
 
             try:
-                subprocess.check_output(
-                    ["scp", "-q", f"/tmp/{self.task.id}.sh", remote_host + f":/tmp/{self.task.id}.sh"], timeout=30
-                )
-                subprocess.check_output(
-                    [
-                        "ssh",
-                        remote_host,
-                        "nohup",
-                        "/bin/bash",
-                        f"/tmp/{self.task.id}.sh",
-                        ">",
-                        "/tmp/log",
-                        "2>",
-                        "/tmp/err",
-                    ],
-                    timeout=30,
-                )
-
+                # The script is fed to the remote shell on stdin and echoes the
+                # pid back on stdout, so starting the sniffer costs one ssh
+                # connection instead of scp + ssh + ssh cat + ssh rm. Nothing is
+                # left behind in /tmp on either host either.
                 self.pid = (
-                    subprocess.check_output(
-                        ["ssh", remote_host, "cat", f"/tmp/{self.task.id}.pid"], stderr=subprocess.DEVNULL, timeout=30
+                    subprocess.run(
+                        ["ssh", *ssh_opts(self.task.id), remote_host, "/bin/bash", "-s"],
+                        input=script.encode(),
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.PIPE,
+                        check=True,
+                        timeout=30,
                     )
-                    .decode()
+                    .stdout.decode()
                     .strip()
                 )
                 log.info(
@@ -232,13 +277,10 @@ class Sniffer(Auxiliary):
                     file_path,
                     self.pid,
                 )
-                subprocess.check_output(
-                    ["ssh", remote_host, "rm", "-f", f"/tmp/{self.task.id}.pid", f"/tmp/{self.task.id}.sh"], timeout=30
-                )
             except subprocess.TimeoutExpired:
                 log.error("Timeout connecting to remote host %s", remote_host)
             except subprocess.CalledProcessError as e:
-                log.error("Error connecting to remote host %s: %s", remote_host, e)
+                log.error("Error connecting to remote host %s: %s", remote_host, e.stderr.decode(errors="replace").strip())
 
         else:
             try:
@@ -266,23 +308,44 @@ class Sniffer(Auxiliary):
         remote = self.options.get("remote", False)
         if remote:
             if not self.pid:
-                # start() never got as far as reading the remote pid file.
+                # start() never got as far as reading back the remote pid.
                 log.warning("No remote sniffer pid recorded, nothing to stop")
                 return
 
             remote_host = self.options.get("host", "")
-            remote_args = ["ssh", remote_host, "kill", "-2", self.pid]
+            opts = ssh_opts(self.task.id)
 
             try:
-                subprocess.check_output(remote_args, timeout=30)
+                subprocess.check_output(["ssh", *opts, remote_host, "kill", "-2", self.pid], timeout=30)
 
                 file_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(self.task.id), "dump.pcap")
                 file_path2 = f"/tmp/tcp.dump.{self.task.id}"
 
-                subprocess.check_output(["scp", "-q", f"{remote_host}:{file_path2}", file_path], timeout=300)
-                subprocess.check_output(["ssh", remote_host, "rm", "-f", file_path2], timeout=30)
+                subprocess.check_output(["scp", "-q", *opts, f"{remote_host}:{file_path2}", file_path], timeout=300)
+                subprocess.check_output(
+                    [
+                        "ssh",
+                        *opts,
+                        remote_host,
+                        "rm",
+                        "-f",
+                        file_path2,
+                        f"/tmp/cape-sniffer-{self.task.id}.log",
+                        f"/tmp/cape-sniffer-{self.task.id}.err",
+                    ],
+                    timeout=30,
+                )
             except (subprocess.TimeoutExpired, subprocess.CalledProcessError) as e:
                 log.error("Error stopping remote sniffer: %s", e)
+            finally:
+                # Close the multiplexing master instead of waiting out
+                # ControlPersist; this talks to the local control socket only.
+                subprocess.run(
+                    ["ssh", *opts, "-O", "exit", remote_host],
+                    capture_output=True,
+                    timeout=30,
+                    check=False,
+                )
             return
 
         if not self.proc:

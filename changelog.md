@@ -3,6 +3,13 @@
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.
     * **In-Memory Connection Upgrader**: Added a seamless backward-compatibility layer in `lib/cuckoo/core/database.py`. If `postgresql://` is used with psycopg v3 installed, CAPEv2 automatically and transparently upgrades it in-memory to use the `postgresql+psycopg://` driver, preventing any startup `ImportError` or configuration crashes!
 
+* Sniffer fixes (`modules/auxiliary/sniffer.py`):
+    * No longer emits bare `'` tokens into the tcpdump argv. The quoting was unbalanced in 4 of the 6 `remote`/`custom`/`bpf` combinations, which made tcpdump reject the filter (local) or bash reject the generated script (remote); both failures were silent and produced an empty pcap.
+    * The remote command is now built with `shlex.join`, so parentheses and other shell metacharacters from `custom`/`bpf` reach tcpdump intact.
+    * `stop()` no longer treats a clean tcpdump exit as "still running" (`poll()` returns `0`, and `not 0` is True); it reports the captured stderr instead of trying to kill a dead process.
+    * `self.pid` is initialised in `__init__`, so `stop()` after a failed remote `start()` no longer raises `AttributeError`.
+    * Added `timeout=` to the `ps --ppid` call, dropped a duplicate stat of the tcpdump path, and replaced a `log.exception` used outside an `except` block.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

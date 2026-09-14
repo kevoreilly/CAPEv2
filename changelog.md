@@ -10,6 +10,13 @@
     * `self.pid` is initialised in `__init__`, so `stop()` after a failed remote `start()` no longer raises `AttributeError`.
     * Added `timeout=` to the `ps --ppid` call, dropped a duplicate stat of the tcpdump path, and replaced a `log.exception` used outside an `except` block.
 
+* Sniffer latency (`modules/auxiliary/sniffer.py`):
+    * `sudo --list <tcpdump>` is cached for the lifetime of the process. It ran on every task start and was measured at 333-348 ms on a host with a directory-backed sudoers policy. Restart the scheduler after changing sudoers.
+    * That probe also gained `timeout=30` and no longer leaks its output to the scheduler's stdout.
+    * ssh/scp use connection multiplexing (`ControlMaster`/`ControlPath`/`ControlPersist`) plus `BatchMode=yes`, so the remaining calls for a task share one TCP connection and one authentication instead of re-handshaking, and a missing key fails instead of blocking on a password prompt.
+    * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
+    * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

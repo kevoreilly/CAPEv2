@@ -253,17 +253,22 @@ def is_dirty(worktree_path: str) -> bool:
 
 
 def unpushed(worktree_path: str) -> bool:
-    """True when the branch has commits not present on its upstream."""
-    out = run(
-        ["git", "-C", worktree_path, "rev-list", "--count", "@{upstream}..HEAD"],
-        check=False,
-    ).strip()
+    """True when HEAD exists on no remote at all.
+
+    Being ahead of the tracked upstream is not enough to call work unpushed.
+    A review branch commonly tracks the base it will merge into (say
+    ``upstream/master``) while the commits themselves are pushed to a fork, so
+    counting ``@{upstream}..HEAD`` alone reports safe work as unsafe. Only if
+    no remote-tracking ref contains HEAD is anything actually at risk.
+    """
+    ahead = run(["git", "-C", worktree_path, "rev-list", "--count", "@{upstream}..HEAD"], check=False).strip()
     try:
-        return int(out) > 0
+        if int(ahead) == 0:
+            return False
     except ValueError:
-        # No upstream configured; treat any commit not on a remote as unpushed.
-        contains = run(["git", "-C", worktree_path, "branch", "-r", "--contains", "HEAD"], check=False).strip()
-        return not contains
+        pass  # No upstream configured; fall through to the remote check.
+    contains = run(["git", "-C", worktree_path, "branch", "-r", "--contains", "HEAD"], check=False).strip()
+    return not contains
 
 
 # --------------------------------------------------------------------------- #

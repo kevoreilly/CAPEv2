@@ -181,6 +181,32 @@ def test_remove_refuses_unpushed_commits(capsys, repo, tmp_path):
     assert os.path.isdir(created["path"])
 
 
+def test_remove_allows_work_pushed_to_another_remote(capsys, repo, tmp_path):
+    """Tracking the base branch while pushing elsewhere is not 'unpushed'.
+
+    A review branch typically tracks the branch it will merge into while its
+    commits are pushed to a fork, so the guard has to look at every remote
+    rather than only the tracked upstream.
+    """
+    fork = tmp_path / "fork.git"
+    fork.mkdir()
+    _git(fork, "init", "--bare", "--initial-branch=master", ".")
+    _git(repo, "remote", "add", "fork", str(fork))
+
+    base = tmp_path / "wt"
+    created = call(capsys, repo, base, "new", "--from", "origin/master", "--name", "scratch")
+    _git(created["path"], "config", "user.email", "test@example.com")
+    _git(created["path"], "config", "user.name", "test")
+    _git(created["path"], "commit", "--allow-empty", "-m", "review fix")
+    # Published to the fork, while the branch still tracks origin/master.
+    _git(created["path"], "push", "fork", "HEAD:review-branch")
+    _git(created["path"], "branch", "--set-upstream-to", "origin/master")
+
+    assert agent_worktree.unpushed(created["path"]) is False
+    assert agent_worktree.main(["--repo", str(repo), "--base-dir", str(base), "remove", "scratch"]) == 0
+    assert not os.path.isdir(created["path"])
+
+
 def test_remove_refuses_main_worktree(repo):
     assert agent_worktree.main(["--repo", str(repo), "remove", str(repo)]) == 1
     assert os.path.isdir(repo)

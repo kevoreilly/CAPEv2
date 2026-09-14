@@ -68,6 +68,11 @@
     * ssh/scp use connection multiplexing (`ControlMaster`/`ControlPath`/`ControlPersist`) plus `BatchMode=yes`, so the remaining calls for a task share one TCP connection and one authentication instead of re-handshaking, and a missing key fails instead of blocking on a password prompt.
     * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
     * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
+
+* Windows analyzer file bookkeeping (`analyzer/windows/analyzer.py`):
+    * `Files.dumped` is a set instead of a list. It is only ever tested for membership, and the linear scan cost 6.46 s in total across a 30,000 file run (688 ms at 10,000) versus 3.74 ms for a set.
+    * `Files.dump_files()` takes the next pending path directly instead of rebuilding the entire key list on every iteration, which was O(n^2): 3.82 s at 30,000 files, 308 ms at 10,000. It still re-checks the dict each time, because pipe handler threads can add files while it drains.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

@@ -199,6 +199,10 @@ class Pcap:
 
         # List of all hosts.
         self.hosts = []
+        # Every destination address already handled by _add_hosts, whether it ended up in
+        # self.hosts or was dropped by the passlist. Membership only; self.hosts stays the
+        # ordered, serialised structure.
+        self.seen_hosts = set()
         # List containing all non-private IP addresses.
         self.unique_hosts = []
         # List of unique domains.
@@ -320,22 +324,34 @@ class Pcap:
         """Add IPs to unique list.
         @param connection: connection data
         """
+        dst = connection["dst"]
+        # Repeat destinations are the common case: a single flow produces thousands of
+        # packets. Bail out before any further work, including the passlist walk.
+        if dst in self.seen_hosts:
+            return
+        self.seen_hosts.add(dst)
+
         with suppress(Exception):
-            if connection["dst"] not in self.hosts:
-                ip = convert_to_printable(connection["dst"])
+            ip = convert_to_printable(dst)
 
-                if ip not in self.hosts:
-                    ip_address = ipaddress.ip_address(ip)
-                    if ip in ip_passlist or any(ip_address in network for network in network_passlist):
-                        return False
-                    self.hosts.append(ip)
+            # convert_to_printable is a no-op for a well-formed address, in which case
+            # `ip` is `dst` and is already in the set; only re-check when it rewrote it.
+            if ip != dst:
+                if ip in self.seen_hosts:
+                    return
+                self.seen_hosts.add(ip)
 
-                    # We add external IPs to the list, only the first time
-                    # we see them and if they're the destination of the
-                    # first packet they appear in.
-                    if not self._is_private_ip(ip):
-                        self.unique_hosts.append(ip)
-                        self.ip_n_ports.setdefault(ip, []).append(connection["dport"])
+            ip_address = ipaddress.ip_address(ip)
+            if ip in ip_passlist or any(ip_address in network for network in network_passlist):
+                return False
+            self.hosts.append(ip)
+
+            # We add external IPs to the list, only the first time
+            # we see them and if they're the destination of the
+            # first packet they appear in.
+            if not self._is_private_ip(ip):
+                self.unique_hosts.append(ip)
+                self.ip_n_ports.setdefault(ip, []).append(connection["dport"])
 
     def _enrich_hosts(self, unique_hosts):
         enriched_hosts = []
@@ -346,10 +362,16 @@ class Pcap:
             d.timeout = 5.0
             d.lifetime = 5.0
 
+        # Reverse index of the DNS answers, built once. setdefault keeps the first request
+        # that resolved to a given address, which is what the nested break/break did.
+        ip_to_hostname = {}
+        for request in self.dns_requests.values():
+            for answer in request["answers"]:
+                ip_to_hostname.setdefault(answer["data"], request["request"])
+
         while unique_hosts:
             ip = unique_hosts.pop()
             inaddrarpa = ""
-            hostname = ""
             if cfg.processing.reverse_dns:
                 if use_doh:
                     with suppress(Exception):
@@ -358,13 +380,7 @@ class Pcap:
                 else:
                     with suppress(Exception):
                         inaddrarpa = d.query(from_address(ip), "PTR").rrset[0].to_text().rstrip(".")
-            for request in self.dns_requests.values():
-                for answer in request["answers"]:
-                    if answer["data"] == ip:
-                        hostname = request["request"]
-                        break
-                if hostname:
-                    break
+            hostname = ip_to_hostname.get(ip, "")
             country_name, asn, asn_name = self._get_cn(ip)
             enriched_hosts.append(
                 {

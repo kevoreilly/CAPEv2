@@ -387,10 +387,13 @@ class RunProcessing:
                     continue
                 # Skipping the current log file if it's too big.
                 if os.stat(file_path).st_size > self.cuckoo_cfg.processing.analysis_size_limit:
-                    if not hasattr(self.results, "debug"):
-                        self.results.setdefault("debug", {}).setdefault("errors", []).append(
-                            f"Behavioral log {file_name} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf"
-                        )
+                    # self.results is a dict, so the hasattr("debug") guard that used to
+                    # sit here was always False and the append always ran. Kept as-is:
+                    # "debug" not in self.results would start dropping these errors once
+                    # anything else had already written to results["debug"].
+                    self.results.setdefault("debug", {}).setdefault("errors", []).append(
+                        f"Behavioral log {file_name} too big to be processed, skipped. Increase analysis_size_limit in cuckoo.conf"
+                    )
                     continue
         else:
             log.info("Logs folder doesn't exist, maybe something with with analyzer folder, any change?")
@@ -434,6 +437,9 @@ class RunSignatures:
         self.task = task
         self.results = results
         self.ttps = []
+        # Mirrors self.ttps as (ttp, signature) pairs so de-duplication does not
+        # have to linearly scan a growing list of dicts.
+        self._seen_ttps = set()
         self.mbcs = {}
         self.cfg_processing = processing_cfg
         self.analysis_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task["id"]))
@@ -496,6 +502,21 @@ class RunSignatures:
                 self.call_for_cat["any"].add(sig)
             if not sig.filter_processnames:
                 self.call_for_processname["any"].add(sig)
+
+        # Loop invariants for the evented dispatch loop. These buckets are built
+        # once here and never mutated afterwards, so the per-call code can read
+        # them directly instead of rebuilding the union on every API call.
+        self._any_api = frozenset(self.call_for_api.get("any", ()))
+        self._any_cat = frozenset(self.call_for_cat.get("any", ()))
+
+    def _add_ttps(self, signature):
+        """Record a signature's TTPs, skipping pairs already recorded."""
+        for ttp in signature.ttps:
+            key = (ttp, signature.name)
+            if key in self._seen_ttps:
+                continue
+            self._seen_ttps.add(key)
+            self.ttps.append({"ttp": ttp, "signature": signature.name})
 
     def _should_load_signature(self, signature):
         """Should the given signature be enabled for this analysis?"""
@@ -657,6 +678,7 @@ class RunSignatures:
 
             # Iterate calls and tell interested signatures about them.
             evented_set = set(self.evented_list)
+            always = frozenset(evented_set.intersection(self.call_always))
             for proc in self.results["behavior"]["processes"]:
                 process_name = proc["process_name"]
                 process_id = proc["process_id"]
@@ -664,14 +686,22 @@ class RunSignatures:
                 sigs = evented_set.intersection(
                     self.call_for_processname.get("any", set()).union(self.call_for_processname.get(process_name, set()))
                 )
+                # The resulting signature set depends only on (api, category), a
+                # small bounded domain, while this loop runs once per API call -
+                # commonly hundreds of thousands of times. Memoise it. The cache
+                # has to be dropped per process because `sigs` is process-dependent.
+                self.api_sigs.clear()
 
                 for idx, call in enumerate(calls):
-                    api = call.get("api")
-                    # Build interested signatures
-                    cat = call.get("category")
-                    call_sigs = sigs.intersection(self.call_for_api.get(api, set()).union(self.call_for_api.get("any", set())))
-                    call_sigs = call_sigs.intersection(self.call_for_cat.get(cat, set()).union(self.call_for_cat.get("any", set())))
-                    call_sigs.update(evented_set.intersection(self.call_always))
+                    key = (call.get("api"), call.get("category"))
+                    call_sigs = self.api_sigs.get(key)
+                    if call_sigs is None:
+                        api, cat = key
+                        call_sigs = sigs.intersection(self.call_for_api.get(api, frozenset()).union(self._any_api))
+                        call_sigs.intersection_update(self.call_for_cat.get(cat, frozenset()).union(self._any_cat))
+                        call_sigs.update(always)
+                        call_sigs = frozenset(call_sigs)
+                        self.api_sigs[key] = call_sigs
 
                     for sig in call_sigs:
                         # Setting signature attributes per call
@@ -684,10 +714,7 @@ class RunSignatures:
                         try:
                             pretime = timeit.default_timer()
                             result = sig.on_call(call, proc)
-                            timediff = timeit.default_timer() - pretime
-                            if sig.name not in stats:
-                                stats[sig.name] = 0
-                            stats[sig.name] += timediff
+                            stats[sig.name] += timeit.default_timer() - pretime
                         except NotImplementedError:
                             result = False
                         except Exception as e:
@@ -722,11 +749,7 @@ class RunSignatures:
                     if result and not sig.matched:
                         matched.append(sig.as_result())
                         if hasattr(sig, "ttps"):
-                            [
-                                self.ttps.append({"ttp": ttp, "signature": sig.name})
-                                for ttp in sig.ttps
-                                if {"ttp": ttp, "signature": sig.name} not in self.ttps
-                            ]
+                            self._add_ttps(sig)
                         if hasattr(sig, "mbcs"):
                             self.mbcs[sig.name] = sig.mbcs
 
@@ -736,7 +759,7 @@ class RunSignatures:
         # Add in statistics for evented signatures that took at least some time
         for key, value in stats.items():
             if value:
-                self.results["statistics"]["signatures"].append({"name": key, "time": round(timediff, 3)})
+                self.results["statistics"]["signatures"].append({"name": key, "time": round(value, 3)})
         # Compat loop for old-style (non evented) signatures.
         if self.non_evented_list:
             if hasattr(self.non_evented_list, "sort"):
@@ -755,11 +778,7 @@ class RunSignatures:
                     # If the signature is matched, add it to the list.
                     if match and not signature.matched:
                         if hasattr(signature, "ttps"):
-                            [
-                                self.ttps.append({"ttp": ttp, "signature": signature.name})
-                                for ttp in signature.ttps
-                                if {"ttp": ttp, "signature": signature.name} not in self.ttps
-                            ]
+                            self._add_ttps(signature)
                         if hasattr(signature, "mbcs"):
                             self.mbcs[signature.name] = signature.mbcs
                         signature.matched = True
@@ -826,9 +845,11 @@ class RunReporting:
 
         # remove unwanted/duplicate information from reporting
         for process in results["behavior"]["processes"]:
-            # Reprocessing and Behavior set from json file
+            # Reprocessing and Behavior set from json file. This is a per-process
+            # condition, so skip this process rather than abandoning the loop and
+            # leaving the remaining ParseProcessLog instances unconverted.
             if isinstance(process["calls"], list) and type(process["calls"]).__name__ != "ParseProcessLog":
-                break
+                continue
             process["calls"].begin_reporting()
             # required to convert object to list
             process["calls"] = list(process["calls"])

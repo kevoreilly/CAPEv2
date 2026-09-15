@@ -68,6 +68,10 @@
     * ssh/scp use connection multiplexing (`ControlMaster`/`ControlPath`/`ControlPersist`) plus `BatchMode=yes`, so the remaining calls for a task share one TCP connection and one authentication instead of re-handshaking, and a missing key fails instead of blocking on a password prompt.
     * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
     * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
+
+* Windows analyzer human interaction (`analyzer/windows/modules/auxiliary/human.py`):
+    * The main loop incremented a counter once per iteration and used it as a second count, but an iteration is not one second: `realistic_human_cursor_movement()` runs for 5 seconds on its own and `move_mouse_realistically()` sleeps per step. Every schedule keyed on that counter - the document window pass at 45/30 seconds and the foreground window switch at 15 + randoff - stretched by however long the sample made the loop take. They now use `time.monotonic()` deadlines.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

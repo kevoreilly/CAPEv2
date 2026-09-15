@@ -3,6 +3,11 @@
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.
     * **In-Memory Connection Upgrader**: Added a seamless backward-compatibility layer in `lib/cuckoo/core/database.py`. If `postgresql://` is used with psycopg v3 installed, CAPEv2 automatically and transparently upgrades it in-memory to use the `postgresql+psycopg://` driver, preventing any startup `ImportError` or configuration crashes!
 
+* Windows analyzer pipe server (`analyzer/windows/lib/core/pipe.py`):
+    * `PipeServer.run()` retried `CreateNamedPipeW` with no delay and no limit. A pipe name that cannot be created turned the thread into a spin loop that burned a core and flooded the log for the rest of the analysis. It now backs off 100 ms and gives up after 100 consecutive failures.
+    * `PipeDispatcher._read_message()` accumulated `buf.value`, which stops at the first NUL byte and ignores the byte count the API reports, so a message containing an embedded NUL was truncated and its tail was parsed as a new command. It now uses `buf.raw[:bytes_read.value]` and strips the trailing NUL terminator.
+    * Finished handler threads are dropped from `PipeServer.handlers` instead of being retained for the whole analysis.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

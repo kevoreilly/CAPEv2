@@ -7,6 +7,9 @@
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.
     * **In-Memory Connection Upgrader**: Added a seamless backward-compatibility layer in `lib/cuckoo/core/database.py`. If `postgresql://` is used with psycopg v3 installed, CAPEv2 automatically and transparently upgrades it in-memory to use the `postgresql+psycopg://` driver, preventing any startup `ImportError` or configuration crashes!
 
+* Windows analyzer human interaction (`analyzer/windows/modules/auxiliary/human.py`):
+    * The main loop incremented a counter once per iteration and used it as a second count, but an iteration is not one second: `realistic_human_cursor_movement()` runs for 5 seconds on its own and `move_mouse_realistically()` sleeps per step. Every schedule keyed on that counter - the document window pass at 45/30 seconds and the foreground window switch at 15 + randoff - stretched by however long the sample made the loop take. They now use `time.monotonic()` deadlines.
+
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

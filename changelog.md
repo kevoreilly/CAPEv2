@@ -1,3 +1,7 @@
+### [16.09.2026]
+* Monitor updates:
+    * Misc enhancements & fixes (see capemon repo for details)
+
 ### [22.08.2026]
 * Performance & Database Infrastructure:
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.

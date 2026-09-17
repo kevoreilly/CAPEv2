@@ -251,7 +251,8 @@ class CAPE(Processing):
             file_info["type"] = f.get_type()
         # `file_info` can come straight from the mongo file cache, which may
         # predate magika being enabled (or a model change). Backfill it.
-        if processing_conf.magika.enabled and "magika" not in file_info:
+        magika_cfg = getattr(processing_conf, "magika", None)
+        if magika_cfg and getattr(magika_cfg, "enabled", False) and "magika" not in file_info and hasattr(f, "get_magika"):
             magika_result = f.get_magika()
             if magika_result:
                 file_info["magika"] = magika_result
@@ -301,16 +302,20 @@ class CAPE(Processing):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
                 file_info["guest_paths"] = list(
-                    {
+                    dict.fromkeys(
                         _clean_path(path.get("filepath", ""), self.options.replace_patterns)
                         for path in metadata.get(file_path, [])
                         if path.get("filepath")
-                    }
+                    )
                 )
                 if not file_info["guest_paths"] and category == "dropped" and "CAPE" not in metadata.get("filepath", ""):
                     file_info["guest_paths"] = [_clean_path(metadata.get("filepath", ""), self.options.replace_patterns)]
                 file_info["name"] = list(
-                    {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, []) if path.get("filepath")}
+                    dict.fromkeys(
+                        path.get("filepath", "").rsplit("\\", 1)[-1]
+                        for path in metadata.get(file_path, [])
+                        if path.get("filepath")
+                    )
                 ) or [metadata.get("filepath", "").rsplit("\\", 1)[-1]]
                 if category == "dropped":
                     with suppress(UnicodeDecodeError):
@@ -484,7 +489,8 @@ class CAPE(Processing):
         # Same lifecycle contract as the clamav cache: drop per-path magika
         # results at the task boundary so a long-lived worker can't serve a
         # stale prediction for a path that has been reused by another task.
-        if processing_conf.magika.enabled:
+        magika_cfg = getattr(processing_conf, "magika", None)
+        if magika_cfg and getattr(magika_cfg, "enabled", False):
             try:
                 from lib.cuckoo.common.integrations.magika import clear_magika_cache
 

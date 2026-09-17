@@ -29,18 +29,38 @@ class _MockProtocolHandler:
         raise NotImplementedError
 
 
-try:
-    import lib.cuckoo.core.database  # noqa: F401
-except Exception:
-    db_mod = types.ModuleType("lib.cuckoo.core.database")
-    db_mod.__getattr__ = lambda name: MagicMock()
-    sys.modules["lib.cuckoo.core.database"] = db_mod
+for _mod_name in (
+    "gevent",
+    "gevent.pool",
+    "gevent.server",
+    "gevent.socket",
+    "gevent.thread",
+    "gevent.monkey",
+    "gevent.event",
+    "gevent.lock",
+    "pytz",
+    "pebble",
+    "dns",
+    "dns.resolver",
+    "pefile",
+    "lib.cuckoo.core.database",
+    "lib.cuckoo.core.data.db_common",
+    "lib.cuckoo.core.data.task",
+    "lib.cuckoo.core.data.machines",
+):
+    try:
+        __import__(_mod_name)
+    except Exception:
+        _m = types.ModuleType(_mod_name)
+        _m.__getattr__ = lambda name: MagicMock()
+        sys.modules[_mod_name] = _m
 
 try:
     import lib.cuckoo.common.abstracts  # noqa: F401
 except Exception:
     abstracts_mod = types.ModuleType("lib.cuckoo.common.abstracts")
     abstracts_mod.ProtocolHandler = _MockProtocolHandler
+    abstracts_mod.Processing = MagicMock
     sys.modules["lib.cuckoo.common.abstracts"] = abstracts_mod
 
 from lib.cuckoo.core.resultserver import FileUpload, HandlerContext
@@ -277,4 +297,70 @@ def test_watchdownloads_event_handler_moved_and_dedup(monkeypatch):
         ev_mod.dest_path = None
         handler.on_any_event(ev_mod)
         assert len(uploaded) == 1
+
+
+def test_cape_processing_without_magika_config():
+    """Verify CAPE processing module handles deduplicated dropped files when [magika] config is absent."""
+    from lib.cuckoo.common.config import Config
+    import modules.processing.CAPE as cape_mod
+    import lib.cuckoo.common.integrations.file_extra_info as fei_mod
+
+    proc_cfg = Config("processing")
+    if hasattr(proc_cfg, "magika"):
+        delattr(proc_cfg, "magika")
+    cape_mod.processing_conf = proc_cfg
+    fei_mod.processing_conf = proc_cfg
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        files_dir = os.path.join(tmpdir, "files")
+        os.makedirs(files_dir)
+        sample_path = os.path.join(files_dir, "Reader_en_install.exe")
+        with open(sample_path, "wb") as f:
+            f.write(b"MZ\x90\x00" + b"A" * 1024)
+
+        files_json = os.path.join(tmpdir, "files.json")
+        with open(files_json, "w") as f:
+            f.write(
+                json.dumps(
+                    {
+                        "path": "files/Reader_en_install.exe",
+                        "filepath": "C:\\Users\\Bruno\\Downloads\\Reader_en_install.exe",
+                        "pids": [3540],
+                        "ppids": [1412],
+                        "metadata": "",
+                        "category": "files",
+                    }
+                )
+                + "\n"
+            )
+            f.write(
+                json.dumps(
+                    {
+                        "path": "files/Reader_en_install.exe",
+                        "filepath": "C:\\Users\\Bruno\\Downloads\\Reader_en_install(1).exe",
+                        "pids": [3540],
+                        "ppids": [1412],
+                        "metadata": "",
+                        "category": "files",
+                    }
+                )
+                + "\n"
+            )
+
+        results = {}
+        cape_proc = cape_mod.CAPE(results)
+        cape_proc.set_path(tmpdir)
+        cape_proc.set_task({"id": 1418, "category": "url", "options": ""})
+        cape_proc.set_options(proc_cfg.CAPE)
+        cape_proc.run()
+
+        assert "dropped" in results
+        assert len(results["dropped"]) == 1
+        dropped = results["dropped"][0]
+        assert dropped["name"] == ["Reader_en_install.exe", "Reader_en_install(1).exe"]
+        assert dropped["guest_paths"] == [
+            "C:\\Users\\Bruno\\Downloads\\Reader_en_install.exe",
+            "C:\\Users\\Bruno\\Downloads\\Reader_en_install(1).exe",
+        ]
+
 

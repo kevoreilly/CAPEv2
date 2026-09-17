@@ -875,7 +875,7 @@ class NetworkETW(Processing):
                 if apply(rec, hit):
                     enriched[proto] += 1
 
-        # network.http_ex / network.https_ex — httpreplay-extracted HTTP
+        # network.http_ex / network.https_ex — tshark-extracted HTTP
         # transactions carry full src/sport/dst/dport so flow lookup is
         # exact. Without this, the HTTP details panel shows "-" even
         # though suricata.http for the same flow is attributed.

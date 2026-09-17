@@ -6,16 +6,20 @@
 # http://stackoverflow.com/questions/10665925/how-to-sort-huge-files-with-python
 # http://code.activestate.com/recipes/576755/
 
+import base64
 import binascii
+import email
 import heapq
 import ipaddress
+import json
 import logging
 import os
+import shutil
 import socket
 import struct
+import subprocess
 import sys
 import tempfile
-import traceback
 from base64 import b64encode
 from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import suppress
@@ -67,24 +71,15 @@ except ImportError:
     IS_DPKT = False
     log.error("Missed dependency: poetry run pip install")
 
-HAVE_HTTPREPLAY = False
-try:
-    import httpreplay
-    import httpreplay.cut
-
-    if httpreplay.__version__ == "0.3":
-        HAVE_HTTPREPLAY = True
-except ImportError:
-    log.error("OPTIONAL! Missed dependency: poetry run pip install -U git+https://github.com/CAPESandbox/httpreplay")
-except SystemError as e:
-    log.error("httpreplay: %s", str(e))
+HAVE_TSHARK = bool(shutil.which("tshark"))
+if not HAVE_TSHARK:
+    log.warning("Missed dependency: tshark is not installed on the system. Please install tshark.")
 
 # required to work webgui
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..", "..")
 sys.path.append(CUCKOO_ROOT)
 
 TLS_HANDSHAKE = 22
-PCAP_BYTES_HTTPREPLAY_WARN_LIMIT = 30 * 1024 * 1024
 
 DOMAIN_FILTERS = (".*\\.windows\\.com$", ".*\\.in\\-addr\\.arpa$", ".*\\.ip6\\.arpa$")
 DOMAIN_FILTERS_RE = [re.compile(filter) for filter in DOMAIN_FILTERS]
@@ -109,10 +104,14 @@ enabled_ip_passlist = proc_cfg.network.ipwhitelist
 ip_passlist_file = proc_cfg.network.ipwhitelist_file
 
 enabled_network_passlist = proc_cfg.network.network_passlist
-network_passlist_file = proc_cfg.network.network_passlist_file
 
-# Be less verbose about httpreplay logging messages.
-logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
+# Config sections are `Dictionary` instances whose __getattr__ returns None for a missing
+# key instead of raising, so a getattr(..., True) default would never be used: resolve the
+# option explicitly and keep extraction enabled when it is not configured at all.
+extract_files = proc_cfg.network.extract_files
+if extract_files is None:
+    extract_files = True
+network_passlist_file = proc_cfg.network.network_passlist_file
 
 comment_re = re.compile(r"\s*#.*")
 # Build the DNS passlist once, pre-compiled. Do NOT append to the imported
@@ -936,25 +935,490 @@ class Pcap:
 
 
 class Pcap2:
-    """Interpret the PCAP file through the httpreplay library which parses
-    the various protocols, decrypts and decodes them, and then provides us
-    with the high level representation of it."""
+    """Interpret the PCAP file through tshark to decrypt TLS and parse HTTP/SMTP protocols."""
+
+    # Fields requested for the metadata pass. tshark is asked for exactly these, so any typo
+    # aborts the whole run: keep them in sync with `tshark -G fields`.
+    METADATA_FIELDS = (
+        "frame.time_epoch",
+        "tcp.stream",
+        "ip.src",
+        "ip.dst",
+        "ipv6.src",
+        "ipv6.dst",
+        "tcp.srcport",
+        "tcp.dstport",
+        "tls.record.content_type",
+        "http.request.method",
+        "http.request.uri",
+        "http.request.version",
+        "http.host",
+        "http.request.line",
+        "http.response.code",
+        "http.response.version",
+        "http.response.phrase",
+        "http.response.line",
+        "http.file_data",
+        "smtp.command_line",
+        "smtp.response",
+        "smtp.auth.username",
+        "smtp.auth.password",
+        "imf.from",
+        "imf.to",
+        "imf.subject",
+    )
+
+    # Second pass, only when SMTP DATA was seen: the mail body is not exposed as a field
+    # (smtp.data.fragment is FT_FRAMENUM, i.e. a frame number), so it is rebuilt from the
+    # TCP payload of the client packets belonging to the DATA phase.
+    SMTP_BODY_FIELDS = (
+        "tcp.stream",
+        "tcp.payload",
+        "smtp.command_line",
+        "smtp.response",
+    )
+
+    SECURE_PORTS = frozenset((443, 4443, 8443))
 
     def __init__(self, pcap_path, tlsmaster, network_path):
         self.pcap_path = pcap_path
+        self.tlsmaster = tlsmaster
         self.network_path = network_path
+        self.timeout = int(getattr(proc_cfg.network, "tshark_timeout", 0) or 600)
 
-        self.handlers = {
-            25: httpreplay.cut.smtp_handler,
-            80: httpreplay.cut.http_handler,
-            443: lambda: httpreplay.cut.https_handler(tlsmaster),
-            465: httpreplay.cut.smtp_handler,
-            587: lambda: httpreplay.cut.smtp_handler(tlsmaster),
-            4443: lambda: httpreplay.cut.https_handler(tlsmaster),
-            8000: httpreplay.cut.http_handler,
-            8080: httpreplay.cut.http_handler,
-            8443: lambda: httpreplay.cut.https_handler(tlsmaster),
+    # ------------------------------------------------------------------ helpers
+
+    @staticmethod
+    def _ek_key(field_name: str) -> str:
+        """tshark's `-T ek` output replaces dots with underscores in field names."""
+        return field_name.replace(".", "_")
+
+    @staticmethod
+    def _first(layers: dict, field_name: str):
+        val = layers.get(Pcap2._ek_key(field_name))
+        if isinstance(val, list):
+            return val[0] if val else None
+        return val
+
+    @staticmethod
+    def _all(layers: dict, field_name: str) -> list:
+        val = layers.get(Pcap2._ek_key(field_name))
+        if isinstance(val, list):
+            return val
+        return [val] if val else []
+
+    @staticmethod
+    def _bytes(layers: dict, field_name: str) -> bytes:
+        """FT_BYTES fields are serialised as hex (optionally colon separated)."""
+        val = Pcap2._first(layers, field_name)
+        if not val or not isinstance(val, str):
+            return b""
+        try:
+            return binascii.unhexlify(val.replace(":", ""))
+        except (binascii.Error, ValueError) as e:
+            log.debug("Failed to decode %s as hex: %s", field_name, e)
+            return b""
+
+    @staticmethod
+    def _int(value, default=0) -> int:
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return default
+
+    def _write_keylog(self) -> Optional[str]:
+        """Serialise the dynamic-analysis TLS secrets into an NSS key log for tshark."""
+        if not self.tlsmaster:
+            return None
+        try:
+            keylog_fd, keylog_path = tempfile.mkstemp(prefix="cape_sslkeys_", suffix=".log")
+            with os.fdopen(keylog_fd, "w") as f:
+                for (client_random, _server_random), master_secret in self.tlsmaster.items():
+                    client_hex = binascii.hexlify(client_random).decode()
+                    master_hex = binascii.hexlify(master_secret).decode()
+                    f.write(f"CLIENT_RANDOM {client_hex} {master_hex}\n")
+            return keylog_path
+        except Exception as e:
+            log.warning("Failed to write temporary SSLKEYLOGFILE: %s", e)
+            return None
+
+    def _iter_packets(self, display_filter: str, fields, keylog_path: Optional[str]):
+        """Yield one `layers` dict per packet.
+
+        `-T ek` emits newline delimited JSON, so the output is consumed incrementally
+        instead of buffering the whole document (a large pcap easily produces a JSON blob
+        several times its own size).
+        """
+        cmd = ["tshark", "-r", self.pcap_path]
+        if keylog_path:
+            cmd.extend(["-o", f"tls.keylog_file:{keylog_path}"])
+        cmd.extend(["-Y", display_filter, "-T", "ek"])
+        for field in fields:
+            cmd.extend(["-e", field])
+
+        log.debug("Running tshark: %s", " ".join(cmd))
+        try:
+            proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        except OSError as e:
+            log.error("Failed to execute tshark: %s", e)
+            return
+
+        try:
+            for line in proc.stdout:
+                if not line.startswith(b'{"layers"') and b'"layers"' not in line:
+                    # index/metadata lines emitted between packets
+                    continue
+                try:
+                    packet = json.loads(line)
+                except ValueError:
+                    continue
+                layers = packet.get("layers")
+                if layers:
+                    yield layers
+        finally:
+            proc.stdout.close()
+            try:
+                stderr = proc.stderr.read()
+                proc.wait(timeout=self.timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+                stderr = b""
+                log.error("tshark timed out after %ds on %s", self.timeout, self.pcap_path)
+            proc.stderr.close()
+            if proc.returncode:
+                # Never swallow this: an unknown field name makes tshark exit before
+                # emitting a single packet, which would otherwise look like an empty pcap.
+                log.error(
+                    "tshark exited with %d: %s",
+                    proc.returncode,
+                    stderr.decode("utf-8", errors="replace").strip(),
+                )
+
+    # ------------------------------------------------------------------ HTTP
+
+    @staticmethod
+    def _request_header(layers) -> bytes:
+        """Rebuild the request header block.
+
+        http.request.line only holds the header lines, the request line itself has to be
+        reassembled from its individual fields.
+        """
+        method = Pcap2._first(layers, "http.request.method") or ""
+        uri = Pcap2._first(layers, "http.request.uri") or ""
+        version = Pcap2._first(layers, "http.request.version") or "HTTP/1.1"
+        lines = [f"{method} {uri} {version}\r\n"] if method else []
+        lines.extend(Pcap2._all(layers, "http.request.line"))
+        return "".join(lines).encode("latin-1", errors="replace")
+
+    @staticmethod
+    def _response_header(layers) -> bytes:
+        """Same as _request_header, for the status line and response headers."""
+        code = Pcap2._first(layers, "http.response.code") or ""
+        phrase = Pcap2._first(layers, "http.response.phrase") or ""
+        version = Pcap2._first(layers, "http.response.version") or "HTTP/1.1"
+        lines = [f"{version} {code} {phrase}\r\n".replace("  ", " ")] if code else []
+        lines.extend(Pcap2._all(layers, "http.response.line"))
+        return "".join(lines).encode("latin-1", errors="replace")
+
+    def _is_passlisted(self, dst, host) -> bool:
+        if not enabled_passlist:
+            return False
+        if dst in ip_passlist:
+            return True
+        return bool(host) and any(reject.search(host) for reject in dns_passlist_re)
+
+    def _store_body(self, body: bytes, with_preview: bool) -> dict:
+        """Hash the body, write it out, and build the req/resp sub-dict.
+
+        The web UI keys its "download content" button off the hash, so when extraction is
+        disabled nothing is reported rather than a hash pointing at a file that was never
+        written.
+        """
+        if not extract_files:
+            return {}
+
+        entry = {
+            "md5": md5(body).hexdigest(),
+            "sha1": sha1(body).hexdigest(),
+            "sha256": sha256(body).hexdigest(),
         }
+        path = os.path.join(self.network_path, entry["sha256"])
+        _ = path_write_file(path, body)
+        entry["path"] = path
+
+        if with_preview:
+            preview = []
+            for i in range(3):
+                data = body[i * 16 : (i + 1) * 16]
+                if not data:
+                    break
+                s1 = " ".join(f"{b:02x}" for b in data)
+                s1 = f"{s1[:23]} {s1[23:]}"  # extra space between the groups of 8
+                s2 = "".join(chr(b) if 32 <= b <= 127 else "." for b in data)
+                preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
+            entry["preview"] = preview
+        return entry
+
+    def _finalize_http(self, req, resp_layers, results):
+        """Turn a request (and its response, when there is one) into an *_ex entry."""
+        status = self._int(self._first(resp_layers, "http.response.code")) if resp_layers else 0
+        is_secure = req["secure"] or req["dport"] in self.SECURE_PORTS or req["sport"] in self.SECURE_PORTS
+        protocol = "https" if is_secure else "http"
+
+        if self._is_passlisted(req["dst"], req["host"]):
+            return
+
+        tmp_dict = {
+            "src": req["src"],
+            "sport": req["sport"],
+            "dst": req["dst"],
+            "dport": req["dport"],
+            "protocol": protocol,
+            "method": req["method"],
+            "host": req["host"],
+            "uri": req["uri"],
+            "status": status,
+            "request": req["request"],
+            "response": self._response_header(resp_layers) if resp_layers else b"",
+            "first_seen": req["first_seen"],
+        }
+
+        if status not in (301, 302):
+            if req["body"]:
+                req_entry = self._store_body(req["body"], with_preview=False)
+                if req_entry:
+                    tmp_dict["req"] = req_entry
+            resp_body = self._bytes(resp_layers, "http.file_data") if resp_layers else b""
+            if resp_body:
+                resp_entry = self._store_body(resp_body, with_preview=True)
+                if resp_entry:
+                    tmp_dict["resp"] = resp_entry
+
+        results[f"{protocol}_ex"].append(tmp_dict)
+
+    def _process_http_stream(self, layers_list, results):
+        pending_requests = []
+        for layers in layers_list:
+            srcip = self._first(layers, "ip.src") or self._first(layers, "ipv6.src")
+            dstip = self._first(layers, "ip.dst") or self._first(layers, "ipv6.dst")
+            if not srcip or not dstip:
+                continue
+
+            ts = self._first(layers, "frame.time_epoch")
+            try:
+                ts = float(ts) if ts else None
+            except ValueError:
+                log.warning("Failed to parse timestamp '%s' as float in HTTP stream", ts)
+                ts = None
+
+            method = self._first(layers, "http.request.method")
+            if method:
+                pending_requests.append(
+                    {
+                        "src": srcip,
+                        "sport": self._int(self._first(layers, "tcp.srcport")),
+                        "dst": dstip,
+                        "dport": self._int(self._first(layers, "tcp.dstport")),
+                        "method": method,
+                        "host": self._first(layers, "http.host") or dstip,
+                        "uri": self._first(layers, "http.request.uri") or "",
+                        "request": self._request_header(layers),
+                        "body": self._bytes(layers, "http.file_data"),
+                        "secure": bool(self._first(layers, "tls.record.content_type")),
+                        "first_seen": ts,
+                    }
+                )
+                continue
+
+            if self._first(layers, "http.response.code"):
+                if pending_requests:
+                    req = pending_requests.pop(0)
+                else:
+                    # Response without a request in the capture: keep it, with the
+                    # addresses flipped back to the client's point of view.
+                    req = {
+                        "src": dstip,
+                        "sport": self._int(self._first(layers, "tcp.dstport")),
+                        "dst": srcip,
+                        "dport": self._int(self._first(layers, "tcp.srcport")),
+                        "method": "UNKNOWN",
+                        "host": srcip,
+                        "uri": "",
+                        "request": b"",
+                        "body": b"",
+                        "secure": bool(self._first(layers, "tls.record.content_type")),
+                        "first_seen": ts,
+                    }
+                self._finalize_http(req, layers, results)
+
+        # Requests the server never answered (beaconing, truncated captures, RSTs) are
+        # still traffic worth reporting.
+        for req in pending_requests:
+            self._finalize_http(req, None, results)
+
+    # ------------------------------------------------------------------ SMTP
+
+    @staticmethod
+    def _split_command(command_line: str):
+        command_line = command_line.rstrip("\r\n")
+        if not command_line:
+            return "", ""
+        parts = command_line.split(None, 1)
+        command = parts[0].upper()
+        parameter = parts[1] if len(parts) > 1 else ""
+        return command, parameter
+
+    @staticmethod
+    def _b64_or_raw(value: str) -> str:
+        """AUTH LOGIN credentials are reported base64 encoded by tshark."""
+        if not value:
+            return ""
+        try:
+            return base64.b64decode(value, validate=True).decode("utf-8", errors="replace")
+        except Exception:
+            return value
+
+    def _collect_smtp_bodies(self, stream_ids, keylog_path) -> dict:
+        """Rebuild the DATA payload of each SMTP stream from the TCP payload.
+
+        Only called for cleartext streams: for TLS wrapped sessions tcp.payload holds the
+        ciphertext, and the plaintext body is not exposed as a tshark field.
+        """
+        bodies = defaultdict(bytes)
+        in_data = set()
+        display_filter = "smtp and tcp.len > 0"
+        for layers in self._iter_packets(display_filter, self.SMTP_BODY_FIELDS, keylog_path):
+            stream_id = self._first(layers, "tcp.stream")
+            if stream_id not in stream_ids:
+                continue
+
+            responses = self._all(layers, "smtp.response")
+            if responses:
+                # 354 is "start mail input" and is sent *between* DATA and the message,
+                # any other reply (250 queued, 5xx rejected) closes the DATA phase.
+                if not any(response.lstrip().startswith("354") for response in responses):
+                    in_data.discard(stream_id)
+                continue
+
+            commands = [self._split_command(line)[0] for line in self._all(layers, "smtp.command_line")]
+            if "DATA" in commands:
+                in_data.add(stream_id)
+                continue
+
+            if stream_id in in_data:
+                bodies[stream_id] += self._bytes(layers, "tcp.payload")
+
+        for stream_id, body in bodies.items():
+            if body.endswith(b"\r\n.\r\n"):
+                body = body[: -len(".\r\n")]
+            # undo dot stuffing (RFC 5321 4.5.2)
+            bodies[stream_id] = body.replace(b"\r\n..", b"\r\n.")
+        return bodies
+
+    @staticmethod
+    def _parse_mail(body: bytes):
+        headers = {}
+        text = ""
+        if not body:
+            return headers, text
+        try:
+            msg = email.message_from_bytes(body)
+            headers = dict(msg.items())
+            payload = msg.get_payload()
+            if isinstance(payload, list):
+                parts = []
+                for part in payload:
+                    decoded = part.get_payload(decode=True)
+                    if decoded:
+                        parts.append(decoded.decode("utf-8", errors="ignore"))
+                text = "\n".join(parts)
+            elif payload:
+                text = payload if isinstance(payload, str) else payload.decode("utf-8", errors="ignore")
+        except Exception as e:
+            log.debug("Failed to parse SMTP message: %s", e)
+            text = body.decode("utf-8", errors="ignore")
+        return headers, text
+
+    def _process_smtp_stream(self, layers_list, body: bytes):
+        # The first frame of an SMTP stream is the server's 220 banner, so the endpoints
+        # have to be taken from a client frame to report the flow client -> server.
+        first_packet = layers_list[0]
+        for layers in layers_list:
+            if self._all(layers, "smtp.command_line") or self._first(layers, "smtp.auth.username"):
+                first_packet = layers
+                break
+
+        srcip = self._first(first_packet, "ip.src") or self._first(first_packet, "ipv6.src")
+        dstip = self._first(first_packet, "ip.dst") or self._first(first_packet, "ipv6.dst")
+        if not srcip or not dstip:
+            return None
+
+        ts = self._first(layers_list[0], "frame.time_epoch")
+        try:
+            ts = float(ts) if ts else None
+        except ValueError:
+            log.warning("Failed to parse timestamp '%s' as float in SMTP stream", ts)
+            ts = None
+
+        hostname = mail_from = auth_type = username = password = banner = ""
+        mail_to = []
+
+        for layers in layers_list:
+            for command_line in self._all(layers, "smtp.command_line"):
+                command, parameter = self._split_command(command_line)
+                if command in ("EHLO", "HELO"):
+                    hostname = parameter
+                elif command == "MAIL":
+                    mail_from = parameter[5:] if parameter.upper().startswith("FROM:") else parameter
+                elif command == "RCPT":
+                    mail_to.append(parameter[3:] if parameter.upper().startswith("TO:") else parameter)
+                elif command == "AUTH":
+                    auth_type = parameter
+
+            if not banner:
+                responses = self._all(layers, "smtp.response")
+                if responses:
+                    banner = responses[0].rstrip("\r\n")
+
+            username = username or self._b64_or_raw(self._first(layers, "smtp.auth.username"))
+            password = password or self._b64_or_raw(self._first(layers, "smtp.auth.password"))
+
+        headers, mail_body = self._parse_mail(body)
+        if not headers:
+            # TLS wrapped sessions have no reconstructable body, but the IMF dissector
+            # still exposes the envelope of the decrypted message.
+            for layers in layers_list:
+                for field, header in (("imf.from", "From"), ("imf.to", "To"), ("imf.subject", "Subject")):
+                    value = self._first(layers, field)
+                    if value:
+                        headers.setdefault(header, value)
+
+        dst_port = self._int(self._first(first_packet, "tcp.dstport"))
+        if self._is_passlisted(dstip, hostname):
+            return None
+
+        return {
+            "src": srcip,
+            "dst": dstip,
+            "sport": self._int(self._first(first_packet, "tcp.srcport")),
+            "dport": dst_port,
+            "protocol": "smtp",
+            "req": {
+                "hostname": hostname,
+                "mail_from": mail_from,
+                "mail_to": mail_to,
+                "auth_type": auth_type,
+                "username": username,
+                "password": password,
+                "headers": headers,
+                "mail_body": mail_body,
+            },
+            "resp": {"banner": banner},
+            "first_seen": ts,
+        }
+
+    # ------------------------------------------------------------------ entry point
 
     def run(self):
         results = {"http_ex": [], "https_ex": [], "smtp_ex": []}
@@ -966,153 +1430,66 @@ class Pcap2:
             log.debug('The PCAP file does not exist at path "%s"', self.pcap_path)
             return {}
 
-        httpreplay_start = profiling.Counter()
-        log.info("starting processing pcap with httpreplay")
-        if os.path.getsize(self.pcap_path) > PCAP_BYTES_HTTPREPLAY_WARN_LIMIT:
-            log.warning("httpreplay processing may timeout due to pcap size")
+        tshark_start = profiling.Counter()
+        log.info("starting processing pcap with tshark")
 
-        r = httpreplay.reader.PcapReader(open(self.pcap_path, "rb"))
-        r.tcp = httpreplay.smegma.TCPPacketStreamer(r, self.handlers)
-
+        keylog_path = self._write_keylog()
         try:
-            sorted_r = sorted(r.process(), key=lambda x: x[1])
-        except TypeError as e:
-            log.warning("You running old httpreplay %s: poetry run pip install -U git+https://github.com/CAPESandbox/httpreplay", e)
-            traceback.print_exc()
-            return results
-        except Exception as e:
-            log.error("httpreplay error: %s", e)
-            traceback.print_exc()
-            return results
+            http_streams = defaultdict(list)
+            smtp_streams = defaultdict(list)
+            smtp_with_data = set()
+            smtp_encrypted = set()
 
-        for s, ts, protocol, sent, recv in sorted_r:
-            srcip, srcport, dstip, dstport = s
-
-            if enabled_passlist:
-                """
-                if is_safelisted_ip(dstip):
-                    continue
-                """
-                # ToDo rewrite the whole safelists
-                # ip or host
-
-                if dstip in ip_passlist:
+            for layers in self._iter_packets("http or smtp", self.METADATA_FIELDS, keylog_path):
+                stream_id = self._first(layers, "tcp.stream")
+                if stream_id is None:
                     continue
 
-                hostname = False
-                if protocol == "smtp":
-                    hostname = sent.hostname
-                elif protocol in ("http", "https"):
-                    hostname = sent.headers.get("host")
-
-                included_to_passlist = False
-                for reject in dns_passlist_re:
-                    if hostname and reject.search(hostname):
-                        included_to_passlist = True
-                        break
-
-                if included_to_passlist:
-                    continue
-
-            if protocol == "smtp":
-                results["smtp_ex"].append(
-                    {
-                        "src": srcip,
-                        "dst": dstip,
-                        "sport": srcport,
-                        "dport": dstport,
-                        "protocol": protocol,
-                        "req": {
-                            "hostname": sent.hostname,
-                            "mail_from": sent.mail_from,
-                            "mail_to": sent.mail_to,
-                            "auth_type": sent.auth_type,
-                            "username": sent.username,
-                            "password": sent.password,
-                            "headers": sent.headers,
-                            "mail_body": sent.message,
-                        },
-                        "resp": {"banner": recv.ready_message},
-                        "first_seen": ts,
-                    }
+                is_http = any(
+                    self._first(layers, field)
+                    for field in ("http.request.method", "http.response.code", "http.file_data")
+                )
+                is_smtp = any(
+                    self._all(layers, field) for field in ("smtp.command_line", "smtp.response")
+                ) or any(
+                    self._first(layers, field)
+                    # the AUTH LOGIN username/password frames carry none of the above
+                    for field in ("smtp.auth.username", "smtp.auth.password", "imf.from", "imf.subject")
                 )
 
-            elif protocol in ("http", "https"):
-                response = b""
-                request = b""
-                if isinstance(sent.raw, bytes):
-                    request = sent.raw.split(b"\r\n\r\n", 1)[0]
-                if isinstance(recv.raw, bytes):
-                    response = recv.raw.split(b"\r\n\r\n", 1)[0]
+                if is_http:
+                    http_streams[stream_id].append(layers)
+                elif is_smtp:
+                    smtp_streams[stream_id].append(layers)
+                    if self._first(layers, "tls.record.content_type"):
+                        smtp_encrypted.add(stream_id)
+                    for command_line in self._all(layers, "smtp.command_line"):
+                        if self._split_command(command_line)[0] == "DATA":
+                            smtp_with_data.add(stream_id)
 
-                status = int(getattr(recv, "status", 0))
-                tmp_dict = {
-                    "src": srcip,
-                    "sport": srcport,
-                    "dst": dstip,
-                    "dport": dstport,
-                    "protocol": protocol,
-                    "method": sent.method,
-                    "host": sent.headers.get("host", dstip),
-                    "uri": sent.uri,
-                    "status": status,
-                    # We'll keep these fields here for now.
-                    "request": request,  # .decode("latin-1"),
-                    "response": response,  # .decode("latin-1"),
-                    "first_seen": ts,
-                }
+            for layers_list in http_streams.values():
+                self._process_http_stream(layers_list, results)
 
-                if status and status not in (301, 302):
-                    if sent.body:
-                        req_md5 = md5(sent.body).hexdigest()
-                        req_sha1 = sha1(sent.body).hexdigest()
-                        req_sha256 = sha256(sent.body).hexdigest()
+            bodies = {}
+            cleartext_with_data = smtp_with_data - smtp_encrypted
+            if cleartext_with_data:
+                bodies = self._collect_smtp_bodies(cleartext_with_data, keylog_path)
+            if smtp_with_data & smtp_encrypted:
+                log.debug("SMTP message body is not reconstructable for TLS wrapped streams")
 
-                        req_path = os.path.join(self.network_path, req_sha256)
-                        _ = path_write_file(req_path, sent.body)
+            for stream_id, layers_list in smtp_streams.items():
+                entry = self._process_smtp_stream(layers_list, bodies.get(stream_id, b""))
+                if entry:
+                    results["smtp_ex"].append(entry)
+        finally:
+            if keylog_path and path_exists(keylog_path):
+                path_delete(keylog_path)
 
-                        # It's not perfect yet, but it'll have to do.
-                        tmp_dict["req"] = {
-                            "path": req_path,
-                            "md5": req_md5,
-                            "sha1": req_sha1,
-                            "sha256": req_sha256,
-                        }
-
-                    if recv.body:
-                        resp_md5 = md5(recv.body).hexdigest()
-                        resp_sha1 = sha1(recv.body).hexdigest()
-                        resp_sha256 = sha256(recv.body).hexdigest()
-                        resp_path = os.path.join(self.network_path, resp_sha256)
-                        _ = path_write_file(resp_path, recv.body)
-                        resp_preview = []
-                        try:
-                            c = 0
-                            for i in range(3):
-                                data = recv.body[c : c + 16]
-                                if not data:
-                                    continue
-                                s1 = " ".join([f"{i:02x}" for i in data])  # hex string
-                                s1 = f"{s1[:23]} {s1[23:]}"  # insert extra space between groups of 8 hex values
-                                s2 = "".join([chr(i) if 32 <= i <= 127 else "." for i in data])  # ascii string; chained comparison
-                                resp_preview.append(f"{i*16:08x}  {s1:<48}  |{s2}|")
-                                c += 16
-                        except Exception as e:
-                            log.info(e)
-
-                        tmp_dict["resp"] = {
-                            "md5": resp_md5,
-                            "sha1": resp_sha1,
-                            "sha256": resp_sha256,
-                            "preview": resp_preview,
-                            "path": resp_path,
-                        }
-
-                results[f"{protocol}_ex"].append(tmp_dict)
-
-        log.info("finished processing pcap with httpreplay")
-        log.debug("httpreplay processing time: %s", (profiling.Counter() - httpreplay_start))
+        log.info("finished processing pcap with tshark")
+        log.debug("tshark processing time: %s", (profiling.Counter() - tshark_start))
         return results
+
+
 
 
 class NetworkAnalysis(Processing):
@@ -1629,14 +2006,14 @@ class NetworkAnalysis(Processing):
                 self.options["sorted"] = True
                 results.update(Pcap(sorted_path, ja3_fprints, self.options).run())
 
-        if HAVE_HTTPREPLAY and not using_mixed_pcap:
+        if HAVE_TSHARK and not using_mixed_pcap:
             try:
                 tls_master = self.get_tlsmaster()
                 p2 = Pcap2(self.pcap_path, tls_master, self.network_path).run()
                 if any(p2.values()):
                     results.update(p2)
             except Exception:
-                log.exception("Error running httpreplay-based PCAP analysis")
+                log.exception("Error running tshark-based PCAP analysis")
 
         if proc_cfg.network.process_map:
             self._process_map(results)

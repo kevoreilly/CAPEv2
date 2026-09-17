@@ -1867,7 +1867,7 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
     # Central mode: several tab loaders below read the local analysis tree (bingraph /
     # vba2graph svgs, evtx.zip, ETW aux/*.json). report() stages the S3 tree on first
     # view, but a deep-link straight to a tab can arrive before any report view — stage
@@ -1994,33 +1994,37 @@ def load_files(request, task_id, category):
             else:
                 data = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {category: 1, "info.tlp": 1, "_id": 0})
         elif enabledconf["elasticsearchdb"]:
-            if category in ("behavior", "debugger"):
-                data = elastic_handler.search(
+            if category in ("behavior", "debugger", "strace"):
+                res = elastic_handler.search(
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
                     _source=["behavior.processes", "behavior.processtree", "info.tlp"],
-                )["hits"]["hits"][0]["_source"]
+                )["hits"]["hits"]
+                data = res[0]["_source"] if res else {}
 
-                if category == "debugger":
-                    data["debugger"] = data["behavior"]
-                if category == "strace":
-                    data["strace"] = data["behavior"]
+                if category == "debugger" and data:
+                    data["debugger"] = data.get("behavior", {})
+                if category == "strace" and data:
+                    data["strace"] = data.get("behavior", {})
             elif category == "network":
-                data = elastic_handler.search(
+                res = elastic_handler.search(
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
                     _source=[category, "suricata", "cif", "info.tlp"],
-                )["hits"]["hits"][0]["_source"]
+                )["hits"]["hits"]
+                data = res[0]["_source"] if res else {}
             elif category == "eventlogs":
-                data = elastic_handler.search(
+                res = elastic_handler.search(
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
                     _source=["sigma", "sysmon", "info.tlp", "info.id"],
-                )["hits"]["hits"][0]["_source"]
+                )["hits"]["hits"]
+                data = res[0]["_source"] if res else {}
             else:
-                data = elastic_handler.search(
+                res = elastic_handler.search(
                     index=get_analysis_index(), query=get_query_by_info_id(task_id), _source=[category, "info.tlp"]
-                )["hits"]["hits"][0]["_source"]
+                )["hits"]["hits"]
+                data = res[0]["_source"] if res else {}
 
         sha256_blocks = []
         if data:
@@ -2135,15 +2139,19 @@ def fetch_signature_call_data(request, task_id, requested_calls):
             {"behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
         )
     elif es_as_db:
-        process_data = es.search(
+        res = es.search(
             index=get_analysis_index(),
             body={"query": {"bool": {"must": [{"match": {"info.id": task_id}}]}}},
             _source=["behavior.processes.process_id", "behavior.processes.calls"],
-        )["hits"]["hits"][0]["_source"]
+        )["hits"]["hits"]
+        process_data = res[0]["_source"] if res else {}
     else:
         return HttpResponse()
 
     # Organize it for quick lookup by PID.
+    if not process_data or "behavior" not in process_data:
+        return HttpResponse()
+
     process_data_by_pid = {proc["process_id"]: proc["calls"] for proc in process_data["behavior"]["processes"]}
 
     calls_to_return = []
@@ -2161,11 +2169,12 @@ def fetch_signature_call_data(request, task_id, requested_calls):
                         {"calls": 1, "_id": 0},
                     )
                 elif es_as_db:
-                    call_data = es.search(
+                    res = es.search(
                         index=get_calls_index(),
                         body={"query": {"bool": {"must": [{"match": {"_id": chunk_id}}]}}},
                         _source=["calls"],
-                    )["hits"]["hits"][0]["_source"]
+                    )["hits"]["hits"]
+                    call_data = res[0]["_source"] if res else {}
                 else:
                     return HttpResponse()
 
@@ -2210,7 +2219,7 @@ def chunk(request, task_id, pid, pagenum):
     except Exception:
         raise PermissionDenied
 
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
     if is_ajax:
         if enabledconf["mongodb"]:
             record = mongo_find_one(
@@ -2220,7 +2229,7 @@ def chunk(request, task_id, pid, pagenum):
             )
 
         if es_as_db:
-            record = es.search(
+            res = es.search(
                 index=get_analysis_index(),
                 body={
                     "query": {
@@ -2228,13 +2237,14 @@ def chunk(request, task_id, pid, pagenum):
                     }
                 },
                 _source=["info.machine.platform", "behavior.processes.process_id", "behavior.processes.calls"],
-            )["hits"]["hits"][0]["_source"]
+            )["hits"]["hits"]
+            record = res[0]["_source"] if res else {}
 
         if not record:
             raise PermissionDenied
 
         process = None
-        for pdict in record["behavior"]["processes"]:
+        for pdict in record.get("behavior", {}).get("processes", []):
             if pdict["process_id"] == pid:
                 process = pdict
                 break
@@ -2247,9 +2257,8 @@ def chunk(request, task_id, pid, pagenum):
             if enabledconf["mongodb"]:
                 chunk = mongo_find_one("calls", {"_id": ObjectId(objectid)})
             if es_as_db:
-                chunk = es.search(index=get_calls_index(), body={"query": {"match": {"_id": objectid}}})["hits"]["hits"][0][
-                    "_source"
-                ]
+                res = es.search(index=get_calls_index(), body={"query": {"match": {"_id": objectid}}})["hits"]["hits"]
+                chunk = res[0]["_source"] if res else {}
 
         else:
             chunk = dict(calls=[])
@@ -2272,7 +2281,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
     @param category: call category type
     @param apilist: comma-separated list of APIs to include, if preceded by ! specifies to exclude the list
     """
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest"
+    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
     if is_ajax:
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
@@ -2282,7 +2291,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                 {"info.machine.platform": 1, "behavior.processes.process_id": 1, "behavior.processes.calls": 1, "_id": 0},
             )
         if es_as_db:
-            record = es.search(
+            res = es.search(
                 index=get_analysis_index(),
                 body={
                     "query": {
@@ -2290,14 +2299,15 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
                     }
                 },
                 _source=["info.machine.platform", "behavior.processes.process_id", "behavior.processes.calls"],
-            )["hits"]["hits"][0]["_source"]
+            )["hits"]["hits"]
+            record = res[0]["_source"] if res else {}
 
         if not record:
             raise PermissionDenied
 
         # Extract embedded document related to your process from response collection.
         process = None
-        for pdict in record["behavior"]["processes"]:
+        for pdict in record.get("behavior", {}).get("processes", []):
             if pdict["process_id"] == int(pid):
                 process = pdict
 
@@ -2315,7 +2325,6 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
         apis = apilist.split(",")
         apis[:] = [s.strip().lower() for s in apis if len(s.strip())]
 
-        # Populate dict, fetching data from all calls and selecting only appropriate category/APIs.
         for call in process.get("calls", []):
             if enabledconf["mongodb"]:
                 chunk = mongo_find_one("calls", {"_id": call})
@@ -2750,9 +2759,13 @@ def search_behavior(request, task_id):
         if enabledconf["mongodb"]:
             record = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"behavior.processes": 1, "_id": 0})
         if es_as_db:
-            esquery = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]
-            esidx = esquery["_index"]
-            record = esquery["_source"]
+            res = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+            esquery = res[0] if res else {}
+            esidx = esquery.get("_index")
+            record = esquery.get("_source", {})
+
+        if not record or "behavior" not in record:
+            return render(request, "analysis/behavior/_search_results.html", {"results": []})
 
         # Loop through every process
         for process in record["behavior"]["processes"]:
@@ -2770,8 +2783,10 @@ def search_behavior(request, task_id):
                 # so we'll just iterate the call list and query appropriately
                 chunks = []
                 for callitem in process["calls"]:
-                    data = es.search(index=esidx, oc_type="calls", q="_id: %s" % callitem)["hits"]["hits"][0]["_source"]
-                    chunks.append(data)
+                    res = es.search(index=esidx, oc_type="calls", q="_id: %s" % callitem)["hits"]["hits"]
+                    data = res[0]["_source"] if res else {}
+                    if data:
+                        chunks.append(data)
 
             for chunk in chunks:
                 for call in chunk.get("calls", []):
@@ -2951,10 +2966,10 @@ def report(request, task_id):
 
     if es_as_db:
         try:
-            es_query = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))
-            if es_query["hits"]["total"]["value"] > 0:
-                query_res = es_query["hits"]["hits"][0]
-                es_report = query_res["_source"]
+            res = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+            if res:
+                query = res[0]
+                es_report = query.get("_source", {})
 
                 # Merge ES data into existing report (preserving custom fields from MongoDB)
                 if report:
@@ -2965,16 +2980,16 @@ def report(request, task_id):
                     report = es_report
 
                 # Extract out data for Admin tab in the analysis page
-                net_res = es.search(
+                res_net = es.search(
                     index=get_analysis_index(),
                     query=get_query_by_info_id(task_id),
                     _source=["network.domains", "network.dns", "network.hosts"],
-                )
-                if net_res["hits"]["total"]["value"] > 0:
-                    network_report = net_res["hits"]["hits"][0]["_source"]
+                )["hits"]["hits"]
+                if res_net:
+                    network_report = res_net[0]["_source"]
 
                 # Extract out data for Admin tab in the analysis page
-                esdata = {"index": query_res["_index"], "id": query_res["_id"]}
+                esdata = {"index": query["_index"], "id": query["_id"]}
                 report["es"] = esdata
         except Exception:
             pass
@@ -3309,7 +3324,7 @@ def report(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @require_task_visibility
 def load_evtx_channel(request, task_id):
-    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+    if request.headers.get("x-requested-with") != "XMLHttpRequest" and request.headers.get("hx-request") != "true":
         raise PermissionDenied
 
     # Central mode: evtx.zip lives in S3 until staged locally. A deep-link straight to the Event Logs tab
@@ -3344,7 +3359,7 @@ def load_evtx_channel(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @require_task_visibility
 def load_evtx_channel_count(request, task_id):
-    if request.headers.get("x-requested-with") != "XMLHttpRequest":
+    if request.headers.get("x-requested-with") != "XMLHttpRequest" and request.headers.get("hx-request") != "true":
         raise PermissionDenied
 
     # Central mode: stage the S3 tree first (see load_evtx_channel) so the count endpoint doesn't 403 on a
@@ -3778,7 +3793,8 @@ def procdump(request, task_id, process_id, start, end, zipped=False):
     if enabledconf["mongodb"]:
         analysis = mongo_find_one("analysis", _scoped_analysis_query(request, task_id), {"procmemory": 1, "_id": 0}, sort=[("_id", -1)])
     if es_as_db:
-        analysis = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
+        res = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+        analysis = res[0]["_source"] if res else {}
 
     from lib.cuckoo.common.central_mode import central_mode_config
 
@@ -4254,7 +4270,8 @@ def pcapstream(request, task_id, conntuple):
         )
 
     if es_as_db:
-        conndata = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"][0]["_source"]
+        res = es.search(index=get_analysis_index(), query=get_query_by_info_id(task_id))["hits"]["hits"]
+        conndata = res[0]["_source"] if res else {}
 
     if not conndata:
         return render(request, "standalone_error.html", {"error": "The specified analysis does not exist"})
@@ -4501,6 +4518,29 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     if category not in allowed_categories:
         return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
 
+    # Self Extracted support folder
+    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
+
+    if not path_exists(path):
+        extractedfile = False
+        if category == "static":
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
+            category = "target.file"
+        elif category == "dropped":
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
+        else:
+            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
+    else:
+        # selfextracted storage is shared by multiple categories; keep non-static category intact
+        if category == "static":
+            category = "target.file"
+        extractedfile = True
+
+    if path and (not _path_safe(path) or not path_exists(path)):
+        if request.headers.get("HX-Request") or request.META.get("HTTP_HX_REQUEST"):
+            return HttpResponse(f"<div class=\"alert alert-danger m-3\"><strong>Error:</strong> File not found at {path}</div>", status=404)
+        return render(request, "error.html", {"error": "File not found: {}".format(path)})
+
     details = False
     if service in CUSTOM_SERVICES and handle_custom_service:
         details, category = handle_custom_service(service, task_id, sha256)
@@ -4640,6 +4680,61 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                     status=500,
                 )
         del details
+
+    if request.headers.get("HX-Request"):
+        report = mongo_find_one("analysis", _scoped_analysis_query(request, task_id))
+        if not report:
+            return HttpResponse("Analysis not found", status=404)
+
+        def _get_file_by_sha256(node, target_sha256):
+            if isinstance(node, dict):
+                if node.get("sha256") == target_sha256:
+                    return node
+                for value in node.values():
+                    if isinstance(value, (dict, list)):
+                        res = _get_file_by_sha256(value, target_sha256)
+                        if res:
+                            return res
+            elif isinstance(node, list):
+                for item in node:
+                    res = _get_file_by_sha256(item, target_sha256)
+                    if res:
+                        return res
+            return None
+
+        file_obj = _get_file_by_sha256(report, sha256)
+        if not file_obj:
+            return HttpResponse("File not found in analysis", status=404)
+
+        vba2graph_dict_content = {}
+        vba2graph_svg_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "vba2graph", "svg", sha256 + ".svg")
+        if path_exists(vba2graph_svg_path) and _path_safe(vba2graph_svg_path):
+            vba2graph_dict_content[sha256] = Path(vba2graph_svg_path).read_text()
+
+        bingraph_dict_content = {}
+        bingraph_path = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id), "bingraph")
+        if path_exists(bingraph_path):
+            for f in os.listdir(bingraph_path):
+                if f.startswith(sha256):
+                    tmp_file = os.path.join(bingraph_path, f)
+                    bingraph_dict_content[sha256] = Path(tmp_file).read_text()
+
+        graphs = {
+            "vba2graph": {"enabled": HAVE_VBA2GRAPH and processing_cfg.vba2graph.enabled, "content": vba2graph_dict_content},
+            "bingraph": {"enabled": HAVE_BINGRAPH and reporting_cfg.bingraph.enabled, "content": bingraph_dict_content},
+        }
+
+        context = {
+            "file": file_obj,
+            "tab_name": category.replace("target.file", "static"),
+            "id": task_id,
+            "config": enabledconf,
+            "on_demand": on_demand_conf,
+            "graphs": graphs,
+            "analysis": report,
+        }
+        return render(request, "analysis/generic/_file_info.html", context)
+
     return redirect("report", task_id=task_id)
 
 

@@ -8,7 +8,14 @@ import subprocess
 
 import pytest
 
-from modules.auxiliary.sniffer import Sniffer, build_tcpdump_args
+from modules.auxiliary import sniffer as sniffer_mod
+from modules.auxiliary.sniffer import (
+    Sniffer,
+    build_remote_script,
+    build_tcpdump_args,
+    ssh_opts,
+    sudo_allows_tcpdump,
+)
 
 COMBINATIONS = [
     pytest.param(False, "", "", id="local"),
@@ -97,7 +104,7 @@ def test_remote_script_is_valid_shell(tmp_path, remote, custom, bpf):
         bpf=bpf,
     )
     script = tmp_path / "sniffer.sh"
-    script.write_text(f"{shlex.join(args)} & PID=$!\necho $PID > /tmp/1.pid\n")
+    script.write_text(build_remote_script(shlex.join(args), 1))
     proc = subprocess.run(["bash", "-n", str(script)], capture_output=True, timeout=30)
     assert proc.returncode == 0, proc.stderr.decode()
 
@@ -171,3 +178,84 @@ def test_stop_terminates_a_running_sniffer():
     proc = FakeProc(None)
     _sniffer({}, proc=proc).stop()
     assert proc.terminated
+
+
+def test_remote_script_detaches_and_echoes_pid():
+    script = build_remote_script("/usr/bin/tcpdump -i eth0", 7)
+    assert script.startswith("nohup /usr/bin/tcpdump -i eth0 ")
+    assert "/tmp/cape-sniffer-7.log" in script
+    assert "/tmp/cape-sniffer-7.err" in script
+    assert script.rstrip().endswith("echo $!")
+    # No remote pid file and no script file to copy over or clean up.
+    assert ".pid" not in script
+    assert ".sh" not in script
+
+
+def test_ssh_opts_multiplex():
+    opts = ssh_opts(42)
+    assert opts.count("-o") == 4
+    assert "ControlMaster=auto" in opts
+    assert "ControlPath=/tmp/cape-sniffer-42-%C" in opts
+    assert "BatchMode=yes" in opts
+    assert any(o.startswith("ControlPersist=") for o in opts)
+
+
+def test_sudo_probe_runs_once_per_path(monkeypatch):
+    """sudo --list was measured at 333-348 ms on a host with a directory-backed
+    sudoers policy, and it ran on every task start."""
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        return subprocess.CompletedProcess(args, 0, b"", b"")
+
+    monkeypatch.setattr(sniffer_mod, "_SUDO_CACHE", {})
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert sudo_allows_tcpdump("/usr/bin/sudo", "/usr/bin/tcpdump") is True
+    assert sudo_allows_tcpdump("/usr/bin/sudo", "/usr/bin/tcpdump") is True
+    assert len(calls) == 1
+    assert calls[0] == ["/usr/bin/sudo", "--list", "--non-interactive", "/usr/bin/tcpdump"]
+
+    # A different tcpdump path is a different answer, so it is probed again.
+    assert sudo_allows_tcpdump("/usr/bin/sudo", "/usr/sbin/tcpdump") is True
+    assert len(calls) == 2
+
+
+def test_sudo_probe_caches_denial(monkeypatch):
+    calls = []
+
+    def fake_run(args, **kwargs):
+        calls.append(args)
+        raise subprocess.CalledProcessError(1, args)
+
+    monkeypatch.setattr(sniffer_mod, "_SUDO_CACHE", {})
+    monkeypatch.setattr(subprocess, "run", fake_run)
+
+    assert sudo_allows_tcpdump("/usr/bin/sudo", "/usr/bin/tcpdump") is False
+    assert sudo_allows_tcpdump("/usr/bin/sudo", "/usr/bin/tcpdump") is False
+    assert len(calls) == 1
+
+
+def test_sudo_probe_survives_missing_sudo(monkeypatch):
+    monkeypatch.setattr(sniffer_mod, "_SUDO_CACHE", {})
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: (_ for _ in ()).throw(FileNotFoundError()))
+    assert sudo_allows_tcpdump("/nope/sudo", "/usr/bin/tcpdump") is False
+
+
+def test_stop_remote_uses_one_multiplexed_connection(monkeypatch, tmp_path):
+    invocations = []
+
+    def fake_check_output(args, **kwargs):
+        invocations.append(args)
+        return b""
+
+    monkeypatch.setattr(subprocess, "check_output", fake_check_output)
+    monkeypatch.setattr(subprocess, "run", lambda *a, **kw: subprocess.CompletedProcess(a, 0, b"", b""))
+
+    _sniffer({"remote": True, "host": "user@host"}, pid="1234").stop()
+
+    # kill, scp, rm - and every one of them carries the mux options.
+    assert len(invocations) == 3
+    for args in invocations:
+        assert "ControlMaster=auto" in args

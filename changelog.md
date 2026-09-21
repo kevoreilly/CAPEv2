@@ -1,7 +1,7 @@
-### [13.09.2026]
-* Contributor tooling:
-    * Added `utils/agent_worktree.py`, a stdlib-only wrapper around `git worktree` for reviewing PRs and testing branches without touching your working clone. `new --pr <id>` resolves the head fork via `gh`, fetches it, creates a tracking branch and checks it out; `list`, `path`, `update`, `remove` and `cleanup` manage the result. Removal refuses to discard uncommitted changes or unpushed commits, and only worktrees created by the tool are ever removed.
-    * Documented the local development environment (Poetry, `ruff`, `black` line-length 132, `pytest -p no:warnings`) and several silent-failure gotchas (`Dictionary.__getattr__` returning `None`, `Config.get()` taking one argument, `run_tool()` returning stdout only, `extractor_ctx()` swallowing exceptions) in `SKILLS.md`.
+### [16.09.2026]
+* Monitor updates:
+    * Misc enhancements & fixes (see capemon repo for details)
+
 
 ### [22.08.2026]
 * Performance & Database Infrastructure:

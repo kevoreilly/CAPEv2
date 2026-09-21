@@ -6,7 +6,7 @@ import sys
 import threading
 import time
 from contextlib import suppress
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from multiprocessing.pool import ThreadPool
 
 from lib.cuckoo.common.config import Config
@@ -574,8 +574,8 @@ def tmp_clean_before(timerange: str):
         for root, directories, files in os.walk(os.path.join(tmp_folder_path, folder), topdown=True):
             for name in files + directories:
                 path = os.path.join(root, name)
-                path_ctime = path_get_date(os.path.join(root, path))
-                if datetime.fromtimestamp(path_ctime) > older_than:
+                path_ctime = path_get_date(path)
+                if datetime.fromtimestamp(path_ctime, tz=timezone.utc) < older_than.astimezone(timezone.utc):
                     try:
                         if path_is_dir(path):
                             log.info("Delete folder: %s", path)

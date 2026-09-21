@@ -917,7 +917,7 @@ def status(request, task_id):
                 if w_label:
                     vm_label, guest_ip = w_label, (w_ip or "")
         if vm_label:
-            session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
+            session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
             session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip or ''}".encode("utf8")).decode("utf8")
             response["session_data"] = session_data
 
@@ -954,7 +954,7 @@ def remote_session(request, task_id):
         if not vm_label:
             return render(request, "error.html", {"error": "Machine is not set for this task."})
         machine_status = True
-        session_id = uuid3(NAMESPACE_DNS, task_id).hex[:16]
+        session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
         session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip or ''}".encode("utf8")).decode("utf8")
 
     return render(

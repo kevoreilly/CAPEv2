@@ -1580,7 +1580,7 @@ def test_task_x_hours_mt_off_uses_reversed_bounds_and_tuple_unpack(cape_db, monk
     _install_datetime_shim(monkeypatch, views, rec)
     d1 = _dt.datetime(2026, 1, 1, 12, 0, 0)
     # upstream shape: rows are (date, samples) tuples
-    monkeypatch.setattr(views.db, "Session",
+    monkeypatch.setattr(views.db, "session",
                         lambda *a, **k: _FakeSession(rec, [(d1, 3)]), raising=False)
 
     u = User.objects.create_user("txh_off", "txh_off@x.com", "x")
@@ -1613,7 +1613,7 @@ def test_task_x_hours_mt_off_tuple_unpack_rejects_plain_task(cape_db, monkeypatc
     class _NotATuple:
         added_on = None  # single object, NOT iterable into (date, samples)
 
-    monkeypatch.setattr(views.db, "Session",
+    monkeypatch.setattr(views.db, "session",
                         lambda *a, **k: _FakeSession(rec, [_NotATuple()]), raising=False)
 
     u = User.objects.create_user("txh_off2", "txh_off2@x.com", "x")
@@ -1644,7 +1644,7 @@ def test_task_x_hours_mt_on_corrected_bounds_and_visibility_count(cape_db, monke
             self.added_on = _dt.datetime(2026, 1, 1, 12, 0, 0)
 
     rows = [_T(1, True), _T(2, False), _T(3, True)]
-    monkeypatch.setattr(views.db, "Session",
+    monkeypatch.setattr(views.db, "session",
                         lambda *a, **k: _FakeSession(rec, rows), raising=False)
     monkeypatch.setattr(views, "can_view_task",
                         lambda user, t: t._view, raising=False)

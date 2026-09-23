@@ -8,9 +8,11 @@
 import argparse
 import errno
 import grp
+import ipaddress
 import json
 import logging.handlers
 import os
+import re
 import signal
 import socket
 import stat
@@ -38,9 +40,68 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.setLevel(logging.INFO)
 
+VALID_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def _is_private_nfs_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    return bool(
+        ip.is_private
+        and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast)
+    )
+
+
+def _validate_hostname(hostname: str) -> str:
+    if not isinstance(hostname, str) or not hostname or hostname in (".", "..") or hostname.startswith("-"):
+        raise ValueError(f"Invalid NFS hostname: {hostname!r}")
+
+    clean_host = hostname.strip("[]")
+    try:
+        ip = ipaddress.ip_address(clean_host)
+    except ValueError:
+        if not VALID_NAME_RE.fullmatch(clean_host):
+            raise ValueError(f"Invalid NFS hostname: {hostname!r}")
+        try:
+            addr_info = socket.getaddrinfo(clean_host, None, proto=socket.IPPROTO_TCP)
+        except OSError as exc:
+            raise ValueError(f"Unable to resolve NFS hostname {hostname!r}: {exc}") from exc
+        if not addr_info:
+            raise ValueError(f"Unable to resolve NFS hostname: {hostname!r}")
+        resolved_ips = [ipaddress.ip_address(info[4][0]) for info in addr_info]
+        if not all(_is_private_nfs_ip(resolved_ip) for resolved_ip in resolved_ips):
+            raise ValueError(f"NFS hostname {hostname!r} resolves to a non-private IP address")
+        ip = resolved_ips[0]
+
+    if not _is_private_nfs_ip(ip):
+        raise ValueError(f"NFS host {hostname!r} ({ip}) is not a private network IP address")
+
+    allowed_cidrs = getattr(dist_conf.NFS, "allowed_networks", "") or ""
+    if allowed_cidrs.strip():
+        networks = [ipaddress.ip_network(cidr.strip(), strict=False) for cidr in allowed_cidrs.split(",") if cidr.strip()]
+        if networks and not any(ip in net for net in networks):
+            raise ValueError(f"NFS host {hostname!r} ({ip}) is outside configured allowed_networks")
+
+    return f"[{ip}]" if ip.version == 6 else str(ip)
+
+
+def _resolve_worker_path(worker_folder: str) -> str:
+    if (
+        not isinstance(worker_folder, str)
+        or not VALID_NAME_RE.fullmatch(worker_folder)
+        or worker_folder in (".", "..")
+        or worker_folder.startswith("-")
+    ):
+        raise ValueError(f"Invalid worker folder name: {worker_folder!r}")
+
+    base_dir = os.path.realpath(os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder))
+    worker_path = os.path.realpath(os.path.join(base_dir, worker_folder))
+    if os.path.commonpath([base_dir, worker_path]) != base_dir or worker_path == base_dir:
+        raise ValueError(f"Worker mount path escapes mount_folder: {worker_folder!r}")
+    return worker_path
+
 
 def add_nfs_entry(hostname: str, worker_folder: str):
-    worker_path = os.path.abspath(os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, worker_folder))
+    hostname = _validate_hostname(hostname)
+    worker_path = _resolve_worker_path(worker_folder)
     if not path_exists(worker_path):
         path_mkdir(worker_path, parent=True, mode=0o755)
 
@@ -52,7 +113,11 @@ def add_nfs_entry(hostname: str, worker_folder: str):
         # new line strip
         if fstab[-1] == "":
             fstab = fstab[:-1]
-        if any(hostname in entry for entry in fstab if not entry.startswith("#")):
+        if any(
+            entry.startswith(f"{hostname}:") or f" {worker_path} nfs " in entry
+            for entry in fstab
+            if not entry.startswith("#")
+        ):
             return
 
         # hostname:/opt/CAPEv2 /opt/CAPEv2/2 nfs _netdev,nofail,noatime,nolock,intr,tcp,actimeo=1800,x-systemd.automount,x-systemd.mount-timeout=30s 0 0
@@ -65,13 +130,14 @@ def add_nfs_entry(hostname: str, worker_folder: str):
             print("add_nfs_entry error on mount: %s", str(e))
 
 
-def remove_nfs_entry(hostname: str):
-    worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, hostname)
+def remove_nfs_entry(hostname: str, worker_folder: str):
+    hostname = _validate_hostname(hostname)
+    worker_path = _resolve_worker_path(worker_folder)
 
     with lock:
         fstab = path_read_file("/etc/fstab", mode="text").split("\n")
         for entry in fstab:
-            if entry.startswith(hostname) and " nfs " in entry:
+            if entry.startswith(f"{hostname}:") and f" {worker_path} nfs " in entry:
                 fstab.remove(entry)
                 _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
                 break

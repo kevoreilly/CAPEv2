@@ -340,16 +340,15 @@ class GCPPubSubService:
                 # Retry download once with fresh client if TransportError/SSL issues occur
                 success = False
                 for attempt in range(2):
-                    try:
-                        if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
-                            success = True
-                            break
-                    except Exception as e:
+                    if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
+                        success = True
+                        break
+                    else:
                         if attempt == 0:
-                            mlog.warning("Transient error during download, recreating client and retrying: %s", e)
+                            mlog.warning("Transient error during download, recreating client and retrying")
                             self._init_clients()
                         else:
-                            mlog.error("Persistent error during download: %s", e)
+                            mlog.error("Persistent error during download after retries")
 
                 if success:
                     mlog.info("Download finished in %.2f seconds", time.time() - dl_start)

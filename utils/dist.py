@@ -328,6 +328,20 @@ def node_get_report(task_id, fmt, url, apikey, stream=False):
         log.critical("Error fetching report (task #%d, node %s): %s", task_id, url, e)
 
 
+VALID_NODE_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def validate_node_name(name: str) -> str:
+    if (
+        not isinstance(name, str)
+        or not VALID_NODE_NAME_RE.fullmatch(name)
+        or name in (".", "..")
+        or name.startswith("-")
+    ):
+        raise ValueError(f"Invalid node name: {name!r}")
+    return name
+
+
 def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
     """
     Retrieves a report from a worker node via NFS and copies it to the main task's analysis directory.
@@ -346,7 +360,11 @@ def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
     Logs:
         Error messages if the worker node is not mounted, the file does not exist, or if there is an exception during copying.
     """
-    worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, str(worker_name))
+    worker_name = validate_node_name(str(worker_name))
+    base_dir = os.path.realpath(os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder))
+    worker_path = os.path.realpath(os.path.join(base_dir, worker_name))
+    if os.path.commonpath([base_dir, worker_path]) != base_dir or worker_path == base_dir:
+        raise ValueError(f"Worker path escapes mount_folder: {worker_name!r}")
 
     if not path_mount_point(worker_path):
         log.error("[-] Worker: %s is not mounted to: %s!", worker_name, worker_path)
@@ -1882,6 +1900,11 @@ def create_app(database_connection):
 
     @app.post("/node")
     def post_node(payload: NodeRegister):
+        try:
+            validate_node_name(payload.name)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         with session() as db:
             node_exist = False
             # On autoscaling we might get the same name but different IP for server. Kinda PUT friendly POST
@@ -1922,6 +1945,10 @@ def create_app(database_connection):
         if NFS_FETCH:
             # Add entry to /etc/fstab, create folder and mount server
             hostname = urlparse(payload.url).netloc.split(":")[0]
+            try:
+                validate_node_name(hostname)
+            except ValueError as exc:
+                raise HTTPException(status_code=400, detail=f"Invalid NFS hostname: {hostname!r}") from exc
             if hostname != main_server_name:
                 send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[hostname, payload.name])
 
@@ -2158,6 +2185,11 @@ def list_nodes_cli():
 def register_node_cli(name, url, apikey, enabled):
     if not name or not url:
         print("Error: Registering a node requires both --node <name> and --url <url>")
+        sys.exit(1)
+    try:
+        validate_node_name(name)
+    except ValueError as exc:
+        print(f"Error: {exc}")
         sys.exit(1)
     with session() as db:
         node_exist = False

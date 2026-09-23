@@ -11,6 +11,7 @@ import grp
 import json
 import logging.handlers
 import os
+import re
 import signal
 import socket
 import stat
@@ -38,9 +39,39 @@ ch.setFormatter(formatter)
 log.addHandler(ch)
 log.setLevel(logging.INFO)
 
+VALID_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
+
+
+def _validate_hostname(hostname: str) -> str:
+    if (
+        not isinstance(hostname, str)
+        or not VALID_NAME_RE.fullmatch(hostname)
+        or hostname in (".", "..")
+        or hostname.startswith("-")
+    ):
+        raise ValueError(f"Invalid NFS hostname: {hostname!r}")
+    return hostname
+
+
+def _resolve_worker_path(worker_folder: str) -> str:
+    if (
+        not isinstance(worker_folder, str)
+        or not VALID_NAME_RE.fullmatch(worker_folder)
+        or worker_folder in (".", "..")
+        or worker_folder.startswith("-")
+    ):
+        raise ValueError(f"Invalid worker folder name: {worker_folder!r}")
+
+    base_dir = os.path.realpath(os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder))
+    worker_path = os.path.realpath(os.path.join(base_dir, worker_folder))
+    if os.path.commonpath([base_dir, worker_path]) != base_dir or worker_path == base_dir:
+        raise ValueError(f"Worker mount path escapes mount_folder: {worker_folder!r}")
+    return worker_path
+
 
 def add_nfs_entry(hostname: str, worker_folder: str):
-    worker_path = os.path.abspath(os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, worker_folder))
+    hostname = _validate_hostname(hostname)
+    worker_path = _resolve_worker_path(worker_folder)
     if not path_exists(worker_path):
         path_mkdir(worker_path, parent=True, mode=0o755)
 
@@ -65,13 +96,14 @@ def add_nfs_entry(hostname: str, worker_folder: str):
             print("add_nfs_entry error on mount: %s", str(e))
 
 
-def remove_nfs_entry(hostname: str):
-    worker_path = os.path.join(CUCKOO_ROOT, dist_conf.NFS.mount_folder, hostname)
+def remove_nfs_entry(hostname: str, worker_folder: str = None):
+    hostname = _validate_hostname(hostname)
+    worker_path = _resolve_worker_path(worker_folder if worker_folder is not None else hostname)
 
     with lock:
         fstab = path_read_file("/etc/fstab", mode="text").split("\n")
         for entry in fstab:
-            if entry.startswith(hostname) and " nfs " in entry:
+            if (entry.startswith(f"{hostname}:") or entry.startswith(hostname)) and " nfs " in entry:
                 fstab.remove(entry)
                 _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
                 break

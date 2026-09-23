@@ -6,6 +6,17 @@ pytest_plugins = ("mt_test_fixtures",)  # fixtures live in web/mt_test_fixtures.
 
 
 
+@pytest.fixture(autouse=True)
+def dashboard_detections(monkeypatch):
+    """Keep dashboard view tests independent of the live report database."""
+    from unittest.mock import Mock
+    import dashboard.views as dv
+
+    detections = Mock(return_value=[])
+    monkeypatch.setattr(dv, "top_detections", detections)
+    return detections
+
+
 @pytest.mark.django_db
 def test_dashboard_entitled_scopes(cape_db, mt_enabled, monkeypatch):
     from dashboard.views import entitled_scopes
@@ -269,3 +280,71 @@ def test_index_mt_on_multi_panel_markup(mt_enabled, cape_db):
     assert '<div class="mb-5">' in html
     # 'mine' has no done tasks -> its estimate alert is suppressed.
     assert "Mine</strong> &mdash;" not in html
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("detections", [[], False, [{"family": "ExampleFamily", "total": 7}]])
+def test_index_global_top_detections(monkeypatch, mt_disabled, dashboard_detections, detections):
+    dashboard_detections.return_value = detections
+    user = User.objects.create_user("top-global")
+    context, html = _call_index(monkeypatch, user, _FakeDB())
+
+    dashboard_detections.assert_called_once_with()
+    assert context["panels"][0]["top_detections"] == detections
+    assert ("Top Detections" in html) == bool(detections)
+    if detections:
+        assert '/analysis/search/detections:ExampleFamily' in html
+        assert '>7</span>' in html
+
+
+@pytest.mark.django_db
+def test_index_top_detections_disabled(monkeypatch, mt_disabled):
+    import dashboard.views as dv
+    import lib.cuckoo.common.web_utils as wu
+    from unittest.mock import Mock
+
+    aggregate = Mock(side_effect=AssertionError("Disabled detections must not query MongoDB"))
+    monkeypatch.setattr(wu.web_cfg.general, "top_detections", False)
+    monkeypatch.setattr(wu, "mongo_aggregate", aggregate, raising=False)
+    monkeypatch.setattr(dv, "top_detections", wu.top_detections)
+    user = User.objects.create_user("top-disabled")
+    context, html = _call_index(monkeypatch, user, _FakeDB())
+
+    assert context["panels"][0]["top_detections"] is False
+    assert "Top Detections" not in html
+    aggregate.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_index_scoped_top_detections(monkeypatch, mt_enabled, cape_db, dashboard_detections):
+    from users.models import Tenant, UserProfile
+
+    tenant = Tenant.objects.create(slug="top-tenant", name="Top Tenant")
+    user = User.objects.create_user("top-scoped")
+    profile = UserProfile.objects.get(user=user)
+    profile.tenant = tenant
+    profile.save()
+    user = User.objects.get(pk=user.pk)
+    results = [
+        [{"family": "PublicFamily", "total": 3}],
+        [{"family": "TenantFamily", "total": 2}],
+        [{"family": "PersonalFamily", "total": 1}],
+    ]
+    dashboard_detections.side_effect = results
+    context, html = _call_index(monkeypatch, user, _FakeDB())
+
+    assert [p["top_detections"] for p in context["panels"]] == results
+    calls = dashboard_detections.call_args_list
+    assert [call.kwargs["scope_match"] for call in calls] == [
+        {"info.visibility": "public"},
+        {"info.tenant_id": tenant.id, "info.visibility": "tenant"},
+        {"info.user_id": user.id},
+    ]
+    assert all(call.kwargs["viewer"].user_id == user.id for call in calls)
+    assert all(call.kwargs["viewer"].tenant_id == tenant.id for call in calls)
+    assert html.count("Top Detections") == 3
+    for panel_html, detections in zip(html.split('<div class="mb-5">')[1:], results):
+        assert f'/analysis/search/detections:{detections[0]["family"]}' in panel_html
+        for other in results:
+            if other != detections:
+                assert other[0]["family"] not in panel_html

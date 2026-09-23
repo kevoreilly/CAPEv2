@@ -344,7 +344,7 @@ def validate_node_name(name: str) -> str:
     return name
 
 
-def _is_private_nfs_ip(ip: ipaddress._BaseAddress) -> bool:
+def _is_private_nfs_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return bool(
         ip.is_private
         and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast)
@@ -1909,6 +1909,7 @@ def create_app(database_connection):
         url: str
         apikey: str = ""
         enabled: Optional[bool] = None
+        nfs_host: Optional[str] = None
 
     class NodeUpdate(BaseModel):
         url: Optional[str] = None
@@ -1949,7 +1950,7 @@ def create_app(database_connection):
 
         nfs_host = None
         if NFS_FETCH:
-            hostname = urlparse(payload.url).hostname or urlparse(payload.url).netloc.split(":")[0]
+            hostname = payload.nfs_host or urlparse(payload.url).hostname or urlparse(payload.url).netloc.split(":")[0]
             if hostname != main_server_name:
                 try:
                     nfs_host = validate_nfs_hostname(hostname)

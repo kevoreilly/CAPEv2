@@ -43,7 +43,7 @@ log.setLevel(logging.INFO)
 VALID_NAME_RE = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
-def _is_private_nfs_ip(ip: ipaddress._BaseAddress) -> bool:
+def _is_private_nfs_ip(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
     return bool(
         ip.is_private
         and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast)
@@ -113,7 +113,11 @@ def add_nfs_entry(hostname: str, worker_folder: str):
         # new line strip
         if fstab[-1] == "":
             fstab = fstab[:-1]
-        if any(hostname in entry for entry in fstab if not entry.startswith("#")):
+        if any(
+            entry.startswith(f"{hostname}:") or f" {worker_path} nfs " in entry
+            for entry in fstab
+            if not entry.startswith("#")
+        ):
             return
 
         # hostname:/opt/CAPEv2 /opt/CAPEv2/2 nfs _netdev,nofail,noatime,nolock,intr,tcp,actimeo=1800,x-systemd.automount,x-systemd.mount-timeout=30s 0 0
@@ -126,14 +130,14 @@ def add_nfs_entry(hostname: str, worker_folder: str):
             print("add_nfs_entry error on mount: %s", str(e))
 
 
-def remove_nfs_entry(hostname: str, worker_folder: str = None):
+def remove_nfs_entry(hostname: str, worker_folder: str):
     hostname = _validate_hostname(hostname)
-    worker_path = _resolve_worker_path(worker_folder if worker_folder is not None else hostname)
+    worker_path = _resolve_worker_path(worker_folder)
 
     with lock:
         fstab = path_read_file("/etc/fstab", mode="text").split("\n")
         for entry in fstab:
-            if (entry.startswith(f"{hostname}:") or entry.startswith(hostname)) and " nfs " in entry:
+            if entry.startswith(f"{hostname}:") and f" {worker_path} nfs " in entry:
                 fstab.remove(entry)
                 _ = path_write_file("/etc/fstab", "\n".join(fstab), mode="text")
                 break

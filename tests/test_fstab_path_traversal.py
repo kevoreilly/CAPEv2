@@ -65,7 +65,7 @@ def test_fstab_rejects_invalid_or_non_private_hostname(malicious_hostname, tmp_p
         with pytest.raises(ValueError):
             fstab.add_nfs_entry(malicious_hostname, "worker1")
         with pytest.raises(ValueError):
-            fstab.remove_nfs_entry(malicious_hostname)
+            fstab.remove_nfs_entry(malicious_hostname, "worker1")
         mock_write.assert_not_called()
         mock_mount.assert_not_called()
 
@@ -130,3 +130,39 @@ def test_fstab_allows_valid_worker_within_mount_folder(tmp_path):
         written_fstab = mock_write.call_args[0][1]
         assert f"192.168.1.10:/opt/CAPEv2 {expected_worker_path} nfs" in written_fstab
         mock_mount.assert_called_once_with(["mount", expected_worker_path])
+
+
+def test_remove_nfs_entry_requires_worker_folder_and_uses_exact_prefix_match(tmp_path):
+    workers_dir = tmp_path / "workers"
+    workers_dir.mkdir()
+    worker1_path = os.path.realpath(str(workers_dir / "cape-worker-1"))
+    worker10_path = os.path.realpath(str(workers_dir / "cape-worker-10"))
+
+    # Calling without worker_folder raises TypeError
+    with pytest.raises(TypeError):
+        fstab.remove_nfs_entry("10.0.0.1")
+
+    initial_fstab = "\n".join(
+        [
+            "# /etc/fstab",
+            f"10.0.0.10:/opt/CAPEv2 {worker10_path} nfs _netdev 0 0",
+            f"10.0.0.1:/opt/CAPEv2 {worker1_path} nfs _netdev 0 0",
+        ]
+    )
+
+    with (
+        patch.object(fstab, "CUCKOO_ROOT", str(tmp_path)),
+        patch.object(fstab, "path_read_file", return_value=initial_fstab),
+        patch.object(fstab, "path_write_file") as mock_write,
+        patch.object(fstab.subprocess, "check_output") as mock_umount,
+    ):
+        fstab.dist_conf.NFS.mount_folder = "workers"
+        fstab.dist_conf.NFS.allowed_networks = ""
+        fstab.remove_nfs_entry("10.0.0.1", "cape-worker-1")
+
+        mock_write.assert_called_once()
+        updated_fstab = mock_write.call_args[0][1]
+        # 10.0.0.10 entry must remain untouched (no prefix collision)
+        assert f"10.0.0.10:/opt/CAPEv2 {worker10_path} nfs" in updated_fstab
+        assert f"10.0.0.1:/opt/CAPEv2 {worker1_path} nfs" not in updated_fstab
+        mock_umount.assert_called_once_with(["umount", worker1_path])

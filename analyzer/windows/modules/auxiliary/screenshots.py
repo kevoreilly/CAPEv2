@@ -111,8 +111,7 @@ class Screenshots(Auxiliary, Thread):
 
                 nf = NetlogFile()
                 nf.init(f"shots/{str(img_counter).rjust(4, '0')}.jpg")
-                for chunk in tmpio:
-                    nf.sock.send(chunk)
+                nf.send_fileobj(tmpio)
                 nf.close()
                 img_last = img_current
 

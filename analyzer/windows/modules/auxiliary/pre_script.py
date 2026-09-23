@@ -78,7 +78,7 @@ class Pre_script(Auxiliary):
 
             nf = NetlogFile()
             nf.init("logs/pre_script.log")
-            nf.sock.send(p)
+            nf.send(p)
             nf.close()
             log.info("Successfully ran pre_script, saved output to logs/pre_script.logs")
             return True

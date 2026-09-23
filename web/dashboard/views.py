@@ -13,6 +13,8 @@ from lib.cuckoo.core.data.tasking import TasksMixIn
 
 sys.path.append(settings.CUCKOO_PATH)
 
+from lib.cuckoo.common.tenancy_optional import scope_match
+from lib.cuckoo.common.web_utils import top_detections
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_REPORTED
 try:
@@ -167,6 +169,15 @@ def index(request):
             "estimate_hour": estimate_hour,
             "estimate_day": estimate_day,
         })
+
+    for panel in panels:
+        if panel["scope"] == "global":
+            panel["top_detections"] = top_detections()
+        else:
+            panel["top_detections"] = top_detections(
+                scope_match=scope_match(panel["scope"], v),
+                viewer=v,
+            )
 
     data = {"title": "Dashboard", "panels": panels}
     return render(request, "dashboard/index.html", data)

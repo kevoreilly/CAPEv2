@@ -2883,6 +2883,7 @@ def report(request, task_id):
             "info": 1,
             "target": 1,
             "signatures": 1,
+            "url_analysis": 1,
             "malscore": 1,
             "malstatus": 1,
             "detections": 1,

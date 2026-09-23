@@ -20,7 +20,7 @@ CHUNK_CALL_SIZE = 100
 
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_insert_one
+    from dev_utils.mongodb import mongo_insert_one, mongo_insert_many
 # NB: pas de elif — mongodb ET elasticsearchdb peuvent etre actifs ensemble ;
 # avec elif, parallel_bulk/get_daily_calls_index restent indefinis et le
 # module ElasticSearchDB crashe (bug upstream).
@@ -157,10 +157,10 @@ def insert_calls(report, elastic_db=None, mongodb=False):
         new_process = dict(process)
         chunk = []
         chunks_ids = []
-
         # Upload for mongoDB
         # Loop on each process call.
         if mongodb:
+            """
             for _, call in enumerate(process["calls"]):
                 chunk_id = None
                 # If the chunk size is CHUNK_CALL_SIZE or if the loop is completed then store the chunk in DB.
@@ -183,6 +183,29 @@ def insert_calls(report, elastic_db=None, mongodb=False):
                     chunk_id = mongo_insert_one("calls", to_insert).inserted_id
                 if chunk_id:
                     chunks_ids.append(chunk_id)
+            """
+            # Upload for mongoDB
+            if mongodb:
+                to_insert_list = []
+                for call_chunk in chunks(process["calls"], CHUNK_CALL_SIZE):
+                    to_insert_list.append({
+                        "pid": process["process_id"],
+                        "calls": call_chunk,
+                        "task_id": report["info"]["id"]
+                    })
+
+                if to_insert_list:
+                    try:
+                        res = mongo_insert_many("calls", to_insert_list)
+                        if res and res.inserted_ids:
+                            chunks_ids.extend(res.inserted_ids)
+                    except Exception:
+                        log.exception(
+                            "Failed to insert call chunks into MongoDB for task %d (PID %d)",
+                            report["info"]["id"],
+                            process["process_id"]
+                        )
+
 
         elif elastic_db is not None:
             # Upload with parallel bulk for elastic

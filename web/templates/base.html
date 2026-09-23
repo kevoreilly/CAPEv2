@@ -20,7 +20,7 @@
 <link href="{{ STATIC_URL }}css/fontawesome-all.css" rel="stylesheet">
 {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}", "X-Requested-With": "XMLHttpRequest"}'>
 {% block header %}
 {% include "header.html" %}
 {% endblock %}

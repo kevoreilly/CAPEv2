@@ -347,12 +347,16 @@ def demux_sflock(
             return [(filename, platform, magic_type, file_size)], "file not found or empty", []
 
         password = options2passwd(options) or "infected"
+        unpacked = None
         try:
-            unpacked = unpack(filename, password=password, check_shellcode=check_shellcode)
-        except UnpackException:
-            unpacked = unpack(filename, check_shellcode=check_shellcode)
+            try:
+                unpacked = unpack(filename, password=password, check_shellcode=check_shellcode)
+            except UnpackException:
+                unpacked = unpack(filename, check_shellcode=check_shellcode)
+        except Exception as e:
+            log.warning("sflock failed to unpack %s gracefully, proceeding with original file: %s", filename, e)
 
-        if unpacked.package in whitelist_extensions:
+        if unpacked is None or unpacked.package in whitelist_extensions:
             file = File(filename)
             magic_type = file.get_type() or ""
             platform = file.get_platform()

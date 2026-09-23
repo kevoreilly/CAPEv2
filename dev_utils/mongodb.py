@@ -1,6 +1,7 @@
 import collections
 import functools
 import logging
+import threading
 import time
 from typing import Callable, Sequence
 
@@ -81,13 +82,25 @@ if repconf.mongodb.enabled:
 
     _client = None
     _results_db = None
+    _mongo_lock = threading.Lock()
+    _last_connect_failure = 0.0
+    _CONNECT_RETRY_INTERVAL = 15.0
 
     def get_mongodb():
-        global _client, _results_db
+        global _client, _results_db, _last_connect_failure
         if _client is None:
-            _client = connect_to_mongo()
-            if _client is not None:
-                _results_db = _client[mdb]
+            with _mongo_lock:
+                if _client is None:
+                    now = time.time()
+                    if now - _last_connect_failure < _CONNECT_RETRY_INTERVAL:
+                        raise ConnectionFailure(
+                            f"MongoDB connection failed recently. Cooling down {_CONNECT_RETRY_INTERVAL}s before retry."
+                        )
+                    _client = connect_to_mongo()
+                    if _client is not None:
+                        _results_db = _client[mdb]
+                    else:
+                        _last_connect_failure = now
 
         if _results_db is None:
             raise ConnectionFailure("MongoDB connection is not established. Check your configuration and ensure MongoDB is running.")
@@ -209,6 +222,12 @@ def mongo_insert_one(collection: str, doc):
     for hook in hooks[mongo_insert_one][collection]:
         doc = hook(doc)
     return getattr(results_db, collection).insert_one(doc)
+
+
+#ToDo need hooks?
+@graceful_auto_reconnect
+def mongo_insert_many(collection: str, docs):
+    return getattr(results_db, collection).insert_many(docs)
 
 
 @graceful_auto_reconnect
@@ -342,7 +361,7 @@ def mongo_delete_calls(task_ids: Sequence[int] | None) -> None:
     """
     if not task_ids:
         return
-    log.info("attempting to delete calls for %d tasks", len(task_ids))
+    log.debug("attempting to delete calls for %d tasks", len(task_ids))
     mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
 
 

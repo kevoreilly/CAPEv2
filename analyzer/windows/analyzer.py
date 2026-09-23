@@ -172,7 +172,10 @@ def pids_from_image_names(suffixlist):
 def _normalized_protected_path(path: Union[str, bytes]) -> bytes:
     if isinstance(path, str):
         path = path.encode()
-    if os.path.isdir(path) and path[-1] != b"\\":
+    # Indexing bytes yields an int, so `path[-1] != b"\\"` was always true and
+    # a directory that already ended in a separator got a second one appended -
+    # after which in_protected_path() could never match anything below it.
+    if os.path.isdir(path) and path[-1:] != b"\\":
         path += b"\\"
     return path.lower()
 
@@ -762,7 +765,13 @@ class Analyzer:
                     # We also track the PIDs provided by zer0m0n.
                     # self.process_list.add_pids(zer0m0n.getpids())
                     if not kernel_analysis:
-                        for pid in self.process_list.pids:
+                        # Iterate a copy: remove_pid() below mutates this list,
+                        # and so do the pipe handler threads. Walking the live
+                        # list makes the iterator skip the entry after every
+                        # removal, which delays both the memory dump and the
+                        # "process list is empty" check by a loop iteration
+                        # each - one second apiece.
+                        for pid in self.process_list.pids[:]:
                             if not Process(pid=pid).is_alive():
                                 if self.options.get("procmemdump", False):
                                     try:
@@ -1418,7 +1427,7 @@ class CommandPipeHandler:
         # We parse the process ID.
         pid_s, tid_s = data.split(b",", 1)
         process_id = int(pid_s)
-        thread_id  = int(tid_s)
+        thread_id = int(tid_s)
         if process_id and not ANALYSIS_TIMED_OUT:
             if process_id not in (self.analyzer.pid, self.analyzer.ppid):
                 # We inject the process only if it's not being

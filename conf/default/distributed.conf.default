@@ -29,6 +29,13 @@ submit_only = no
 # Path will be $CAPE_ROOT/$nfs_mount_folder. Ex: /opt/CAPEv2/workers
 mount_folder = workers
 fstab_socket = /tmp/cape-fstab
+# Optional comma-separated list of private CIDR subnets allowed for NFS mounts
+# (e.g., 10.0.0.0/8, 192.168.1.0/24). When empty, any private network IP
+# (ip_address.is_private, excluding loopback/link-local) is allowed.
+# Note: When nfs = yes, POST /node rejects registration (HTTP 400) if the NFS
+# host does not resolve to a private IP (or pass a separate private `nfs_host`
+# in the POST /node payload if the node `url` uses a public hostname).
+allowed_networks =
 
 # Google Cloud Platform
 [GCP]

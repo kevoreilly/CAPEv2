@@ -138,7 +138,7 @@ class CAPE(Processing):
         if len(metastrings) > 3:
             file_info["module_path"] = _clean_path(metastrings[2], self.options.replace_patterns)
 
-        if "pids" in metadata:
+        if metadata.get("pids"):
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(str(p) for p in metadata["pids"])
 
         if metastrings and metastrings[0] and metastrings[0].isdigit():
@@ -280,7 +280,8 @@ class CAPE(Processing):
             file_info["type"] = f.get_type()
         # `file_info` can come straight from the mongo file cache, which may
         # predate magika being enabled (or a model change). Backfill it.
-        if processing_conf.magika.enabled and "magika" not in file_info:
+        magika_cfg = getattr(processing_conf, "magika", None)
+        if magika_cfg and getattr(magika_cfg, "enabled", False) and "magika" not in file_info and hasattr(f, "get_magika"):
             magika_result = f.get_magika()
             if magika_result:
                 file_info["magika"] = magika_result
@@ -330,12 +331,20 @@ class CAPE(Processing):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
                 file_info["guest_paths"] = list(
-                    {_clean_path(path.get("filepath", ""), self.options.replace_patterns) for path in metadata.get(file_path, [])}
+                    dict.fromkeys(
+                        _clean_path(path.get("filepath", ""), self.options.replace_patterns)
+                        for path in metadata.get(file_path, [])
+                        if path.get("filepath")
+                    )
                 )
                 if not file_info["guest_paths"] and category == "dropped" and "CAPE" not in metadata.get("filepath", ""):
                     file_info["guest_paths"] = [_clean_path(metadata.get("filepath", ""), self.options.replace_patterns)]
                 file_info["name"] = list(
-                    {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
+                    dict.fromkeys(
+                        path.get("filepath", "").rsplit("\\", 1)[-1]
+                        for path in metadata.get(file_path, [])
+                        if path.get("filepath")
+                    )
                 ) or [metadata.get("filepath", "").rsplit("\\", 1)[-1]]
                 if category == "dropped":
                     with suppress(UnicodeDecodeError):
@@ -463,12 +472,22 @@ class CAPE(Processing):
                     continue
 
                 filepath = os.path.join(self.analysis_path, entry["path"])
-                meta[filepath] = {
-                    "pids": entry.get("pids"),
-                    "ppids": entry.get("ppids"),
-                    "filepath": entry.get("filepath", ""),
-                    "metadata": entry.get("metadata", {}),
-                }
+                if filepath in meta:
+                    for p in entry.get("pids") or []:
+                        if p not in meta[filepath]["pids"]:
+                            meta[filepath]["pids"].append(p)
+                    for p in entry.get("ppids") or []:
+                        if p not in meta[filepath]["ppids"]:
+                            meta[filepath]["ppids"].append(p)
+                    meta[filepath][filepath].append(entry)
+                else:
+                    meta[filepath] = {
+                        "pids": list(entry.get("pids") or []),
+                        "ppids": list(entry.get("ppids") or []),
+                        "filepath": entry.get("filepath", ""),
+                        "metadata": entry.get("metadata", {}),
+                        filepath: [entry],
+                    }
 
         # Pre-scan ClamAV in parallel for every file we're about to process.
         # The sequential single-thread `allmatchscan` over 10-20 dropped /
@@ -499,7 +518,8 @@ class CAPE(Processing):
         # Same lifecycle contract as the clamav cache: drop per-path magika
         # results at the task boundary so a long-lived worker can't serve a
         # stale prediction for a path that has been reused by another task.
-        if processing_conf.magika.enabled:
+        magika_cfg = getattr(processing_conf, "magika", None)
+        if magika_cfg and getattr(magika_cfg, "enabled", False):
             try:
                 from lib.cuckoo.common.integrations.magika import clear_magika_cache
 

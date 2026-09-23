@@ -2891,6 +2891,7 @@ def report(request, task_id):
             "info": 1,
             "target": 1,
             "signatures": 1,
+            "url_analysis": 1,
             "malscore": 1,
             "malstatus": 1,
             "detections": 1,
@@ -4518,7 +4519,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
 
         if not path_exists(path):
             extractedfile = False
-            if category == "static":
+            if category in ("static", "target.file"):
                 path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
                 category = "target.file"
             elif category == "dropped":

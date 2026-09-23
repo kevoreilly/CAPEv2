@@ -227,17 +227,19 @@ class PyInstArchive:
                 log.warning("[!] File name %s contains invalid bytes. Using random name %s", name, newName)
                 name = newName
 
-            while "%" in name:
+            for _ in range(10):
+                if "%" not in name:
+                    break
                 new_name = urllib.parse.unquote(name)
                 if new_name == name:
                     break
                 name = new_name
 
             # Prevent writing outside the extraction directory
-            if name.startswith("/"):
-                name = name.lstrip("/")
-            name = name.replace("\\", "/")
-            name = name.replace("..", "__")
+            name = name.replace("\0", "").replace("\\", "/")
+            name = name.replace("..", "__").lstrip("/")
+            parts = [p for p in name.split("/") if p and p not in (".", "..")]
+            name = "/".join(parts)
 
             if len(name) == 0:
                 name = str(uniquename())
@@ -283,10 +285,11 @@ class PyInstArchive:
             os.mkdir(extractionDir)
 
         # os.chdir(extractionDir)
+        dest_root = os.path.realpath(self.destination_folder)
 
         for entry in self.tocList:
-            destination_entry = os.path.abspath(os.path.join(self.destination_folder, entry.name))
-            if not destination_entry.startswith(os.path.abspath(self.destination_folder) + os.sep):
+            destination_entry = os.path.realpath(os.path.join(dest_root, entry.name))
+            if not destination_entry.startswith(dest_root + os.sep):
                 log.warning("[!] Path traversal attempt detected. Skipping %s", entry.name)
                 continue
             self.fPtr.seek(entry.position, os.SEEK_SET)
@@ -323,7 +326,7 @@ class PyInstArchive:
                     # if we don't have the pyc header yet, fix them in a later pass
                     self.barePycList.append(final_filename)
 
-            elif entry.typeCmprsData == (b"M", b"m") and not self.only_entrypoints:
+            elif entry.typeCmprsData in (b"M", b"m") and not self.only_entrypoints:
                 # M -> ARCHIVE_ITEM_PYPACKAGE
                 # m -> ARCHIVE_ITEM_PYMODULE
                 # packages and modules are pyc files with their header intact
@@ -379,6 +382,7 @@ class PyInstArchive:
         # Create a directory for the contents of the pyz
         if not os.path.exists(dirName):
             os.mkdir(dirName)
+        dir_root = os.path.realpath(dirName)
 
         with open(name, "rb") as f:
             pyzMagic = f.read(4)
@@ -427,12 +431,31 @@ class PyInstArchive:
                     # for Python > 3.3 some keys are bytes object some are str object
                     fileName = fileName.decode("utf-8")
 
-                # Prevent writing outside dirName
+                fileName = str(fileName).replace("\0", "")
+                for _ in range(10):
+                    if "%" not in fileName:
+                        break
+                    new_name = urllib.parse.unquote(fileName)
+                    if new_name == fileName:
+                        break
+                    fileName = new_name
+
+                # Prevent writing outside dirName (including leading '.', '/', or '\')
+                fileName = fileName.replace("\\", os.path.sep).replace("/", os.path.sep)
                 fileName = fileName.replace("..", "__").replace(".", os.path.sep)
+                parts = [p for p in fileName.split(os.path.sep) if p and p not in (".", "..")]
+                if not parts:
+                    parts = [str(uniquename())]
+                safe_rel = os.path.join(*parts)
+
                 if ispkg == 1:
-                    filePath = os.path.join(dirName, fileName, "__init__.pyc")
+                    filePath = os.path.realpath(os.path.join(dir_root, safe_rel, "__init__.pyc"))
                 else:
-                    filePath = os.path.join(dirName, fileName + ".pyc")
+                    filePath = os.path.realpath(os.path.join(dir_root, safe_rel + ".pyc"))
+
+                if not filePath.startswith(dir_root + os.sep):
+                    log.warning("[!] Path traversal attempt detected in PYZ archive. Skipping %s", key)
+                    continue
 
                 fileDir = os.path.dirname(filePath)
                 if not os.path.exists(fileDir):

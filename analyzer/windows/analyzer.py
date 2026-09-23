@@ -924,7 +924,10 @@ class Files:
     def __init__(self):
         self.files = {}
         self.files_orig = {}
-        self.dumped = []
+        # Hashes of files already sent to the host. Only ever tested for
+        # membership, and a dropper can produce tens of thousands of entries,
+        # so this is a set rather than a list.
+        self.dumped = set()
 
     @classmethod
     def is_protected_filename(cls, file_name):
@@ -990,7 +993,7 @@ class Files:
         try:
             # If available use the original filepath, the one that is not lowercased.
             upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category, duplicated=duplicated)
-            self.dumped.append(sha256)
+            self.dumped.add(sha256)
         except (IOError, socket.error) as e:
             log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
         except Exception as e:
@@ -1014,8 +1017,12 @@ class Files:
 
     def dump_files(self):
         """Dump all pending files."""
+        # self.files is re-checked on every iteration on purpose: the pipe
+        # handler threads can still add files while this runs. Taking the next
+        # key directly avoids rebuilding the whole key list each time, which
+        # was O(n^2) - 3.8 seconds of pure list building at 30k files.
         while self.files:
-            self.delete_file(list(self.files.keys())[0])
+            self.delete_file(next(iter(self.files)))
 
 
 class ProcessList:
@@ -1418,7 +1425,7 @@ class CommandPipeHandler:
         # We parse the process ID.
         pid_s, tid_s = data.split(b",", 1)
         process_id = int(pid_s)
-        thread_id  = int(tid_s)
+        thread_id = int(tid_s)
         if process_id and not ANALYSIS_TIMED_OUT:
             if process_id not in (self.analyzer.pid, self.analyzer.ppid):
                 # We inject the process only if it's not being

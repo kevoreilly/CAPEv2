@@ -6,11 +6,13 @@
 
 import argparse
 import hashlib
+import ipaddress
 import logging
 import os
 import re
 import queue
 import shutil
+import socket
 import sys
 import threading
 import time
@@ -340,6 +342,46 @@ def validate_node_name(name: str) -> str:
     ):
         raise ValueError(f"Invalid node name: {name!r}")
     return name
+
+
+def _is_private_nfs_ip(ip: ipaddress._BaseAddress) -> bool:
+    return bool(
+        ip.is_private
+        and not (ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast)
+    )
+
+
+def validate_nfs_hostname(hostname: str) -> str:
+    if not isinstance(hostname, str) or not hostname or hostname in (".", "..") or hostname.startswith("-"):
+        raise ValueError(f"Invalid NFS hostname: {hostname!r}")
+
+    clean_host = hostname.strip("[]")
+    try:
+        ip = ipaddress.ip_address(clean_host)
+    except ValueError:
+        if not VALID_NODE_NAME_RE.fullmatch(clean_host):
+            raise ValueError(f"Invalid NFS hostname: {hostname!r}")
+        try:
+            addr_info = socket.getaddrinfo(clean_host, None, proto=socket.IPPROTO_TCP)
+        except OSError as exc:
+            raise ValueError(f"Unable to resolve NFS hostname {hostname!r}: {exc}") from exc
+        if not addr_info:
+            raise ValueError(f"Unable to resolve NFS hostname: {hostname!r}")
+        resolved_ips = [ipaddress.ip_address(info[4][0]) for info in addr_info]
+        if not all(_is_private_nfs_ip(resolved_ip) for resolved_ip in resolved_ips):
+            raise ValueError(f"NFS hostname {hostname!r} resolves to a non-private IP address")
+        ip = resolved_ips[0]
+
+    if not _is_private_nfs_ip(ip):
+        raise ValueError(f"NFS host {hostname!r} ({ip}) is not a private network IP address")
+
+    allowed_cidrs = getattr(dist_conf.NFS, "allowed_networks", "") or ""
+    if allowed_cidrs.strip():
+        networks = [ipaddress.ip_network(cidr.strip(), strict=False) for cidr in allowed_cidrs.split(",") if cidr.strip()]
+        if networks and not any(ip in net for net in networks):
+            raise ValueError(f"NFS host {hostname!r} ({ip}) is outside configured allowed_networks")
+
+    return f"[{ip}]" if ip.version == 6 else str(ip)
 
 
 def node_get_report_nfs(task_id, worker_name, main_task_id) -> bool:
@@ -1905,6 +1947,15 @@ def create_app(database_connection):
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+        nfs_host = None
+        if NFS_FETCH:
+            hostname = urlparse(payload.url).hostname or urlparse(payload.url).netloc.split(":")[0]
+            if hostname != main_server_name:
+                try:
+                    nfs_host = validate_nfs_hostname(hostname)
+                except ValueError as exc:
+                    raise HTTPException(status_code=400, detail=str(exc)) from exc
+
         with session() as db:
             node_exist = False
             # On autoscaling we might get the same name but different IP for server. Kinda PUT friendly POST
@@ -1942,15 +1993,9 @@ def create_app(database_connection):
                 db.add(node)
             db.commit()
 
-        if NFS_FETCH:
+        if NFS_FETCH and nfs_host:
             # Add entry to /etc/fstab, create folder and mount server
-            hostname = urlparse(payload.url).netloc.split(":")[0]
-            try:
-                validate_node_name(hostname)
-            except ValueError as exc:
-                raise HTTPException(status_code=400, detail=f"Invalid NFS hostname: {hostname!r}") from exc
-            if hostname != main_server_name:
-                send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[hostname, payload.name])
+            send_socket_command(dist_conf.NFS.fstab_socket, "add_entry", *[nfs_host, payload.name])
 
         return dict(name=payload.name, machines=machines, exitnodes=exitnodes)
 

@@ -194,7 +194,7 @@ class CAPE(Processing):
                     if os.path.getsize(file_path) < file_size_limit:
                         with open(file_path, "rb") as f_in:
                             pe_data = f_in.read()
-                        
+
                         # Apply synthetic memory layout alignment and BSJB headers
                         if pe_data.startswith(b"MZ") and b"BSJB" in pe_data:
                             from lib.cuckoo.common.dotnet_utils import rebuild_dotnet_pe
@@ -237,10 +237,10 @@ class CAPE(Processing):
                     options_match = db_file.get("options_hash", "") == options_hash
                     file_info = db_file
                     cached = True
-                    
+
                     # we still need append flag
                     type_string, append_file = self._metadata_processing(metadata, file_info, append_file)
-                    
+
                     if yara_match and options_match:
                         run_static = False
                         if HAVE_VIRUSTOTAL:

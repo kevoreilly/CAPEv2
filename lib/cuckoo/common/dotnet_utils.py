@@ -91,7 +91,7 @@ def rebuild_dotnet_pe(data: bytes) -> bytes:
     # 1. Align Sections (Memory to File Layout conversion)
     # Match FileAlignment to SectionAlignment
     pe.OPTIONAL_HEADER.FileAlignment = pe.OPTIONAL_HEADER.SectionAlignment
-    
+
     # Update Section Headers
     for section in pe.sections:
         section.PointerToRawData = section.VirtualAddress

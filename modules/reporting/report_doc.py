@@ -7,7 +7,6 @@ import datetime
 import logging
 import os
 import re
-from contextlib import suppress
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.objects import File
@@ -20,7 +19,7 @@ CHUNK_CALL_SIZE = 100
 
 
 if repconf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_insert_one, mongo_insert_many
+    from dev_utils.mongodb import mongo_insert_many
 # NB: pas de elif — mongodb ET elasticsearchdb peuvent etre actifs ensemble ;
 # avec elif, parallel_bulk/get_daily_calls_index restent indefinis et le
 # module ElasticSearchDB crashe (bug upstream).
@@ -155,7 +154,6 @@ def insert_calls(report, elastic_db=None, mongodb=False):
     new_processes = []
     for process in report.get("behavior", {}).get("processes", []) or []:
         new_process = dict(process)
-        chunk = []
         chunks_ids = []
         # Upload for mongoDB
         # Loop on each process call.

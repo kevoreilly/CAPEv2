@@ -1,4 +1,5 @@
 import logging
+import struct
 
 try:
     import dnfile
@@ -68,7 +69,6 @@ def dotnet_user_strings(file: str = False, data: bytes = False, dn_whitelisting:
     dn.close()
     return dn_strings
 
-import struct
 
 def rebuild_dotnet_pe(data: bytes) -> bytes:
     """
@@ -107,7 +107,7 @@ def rebuild_dotnet_pe(data: bytes) -> bytes:
     struct.pack_into("<I", modified, pe.OPTIONAL_HEADER.get_file_offset() + 36, pe.OPTIONAL_HEADER.FileAlignment)
 
     # 2. Restore .NET Data Directory if missing
-    dotnet_dir_index = 14 # IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR
+    dotnet_dir_index = 14  # IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR
     if dotnet_dir_index < len(pe.OPTIONAL_HEADER.DATA_DIRECTORY):
         dotnet_dir = pe.OPTIONAL_HEADER.DATA_DIRECTORY[dotnet_dir_index]
         if dotnet_dir.VirtualAddress == 0 or dotnet_dir.Size == 0:
@@ -115,7 +115,7 @@ def rebuild_dotnet_pe(data: bytes) -> bytes:
             if bsjb_offset != -1:
                 # Naive backwards scan for IMAGE_COR20_HEADER (cb=0x48, Major=2, Minor=5, MetaData=bsjb_offset)
                 metadata_rva = bsjb_offset
-                search_pattern = struct.pack("<IHHUI", 0x48, 2, 5, metadata_rva, 0)
+                search_pattern = struct.pack("<IHHII", 0x48, 2, 5, metadata_rva, 0)
                 cor20_rva = 0
 
                 search_start = max(0, bsjb_offset - 1024)

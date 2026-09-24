@@ -19,7 +19,7 @@ import time
 import timeit
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from itertools import combinations
 from logging import handlers
 from urllib.parse import urlparse, urljoin
@@ -146,6 +146,14 @@ except ImportError:
 
 _session_maker = create_session(dist_conf.distributed.db, echo=False)
 log = logging.getLogger("cuckoo.dist")
+
+def log_banned_task(task_id, reason):
+    try:
+        log_path = os.path.join(CUCKOO_ROOT, "log", "banned_tasks.log")
+        with open(log_path, "a") as f:
+            f.write(f"{datetime.now(timezone.utc).isoformat()} - Task ID {task_id} banned. Reason: {reason}\n")
+    except Exception as e:
+        log.error("Failed to log banned task to file: %s", e)
 
 
 def restart_db_connection():
@@ -694,6 +702,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                 )
                 if b"File too big, enable" in r.content:
                     main_db.set_status(task.main_task_id, TASK_BANNED)
+                    log_banned_task(task.main_task_id, "File too big for worker node")
             if task.task_id:
                 # log.debug("Submitted task to worker: %s - %d - %d", node.name, task.task_id, task.main_task_id)
                 log.info("[SUBMIT] %-15s <== CAPE ID: %-6d (Worker ID: %d)", node.name, task.main_task_id, task.task_id)
@@ -1187,12 +1196,16 @@ class Retriever(threading.Thread):
                             if report:
                                 report["info"].update({"parent_sample": sample_parent})
                                 dump_iocs(report, t.main_task_id)
-                            # ToDo insert into mongo
-                            mongo_update_one(
-                                "analysis", {"info.id": int(t.main_task_id)}, {"$set": {"info.parent_sample": sample_parent}}
-                            )
                         except Exception as e:
                             log.exception("Failed to save iocs for parent sample: %s", str(e))
+
+                        if reporting_conf.mongodb.enabled:
+                            try:
+                                mongo_update_one(
+                                    "analysis", {"info.id": int(t.main_task_id)}, {"$set": {"info.parent_sample": sample_parent}}
+                                )
+                            except Exception as e:
+                                log.warning("Failed to update parent sample in mongo for task %s: %s", t.main_task_id, str(e))
 
                     if GCS_ENABLED:
                         metadata = gcs_uploader.parse_custom_string(t.custom)

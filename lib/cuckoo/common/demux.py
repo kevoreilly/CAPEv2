@@ -14,7 +14,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
-from lib.cuckoo.common.utils import get_options, sanitize_filename
+from lib.cuckoo.common.utils import get_options, option_enabled, sanitize_filename
 
 sfFile = False
 try:
@@ -457,14 +457,15 @@ def demux_sample(
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
-    # Skip junk files
-    filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
-    filename_lower_bytes = filename_bytes.lower()
-    if any(filename_lower_bytes.endswith(ext) for ext in JUNK_EXTENSIONS) or any(
-        name in filename_lower_bytes for name in JUNK_NAMES
-    ):
-        filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
-        return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
+    # Skip junk files (unless analysis is forced via ignore_junk_filter option)
+    if not option_enabled(options, "ignore_junk_filter"):
+        filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
+        filename_lower_bytes = filename_bytes.lower()
+        if any(filename_lower_bytes.endswith(ext) for ext in JUNK_EXTENSIONS) or any(
+            name in filename_lower_bytes for name in JUNK_NAMES
+        ):
+            filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
+            return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
 
     # sflock requires filename to be bytes object for Py3
     # TODO: Remove after checking all uses of demux_sample use bytes ~TheMythologist

@@ -192,11 +192,20 @@ class GuestManager:
     def determine_system_drive(self):
         if self.platform == "windows":
             return f"{self.environ['SYSTEMDRIVE']}/"
+        if self.platform == "android":
+            # Stock Android mounts / read-only (tmpfs); /data is the
+            # writable partition, and /data/local/tmp is the standard
+            # shell-writable location within it.
+            return "/data/local/tmp/"
         return "/"
 
     def determine_temp_path(self):
         if self.platform == "windows":
             return self.environ["TEMP"]
+        if self.platform == "android":
+            # Stock Android has no writable /tmp; analyzer/android's
+            # constants.py aliases TMPDIR to this same path.
+            return "/data/local/tmp"
         return "/tmp"
 
     def upload_analyzer(self):
@@ -300,7 +309,15 @@ class GuestManager:
         # Pin the Agent to our IP address so that it is not accessible by
         # other Virtual Machines etc.
         if "pinning" in features:
-            self.get("/pinning")
+            # Running-agent snapshots may already be pinned to the resultserver IP.
+            try:
+                self.get("/pinning")
+            except Exception as e:
+                msg = str(e).lower()
+                if "already" in msg or "500" in msg:
+                    log.debug("Task #%s: agent already pinned (%s)", self.task_id, e)
+                else:
+                    raise
 
         # Obtain the environment variables.
         self.query_environ()

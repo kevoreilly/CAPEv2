@@ -139,6 +139,7 @@ DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
 
 sandbox_packages = (
     "access",
+    "apk",
     "archive",
     "nsis",
     "cpl",
@@ -465,15 +466,28 @@ class TasksMixIn:
         identified_package = False
 
         if not requested_package:
-            sf_file = SflockFile.from_path(file)
-            try:
-                identified_package = sflock_identify(
-                    sf_file,
-                    check_shellcode=check_shellcode,
-                )
-            except Exception as e:
-                log.error("Failed to identify submission with SFlock: %s", e)
-                identified_package = "generic"
+            # sflock_identify() shares APK's zip-based classification with
+            # "jar" and returns "jar" for real APKs (verified directly:
+            # sflock.unpack() correctly reports .package == "apk" for the
+            # same file, but sflock_identify() does not draw that
+            # distinction). Left uncorrected, a bare .apk submission with no
+            # explicit --package would silently be treated as a Java jar --
+            # a package analyzer/android doesn't even implement -- instead
+            # of routing to Android. Check our own libmagic-based type
+            # detection first, which does distinguish them correctly.
+            file_type = File(file).get_type() or ""
+            if "android package" in file_type.lower():
+                identified_package = "apk"
+            else:
+                sf_file = SflockFile.from_path(file)
+                try:
+                    identified_package = sflock_identify(
+                        sf_file,
+                        check_shellcode=check_shellcode,
+                    )
+                except Exception as e:
+                    log.error("Failed to identify submission with SFlock: %s", e)
+                    identified_package = "generic"
 
         if identified_package and identified_package in sandbox_packages:
             if identified_package in ("iso", "udf", "vhd"):
@@ -609,6 +623,16 @@ class TasksMixIn:
                 # Checking original file as some filetypes doesn't require demux
                 package, _ = self._identify_aux_func(file_path, package, check_shellcode=check_shellcode)
 
+        # Explicit --package apk still needs this: the block above is skipped
+        # when the caller already set package, and find_machine_to_service_task()
+        # filters on task.platform independently of task.package.
+        if package == "apk" and not platform:
+            # package alone doesn't constrain machine selection --
+            # find_machine_to_service_task() filters on task.platform
+            # separately, and an unset platform matches any machine,
+            # not just Android ones.
+            platform = "android"
+
         parent_sample = None
         # extract files from the (potential) archive
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options, platform=platform)
@@ -684,6 +708,11 @@ class TasksMixIn:
 
                     if not tmp_package:
                         log.info("Do sandbox packages need an update? Sflock identifies as: %s - %s", tmp_package, file)
+
+                # extracted_files unpacks `platform`, which shadows the outer
+                # assignment. Re-pin APKs identified in this loop (archives).
+                if package == "apk" and not platform:
+                    platform = "android"
 
                 if package == "dll" and "function" not in options:
                     with PortableExecutable(file.decode()) as pe:

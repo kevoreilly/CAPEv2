@@ -1,4 +1,12 @@
-"""add tenant_id + visibility to tasks
+"""add tenant_id + visibility to tasks -- RETIRED, now a no-op
+
+RETIRED: this revision originally added tenant_id/visibility columns to `tasks`, which
+forced a full-table rewrite on every install, including single-tenant ones. Tenancy now
+lives in the `task_acl` side table (revision 4b2c_task_acl). The revision id must stay in
+the chain because deployed databases already record it in alembic_version, so upgrade()
+is a no-op; 4b2c moves the data for installs that ran the original body.
+
+Original description follows.
 
 Multi-tenant identity & job-visibility foundation (spec #1). Adds the
 per-task tenant owner and the 3-level visibility (public/tenant/private).
@@ -27,22 +35,21 @@ depends_on = None
 
 
 def upgrade():
-    op.add_column("tasks", sa.Column("tenant_id", sa.Integer(), nullable=True))
-    # Add nullable first so existing rows can be backfilled, then enforce NOT NULL. Backfill
-    # FAIL-CLOSED to 'private' (owner-only) -- NOT 'public' (visible to every tenant) -- so enabling
-    # locked MT can't retroactively expose historical tasks cross-tenant, and the SQL store agrees
-    # with the mongo backfill (also private). Operators re-stamp tenancy/visibility via a backfill.
-    op.add_column("tasks", sa.Column("visibility", sa.String(length=16), nullable=True))
-    op.execute("UPDATE tasks SET visibility = 'private' WHERE visibility IS NULL")
-    # existing_type is REQUIRED for MySQL/MariaDB: they rebuild the column via MODIFY COLUMN, which
-    # Alembic cannot render without the type (Postgres renders SET NOT NULL/DEFAULT independently and
-    # doesn't need it). Omitting it aborts `alembic upgrade` mid-migration on a MySQL-backed CAPE
-    # (the add_columns auto-commit first -> wedged half-applied). Matches sibling "2. Database cleanup.py".
-    op.alter_column("tasks", "visibility", existing_type=sa.String(length=16), nullable=False, server_default="private")
-    op.create_index("ix_tasks_tenant_id", "tasks", ["tenant_id"])
+    """No-op. See the RETIRED note above; 4b2c_task_acl handles installs that ran the original."""
 
 
 def downgrade():
-    op.drop_index("ix_tasks_tenant_id", table_name="tasks")
-    op.drop_column("tasks", "visibility")
-    op.drop_column("tasks", "tenant_id")
+    """Drop the original columns if present (they exist only after 4b2c's downgrade, or on an
+    install that ran the original body and is being walked back past this revision)."""
+    bind = op.get_bind()
+    insp = sa.inspect(bind)
+    cols = {c["name"] for c in insp.get_columns("tasks")}
+    indexes = {i["name"] for i in insp.get_indexes("tasks")}
+    if not ({"tenant_id", "visibility"} & cols):
+        return
+    with op.batch_alter_table("tasks") as batch:
+        if "ix_tasks_tenant_id" in indexes:
+            batch.drop_index("ix_tasks_tenant_id")
+        for col in ("visibility", "tenant_id"):
+            if col in cols:
+                batch.drop_column(col)

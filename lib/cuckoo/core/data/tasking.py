@@ -1125,6 +1125,11 @@ class TasksMixIn:
                 # concurrent toggle may have changed it between load and lock, and both
                 # the direction decision and _prev must reflect the CURRENT truth.
                 self.session.refresh(task)
+                # Visibility lives in the task_acl row, not on tasks: re-read it too, and re-load
+                # the relationship so an ACL row created by a concurrent toggle is picked up.
+                self.session.refresh(task, attribute_names=["acl"])
+                if task.acl is not None:
+                    self.session.refresh(task.acl)
             _prev_visibility = task.visibility
             # Optimistic compare-and-swap: the caller authorized this transition against `expected_prior`.
             # If a concurrent toggle changed the row before we acquired the lock, the pre-lock authorization

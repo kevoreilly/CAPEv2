@@ -1664,28 +1664,34 @@ def test_task_x_hours_mt_on_corrected_bounds_and_visibility_count(cape_db, monke
 
 
 # ---------------------------------------------------------------------------
-# Finding (3): _strip_mt_task_fields — Task.to_dict() now carries tenant_id +
-# visibility. MT off => strip (upstream-identical output). MT on => preserved.
+# Finding (3): _task_dict -- tenancy lives in task_acl, so Task.to_dict() never
+# carries tenant_id/visibility. MT off => upstream-identical output (keys absent).
+# MT on => the helper ADDS them from the task.
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.django_db
-def test_strip_mt_task_fields_mt_off_removes_keys(monkeypatch, mt_disabled):
-    import apiv2.views as views
-    d = {"id": 1, "target": "x", "tenant_id": 7, "visibility": "private"}
-    out = views._strip_mt_task_fields(d)
-    assert "tenant_id" not in out
-    assert "visibility" not in out
-    assert out["id"] == 1 and out["target"] == "x"
+class _FakeTask:
+    tenant_id = 7
+    visibility = "tenant"
+
+    def to_dict(self):
+        return {"id": 1, "target": "x"}
 
 
 @pytest.mark.django_db
-def test_strip_mt_task_fields_mt_on_preserves_keys(monkeypatch, mt_enabled):
+def test_task_dict_mt_off_has_no_tenancy_keys(monkeypatch, mt_disabled):
     import apiv2.views as views
-    d = {"id": 1, "target": "x", "tenant_id": 7, "visibility": "private"}
-    out = views._strip_mt_task_fields(d)
+    out = views._task_dict(_FakeTask())
+    assert out == {"id": 1, "target": "x"}
+
+
+@pytest.mark.django_db
+def test_task_dict_mt_on_adds_tenancy_keys(monkeypatch, mt_enabled):
+    import apiv2.views as views
+    out = views._task_dict(_FakeTask())
     assert out["tenant_id"] == 7
-    assert out["visibility"] == "private"
+    assert out["visibility"] == "tenant"
+    assert out["id"] == 1 and out["target"] == "x"
 
 
 @pytest.mark.django_db
@@ -1724,6 +1730,9 @@ def test_tasks_view_response_strips_mt_keys_when_off(cape_db, monkeypatch, mt_di
             self.errors = []
             self.status = "reported"
             self.custom = None
+            # hybrid properties on the real model; not columns, so not in to_dict()
+            self.tenant_id = 5
+            self.visibility = "private"
 
         def to_dict(self):
             return {
@@ -1731,8 +1740,6 @@ def test_tasks_view_response_strips_mt_keys_when_off(cape_db, monkeypatch, mt_di
                 "category": "file",
                 "target": "/tmp/a.bin",
                 "status": "reported",
-                "tenant_id": 5,
-                "visibility": "private",
             }
 
     monkeypatch.setattr(views.apiconf, "taskview", {"enabled": True}, raising=False)

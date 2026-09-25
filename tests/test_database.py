@@ -409,6 +409,7 @@ class TestDatabaseEngine:
                 "resultserver_port": "2043",
                 "arch": "x64",
                 "reserved": False,
+                "attributes": {},
             }
 
             assert m2.to_dict() == {
@@ -428,7 +429,37 @@ class TestDatabaseEngine:
                 "tags": ["tag1tag2"],
                 "arch": "x64",
                 "reserved": True,
+                "attributes": {},
             }
+
+    def test_machine_attributes(self, db: _Database):
+        # 1) default=dict — each new row gets its own dict, not shared.
+        # Flush to apply the default (default fires on flush, not on construction
+        # for mutable/JSON columns); verify both rows get distinct dict objects.
+        with db.session.begin():
+            m1 = self.add_machine(db, name="attr1", label="attr1")
+            m2 = self.add_machine(db, name="attr2", label="attr2")
+            db.session.flush()
+            assert m1.attributes is not m2.attributes
+
+        # 3) get_attribute / set_attribute helpers.
+        with db.session.begin():
+            m1.set_attribute("last_error", "boom")
+            m1.set_attribute("vnc_url", "vnc://x")
+            assert m1.get_attribute("last_error") == "boom"
+            assert m1.get_attribute("vnc_url") == "vnc://x"
+            m1.set_attribute("temp", "x")
+            m1.set_attribute("temp", None)  # value=None removes the key
+            assert m1.get_attribute("temp") is None
+
+        # 2) MutableDict auto-tracks in-place mutation — no flag_modified needed.
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            m.attributes["direct"] = "via_inplace_mutation"  # no set_attribute, no flag_modified
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.get_attribute("last_error") == "boom"
+            assert m.get_attribute("direct") == "via_inplace_mutation"
 
     def test_find_machine_to_service_task_tags_reserved(self, db: _Database):
         with db.session.begin():

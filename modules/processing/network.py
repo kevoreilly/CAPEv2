@@ -22,7 +22,7 @@ from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
-from typing import Any, Optional
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 import cachetools.func
@@ -1193,7 +1193,7 @@ class NetworkAnalysis(Processing):
                     continue
         return endpoint_map
 
-    def _pick_best(self, candidates: list[dict]) -> Optional[dict]:
+    def _pick_best(self, candidates: list[dict]) -> dict | None:
         if not candidates:
             return None
 
@@ -1203,7 +1203,7 @@ class NetworkAnalysis(Processing):
 
         return candidates[0]
 
-    def _match_dns_process(self, dns_entry: dict, dns_intents: dict, max_skew_seconds: float = 10.0) -> Optional[dict]:
+    def _match_dns_process(self, dns_entry: dict, dns_intents: dict, max_skew_seconds: float = 10.0) -> dict | None:
         """
         Match a network.dns entry to the closest behavior DNS intent by:
           - same domain
@@ -1241,7 +1241,7 @@ class NetworkAnalysis(Processing):
 
         return candidates[0].get("process")
 
-    def _pcap_first_epoch(self, network: dict) -> Optional[float]:
+    def _pcap_first_epoch(self, network: dict) -> float | None:
         ts = []
         for k in ("dns", "http"):
             for e in network.get(k) or []:
@@ -1271,7 +1271,7 @@ class NetworkAnalysis(Processing):
         out.sort(key=lambda x: x["t_rel"])
         return out
 
-    def _nearest_dns_process_by_rel_time(self, dns_events_rel: list[dict], t_rel: Any, max_skew: float = 5.0) -> Optional[dict]:
+    def _nearest_dns_process_by_rel_time(self, dns_events_rel: list[dict], t_rel: Any, max_skew: float = 5.0) -> dict | None:
         if not dns_events_rel or not isinstance(t_rel, (int, float)):
             return None
 
@@ -1287,7 +1287,7 @@ class NetworkAnalysis(Processing):
             return best.get("process")
         return None
 
-    def _set_proc_fields(self, obj: dict, proc: Optional[dict]):
+    def _set_proc_fields(self, obj: dict, proc: dict | None):
         """
         Add process_id/process_name onto an existing network entry.
         If proc is None, sets them to None (keeps template stable).

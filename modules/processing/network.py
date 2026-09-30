@@ -1425,29 +1425,37 @@ class NetworkAnalysis(Processing):
                     if not sessions:
                         continue
 
-                    # Use first session entry as representative
-                    s0 = sessions[0] or {}
-                    method = s0.get("method") or ""
-                    dport = s0.get("port")
-                    uri = s0.get("uri") or "/"
-                    protocol = s0.get("protocol")
+                    seen_urls = set()
+                    for s in sessions:
+                        s = s or {}
+                        path = s.get("uri") or "/"
+                        protocol = s.get("protocol") or "http"
+                        url = s.get("url") or f"{protocol}://{hnorm}{path}"
+                        if url in seen_urls:
+                            continue
+                        seen_urls.add(url)
 
-                    entry = {
-                        "host": hnorm,
-                        "dport": dport,
-                        "uri": uri,
-                        "method": method,
-                        "data": s0.get("request"),
-                        "protocol": protocol,
-                        "access_type": s0.get("access_type"),
-                        "proxy_name": s0.get("proxy_name"),
-                        "proxy_bypass": s0.get("proxy_bypass"),
-                        "source": "behavior",
-                        "process_id": p.get("process_id"),
-                        "process_name": p.get("process_name"),
-                    }
+                        dport = s.get("dport")
+                        entry = {
+                            "host": hnorm,
+                            "dport": dport,
+                            "port": dport,
+                            # network.http template renders only `uri`; PCAP entries store the full URL there.
+                            "uri": url,
+                            "path": path,
+                            "method": s.get("method") or "",
+                            "data": s.get("request"),
+                            "protocol": protocol,
+                            "user_agent": s.get("user_agent"),
+                            "access_type": s.get("access_type"),
+                            "proxy_name": s.get("proxy_name"),
+                            "proxy_bypass": s.get("proxy_bypass"),
+                            "source": "behavior",
+                            "process_id": p.get("process_id"),
+                            "process_name": p.get("process_name"),
+                        }
+                        network.setdefault("http", []).append(entry)
 
-                    network.setdefault("http", []).append(entry)
                     existing_hosts.add(hnorm)
 
         # DNS

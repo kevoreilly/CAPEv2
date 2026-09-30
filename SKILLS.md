@@ -70,6 +70,9 @@ CAPE (Config And Payload Extraction) is a malware analysis sandbox derived from 
 *   **Imports:** Explicit imports only (`from lib import a, b`). No `from lib import *`. Group standard library, 3rd party, and local imports.
 *   **Strings:** Use double quotes (`"`) for strings. (This line was corrected from the original prompt to reflect the actual change needed for the example.)
 *   **Logging:** Use `import logging; log = logging.getLogger(__name__)`. Do not use `print()`.
+    *   Pass arguments lazily, `%`-style: `log.warning("Failed to parse %s: %s", url, err)`. Never pre-format the message (`log.warning(f"...")`, `"..." % x`, `"...".format()`, `+`): formatting is then paid even when the level is disabled, and the varying message breaks log grouping. Enforced by the ruff `G` rules (G001-G004) enabled in `pyproject.toml`.
+*   **String formatting (non-logging):** Prefer f-strings for building values (`f"0x{n:x}"`, `f"{scheme}://{host}{path}"`) over `%` or `str.format()`.
+*   **Type hints:** The project requires Python >= 3.10. Use builtin generics and PEP 604 unions (`dict[str, list[int]]`, `str | None`) instead of `typing.Dict`, `typing.List`, `typing.Optional`. `ruff check --target-version py310 --select UP006,UP035,UP045 --fix <files>` converts touched files.
 *   **Exceptions:** Use custom exceptions from `lib/cuckoo/common/exceptions.py` (e.g., `CuckooOperationalError`).
 
 ### Local Development Environment

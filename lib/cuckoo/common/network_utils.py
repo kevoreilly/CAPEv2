@@ -304,7 +304,7 @@ def _parse_handle(v):
     if isinstance(v, int):
         if v <= 0:
             return None
-        return "0x%x" % v
+        return f"0x{v:x}"
     with suppress(Exception):
         s = str(v).strip()
         if not s:
@@ -315,7 +315,7 @@ def _parse_handle(v):
         n = int(m.group(1), 16)
         if n <= 0:
             return None
-        return "0x%x" % n
+        return f"0x{n:x}"
     return None
 
 
@@ -456,7 +456,7 @@ def winhttp_update_from_call(pstate, api_lc, args_map, ret_handle):
 
                 if conn.get("server") and req.get("object"):
                     scheme = "https" if conn.get("port") == 443 else "http"
-                    req["url"] = "%s://%s%s" % (scheme, conn["server"], req["object"])
+                    req["url"] = f"{scheme}://{conn['server']}{req['object']}"
         return
 
     # WinHttpSetOption -> applies to session/connect/request by handle

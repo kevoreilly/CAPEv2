@@ -146,7 +146,7 @@ if enabled_ip_passlist and ip_passlist_file:
             ip_passlist.add(ip)
 
 if enabled_network_passlist and network_passlist_file and os.path.isfile(network_passlist_file):
-    with open(os.path.join(CUCKOO_ROOT, network_passlist_file), "r") as f:
+    with open(os.path.join(CUCKOO_ROOT, network_passlist_file)) as f:
         for cidr in set(f.read().splitlines()):
             if cidr.startswith("#") or len(cidr.strip()) == 0:
                 # comment or empty line
@@ -496,13 +496,13 @@ class Pcap:
                     ans = {"type": "A"}
                     try:
                         ans["data"] = socket.inet_ntoa(answer.rdata)
-                    except socket.error:
+                    except OSError:
                         continue
                 elif answer.type == dpkt.dns.DNS_AAAA:
                     ans = {"type": "AAAA"}
                     try:
                         ans["data"] = socket.inet_ntop(socket.AF_INET6, answer.rdata)
-                    except (socket.error, ValueError):
+                    except (OSError, ValueError):
                         continue
                 elif answer.type == dpkt.dns.DNS_CNAME:
                     ans = {"type": "CNAME", "data": answer.cname}
@@ -767,7 +767,7 @@ class Pcap:
 
         try:
             file = open(self.filepath, "rb")
-        except (IOError, OSError):
+        except OSError:
             log.error("Unable to open %s", self.filepath)
             return self.results
 
@@ -1129,7 +1129,7 @@ class NetworkAnalysis(Processing):
         """
         ja3_fprints = {}
         if path_exists(self.ja3_file):
-            with open(self.ja3_file, "r") as fpfile:
+            with open(self.ja3_file) as fpfile:
                 for line in fpfile:
                     try:
                         ja3 = loads(line)
@@ -1660,7 +1660,7 @@ class NetworkAnalysis(Processing):
         if not path_exists(dump_tls_log):
             return tlsmaster
 
-        with open(dump_tls_log, "r") as f:
+        with open(dump_tls_log) as f:
             for entry in f:
                 try:
                     for m in re.finditer(
@@ -1871,8 +1871,7 @@ def packets_for_stream(fobj, offset):
     ts, raw = next(pcapiter)
 
     fobj.seek(offset)
-    for p in next_connection_packets(pcapiter, linktype=pcap.datalink()):
-        yield p
+    yield from next_connection_packets(pcapiter, linktype=pcap.datalink())
 
 
 def check_pcap_file_type(filepath):

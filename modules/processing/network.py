@@ -22,7 +22,7 @@ from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 from urllib.parse import urlparse, urlunparse
 
 import cachetools.func
@@ -1140,7 +1140,7 @@ class NetworkAnalysis(Processing):
 
         return ja3_fprints
 
-    def _load_network_map(self) -> Dict:
+    def _load_network_map(self) -> dict:
         with suppress(Exception):
             behavior_net_map = self.results.get("behavior", {}).get("network_map") or {}
             if not behavior_net_map:
@@ -1171,7 +1171,7 @@ class NetworkAnalysis(Processing):
             return net_map
         return {}
 
-    def _reconstruct_endpoint_map(self, raw_map) -> Dict[tuple, List[Dict]]:
+    def _reconstruct_endpoint_map(self, raw_map) -> dict[tuple, list[dict]]:
         """
         Convert JSON-friendly "ip:port" keys back to (ip, int(port)) tuples.
         """
@@ -1193,7 +1193,7 @@ class NetworkAnalysis(Processing):
                     continue
         return endpoint_map
 
-    def _pick_best(self, candidates: List[Dict]) -> Optional[Dict]:
+    def _pick_best(self, candidates: list[dict]) -> Optional[dict]:
         if not candidates:
             return None
 
@@ -1203,7 +1203,7 @@ class NetworkAnalysis(Processing):
 
         return candidates[0]
 
-    def _match_dns_process(self, dns_entry: Dict, dns_intents: Dict, max_skew_seconds: float = 10.0) -> Optional[Dict]:
+    def _match_dns_process(self, dns_entry: dict, dns_intents: dict, max_skew_seconds: float = 10.0) -> Optional[dict]:
         """
         Match a network.dns entry to the closest behavior DNS intent by:
           - same domain
@@ -1241,7 +1241,7 @@ class NetworkAnalysis(Processing):
 
         return candidates[0].get("process")
 
-    def _pcap_first_epoch(self, network: Dict) -> Optional[float]:
+    def _pcap_first_epoch(self, network: dict) -> Optional[float]:
         ts = []
         for k in ("dns", "http"):
             for e in network.get(k) or []:
@@ -1250,7 +1250,7 @@ class NetworkAnalysis(Processing):
                     ts.append(float(v))
         return min(ts) if ts else None
 
-    def _build_dns_events_rel(self, network: Dict, dns_intents: Dict, max_skew_seconds: float = 10.0) -> List[Dict]:
+    def _build_dns_events_rel(self, network: dict, dns_intents: dict, max_skew_seconds: float = 10.0) -> list[dict]:
         """
         Returns a list of dns events:
         [{"t_rel": float, "process": {...}|None, "request": "example.com"}]
@@ -1271,7 +1271,7 @@ class NetworkAnalysis(Processing):
         out.sort(key=lambda x: x["t_rel"])
         return out
 
-    def _nearest_dns_process_by_rel_time(self, dns_events_rel: List[Dict], t_rel: Any, max_skew: float = 5.0) -> Optional[Dict]:
+    def _nearest_dns_process_by_rel_time(self, dns_events_rel: list[dict], t_rel: Any, max_skew: float = 5.0) -> Optional[dict]:
         if not dns_events_rel or not isinstance(t_rel, (int, float)):
             return None
 
@@ -1287,7 +1287,7 @@ class NetworkAnalysis(Processing):
             return best.get("process")
         return None
 
-    def _set_proc_fields(self, obj: Dict, proc: Optional[Dict]):
+    def _set_proc_fields(self, obj: dict, proc: Optional[dict]):
         """
         Add process_id/process_name onto an existing network entry.
         If proc is None, sets them to None (keeps template stable).
@@ -1299,7 +1299,7 @@ class NetworkAnalysis(Processing):
             obj["process_id"] = None
             obj["process_name"] = None
 
-    def _process_map(self, network: Dict):
+    def _process_map(self, network: dict):
         net_map = self._load_network_map()
 
         if not network or not net_map:

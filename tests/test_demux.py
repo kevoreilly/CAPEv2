@@ -2,8 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import os
 import pathlib
 import tempfile
+from types import SimpleNamespace
 
 import pytest
 from tcr_misc import get_sample
@@ -92,3 +94,59 @@ class TestDemux:
     def test_options2passwd(self):
         options = "password=foobar"
         demux.options2passwd(options)
+
+    def test_demux_junk_filter_default_rejects(self, tmp_path):
+        junk_file = tmp_path / "polyshell.txt"
+        junk_file.write_text("echo polyshell")
+
+        # String filename
+        demuxed, errors = demux.demux_sample(filename=str(junk_file), package=None, options="", use_sflock=False)
+        assert demuxed == []
+        assert any("junk_filter" in err for err in errors)
+
+        # Bytes filename
+        demuxed, errors = demux.demux_sample(filename=str(junk_file).encode(), package=None, options="", use_sflock=False)
+        assert demuxed == []
+        assert any("junk_filter" in err for err in errors)
+
+    def test_demux_junk_filter_explicitly_disabled(self, tmp_path):
+        junk_file = tmp_path / "readme.txt"
+        junk_file.write_text("readme instructions")
+
+        demuxed, errors = demux.demux_sample(filename=str(junk_file), package=None, options="ignore_junk_filter=0", use_sflock=False)
+        assert demuxed == []
+        assert any("junk_filter" in err for err in errors)
+
+    def test_demux_junk_filter_ignored_with_option(self, tmp_path):
+        junk_file = tmp_path / "polyshell.txt"
+        junk_file.write_text("echo polyshell")
+
+        for opt in ("ignore_junk_filter=1", "ignore_junk_filter=true", "ignore_junk_filter=yes"):
+            demuxed, errors = demux.demux_sample(filename=str(junk_file), package=None, options=opt, use_sflock=False)
+            assert len(demuxed) == 1
+            assert demuxed[0][0] == str(junk_file).encode()
+            assert errors == []
+
+    def test_sf_children_junk_filter(self):
+        child = SimpleNamespace(
+            filename=b"polyshell.txt",
+            contents=b"echo polyshell",
+            platform="windows",
+            magic="ASCII text",
+            filesize=14,
+            package=None,
+        )
+
+        # By default (ignore_junk_filter=False), junk file is skipped
+        path, platform, magic, filesize = demux._sf_children(child, ignore_junk_filter=False)
+        assert path == b""
+        assert filesize == 14
+
+        # When ignore_junk_filter=True, junk file is extracted
+        path, platform, magic, filesize = demux._sf_children(child, ignore_junk_filter=True)
+        assert path != b""
+        assert os.path.exists(path)
+        assert open(path, "rb").read() == b"echo polyshell"
+        assert filesize == 14
+        if os.path.exists(path):
+            os.remove(path)

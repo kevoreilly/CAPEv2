@@ -124,7 +124,7 @@ class TestDemux:
         for opt in ("ignore_junk_filter=1", "ignore_junk_filter=true", "ignore_junk_filter=yes"):
             demuxed, errors = demux.demux_sample(filename=str(junk_file), package=None, options=opt, use_sflock=False)
             assert len(demuxed) == 1
-            assert demuxed[0][0] == str(junk_file)
+            assert demuxed[0][0] == str(junk_file).encode()
             assert errors == []
 
     def test_sf_children_junk_filter(self):

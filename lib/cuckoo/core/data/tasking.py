@@ -140,6 +140,8 @@ DYNAMIC_ARCH_DETERMINATION = web_conf.general.dynamic_arch_determination
 sandbox_packages = (
     "access",
     "archive",
+    "autoit",
+    "batch",
     "nsis",
     "cpl",
     "reg",

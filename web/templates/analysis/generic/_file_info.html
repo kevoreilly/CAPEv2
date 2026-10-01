@@ -200,7 +200,7 @@
                     <ul class="list-unstyled mb-0">
                     {% for sign in file.yara %}
                         <li>
-                            <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning font-weight-bold">{{sign.name}}</a>
+                            <a href="/analysis/search/yaraname:{{sign.name}}" class="text-warning fw-bold">{{sign.name}}</a>
                             <span class="text-white-50">- {{sign.meta.description}}</span>
                             {% if sign.meta.author %} <small class="text-white-50">({{sign.meta.author}})</small>{% endif %}
                         </li>
@@ -223,7 +223,7 @@
                     <ul class="list-unstyled mb-0">
                     {% for sign in file.cape_yara %}
                         <li>
-                            <a href="/analysis/search/capeyara:{{sign.name}}" class="text-info font-weight-bold">{{sign.name}}</a>
+                            <a href="/analysis/search/capeyara:{{sign.name}}" class="text-info fw-bold">{{sign.name}}</a>
                             {% if sign.meta.cape_type %} <span class="badge bg-dark">{{sign.meta.cape_type}}</span>{% endif %}
                         </li>
                     {% endfor %}

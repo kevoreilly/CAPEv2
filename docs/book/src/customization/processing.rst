@@ -17,6 +17,10 @@ CAPE's core and community configuration parsers are maintained in the separate
 `CAPE-parsers`_ repository. CAPEv2 depends on the ``CAPE-parsers`` Python package
 and loads its parsers when ``[CAPE_extractors]`` is enabled in ``processing.conf``.
 
+For local configuration parsers, place Python modules in ``custom/parsers/`` under
+the CAPE root directory. CAPEv2 loads them alongside the installed parsers; a
+custom parser takes precedence when its parser name matches an installed one.
+
 A configuration parser extracts configuration from file data. A processing
 module is a ``Processing`` subclass that adds results to the global container
 described below.

@@ -98,6 +98,13 @@ Malware can be classified in CAPE via three mechanisms:
 
 Parsing can be done using CAPE's own framework, alternatively the following frameworks are supported: [RATDecoders](https://github.com/kevthehermit/RATDecoders), [DC3-MWCP](https://github.com/Defense-Cyber-Crime-Center/DC3-MWCP), [MalDuck](https://github.com/CERT-Polska/malduck/tree/master/malduck/), or [MaCo](https://github.com/CybercentreCanada/maco)
 
+#### CAPE-parsers
+
+CAPE's core and community configuration parsers are maintained in the separate
+[CAPE-parsers](https://github.com/CAPESandbox/CAPE-parsers) repository and installed
+as the `CAPE-parsers` dependency. Submit additions and fixes to those parsers
+there; its README describes the expected configuration fields.
+
 #### Special note about config parsing frameworks:
 * Due to the nature of malware, since it changes constantly when any new version is released, something might become broken!
 * We suggest using CAPE's framework which is simply pure Python with entry point `def extract_config(data):` that will be called by `cape_utils.py` and 0 complications.

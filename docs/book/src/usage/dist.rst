@@ -16,6 +16,22 @@ through the following command (on Debian/Ubuntu)::
 
 Starting the Distributed REST API
 =================================
+Authentication
+==============
+
+To protect the Distributed CAPE daemon (SSRF and DoS prevention), you should configure an authentication token.
+Configure the ``auth_token`` value in ``conf/distributed.conf`` under the ``[distributed]`` section::
+
+    [distributed]
+    ...
+    # Authentication token for Distributed CAPE Daemon API
+    auth_token = SEUPER_SECRET_TOKEN
+
+Once configured, the FastAPI endpoints running on port 9003 will require this token to be provided as an ``X-API-Token`` header::
+
+    $ curl -H "X-API-Token: SEUPER_SECRET_TOKEN" http://localhost:9003/node
+
+
 
 The Distributed REST API requires a few command line options in order to run::
 

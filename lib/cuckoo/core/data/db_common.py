@@ -83,7 +83,7 @@ class Error(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     message: Mapped[str] = mapped_column(String(MAX_LENGTH), nullable=False)
-    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id"), nullable=False)
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="cascade"), nullable=False)
     task: Mapped["Task"] = relationship(back_populates="errors")
 
     def to_dict(self):

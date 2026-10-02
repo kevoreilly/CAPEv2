@@ -201,8 +201,7 @@ def main() -> Optional[bool]:
     try:
         args = parser.parse_args()
     except IOError as e:
-        parser.error(e)
-        return False
+        parser.error(str(e))
 
     # If the quiet flag has been set, then we also disable the "warning"
     # level of the logging module. (E.g., when pydeep has not been installed,

@@ -556,7 +556,7 @@ class MongoDB(Report):
 
         # Delete old data just before inserting new one to avoid "missing report" window
         # or data loss if insertion fails during preparation (e.g. OOM)
-        ids_to_delete = {local_task_id, int(report["info"]["id"])}
+        ids_to_delete = {int(report["info"]["id"])}
         _pre_job_id = report["info"].get("job_id")
         _central_pre = False
         try:

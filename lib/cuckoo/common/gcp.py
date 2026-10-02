@@ -1,6 +1,7 @@
 # From doomedraven for GCP with love
 import os
 import logging
+import stat
 import time
 import shutil
 from typing import Any, Dict, List, Optional, Set
@@ -36,6 +37,10 @@ log = logging.getLogger(__name__)
 
 # Initialize standard config
 gcp_cfg = Config("gcp")
+
+# The ZIP container stores mtimes as MS-DOS timestamps, which are relative to 1980.
+# Anything older (mtime 0, negative epochs, timestomped dropped files) cannot be encoded.
+MIN_ZIP_DATE_TIME = (1980, 1, 1, 0, 0, 0)
 
 
 class GCSUploader:
@@ -123,16 +128,34 @@ class GCSUploader:
         else:
             self.upload_files_individually(analysis_id, source_directory, tlp=tlp, metadata=metadata)
 
+    def _archive_write(self, archive: zipfile.ZipFile, local_path: str, arcname: str):
+        """Add a file to the archive, tolerating timestamps the ZIP format cannot encode."""
+        try:
+            archive.write(local_path, arcname)
+        except ValueError:
+            # Dropped/timestomped files can carry an mtime before 1980, which zipfile refuses
+            # to encode. Clamp the timestamp instead of losing the entire report.
+            st = os.stat(local_path)
+            zinfo = zipfile.ZipInfo(arcname, date_time=MIN_ZIP_DATE_TIME)
+            zinfo.compress_type = zipfile.ZIP_DEFLATED
+            zinfo.external_attr = (stat.S_IMODE(st.st_mode) & 0xFFFF) << 16
+            zinfo.file_size = st.st_size
+            with open(local_path, "rb") as src, archive.open(zinfo, "w") as dst:
+                shutil.copyfileobj(src, dst)
+            log.warning("[GCS   ] Clamped pre-1980 mtime for '%s'", local_path)
+
     def upload_zip_archive(self, analysis_id: int, source_directory: str, tlp: Optional[str] = None, metadata: Optional[Dict[str, Any]] = None):
         log.debug("[GCS   ] CAPE ID: %s ==> Compressing and uploading files to GCS", analysis_id)
         blob_name = f"{analysis_id}_tlp_{tlp}.zip" if tlp else f"{analysis_id}.zip"
 
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".zip") as tmp_zip_file:
-            tmp_zip_file_name = tmp_zip_file.name
-            with zipfile.ZipFile(tmp_zip_file, "w", zipfile.ZIP_DEFLATED) as archive:
-                for local_path, relative_path in self._iter_files_to_upload(source_directory):
-                    archive.write(local_path, os.path.join(str(analysis_id), relative_path))
+        tmp_zip_file = tempfile.NamedTemporaryFile(delete=False, suffix=".zip")
+        tmp_zip_file_name = tmp_zip_file.name
         try:
+            with tmp_zip_file:
+                with zipfile.ZipFile(tmp_zip_file, "w", zipfile.ZIP_DEFLATED) as archive:
+                    for local_path, relative_path in self._iter_files_to_upload(source_directory):
+                        self._archive_write(archive, local_path, os.path.join(str(analysis_id), relative_path))
+
             log.debug("[GCS   ] CAPE ID: %s ==> Uploading '%s' as '%s'", analysis_id, tmp_zip_file_name, blob_name)
             blob = self.bucket.blob(blob_name)
             if metadata:

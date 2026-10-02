@@ -54,6 +54,7 @@ ALLOWED_HOSTS = [
 ]
 
 INSTALLED_APPS = [
+    "daphne",
     "channels",
     "guac",
     "django.contrib.auth",

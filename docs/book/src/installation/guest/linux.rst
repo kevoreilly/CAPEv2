@@ -101,17 +101,17 @@ Create a snapshot once the VM has been configured.
 It is now ready for analysis!
 
 Community Feature - Tracee
----
+--------------------------
 
-*For more information about Tracee in CAPEv2 and how to install it, visit its integration page: :ref:`tracee`.*
+For more information about Tracee in CAPEv2 and how to install it, visit its integration page: :ref:`tracee`.
 
-To use [Tracee eBPF event tracing](https://github.com/kevoreilly/CAPEv2/pull/2235) in Linux, you will have to install Docker and the Tracee container **in the Ubuntu guest**:
+To use `Tracee eBPF event tracing <https://github.com/kevoreilly/CAPEv2/pull/2235>`_ in Linux, you will have to install Docker and the Tracee container **in the Ubuntu guest**:
 
-```shell
-docker pull docker.io/aquasec/tracee:0.20.0
-docker image tag aquasec/tracee:0.20.0 aquasec/tracee:latest
-```
+.. code-block:: shell
 
-Afterwards, enable Tracee using the appropriate options in auxiliary.conf and processing.conf and install the [CAPEv2 Community Repo](https://github.com/CAPESandbox/community). Here is a guide: https://capev2.readthedocs.io/en/latest/usage/utilities.html#community-download-utility.
+    docker pull docker.io/aquasec/tracee:0.20.0
+    docker image tag aquasec/tracee:0.20.0 aquasec/tracee:latest
+
+Afterwards, enable Tracee using the appropriate options in auxiliary.conf and processing.conf and install the `CAPEv2 Community Repo <https://github.com/CAPESandbox/community>`_. Here is a guide: https://capev2.readthedocs.io/en/latest/usage/utilities.html#community-download-utility.
 
 Tracee should be able to automatically highlight events such as fileless execution and syscall hooking.

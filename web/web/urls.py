@@ -48,11 +48,11 @@ urlpatterns = [
     re_path(r"^compare/", include(compare)),
     re_path(r"^submit/", include(submission)),
     re_path(r"^apiv2/", include(apiv2)),
-    re_path(r"^file/(?P<category>\w+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", analysis_views.file, name="file"),
+    re_path(r"^file/(?P<category>[\w\.]+)/(?P<task_id>\d+)/(?P<dlfile>\w+)/$", analysis_views.file, name="file"),
     re_path(
-        r"^vtupload/(?P<category>\w+)/(?P<task_id>\d+)/(?P<filename>.+)/(?P<dlfile>\w+)/$", analysis_views.vtupload, name="vtupload"
+        r"^vtupload/(?P<category>[\w\.]+)/(?P<task_id>\d+)/(?P<filename>.+)/(?P<dlfile>\w+)/$", analysis_views.vtupload, name="vtupload"
     ),
-    re_path(r"^filereport/(?P<task_id>\w+)/(?P<category>\w+)/$", analysis_views.filereport, name="filereport"),
+    re_path(r"^filereport/(?P<task_id>\w+)/(?P<category>[\w\.]+)/$", analysis_views.filereport, name="filereport"),
     re_path(r"^full_memory/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_file, name="full_memory_dump_file"),
     re_path(
         r"^full_memory_strings/(?P<analysis_number>\w+)/$", analysis_views.full_memory_dump_strings, name="full_memory_dump_strings"

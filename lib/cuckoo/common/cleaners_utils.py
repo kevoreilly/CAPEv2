@@ -763,11 +763,12 @@ def cuckoo_clean_range_tasks(range_: str):
     start_str, end_str = range_.split("-")
     start = int(start_str.strip())
     end = int(end_str.strip())
-    pending_tasks = db.list_tasks(id_after=(start - 1), id_before=(end + 1))
-    ids: list[int] = [task.id for task in pending_tasks]
-    delete_bulk_tasks_n_folders(ids, delete_mongo=False)
-    mongo_delete_data(ids)
-    db.delete_tasks(id_after=(start - 1), id_before=(end + 1))
+    with db.session.begin():
+        pending_tasks = db.list_tasks(id_after=(start - 1), id_before=(end + 1))
+        ids: list[int] = [task.id for task in pending_tasks]
+        delete_bulk_tasks_n_folders(ids, delete_mongo=False)
+        mongo_delete_data(ids)
+        db.delete_tasks(id_after=(start - 1), id_before=(end + 1))
 
 
 def delete_unused_file_data_in_mongo():

@@ -578,7 +578,6 @@ class Human(Auxiliary, Thread):
         global DOCUMENT_WINDOW_CLICK_AROUND
         global GIVEN_INSTRUCTIONS
         try:
-            seconds = 0
             randoff = random.randint(0, 10)
 
             populate_clipboard()
@@ -641,8 +640,23 @@ class Human(Auxiliary, Thread):
                         log.error("One of the instruction given is invalid: %s with error %s", instruction, str(e))
                         continue
 
+            # These schedules used to be driven by a counter incremented once
+            # per iteration and treated as seconds. The body is not
+            # instantaneous - realistic_human_cursor_movement() alone runs for
+            # 5 seconds and move_mouse_realistically() sleeps per step - so the
+            # counter ran arbitrarily far behind the wall clock and every
+            # interval keyed on it stretched with the sample's behaviour.
+            # Deadlines keep the intervals the code intends: the first document
+            # pass at 60s and every 30s after it, a foreground window switch on
+            # the first iteration and every 15 + randoff seconds after that.
+            next_document_check = time.monotonic() + 60
+            next_window_switch = time.monotonic()
+
             while self.do_run:
-                if doc and seconds > 45 and (seconds % 30) == 0 and not DOCUMENT_WINDOW_CLICK_AROUND and not CLOSED_DOCUMENT_WINDOW:
+                now = time.monotonic()
+
+                if doc and now >= next_document_check and not DOCUMENT_WINDOW_CLICK_AROUND and not CLOSED_DOCUMENT_WINDOW:
+                    next_document_check = now + 30
                     USER32.EnumWindows(EnumWindowsProc(get_document_window_click_around), 0)
                     USER32.EnumWindows(EnumWindowsProc(get_document_window), 0)
 
@@ -669,7 +683,8 @@ class Human(Auxiliary, Thread):
                             click_mouse()
                         move_mouse_random()
 
-                if (seconds % (15 + randoff)) == 0:
+                if time.monotonic() >= next_window_switch:
+                    next_window_switch = time.monotonic() + 15 + randoff
                     # curwind = USER32.GetForegroundWindow()
                     other_hwnds = INITIAL_HWNDS.copy()
                     with contextlib.suppress(Exception):
@@ -679,7 +694,6 @@ class Human(Auxiliary, Thread):
 
                 USER32.EnumWindows(EnumWindowsProc(handle_window_interaction), 0)
                 KERNEL32.Sleep(1000)
-                seconds += 1
         except Exception:
             error_exc = traceback.format_exc()
             log.exception(error_exc)

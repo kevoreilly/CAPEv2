@@ -68,7 +68,7 @@ CAPE (Config And Payload Extraction) is a malware analysis sandbox derived from 
 
 ### Coding Standards (PEP 8+)
 *   **Imports:** Explicit imports only (`from lib import a, b`). No `from lib import *`. Group standard library, 3rd party, and local imports.
-*   **Strings:** Use double quotes (`"`) for strings. (This line was corrected from the original prompt to reflect the actual change needed for the example.)
+*   **Strings:** Use double quotes (`"`) for strings.
 *   **Logging:** Use `import logging; log = logging.getLogger(__name__)`. Do not use `print()`.
     *   Pass arguments lazily, `%`-style: `log.warning("Failed to parse %s: %s", url, err)`. Never pre-format the message (`log.warning(f"...")`, `"..." % x`, `"...".format()`, `+`): formatting is then paid even when the level is disabled, and the varying message breaks log grouping. Enforced by the ruff `G` rules (G001-G004) enabled in `pyproject.toml`.
 *   **String formatting (non-logging):** Prefer f-strings for building values (`f"0x{n:x}"`, `f"{scheme}://{host}{path}"`) over `%` or `str.format()`.

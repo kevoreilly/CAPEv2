@@ -135,5 +135,8 @@
         </div>
     {% endfor %}
 {% else %}
-    <div class="alert alert-primary"><b>Sorry!</b> No Suricata Extracted files.</div>
+    <div class="alert alert-info text-center shadow-sm mb-4">
+        <i class="fas fa-info-circle fa-2x mb-3 text-info"></i>
+        <p class="mb-0">No Suricata extracted files found.</p>
+    </div>
 {% endif %}

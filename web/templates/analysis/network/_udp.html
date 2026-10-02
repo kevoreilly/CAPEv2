@@ -1,4 +1,3 @@
-<script src="{{ STATIC_URL }}js/hexdump.js"></script>
 <section id="udp" class="tcpudp">
     <div class="card bg-dark border-secondary">
         <div class="card-header border-secondary">
@@ -8,7 +7,7 @@
             <div class="card-body">
                 <div class="row">
                     <div class="col-md-6">
-                        <table class="table table-dark table-striped table-bordered">
+                        <table class="table table-dark table-striped table-bordered table-sm w-auto">
                             <tr>
                                 <th>Source</th>
                                 <th>Source Port</th>
@@ -44,7 +43,9 @@
             </div>
         {% else %}
             <div class="card-body">
-                <div class="alert alert-info">No UDP connections recorded.</div>
+                <div class="alert alert-info text-center shadow-sm">
+                    <i class="fas fa-info-circle me-2"></i>No UDP connections recorded.
+                </div>
             </div>
         {% endif %}
     </div>

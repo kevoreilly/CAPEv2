@@ -1663,11 +1663,9 @@ def perform_search(
 
 def force_int(value):
     try:
-        value = int(value)
+        return int(value)
     except Exception:
-        value = 0
-    finally:
-        return value
+        return 0
 
 
 def force_bool(value):

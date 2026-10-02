@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load analysis_tags %}
 {% block content %}
 
 <script type='text/javascript'>
@@ -6,6 +7,20 @@ $(function () {
   $('[data-bs-toggle="tooltip"]').tooltip()
 })
 </script>
+
+<div class="dynamic-layout-target layout-centered">
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="text-white mb-0"><i class="fas fa-balance-scale me-2 text-info"></i>Analysis Comparison</h3>
+    <div class="d-flex">
+        <button id="btn-toggle-layout" class="btn btn-outline-info btn-sm me-2 shadow-sm" title="Toggle between Centered and Full Screen layout">
+            <i class="fas fa-expand me-1"></i> Full Screen
+        </button>
+        <a href="{% url 'compare_left' left.info.id %}" class="btn btn-outline-light btn-sm shadow-sm">
+            <i class="fas fa-arrow-left me-1"></i> Compare Sibling Tasks / Select Another File
+        </a>
+    </div>
+</div>
 
 <div class="row mb-4">
     <div class="col-md-6 border-right border-secondary">
@@ -18,162 +33,459 @@ $(function () {
     </div>
 </div>
 
-<div class="card bg-dark border-secondary mb-4">
-    <div class="card-header border-secondary">
+<div class="card bg-dark border-secondary mb-4 shadow-sm">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#collapse-execution-graph" role="button" aria-expanded="true">
         <h5 class="mb-0 text-white"><i class="fas fa-chart-bar me-2 text-primary"></i> Execution Graph</h5>
     </div>
-    <div class="card-body">
-        <p class="text-white-50">This graph visualizes the behavioral events by category. Larger blocks indicate higher activity in that category.</p>
-        
-        <div class="mb-4 text-center">
-            <span class="badge text-white bg-dark text-white border border-secondary registry">registry</span>
-            <span class="badge text-white bg-dark text-white border border-secondary filesystem">filesystem</span>
-            <span class="badge text-white bg-dark text-white border border-secondary system">system</span>
-            <span class="badge text-white bg-dark text-white border border-secondary network">network</span>
-            <span class="badge text-white bg-dark text-white border border-secondary process">process</span>
-            <span class="badge text-white bg-dark text-white border border-secondary services">services</span>
-            <span class="badge text-white bg-dark text-white border border-secondary synchronization">synchronization</span>
-            <span class="badge text-white bg-dark text-white border border-secondary windows">windows</span>
-        </div>
+    <div class="collapse show" id="collapse-execution-graph">
+        <div class="card-body">
+            <p class="text-white-50">This graph visualizes the behavioral events by category. Larger blocks indicate higher activity in that category.</p>
 
-        <div class="row">
-            <div class="col-md-6 border-right border-secondary d-flex justify-content-center">
-                <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-dark">
-                    {% for cat, count in left_counts.items %}
-                        <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="right" title="{{count}}% {{cat}}"></div>
-                    {% endfor %}
-                </div>
+            <div class="mb-4 text-center">
+                <span class="badge registry text-dark fw-bold border border-secondary me-1">registry</span>
+                <span class="badge filesystem text-dark fw-bold border border-secondary me-1">filesystem</span>
+                <span class="badge system text-dark fw-bold border border-secondary me-1">system</span>
+                <span class="badge network text-dark fw-bold border border-secondary me-1">network</span>
+                <span class="badge process text-dark fw-bold border border-secondary me-1">process</span>
+                <span class="badge services text-dark fw-bold border border-secondary me-1">services</span>
+                <span class="badge synchronization text-dark fw-bold border border-secondary me-1">synchronization</span>
+                <span class="badge windows text-dark fw-bold border border-secondary me-1">windows</span>
             </div>
-            <div class="col-md-6 d-flex justify-content-center">
-                <div style="height: 300px; width: 50%; border: 1px solid #444;" class="bg-dark">
-                    {% for cat, count in right_counts.items %}
-                        <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="left" title="{{count}}% {{cat}}"></div>
-                    {% endfor %}
+
+            <div class="row align-items-center">
+                <!-- Left Graph Column -->
+                <div class="col-md-3 d-flex justify-content-end">
+                    <div style="height: 300px; width: 60%; border: 1px solid #444;" class="bg-dark shadow-sm">
+                        {% for cat in categories %}
+                            {% with count=left_counts|get_item:cat|default:0 %}
+                                <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="right" title="{{count}}% {{cat}}"></div>
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Middle Breakdown Table Column -->
+                <div class="col-md-6">
+                    <div class="table-responsive">
+                        <table class="table table-dark table-striped table-bordered table-sm text-center mb-0" style="max-width: 450px; margin: 0 auto;">
+                            <thead>
+                                <tr>
+                                    <th width="40%" class="text-start">Category</th>
+                                    <th width="30%" class="text-info">Analysis 1 (Left)</th>
+                                    <th width="30%" class="text-warning">Analysis 2 (Right)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for cat in categories %}
+                                    {% with left_val=left_counts|get_item:cat|default:0 right_val=right_counts|get_item:cat|default:0 %}
+                                        {% if left_val > 0 or right_val > 0 %}
+                                            <tr>
+                                                <td class="text-start font-weight-bold">
+                                                    <span class="badge {{cat}} text-dark fw-bold me-2" style="width: 15px; height: 15px; display: inline-block; vertical-align: middle;"></span>
+                                                    {{cat}}
+                                                </td>
+                                                <td class="text-info font-monospace">{{left_val}}%</td>
+                                                <td class="text-warning font-monospace">{{right_val}}%</td>
+                                            </tr>
+                                        {% endif %}
+                                    {% endwith %}
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Right Graph Column -->
+                <div class="col-md-3 d-flex justify-content-start">
+                    <div style="height: 300px; width: 60%; border: 1px solid #444;" class="bg-dark shadow-sm">
+                        {% for cat in categories %}
+                            {% with count=right_counts|get_item:cat|default:0 %}
+                                <div style="height: {{count}}%" class="{{cat}}" data-bs-toggle="tooltip" data-placement="left" title="{{count}}% {{cat}}"></div>
+                            {% endwith %}
+                        {% endfor %}
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
 
-<div class="card bg-dark border-secondary mb-4">
-    <div class="card-header border-secondary">
+<div class="card bg-dark border-secondary mb-4 shadow-sm">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#collapse-summary-similarities" role="button" aria-expanded="true">
         <h5 class="mb-0 text-white"><i class="fas fa-equals me-2 text-success"></i> Summary Similarities</h5>
+        <i class="fas fa-chevron-down text-muted"></i>
     </div>
-    <div class="card-body">
-        <div class="row">
-            <div class="col-md-3">
-                <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
-                    <a class="nav-link active" id="v-pills-files-tab" data-bs-toggle="pill" href="#summary_compare_files" role="tab">Accessed Files</a>
-                    <a class="nav-link" id="v-pills-read-files-tab" data-bs-toggle="pill" href="#summary_compare_read_files" role="tab">Read Files</a>
-                    <a class="nav-link" id="v-pills-write-files-tab" data-bs-toggle="pill" href="#summary_compare_write_files" role="tab">Modified Files</a>
-                    <a class="nav-link" id="v-pills-delete-files-tab" data-bs-toggle="pill" href="#summary_compare_delete_files" role="tab">Deleted Files</a>
-                    <a class="nav-link" id="v-pills-keys-tab" data-bs-toggle="pill" href="#summary_compare_keys" role="tab">Accessed Keys</a>
-                    <a class="nav-link" id="v-pills-read-keys-tab" data-bs-toggle="pill" href="#summary_compare_read_keys" role="tab">Read Keys</a>
-                    <a class="nav-link" id="v-pills-write-keys-tab" data-bs-toggle="pill" href="#summary_compare_write_keys" role="tab">Modified Keys</a>
-                    <a class="nav-link" id="v-pills-delete-keys-tab" data-bs-toggle="pill" href="#summary_compare_delete_keys" role="tab">Deleted Keys</a>
-                    <a class="nav-link" id="v-pills-apis-tab" data-bs-toggle="pill" href="#summary_compare_resolved_apis" role="tab">Resolved APIs</a>
-                    <a class="nav-link" id="v-pills-cmds-tab" data-bs-toggle="pill" href="#summary_compare_executed_commands" role="tab">Executed Commands</a>
-                    <a class="nav-link" id="v-pills-mutex-tab" data-bs-toggle="pill" href="#summary_compare_mutexes" role="tab">Mutexes</a>
-                    <a class="nav-link" id="v-pills-cservices-tab" data-bs-toggle="pill" href="#summary_compare_created_services" role="tab">Created Services</a>
-                    <a class="nav-link" id="v-pills-sservices-tab" data-bs-toggle="pill" href="#summary_compare_started_services" role="tab">Started Services</a>
-                </div>
-            </div>
-            <div class="col-md-9">
-                <div class="tab-content" id="v-pills-tabContent">
-                    <div class="tab-pane fade show active" id="summary_compare_files">
-                        <div class="card card-body bg-dark text-white">
+    <div class="collapse show" id="collapse-summary-similarities">
+        <div class="card-body">
+            {% if summary %}
+                <p class="text-white-50 small mb-3"><i class="fas fa-info-circle me-1 text-info"></i> Empty categories with no similarities are automatically hidden to keep your workspace clean.</p>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="nav flex-column nav-pills" id="v-pills-tab" role="tablist" aria-orientation="vertical">
+                            {% if summary.files %}<a class="nav-link" id="v-pills-files-tab" data-bs-toggle="pill" href="#summary_compare_files" role="tab"><i class="fas fa-file me-2"></i> Accessed Files</a>{% endif %}
+                            {% if summary.read_files %}<a class="nav-link" id="v-pills-read-files-tab" data-bs-toggle="pill" href="#summary_compare_read_files" role="tab"><i class="fas fa-file-alt me-2"></i> Read Files</a>{% endif %}
+                            {% if summary.write_files %}<a class="nav-link" id="v-pills-write-files-tab" data-bs-toggle="pill" href="#summary_compare_write_files" role="tab"><i class="fas fa-file-signature me-2"></i> Modified Files</a>{% endif %}
+                            {% if summary.delete_files %}<a class="nav-link" id="v-pills-delete-files-tab" data-bs-toggle="pill" href="#summary_compare_delete_files" role="tab"><i class="fas fa-trash-alt me-2"></i> Deleted Files</a>{% endif %}
+                            {% if summary.keys %}<a class="nav-link" id="v-pills-keys-tab" data-bs-toggle="pill" href="#summary_compare_keys" role="tab"><i class="fas fa-key me-2"></i> Registry Keys</a>{% endif %}
+                            {% if summary.read_keys %}<a class="nav-link" id="v-pills-read-keys-tab" data-bs-toggle="pill" href="#summary_compare_read_keys" role="tab"><i class="fas fa-eye me-2"></i> Read Registry Keys</a>{% endif %}
+                            {% if summary.write_keys %}<a class="nav-link" id="v-pills-write-keys-tab" data-bs-toggle="pill" href="#summary_compare_write_keys" role="tab"><i class="fas fa-edit me-2"></i> Modified Registry Keys</a>{% endif %}
+                            {% if summary.delete_keys %}<a class="nav-link" id="v-pills-delete-keys-tab" data-bs-toggle="pill" href="#summary_compare_delete_keys" role="tab"><i class="fas fa-eraser me-2"></i> Deleted Registry Keys</a>{% endif %}
+                            {% if summary.resolved_apis %}<a class="nav-link" id="v-pills-apis-tab" data-bs-toggle="pill" href="#summary_compare_resolved_apis" role="tab"><i class="fas fa-cogs me-2"></i> Resolved APIs</a>{% endif %}
+                            {% if summary.executed_commands %}<a class="nav-link" id="v-pills-cmds-tab" data-bs-toggle="pill" href="#summary_compare_executed_commands" role="tab"><i class="fas fa-terminal me-2"></i> Executed Commands</a>{% endif %}
+                            {% if summary.mutexes %}<a class="nav-link" id="v-pills-mutex-tab" data-bs-toggle="pill" href="#summary_compare_mutexes" role="tab"><i class="fas fa-lock me-2"></i> Mutexes</a>{% endif %}
+                            {% if summary.created_services %}<a class="nav-link" id="v-pills-cservices-tab" data-bs-toggle="pill" href="#summary_compare_created_services" role="tab"><i class="fas fa-plus-square me-2"></i> Created Services</a>{% endif %}
+                            {% if summary.started_services %}<a class="nav-link" id="v-pills-sservices-tab" data-bs-toggle="pill" href="#summary_compare_started_services" role="tab"><i class="fas fa-play-circle me-2"></i> Started Services</a>{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="tab-content" id="v-pills-tabContent">
                             {% if summary.files %}
-                                <ul class="list-unstyled mb-0">{% for file in summary.files %}<li>{{file}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_read_files">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_files">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for file in summary.files %}<li>{{file}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.read_files %}
-                                <ul class="list-unstyled mb-0">{% for file in summary.read_files %}<li>{{file}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_write_files">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_read_files">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for file in summary.read_files %}<li>{{file}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.write_files %}
-                                <ul class="list-unstyled mb-0">{% for file in summary.write_files %}<li>{{file}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_delete_files">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_write_files">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for file in summary.write_files %}<li>{{file}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.delete_files %}
-                                <ul class="list-unstyled mb-0">{% for file in summary.delete_files %}<li>{{file}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_keys">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_delete_files">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for file in summary.delete_files %}<li>{{file}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.keys %}
-                                <ul class="list-unstyled mb-0">{% for key in summary.keys %}<li>{{key}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_read_keys">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_keys">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for key in summary.keys %}<li class="text-break">{{key}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.read_keys %}
-                                <ul class="list-unstyled mb-0">{% for key in summary.read_keys %}<li>{{key}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_write_keys">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_read_keys">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for key in summary.read_keys %}<li class="text-break">{{key}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.write_keys %}
-                                <ul class="list-unstyled mb-0">{% for key in summary.write_keys %}<li>{{key}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_delete_keys">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_write_keys">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for key in summary.write_keys %}<li class="text-break">{{key}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.delete_keys %}
-                                <ul class="list-unstyled mb-0">{% for key in summary.delete_keys %}<li>{{key}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_resolved_apis">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_delete_keys">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for key in summary.delete_keys %}<li class="text-break">{{key}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.resolved_apis %}
-                                <ul class="list-unstyled mb-0">{% for api in summary.resolved_apis %}<li>{{api}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_executed_commands">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_resolved_apis">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for api in summary.resolved_apis %}<li>{{api}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.executed_commands %}
-                                <ul class="list-unstyled mb-0">{% for cmd in summary.executed_commands %}<li>{{cmd}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_mutexes">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_executed_commands">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for cmd in summary.executed_commands %}<li>{{cmd}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.mutexes %}
-                                <ul class="list-unstyled mb-0">{% for mutex in summary.mutexes %}<li>{{mutex}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_created_services">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_mutexes">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for mutex in summary.mutexes %}<li>{{mutex}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.created_services %}
-                                <ul class="list-unstyled mb-0">{% for service in summary.created_services %}<li>{{service}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
-                        </div>
-                    </div>
-                    <div class="tab-pane fade" id="summary_compare_started_services">
-                        <div class="card card-body bg-dark text-white">
+                            <div class="tab-pane fade" id="summary_compare_created_services">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for service in summary.created_services %}<li>{{service}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                             {% if summary.started_services %}
-                                <ul class="list-unstyled mb-0">{% for service in summary.started_services %}<li>{{service}}</li>{% endfor %}</ul>
-                            {% else %}<span class="text-white-50">No similarities found.</span>{% endif %}
+                            <div class="tab-pane fade" id="summary_compare_started_services">
+                                <div class="card card-body bg-dark border-secondary text-white" style="max-height: 500px; overflow-y: auto;">
+                                    <ul class="list-unstyled mb-0">{% for service in summary.started_services %}<li>{{service}}</li>{% endfor %}</ul>
+                                </div>
+                            </div>
+                            {% endif %}
                         </div>
                     </div>
                 </div>
-            </div>
+            {% else %}
+                <div class="alert alert-secondary text-center mb-0">
+                    <i class="fas fa-info-circle fa-2x mb-3 text-info"></i>
+                    <p class="mb-0">No behavioral similarities found between these analyses.</p>
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>
+
+<div class="card bg-dark border-secondary mb-4 shadow-sm">
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center" data-bs-toggle="collapse" data-bs-target="#collapse-summary-differences" role="button" aria-expanded="true">
+        <h5 class="mb-0 text-white"><i class="fas fa-not-equal me-2 text-warning"></i> Summary Differences</h5>
+        <i class="fas fa-chevron-down text-muted"></i>
+    </div>
+    <div class="collapse show" id="collapse-summary-differences">
+        <div class="card-body">
+            {% if summary_diff %}
+                <p class="text-white-50 small mb-3"><i class="fas fa-info-circle me-1 text-warning"></i> Empty categories with no differences are automatically hidden to keep your workspace clean.</p>
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="nav flex-column nav-pills" id="v-pills-diff-tab" role="tablist" aria-orientation="vertical">
+                            {% if summary_diff.files %}<a class="nav-link" id="v-pills-diff-files-tab" data-bs-toggle="pill" href="#diff_compare_files" role="tab"><i class="fas fa-file me-2"></i> Files</a>{% endif %}
+                            {% if summary_diff.keys %}<a class="nav-link" id="v-pills-diff-keys-tab" data-bs-toggle="pill" href="#diff_compare_keys" role="tab"><i class="fas fa-key me-2"></i> Registry Keys</a>{% endif %}
+                            {% if summary_diff.resolved_apis %}<a class="nav-link" id="v-pills-diff-apis-tab" data-bs-toggle="pill" href="#diff_compare_resolved_apis" role="tab"><i class="fas fa-code me-2"></i> Resolved APIs</a>{% endif %}
+                            {% if summary_diff.executed_commands %}<a class="nav-link" id="v-pills-diff-cmds-tab" data-bs-toggle="pill" href="#diff_compare_executed_commands" role="tab"><i class="fas fa-terminal me-2"></i> Executed Commands</a>{% endif %}
+                            {% if summary_diff.mutexes %}<a class="nav-link" id="v-pills-diff-mutex-tab" data-bs-toggle="pill" href="#diff_compare_mutexes" role="tab"><i class="fas fa-lock me-2"></i> Mutexes</a>{% endif %}
+                            {% if summary_diff.created_services %}<a class="nav-link" id="v-pills-diff-services-tab" data-bs-toggle="pill" href="#diff_compare_services" role="tab"><i class="fas fa-cogs me-2"></i> Services</a>{% endif %}
+                        </div>
+                    </div>
+                    <div class="col-md-9">
+                        <div class="tab-content" id="v-pills-diff-tabContent">
+                            <!-- Files -->
+                            {% if summary_diff.files %}
+                            <div class="tab-pane fade" id="diff_compare_files">
+                                <div class="row">
+                                    <div class="col-md-6 border-right border-secondary">
+                                        <h6 class="text-info font-weight-bold mb-2"><i class="fas fa-file-alt me-1"></i> Only in Analysis 1 (#{{left.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with left_only=summary_diff.files.left_only %}
+                                                {% if left_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in left_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-warning font-weight-bold mb-2"><i class="fas fa-file-alt me-1"></i> Only in Analysis 2 (#{{right.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with right_only=summary_diff.files.right_only %}
+                                                {% if right_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in right_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <!-- Keys -->
+                            {% if summary_diff.keys %}
+                            <div class="tab-pane fade" id="diff_compare_keys">
+                                <div class="row">
+                                    <div class="col-md-6 border-right border-secondary">
+                                        <h6 class="text-info font-weight-bold mb-2"><i class="fas fa-key me-1"></i> Only in Analysis 1 (#{{left.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with left_only=summary_diff.keys.left_only %}
+                                                {% if left_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in left_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-warning font-weight-bold mb-2"><i class="fas fa-key me-1"></i> Only in Analysis 2 (#{{right.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with right_only=summary_diff.keys.right_only %}
+                                                {% if right_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in right_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <!-- APIs -->
+                            {% if summary_diff.resolved_apis %}
+                            <div class="tab-pane fade" id="diff_compare_resolved_apis">
+                                <div class="row">
+                                    <div class="col-md-6 border-right border-secondary">
+                                        <h6 class="text-info font-weight-bold mb-2"><i class="fas fa-code me-1"></i> Only in Analysis 1 (#{{left.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with left_only=summary_diff.resolved_apis.left_only %}
+                                                {% if left_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in left_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-warning font-weight-bold mb-2"><i class="fas fa-code me-1"></i> Only in Analysis 2 (#{{right.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with right_only=summary_diff.resolved_apis.right_only %}
+                                                {% if right_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in right_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <!-- Commands -->
+                            {% if summary_diff.executed_commands %}
+                            <div class="tab-pane fade" id="diff_compare_executed_commands">
+                                <div class="row">
+                                    <div class="col-md-6 border-right border-secondary">
+                                        <h6 class="text-info font-weight-bold mb-2"><i class="fas fa-terminal me-1"></i> Only in Analysis 1 (#{{left.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with left_only=summary_diff.executed_commands.left_only %}
+                                                {% if left_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in left_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-warning font-weight-bold mb-2"><i class="fas fa-terminal me-1"></i> Only in Analysis 2 (#{{right.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with right_only=summary_diff.executed_commands.right_only %}
+                                                {% if right_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in right_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <!-- Mutexes -->
+                            {% if summary_diff.mutexes %}
+                            <div class="tab-pane fade" id="diff_compare_mutexes">
+                                <div class="row">
+                                    <div class="col-md-6 border-right border-secondary">
+                                        <h6 class="text-info font-weight-bold mb-2"><i class="fas fa-lock me-1"></i> Only in Analysis 1 (#{{left.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with left_only=summary_diff.mutexes.left_only %}
+                                                {% if left_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in left_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-warning font-weight-bold mb-2"><i class="fas fa-lock me-1"></i> Only in Analysis 2 (#{{right.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with right_only=summary_diff.mutexes.right_only %}
+                                                {% if right_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in right_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            <!-- Services -->
+                            {% if summary_diff.created_services %}
+                            <div class="tab-pane fade" id="diff_compare_services">
+                                <div class="row">
+                                    <div class="col-md-6 border-right border-secondary">
+                                        <h6 class="text-info font-weight-bold mb-2"><i class="fas fa-cogs me-1"></i> Only in Analysis 1 (#{{left.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with left_only=summary_diff.created_services.left_only %}
+                                                {% if left_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in left_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h6 class="text-warning font-weight-bold mb-2"><i class="fas fa-cogs me-1"></i> Only in Analysis 2 (#{{right.info.id}})</h6>
+                                        <div class="card card-body bg-dark border-secondary text-white p-2" style="max-height: 500px; overflow-y: auto;">
+                                            {% with right_only=summary_diff.created_services.right_only %}
+                                                {% if right_only %}
+                                                    <ul class="list-unstyled mb-0">{% for item in right_only %}<li>{{item}}</li>{% endfor %}</ul>
+                                                {% else %}<span class="text-white-50">None.</span>{% endif %}
+                                            {% endwith %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-secondary text-center mb-0">
+                    <i class="fas fa-info-circle fa-2x mb-3 text-warning"></i>
+                    <p class="mb-0">No behavioral differences found between these analyses.</p>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+</div> <!-- Close dynamic-layout-target -->
+
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    // Dynamically find and activate the first non-empty tab for Similarities
+    var $firstTab = $('#v-pills-tab .nav-link').first();
+    if ($firstTab.length) {
+        $firstTab.addClass('active');
+        var targetId = $firstTab.attr('href');
+        $(targetId).addClass('show active');
+    }
+
+    // Dynamically find and activate the first non-empty tab for Differences
+    var $firstDiffTab = $('#v-pills-diff-tab .nav-link').first();
+    if ($firstDiffTab.length) {
+        $firstDiffTab.addClass('active');
+        var diffTargetId = $firstDiffTab.attr('href');
+        $(diffTargetId).addClass('show active');
+    }
+
+    // Full Screen / Centered Layout toggle
+    const toggleBtn = $('#btn-toggle-layout');
+    if (toggleBtn.length) {
+        function applyLayout(layout) {
+            const targets = $('.dynamic-layout-target');
+            if (layout === 'fluid') {
+                targets.removeClass('layout-centered');
+                toggleBtn.html('<i class="fas fa-compress me-1"></i> Center Layout');
+            } else { // centered
+                targets.addClass('layout-centered');
+                toggleBtn.html('<i class="fas fa-expand me-1"></i> Full Screen');
+            }
+        }
+
+        let currentLayout = localStorage.getItem('report-layout') || 'centered';
+        applyLayout(currentLayout);
+
+        toggleBtn.on('click', function() {
+            currentLayout = (currentLayout === 'centered') ? 'fluid' : 'centered';
+            localStorage.setItem('report-layout', currentLayout);
+            applyLayout(currentLayout);
+        });
+    }
+});
+</script>
 {% endblock %}

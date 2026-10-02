@@ -319,7 +319,7 @@ func (f *Fetcher) DeleteFromWorker(node db.Node, taskID uint) {
 	form.Add("ids", fmt.Sprintf("%d", taskID))
 	form.Add("delete_mongo", "False")
 
-req, err := http.NewRequest("POST", deleteURL, bytes.NewBufferString(form.Encode()))
+	req, err := http.NewRequest("POST", deleteURL, bytes.NewBufferString(form.Encode()))
 	if err != nil {
 		log.Printf("Error creating delete request for task %d on node %s: %v", taskID, node.Name, err)
 		return
@@ -329,8 +329,25 @@ req, err := http.NewRequest("POST", deleteURL, bytes.NewBufferString(form.Encode
 
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
-	if err == nil {
-		resp.Body.Close()
+	if err != nil {
+		log.Printf("Error deleting task %d from worker %s: %v", taskID, node.Name, err)
+		return
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	if resp.StatusCode != 200 {
+		// A non-200 means the worker's analyses/ + Mongo report were NOT reclaimed -- surface it instead
+		// of silently discarding the response (was: `if err == nil { resp.Body.Close() }` and nothing else).
+		log.Printf("Worker %s delete of task %d failed: status %d: %s", node.Name, taskID, resp.StatusCode, string(body))
+		return
+	}
+	// delete_many answers HTTP 200 even on a per-id failure; a genuine failure sets error=true /
+	// status=partial_error (an idempotent 'not exists' does not). Surface that too.
+	var parsed map[string]interface{}
+	if json.Unmarshal(body, &parsed) == nil {
+		if e, ok := parsed["error"].(bool); ok && e {
+			log.Printf("Worker %s delete of task %d partial failure: status=%v", node.Name, taskID, parsed["status"])
+		}
 	}
 }
 

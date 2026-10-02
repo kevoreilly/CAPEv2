@@ -138,7 +138,7 @@ class CAPE(Processing):
         if len(metastrings) > 3:
             file_info["module_path"] = _clean_path(metastrings[2], self.options.replace_patterns)
 
-        if "pids" in metadata:
+        if metadata.get("pids"):
             file_info["pid"] = metadata["pids"][0] if len(metadata["pids"]) == 1 else ",".join(str(p) for p in metadata["pids"])
 
         if metastrings and metastrings[0] and metastrings[0].isdigit():
@@ -249,6 +249,13 @@ class CAPE(Processing):
 
         if "type" not in file_info:
             file_info["type"] = f.get_type()
+        # `file_info` can come straight from the mongo file cache, which may
+        # predate magika being enabled (or a model change). Backfill it.
+        magika_cfg = getattr(processing_conf, "magika", None)
+        if magika_cfg and getattr(magika_cfg, "enabled", False) and "magika" not in file_info and hasattr(f, "get_magika"):
+            magika_result = f.get_magika()
+            if magika_result:
+                file_info["magika"] = magika_result
         if "name" not in file_info:
             file_info["name"] = f.get_name()
         if "guest_paths" not in file_info:
@@ -291,20 +298,24 @@ class CAPE(Processing):
                 "category": category,
                 "file": file_info,
             }
-
-            if not os.path.exists(self.task["target"]):
-                log.error("Target file doesn't exist anymore. That will prevent data to be shown on webgui")
-
         elif processing_conf.CAPE.dropped and category in ("dropped", "package"):
             if category == "dropped":
                 file_info.update(metadata.get(file_info["path"][0], {}))
                 file_info["guest_paths"] = list(
-                    {_clean_path(path.get("filepath", ""), self.options.replace_patterns) for path in metadata.get(file_path, [])}
+                    dict.fromkeys(
+                        _clean_path(path.get("filepath", ""), self.options.replace_patterns)
+                        for path in metadata.get(file_path, [])
+                        if path.get("filepath")
+                    )
                 )
                 if not file_info["guest_paths"] and category == "dropped" and "CAPE" not in metadata.get("filepath", ""):
                     file_info["guest_paths"] = [_clean_path(metadata.get("filepath", ""), self.options.replace_patterns)]
                 file_info["name"] = list(
-                    {path.get("filepath", "").rsplit("\\", 1)[-1] for path in metadata.get(file_path, [])}
+                    dict.fromkeys(
+                        path.get("filepath", "").rsplit("\\", 1)[-1]
+                        for path in metadata.get(file_path, [])
+                        if path.get("filepath")
+                    )
                 ) or [metadata.get("filepath", "").rsplit("\\", 1)[-1]]
                 if category == "dropped":
                     with suppress(UnicodeDecodeError):
@@ -432,40 +443,66 @@ class CAPE(Processing):
                     continue
 
                 filepath = os.path.join(self.analysis_path, entry["path"])
-                meta[filepath] = {
-                    "pids": entry.get("pids"),
-                    "ppids": entry.get("ppids"),
-                    "filepath": entry.get("filepath", ""),
-                    "metadata": entry.get("metadata", {}),
-                }
+                if filepath in meta:
+                    for p in entry.get("pids") or []:
+                        if p not in meta[filepath]["pids"]:
+                            meta[filepath]["pids"].append(p)
+                    for p in entry.get("ppids") or []:
+                        if p not in meta[filepath]["ppids"]:
+                            meta[filepath]["ppids"].append(p)
+                    meta[filepath][filepath].append(entry)
+                else:
+                    meta[filepath] = {
+                        "pids": list(entry.get("pids") or []),
+                        "ppids": list(entry.get("ppids") or []),
+                        "filepath": entry.get("filepath", ""),
+                        "metadata": entry.get("metadata", {}),
+                        filepath: [entry],
+                    }
+
+        # Pre-scan ClamAV in parallel for every file we're about to process.
+        # The sequential single-thread `allmatchscan` over 10-20 dropped /
+        # extracted files is the dominant cost in CAPE.run() on heavy tasks
+        # (~58% of total in profiling). clamd is multi-threaded server-side,
+        # so fanning out N parallel scans cuts that wall-clock from
+        # `sum_of_per_file_scans` to roughly `slowest_single_scan`.
+        prefetch_paths = []
+        if self.task["category"] in ("file", "static") and self.file_path:
+            prefetch_paths.append(self.file_path)
+        for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
+            if hasattr(self, folder):
+                for dir_name, _, file_names in os.walk(getattr(self, folder)):
+                    for file_name in file_names:
+                        prefetch_paths.append(os.path.join(dir_name, file_name))
+        if prefetch_paths:
+            try:
+                from lib.cuckoo.common.integrations.clamav import (
+                    clear_clamav_cache, prefetch_clamav,
+                )
+                clear_clamav_cache()
+                prefetch_clamav(prefetch_paths)
+            except Exception:
+                # Don't let a clamav prefetch error block analysis — the
+                # legacy serial fallback inside get_clamav() still works.
+                log.debug("clamav prefetch failed", exc_info=True)
+
+        # Same lifecycle contract as the clamav cache: drop per-path magika
+        # results at the task boundary so a long-lived worker can't serve a
+        # stale prediction for a path that has been reused by another task.
+        magika_cfg = getattr(processing_conf, "magika", None)
+        if magika_cfg and getattr(magika_cfg, "enabled", False):
+            try:
+                from lib.cuckoo.common.integrations.magika import clear_magika_cache
+
+                clear_magika_cache()
+            except Exception:
+                log.debug("magika cache clear failed", exc_info=True)
 
         #  Static processing of submitted file
         if self.task["category"] in ("file", "static"):
             self.process_file(
                 self.file_path, False, meta.get(self.file_path, {}), category=self.task["category"], duplicated=duplicated
             )
-            if "target" not in self.results:
-                target_restored = False
-                try:
-                    db_analysis = mongo_find_one("analysis", {"info.id": int(self.task["id"])}, {"target": 1, "_id": 0})
-                    if db_analysis and "target" in db_analysis:
-                        self.results["target"] = db_analysis["target"]
-                        target_restored = True
-                        log.info("Restored missing target info from MongoDB analysis collection")
-                except Exception as e:
-                    log.error("Failed to restore target info from MongoDB: %s", e)
-
-                if not target_restored:
-                    json_path = os.environ.get("CAPE_REPORT") or os.path.join(self.reports_path, "report.json")
-                    if path_exists(json_path):
-                        try:
-                            with open(json_path, "r", encoding="utf-8") as f:
-                                report_data = json.load(f)
-                                if "target" in report_data:
-                                    self.results["target"] = report_data["target"]
-                                    log.info("Restored missing target info from existing report.json")
-                        except Exception as e:
-                            log.error("Failed to restore target info from existing report: %s", e)
 
         for folder in ("CAPE_path", "procdump_path", "dropped_path", "package_files"):
             category = folder.replace("_path", "").replace("_files", "")

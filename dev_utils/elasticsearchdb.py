@@ -16,10 +16,16 @@ repconf = Config("reporting")
 if repconf.elasticsearchdb.enabled:
     from elasticsearch import Elasticsearch
 
+    # http_auth=(None, None) crashes urllib3's ":".join() — only pass credentials
+    # when a username is actually configured (security-less local ES needs none).
+    # The password defaults to "" so that a username configured with an empty
+    # password still authenticates instead of silently falling back to anonymous.
+    _es_username = repconf.elasticsearchdb.get("username")
+    _es_password = repconf.elasticsearchdb.get("password") or ""
     elastic_handler = Elasticsearch(
         hosts=[repconf.elasticsearchdb.host],
         port=repconf.elasticsearchdb.get("port", 9200),
-        http_auth=(repconf.elasticsearchdb.get("username"), repconf.elasticsearchdb.get("password")),
+        http_auth=(_es_username, _es_password) if _es_username else None,
         use_ssl=repconf.elasticsearchdb.get("use_ssl", False),
         verify_certs=repconf.elasticsearchdb.get("verify_certs", False),
         timeout=120,
@@ -37,8 +43,12 @@ ANALYSIS_INDEX_MAPPING_SETTINGS = {
         "properties": {
             "info": {
                 "properties": {
-                    "started": {"type": "date"},
-                    "machine": {"properties": {"started_on": {"type": "date"}, "shutdown_on": {"type": "date"}}},
+                    "started": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"},
+                    "ended": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"},
+                    "machine": {"properties": {
+                        "started_on": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"},
+                        "shutdown_on": {"type": "date", "format": "yyyy-MM-dd HH:mm:ss||strict_date_optional_time||epoch_millis"},
+                    }},
                 }
             },
             "network": {"properties": {"dead_hosts": {"type": "keyword"}}},

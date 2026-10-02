@@ -4,6 +4,38 @@
     <div class="section-title">
         <h4>Behavioral Analysis</h4>
     </div>
+    {% if summary_report %}
+        {% if results.behavior and results.behavior.processes %}
+            {% for process in results.behavior.processes %}
+                <div>
+                    <h4>{{process.process_name}} <small>PID: {{process.process_id}}, Parent PID: {{process.parent_id}}</small></h4>
+                </div>
+            {% endfor %}
+        {% else %}
+            Nothing to display.
+        {% endif %}
+    {% else %}
+        <div class="card bg-dark border-secondary">
+            <div class="card-header border-secondary">
+                <ul class="nav nav-pills card-header-pills" id="processTabs" role="tablist">
+                    {% for process in results.behavior.processes %}
+                    <li class="nav-item">
+                    <a class="nav-link {% if loop.first %}active{% endif %}" 
+                        id="process-{{ process.process_id }}-tab" 
+                        data-bs-toggle="pill" 
+                        href="#process_{{ process.process_id }}" 
+                        role="tab" 
+                        aria-controls="process_{{ process.process_id }}" 
+                        aria-selected="{% if loop.first %}true{% else %}false{% endif %}">
+                            <i class="fas fa-microchip me-1"></i> {{ process.process_name }} <small>({{ process.process_id }})</small>
+                        </a>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% include "sections/calltables.html" %}
+        </div>
+    {% endif %}
 
     {% if results.behavior and results.behavior.anomaly %}
     <div class="card mt-3">

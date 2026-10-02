@@ -17,12 +17,12 @@ import sys
 import tempfile
 import traceback
 from base64 import b64encode
-from collections import OrderedDict, namedtuple, defaultdict
+from collections import OrderedDict, defaultdict, namedtuple
 from contextlib import suppress
 from hashlib import md5, sha1, sha256
 from itertools import islice
 from json import loads
-from typing import Any, Dict, List, Optional
+from typing import Any
 from urllib.parse import urlparse, urlunparse
 
 import cachetools.func
@@ -115,12 +115,25 @@ network_passlist_file = proc_cfg.network.network_passlist_file
 logging.getLogger("httpreplay").setLevel(logging.CRITICAL)
 
 comment_re = re.compile(r"\s*#.*")
+# Build the DNS passlist once, pre-compiled. Do NOT append to the imported
+# domain_passlist_re module-global: that list is shared with suricata.py, so
+# mutating it here polluted that module's passlist with duplicates. Pre-compiling
+# also removes the per-event recompile cost in the match loops below.
+dns_passlist_re = []
+for pattern in domain_passlist_re:
+    try:
+        dns_passlist_re.append(re.compile(pattern))
+    except re.error:
+        log.warning("Network: invalid base passlist regex %r; skipping", pattern)
 if enabled_passlist and passlist_file:
     f = path_read_file(os.path.join(CUCKOO_ROOT, passlist_file), mode="text")
     for domain in f.splitlines():
         domain = comment_re.sub("", domain).strip()
         if domain:
-            domain_passlist_re.append(domain)
+            try:
+                dns_passlist_re.append(re.compile(domain))
+            except re.error:
+                log.warning("Network: invalid passlist domain regex %r; skipping", domain)
 
 ip_passlist = set()
 network_passlist = []
@@ -133,7 +146,7 @@ if enabled_ip_passlist and ip_passlist_file:
             ip_passlist.add(ip)
 
 if enabled_network_passlist and network_passlist_file and os.path.isfile(network_passlist_file):
-    with open(os.path.join(CUCKOO_ROOT, network_passlist_file), "r") as f:
+    with open(os.path.join(CUCKOO_ROOT, network_passlist_file)) as f:
         for cidr in set(f.read().splitlines()):
             if cidr.startswith("#") or len(cidr.strip()) == 0:
                 # comment or empty line
@@ -483,13 +496,13 @@ class Pcap:
                     ans = {"type": "A"}
                     try:
                         ans["data"] = socket.inet_ntoa(answer.rdata)
-                    except socket.error:
+                    except OSError:
                         continue
                 elif answer.type == dpkt.dns.DNS_AAAA:
                     ans = {"type": "AAAA"}
                     try:
                         ans["data"] = socket.inet_ntop(socket.AF_INET6, answer.rdata)
-                    except (socket.error, ValueError):
+                    except (OSError, ValueError):
                         continue
                 elif answer.type == dpkt.dns.DNS_CNAME:
                     ans = {"type": "CNAME", "data": answer.cname}
@@ -527,8 +540,8 @@ class Pcap:
                 query["answers"].append(ans)
 
             if enabled_passlist:
-                for reject in domain_passlist_re:
-                    if re.search(reject, query["request"]):
+                for reject in dns_passlist_re:
+                    if reject.search(query["request"]):
                         for addip in query["answers"]:
                             if routing_cfg.inetsim.enabled and addip["data"] == routing_cfg.inetsim.server:
                                 continue
@@ -609,8 +622,8 @@ class Pcap:
                 entry["host"] = conn["dst"]
 
             if enabled_passlist:
-                for reject in domain_passlist_re:
-                    if re.search(reject, entry["host"]):
+                for reject in dns_passlist_re:
+                    if reject.search(entry["host"]):
                         return False
 
             entry["port"] = conn["dport"]
@@ -754,7 +767,7 @@ class Pcap:
 
         try:
             file = open(self.filepath, "rb")
-        except (IOError, OSError):
+        except OSError:
             log.error("Unable to open %s", self.filepath)
             return self.results
 
@@ -811,8 +824,8 @@ class Pcap:
                         self._tcp_dissect(connection, tcp.data, ts)
                         src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                         if not (
-                                (dst, dport, src, sport) in self.tcp_connections_seen
-                                or (src, sport, dst, dport) in self.tcp_connections_seen
+                            (dst, dport, src, sport) in self.tcp_connections_seen
+                            or (src, sport, dst, dport) in self.tcp_connections_seen
                         ):
                             self.tcp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                             self.tcp_connections_seen.add((src, sport, dst, dport))
@@ -843,8 +856,8 @@ class Pcap:
 
                     src, sport, dst, dport = connection["src"], connection["sport"], connection["dst"], connection["dport"]
                     if not (
-                            (dst, dport, src, sport) in self.udp_connections_seen
-                            or (src, sport, dst, dport) in self.udp_connections_seen
+                        (dst, dport, src, sport) in self.udp_connections_seen
+                        or (src, sport, dst, dport) in self.udp_connections_seen
                     ):
                         self.udp_connections.append((src, sport, dst, dport, offset, ts - first_ts))
                         self.udp_connections_seen.add((src, sport, dst, dport))
@@ -993,9 +1006,10 @@ class Pcap2:
                     hostname = sent.headers.get("host")
 
                 included_to_passlist = False
-                for reject in domain_passlist_re:
-                    if hostname and re.search(reject, hostname):
+                for reject in dns_passlist_re:
+                    if hostname and reject.search(hostname):
                         included_to_passlist = True
+                        break
 
                 if included_to_passlist:
                     continue
@@ -1115,7 +1129,7 @@ class NetworkAnalysis(Processing):
         """
         ja3_fprints = {}
         if path_exists(self.ja3_file):
-            with open(self.ja3_file, "r") as fpfile:
+            with open(self.ja3_file) as fpfile:
                 for line in fpfile:
                     try:
                         ja3 = loads(line)
@@ -1126,7 +1140,7 @@ class NetworkAnalysis(Processing):
 
         return ja3_fprints
 
-    def _load_network_map(self) -> Dict:
+    def _load_network_map(self) -> dict:
         with suppress(Exception):
             behavior_net_map = self.results.get("behavior", {}).get("network_map") or {}
             if not behavior_net_map:
@@ -1157,7 +1171,7 @@ class NetworkAnalysis(Processing):
             return net_map
         return {}
 
-    def _reconstruct_endpoint_map(self, raw_map) -> Dict[tuple, List[Dict]]:
+    def _reconstruct_endpoint_map(self, raw_map) -> dict[tuple, list[dict]]:
         """
         Convert JSON-friendly "ip:port" keys back to (ip, int(port)) tuples.
         """
@@ -1179,7 +1193,7 @@ class NetworkAnalysis(Processing):
                     continue
         return endpoint_map
 
-    def _pick_best(self, candidates: List[Dict]) -> Optional[Dict]:
+    def _pick_best(self, candidates: list[dict]) -> dict | None:
         if not candidates:
             return None
 
@@ -1189,7 +1203,7 @@ class NetworkAnalysis(Processing):
 
         return candidates[0]
 
-    def _match_dns_process(self, dns_entry: Dict, dns_intents: Dict, max_skew_seconds: float = 10.0) -> Optional[Dict]:
+    def _match_dns_process(self, dns_entry: dict, dns_intents: dict, max_skew_seconds: float = 10.0) -> dict | None:
         """
         Match a network.dns entry to the closest behavior DNS intent by:
           - same domain
@@ -1227,7 +1241,7 @@ class NetworkAnalysis(Processing):
 
         return candidates[0].get("process")
 
-    def _pcap_first_epoch(self, network: Dict) -> Optional[float]:
+    def _pcap_first_epoch(self, network: dict) -> float | None:
         ts = []
         for k in ("dns", "http"):
             for e in network.get(k) or []:
@@ -1236,7 +1250,7 @@ class NetworkAnalysis(Processing):
                     ts.append(float(v))
         return min(ts) if ts else None
 
-    def _build_dns_events_rel(self, network: Dict, dns_intents: Dict, max_skew_seconds: float = 10.0) -> List[Dict]:
+    def _build_dns_events_rel(self, network: dict, dns_intents: dict, max_skew_seconds: float = 10.0) -> list[dict]:
         """
         Returns a list of dns events:
         [{"t_rel": float, "process": {...}|None, "request": "example.com"}]
@@ -1257,7 +1271,7 @@ class NetworkAnalysis(Processing):
         out.sort(key=lambda x: x["t_rel"])
         return out
 
-    def _nearest_dns_process_by_rel_time(self, dns_events_rel: List[Dict], t_rel: Any, max_skew: float = 5.0) -> Optional[Dict]:
+    def _nearest_dns_process_by_rel_time(self, dns_events_rel: list[dict], t_rel: Any, max_skew: float = 5.0) -> dict | None:
         if not dns_events_rel or not isinstance(t_rel, (int, float)):
             return None
 
@@ -1273,7 +1287,7 @@ class NetworkAnalysis(Processing):
             return best.get("process")
         return None
 
-    def _set_proc_fields(self, obj: Dict, proc: Optional[Dict]):
+    def _set_proc_fields(self, obj: dict, proc: dict | None):
         """
         Add process_id/process_name onto an existing network entry.
         If proc is None, sets them to None (keeps template stable).
@@ -1285,7 +1299,7 @@ class NetworkAnalysis(Processing):
             obj["process_id"] = None
             obj["process_name"] = None
 
-    def _process_map(self, network: Dict):
+    def _process_map(self, network: dict):
         net_map = self._load_network_map()
 
         if not network or not net_map:
@@ -1392,17 +1406,9 @@ class NetworkAnalysis(Processing):
         winhttp_sessions = net_map.get("winhttp_sessions")
         if winhttp_sessions:
             # Recompute current http host set (includes http/http_ex/https_ex)
-            http_events = (
-                (network.get("http", []) or []) +
-                (network.get("http_ex", []) or []) +
-                (network.get("https_ex", []) or [])
-            )
+            http_events = (network.get("http", []) or []) + (network.get("http_ex", []) or []) + (network.get("https_ex", []) or [])
 
-            existing_hosts = {
-                _norm_domain(h.get("host"))
-                for h in http_events
-                if h.get("host")
-            }
+            existing_hosts = {_norm_domain(h.get("host")) for h in http_events if h.get("host")}
 
             for p in winhttp_sessions:
                 proc_sessions = (p or {}).get("sessions") or {}
@@ -1419,29 +1425,37 @@ class NetworkAnalysis(Processing):
                     if not sessions:
                         continue
 
-                    # Use first session entry as representative
-                    s0 = sessions[0] or {}
-                    method = s0.get("method") or ""
-                    dport = s0.get("port")
-                    uri = s0.get("uri") or "/"
-                    protocol = s0.get("protocol")
+                    seen_urls = set()
+                    for s in sessions:
+                        s = s or {}
+                        path = s.get("uri") or "/"
+                        protocol = s.get("protocol") or "http"
+                        url = s.get("url") or f"{protocol}://{hnorm}{path}"
+                        if url in seen_urls:
+                            continue
+                        seen_urls.add(url)
 
-                    entry = {
-                        "host": hnorm,
-                        "dport": dport,
-                        "uri": uri,
-                        "method": method,
-                        "data": s0.get("request"),
-                        "protocol": protocol,
-                        "access_type": s0.get("access_type"),
-                        "proxy_name": s0.get("proxy_name"),
-                        "proxy_bypass": s0.get("proxy_bypass"),
-                        "source": "behavior",
-                        "process_id": p.get("process_id"),
-                        "process_name": p.get("process_name"),
-                    }
+                        dport = s.get("dport")
+                        entry = {
+                            "host": hnorm,
+                            "dport": dport,
+                            "port": dport,
+                            # network.http template renders only `uri`; PCAP entries store the full URL there.
+                            "uri": url,
+                            "path": path,
+                            "method": s.get("method") or "",
+                            "data": s.get("request"),
+                            "protocol": protocol,
+                            "user_agent": s.get("user_agent"),
+                            "access_type": s.get("access_type"),
+                            "proxy_name": s.get("proxy_name"),
+                            "proxy_bypass": s.get("proxy_bypass"),
+                            "source": "behavior",
+                            "process_id": p.get("process_id"),
+                            "process_name": p.get("process_name"),
+                        }
+                        network.setdefault("http", []).append(entry)
 
-                    network.setdefault("http", []).append(entry)
                     existing_hosts.add(hnorm)
 
         # DNS
@@ -1646,7 +1660,7 @@ class NetworkAnalysis(Processing):
         if not path_exists(dump_tls_log):
             return tlsmaster
 
-        with open(dump_tls_log, "r") as f:
+        with open(dump_tls_log) as f:
             for entry in f:
                 try:
                     for m in re.finditer(
@@ -1857,8 +1871,7 @@ def packets_for_stream(fobj, offset):
     ts, raw = next(pcapiter)
 
     fobj.seek(offset)
-    for p in next_connection_packets(pcapiter, linktype=pcap.datalink()):
-        yield p
+    yield from next_connection_packets(pcapiter, linktype=pcap.datalink())
 
 
 def check_pcap_file_type(filepath):

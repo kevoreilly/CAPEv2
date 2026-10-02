@@ -25,6 +25,25 @@ def _calculate_generic_score(matched: list) -> float:
 # =============================================================================
 # Main scoring function.
 # =============================================================================
+def _suricata_alerts_are_noise_only(results: dict) -> bool:
+    """True when every Suricata alert is protocol/decoder noise.
+
+    Suricata built-in decoder events (signatures prefixed "SURICATA ") and
+    low-priority alerts (severity >= 3; Suricata convention: 1 is highest)
+    are not threat intelligence. Example: SID 2221033 ("SURICATA HTTP
+    Request abnormal Content-Encoding header") fires repeatedly on benign
+    browsing because modern Chrome/Edge use zstd Content-Encoding, and the
+    suricata_alert signature then dominates the score. A single real ET
+    alert (severity <= 2, not "SURICATA "-prefixed) makes this return
+    False so the signature counts normally.
+    """
+    alerts = (results.get("suricata") or {}).get("alerts") or []
+    return all(
+        (alert.get("signature") or "").startswith("SURICATA ") or (alert.get("severity") or 3) >= 3
+        for alert in alerts
+    )
+
+
 def calc_scoring(results: dict, matched: list):
     """
     Calculate the final malware score and status based on the analysis results and matched signatures.
@@ -41,7 +60,11 @@ def calc_scoring(results: dict, matched: list):
     4. Benign: The file is likely trusted and digitally signed.
         - Score: 0-3/10 (Benign)
     5. Undetected/Failed: The file does not trigger any signatures.
-        - Score: 0/10 (Undetected/Failed)
+        - Static analysis: Undetected, or Suspicious if raw YARA rules matched
+          the target file without being tied to a known family.
+        - Dynamic analysis: Undetected if a process tree exists, otherwise
+          Failed (the sample never ran).
+        - Score: 0/10 (Undetected/Failed), or 4.0/10 for the Suspicious static case above.
 
     Parameters:
     results (dict): The analysis results containing details about the file and its behavior.
@@ -50,6 +73,11 @@ def calc_scoring(results: dict, matched: list):
     Returns:
     tuple: A tuple containing the final malware score (float) and the status (str).
     """
+    # Keep suricata_alert visible in the report but exclude it from scoring
+    # when the alerts contain nothing but protocol/decoder noise.
+    if _suricata_alerts_are_noise_only(results):
+        matched = [m for m in matched if m.get("name") != "suricata_alert"]
+
     finalMalscore = 0.0
     status = None
     # Identify the analysis category (file or url).
@@ -156,7 +184,20 @@ def calc_scoring(results: dict, matched: list):
         # 5. Undetected/Failed
         else:
             finalMalscore = 0
-            if results.get("behavior", {}).get("processtree", []):
+            if category == "static":
+                # Static analysis never executes the sample, so there is never a
+                # process tree by design. Fall back to raw YARA matches on the
+                # target file (not tied to a known family) to decide between
+                # Undetected and Suspicious instead of assuming failure.
+                target_file = results.get("target") or {}
+                file_info = target_file.get("file") or {}
+                yara_hits = file_info.get("yara") or file_info.get("cape_yara") or []
+                if yara_hits:
+                    status = "Suspicious"
+                    finalMalscore = 4.0
+                else:
+                    status = "Undetected"
+            elif results.get("behavior", {}).get("processtree", []):
                 status = "Undetected"
             else:
                 status = "Failed"

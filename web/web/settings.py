@@ -197,6 +197,7 @@ TEMPLATES = [
                 "django_settings_export.settings_export",
                 # Surfaces `may_manage_apikeys` for the API Keys link in the user dropdown.
                 "apikey.context_processors.apikey_access",
+                "guac.context_processors.guac_vnc_console",
             ],
             "loaders": [
                 "django.template.loaders.filesystem.Loader",
@@ -313,6 +314,25 @@ if OIDC_CFG is not None and OIDC_CFG.get("enabled", False):
         ],
     }
 
+
+def _users_app_present() -> bool:
+    """True iff the multi-tenant `users` app is deployed (its package dir exists).
+
+    The MT layer is import-optional: an upstream / central-only build simply omits
+    web/users/. This (drop the app from INSTALLED_APPS) and the tenancy_optional facades
+    (ImportError -> see-all) key off the SAME presence signal, so there is ONE source of
+    truth — no separate env flag that could diverge from the import-availability the facades
+    actually see (which previously left a flag-set-but-files-present build hitting non-migrated
+    tables). To run single-tenant WITH the files present, use `[multitenancy] enabled = no`
+    (the existing runtime toggle), not app removal.
+    """
+    return (BASE_DIR / "users").is_dir()
+
+
+# Drop the optional MT `users` app (and its migrations) when its package isn't deployed.
+if not _users_app_present():
+    INSTALLED_APPS = [a for a in INSTALLED_APPS if a != "users"]
+
 AUDIT_FRAMEWORK = web_cfg.audit_framework.get("enabled", False)
 
 if api_cfg.api.token_auth_enabled:
@@ -336,12 +356,16 @@ if api_cfg.api.token_auth_enabled:
     REST_FRAMEWORK = {
         "DEFAULT_AUTHENTICATION_CLASSES": _api_auth_classes,
         "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
-        "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
-        "DEFAULT_THROTTLE_RATES": {
-            "user": api_cfg.api.default_user_ratelimit,
-            "subscription": api_cfg.api.default_subscription_ratelimit,
-        },
     }
+
+    if api_cfg.api.ratelimit:
+        REST_FRAMEWORK.update({
+            "DEFAULT_THROTTLE_CLASSES": ["apiv2.throttling.SubscriptionRateThrottle"],
+            "DEFAULT_THROTTLE_RATES": {
+                "user": api_cfg.api.default_user_ratelimit,
+                "subscription": api_cfg.api.default_subscription_ratelimit,
+            },
+        })
 
 else:
     REST_FRAMEWORK = {
@@ -513,3 +537,12 @@ except NameError:
 from lib.cuckoo.core.database import init_database
 
 init_database()
+
+# Prevent Django's auto-reloader from watching/reloading when files inside workers/ folder change
+from django.dispatch import receiver
+from django.utils.autoreload import file_changed
+
+@receiver(file_changed)
+def ignore_workers_changes(sender, file_path, **kwargs):
+    if "/workers/" in str(file_path).replace("\\", "/"):
+        return True

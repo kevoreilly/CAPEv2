@@ -34,9 +34,13 @@ DEBUG = True
 # host will be accepted. Thus it's usually only necessary to set it in production.
 ALLOWED_HOSTS = ["*"]
 
-# Uncomment for deployment with NGINX
-# STATIC_ROOT = ""
-# STATIC_ROOT = os.path.join(os.getcwd(), "static")
+# Uncomment for deployment with NGINX, then run: python manage.py collectstatic
+# STATIC_ROOT is the collectstatic DESTINATION and must be a DIFFERENT directory
+# from STATICFILES_DIRS (which is web/static, the source assets) -- pointing it at
+# .../static makes source == destination and trips Django's staticfiles.E002
+# ("STATICFILES_DIRS should not contain the STATIC_ROOT setting"). collectstatic
+# creates this directory for you; point NGINX's /static/ alias at it.
+# STATIC_ROOT = os.path.join(os.getcwd(), "static_collected")
 
 # SOCIALACCOUNT_PROVIDERS removed: managed dynamically from web.conf [oauth_oidc] in settings.py.
 # The previous stub here (google + github) was dead — the provider apps were commented out in INSTALLED_APPS.

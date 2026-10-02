@@ -115,6 +115,14 @@ src_fw_smbios_date="11\/03\/2018"
 # what to use as a replacement for QEMU in the tablet info (e.g., 'Wacom', 'Synaptics')
 PEN_REPLACER='<WOOT>'
 
+# fake PCI vendor ID to replace Red Hat's 0x1b36 (VEN_1B36) in include/hw/pci/pci.h
+# e.g.
+#   0x8086 = Intel
+#   0x1022 = AMD
+#   0x10de = NVIDIA
+PCI_VENDOR_ID_REPLACEMENT='0x8086'
+
+
 # what to use as a replacement for QEMU in the scsi disk info (e.g., 'Samsung', 'Seagate', 'WD')
 SCSI_REPLACER='<WOOT>'
 
@@ -782,6 +790,7 @@ function replace_qemu_clues_public() {
     _sed_aux 's/"BOCHS "/"ALASKA"/g' qemu*/include/hw/acpi/aml-build.h 'BOCHS was not replaced in block/bochs.c'
     _sed_aux 's/Bochs Pseudo/Intel RealTime/g' qemu*/roms/ipxe/src/drivers/net/pnic.c 'Bochs Pseudo was not replaced in roms/ipxe/src/drivers/net/pnic.c'
     _sed_aux 's/BXPC/'"$BXPC_REPLACER"'/g' qemu*/include/hw/acpi/aml-build.h 'BXPC was not replaced in include/hw/acpi/aml-build.h'
+    _sed_aux 's/define PCI_VENDOR_ID_REDHAT.*0x1b36/define PCI_VENDOR_ID_REDHAT             '"$PCI_VENDOR_ID_REPLACEMENT"'/' qemu*/include/hw/pci/pci.h 'PCI_VENDOR_ID_REDHAT was not replaced in include/hw/pci/pci.h'
 }
 
 function replace_seabios_clues_public() {

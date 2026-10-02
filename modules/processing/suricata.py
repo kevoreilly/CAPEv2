@@ -37,6 +37,15 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+# Pre-compile the static base safelist once at import (pure CPU on a constant list,
+# no I/O or config) so _compile_passlist() doesn't recompile it on every run.
+_BASE_PASSLIST_RE = []
+for _pattern in domain_passlist_re:
+    try:
+        _BASE_PASSLIST_RE.append(re.compile(_pattern))
+    except re.error:
+        log.warning("Suricata: invalid base passlist regex %r; skipping", _pattern)
+
 
 class Suricata(Processing):
     """Suricata processing."""
@@ -58,6 +67,33 @@ class Suricata(Processing):
         if isinstance(obj, bytes):
             return obj.decode()
         raise TypeError
+
+    @staticmethod
+    def _compile_passlist(enabled_passlist, passlist_file):
+        """Return the DNS passlist as compiled regex patterns, built per run.
+
+        Starts from the pre-compiled base safelist and appends the optional
+        passlist file, NEVER mutating the imported module-global
+        ``domain_passlist_re``: a reused worker process (pebble ``-mc0`` never
+        recycles a worker) would otherwise re-append the whole file every task,
+        growing the per-event match loop in run() without bound until Suricata
+        processing stalls for minutes and looks like a deadlock. Pre-compiling
+        also removes the per-event recompile cost that dominated that loop.
+        Invalid file entries are skipped rather than aborting the run.
+        """
+        patterns = list(_BASE_PASSLIST_RE)
+        if enabled_passlist and passlist_file:
+            comment_re = re.compile(r"\s*#.*")
+            data = path_read_file(os.path.join(CUCKOO_ROOT, passlist_file), mode="text")
+            for domain in data.splitlines():
+                domain = comment_re.sub("", domain).strip()
+                if not domain:
+                    continue
+                try:
+                    patterns.append(re.compile(domain))
+                except re.error:
+                    log.warning("Suricata: invalid passlist domain regex %r; skipping", domain)
+        return patterns
 
     def run(self):
         """Run Suricata.
@@ -238,14 +274,11 @@ class Suricata(Processing):
 
         enabled_passlist = processing_cfg.network.dnswhitelist
         passlist_file = processing_cfg.network.dnswhitelist_file
-        comment_re = re.compile(r"\s*#.*")
-
-        if enabled_passlist and passlist_file:
-            f = path_read_file(os.path.join(CUCKOO_ROOT, passlist_file), mode="text")
-            for domain in f.splitlines():
-                domain = comment_re.sub("", domain).strip()
-                if domain:
-                    domain_passlist_re.append(domain)
+        # Build the DNS passlist fresh and pre-compiled per run. Never append to the
+        # imported module-global domain_passlist_re — in a reused worker (pebble
+        # -mc0) that accumulates the whole passlist every task and stalls the loop
+        # below. See _compile_passlist for the full rationale.
+        task_passlist_re = self._compile_passlist(enabled_passlist, passlist_file)
 
         filter_event_types = {"alert": "", "http": "hostname", "tls": "sni", "dns": "rrname", "ssh": "hostname", "fileinfo": ""}
 
@@ -273,9 +306,10 @@ class Suricata(Processing):
                                     search_value = h.get("value", "")
                                     break
 
-                        for reject in domain_passlist_re:
-                            if re.search(reject, search_value):
+                        for reject in task_passlist_re:
+                            if reject.search(search_value):
                                 skip_event = True
+                                break
 
                     if skip_event:
                         continue
@@ -321,11 +355,15 @@ class Suricata(Processing):
                             continue
                         if http_data.get("version") == "2" and "request_headers" in http_data:
                             # HTTP/2: extract fields from pseudo-headers and header arrays
-                            req_headers = {h["name"]: h["value"] for h in http_data.get("request_headers", []) if "name" in h and "value" in h}
+                            req_headers = {
+                                h["name"]: h["value"] for h in http_data.get("request_headers", []) if "name" in h and "value" in h
+                            }
                             # Skip HTTP/2 control frames (SETTINGS, WINDOW_UPDATE, etc.) that have no :method
                             if ":method" not in req_headers:
                                 continue
-                            resp_headers = {h["name"]: h["value"] for h in http_data.get("response_headers", []) if "name" in h and "value" in h}
+                            resp_headers = {
+                                h["name"]: h["value"] for h in http_data.get("response_headers", []) if "name" in h and "value" in h
+                            }
                             hlog["hostname"] = req_headers.get(":authority", None)
                             hlog["uri"] = req_headers.get(":path", None)
                             hlog["http_method"] = req_headers.get(":method", None)

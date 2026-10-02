@@ -20,6 +20,16 @@ from web.analysis.templatetags.pdf_tags import datefmt
 try:
     from jinja2.environment import Environment
     from jinja2.loaders import FileSystemLoader
+    from jinja2.ext import Extension
+
+    class DjangoLoadExtension(Extension):
+        tags = {"load"}
+
+        def parse(self, parser):
+            next(parser.stream)
+            while parser.stream.current.type != "block_end":
+                next(parser.stream)
+            return []
 
     HAVE_JINJA2 = True
 except ImportError:
@@ -27,6 +37,11 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+def network_rn_func(value):
+    """get basename from path"""
+    if isinstance(value, bytes):
+        value = value.decode()
+    return list(filter(None, value.split("\r\n")))
 
 class ReportHTML(Report):
     """Stores report in HTML format."""
@@ -102,7 +117,7 @@ class ReportHTML(Report):
                 except Exception as e:
                     log.warning("Could not read debugger logs for HTML report: %s", e)
 
-            env = Environment(autoescape=True)
+            env = Environment(autoescape=True, extensions=[DjangoLoadExtension])
             env.filters.update(
                 {
                     "getkey": getkey,
@@ -114,6 +129,7 @@ class ReportHTML(Report):
                     "flare_capa_attck": flare_capa_attck,
                     "flare_capa_mbc": flare_capa_mbc,
                     "datefmt": datefmt,
+                    "network_rn": network_rn_func
                 }
             )
             env.loader = FileSystemLoader(os.path.join(CUCKOO_ROOT, "data", "html"))

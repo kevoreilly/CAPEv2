@@ -48,6 +48,14 @@ jobs:
       - name: Run unit tests
         run: poetry run python -m pytest --import-mode=append
 
+      # The web/ Django suites (tenant-isolation, apiv2, guac, submission, ...) live
+      # outside testpaths=["tests","agent"], so the arg-less run above never collects
+      # them. They require importlib (append raises ImportPathMismatchError under
+      # pythonpath=web); DJANGO_SETTINGS_MODULE + pythonpath come from pyproject's
+      # [tool.pytest.ini_options] and still apply with an explicit path arg.
+      - name: Run web unit tests
+        run: poetry run python -m pytest web/ --import-mode=importlib
+
       - name: Run Linux analyzer unit tests
         run: poetry --project . --directory "analyzer/linux" run python -m pytest -v
 

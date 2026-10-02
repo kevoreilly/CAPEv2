@@ -138,6 +138,13 @@ class Task(Base):
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
+    # index=True so a FRESH install (schema via Base.metadata.create_all(), which skips Alembic)
+    # gets ix_tasks_tenant_id too — the migration (3_add_tenant_visibility) creates it on MIGRATED
+    # installs, so without this the tenant-scoped list_tasks/count_* filters seq-scan on fresh MT
+    # installs. SQLAlchemy's default name (ix_tasks_tenant_id) matches the migration's, so the two
+    # provisioning paths converge.
+    tenant_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, server_default="private")
 
     # The Task is linked to one specific parent/child association event
     association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task", cascade="all, delete-orphan")

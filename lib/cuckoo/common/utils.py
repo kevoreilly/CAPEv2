@@ -818,10 +818,9 @@ def sanitize_filename(x: str):
 
 
 def default_converter(v):
-    # Fix signed ints (bson is kind of limited there).
-    # Need to account for subclasses since pymongo's bson module
-    # uses 'bson.int64.Int64' clwhat ass for 64-bit values.
-    if isinstance(v, int) or issubclass(type(v), int):
+    # Fix signed ints (bson is limited there).
+    # Since pymongo's Int64 inherits from int, isinstance(v, int) is fully sufficient.
+    if isinstance(v, int):
         return v & 0xFFFFFFFFFFFFFFFF if v & 0xFFFFFFFF00000000 else v & 0xFFFFFFFF
     return v
 

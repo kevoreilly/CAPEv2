@@ -278,7 +278,10 @@ class Analyzer:
                 log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_avail.append(aux)
                 log.debug('Trying to start auxiliary module "%s"...', module.__name__)
-                aux.start()
+                if isinstance(aux, Thread):
+                    Thread.start(aux)
+                else:
+                    aux.start()
                 log.debug('Started auxiliary module "%s"', module.__name__)
                 aux_enabled.append(aux)
             except (NotImplementedError, AttributeError):

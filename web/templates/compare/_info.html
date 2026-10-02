@@ -1,24 +1,28 @@
-<div class="table-responsive">
-    <table class="table table-dark table-striped table-bordered mb-0 table-sm">
-        <thead class=" ">
-            <tr>
-                <th class="text-center" width="5%">ID</th>
-                <th width="35%">Name</th>
-                <th width="30%">MD5</th>
-                <th width="10%">Machine</th>
-                <th width="15%">Completed On</th>
-                <th width="5%">Dur.</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td class="text-center font-weight-bold">{{record.info.id}}</td>
-                <td class="text-truncate" title="{{record.target.file.name}}">{{record.target.file.name|truncatechars:40}}</td>
-                <td><a href="{% url "report" record.info.id %}" class="text-info text-monospace">{{record.target.file.md5}}</a></td>
-                <td><span class="badge bg-dark">{{record.info.machine.label}}</span></td>
-                <td class="small">{{record.info.ended}}</td>
-                <td class="text-end">{{record.info.duration}}s</td>
-            </tr>
-        </tbody>
-    </table>
+<div class="card bg-dark border-secondary shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-dark table-striped table-bordered mb-0 table-sm" style="table-layout: fixed;">
+                <thead>
+                    <tr>
+                        <th class="text-center" width="8%">ID</th>
+                        <th width="32%">Name</th>
+                        <th width="30%">MD5</th>
+                        <th width="12%">Machine</th>
+                        <th width="13%">Completed</th>
+                        <th class="text-end" width="5%">Dur.</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="text-center font-weight-bold text-info">{{record.info.id}}</td>
+                        <td class="text-truncate" title="{{record.target.file.name}}">{{record.target.file.name|truncatechars:40}}</td>
+                        <td><a href="{% url "report" record.info.id %}" class="text-info text-monospace">{{record.target.file.md5}}</a></td>
+                        <td><span class="badge bg-dark">{{record.info.machine.label}}</span></td>
+                        <td class="small">{{record.info.ended}}</td>
+                        <td class="text-end">{{record.info.duration}}s</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>

@@ -193,8 +193,30 @@ except ImportError:
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
 
+def _claims(extra: dict) -> dict:
+    """Flatten allauth's OIDC extra_data to the actual claim dict.
+
+    The openid_connect provider stores extra_data as
+    ``{"id_token": <jwt>, "userinfo": {...claims...}}`` — the OIDC claims
+    (email, groups, preferred_username, sub) live under ``userinfo``, not at the
+    top level. Other providers store the claims flat, so fall back to the dict
+    itself when there's no nested ``userinfo``.
+
+    Gated on ``"id_token"`` (which the openid_connect provider always puts at the
+    top level) so the function is idempotent: calling it on already-flattened
+    claims — or on a flat provider's data — returns them unchanged even if they
+    happen to carry their own ``userinfo`` key.
+    """
+    if isinstance(extra, dict) and "id_token" in extra:
+        ui = extra.get("userinfo")
+        if isinstance(ui, dict) and ui:
+            return ui
+    return extra or {}
+
+
 def _extract_groups(extra: dict) -> set:
     """Return the set of IdP group names from token extra data."""
+    extra = _claims(extra)
     oidc_cfg = getattr(settings, "OIDC_CFG", None) or {}
     claim = oidc_cfg.get("groups_claim") or "groups"
     raw = extra.get(claim) or []
@@ -233,6 +255,7 @@ def _apply_idp_roles_and_email(user, extra: dict) -> bool:
     but empty claim is honoured (the user really is in no groups → demote).
     """
     changed = False
+    extra = _claims(extra)
 
     email = extra.get("email") or ""
     if email and user.email != email:
@@ -259,6 +282,55 @@ def _apply_idp_roles_and_email(user, extra: dict) -> bool:
                 changed = True
 
     return changed
+
+
+def reconcile_tenant(user, user_groups: set) -> None:
+    """Set UserProfile.tenant + is_tenant_admin from the user's IdP groups.
+
+    One-tenant-per-user (v1): exactly one membership match is expected.
+      >1 match -> fail closed (unset + warn; a user mapped to multiple
+                  tenant-groups is a v1 misconfiguration)
+      0 match  -> no tenant
+    The caller skips this entirely when the groups claim is ABSENT (misconfig
+    guard), mirroring role reconciliation; a present-but-empty claim is honoured.
+    """
+    from users.models import Tenant, UserProfile
+
+    def _g(vals):
+        # A tenant's idp_groups/admin_idp_groups come from a JSONField. Normalize
+        # defensively so a MALFORMED config can't mis-match a tenant: a bare string is
+        # ONE group (NOT an iterable of characters — else a member of group "a"/"c"/…
+        # would spuriously match), a list/tuple/set is filtered to hashable strings (so
+        # a nested dict can't TypeError the set intersection and 500 the login), and any
+        # other type fails closed to the empty set.
+        if isinstance(vals, str):
+            return {vals}
+        if isinstance(vals, (list, tuple, set)):
+            return {g for g in vals if isinstance(g, str)}
+        return set()
+
+    # Filter in Python rather than an idp_groups__contains query: the Django auth
+    # DB is sqlite, where JSONField contains/contained_by lookups are unsupported
+    # (supports_json_field_contains=False -> NotSupportedError). Tenant counts are
+    # small per deployment, so this O(n) scan is negligible.
+    matches = [t for t in Tenant.objects.filter(active=True) if user_groups & _g(t.idp_groups)]
+    prof, _ = UserProfile.objects.get_or_create(user=user)
+    if len(matches) == 1:
+        t = matches[0]
+        new_tenant, new_admin = t, bool(user_groups & _g(t.admin_idp_groups))
+    else:
+        if len(matches) > 1:
+            log.warning(
+                "user %s matches multiple tenants %s; leaving tenant unset",
+                user.username, [t.slug for t in matches],
+            )
+        new_tenant, new_admin = None, False
+    # Only write when something actually changed — avoid a needless UPDATE on
+    # every SSO login.
+    if prof.tenant_id != getattr(new_tenant, "id", None) or bool(prof.is_tenant_admin) != new_admin:
+        prof.tenant = new_tenant
+        prof.is_tenant_admin = new_admin
+        prof.save(update_fields=["tenant", "is_tenant_admin"])
 
 
 # ── Account adapters ──────────────────────────────────────────────────────────
@@ -289,9 +361,15 @@ if not settings.EMAIL_CONFIRMATION:
 
 @receiver(email_confirmed)
 def email_confirmed_(request, email_address, **kwargs):
-    user = User.objects.get(email=email_address.email)
-    user.is_active = not settings.MANUAL_APPROVE
-    user.save()
+    try:
+        user = email_address.user
+        if user:
+            user.is_active = not settings.MANUAL_APPROVE
+            user.save()
+        else:
+            log.warning("email_confirmed signal received but email_address.user is None for %s", email_address.email)
+    except Exception as e:
+        log.error("Error activating user after email confirmation for %s: %s", email_address.email, e)
 
 
 class MySocialAccountAdapter(DefaultSocialAccountAdapter):
@@ -303,7 +381,11 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
         Raises ImmediateHttpResponse — caught by allauth's complete_login
         wrapper and rendered as a user-facing error page (a bare
         ValidationError here would bubble up as a 500)."""
-        user_email = sociallogin.account.extra_data.get("email") or ""
+        user_email = (
+            _claims(sociallogin.account.extra_data or {}).get("email")
+            or (sociallogin.user.email if sociallogin.user else "")
+            or ""
+        )
         if settings.SOCIAL_AUTH_EMAIL_DOMAIN:
             if not user_email:
                 # Fail closed: a domain allowlist is configured but the IdP sent
@@ -359,7 +441,7 @@ class MySocialAccountAdapter(DefaultSocialAccountAdapter):
         if no subject is present — is appended to guarantee uniqueness.
         """
         user = super().save_user(request, sociallogin, form)
-        extra = sociallogin.account.extra_data or {}
+        extra = _claims(sociallogin.account.extra_data or {})
 
         # ── username (provisioning only — kept stable across later logins) ──
         identifier = (
@@ -399,3 +481,13 @@ def _reconcile_sso_user_on_login(sender, request, user, **kwargs):
     extra = getattr(sociallogin.account, "extra_data", None) or {}
     if _apply_idp_roles_and_email(user, extra):
         user.save()
+    # Tenant + tenant-admin reconciliation — same absent-claim guard as roles:
+    # only touch tenant membership when the groups claim is actually present.
+    oidc_cfg = getattr(settings, "OIDC_CFG", None) or {}
+    claim = oidc_cfg.get("groups_claim") or "groups"
+    # Normalize first: the openid_connect provider nests claims under
+    # extra["userinfo"], so checking the raw wrapper would treat the groups claim
+    # as absent and skip tenant reconciliation entirely — SSO users would log in
+    # with no tenant/tenant-admin membership. _extract_groups already normalizes.
+    if claim in _claims(extra):
+        reconcile_tenant(user, _extract_groups(extra))

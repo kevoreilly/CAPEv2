@@ -9,13 +9,28 @@ import re
 
 log = logging.getLogger()
 
-HAVE_IMAGEHASH = False
-try:
-    import imagehash
+# Lazy-loaded imagehash bindings — defer C-extension import that spawns native
+# threads at module load time. See PreforkEngine._assert_single_threaded.
+# imagehash transitively loads PIL/Pillow C extensions which spawn ~15 kernel
+# threads on import; deferring to first use keeps the prefork supervisor
+# single-threaded so it can safely fork workers.
+_IMAGEHASH_BINDINGS = None  # None = not probed; module = loaded; False = unavailable
 
-    HAVE_IMAGEHASH = True
-except ImportError:
-    log.error("Missed dependency: poetry run pip install ImageHash")
+
+def _load_imagehash():
+    """Import imagehash on demand, cache the result. Returns the imagehash module or False."""
+    global _IMAGEHASH_BINDINGS
+    if _IMAGEHASH_BINDINGS is not None:
+        return _IMAGEHASH_BINDINGS
+    try:
+        import imagehash as _imagehash
+
+        _IMAGEHASH_BINDINGS = _imagehash
+    except ImportError:
+        log.error("Missed dependency: poetry run pip install ImageHash")
+        _IMAGEHASH_BINDINGS = False
+    return _IMAGEHASH_BINDINGS
+
 
 HAVE_CV2 = False
 try:
@@ -24,6 +39,14 @@ try:
     HAVE_CV2 = True
 except ImportError:
     print("Missed dependency: poetry run pip install opencv-python")
+
+HAVE_ZXING = False
+try:
+    import zxingcpp
+
+    HAVE_ZXING = True
+except ImportError:
+    pass
 
 try:
     from PIL import Image
@@ -46,21 +69,57 @@ def reindex_screenshots(shots_path):
         os.rename(old_path, new_path)
 
 
-def handle_qr_codes(image_path):
-    if not HAVE_CV2:
-        return None
+def _qr_decode_zxing(image_path):
+    """Decode QR codes using zxing-cpp. Supports multiple barcodes per image."""
     try:
-        # cv2.imread handles file path directly
+        with Image.open(image_path) as img:
+            results = zxingcpp.read_barcodes(img)
+        urls = []
+        for result in results:
+            text = result.text
+            if text and "://" in text[:10]:
+                urls.append(text)
+        return urls
+    except Exception as e:
+        log.error("zxing-cpp error on %s: %s", image_path, e)
+        return []
+
+
+def _qr_decode_cv2(image_path):
+    """Decode QR codes using OpenCV. Single barcode per image."""
+    try:
         img = cv2.imread(image_path)
         if img is None:
-            return None
+            return []
         detector = cv2.QRCodeDetector()
         extracted, points, straight_qrcode = detector.detectAndDecode(img)
         if extracted and "://" in extracted[:10]:
-            return extracted
+            return [extracted]
     except Exception as e:
         log.error("Error detecting QR in %s: %s", image_path, e)
+    return []
+
+
+def handle_qr_codes(image_path):
+    if HAVE_ZXING:
+        urls = _qr_decode_zxing(image_path)
+        if urls:
+            return urls[0]
+        return None
+    if HAVE_CV2:
+        urls = _qr_decode_cv2(image_path)
+        if urls:
+            return urls[0]
     return None
+
+
+def handle_qr_codes_all(image_path):
+    """Return all QR code URLs found in an image."""
+    if HAVE_ZXING:
+        return _qr_decode_zxing(image_path)
+    if HAVE_CV2:
+        return _qr_decode_cv2(image_path)
+    return []
 
 
 class Deduplicate(Processing):
@@ -115,7 +174,8 @@ class Deduplicate(Processing):
         shots = []
 
         shots_path = os.path.join(self.analysis_path, "shots")
-        if not path_exists(shots_path) or not HAVE_IMAGEHASH:
+        imagehash = _load_imagehash()
+        if not path_exists(shots_path) or not imagehash:
             return shots
 
         hashmethod = self.options.get("hashmethod", "ahash")
@@ -141,13 +201,12 @@ class Deduplicate(Processing):
             screenshots = sorted(self.deduplicate_images(userpath=shots_path, hashfunc=hashfunc))
             shots = [re.sub(r"\.(png|jpg)$", "", screenshot) for screenshot in screenshots]
 
-            if HAVE_CV2:
+            if HAVE_ZXING or HAVE_CV2:
                 qr_urls = set()
                 for img_name in os.listdir(shots_path):
                     if not img_name.lower().endswith((".jpg", ".png")):
                         continue
-                    url = handle_qr_codes(os.path.join(shots_path, img_name))
-                    if url:
+                    for url in handle_qr_codes_all(os.path.join(shots_path, img_name)):
                         qr_urls.add(url)
 
                 if qr_urls:

@@ -24,6 +24,12 @@ from .suri_specs import argsd
 SURICATASC_VERSION = "1.0"
 VERSION = "0.2"
 INC_SIZE = 1024
+# Bound the wait for a suricata command reply. suricata acks socket commands in
+# milliseconds when healthy; the historical 600s ceiling meant that if the daemon
+# crashed mid-analysis the CAPE processing module blocked far past the 900s pebble
+# task budget -> the whole analysis was killed (failed_processing, no report).
+# 30s fails fast so the caller can break out and degrade gracefully.
+COMMAND_TIMEOUT = 30
 
 
 class SuricataException(Exception):
@@ -114,7 +120,17 @@ class SuricataSC:
         cmdret = None
         data = ""
         while True:
-            data += self.socket.recv(INC_SIZE).decode("iso-8859-1")
+            chunk = self.socket.recv(INC_SIZE).decode("iso-8859-1")
+            if not chunk:
+                # EOF: the peer closed the socket (e.g. the suricata daemon
+                # crashed/restarted mid-analysis). select() reports a closed
+                # socket as readable, so without this guard the loop spins on
+                # empty recv() forever, hanging the whole processing task until
+                # the 900s pebble timeout kills it (failed_processing, no
+                # report). Bail so send_command() raises and the caller can
+                # break out and degrade gracefully (report still generated).
+                break
+            data += chunk
             if data.endswith("\n"):
                 cmdret = json.loads(data)
                 break
@@ -132,7 +148,7 @@ class SuricataSC:
         cmdmsg_str = f"{json.dumps(cmdmsg)}\n"
         self.socket.send(bytes(cmdmsg_str, "iso-8859-1"))
 
-        ready = select.select([self.socket], [], [], 600)
+        ready = select.select([self.socket], [], [], COMMAND_TIMEOUT)
         cmdret = self.json_recv() if ready[0] else None
         if not cmdret:
             raise SuricataReturnException("Unable to get message from server")
@@ -155,7 +171,7 @@ class SuricataSC:
             print(f"SND: {json.dumps({'version': VERSION})}")
         self.socket.send(bytes(json.dumps({"version": VERSION}), "iso-8859-1"))
 
-        ready = select.select([self.socket], [], [], 600)
+        ready = select.select([self.socket], [], [], COMMAND_TIMEOUT)
         cmdret = self.json_recv() if ready[0] else None
         if not cmdret:
             raise SuricataReturnException("Unable to get message from server")

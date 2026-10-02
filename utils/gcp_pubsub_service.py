@@ -6,9 +6,11 @@
 import json
 import logging
 import os
+import re
 import sys
 import tempfile
 import warnings
+from logging import handlers
 from typing import Any, Dict, Tuple
 
 # Mute Google Cloud's Python version support warning for Python 3.10
@@ -19,15 +21,139 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.gcp import download_from_gcs
-from lib.cuckoo.common.path_utils import path_exists
+from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.core.database import Database, init_database
 from lib.cuckoo.core.startup import check_user_permissions
 from utils.submit import submit_file
 
 check_user_permissions(os.getenv("CAPE_AS_ROOT", False))
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(name)s] %(levelname)s: %(message)s")
-log = logging.getLogger("gcp_pubsub_service")
+class ColoredFormatter(logging.Formatter):
+    GREY = "\x1b[38;20m"
+    GREEN = "\x1b[32;20m"
+    YELLOW = "\x1b[33;20m"
+    RED = "\x1b[31;20m"
+    BOLD_RED = "\x1b[31;1m"
+    CYAN = "\x1b[36;20m"
+    RESET = "\x1b[0m"
+
+    # Pre-compiled regex patterns (C-level high-performance parsing)
+    RE_WORKER = re.compile(r"\b(cape-worker[-\w]*)\b", re.IGNORECASE)
+    RE_SETSTAT = re.compile(r"\b(task)\b\s+(\d+)\s+(status)", re.IGNORECASE)
+    RE_MAIN_TASK = re.compile(r"\b(main(?:_task)?_id|main|analysis(?:[\s_-]?id)?|cape(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE)
+    RE_WORKER_TASK = re.compile(r"\b(task(?:s|\(s\))?|task_id|worker(?:[\s_-]?id)?)\b[:\s=]+([\d,]+)", re.IGNORECASE)
+    RE_PERF = re.compile(r"\bin\s+([0-9.]+s)\b")
+
+    FORMATS = {
+        logging.DEBUG: f"%(asctime)s [{CYAN}%(levelname)-7s{RESET}] %(name)s: %(message)s",
+        logging.INFO: f"%(asctime)s [{GREEN}%(levelname)-7s{RESET}] %(name)s: %(message)s",
+        logging.WARNING: f"%(asctime)s [{YELLOW}%(levelname)-7s{RESET}] %(name)s: %(message)s",
+        logging.ERROR: f"%(asctime)s [{RED}%(levelname)-7s{RESET}] %(name)s: %(message)s",
+        logging.CRITICAL: f"%(asctime)s [{BOLD_RED}%(levelname)-7s{RESET}] %(name)s: %(message)s",
+    }
+
+    def format(self, record):
+        log_fmt = self.FORMATS.get(record.levelno, "%(asctime)s [%(levelname)-7s] %(name)s: %(message)s")
+        formatter = logging.Formatter(log_fmt)
+        formatted_message = formatter.format(record)
+
+        # ANSI Colors
+        BOLD_CYAN = "\x1b[36;1m"
+        BOLD_GREEN = "\x1b[32;1m"
+        BOLD_YELLOW = "\x1b[33;1m"
+        BOLD_MAGENTA = "\x1b[35;1m"
+        BOLD_BLUE = "\x1b[34;1m"
+        BOLD_RED = "\x1b[31;1m"
+        CYAN = "\x1b[36m"
+        GREEN = "\x1b[32m"
+        YELLOW = "\x1b[33m"
+        MAGENTA = "\x1b[35m"
+        RESET = "\x1b[0m"
+
+        # 1. Highlight all worker/node names dynamically (e.g. "cape-worker", "cape-worker-2")
+        formatted_message = self.RE_WORKER.sub(
+            rf"{CYAN}\1{RESET}",
+            formatted_message
+        )
+
+        # 2. Highlight specialized parent/main task updates first (e.g. "task 3319058 status")
+        formatted_message = self.RE_SETSTAT.sub(
+            rf"\1 {MAGENTA}\2{RESET} \3",
+            formatted_message
+        )
+
+        # 3. Highlight parent/main task IDs (e.g. "Main ID: 3319058", "Main: 3319058", "main_task_id=3319058", "analysis ID 3319058", "analysis 3319058")
+        formatted_message = self.RE_MAIN_TASK.sub(
+            rf"\1: {MAGENTA}\2{RESET}",
+            formatted_message
+        )
+
+        # 4. Highlight general task IDs (e.g. "Task: 16399266", "Task(s): 614534,614541", "task_id=495972")
+        formatted_message = self.RE_WORKER_TASK.sub(
+            rf"\1: {YELLOW}\2{RESET}",
+            formatted_message
+        )
+
+        # 5. Highlight performance copy benchmarks (e.g. "in 0.08s", "in 0.15s")
+        formatted_message = self.RE_PERF.sub(
+            rf"in {GREEN}\1{RESET}",
+            formatted_message
+        )
+
+        # 6. Highlight core operations
+        replacements = {
+            "[FETCH ]": f"{BOLD_GREEN}[FETCH ]{RESET}",
+            "[SUBMIT]": f"{BOLD_CYAN}[SUBMIT]{RESET}",
+            "[REMOVE]": f"{BOLD_RED}[REMOVE]{RESET}",
+            "[GCS   ]": f"{BOLD_MAGENTA}[GCS   ]{RESET}",
+            "[PERF  ]": f"{BOLD_YELLOW}[PERF  ]{RESET}",
+        }
+
+        for old, new in replacements.items():
+            if old in formatted_message:
+                formatted_message = formatted_message.replace(old, new)
+
+        # 7. Highlight Status Metrics
+        if "STATUS | " in formatted_message:
+            formatted_message = formatted_message.replace("STATUS |", f"{BOLD_BLUE}STATUS{RESET} |")
+            formatted_message = formatted_message.replace("Pend:", f"{BOLD_YELLOW}Pend:{RESET}")
+            formatted_message = formatted_message.replace("Run:", f"{BOLD_GREEN}Run:{RESET}")
+            formatted_message = formatted_message.replace("Done:", f"{BOLD_BLUE}Done:{RESET}")
+            formatted_message = formatted_message.replace("Rep:", f"{BOLD_MAGENTA}Rep:{RESET}")
+
+        return formatted_message
+
+
+def init_logging(debug=False):
+    formatter = logging.Formatter("%(asctime)s [%(levelname)-7s] %(name)s: %(message)s")
+    log_obj = logging.getLogger("gcp_pubsub_service")
+    log_obj.propagate = False  # Avoid duplicates with root logger
+
+    for h in log_obj.handlers[:]:
+        if isinstance(h, logging.StreamHandler) and h.stream == sys.stderr:
+            log_obj.removeHandler(h)
+            h.close()
+
+    if not path_exists(os.path.join(CUCKOO_ROOT, "log")):
+        path_mkdir(os.path.join(CUCKOO_ROOT, "log"))
+
+    fh = handlers.TimedRotatingFileHandler(os.path.join(CUCKOO_ROOT, "log", "gcp_pubsub.log"), when="midnight", backupCount=10)
+    fh.setFormatter(formatter)
+    log_obj.addHandler(fh)
+
+    handler_stdout = logging.StreamHandler(sys.stdout)
+    handler_stdout.setFormatter(ColoredFormatter())
+    log_obj.addHandler(handler_stdout)
+
+    if debug:
+        log_obj.setLevel(logging.DEBUG)
+    else:
+        log_obj.setLevel(logging.INFO)
+
+    return log_obj
+
+
+log = init_logging(os.getenv("DEBUG") == "True")
 
 class GCPServiceLogger(logging.LoggerAdapter):
     def process(self, msg: str, kwargs: Dict[str, Any]) -> Tuple[str, Dict[str, Any]]:
@@ -214,16 +340,15 @@ class GCPPubSubService:
                 # Retry download once with fresh client if TransportError/SSL issues occur
                 success = False
                 for attempt in range(2):
-                    try:
-                        if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
-                            success = True
-                            break
-                    except Exception as e:
+                    if download_from_gcs(gcs_uri, temp_path, logger=mlog, client=self.storage_client):
+                        success = True
+                        break
+                    else:
                         if attempt == 0:
-                            mlog.warning("Transient error during download, recreating client and retrying: %s", e)
+                            mlog.warning("Transient error during download, recreating client and retrying")
                             self._init_clients()
                         else:
-                            mlog.error("Persistent error during download: %s", e)
+                            mlog.error("Persistent error during download after retries")
 
                 if success:
                     mlog.info("Download finished in %.2f seconds", time.time() - dl_start)
@@ -283,8 +408,84 @@ class GCPPubSubService:
                 self.processing_ids.discard(msg_id)
             log.info("[%s] Total processing time: %.2f seconds", correlation_id, time.time() - start_time)
 
+    def _diagnostic_loop(self):
+        """Periodically log status and queue depth (if monitoring is available)."""
+        import time
+        from lib.cuckoo.common.gcp import gcp_cfg
+
+        monitoring_client = None
+        try:
+            from google.cloud import monitoring_v3
+            auth_by = gcp_cfg.gcp.get("auth_by", "vm")
+            service_account_path = gcp_cfg.gcp.get("service_account_path")
+
+            if auth_by == "json" and service_account_path:
+                if not os.path.isabs(service_account_path):
+                    from lib.cuckoo.common.constants import CUCKOO_ROOT
+                    service_account_path = os.path.join(CUCKOO_ROOT, service_account_path)
+                if os.path.exists(service_account_path):
+                    monitoring_client = monitoring_v3.MetricServiceClient.from_service_account_json(service_account_path)
+            else:
+                monitoring_client = monitoring_v3.MetricServiceClient()
+        except ImportError:
+            log.debug("google-cloud-monitoring not installed. Install via `pip install google-cloud-monitoring` for precise queue counts.")
+        except Exception as e:
+            log.debug("Failed to initialize monitoring client: %s", e)
+
+        # Wait briefly before first check
+        time.sleep(5)
+
+        while True:
+            queue_size_str = "unknown (install google-cloud-monitoring)"
+            if monitoring_client:
+                try:
+                    from google.cloud.monitoring_v3 import types
+                    project_name = f"projects/{self.project_id}"
+                    now = time.time()
+                    interval = types.TimeInterval(
+                        {
+                            "end_time": {"seconds": int(now)},
+                            "start_time": {"seconds": int(now - 600)},
+                        }
+                    )
+
+                    results = monitoring_client.list_time_series(
+                        request={
+                            "name": project_name,
+                            "filter": f'metric.type = "pubsub.googleapis.com/subscription/num_undelivered_messages" AND resource.labels.subscription_id = "{self.subscription_id}"',
+                            "interval": interval,
+                        }
+                    )
+
+                    latest_val = None
+                    for result in results:
+                        for point in result.points:
+                            latest_val = point.value.int64_value
+                            break
+                        if latest_val is not None:
+                            break
+
+                    if latest_val is not None:
+                        queue_size_str = str(latest_val)
+                    else:
+                        queue_size_str = "0"
+                except Exception as e:
+                    log.debug("Error fetching queue size metric: %s", e)
+                    queue_size_str = "error (permission or API issue)"
+
+            with self.ids_lock:
+                active = len(self.processing_ids)
+
+            log.info("[HEARTBEAT] Subscriber is healthy. Actively processing: %d Tasks. Undelivered queue size: %s.", active, queue_size_str)
+            time.sleep(300)
+
     def start(self):
         log.info("Starting GCP Pub/Sub subscriber on %s", self.subscription_path)
+
+        # Start a background diagnostic thread so the app doesn't seem 'hung' when idle
+        import threading
+        diag_thread = threading.Thread(target=self._diagnostic_loop, daemon=True)
+        diag_thread.start()
 
         from lib.cuckoo.common.gcp import gcp_cfg
         max_messages = 5

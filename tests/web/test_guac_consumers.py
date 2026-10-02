@@ -189,7 +189,9 @@ def guac_consumer_app_factory(monkeypatch):
         monkeypatch.setattr(consumers, "GuacamoleClient", FakeGuacamoleClient)
         monkeypatch.setattr(consumers, "SessionTimeoutManager", timeout_manager_cls)
         monkeypatch.setattr(consumers, "Database", lambda: db)
-        monkeypatch.setattr(consumers, "_get_vnc_port", lambda vm_label: TEST_VNC_PORT)
+        # _get_vnc_port now takes an optional dsn (local hypervisor, or a worker's libvirt in
+        # central mode); the consumer passes it positionally, so the stub must accept it.
+        monkeypatch.setattr(consumers, "_get_vnc_port", lambda vm_label, dsn=None: TEST_VNC_PORT)
         monkeypatch.setattr(consumers.GuacamoleWebSocketConsumer, "read_guacd", read_guacd_impl)
         monkeypatch.setattr(consumers.GuacamoleWebSocketConsumer, "monitor_task_status", _background_task_stub)
         if stub_monitor_timeout:

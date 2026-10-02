@@ -1,0 +1,77 @@
+{% load static %}
+<!DOCTYPE html>
+<html class="datatable-dark" lang="en">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Start VM · CAPE Sandbox</title>
+    <link rel="icon" type="image/png" href="{% static 'img/cape.png' %}">
+    <link href="{% static 'css/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/style.css' %}" rel="stylesheet">
+    <link href="{% static 'css/atlas.css' %}" rel="stylesheet">
+    <link href="{% static 'css/all.min.css' %}" rel="stylesheet">
+</head>
+<body class="bg-dark text-white">
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card bg-dark border-secondary text-center py-4">
+                    <div class="card-body">
+                        <div class="mb-4">
+                            <i class="fas fa-desktop fa-3x text-secondary mb-3"></i>
+                        </div>
+                        <h4 class="text-white mb-3">Start VM: {{ vm_name }}</h4>
+                        <p class="text-secondary mb-4 small">This virtual machine is currently powered off. Choose a startup mode to boot the machine and connect via VNC.</p>
+                        
+                        <form action="{% url 'direct_vnc_vm_start' vm_name %}" method="post">
+                            {% csrf_token %}
+                            <div class="card bg-secondary bg-opacity-10 border-secondary p-3 mb-4 text-start">
+                                <div class="form-check mb-3">
+                                    <input class="form-check-input" type="radio" name="start_mode" id="modeSnapshot" value="snapshot" checked>
+                                    <label class="form-check-label text-white w-100" for="modeSnapshot">
+                                        <strong>Restore Snapshot</strong>
+                                        <div class="text-muted small mb-2">Revert to a clean snapshot state before booting.</div>
+                                        {% if snapshots %}
+                                        <select class="form-select form-select-sm bg-dark text-white border-secondary mt-2" name="selected_snapshot" id="snapshotSelect">
+                                            {% for snap in snapshots %}
+                                                <option value="{{ snap }}" {% if default_snapshot == snap %}selected{% endif %}>{{ snap }}{% if default_snapshot == snap %} (configured default){% endif %}</option>
+                                            {% endfor %}
+                                        </select>
+                                        {% else %}
+                                        <div class="text-danger small mt-2"><i class="fas fa-exclamation-circle me-1"></i> No snapshots found for this VM.</div>
+                                        {% endif %}
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="start_mode" id="modeDirty" value="dirty">
+                                    <label class="form-check-label text-white" for="modeDirty">
+                                        <strong>Startup Dirty</strong>
+                                        <div class="text-muted small">Boot the current disk state as-is, without restoring a snapshot.</div>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between">
+                                <a href="/" class="btn btn-outline-secondary"><i class="fas fa-home me-1"></i> Go Home</a>
+                                <button type="submit" class="btn btn-danger"><i class="fas fa-play me-1"></i> Start VM</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var selectEl = document.getElementById("snapshotSelect");
+        if (selectEl) {
+            var modeSnapshotRadio = document.getElementById("modeSnapshot");
+            selectEl.addEventListener("change", function() {
+                modeSnapshotRadio.checked = true;
+            });
+            selectEl.addEventListener("click", function() {
+                modeSnapshotRadio.checked = true;
+            });
+        }
+    </script>
+</body>
+</html>

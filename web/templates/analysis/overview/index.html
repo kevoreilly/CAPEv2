@@ -154,6 +154,178 @@
     {% include "analysis/overview/_statistics.html" %}
 {% endif %}
 
+{# threatintel-overview-section-v1 BEGIN #}
+<!-- Threat Intelligence -->
+{% if analysis.threatintelligence.families or analysis.threatintelligence.actors %}
+    <section id="threat-intel" class="mb-4">
+        <div class="card bg-dark border-secondary">
+            <div class="card-header border-secondary">
+                <h5 class="mb-0 text-white"><i class="fas fa-project-diagram me-2 text-danger"></i> Threat Intelligence</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if analysis.threatintelligence.families %}
+                <div class="accordion" id="threatIntelAccordion">
+                {% regroup analysis.threatintelligence.families by family_id as ti_groups %}
+                {% for grp in ti_groups %}
+                    {% with first=grp.list.0 %}
+                    <div class="card bg-dark border-bottom border-secondary m-3">
+                        <div class="card-header p-0" id="ti-heading-{{forloop.counter}}">
+                            <h2 class="mb-0">
+                                <button class="btn btn-block text-start p-3 d-flex align-items-center justify-content-between text-decoration-none shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#ti-collapse-{{forloop.counter}}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="ti-collapse-{{forloop.counter}}">
+                                    <span class="text-white font-weight-bold">
+                                        <i class="fas fa-bug me-2" style="color: #39ff14;"></i> {{ first.common_name }}
+                                    </span>
+                                    <i class="fas fa-chevron-down m-1i"></i>
+                                </button>
+                            </h2>
+                        </div>
+                        <div id="ti-collapse-{{forloop.counter}}" class="collapse {% if forloop.first %}show{% endif %}" aria-labelledby="ti-heading-{{forloop.counter}}" data-bs-parent="#threatIntelAccordion">
+                            <div class="card-body bg-dark text-white">
+                                {% if first.provenance %}
+                                    <p class="small mb-3"><span class="text-muted">Detection sources:</span>
+                                        {% for p in first.provenance %}<span class="badge bg-dark border border-secondary me-1 text-monospace">{{ p }}</span>{% endfor %}
+                                    </p>
+                                {% endif %}
+                                {% for card in grp.list %}
+                                    {% if not forloop.first %}<hr class="border-secondary my-3">{% endif %}
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="badge bg-info text-dark me-2" title="Intelligence source"><i class="fas fa-database me-1"></i>{{ card.source }}</span>
+                                        {% for alias in card.aliases %}<span class="badge bg-secondary me-1">{{ alias }}</span>{% endfor %}
+                                    </div>
+                                    {% if card.description %}
+                                        <p class="text-white-50 mb-3">{{ card.description }}</p>
+                                    {% else %}
+                                        <p class="text-muted fst-italic mb-3">No description available from {{ card.source }}.</p>
+                                    {% endif %}
+                                    {% comment %}
+                                       Malpedia's actor attribution is community/MISP-sourced and frequently
+                                       mislabels commodity malware as APT activity, so it is intentionally NOT
+                                       shown on the malware card. Actor attribution is surfaced only via the
+                                       dedicated, high-confidence threat-actor cards.
+                                    {% endcomment %}
+                                    {% if card.references %}
+                                        <div class="small">
+                                            <span class="text-muted"><i class="fas fa-book me-1"></i> Recent references:</span>
+                                            <ul class="mb-0 mt-1">
+                                                {% for ref in card.references %}
+                                                    <li><a href="{{ ref.url }}" target="_blank" rel="noopener" class="text-info">{{ ref.url }}</a>{% if ref.date %} <span class="text-muted">({{ ref.date }})</span>{% endif %}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    {% if card.url %}
+                                        <div class="mt-3">
+                                            <a href="{{ card.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light"><i class="fas fa-external-link-alt me-1"></i> View on {{ card.source|capfirst }}</a>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}
+                {% endfor %}
+                </div>
+                {% endif %}{# /families #}
+
+                {# Threat actors — scaffolding; populated only when a (high-confidence) actor engine is enabled #}
+                {% if analysis.threatintelligence.actors %}
+                <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="ti-actor-icon" viewBox="0 0 512 512">
+                    <defs><radialGradient id="ti-actor-glow" cx="50%" cy="50%" r="50%">
+                        <stop offset="0%" stop-color="#cc0000" stop-opacity="0.95"/>
+                        <stop offset="52%" stop-color="#6a0000" stop-opacity="0.75"/>
+                        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+                    </radialGradient></defs>
+                    <circle cx="256" cy="256" r="256" fill="url(#ti-actor-glow)"/>
+                    <path d="M256,230 L56,310 L56,512 L456,512 L456,310 Z" fill="#252525"/>
+                    <path d="M256,230 L160,310 L256,285 L352,310 Z" fill="#141414"/>
+                    <path d="M246,232 L256,278 L266,232 Z" fill="#cc2020"/>
+                    <line x1="256" y1="230" x2="56" y2="310" stroke="#3a3a3a" stroke-width="2"/>
+                    <line x1="256" y1="230" x2="456" y2="310" stroke="#3a3a3a" stroke-width="2"/>
+                    <rect x="190" y="168" width="132" height="58" fill="#0d0d0d"/>
+                    <rect x="182" y="172" width="148" height="40" rx="12" fill="#181818" stroke="#cc2020" stroke-width="3"/>
+                    <rect x="186" y="176" width="64" height="32" rx="9" fill="#cc2020" opacity="0.88"/>
+                    <rect x="262" y="176" width="64" height="32" rx="9" fill="#cc2020" opacity="0.88"/>
+                    <rect x="250" y="182" width="12" height="20" rx="2" fill="#0d0d0d"/>
+                    <path d="M56,175 C56,175 156,148 256,148 C356,148 456,175 456,175 C440,195 336,210 256,210 C176,210 72,195 56,175 Z" fill="#222222" stroke="#353535" stroke-width="1.5"/>
+                    <path d="M178,175 C170,130 190,68 256,58 C322,68 342,130 334,175 Z" fill="#1a1a1a" stroke="#2e2e2e" stroke-width="1.5"/>
+                    <path d="M234,65 C245,55 267,55 278,65" fill="none" stroke="#333" stroke-width="3"/>
+                    <rect x="180" y="168" width="152" height="10" fill="#111111"/>
+                </symbol></svg>
+                <div class="px-3 pt-2 pb-1 text-uppercase small text-muted" style="letter-spacing:.05em;">
+                    <svg viewBox="0 0 512 512" style="width:16px;height:16px;border-radius:50%;box-shadow:0 0 6px rgba(255,0,0,0.8);vertical-align:-3px;" class="me-1"><use href="#ti-actor-icon"/></svg>
+                    Threat actors
+                </div>
+                <div class="accordion" id="threatActorAccordion">
+                {% regroup analysis.threatintelligence.actors by actor_id as ta_groups %}
+                {% for grp in ta_groups %}
+                    {% with first=grp.list.0 %}
+                    <div class="card bg-dark border-bottom border-secondary m-3">
+                        <div class="card-header p-0" id="ta-heading-{{forloop.counter}}">
+                            <h2 class="mb-0">
+                                <button class="btn btn-block text-start p-3 d-flex align-items-center justify-content-between text-decoration-none shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#ta-collapse-{{forloop.counter}}" aria-expanded="{% if forloop.first %}true{% else %}false{% endif %}" aria-controls="ta-collapse-{{forloop.counter}}">
+                                    <span class="text-white font-weight-bold d-flex align-items-center">
+                                        <svg viewBox="0 0 512 512" style="width:18px;height:18px;border-radius:50%;box-shadow:0 0 6px rgba(255,0,0,0.8);" class="me-2 flex-shrink-0"><use href="#ti-actor-icon"/></svg>
+                                        {{ first.common_name }}
+                                        {% if first.actor_id %}<span class="badge bg-secondary ms-2 text-monospace">{{ first.actor_id }}</span>{% endif %}
+                                        {% if first.country %}<span class="badge bg-dark border border-secondary ms-1">{{ first.country }}</span>{% endif %}
+                                    </span>
+                                    <i class="fas fa-chevron-down m-1i"></i>
+                                </button>
+                            </h2>
+                        </div>
+                        <div id="ta-collapse-{{forloop.counter}}" class="collapse {% if forloop.first %}show{% endif %}" aria-labelledby="ta-heading-{{forloop.counter}}" data-bs-parent="#threatActorAccordion">
+                            <div class="card-body bg-dark text-white">
+                                {% if first.provenance %}
+                                    <p class="small mb-3"><span class="text-muted">Attribution sources:</span>
+                                        {% for p in first.provenance %}<span class="badge bg-dark border border-secondary me-1 text-monospace">{{ p }}</span>{% endfor %}
+                                    </p>
+                                {% endif %}
+                                {% for card in grp.list %}
+                                    {% if not forloop.first %}<hr class="border-secondary my-3">{% endif %}
+                                    <div class="d-flex align-items-center mb-2">
+                                        <span class="badge bg-info text-dark me-2" title="Attribution source"><i class="fas fa-database me-1"></i>{{ card.source }}</span>
+                                        {% if card.attribution_confidence is not None %}<span class="badge bg-danger me-2" title="Attribution confidence">confidence {{ card.attribution_confidence }}%</span>{% endif %}
+                                        {% for alias in card.aliases %}<span class="badge bg-secondary me-1">{{ alias }}</span>{% endfor %}
+                                    </div>
+                                    {% if card.description %}
+                                        <p class="text-white-50 mb-3">{{ card.description }}</p>
+                                    {% else %}
+                                        <p class="text-muted fst-italic mb-3">No description available from {{ card.source }}.</p>
+                                    {% endif %}
+                                    {% if card.families %}
+                                        <p class="small mb-3"><i class="fas fa-bug me-1" style="color:#39ff14;"></i><span class="text-muted">Associated malware:</span>
+                                            {% for fam in card.families %}<span class="badge bg-dark border border-secondary me-1">{{ fam }}</span>{% endfor %}
+                                        </p>
+                                    {% endif %}
+                                    {% if card.references %}
+                                        <div class="small">
+                                            <span class="text-muted"><i class="fas fa-book me-1"></i> References:</span>
+                                            <ul class="mb-0 mt-1">
+                                                {% for ref in card.references %}
+                                                    <li><a href="{{ ref.url }}" target="_blank" rel="noopener" class="text-info">{{ ref.url }}</a></li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                    {% if card.url %}
+                                        <div class="mt-3">
+                                            <a href="{{ card.url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-light"><i class="fas fa-external-link-alt me-1"></i> View on {{ card.source|capfirst }}</a>
+                                        </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endwith %}
+                {% endfor %}
+                </div>
+                {% endif %}{# /actors #}
+            </div>
+        </div>
+    </section>
+{% endif %}
+{# threatintel-overview-section-v1 END #}
+
 {% if analysis.signatures %}
     {% include "analysis/overview/_signatures.html" %}
 {% endif %}

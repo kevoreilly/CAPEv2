@@ -14,6 +14,16 @@ url = http://example.tld
 token_auth_enabled = no
 mcp = no
 
+# Central-mode interactive live-VM (Guacamole) machine-to-machine auth. The central node
+# (lib/cuckoo/common/central_guac) presents this shared secret as "Authorization: Token <v>"
+# to the worker's apiv2 tasks/machine endpoint; that endpoint authorizes its (non-tenant-scoped,
+# VM-label-ONLY) read via a constant-time compare against this value, so interactive attach works
+# even when token_auth_enabled=no (DRF AllowAny leaves the request anonymous). EMPTY (the default)
+# = DISABLED: the endpoint then authorizes only via the viewer_for().is_local_admin gate. This is
+# a bearer secret -- keep apiv2 SG-locked to the control plane and the conf file non-world-readable;
+# rotate on suspicion. Leak scope is a pool VM label, never tenant/analysis data.
+control_plane_token =
+
 [list_exitnodes]
 enabled = no
 mcp = no

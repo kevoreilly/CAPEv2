@@ -1071,6 +1071,35 @@ class TestDatabaseEngine:
             assert len(tasks) == 1
             assert tasks[0].id == t3
 
+    def test_delete_tasks_after_read_commits(self, db: _Database, temp_filename):
+        """Test that delete_tasks and delete_task commit even after a read operation without an outer begin."""
+        with db.session.begin():
+            t1 = db.add_url("https://1.com")
+            t2 = db.add_path(temp_filename, tags="x86")
+            t3 = db.add_url("https://3.com")
+
+        # Read tasks first (starts an implicit transaction in SQLAlchemy 2.0)
+        pending = db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))
+        assert len(pending) == 3
+
+        # Call delete_tasks without outer with db.session.begin()
+        assert db.delete_tasks(task_ids=[t1, t2])
+
+        # Remove the session to simulate cleaner script exit
+        db.session.remove()
+
+        # In a fresh session, verify t1 and t2 were committed as deleted
+        remaining = db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))
+        assert len(remaining) == 1
+        assert remaining[0].id == t3
+
+        # Now test delete_task singular after read without outer begin
+        assert db.delete_task(t3)
+        db.session.remove()
+
+        remaining_after_single = db.list_tasks(id_after=(t1 - 1), id_before=(t3 + 1))
+        assert len(remaining_after_single) == 0
+
     def test_view_sample(self, db: _Database):
         with db.session.begin():
             samples = []

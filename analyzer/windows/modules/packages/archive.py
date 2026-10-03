@@ -73,6 +73,29 @@ class Archive(Package):
     """
     option_names = sorted(set(DLL_OPTIONS + ARCHIVE_OPTIONS + (OPT_MULTI_PASSWORD,)))
 
+    def execute_files(self, root, interesting_files):
+        ret_list = []
+        last_error = None
+        for interesting_file in interesting_files:
+            file_path = os.path.join(root, interesting_file)
+            try:
+                pids = self.execute_interesting_file(root, interesting_file, file_path)
+                if pids:
+                    if isinstance(pids, list):
+                        ret_list.extend(pids)
+                    else:
+                        ret_list.append(pids)
+            except CuckooPackageError as e:
+                last_error = e
+                log.error("Failed to execute interesting file '%s': %s", interesting_file, e)
+
+        if not ret_list:
+            if last_error:
+                raise last_error
+            raise CuckooPackageError("Unable to execute any file from archive, analysis aborted")
+
+        return ret_list
+
     def start(self, path):
         # 7za and 7r is limited so better install it inside of the vm
         # seven_zip_path = os.path.join(os.getcwd(), "bin", "7z.exe")
@@ -189,8 +212,6 @@ class Archive(Package):
         file_name = self.options.get(OPT_FILE)
         # If no file name is provided via option, discover files to execute.
         if not file_name:
-            ret_list = []
-
             # Attempt to find at least one valid exe extension in the archive
             interesting_files = get_interesting_files(file_names)
 
@@ -199,26 +220,7 @@ class Archive(Package):
                 interesting_files.append(file_names[0])
 
             log.debug("Missing file option, auto executing: %s", interesting_files)
-            last_error = None
-            for interesting_file in interesting_files:
-                file_path = os.path.join(root, interesting_file)
-                try:
-                    pids = self.execute_interesting_file(root, interesting_file, file_path)
-                    if pids:
-                        if isinstance(pids, list):
-                            ret_list.extend(pids)
-                        else:
-                            ret_list.append(pids)
-                except CuckooPackageError as e:
-                    last_error = e
-                    log.error("Failed to execute interesting file '%s': %s", interesting_file, e)
-
-            if not ret_list:
-                if last_error:
-                    raise last_error
-                raise CuckooPackageError("Unable to execute any file from archive, analysis aborted")
-
-            return ret_list
+            return self.execute_files(root, interesting_files)
         else:
             file_path = os.path.join(root, file_name)
             return self.execute_interesting_file(root, file_name, file_path)

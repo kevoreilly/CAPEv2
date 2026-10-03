@@ -199,9 +199,24 @@ class Archive(Package):
                 interesting_files.append(file_names[0])
 
             log.debug("Missing file option, auto executing: %s", interesting_files)
+            last_error = None
             for interesting_file in interesting_files:
                 file_path = os.path.join(root, interesting_file)
-                ret_list.append(self.execute_interesting_file(root, interesting_file, file_path))
+                try:
+                    pids = self.execute_interesting_file(root, interesting_file, file_path)
+                    if pids:
+                        if isinstance(pids, list):
+                            ret_list.extend(pids)
+                        else:
+                            ret_list.append(pids)
+                except CuckooPackageError as e:
+                    last_error = e
+                    log.error("Failed to execute interesting file '%s': %s", interesting_file, e)
+
+            if not ret_list:
+                if last_error:
+                    raise last_error
+                raise CuckooPackageError("Unable to execute any file from archive, analysis aborted")
 
             return ret_list
         else:

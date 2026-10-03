@@ -45,3 +45,66 @@ def test_completion_folder_in_systemroot(mock_env):
 
     os.rmdir(path)
     assert check_completion_logic(config) is False
+
+
+def test_error_elevation_required():
+    from analyzer.windows.lib.common.errors import get_error_string
+
+    err_740 = get_error_string(740)
+    assert "ERROR_ELEVATION_REQUIRED" in err_740
+    assert "elevation" in err_740.lower()
+
+    err_1223 = get_error_string(1223)
+    assert "ERROR_CANCELLED" in err_1223
+
+
+def test_archive_multi_file_partial_failure(monkeypatch):
+    from unittest.mock import MagicMock
+    from analyzer.windows.lib.common.exceptions import CuckooPackageError
+    from analyzer.windows.modules.packages.archive import Archive
+
+    archive_pkg = Archive(options={}, config=MagicMock())
+
+    monkeypatch.setattr(
+        "analyzer.windows.modules.packages.archive.get_interesting_files",
+        lambda file_names: ["failing.exe", "working.exe"],
+    )
+
+    def mock_execute(root, name, path):
+        if name == "failing.exe":
+            raise CuckooPackageError("elevation required")
+        return [1234]
+
+    archive_pkg.execute_interesting_file = mock_execute
+
+    monkeypatch.setattr(
+        os, "walk", lambda folder: [("C:\\extracted", [], ["failing.exe", "working.exe"])]
+    )
+
+    pids = archive_pkg.start("dummy_target.zip")
+    assert pids == [1234]
+
+
+def test_archive_all_files_fail(monkeypatch):
+    from unittest.mock import MagicMock
+    from analyzer.windows.lib.common.exceptions import CuckooPackageError
+    from analyzer.windows.modules.packages.archive import Archive
+
+    archive_pkg = Archive(options={}, config=MagicMock())
+
+    monkeypatch.setattr(
+        "analyzer.windows.modules.packages.archive.get_interesting_files",
+        lambda file_names: ["failing1.exe", "failing2.exe"],
+    )
+
+    def mock_execute(root, name, path):
+        raise CuckooPackageError("failed execution")
+
+    archive_pkg.execute_interesting_file = mock_execute
+
+    monkeypatch.setattr(
+        os, "walk", lambda folder: [("C:\\extracted", [], ["failing1.exe", "failing2.exe"])]
+    )
+
+    with pytest.raises(CuckooPackageError, match="failed execution"):
+        archive_pkg.start("dummy_target.zip")

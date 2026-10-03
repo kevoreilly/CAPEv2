@@ -1605,16 +1605,15 @@ if __name__ == "__main__":
             "description": success,
         }
 
-    # When user set wrong package, Example: Emotet package when submit doc, package only is for EXE!
-    except CuckooError:
-        log.exception("You probably submitted the job with wrong package")
+    except CuckooError as e:
+        log.exception("Analysis failed: %s", e)
         data["status"] = "exception"
-        data["description"] = "You probably submitted the job with wrong package"
+        data["description"] = str(e)
         try:
             with urlopen("http://127.0.0.1:8000/status", urlencode(data).encode()) as response:
                 response.read()
-        except Exception as e:
-            print(e)
+        except Exception as err:
+            print(err)
         sys.exit()
     # This is not likely to happen.
     except KeyboardInterrupt:

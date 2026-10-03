@@ -18,6 +18,11 @@ Set-MpPreference -ExclusionPath C:\ -DisableRemovableDriveScanning $true -Disabl
 Write-Output "Disabling Firewall..."
 Set-NetFirewallProfile -Profile Domain, Public, Private -Enabled False
 
+Write-Output "Disabling UAC (User Account Control)..."
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "EnableLUA" -Type DWord -Value 0
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "ConsentPromptBehaviorAdmin" -Type DWord -Value 0
+Set-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name "PromptOnSecureDesktop" -Type DWord -Value 0
+
 
 # https://stackoverflow.com/a/68843405
 Write-Output "Disabling SmartScreen Filter..."

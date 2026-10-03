@@ -1468,14 +1468,15 @@ class TasksMixIn:
         @return: operation status.
         """
         try:
-            with self.session.begin():
-                task = self.session.get(Task, task_id)
-                if task is None:
-                    return False
-                self.session.delete(task)
+            task = self.session.get(Task, task_id)
+            if task is None:
+                return False
+            self.session.delete(task)
+            self.session.commit()
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting task %s: %s", task_id, str(e))
+            self.session.rollback()
             return False
 
     def delete_tasks(
@@ -1565,17 +1566,14 @@ class TasksMixIn:
             log.warning("No filters provided for delete_tasks. No tasks will be deleted.")
             return True
 
-        # ToDo Transaction Handling
-        # The transaction logic (commit/rollback) is kept the same for a direct port,
-        # but the more idiomatic SQLAlchemy 2.0 approach would be to wrap the execution
-        # in a with self.session.begin(): block, which handles transactions automatically.
         try:
-            with self.session.begin():
-                result = self.session.execute(delete_stmt)
-                log.info("Deleted %d tasks matching the criteria.", result.rowcount)
+            result = self.session.execute(delete_stmt)
+            log.info("Deleted %d tasks matching the criteria.", result.rowcount)
+            self.session.commit()
             return True
         except SQLAlchemyError as e:
             log.error("Error deleting tasks: %s", str(e))
+            self.session.rollback()
             return False
 
     # ToDo replace with delete_tasks

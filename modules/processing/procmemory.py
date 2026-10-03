@@ -90,11 +90,16 @@ class ProcessMemory(Processing):
                 dmp_file = File(dmp_path)
                 process_name = ""
                 process_path = ""
-                process_id = int(os.path.splitext(os.path.basename(dmp_path))[0])
+                try:
+                    process_id = int(os.path.splitext(os.path.basename(dmp_path))[0])
+                except ValueError:
+                    continue
+
                 for process in self.results.get("behavior", {}).get("processes", []):
-                    if process_id == process["process_id"]:
-                        process_name = process["process_name"]
-                        process_path = process["module_path"]
+                    if process_id == process.get("process_id"):
+                        process_name = process.get("process_name") or ""
+                        process_path = process.get("module_path") or ""
+                        break
 
                 procdump = ProcDump(dmp_path, pretty=True)
 

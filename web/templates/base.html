@@ -18,9 +18,12 @@
 <link href="{{ STATIC_URL }}css/bootstrap-social.min.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/style.css" rel="stylesheet">
 <link href="{{ STATIC_URL }}css/fontawesome-all.css" rel="stylesheet">
+<!-- Modernization PoC: HTMX Integration -->
+<script src="{{ STATIC_URL }}js/htmx.min.js"></script>
+<script src="{{ STATIC_URL }}js/response-targets.js"></script>
 {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
 {% block header %}
 {% include "header.html" %}
 {% endblock %}

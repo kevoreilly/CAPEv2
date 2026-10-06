@@ -780,7 +780,6 @@ def write_file_atomic(path: str, data: str, attempts: int = 5):
             os.replace(tmp_path, path)
             return
         except PermissionError:
-            # Windows does not replace a file that another process (the analyzer) is reading.
             if attempt == attempts - 1:
                 raise
             time.sleep(0.05)

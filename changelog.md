@@ -1,3 +1,9 @@
+### [06.10.2026]
+* Browser extension (URL analysis with `firefox_ext`/`chromium_ext` and `extra/browser_extension`):
+    * `browsermonitor`: find the requests log written by agent >= 0.20 (random `%TEMP%` folder without the `tmp` prefix) and upload the last complete version once, when the analysis ends.
+    * `firefox_ext`/`chromium_ext`: stop returning the `webbrowser.open()` bool as a PID, which ended the analysis a few seconds after opening the URL.
+    * Agent 0.23: `/browser_extension` releases its lock on errors and writes the log atomically as UTF-8.
+
 ### [16.09.2026]
 * Monitor updates:
     * Misc enhancements & fixes (see capemon repo for details)

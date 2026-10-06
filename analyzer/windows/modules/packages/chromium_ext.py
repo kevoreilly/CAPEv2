@@ -23,4 +23,7 @@ class ChromiumExt(Package):
         chromium = webbrowser.get("chromium")
         chromium.open("about:blank")
         time.sleep(10)
-        return chromium.open(url)
+        chromium.open(url)
+        # Chromium is not injected, the extension monitors it. Return no PIDs so the analysis runs until
+        # the timeout (webbrowser.open() returns a bool, which the analyzer would track as PID 1).
+        return None

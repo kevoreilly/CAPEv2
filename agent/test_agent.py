@@ -749,3 +749,62 @@ class TestAgent:
         assert r.status_code == 500
         js = r.json()
         assert js["message"] == "Agent has already been pinned to an IP!"
+
+
+class TestBrowserExtension:
+    """Test the /browser_extension handler, which stores the requests logged by the browser extension."""
+
+    @pytest.fixture(autouse=True)
+    def ext_dir(self, tmp_path, monkeypatch):
+        real_mkdtemp = tempfile.mkdtemp
+        monkeypatch.setattr(agent, "AGENT_BROWSER_EXT_PATH", "")
+        monkeypatch.setattr(agent.tempfile, "mkdtemp", lambda prefix="": real_mkdtemp(prefix=prefix, dir=tmp_path))
+        yield tmp_path
+        assert not agent.AGENT_BROWSER_LOCK.locked()
+
+    @staticmethod
+    def post(monkeypatch, network_data):
+        monkeypatch.setattr(agent.request, "form", {"networkData": network_data})
+        return agent.do_browser_ext()
+
+    def test_writes_utf8_log(self, ext_dir, monkeypatch):
+        network_data = json.dumps([{"url": "http://example.com/caf\u00e9", "method": "GET"}], ensure_ascii=False)
+        assert self.post(monkeypatch, network_data).status_code == 200
+        log_path = pathlib.Path(agent.AGENT_BROWSER_EXT_PATH)
+        assert log_path.parent.parent == ext_dir
+        assert log_path.name.startswith("bext_") and log_path.suffix == ".json"
+        assert log_path.read_text(encoding="utf-8") == network_data
+
+        # Every POST rewrites the whole log, without leaving temporary files behind.
+        assert self.post(monkeypatch, "[]").status_code == 200
+        assert log_path.read_text(encoding="utf-8") == "[]"
+        assert os.listdir(log_path.parent) == [log_path.name]
+
+    def test_lock_released_on_write_error(self, monkeypatch):
+        monkeypatch.setattr(agent, "write_file_atomic", mock.Mock(side_effect=OSError("disk full")))
+        assert self.post(monkeypatch, "[]").status_code == 500
+        assert not agent.AGENT_BROWSER_LOCK.locked()
+
+    def test_recreates_deleted_folder(self, monkeypatch):
+        assert self.post(monkeypatch, "[1]").status_code == 200
+        first_path = agent.AGENT_BROWSER_EXT_PATH
+        shutil.rmtree(os.path.dirname(first_path))
+        assert self.post(monkeypatch, "[2]").status_code == 200
+        assert agent.AGENT_BROWSER_EXT_PATH != first_path
+        assert pathlib.Path(agent.AGENT_BROWSER_EXT_PATH).read_text(encoding="utf-8") == "[2]"
+
+    def test_retries_replace_while_log_is_read(self, monkeypatch):
+        real_replace = os.replace
+        calls = []
+
+        def flaky_replace(src, dst):
+            calls.append(src)
+            if len(calls) == 1:
+                raise PermissionError("The process cannot access the file")
+            real_replace(src, dst)
+
+        monkeypatch.setattr(agent.os, "replace", flaky_replace)
+        monkeypatch.setattr(agent.time, "sleep", mock.Mock())
+        assert self.post(monkeypatch, "[]").status_code == 200
+        assert len(calls) == 2
+        assert pathlib.Path(agent.AGENT_BROWSER_EXT_PATH).read_text(encoding="utf-8") == "[]"

@@ -48,7 +48,7 @@ class Package:
         return True
 
     def thread_send_strace_buffer(self):
-        """Поток, который читает вывод strace и отправляет его на хост-машину"""
+        """A thread that reads strace output and sends it to the host machine."""
         self._read_ready_ev.wait()
         if self.proc and self.proc.stderr:
             for line in self.proc.stderr:
@@ -76,7 +76,7 @@ class Package:
         self.thread.start()
 
         self.proc = subprocess.Popen(
-            final_cmd, 
+            final_cmd,
             env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"},
             stderr=subprocess.PIPE,
             shell=True

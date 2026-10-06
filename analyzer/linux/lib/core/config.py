@@ -39,6 +39,9 @@ class Config:
         """Get analysis options.
         @return: options dict.
         """
+        if isinstance(getattr(self, "options", None), dict):
+            return self.options
+
         options = {}
         if isinstance(getattr(self, "options", None), str):
             options = self.parse_options(self.options)

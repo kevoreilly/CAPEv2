@@ -2,7 +2,7 @@
 
 # Install dependencies
 sudo apt update
-sudo apt install build-essential curl net-tools python3-pip python3-pyinotify systemtap-runtime ca-certificates curl gnupg lsb-release -y
+sudo apt install build-essential curl net-tools python3-pip python3-pyinotify python3-pyelftools systemtap-runtime ca-certificates curl gnupg lsb-release -y
 if [ "$(python3 -c 'import sys; print(1 if sys.version_info > (3, 11) else 0)')" -eq "1" ]; then
   sudo apt install -y python3-pyasyncore python3-setuptools
 fi

@@ -11,4 +11,4 @@ class Python(Package):
 
     def prepare(self):
         self.args = [self.target] + self.args
-        self.target = "/usr/bin/python"
+        self.target = "/usr/bin/python3"

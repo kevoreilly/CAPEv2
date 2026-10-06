@@ -77,8 +77,8 @@ class Package:
 
         self.proc = subprocess.Popen(
             final_cmd, 
-            env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"}, 
-            stderr=subprocess.PIPE, 
+            env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"},
+            stderr=subprocess.PIPE,
             shell=True
         )
 

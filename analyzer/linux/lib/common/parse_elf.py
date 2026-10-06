@@ -36,15 +36,17 @@ def is_elf_image(path) -> bool:
 
     try:
         if elf_class == 1:  # ELF32
-            if len(buf) < 52: return False
+            if len(buf) < 52:
+                return False
             e_type, e_machine = struct.unpack(f"{fmt_char}HH", buf[16:20])
             e_shoff, e_flags, e_ehsize, e_phentsize, e_phnum, e_shentsize, e_shnum = struct.unpack(
                 f"{fmt_char}LLHHHHH", buf[32:52]
             )
         else:  # ELF64
-            if len(buf) < 64: return False
+            if len(buf) < 64:
+                return False
             e_type, e_machine = struct.unpack(f"{fmt_char}HH", buf[16:20])
-            e_shoff = struct.unpack(f"{fmt_char}Q", buf[40:48])[0]
+            #e_shoff = struct.unpack(f"{fmt_char}Q", buf[40:48])[0]
             e_shentsize, e_shnum = struct.unpack(f"{fmt_char}HH", buf[58:62])
 
         if e_type not in (ET_EXEC, ET_DYN):

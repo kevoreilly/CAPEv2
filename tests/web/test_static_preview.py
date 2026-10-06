@@ -122,36 +122,51 @@ class TestStaticPreview(SimpleTestCase):
 
     def test_status_view_initial_and_htmx_static_and_poll(self):
         _, task, sha256, tmp_file = self._create_sample_task()
+        orig_existent = web_conf.general.get("existent_tasks", False)
 
-        with patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)):
-            # 1. Initial GET renders status page with Tier-1 static info and HTMX ?static=1 trigger
-            response = self.client.get(f"/submit/status/{task.id}/")
-            self.assertEqual(response.status_code, 200)
-            body = response.content.decode()
-            self.assertIn('id="auto-redirect-toggle"', body)
-            self.assertIn('id="status-card"', body)
-            self.assertIn('id="static-preview-container"', body)
-            self.assertIn(f'/submit/status/{task.id}/?static=1', body)
-            self.assertIn(sha256, body)
-
-            # 2. HTMX ?static=1 request runs Tier-2 static enrichment and returns _static_preview.html partial
-            with patch.object(
-                static_preview,
-                "_extract_static_cape_configs",
-                return_value=[{"TestMalware": {"URL": ["hxxp://bad.example/cfg"]}, "_associated_config_hashes": [{"sha256": sha256}]}],
+        try:
+            web_conf.general.existent_tasks = True
+            fake_prior = [{"info": {"id": 999, "started": "2026-01-01 10:00:00"}, "target": {"file": {"sha256": sha256}}, "malfamily": "TestFamily"}]
+            with (
+                patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)),
+                patch("submission.views.perform_search", return_value=fake_prior),
             ):
-                static_resp = self.client.get(f"/submit/status/{task.id}/?static=1", HTTP_HX_REQUEST="true")
-                self.assertEqual(static_resp.status_code, 200)
-                static_body = static_resp.content.decode()
-                self.assertIn("Malware Configuration (Static)", static_body)
-                self.assertIn("TestMalware Config", static_body)
-                self.assertIn("hxxp://bad.example/cfg", static_body)
+                # 1. Initial GET renders status page with Tier-1 static info, queue position, elapsed timer, existent_tasks, and HTMX ?static=1 trigger
+                response = self.client.get(f"/submit/status/{task.id}/")
+                self.assertEqual(response.status_code, 200)
+                body = response.content.decode()
+                self.assertIn('id="auto-redirect-toggle"', body)
+                self.assertIn('id="status-card"', body)
+                self.assertIn('id="queue-position-badge"', body)
+                self.assertIn("Queue #1", body)
+                self.assertIn('id="elapsed-time-badge"', body)
+                self.assertIn("Existing Analyses for this Sample", body)
+                self.assertIn("Task #999", body)
+                self.assertIn('id="static-preview-container"', body)
+                self.assertIn(f'/submit/status/{task.id}/?static=1', body)
+                self.assertIn(sha256, body)
 
-            # 3. 5-second HTMX status poll skips get_static_preview
-            with patch("submission.static_preview.get_static_preview") as mock_preview:
-                poll_resp = self.client.get(f"/submit/status/{task.id}/", HTTP_HX_REQUEST="true")
-                self.assertEqual(poll_resp.status_code, 200)
-                mock_preview.assert_not_called()
+                # 2. HTMX ?static=1 request runs Tier-2 static enrichment and returns _static_preview.html partial
+                with patch.object(
+                    static_preview,
+                    "_extract_static_cape_configs",
+                    return_value=[{"TestMalware": {"URL": ["hxxp://bad.example/cfg"]}, "_associated_config_hashes": [{"sha256": sha256}]}],
+                ):
+                    static_resp = self.client.get(f"/submit/status/{task.id}/?static=1", HTTP_HX_REQUEST="true")
+                    self.assertEqual(static_resp.status_code, 200)
+                    static_body = static_resp.content.decode()
+                    self.assertIn("Malware Configuration (Static)", static_body)
+                    self.assertIn("TestMalware Config", static_body)
+                    self.assertIn("hxxp://bad.example/cfg", static_body)
+                    self.assertIn("Existing Analyses for this Sample", static_body)
+
+                # 3. 5-second HTMX status poll skips get_static_preview
+                with patch("submission.static_preview.get_static_preview") as mock_preview:
+                    poll_resp = self.client.get(f"/submit/status/{task.id}/", HTTP_HX_REQUEST="true")
+                    self.assertEqual(poll_resp.status_code, 200)
+                    mock_preview.assert_not_called()
+        finally:
+            web_conf.general.existent_tasks = orig_existent
 
     def test_report_view_redirects_in_progress_task_to_submission_status(self):
         _, task, _, _ = self._create_sample_task()

@@ -893,6 +893,60 @@ def _lookup_existent_tasks(request, sha256: str, current_task_id: int) -> dict:
     return existent_tasks
 
 
+def _format_elapsed_duration(task) -> str:
+    from lib.cuckoo.core.data.db_common import _utcnow_naive
+
+    raw_status = getattr(task, "status", "")
+    if raw_status == "running":
+        ref_dt = getattr(task, "started_on", None) or getattr(task, "added_on", None)
+    elif raw_status == "completed":
+        ref_dt = getattr(task, "completed_on", None) or getattr(task, "started_on", None) or getattr(task, "added_on", None)
+    else:
+        ref_dt = getattr(task, "added_on", None)
+
+    if not ref_dt:
+        return ""
+    try:
+        total_seconds = max(0, int((_utcnow_naive() - ref_dt).total_seconds()))
+        hours, rem = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(rem, 60)
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        if minutes > 0:
+            return f"{minutes}m {seconds:02d}s"
+        return f"{seconds}s"
+    except Exception:
+        return ""
+
+
+def _get_queue_position(request, task) -> int | None:
+    if getattr(task, "status", "") != "pending":
+        return None
+    with suppress(Exception):
+        from sqlalchemy import and_, func, or_, select
+        from lib.cuckoo.core.data.task import TASK_PENDING, Task
+
+        prio = getattr(task, "priority", 1) or 1
+        tid = int(task.id)
+        stmt = (
+            select(func.count(Task.id))
+            .where(Task.status == TASK_PENDING)
+            .where(or_(Task.priority > prio, and_(Task.priority == prio, Task.id < tid)))
+        )
+        if multitenancy_config().enabled:
+            v = viewer_for(request.user)
+            if v is not None and not v.is_local_admin:
+                conds = [Task.visibility == PUBLIC]
+                if v.user_id is not None:
+                    conds.append(Task.user_id == v.user_id)
+                if v.tenant_id is not None:
+                    conds.append(and_(Task.visibility == TENANT, Task.tenant_id == v.tenant_id))
+                stmt = stmt.where(or_(*conds))
+        ahead = db.session.scalar(stmt) or 0
+        return int(ahead) + 1
+    return None
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
     from submission.static_preview import get_static_preview
@@ -934,6 +988,8 @@ def status(request, task_id):
         "task_id": task_id,
         "interactive": interactive,
         "session_data": "",
+        "queue_position": _get_queue_position(request, task) if not completed else None,
+        "elapsed_time": _format_elapsed_duration(task) if not completed else "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
     # Live-VM session token: only for a caller who may MANAGE the task (owner /

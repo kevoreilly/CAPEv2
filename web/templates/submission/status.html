@@ -105,9 +105,15 @@
                                 <div class="status-pulse me-3 flex-shrink-0"></div>
                                 <div>
                                     <div class="text-white fw-bold">Dynamic Analysis in Progress...</div>
-                                    <div class="text-white-50 small">
-                                        Current Stage: <span class="badge bg-info text-dark">{{status|upper}}</span>
-                                        <span class="ms-2"><i class="fas fa-sync fa-spin me-1"></i>Polls every 5s</span>
+                                    <div class="text-white-50 small d-flex flex-wrap align-items-center gap-2 mt-1">
+                                        <span>Current Stage: <span class="badge bg-info text-dark">{{status|upper}}</span></span>
+                                        {% if queue_position %}
+                                            <span class="badge bg-secondary" id="queue-position-badge"><i class="fas fa-list-ol me-1"></i>Queue #{{queue_position}}</span>
+                                        {% endif %}
+                                        {% if elapsed_time %}
+                                            <span class="text-info" id="elapsed-time-badge"><i class="far fa-clock me-1"></i>{{elapsed_time}}</span>
+                                        {% endif %}
+                                        <span><i class="fas fa-sync fa-spin me-1"></i>Polls every 5s</span>
                                     </div>
                                 </div>
                             </div>

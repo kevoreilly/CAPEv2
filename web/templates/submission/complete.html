@@ -9,14 +9,7 @@
             </div>
             <div class="card-body p-4">
                 <div class="mb-4">
-                    <p class="text-white-50">The following tasks were added successfully. Click on a task ID to monitor its progress.</p>
-                    <div class="d-flex flex-wrap gap-2">
-                        {% for task in tasks %}
-                            <a href="{% url "submission_status" task %}" class="btn btn-outline-info btn-lg">
-                                <i class="fas fa-microscope me-2"></i>Task #{{task}}
-                            </a>
-                        {% endfor %}
-                    </div>
+                    {% include "submission/_batch_tasks_table.html" %}
                 </div>
 
                 {% if remote_console %}
@@ -45,7 +38,7 @@
                                 {% for block in details %}
                                     <a href="{% url "report" block.info.id %}" class="list-group-item list-group-item-action bg-dark text-white border-secondary d-flex justify-content-between align-items-center py-2">
                                         <span class="small">Task #{{block.info.id}}</span>
-                                        {% if block.family %}<span class="badge bg-danger">{{block.malfamily}}</span>{% endif %}
+                                        {% if block.malfamily or block.family %}<span class="badge bg-danger">{{block.malfamily|default:block.family}}</span>{% endif %}
                                     </a>
                                 {% endfor %}
                             </div>

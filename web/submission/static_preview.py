@@ -53,8 +53,7 @@ if processing_conf.strings.enabled and processing_conf.strings.dotnet:
 
         HAVE_DOTNET_STRINGS = True
 
-if reporting_conf.mongodb.enabled:
-    from dev_utils.mongodb import mongo_find_one, mongo_update_one
+from dev_utils.mongodb import mongo_find_one, mongo_update_one
 
 _CACHE_LOCK = threading.Lock()
 _STATIC_PREVIEW_CACHE: "OrderedDict[str, dict]" = OrderedDict()
@@ -252,13 +251,59 @@ def _run_read_only_static_enrichment(file_info: dict, file_path: str, task_id: s
             file_info["strings"] = extract_strings(file_path, dedup=True)
 
 
+def _store_in_memory_cache(sha256: str, file_info: dict, malware_conf: list, enriched: bool):
+    if not sha256:
+        return
+    with _CACHE_LOCK:
+        _STATIC_PREVIEW_CACHE[sha256] = {
+            "file": copy.deepcopy(file_info),
+            "malware_conf": copy.deepcopy(malware_conf),
+            "enriched": bool(enriched),
+        }
+        _STATIC_PREVIEW_CACHE.move_to_end(sha256)
+        while len(_STATIC_PREVIEW_CACHE) > _MAX_CACHE_ENTRIES:
+            _STATIC_PREVIEW_CACHE.popitem(last=False)
+
+
+def _persist_static_preview_to_mongo(sha256: str, task_id, file_info: dict, malware_conf: list):
+    """Persist enriched static preview data into MongoDB ``files`` collection."""
+    if not reporting_conf.mongodb.enabled or not sha256:
+        return
+
+    doc = {
+        k: copy.deepcopy(v)
+        for k, v in file_info.items()
+        if k not in ("_id", "_task_ids", "path", "name")
+    }
+    doc["_id"] = sha256
+    doc["sha256"] = sha256
+    doc["yara_hash"] = file_info.get("yara_hash") or getattr(File, "yara_rules_hash", "")
+    doc["static_preview_enriched"] = True
+    doc["static_preview_malware_conf"] = copy.deepcopy(malware_conf)
+
+    update_op = {"$set": doc}
+    if isinstance(task_id, int) and task_id > 0:
+        update_op["$addToSet"] = {"_task_ids": task_id}
+
+    try:
+        mongo_update_one("files", {"_id": sha256}, update_op, upsert=True)
+    except Exception as exc:
+        if "strings" in doc and isinstance(doc["strings"], list) and len(doc["strings"]) > 1000:
+            log.warning("Static preview MongoDB upsert failed (%s); retrying with truncated strings.", exc)
+            doc["strings"] = doc["strings"][:1000]
+            with suppress(Exception):
+                mongo_update_one("files", {"_id": sha256}, update_op, upsert=True)
+        else:
+            log.debug("Static preview MongoDB persistence skipped for %s: %s", sha256, exc)
+
+
 def get_static_preview(task, run_full: bool = False) -> dict | None:
     """Build static file information and CAPE config preview for a task.
 
     When ``run_full=False``, returns immediately using SQL Sample metadata,
     in-memory cache, and MongoDB ``files`` cache without running heavy parsers.
     When ``run_full=True``, executes ``File.get_all()``, format parsers, DIE/TriD,
-    strings, and ``static_config_parsers`` and caches the result.
+    strings, and ``static_config_parsers`` and caches/persists the result.
     """
     category = getattr(task, "category", "") or ""
     sample = getattr(task, "sample", None)
@@ -282,6 +327,30 @@ def get_static_preview(task, run_full: bool = False) -> dict | None:
     }
     malware_conf = []
     static_enriched = False
+    yara_already_cached = False
+
+    # Check MongoDB files cache first if enabled (shared across all web workers & post-processing)
+    if reporting_conf.mongodb.enabled and sha256:
+        with suppress(Exception):
+            db_file = mongo_find_one("files", {"_id": sha256}) or mongo_find_one("files", {"sha256": sha256})
+            if isinstance(db_file, dict):
+                if isinstance(db_file.get("static_preview_malware_conf"), list):
+                    malware_conf = copy.deepcopy(db_file["static_preview_malware_conf"])
+                static_enriched = bool(db_file.get("static_preview_enriched", False))
+                current_yara_hash = getattr(File, "yara_rules_hash", "")
+                if current_yara_hash and db_file.get("yara_hash") == current_yara_hash and "yara" in db_file:
+                    yara_already_cached = True
+                db_copy = {
+                    k: v
+                    for k, v in db_file.items()
+                    if k not in ("_id", "_task_ids", "path", "static_preview_malware_conf", "static_preview_enriched")
+                }
+                file_info.update(db_copy)
+                if target_name:
+                    file_info["name"] = target_name
+                if static_enriched:
+                    _store_in_memory_cache(sha256, file_info, malware_conf, True)
+                    return _format_preview_context(task, file_info, malware_conf, source_url, True)
 
     if sha256:
         with _CACHE_LOCK:
@@ -297,16 +366,6 @@ def get_static_preview(task, run_full: bool = False) -> dict | None:
                 if static_enriched or not run_full:
                     return _format_preview_context(task, file_info, malware_conf, source_url, static_enriched)
 
-    # Check MongoDB files cache if enabled
-    if reporting_conf.mongodb.enabled and sha256:
-        with suppress(Exception):
-            db_file = mongo_find_one("files", {"_id": sha256}) or mongo_find_one("files", {"sha256": sha256})
-            if isinstance(db_file, dict):
-                db_copy = {k: v for k, v in db_file.items() if k not in ("_id", "_task_ids", "path")}
-                file_info.update(db_copy)
-                if target_name:
-                    file_info["name"] = target_name
-
     if not run_full:
         return _format_preview_context(task, file_info, malware_conf, source_url, static_enriched)
 
@@ -314,8 +373,10 @@ def get_static_preview(task, run_full: bool = False) -> dict | None:
     if file_path and path_exists(file_path):
         try:
             f_obj = File(file_path)
-            full_info, _ = f_obj.get_all()
-            file_info.update(full_info)
+            if not yara_already_cached:
+                full_info, _ = f_obj.get_all()
+                file_info.update(full_info)
+                file_info["yara_hash"] = getattr(File, "yara_rules_hash", "")
             if target_name:
                 file_info["name"] = target_name
             sha256 = file_info.get("sha256", sha256)
@@ -337,15 +398,9 @@ def get_static_preview(task, run_full: bool = False) -> dict | None:
             log.warning("Static preview extraction failed for task %s: %s", getattr(task, "id", "?"), exc)
 
     if sha256:
-        with _CACHE_LOCK:
-            _STATIC_PREVIEW_CACHE[sha256] = {
-                "file": copy.deepcopy(file_info),
-                "malware_conf": copy.deepcopy(malware_conf),
-                "enriched": static_enriched,
-            }
-            _STATIC_PREVIEW_CACHE.move_to_end(sha256)
-            while len(_STATIC_PREVIEW_CACHE) > _MAX_CACHE_ENTRIES:
-                _STATIC_PREVIEW_CACHE.popitem(last=False)
+        _store_in_memory_cache(sha256, file_info, malware_conf, static_enriched)
+        if static_enriched:
+            _persist_static_preview_to_mongo(sha256, getattr(task, "id", None), file_info, malware_conf)
 
     return _format_preview_context(task, file_info, malware_conf, source_url, static_enriched)
 
@@ -371,7 +426,7 @@ def update_static_preview_service(sha256: str, service: str, details) -> dict | 
     if reporting_conf.mongodb.enabled:
         with suppress(Exception):
             update_field = "office.XLMMacroDeobfuscator" if service == "xlsdeobf" else service
-            mongo_update_one("files", {"_id": sha256}, {"$set": {update_field: details}})
+            mongo_update_one("files", {"_id": sha256}, {"$set": {update_field: details}}, upsert=True)
 
     return updated_file
 

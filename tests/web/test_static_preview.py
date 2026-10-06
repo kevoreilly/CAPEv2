@@ -220,3 +220,132 @@ class TestStaticPreview(SimpleTestCase):
         finally:
             web_conf.guacamole.enabled = orig_guac
 
+    def test_mongodb_persistence_and_cross_worker_sharing(self):
+        _, task, sha256, tmp_file = self._create_sample_task()
+        orig_mongo = static_preview.reporting_conf.mongodb.enabled
+        persisted_docs = {}
+
+        def fake_update_one(collection, query, update, **kwargs):
+            self.assertEqual(collection, "files")
+            self.assertTrue(kwargs.get("upsert"))
+            doc = dict(update.get("$set", {}))
+            if "$addToSet" in update and "_task_ids" in update["$addToSet"]:
+                doc.setdefault("_task_ids", []).append(update["$addToSet"]["_task_ids"])
+            persisted_docs[query["_id"]] = doc
+
+        def fake_find_one(collection, query, **kwargs):
+            key = query.get("_id") or query.get("sha256")
+            return persisted_docs.get(key)
+
+        try:
+            static_preview.reporting_conf.mongodb.enabled = True
+            fake_hit = {"name": "TestFamily", "meta": {"cape_type": "TestFamily Payload"}, "strings": [], "addresses": {}}
+            fake_full_info = {
+                "name": "sample.exe",
+                "size": 27,
+                "sha256": sha256,
+                "type": "PE32 executable (GUI) Intel 80386, for MS Windows",
+                "yara": [],
+                "cape_yara": [fake_hit],
+            }
+            with (
+                patch.object(static_preview, "CUCKOO_ROOT", os.path.dirname(tmp_file)),
+                patch.object(static_preview, "mongo_update_one", side_effect=fake_update_one) as mock_update,
+                patch.object(static_preview, "mongo_find_one", side_effect=fake_find_one),
+                patch.object(static_preview.File, "get_all", return_value=(fake_full_info, [])) as mock_get_all,
+                patch.object(static_preview, "_run_read_only_static_enrichment"),
+                patch.object(
+                    static_preview,
+                    "static_config_parsers",
+                    return_value={"TestFamily": {"C2": ["198.51.100.10:443"]}},
+                ) as mock_cfg,
+            ):
+                # Worker 1 computes full static preview and persists to MongoDB
+                res1 = static_preview.get_static_preview(task, run_full=True)
+                self.assertTrue(res1["static_enriched"])
+                mock_update.assert_called_once()
+                self.assertIn(sha256, persisted_docs)
+                self.assertIn(task.id, persisted_docs[sha256]["_task_ids"])
+                self.assertTrue(persisted_docs[sha256]["static_preview_enriched"])
+                mock_get_all.assert_called_once()
+                mock_cfg.assert_called_once()
+
+                # Simulate Worker 2 (empty in-memory cache) serving a shared link (run_full=False)
+                static_preview._STATIC_PREVIEW_CACHE.clear()
+                mock_get_all.reset_mock()
+                mock_cfg.reset_mock()
+
+                res2 = static_preview.get_static_preview(task, run_full=False)
+                self.assertTrue(res2["static_enriched"])
+                self.assertEqual(res2["malware_conf"][0]["TestFamily"]["C2"], ["198.51.100.10:443"])
+                mock_get_all.assert_not_called()
+                mock_cfg.assert_not_called()
+        finally:
+            static_preview.reporting_conf.mongodb.enabled = orig_mongo
+
+    def test_cape_process_file_reuses_persisted_static_preview(self):
+        from modules.processing import CAPE as cape_mod
+
+        _, task, sha256, tmp_file = self._create_sample_task()
+        orig_mongo = cape_mod.reporting_conf.mongodb.enabled
+        orig_cache = cape_mod.processing_conf.CAPE.file_cache
+
+        persisted_doc = {
+            "_id": sha256,
+            "_task_ids": [task.id],
+            "sha256": sha256,
+            "md5": "a" * 32,
+            "sha1": "b" * 40,
+            "sha512": "c" * 128,
+            "sha3_384": "d" * 96,
+            "size": 27,
+            "type": "PE32 executable (GUI) Intel 80386, for MS Windows",
+            "pe": {"imphash": "11223344"},
+            "yara": [],
+            "cape_yara": [{"name": "TestFamily", "meta": {"cape_type": "TestFamily Payload"}}],
+            "yara_hash": cape_mod.File.yara_rules_hash,
+            "static_preview_enriched": True,
+            "static_preview_malware_conf": [
+                {
+                    "TestFamily": {"C2": ["198.51.100.10:443"]},
+                    "_associated_config_hashes": [{"sha256": sha256}],
+                }
+            ],
+        }
+
+        try:
+            cape_mod.reporting_conf.mongodb.enabled = True
+            cape_mod.processing_conf.CAPE.file_cache = False
+
+            processor = cape_mod.CAPE()
+            processor.task = {"id": task.id, "target": tmp_file, "options": "", "package": "exe"}
+            processor.options = cape_mod.processing_conf.CAPE
+            processor.results = {"statistics": {"processing": []}}
+            processor.cape = {"payloads": [], "configs": []}
+            processor.self_extracted = ""
+
+            with (
+                patch.object(cape_mod, "mongo_find_one", return_value=dict(persisted_doc)),
+                patch.object(cape_mod.File, "get_all") as mock_get_all,
+                patch.object(cape_mod, "static_file_info") as mock_static_info,
+                patch.object(cape_mod, "static_config_parsers") as mock_cfg_parser,
+            ):
+                processor.process_file(
+                    tmp_file, False, {}, category="file", duplicated={"sha256": set(), "TLSH": set()}
+                )
+                file_info = processor.results["target"]["file"]
+                # File.get_all and static_config_parsers should both be skipped because MongoDB had the preview
+                mock_get_all.assert_not_called()
+                mock_cfg_parser.assert_not_called()
+                mock_static_info.assert_called_once()
+                self.assertEqual(file_info["pe"]["imphash"], "11223344")
+                self.assertNotIn("static_preview_malware_conf", file_info)
+                self.assertNotIn("static_preview_enriched", file_info)
+                self.assertNotIn("_task_ids", file_info)
+                self.assertEqual(len(processor.cape["configs"]), 1)
+                self.assertEqual(processor.cape["configs"][0]["TestFamily"]["C2"], ["198.51.100.10:443"])
+        finally:
+            cape_mod.reporting_conf.mongodb.enabled = orig_mongo
+            cape_mod.processing_conf.CAPE.file_cache = orig_cache
+
+

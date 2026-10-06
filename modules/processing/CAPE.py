@@ -13,6 +13,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 import collections
+import copy
 import hashlib
 import json
 import logging
@@ -42,6 +43,7 @@ from dev_utils.mongodb import mongo_find_one
 processing_conf = Config("processing")
 integrations_conf = Config("integrations")
 externalservices_conf = Config("externalservices")
+reporting_conf = Config("reporting")
 
 HAVE_VIRUSTOTAL = False
 if processing_conf.virustotal.enabled and not processing_conf.virustotal.on_demand:
@@ -193,20 +195,30 @@ class CAPE(Processing):
         cached = False
         pefile_object = None
         run_static = True
+        preview_configs_by_name = {}
 
         # Calculate options hash to prevent poisoning
         opts = get_options(self.task.get("options", ""))
         sorted_opts = json.dumps(opts, sort_keys=True)
         options_hash = hashlib.sha256(sorted_opts.encode()).hexdigest()
 
-        if processing_conf.CAPE.file_cache:
+        if processing_conf.CAPE.file_cache or (reporting_conf.mongodb.enabled and category in ("static", "file")):
             try:
                 db_file = mongo_find_one("files", {"sha256": sha256})
-                if db_file:
+                if db_file and (
+                    processing_conf.CAPE.file_cache
+                    or self.task.get("id") in db_file.get("_task_ids", [])
+                    or bool(db_file.get("static_preview_enriched"))
+                ):
+                    for cfg in db_file.get("static_preview_malware_conf") or []:
+                        if isinstance(cfg, dict):
+                            for k, v in cfg.items():
+                                if k != "_associated_config_hashes" and isinstance(v, dict):
+                                    preview_configs_by_name[k] = v
                     # Security Fix: Update path immediately
                     db_file["path"] = file_path
-                    if "_id" in db_file:
-                        del db_file["_id"]
+                    for internal_key in ("_id", "_task_ids", "static_preview_malware_conf", "static_preview_enriched"):
+                        db_file.pop(internal_key, None)
 
                     yara_match = db_file.get("yara_hash", "") == File.yara_rules_hash
                     options_match = db_file.get("options_hash", "") == options_hash
@@ -389,7 +401,10 @@ class CAPE(Processing):
                 append_file = self._cape_type_string(type_strings, file_info, append_file)
 
             if cape_name and cape_name not in executed_config_parsers[tmp_path]:
-                tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
+                if tmp_path == file_info["path"] and cape_name in preview_configs_by_name:
+                    tmp_config = {cape_name: copy.deepcopy(preview_configs_by_name[cape_name])}
+                else:
+                    tmp_config = static_config_parsers(cape_name, tmp_path, tmp_data)
                 self.update_cape_configs(cape_name, tmp_config, file_info)
                 executed_config_parsers[tmp_path].add(cape_name)
 

@@ -697,6 +697,8 @@ def index(request, task_id=None, resubmit_hash=None):
         else:
             tasks_count = 0
         if tasks_count > 0:
+            if tasks_count == 1 and not details.get("errors"):
+                return redirect("submission_status", task_id=details["task_ids"][0])
             data = {
                 "title": "Submission",
                 "tasks": details["task_ids"],
@@ -873,13 +875,94 @@ def index(request, task_id=None, resubmit_hash=None):
         )
 
 
+def _lookup_existent_tasks(request, sha256: str, current_task_id: int) -> dict:
+    existent_tasks = {}
+    if not sha256 or not web_conf.general.get("existent_tasks", False):
+        return existent_tasks
+    with suppress(Exception):
+        records = _scope_existent(
+            request,
+            perform_search("target_sha256", sha256, search_limit=5, viewer=viewer_for(request.user)),
+        )
+        for record in records or []:
+            rid = (record.get("info") or {}).get("id")
+            if rid is not None and int(rid) == int(current_task_id):
+                continue
+            rec_sha = record.get("target", {}).get("file", {}).get("sha256") or sha256
+            existent_tasks.setdefault(rec_sha, []).append(record)
+    return existent_tasks
+
+
+def _format_elapsed_duration(task) -> str:
+    from lib.cuckoo.core.data.db_common import _utcnow_naive
+
+    raw_status = getattr(task, "status", "")
+    if raw_status == "running":
+        ref_dt = getattr(task, "started_on", None) or getattr(task, "added_on", None)
+    elif raw_status == "completed":
+        ref_dt = getattr(task, "completed_on", None) or getattr(task, "started_on", None) or getattr(task, "added_on", None)
+    else:
+        ref_dt = getattr(task, "added_on", None)
+
+    if not ref_dt:
+        return ""
+    try:
+        total_seconds = max(0, int((_utcnow_naive() - ref_dt).total_seconds()))
+        hours, rem = divmod(total_seconds, 3600)
+        minutes, seconds = divmod(rem, 60)
+        if hours > 0:
+            return f"{hours}h {minutes}m"
+        if minutes > 0:
+            return f"{minutes}m {seconds:02d}s"
+        return f"{seconds}s"
+    except Exception:
+        return ""
+
+
+def _get_queue_position(request, task) -> int | None:
+    if getattr(task, "status", "") != "pending":
+        return None
+    with suppress(Exception):
+        from sqlalchemy import and_, func, or_, select
+        from lib.cuckoo.core.data.task import TASK_PENDING, Task
+
+        prio = getattr(task, "priority", 1) or 1
+        tid = int(task.id)
+        stmt = (
+            select(func.count(Task.id))
+            .where(Task.status == TASK_PENDING)
+            .where(or_(Task.priority > prio, and_(Task.priority == prio, Task.id < tid)))
+        )
+        if multitenancy_config().enabled:
+            v = viewer_for(request.user)
+            if v is not None and not v.is_local_admin:
+                conds = [Task.visibility == PUBLIC]
+                if v.user_id is not None:
+                    conds.append(Task.user_id == v.user_id)
+                if v.tenant_id is not None:
+                    conds.append(and_(Task.visibility == TENANT, Task.tenant_id == v.tenant_id))
+                stmt = stmt.where(or_(*conds))
+        ahead = db.session.scalar(stmt) or 0
+        return int(ahead) + 1
+    return None
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
+    from submission.static_preview import get_static_preview
+
     task = db.view_task(task_id)
     # tenant isolation: hidden == missing. The status body is a READ (can_view_task);
     # the live-VM guac session_data is emitted only to a MANAGER below.
     if not task or not can_view_task(request.user, task):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
+
+    if request.GET.get("static") == "1":
+        preview = get_static_preview(task, run_full=True) or {}
+        sha256 = preview.get("file", {}).get("sha256", "")
+        preview["task_id"] = task_id
+        preview["existent_tasks"] = _lookup_existent_tasks(request, sha256, task_id)
+        return render(request, "submission/_static_preview.html", preview)
 
     completed = False
     if task.status == "reported":
@@ -892,18 +975,27 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
+    interactive = bool(
+        web_conf.guacamole.enabled
+        and get_options(task.options).get("interactive") == "1"
+        and can_manage_task(request.user, task)
+    )
+
     response = {
         "title": "Task Status",
         "completed": completed,
         "status": status,
         "task_id": task_id,
+        "interactive": interactive,
         "session_data": "",
+        "queue_position": _get_queue_position(request, task) if not completed else None,
+        "elapsed_time": _format_elapsed_duration(task) if not completed else "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
     # Live-VM session token: only for a caller who may MANAGE the task (owner /
-    # tenant-admin / break-glass). A read-only viewer sees status but no session_data,
-    # so they can't drive another user's/tenant's live VM.
-    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1" and can_manage_task(request.user, task):
+    # tenant-admin / break-glass) while the VM is actively running. A read-only viewer
+    # sees status but no session_data, so they can't drive another user's/tenant's live VM.
+    if interactive and task.status == "running":
         machine = db.view_machine_by_label(task.machine) if task.machine else None
         vm_label, guest_ip = (task.machine, machine.ip) if machine else (None, None)
         if not machine:
@@ -923,6 +1015,14 @@ def status(request, task_id):
             session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
             session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip or ''}".encode("utf8")).decode("utf8")
             response["session_data"] = session_data
+
+    # Populate instant Tier-1 static file info on initial page load (skipped during 5s HTMX #status-card polls).
+    if not request.headers.get("HX-Request"):
+        preview = get_static_preview(task, run_full=False)
+        if preview:
+            response.update(preview)
+            sha256 = preview.get("file", {}).get("sha256", "")
+            response["existent_tasks"] = _lookup_existent_tasks(request, sha256, task_id)
 
     return render(request, "submission/status.html", response)
 

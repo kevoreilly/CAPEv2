@@ -772,7 +772,6 @@ def do_execpy():
 
 
 def write_file_atomic(path: str, data: str, attempts: int = 5):
-    """Write data as UTF-8 so that readers never see a partially written file."""
     tmp_path = f"{path}.tmp"
     with open(tmp_path, "w", encoding="utf-8") as tmp_fd:
         tmp_fd.write(data)
@@ -789,11 +788,6 @@ def write_file_atomic(path: str, data: str, attempts: int = 5):
 
 @app.route("/browser_extension", methods=["POST"])
 def do_browser_ext():
-    """Store the requests logged by the browser extension (extra/browser_extension).
-
-    Every POST contains all the requests seen so far, so the log is rewritten each time.
-    The analyzer (modules/auxiliary/browsermonitor.py) looks for it in %TEMP%.
-    """
     global AGENT_BROWSER_EXT_PATH
     network_data = request.form.get("networkData")
     with AGENT_BROWSER_LOCK:

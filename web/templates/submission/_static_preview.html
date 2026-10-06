@@ -1,0 +1,128 @@
+{% load key_tags %}
+
+{% if existent_tasks %}
+<section id="existent-tasks-preview" class="mb-3">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary py-2 d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 text-white-50 small text-uppercase">
+                <i class="fas fa-history me-2 text-info"></i>Existing Analyses for this Sample
+            </h6>
+        </div>
+        <div class="card-body p-2">
+            {% for sha256, details in existent_tasks.items %}
+                <div class="list-group list-group-flush">
+                    {% for block in details %}
+                        <a href="{% url "report" block.info.id %}" class="list-group-item list-group-item-action bg-dark text-white border-secondary d-flex justify-content-between align-items-center py-1 px-2">
+                            <span class="small">Task #{{block.info.id}} {% if block.info.started %}<span class="text-white-50 ms-2">({{block.info.started}})</span>{% endif %}</span>
+                            {% if block.malfamily %}<span class="badge bg-danger">{{block.malfamily}}</span>{% endif %}
+                        </a>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if analysis.malware_conf %}
+<section id="malware-config" class="mb-3">
+    <div class="card bg-dark border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="mb-0 text-white"><i class="fas fa-cogs me-2 text-danger"></i> Malware Configuration (Static)</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="accordion" id="malwareConfAccordion">
+            {% for config_block in analysis.malware_conf %}
+                {% for family, config in config_block.items %}
+                    {% if family|slice:":1" != "_" %}
+                        <div class="card bg-dark border-bottom border-secondary m-3">
+                            <div class="card-header p-0" id="heading{{family}}">
+                                <h2 class="mb-0">
+                                    <button class="btn btn-block text-start p-3 d-flex align-items-center justify-content-between text-decoration-none shadow-none" type="button" data-bs-toggle="collapse" data-bs-target="#{{family}}_config" aria-expanded="true" aria-controls="{{family}}_config">
+                                        <span class="text-white font-weight-bold"><i class="fas fa-bug me-2"></i> {{family}} Config</span>
+                                        <div class="d-flex align-items-center">
+                                            <i class="fas fa-chevron-down m-1i"></i>
+                                        </div>
+                                    </button>
+                                </h2>
+                            </div>
+
+                            <div id="{{family}}_config" class="collapse show" aria-labelledby="heading{{family}}" data-bs-parent="#malwareConfAccordion">
+                                <div class="card-body bg-dark text-white">
+                                    <div class="table-responsive">
+                                        <table class="table table-dark table-striped table-bordered mb-0" style="table-layout: fixed;">
+                                            <thead>
+                                                <tr>
+                                                    <th style="width: 20%;">Type</th>
+                                                    <th>Value</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {% for key, value in config.items %}
+                                                    {% if key == "raw" %}
+                                                        {% for dict_item in value %}
+                                                            {% for subkey, subvalue in dict_item.items %}
+                                                                <tr>
+                                                                    <td class="font-weight-bold text-info">{{ subkey }}</td>
+                                                                    <td class="text-break">{% malware_config subvalue %}</td>
+                                                                </tr>
+                                                            {% endfor %}
+                                                        {% endfor %}
+                                                    {% else %}
+                                                        <tr>
+                                                            <td class="font-weight-bold text-info">{{ key }}</td>
+                                                            <td class="text-break">{% malware_config value %}</td>
+                                                        </tr>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </tbody>
+                                            {% if config_block|get_item:"_associated_config_hashes" %}
+                                                <tfoot>
+                                                    <tr>
+                                                        <th class="bg-dark text-white">Extracted From</th>
+                                                        <td class="bg-dark">
+                                                            {% for hashes in config_block|get_item:"_associated_config_hashes" %}
+                                                                <div class="mb-2">
+                                                                    <a class="btn btn-sm btn-outline-light text-start text-monospace w-100" data-bs-toggle="collapse" href="#hashes-{{forloop.counter}}" role="button" aria-expanded="false">
+                                                                        <i class="fas fa-hashtag me-1"></i> {{ hashes.sha256 }}
+                                                                    </a>
+                                                                    <div class="collapse mt-1" id="hashes-{{forloop.counter}}">
+                                                                        <div class="card card-body bg-dark p-2">
+                                                                            <dl class="row mb-0 small">
+                                                                                {% with sorted_hashes=hashes|sort %}
+                                                                                    {% for algo, value in sorted_hashes.items %}
+                                                                                        <dt class="col-sm-2 text-end">{{ algo }}</dt>
+                                                                                        <dd class="col-sm-10 text-break text-monospace">{{ value }}</dd>
+                                                                                    {% endfor %}
+                                                                                {% endwith %}
+                                                                            </dl>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            {% endfor %}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            {% endif %}
+                                        </table>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endif %}
+
+{% if file %}
+<section id="static-file-details" class="mb-4">
+    {% include "analysis/generic/_file_info.html" %}
+    {% if file.pe.digital_signers or file.pe.guest_signers.aux_signers %}
+        {% include "analysis/overview/_authenticode.html" %}
+    {% endif %}
+</section>
+{% endif %}

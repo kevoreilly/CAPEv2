@@ -697,6 +697,8 @@ def index(request, task_id=None, resubmit_hash=None):
         else:
             tasks_count = 0
         if tasks_count > 0:
+            if tasks_count == 1 and not details.get("errors"):
+                return redirect("submission_status", task_id=details["task_ids"][0])
             data = {
                 "title": "Submission",
                 "tasks": details["task_ids"],
@@ -873,13 +875,40 @@ def index(request, task_id=None, resubmit_hash=None):
         )
 
 
+def _lookup_existent_tasks(request, sha256: str, current_task_id: int) -> dict:
+    existent_tasks = {}
+    if not sha256 or not web_conf.general.get("existent_tasks", False):
+        return existent_tasks
+    with suppress(Exception):
+        records = _scope_existent(
+            request,
+            perform_search("target_sha256", sha256, search_limit=5, viewer=viewer_for(request.user)),
+        )
+        for record in records or []:
+            rid = (record.get("info") or {}).get("id")
+            if rid is not None and int(rid) == int(current_task_id):
+                continue
+            rec_sha = record.get("target", {}).get("file", {}).get("sha256") or sha256
+            existent_tasks.setdefault(rec_sha, []).append(record)
+    return existent_tasks
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def status(request, task_id):
+    from submission.static_preview import get_static_preview
+
     task = db.view_task(task_id)
     # tenant isolation: hidden == missing. The status body is a READ (can_view_task);
     # the live-VM guac session_data is emitted only to a MANAGER below.
     if not task or not can_view_task(request.user, task):
         return render(request, "error.html", {"error": "The specified task doesn't seem to exist."})
+
+    if request.GET.get("static") == "1":
+        preview = get_static_preview(task, run_full=True) or {}
+        sha256 = preview.get("file", {}).get("sha256", "")
+        preview["task_id"] = task_id
+        preview["existent_tasks"] = _lookup_existent_tasks(request, sha256, task_id)
+        return render(request, "submission/_static_preview.html", preview)
 
     completed = False
     if task.status == "reported":
@@ -892,18 +921,25 @@ def status(request, task_id):
     if status == "completed":
         status = "processing"
 
+    interactive = bool(
+        web_conf.guacamole.enabled
+        and get_options(task.options).get("interactive") == "1"
+        and can_manage_task(request.user, task)
+    )
+
     response = {
         "title": "Task Status",
         "completed": completed,
         "status": status,
         "task_id": task_id,
+        "interactive": interactive,
         "session_data": "",
         "target": task.sample.sha256 if getattr(task, "sample") else task.target,
     }
     # Live-VM session token: only for a caller who may MANAGE the task (owner /
-    # tenant-admin / break-glass). A read-only viewer sees status but no session_data,
-    # so they can't drive another user's/tenant's live VM.
-    if web_conf.guacamole.enabled and get_options(task.options).get("interactive") == "1" and can_manage_task(request.user, task):
+    # tenant-admin / break-glass) while the VM is actively running. A read-only viewer
+    # sees status but no session_data, so they can't drive another user's/tenant's live VM.
+    if interactive and task.status == "running":
         machine = db.view_machine_by_label(task.machine) if task.machine else None
         vm_label, guest_ip = (task.machine, machine.ip) if machine else (None, None)
         if not machine:
@@ -923,6 +959,14 @@ def status(request, task_id):
             session_id = uuid3(NAMESPACE_DNS, str(task_id)).hex[:16]
             session_data = urlsafe_b64encode(f"{session_id}|{vm_label}|{guest_ip or ''}".encode("utf8")).decode("utf8")
             response["session_data"] = session_data
+
+    # Populate instant Tier-1 static file info on initial page load (skipped during 5s HTMX #status-card polls).
+    if not request.headers.get("HX-Request"):
+        preview = get_static_preview(task, run_full=False)
+        if preview:
+            response.update(preview)
+            sha256 = preview.get("file", {}).get("sha256", "")
+            response["existent_tasks"] = _lookup_existent_tasks(request, sha256, task_id)
 
     return render(request, "submission/status.html", response)
 

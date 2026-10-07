@@ -635,3 +635,43 @@ def test_reconcile_write_filter_central_uses_job_id():
     assert _reconcile_write_filter(False, "local-7", [7]) == {
         "$and": [{"info.id": {"$in": [7]}}, {"$or": [{"info.tenant_id": None}, {"info.tenant_id": None}]}]
     }
+
+
+def test_mongodb_run_deletes_only_target_id_with_main_task_id(monkeypatch):
+    """When main_task_id is set in options, MongoDB.run must delete only the main task ID
+    in MongoDB and must NOT delete the worker's local_task_id (which would collide with
+    an unrelated master task in shared Mongo)."""
+    from modules.reporting.mongodb import MongoDB
+    import modules.reporting.mongodb as m
+
+    deleted_ids = []
+    monkeypatch.setattr(m, "HAVE_MONGO", True)
+    monkeypatch.setattr(m, "mongo_collection_names", lambda: ["cuckoo_schema"])
+    monkeypatch.setattr(m, "mongo_find_one", lambda coll, q, proj=None: {"version": "1"})
+    monkeypatch.setattr(m, "mongo_delete_data", lambda ids: deleted_ids.extend(ids))
+    monkeypatch.setattr(m, "insert_calls", lambda report, mongodb=True: [])
+    monkeypatch.setattr(m, "mongo_insert_one", lambda coll, doc: type("Res", (), {"inserted_id": "123"})())
+    monkeypatch.setattr(m, "dump_iocs", lambda report, task_id: None)
+    monkeypatch.setattr(m, "_reconcile_report_visibility", lambda *a, **k: None)
+
+    reporter = MongoDB()
+    reporter.analysis_path = "/tmp"
+    reporter.options = {}
+    reporter.set_task({"id": 499210})
+
+    results = {
+        "info": {
+            "id": 499210,
+            "options": {"main_task_id": "3338059"},
+        },
+        "behavior": {"processes": []},
+    }
+    monkeypatch.setattr(m, "get_json_document", lambda r, p: {
+        "info": {"id": 499210},
+        "behavior": {"processes": []},
+    })
+
+    reporter.run(results)
+    assert deleted_ids == [3338059]
+    assert 499210 not in deleted_ids
+

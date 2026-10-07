@@ -91,15 +91,17 @@ def _deny_manage(request, task_id):
     return None
 
 
-def _strip_mt_task_fields(d):
-    """Task.to_dict() now emits the multitenancy columns ("tenant_id",
-    "visibility"). On a DEFAULT (multitenancy-disabled) install these keys did
-    not exist upstream, so drop them from any api response payload to keep the
-    output byte-identical to upstream base. When MT is enabled the keys are part
-    of the tenant model and are preserved untouched."""
-    if not multitenancy_config().enabled and isinstance(d, dict):
-        d.pop("tenant_id", None)
-        d.pop("visibility", None)
+def _task_dict(task):
+    """Task.to_dict() plus the multitenancy fields when MT is enabled.
+
+    to_dict() never carries tenant_id/visibility (they live in the task_acl side table,
+    not on tasks), so an MT-off response is upstream-identical by construction. The MT
+    fields are ADDED here only when MT is on, so an endpoint that forgets this helper
+    merely omits them for MT users -- it can never leak them to MT-off installs."""
+    d = task.to_dict()
+    if multitenancy_config().enabled:
+        d["tenant_id"] = task.tenant_id
+        d["visibility"] = task.visibility
     return d
 
 
@@ -936,7 +938,7 @@ def tasks_search(request, md5=None, sha1=None, sha256=None):
             for sid in sids:
                 tasks = db.list_tasks(sample_id=sid, include_hashes=True, visible_to=viewer_for(request.user))
                 for task in tasks:
-                    buf = _strip_mt_task_fields(task.to_dict())
+                    buf = _task_dict(task)
                     # Remove path information, just grab the file name
                     buf["target"] = buf["target"].rsplit("/", 1)[-1]
                     if task.sample:
@@ -1129,7 +1131,7 @@ def tasks_list(request, offset=None, limit=None, window=None):
     else:
         for row in tasks:
             resp["buf"] += 1
-            task = _strip_mt_task_fields(row.to_dict())
+            task = _task_dict(row)
             task["guest"] = {}
             if row.guest:
                 task["guest"] = row.guest.to_dict()
@@ -1227,7 +1229,7 @@ def tasks_view(request, task_id):
         return Response(resp)
 
     resp = {"error": False}
-    entry = _strip_mt_task_fields(task.to_dict())
+    entry = _task_dict(task)
     if entry["category"] != "url":
         entry["target"] = entry["target"].rsplit("/", 1)[-1]
     entry["guest"] = {}
@@ -1256,7 +1258,7 @@ def tasks_view(request, task_id):
                 return _denied
             resp["error"] = []
             if task:
-                entry = _strip_mt_task_fields(task.to_dict())
+                entry = _task_dict(task)
                 if entry["category"] != "url":
                     entry["target"] = entry["target"].rsplit("/", 1)[-1]
                     entry["guest"] = {}
@@ -3217,7 +3219,7 @@ def tasks_latest(request, hours):
     resp["error"] = []
     timestamp = datetime.now() - timedelta(hours=int(hours))
     ids = db.list_tasks(completed_after=timestamp, visible_to=viewer_for(request.user))
-    resp["ids"] = [_strip_mt_task_fields(id.to_dict()) for id in ids]
+    resp["ids"] = [_task_dict(id) for id in ids]
     return Response(resp)
 
 

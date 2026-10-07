@@ -9,6 +9,7 @@ if TYPE_CHECKING:
 
 from .db_common import Base, _utcnow_naive, tasks_tags
 try:
+    from sqlalchemy.ext.hybrid import hybrid_property
     from sqlalchemy.orm import Mapped, mapped_column, relationship
     from sqlalchemy import (
         Boolean,
@@ -19,6 +20,8 @@ try:
         Integer,
         String,
         Text,
+        func,
+        select,
     )
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
@@ -49,6 +52,30 @@ ALL_DB_STATUSES = (
     TASK_FAILED_REPORTING,
     TASK_DISTRIBUTED_COMPLETED,
 )
+
+# What a task with no task_acl row means. Must stay equal to the fail-closed defaults the
+# policy layer (lib/cuckoo/common/tenancy.py) and the mongo stamp assume.
+ACL_DEFAULT_VISIBILITY = "private"
+_ACL_DEFAULTS = {"tenant_id": None, "visibility": ACL_DEFAULT_VISIBILITY}
+
+
+class TaskAcl(Base):
+    """Per-task multitenancy ACL (tenant owner + visibility). Only populated when a task
+    carries non-default tenancy, i.e. in practice only on multitenancy-enabled installs.
+    Owner is tasks.user_id, which predates multitenancy and stays on tasks.
+
+    ON DELETE CASCADE: an ACL must never outlive its task. Without it, a reused task id
+    (SQLite without AUTOINCREMENT, or an auto-increment reset) could inherit a deleted
+    task's grants."""
+
+    __tablename__ = "task_acl"
+
+    task_id: Mapped[int] = mapped_column(ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True)
+    tenant_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
+    visibility: Mapped[str] = mapped_column(String(16), nullable=False, server_default=ACL_DEFAULT_VISIBILITY)
+
+    def __repr__(self):
+        return f"<TaskAcl(task={self.task_id}, tenant={self.tenant_id}, visibility={self.visibility!r})>"
 
 
 class Task(Base):
@@ -138,13 +165,55 @@ class Task(Base):
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     user_id: Mapped[Optional[int]] = mapped_column(nullable=True)
-    # index=True so a FRESH install (schema via Base.metadata.create_all(), which skips Alembic)
-    # gets ix_tasks_tenant_id too — the migration (3_add_tenant_visibility) creates it on MIGRATED
-    # installs, so without this the tenant-scoped list_tasks/count_* filters seq-scan on fresh MT
-    # installs. SQLAlchemy's default name (ix_tasks_tenant_id) matches the migration's, so the two
-    # provisioning paths converge.
-    tenant_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
-    visibility: Mapped[str] = mapped_column(String(16), nullable=False, server_default="private")
+
+    # Multitenancy ACL lives in the task_acl side table, NOT on tasks, so a single-tenant
+    # install carries no tenancy columns, no migration rewrite of tasks, and no extra keys in
+    # to_dict(). ABSENT ROW == (tenant_id=None, visibility="private"), which is exactly the old
+    # column defaults, so policy semantics are unchanged. lazy="joined" so the ACL is loaded
+    # with the task: many callers read task.visibility on detached instances (view_task etc.),
+    # where a lazy load would raise DetachedInstanceError. On an MT-off install task_acl is
+    # empty, so the LEFT OUTER JOIN on its primary key is effectively free.
+    acl: Mapped[Optional["TaskAcl"]] = relationship(
+        uselist=False, lazy="joined", cascade="all, delete-orphan", passive_deletes=True
+    )
+
+    @hybrid_property
+    def tenant_id(self) -> Optional[int]:
+        return self.acl.tenant_id if self.acl is not None else None
+
+    @tenant_id.inplace.setter
+    def _tenant_id_setter(self, value: Optional[int]) -> None:
+        self._set_acl("tenant_id", value)
+
+    @tenant_id.inplace.expression
+    @classmethod
+    def _tenant_id_expression(cls):
+        return select(TaskAcl.tenant_id).where(TaskAcl.task_id == cls.id).correlate_except(TaskAcl).scalar_subquery()
+
+    @hybrid_property
+    def visibility(self) -> str:
+        return self.acl.visibility if self.acl is not None else ACL_DEFAULT_VISIBILITY
+
+    @visibility.inplace.setter
+    def _visibility_setter(self, value: str) -> None:
+        self._set_acl("visibility", value or ACL_DEFAULT_VISIBILITY)
+
+    @visibility.inplace.expression
+    @classmethod
+    def _visibility_expression(cls):
+        return func.coalesce(
+            select(TaskAcl.visibility).where(TaskAcl.task_id == cls.id).correlate_except(TaskAcl).scalar_subquery(),
+            ACL_DEFAULT_VISIBILITY,
+        )
+
+    def _set_acl(self, field: str, value) -> None:
+        """Write one ACL field. Writing the default onto a task with no ACL row is a no-op, so
+        the absent-row == default invariant holds and no row is created needlessly."""
+        if self.acl is None:
+            if value == _ACL_DEFAULTS[field]:
+                return
+            self.acl = TaskAcl(tenant_id=None, visibility=ACL_DEFAULT_VISIBILITY)
+        setattr(self.acl, field, value)
 
     # The Task is linked to one specific parent/child association event
     association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task", cascade="all, delete-orphan")

@@ -33,6 +33,9 @@ from lib.common.defines import (
 log = logging.getLogger(__name__)
 
 BUFSIZE = 0x10000
+# Backoff for a pipe server that cannot create its named pipe.
+PIPE_RETRY_DELAY_MS = 100
+MAX_PIPE_FAILURES = 100
 open_handles = set()
 INVALID_HANDLE_VALUE_PTR = c_void_p(-1).value
 
@@ -126,7 +129,14 @@ class PipeDispatcher(threading.Thread):
         self.do_run = True
 
     def _read_message(self, buf):
-        """Reads a message."""
+        """Reads a message.
+
+        buf.value stops at the first NUL byte and ignores bytes_read, so a
+        message containing an embedded NUL was silently truncated and the rest
+        of it was parsed as a new command. Use the length the API reports and
+        strip the trailing NUL terminator the monitor writes, which is what
+        buf.value used to remove implicitly.
+        """
         bytes_read = c_uint()
         ret = b""
 
@@ -134,11 +144,9 @@ class PipeDispatcher(threading.Thread):
             success = KERNEL32.ReadFile(self.pipe_handle, byref(buf), sizeof(buf), byref(bytes_read), None)
 
             if KERNEL32.GetLastError() == ERROR_MORE_DATA:
-                # ret += buf.raw[:bytes_read.value]
-                ret += buf.value
+                ret += buf.raw[: bytes_read.value]
             elif success:
-                # return ret + buf.raw[:bytes_read.value]
-                return ret + buf.value
+                return (ret + buf.raw[: bytes_read.value]).rstrip(b"\x00")
             else:
                 return
 
@@ -175,6 +183,8 @@ class PipeServer(threading.Thread):
         self.handlers = set()
 
     def run(self):
+        consecutive_failures = 0
+
         while self.do_run:
             # Create the Named Pipe.
             sd = SECURITY_DESCRIPTOR()
@@ -210,13 +220,29 @@ class PipeServer(threading.Thread):
                 )
 
             if pipe_handle in (None, INVALID_HANDLE_VALUE, INVALID_HANDLE_VALUE_PTR):
-                log.warning("Error opening logging pipe server")
+                # Without the sleep this is a spin loop: a pipe name that can
+                # never be created (instance exhaustion, a failed security
+                # descriptor, something squatting the name) burned a core and
+                # flooded the log for the rest of the analysis.
+                consecutive_failures += 1
+                if consecutive_failures == 1:
+                    log.warning("Error opening pipe server %s, last error %d", self.pipe_name, KERNEL32.GetLastError())
+                if consecutive_failures >= MAX_PIPE_FAILURES:
+                    log.error("Giving up on pipe server %s after %d consecutive failures", self.pipe_name, consecutive_failures)
+                    return
+                KERNEL32.Sleep(PIPE_RETRY_DELAY_MS)
                 continue
+
+            consecutive_failures = 0
 
             if KERNEL32.ConnectNamedPipe(pipe_handle, None) or KERNEL32.GetLastError() == ERROR_PIPE_CONNECTED:
                 handler = self.pipe_handler(pipe_handle, **self.kwargs)
                 handler.daemon = True
                 handler.start()
+                # Handlers are kept only so stop() can reach the live ones; a
+                # long analysis with many monitored processes would otherwise
+                # accumulate finished threads here for its whole duration.
+                self.handlers = {h for h in self.handlers if h.is_alive()}
                 self.handlers.add(handler)
             else:
                 KERNEL32.CloseHandle(pipe_handle)

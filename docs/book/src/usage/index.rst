@@ -11,6 +11,7 @@ This chapter explains how to use CAPE.
     internals
     submit
     web
+    multitenancy
     api
     audit
     dist

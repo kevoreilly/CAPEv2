@@ -23,16 +23,33 @@ try:
     from watchdog.observers import Observer
 
     class MyEventHandler(FileSystemEventHandler):
+        def __init__(self):
+            super().__init__()
+            self._uploaded = {}
+
         def on_any_event(self, event: FileSystemEvent) -> None:
-            if event.event_type == EVENT_TYPE_DELETED:
+            if event.is_directory or event.event_type in (EVENT_TYPE_DELETED, "opened"):
+                return
+            target_path = getattr(event, "dest_path", None) or event.src_path
+            if not target_path:
                 return
             try:
-                filename = os.path.basename(event.src_path)
-                if not filename.endswith((".part", "desktop.ini")):
-                    log.info("Monitor uploading %s", filename)
-                    upload_to_host(event.src_path, f"files/{filename}")
+                filename = os.path.basename(target_path)
+                if filename.endswith((".part", ".tmp", ".crdownload", "desktop.ini")):
+                    return
+                if not os.path.exists(target_path):
+                    return
+                st = os.stat(target_path)
+                if st.st_size == 0:
+                    return
+                sig = (st.st_size, st.st_mtime)
+                if self._uploaded.get(target_path) == sig:
+                    return
+                log.info("Monitor uploading %s", filename)
+                upload_to_host(target_path, f"files/{filename}")
+                self._uploaded[target_path] = sig
             except Exception as e:
-                log.exception("Can't upload new file %s to host. %s", event.src_path, str(e))
+                log.exception("Can't upload new file %s to host. %s", target_path, str(e))
 
     HAVE_WATCHDOG = True
 except ImportError as e:

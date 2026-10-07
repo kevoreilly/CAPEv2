@@ -3168,7 +3168,7 @@ def cuckoo_status(request):
 @csrf_exempt
 @api_view(["GET"])
 def task_x_hours(request):
-    session = db.Session()
+    session = db.session()
     if not multitenancy_config().enabled:
         # Multitenancy disabled: reproduce upstream verbatim, including the
         # pre-existing reversed between() args (now, now-1day) that make this

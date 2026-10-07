@@ -96,11 +96,20 @@ maco = ["maco"]
 gcp = ["google-cloud-storage", "google-cloud-pubsub"]
 yara = ["plyara"]
 mcp = ["fastmcp", "httpx"]
-dist = [
-    "fastapi",
+azure = [
+    "azure-identity",
+    "msrest",
+    "msrestazure",
+    "azure-mgmt-compute",
+    "azure-mgmt-network",
+    "azure-mgmt-storage",
+    "azure-storage-blob",
 ]
 
 [dependency-groups]
+dist = [
+    "fastapi",
+]
 dev = [
     "black>=24.3.0",
     "isort>=5.10.1",

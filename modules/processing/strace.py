@@ -63,6 +63,7 @@ class ParseProcessLog(list):
         self.children_ids = []
         self.first_seen = None
         self.process_name = None
+        self.module_path = None
         self.calls = self
         self.file_descriptors = []
         self.options = options
@@ -127,6 +128,8 @@ class ParseProcessLog(list):
                     self.process_name = " ".join(ast.literal_eval(args[1]))
                 except Exception:
                     self.process_name = str(args[1])
+                if len(args) > 0:
+                    self.module_path = args[0].strip('"').strip("'")
 
             if syscall in ["fork", "vfork", "clone", "clone3"]:
                 # Identify if thread or fork with reference to:
@@ -390,6 +393,7 @@ class Processes:
                 {
                     "process_id": current_log.process_id,
                     "process_name": current_log.process_name,
+                    "module_path": current_log.module_path or "",
                     "parent_id": None,
                     "first_seen": current_log.first_seen,
                     "calls": current_log.calls,
@@ -449,6 +453,7 @@ class ProcessTree:
                 "name": process["process_name"],
                 "pid": process["process_id"],
                 "parent_id": process["parent_id"],
+                "module_path": process.get("module_path", ""),
                 "children": [],
             }
         )

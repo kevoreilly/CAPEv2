@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 from lib.common.abstracts import Package
+from lib.common.common import check_file_extension
 
 
 class Msi(Package):
@@ -16,6 +17,7 @@ class Msi(Package):
     to run the sample."""
 
     def start(self, path):
+        path = check_file_extension(path, ".msi")
         msi_path = self.get_path("msiexec.exe")
         msi_args = f'/I "{path}" /qb ACCEPTEULA=1 LicenseAccepted=1'
         return self.execute(msi_path, msi_args, path)

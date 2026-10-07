@@ -13,7 +13,6 @@ import sys
 import tempfile
 import time
 import traceback
-import zipfile
 from pathlib import Path
 from threading import Thread
 from urllib.parse import urlencode
@@ -145,6 +144,8 @@ class Analyzer:
 
     def __init__(self):
         self.target = None
+        self.options = {}
+        self.config = None
 
     def prepare(self):
         """Prepare env for analysis."""
@@ -171,10 +172,7 @@ class Analyzer:
             self.target = os.path.join(tempfile.gettempdir(), self.config.file_name)
         # If it's a URL, well.. we store the URL.
         elif self.config.category == "archive":
-            zip_path = os.path.join(os.environ.get("TEMP", "/tmp"), self.config.file_name)
-            with zipfile.ZipFile(zip_path) as zf:
-                zf.extractall(os.environ.get("TEMP", "/tmp"))
-            self.target = os.path.join(os.environ.get("TEMP", "/tmp"), self.config.options["filename"])
+            self.target = os.path.join(os.environ.get("TEMP", "/tmp"), self.config.file_name)
         else:
             self.target = self.config.target
 
@@ -250,11 +248,13 @@ class Analyzer:
         if not package_class:
             raise Exception("Could not find an appropriate analysis package")
         # Package initialization
-        kwargs = {"options": self.config.options, "timeout": self.config.timeout, "strace_ouput": PATHS["logs"]}
+        kwargs = {"options": self.config.options, "timeout": self.config.timeout, "strace_output": PATHS["logs"]}
 
         # Initialize the analysis package.
-        # pack = package_class(self.config.get_options())
-        pack = package_class(self.target, **kwargs)
+        if package_class.__name__ == "Archive":
+            pack = package_class(self.config.get_options())
+        else:
+            pack = package_class(self.target, **kwargs)
         # Initialize Auxiliary modules
         Auxiliary()
         prefix = f"{auxiliary.__name__}."
@@ -278,7 +278,10 @@ class Analyzer:
                 log.debug('Initialized auxiliary module "%s"', module.__name__)
                 aux_avail.append(aux)
                 log.debug('Trying to start auxiliary module "%s"...', module.__name__)
-                aux.start()
+                if isinstance(aux, Thread):
+                    Thread.start(aux)
+                else:
+                    aux.start()
                 log.debug('Started auxiliary module "%s"', module.__name__)
                 aux_enabled.append(aux)
             except (NotImplementedError, AttributeError):
@@ -289,8 +292,10 @@ class Analyzer:
         # Start analysis package. If for any reason, the execution of the
         # analysis package fails, we have to abort the analysis.
         try:
-            # pids = pack.start(self.target)
-            pids = pack.start()
+            try:
+                pids = pack.start(self.target)
+            except TypeError:
+                pids = pack.start()
         except NotImplementedError:
             raise CuckooError(f'The package "{package_class}" doesn\'t contain a run function')
         except CuckooPackageError as e:

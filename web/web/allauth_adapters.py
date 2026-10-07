@@ -361,9 +361,15 @@ if not settings.EMAIL_CONFIRMATION:
 
 @receiver(email_confirmed)
 def email_confirmed_(request, email_address, **kwargs):
-    user = User.objects.get(email=email_address.email)
-    user.is_active = not settings.MANUAL_APPROVE
-    user.save()
+    try:
+        user = email_address.user
+        if user:
+            user.is_active = not settings.MANUAL_APPROVE
+            user.save()
+        else:
+            log.warning("email_confirmed signal received but email_address.user is None for %s", email_address.email)
+    except Exception as e:
+        log.error("Error activating user after email confirmation for %s: %s", email_address.email, e)
 
 
 class MySocialAccountAdapter(DefaultSocialAccountAdapter):

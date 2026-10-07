@@ -3,6 +3,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import errno
+import hashlib
 import json
 import logging
 import multiprocessing
@@ -10,6 +11,7 @@ import os
 import signal
 import socket
 import struct
+import tempfile
 from contextlib import suppress
 from threading import Lock, Thread
 
@@ -179,15 +181,22 @@ class HandlerContext:
             line, self.buf = self.buf[:pos], self.buf[pos + 1 :]
             return line
 
-    def copy_to_fd(self, fd, max_size=None):
+    def copy_to_fd(self, fd, max_size=None, hasher=None):
         if max_size:
-            fd = WriteLimiter(fd, max_size)
-        fd.write(self.drain_buffer())
+            fd = WriteLimiter(fd, max_size, hasher=hasher)
+            hasher = None
+        buf = self.drain_buffer()
+        if buf:
+            fd.write(buf)
+            if hasher is not None:
+                hasher.update(buf)
         while True:
             buf = self.read()
             if buf == b"":
                 break
             fd.write(buf)
+            if hasher is not None:
+                hasher.update(buf)
         fd.flush()
 
     def discard(self):
@@ -201,9 +210,10 @@ class HandlerContext:
 
 
 class WriteLimiter:
-    def __init__(self, fd, remain):
+    def __init__(self, fd, remain, hasher=None):
         self.fd = fd
         self.remain = remain
+        self.hasher = hasher
         self.warned = False
 
     def write(self, buf):
@@ -211,12 +221,18 @@ class WriteLimiter:
         write = min(size, self.remain)
         try:
             if write:
-                self.fd.write(buf[:write])
+                chunk = buf[:write]
+                self.fd.write(chunk)
+                if self.hasher is not None:
+                    self.hasher.update(chunk)
                 self.remain -= write
             if size and size != write:
                 if not self.warned:
                     log.warning("Uploaded file length larger than upload_max_size, stopping upload")
-                    self.fd.write(b"... (truncated)")
+                    trunc = b"... (truncated)"
+                    self.fd.write(trunc)
+                    if self.hasher is not None:
+                        self.hasher.update(trunc)
                     self.warned = True
         except Exception as e:
             log.debug("Failed to upload file due to '%s'", e)
@@ -224,9 +240,54 @@ class WriteLimiter:
     def flush(self):
         self.fd.flush()
 
+    def tell(self):
+        return self.fd.tell()
+
     def __del__(self):
         if self.fd:
             self.fd.close()
+
+
+# Per-task locks and state for ResultServer file deduplication and versioning
+_task_file_state_lock = Lock()
+_task_file_locks = {}
+_task_sha256_to_path = {}
+_task_path_to_sha256 = {}
+_task_filelog_seen = {}
+
+
+def _get_task_file_state(task_id):
+    with _task_file_state_lock:
+        if task_id not in _task_file_locks:
+            _task_file_locks[task_id] = Lock()
+            _task_sha256_to_path[task_id] = {}
+            _task_path_to_sha256[task_id] = {}
+            _task_filelog_seen[task_id] = set()
+        return (
+            _task_file_locks[task_id],
+            _task_sha256_to_path[task_id],
+            _task_path_to_sha256[task_id],
+            _task_filelog_seen[task_id],
+        )
+
+
+def _cleanup_task_file_state(task_id):
+    with _task_file_state_lock:
+        _task_file_locks.pop(task_id, None)
+        _task_sha256_to_path.pop(task_id, None)
+        _task_path_to_sha256.pop(task_id, None)
+        _task_filelog_seen.pop(task_id, None)
+
+
+def _compute_file_sha256(filepath):
+    h = hashlib.sha256()
+    try:
+        with open(filepath, "rb") as f:
+            while chunk := f.read(65536):
+                h.update(chunk)
+        return h.hexdigest()
+    except OSError:
+        return None
 
 
 class FileUpload(ProtocolHandler):
@@ -239,6 +300,38 @@ class FileUpload(ProtocolHandler):
     def __del__(self):
         if self.fd:
             self.fd.close()
+
+    def _write_filelog(self, rel_path, filepath, pids, ppids, metadata, category, seen_set=None):
+        if rel_path.startswith(
+            ("shots/", "curtain/", "aux/", "sysmon/", "debugger/", "tlsdump/", "evtx", "htmldump/")
+        ):
+            return
+
+        filepath_str = filepath.decode("utf-8", "replace") if filepath else ""
+        metadata_str = metadata.decode("utf-8", "replace") if metadata else ""
+        cat_str = category.decode() if category in (b"CAPE", b"files", b"memory", b"procdump") else ""
+
+        entry_key = (rel_path, filepath_str, tuple(pids), tuple(ppids), metadata_str, cat_str)
+        if seen_set is not None:
+            if entry_key in seen_set:
+                return
+            seen_set.add(entry_key)
+
+        with open(self.filelog, "a") as f:
+            print(
+                json.dumps(
+                    {
+                        "path": rel_path,
+                        "filepath": filepath_str,
+                        "pids": pids,
+                        "ppids": ppids,
+                        "metadata": metadata_str,
+                        "category": cat_str,
+                    },
+                    ensure_ascii=False,
+                ),
+                file=f,
+            )
 
     def handle(self):
         # Read until newline for file path, e.g.,
@@ -261,68 +354,159 @@ class FileUpload(ProtocolHandler):
         else:
             filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
-        log.debug("Task #%s: Uploading file %s", self.task_id, dump_path.decode())
-        if not duplicated:
-            file_path = os.path.join(self.storagepath, dump_path.decode())
+        rel_dump_path = dump_path.decode("utf-8", "replace")
+        log.debug("Task #%s: Uploading file %s", self.task_id, rel_dump_path)
 
-            try:
-                if file_path.endswith("_script.log"):
-                    self.fd = open_inclusive(file_path)
-                elif is_replaceable_result_upload(dump_path) and path_exists(file_path):
-                    # Auxiliary modules (tlsdump, network_etw, sslkeylogfile…)
-                    # upload the SAME dump_path periodically so accumulated
-                    # key / connection data survives an unexpected analysis
-                    # termination. Each upload is a full replacement of the
-                    # prior content — truncate and rewrite rather than failing
-                    # silently with EEXIST.
-                    self.fd = open(file_path, "wb")
-                else:
-                    # open_exclusive will fail if file_path already exists
-                    self.fd = open_exclusive(file_path)
-            except OSError as e:
-                log.debug("File upload error for %s (task #%s)", dump_path, self.task_id)
-                if e.errno == errno.EEXIST:
-                    raise CuckooOperationalError(
-                        "Task #%s: Analyzer tried to overwrite an existing file: %s" % (self.task_id, file_path)
-                    )
-                raise
-        # ToDo we need Windows path
-        # filter screens/curtain/sysmon
-        if not dump_path.startswith(
-            (b"shots/", b"curtain/", b"aux/", b"sysmon/", b"debugger/", b"tlsdump/", b"evtx", b"htmldump/")
-        ):
-            # Append-writes are atomic
-            with open(self.filelog, "a") as f:
-                print(
-                    json.dumps(
-                        {
-                            "path": dump_path.decode("utf-8", "replace"),
-                            "filepath": filepath.decode("utf-8", "replace") if filepath else "",
-                            "pids": pids,
-                            "ppids": ppids,
-                            "metadata": metadata.decode("utf-8", "replace"),
-                            "category": category.decode() if category in (b"CAPE", b"files", b"memory", b"procdump") else "",
-                        },
-                        ensure_ascii=False,
-                    ),
-                    file=f,
-                )
+        task_lock, sha256_map, path_map, seen_set = _get_task_file_state(self.task_id)
 
-        if not duplicated:
+        if duplicated:
+            with task_lock:
+                self._write_filelog(rel_dump_path, filepath, pids, ppids, metadata, category, seen_set=seen_set)
+            return
+
+        file_path = os.path.join(self.storagepath, rel_dump_path)
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+
+        if file_path.endswith("_script.log") or is_replaceable_result_upload(dump_path):
+            self.fd = open_inclusive(file_path) if file_path.endswith("_script.log") else open(file_path, "wb")
+            with task_lock:
+                self._write_filelog(rel_dump_path, filepath, pids, ppids, metadata, category, seen_set=seen_set)
             self.handler.sock.settimeout(None)
             try:
                 return self.handler.copy_to_fd(self.fd, self.upload_max_size)
             except Exception as e:
-                if self.fd:
+                log.debug("Task #%s: Failed to upload replaceable log %s due to '%s'", self.task_id, rel_dump_path, e)
+            return
+
+        # Stream to a temporary file in the target folder while computing SHA256
+        hasher = hashlib.sha256()
+        tmp_fd = tempfile.NamedTemporaryFile(
+            dir=os.path.dirname(file_path),
+            prefix=".tmp_upload_",
+            delete=False,
+        )
+        tmp_path = tmp_fd.name
+        self.fd = tmp_fd
+        self.handler.sock.settimeout(None)
+        try:
+            self.handler.copy_to_fd(self.fd, self.upload_max_size, hasher=hasher)
+        except Exception as e:
+            log.debug(
+                "Task #%s: Failed to upload file %s due to '%s'",
+                self.task_id,
+                rel_dump_path,
+                e,
+            )
+            self.fd.close()
+            self.fd = None
+            with suppress(OSError):
+                os.unlink(tmp_path)
+            return
+        finally:
+            if self.fd:
+                self.fd.close()
+                self.fd = None
+
+        new_sha256 = hasher.hexdigest()
+        try:
+            new_size = os.path.getsize(tmp_path)
+        except OSError:
+            new_size = 0
+
+        with task_lock:
+            # Ensure existing target file on disk is indexed in path_map / sha256_map
+            if path_exists(file_path) and rel_dump_path not in path_map:
+                existing_sha = _compute_file_sha256(file_path)
+                if existing_sha:
+                    path_map[rel_dump_path] = existing_sha
+                    try:
+                        ex_size = os.path.getsize(file_path)
+                    except OSError:
+                        ex_size = 0
+                    if ex_size > 0 or existing_sha not in sha256_map:
+                        sha256_map.setdefault(existing_sha, rel_dump_path)
+
+            # Check if we already stored a file with this exact SHA256
+            existing_same_hash_rel = sha256_map.get(new_sha256)
+            if existing_same_hash_rel:
+                existing_same_hash_full = os.path.join(self.storagepath, existing_same_hash_rel)
+                try:
+                    ex_same_size = os.path.getsize(existing_same_hash_full) if path_exists(existing_same_hash_full) else -1
+                except OSError:
+                    ex_same_size = -1
+                if ex_same_size < 0 or (ex_same_size == 0 and new_size > 0):
+                    existing_same_hash_rel = None
+
+            if existing_same_hash_rel:
+                # Duplicate SHA256: discard temp file and map metadata to existing file
+                with suppress(OSError):
+                    os.unlink(tmp_path)
+                final_rel_path = existing_same_hash_rel
+                log.debug(
+                    "Task #%s: Deduplicated uploaded file %s (SHA256 %s matches %s)",
+                    self.task_id,
+                    rel_dump_path,
+                    new_sha256,
+                    final_rel_path,
+                )
+            elif not path_exists(file_path):
+                # Destination is free and content is unique
+                os.replace(tmp_path, file_path)
+                path_map[rel_dump_path] = new_sha256
+                sha256_map[new_sha256] = rel_dump_path
+                final_rel_path = rel_dump_path
+            else:
+                # Destination path already exists on disk
+                try:
+                    existing_size = os.path.getsize(file_path)
+                except OSError:
+                    existing_size = 0
+
+                if existing_size == 0 and new_size > 0:
+                    # Replace 0-byte placeholder file in-place
+                    old_sha = path_map.get(rel_dump_path)
+                    if old_sha and sha256_map.get(old_sha) == rel_dump_path:
+                        sha256_map.pop(old_sha, None)
+                    os.replace(tmp_path, file_path)
+                    path_map[rel_dump_path] = new_sha256
+                    sha256_map[new_sha256] = rel_dump_path
+                    final_rel_path = rel_dump_path
                     log.debug(
-                        "Task #%s: Failed to uploaded file %s of length %s due to '%s'",
+                        "Task #%s: Replaced 0-byte file %s with %d bytes (SHA256 %s)",
                         self.task_id,
-                        dump_path.decode(),
-                        self.fd.tell(),
-                        e,
+                        rel_dump_path,
+                        new_size,
+                        new_sha256,
                     )
+                elif new_size == 0 and existing_size > 0:
+                    # Ignore 0-byte upload when a non-empty file already exists
+                    with suppress(OSError):
+                        os.unlink(tmp_path)
+                    final_rel_path = rel_dump_path
                 else:
-                    log.debug("Task #%s: Failed to uploaded file %s due to '%s'", self.task_id, dump_path.decode(), e)
+                    # Different content for same filename -> create versioned file
+                    dirname, basename = os.path.split(rel_dump_path)
+                    stem, ext = os.path.splitext(basename)
+                    version = 1
+                    while True:
+                        candidate_rel = os.path.join(dirname, f"{stem}_{version}{ext}") if dirname else f"{stem}_{version}{ext}"
+                        candidate_full = os.path.join(self.storagepath, candidate_rel)
+                        if not path_exists(candidate_full):
+                            break
+                        version += 1
+                    os.replace(tmp_path, candidate_full)
+                    path_map[candidate_rel] = new_sha256
+                    sha256_map[new_sha256] = candidate_rel
+                    final_rel_path = candidate_rel
+                    log.info(
+                        "Task #%s: Versioned colliding file %s -> %s (SHA256 %s)",
+                        self.task_id,
+                        rel_dump_path,
+                        final_rel_path,
+                        new_sha256,
+                    )
+
+            self._write_filelog(final_rel_path, filepath, pids, ppids, metadata, category, seen_set=seen_set)
 
 
 class LogHandler(ProtocolHandler):
@@ -533,6 +717,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
             task_log_stop_force(task_id)
+        _cleanup_task_file_state(task_id)
 
     def create_folders(self):
         for folder in list(RESULT_UPLOADABLE) + [b"logs"]:
@@ -693,6 +878,7 @@ class SingleVMResultServerWorker(GeventResultServerWorker):
             for ctx in ctxs:
                 ctx.cancel()
             task_log_stop_force(task_id)
+        _cleanup_task_file_state(task_id)
 
 
 # Use a SPAWN context (not the default fork) for the per-VM ResultServer worker

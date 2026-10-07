@@ -21,6 +21,7 @@
 <!-- Modernization PoC: HTMX Integration -->
 <script src="{{ STATIC_URL }}js/htmx.min.js"></script>
 <script src="{{ STATIC_URL }}js/response-targets.js"></script>
+<script src="{{ STATIC_URL }}js/pako_inflate.min.js"></script>
 {% block extra_head %}{% endblock %}
 </head>
 <body hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>

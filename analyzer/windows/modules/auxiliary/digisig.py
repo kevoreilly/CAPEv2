@@ -150,8 +150,7 @@ class DigiSig(Auxiliary):
                     upload.seek(0)
                     nf = NetlogFile()
                     nf.init("aux/DigiSig.json")
-                    for chunk in upload:
-                        nf.sock.send(chunk)
+                    nf.send_fileobj(upload)
                     nf.close()
 
         except Exception as e:

@@ -105,11 +105,11 @@ azure = [
     "azure-mgmt-storage",
     "azure-storage-blob",
 ]
+
+[dependency-groups]
 dist = [
     "fastapi",
 ]
-
-[dependency-groups]
 dev = [
     "black>=24.3.0",
     "isort>=5.10.1",

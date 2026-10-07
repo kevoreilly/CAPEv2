@@ -1903,6 +1903,8 @@ def cron_cleaner(clean_x_hours=False):
 
 def create_app(database_connection):
     from pydantic import BaseModel
+    from fastapi import Depends, HTTPException, Security
+    from fastapi.security import APIKeyHeader
 
     class NodeRegister(BaseModel):
         name: str
@@ -1917,7 +1919,15 @@ def create_app(database_connection):
         exitnodes: Optional[bool] = None
         enabled: Optional[bool] = None
 
-    app = FastAPI(title="Distributed CAPE")
+    AUTH_TOKEN = dist_conf.distributed.get("auth_token")
+
+    api_key_header = APIKeyHeader(name="X-API-Token", auto_error=False)
+
+    def verify_auth_token(api_key: str = Security(api_key_header)):
+        if AUTH_TOKEN and api_key != AUTH_TOKEN:
+            raise HTTPException(status_code=401, detail="Invalid or missing auth token")
+
+    app = FastAPI(title="Distributed CAPE", dependencies=[Depends(verify_auth_token)] if AUTH_TOKEN else [])
 
     @app.get("/node")
     def get_nodes():

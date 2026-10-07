@@ -19,3 +19,10 @@ PATHS = {
 }
 
 OPT_CURDIR = "curdir"
+OPT_MULTI_PASSWORD = "enable_multi_password"
+OPT_PASSWORD = "password"
+OPT_RECURSION_DEPTH = "recursion_depth"
+OPT_FILE = "file"
+OPT_ARGUMENTS = "arguments"
+
+ARCHIVE_OPTIONS = (OPT_FILE, OPT_PASSWORD, OPT_RECURSION_DEPTH)

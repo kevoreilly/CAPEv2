@@ -1858,6 +1858,14 @@ def _load_evtx_channel_page(zip_path, member, page, page_size=EVTX_PAGE_SIZE, se
         return None
 
 
+def _is_ajax(request) -> bool:
+    return (
+        request.headers.get("x-requested-with") == "XMLHttpRequest"
+        or request.headers.get("hx-request") == "true"
+        or bool(request.META.get("HTTP_HX_REQUEST"))
+    )
+
+
 @require_safe
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 # @ratelimit(key="ip", rate=my_rate_seconds, block=rateblock)
@@ -1867,7 +1875,7 @@ def load_files(request, task_id, category):
     """Filters calls for call category.
     @param task_id: cuckoo task id
     """
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
+    is_ajax = _is_ajax(request)
     # Central mode: several tab loaders below read the local analysis tree (bingraph /
     # vba2graph svgs, evtx.zip, ETW aux/*.json). report() stages the S3 tree on first
     # view, but a deep-link straight to a tab can arrive before any report view — stage
@@ -2219,7 +2227,7 @@ def chunk(request, task_id, pid, pagenum):
     except Exception:
         raise PermissionDenied
 
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
+    is_ajax = _is_ajax(request)
     if is_ajax:
         if enabledconf["mongodb"]:
             record = mongo_find_one(
@@ -2281,7 +2289,7 @@ def filtered_chunk(request, task_id, pid, category, apilist, caller, tid):
     @param category: call category type
     @param apilist: comma-separated list of APIs to include, if preceded by ! specifies to exclude the list
     """
-    is_ajax = request.headers.get("x-requested-with") == "XMLHttpRequest" or request.headers.get("hx-request") == "true"
+    is_ajax = _is_ajax(request)
     if is_ajax:
         # Search calls related to your PID.
         if enabledconf["mongodb"]:
@@ -3212,7 +3220,13 @@ def report(request, task_id):
 
     if HAVE_REQUEST and enabledconf["distributed"]:
         try:
-            res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", timeout=3, verify=False)
+            headers = {}
+            from lib.cuckoo.common.config import Config
+            dist_conf = Config("distributed")
+            auth_token = dist_conf.distributed.get("auth_token")
+            if auth_token:
+                headers = {"X-API-Token": auth_token}
+            res = requests.get(f"http://127.0.0.1:9003/task/{task_id}", headers=headers, timeout=3, verify=False)
             if res and res.ok:
                 res_data = res.json()
                 if "name" in res_data:
@@ -3325,7 +3339,7 @@ def report(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @require_task_visibility
 def load_evtx_channel(request, task_id):
-    if request.headers.get("x-requested-with") != "XMLHttpRequest" and request.headers.get("hx-request") != "true":
+    if not _is_ajax(request):
         raise PermissionDenied
 
     # Central mode: evtx.zip lives in S3 until staged locally. A deep-link straight to the Event Logs tab
@@ -3360,7 +3374,7 @@ def load_evtx_channel(request, task_id):
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 @require_task_visibility
 def load_evtx_channel_count(request, task_id):
-    if request.headers.get("x-requested-with") != "XMLHttpRequest" and request.headers.get("hx-request") != "true":
+    if not _is_ajax(request):
         raise PermissionDenied
 
     # Central mode: stage the S3 tree first (see load_evtx_channel) so the count endpoint doesn't 403 on a
@@ -4519,29 +4533,6 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     if category not in allowed_categories:
         return render(request, "error.html", {"error": f"Unsupported category: {category}"}, status=400)
 
-    # Self Extracted support folder
-    path = os.path.join(CUCKOO_ROOT, "storage", "analyses", task_id, "selfextracted", sha256)
-
-    if not path_exists(path):
-        extractedfile = False
-        if category == "static":
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
-            category = "target.file"
-        elif category == "dropped":
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
-        else:
-            path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, category, sha256)
-    else:
-        # selfextracted storage is shared by multiple categories; keep non-static category intact
-        if category == "static":
-            category = "target.file"
-        extractedfile = True
-
-    if path and (not _path_safe(path) or not path_exists(path)):
-        if request.headers.get("HX-Request") or request.META.get("HTTP_HX_REQUEST"):
-            return HttpResponse(f"<div class=\"alert alert-danger m-3\"><strong>Error:</strong> File not found at {path}</div>", status=404)
-        return render(request, "error.html", {"error": "File not found: {}".format(path)})
-
     details = False
     if service in CUSTOM_SERVICES and handle_custom_service:
         details, category = handle_custom_service(service, task_id, sha256)
@@ -4565,7 +4556,12 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             extractedfile = True
 
         if path and (not _path_safe(path) or not path_exists(path)):
-            return render(request, "error.html", {"error": "File not found: {}".format(path)})
+            if request.headers.get("HX-Request") or request.META.get("HTTP_HX_REQUEST"):
+                error_msg = f"<div class=\"alert alert-danger m-3\"><strong>Error:</strong> File not found at {path}</div>"
+                if service == "bingraph":
+                    error_msg += f"<div id=\"btn-bingraph-{sha256}\" hx-swap-oob=\"delete\"></div>"
+                return HttpResponse(error_msg, status=404)
+            return render(request, "error.html", {"error": f"File not found: {path}"})
 
         details = False
         if service == "flare_capa" and HAVE_FLARE_CAPA:
@@ -4606,7 +4602,7 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
                 try:
                     bingraph_gen(bingraph_args_dict)
                 except Exception as e:
-                    print("Can't generate bingraph for {}: {}".format(sha256, e))
+                    print(f"Can't generate bingraph for {sha256}: {e}")
             except Exception as e:
                 print("Bingraph on demand error:", e)
 

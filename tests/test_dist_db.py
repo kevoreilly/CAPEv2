@@ -63,6 +63,7 @@ def test_session_wrapper_and_restart():
     mock_fastapi = MagicMock()
     if "fastapi" not in sys.modules:
         sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
 
     from sqlalchemy.exc import TimeoutError as SQLTimeoutError
     from utils.dist import SessionWrapper, restart_db_connection

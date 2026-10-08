@@ -177,3 +177,85 @@ def test_attribution_index_backfills_process_names():
     hit = idx.for_ip("8.8.8.8", dst_port=443)
 
     assert hit["process_name"] == "powershell.exe"
+
+
+def test_network_map_run_returns_bson_safe_lists():
+    from modules.processing.behavior import NetworkMap
+
+    nm = NetworkMap()
+    nm.endpoint_map[("1.2.3.4", 443)].append({"process_id": 100, "process_name": "app.exe"})
+    nm.http_host_map["evil.example.com"].append({"process_id": 100, "process_name": "app.exe"})
+    nm.dns_intents["evil.example.com"].append(
+        {"process": {"process_id": 100, "process_name": "app.exe"}, "ts_epoch": 1.0, "api": "dnsquery_a"}
+    )
+
+    out = nm.run()
+
+    assert out["endpoint_map"] == [
+        {"ip_port": "1.2.3.4:443", "pinfo": [{"process_id": 100, "process_name": "app.exe"}]}
+    ]
+    assert out["http_host_map"] == [
+        {"host": "evil.example.com", "pinfo": [{"process_id": 100, "process_name": "app.exe"}]}
+    ]
+    assert out["dns_intents"] == [
+        {
+            "domain": "evil.example.com",
+            "intents": [{"process": {"process_id": 100, "process_name": "app.exe"}, "ts_epoch": 1.0, "api": "dnsquery_a"}],
+        }
+    ]
+
+
+def test_enrich_tree_com_parents_skips_self_and_direct_children():
+    from modules.processing.behavior import _enrich_tree_com_parents
+
+    tree = [
+        {
+            "name": "explorer.exe",
+            "pid": 1000,
+            "parent_id": 400,
+            "module_path": "C:\\Windows\\explorer.exe",
+            "children": [
+                {
+                    "name": "mshta.exe",
+                    "pid": 2000,
+                    "parent_id": 1000,
+                    "module_path": "C:\\Windows\\System32\\mshta.exe",
+                    "children": [],
+                }
+            ],
+        },
+        {
+            "name": "mshta.exe",
+            "pid": 3000,
+            "parent_id": 680,  # unmonitored svchost DcomLaunch
+            "module_path": "C:\\Windows\\System32\\mshta.exe",
+            "children": [],
+        },
+    ]
+    com_activations = [
+        {
+            "clsid": "9ba05972-f6a8-11cf-a442-00a0c90a8f39",
+            "progid": "Shell.Application",
+            "activator_pid": 1000,
+            "activator_name": "explorer.exe",
+            "target_binary": "explorer.exe",
+        },
+        {
+            "clsid": "3050f4d8-98b5-11cf-bb82-00aa00bdce0b",
+            "progid": "htafile",
+            "activator_pid": 1500,
+            "activator_name": "wscript.exe",
+            "target_binary": "mshta.exe",
+        },
+    ]
+
+    _enrich_tree_com_parents(tree, com_activations)
+
+    # Self-activation on root explorer.exe is ignored
+    assert "com_logical_parent_pid" not in tree[0]
+    # Direct child mshta.exe under explorer.exe is not overwritten
+    assert "com_logical_parent_pid" not in tree[0]["children"][0]
+    # Root mshta.exe spawned by unmonitored DcomLaunch is attributed to wscript.exe
+    assert tree[1]["com_logical_parent_pid"] == 1500
+    assert tree[1]["com_logical_parent_name"] == "wscript.exe"
+

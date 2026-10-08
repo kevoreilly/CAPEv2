@@ -1384,14 +1384,14 @@ class NetworkMap:
         # BSON/JSON keys must be strings.
         # Let's convert tuple keys to string representation "ip:port"
 
-        endpoint_map_str = {}
-        for (ip, port), entries in self.endpoint_map.items():
-            endpoint_map_str[f"{ip}:{port}"] = entries
+        endpoint_map_list = [{"ip_port": f"{ip}:{port}", "pinfo": entries} for (ip, port), entries in self.endpoint_map.items()]
+        http_host_map_list = [{"host": k, "pinfo": v} for k, v in self.http_host_map.items()]
+        dns_intents_list = [{"domain": k, "intents": v} for k, v in self.dns_intents.items()]
 
         return {
-            "endpoint_map": endpoint_map_str,
-            "http_host_map": self.http_host_map,
-            "dns_intents": self.dns_intents,
+            "endpoint_map": endpoint_map_list,
+            "http_host_map": http_host_map_list,
+            "dns_intents": dns_intents_list,
             "http_requests": self.http_requests,
             "winhttp_sessions": winhttp_finalize_sessions(self._winhttp_state),
             "com_activations": self.com_activations,
@@ -1470,6 +1470,8 @@ class EncryptedBuffers:
         return self.bufs
 
 
+_COM_HOST_PARENTS = {"svchost.exe", "dllhost.exe"}
+
 
 def _enrich_tree_com_parents(tree_nodes, com_activations):
     """Walk the processtree and annotate nodes whose binary matches a COM activation record."""
@@ -1489,17 +1491,26 @@ def _enrich_tree_com_parents(tree_nodes, com_activations):
         if binary:
             binary_map.setdefault(binary, []).append(act)
 
-    def _walk(nodes):
+    def _walk(nodes, parent_name=None):
         for node in nodes:
-            path = node.get("module_path") or ""
+            path = node.get("module_path") or node.get("name") or ""
             name = path.replace("\\", "/").rsplit("/", 1)[-1].lower()
-            if name in binary_map:
-                act = binary_map[name][0]
-                node["com_logical_parent_pid"] = act["activator_pid"]
-                node["com_logical_parent_name"] = act["activator_name"]
-                node["com_progid"] = act.get("progid", "")
-                node["com_clsid"] = act.get("clsid", "")
-            _walk(node.get("children") or [])
+            if name in binary_map and (parent_name is None or parent_name in _COM_HOST_PARENTS):
+                act = next(
+                    (
+                        a
+                        for a in binary_map[name]
+                        if a.get("activator_pid") != node.get("pid")
+                        and a.get("activator_pid") != node.get("parent_id")
+                    ),
+                    None,
+                )
+                if act:
+                    node["com_logical_parent_pid"] = act["activator_pid"]
+                    node["com_logical_parent_name"] = act["activator_name"]
+                    node["com_progid"] = act.get("progid", "")
+                    node["com_clsid"] = act.get("clsid", "")
+            _walk(node.get("children") or [], parent_name=name)
 
     _walk(tree_nodes)
 

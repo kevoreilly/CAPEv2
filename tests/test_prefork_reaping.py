@@ -87,3 +87,48 @@ def test_escalate_kills_falls_back_to_kill_when_killpg_missing(monkeypatch):
 
     assert (333, signal.SIGKILL) in killed, "SIGKILL must fall back to os.kill(pid) when killpg raises ProcessLookupError"
     assert child.kill_deadline is None
+
+
+def test_shutdown_inflight_terminates_and_escalates_remaining_children(monkeypatch):
+    eng = PreforkEngine(
+        task_fn=lambda t: None, worker_init=lambda: None,
+        source=_FakeSource(), parallel=2, timeout=10, term_grace=0,
+    )
+    eng._inflight[444] = _Child(task_id=4, pid=444, start=0.0, pgid=444)
+
+    signals_sent = []
+    reaped = []
+    monkeypatch.setattr(os, "killpg", lambda pgid, sig: signals_sent.append((pgid, sig)))
+    monkeypatch.setattr(os, "waitpid", lambda pid, flags: (reaped.append((pid, flags)) or (pid, 0)))
+
+    eng._shutdown_inflight()
+
+    assert (444, signal.SIGTERM) in signals_sent
+    assert (444, signal.SIGKILL) in signals_sent
+    assert reaped == [(444, 0)]
+    assert eng._inflight == {}
+
+
+def test_check_webgui_mongo_closes_clients_before_fork(monkeypatch):
+    """check_webgui_mongo must close its temporary MongoClient and call
+    close_mongodb() so no PyMongo background monitor threads remain alive when
+    PreforkEngine._assert_single_threaded() runs."""
+    import dev_utils.mongodb as mdb_mod
+    import lib.cuckoo.core.startup as startup
+
+    closed = {"client": False, "module": False}
+
+    class _FakeClient:
+        def close(self):
+            closed["client"] = True
+
+    monkeypatch.setattr(startup.repconf.mongodb, "enabled", True)
+    monkeypatch.setattr(mdb_mod, "connect_to_mongo", lambda: _FakeClient())
+    monkeypatch.setattr(mdb_mod, "mongo_create_index", lambda *a, **k: None)
+    monkeypatch.setattr(mdb_mod, "close_mongodb", lambda: closed.__setitem__("module", True))
+
+    startup.check_webgui_mongo(exit_on_connection_failure=False)
+
+    assert closed["client"] is True, "check_webgui_mongo leaked temporary MongoClient"
+    assert closed["module"] is True, "check_webgui_mongo did not close module-level MongoClient"
+

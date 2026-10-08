@@ -94,6 +94,18 @@ if repconf.mongodb.enabled:
 
         return _results_db
 
+    def close_mongodb():
+        """Close the module-level MongoClient so no background monitor threads
+        or open sockets leak across fork()."""
+        global _client, _results_db
+        if _client is not None:
+            try:
+                _client.close()
+            except Exception:
+                pass
+            _client = None
+        _results_db = None
+
     # For legacy code that expects results_db to be an object
     class LegacyDB:
         @property
@@ -122,6 +134,9 @@ else:
     results_db = DisabledDB()
 
     def connect_to_mongo():
+        return None
+
+    def close_mongodb():
         return None
 
     def get_mongodb():

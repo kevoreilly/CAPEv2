@@ -550,36 +550,43 @@ def generic_file_extractors(
 
     futures = {}
     executed_tools = data_dictionary.setdefault("executed_tools", [])
-    # Per-call pool (pebble) or shared-per-child pool (prefork) — see the
-    # module-level lifecycle notes. A shared pool is reused across files and torn
-    # down once by the prefork child; a per-call pool is closed+joined here.
-    pool, shared_pool = _acquire_extractor_pool()
-    try:
-        # Prefer custom modules over the built-in ones, since only 1 is allowed
-        # to be the extracted_files_tool.
-        if extra_info_modules:
-            for module in extra_info_modules:
-                func_timeout = int(getattr(module, "timeout", 60))
-                funcname = module.__name__.split(".")[-1]
-                if funcname in executed_tools:
-                    continue
-                executed_tools.append(funcname)
-                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
+    to_schedule = []
 
-        for extraction_func in file_info_funcs:
-            funcname = extraction_func.__name__.split(".")[-1]
-            if (
-                not getattr(integration_conf, funcname, {}).get("enabled", False)
-                and getattr(extraction_func, "enabled", False) is False
-            ):
-                continue
-
+    # Prefer custom modules over the built-in ones, since only 1 is allowed
+    # to be the extracted_files_tool.
+    if extra_info_modules:
+        for module in extra_info_modules:
+            func_timeout = int(getattr(module, "timeout", 60))
+            funcname = module.__name__.split(".")[-1]
             if funcname in executed_tools:
                 continue
             executed_tools.append(funcname)
+            to_schedule.append((funcname, module.extract_details, func_timeout))
 
-            func_timeout = int(getattr(integration_conf, funcname, {}).get("timeout", 60))
-            futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
+    for extraction_func in file_info_funcs:
+        funcname = extraction_func.__name__.split(".")[-1]
+        if (
+            not getattr(integration_conf, funcname, {}).get("enabled", False)
+            and getattr(extraction_func, "enabled", False) is False
+        ):
+            continue
+
+        if funcname in executed_tools:
+            continue
+        executed_tools.append(funcname)
+
+        func_timeout = int(getattr(integration_conf, funcname, {}).get("timeout", 60))
+        to_schedule.append((funcname, extraction_func, func_timeout))
+
+    if not to_schedule:
+        return
+
+    # Lazily acquire the per-call pool or shared-per-task pool only when at
+    # least one extractor is actually scheduled.
+    pool, shared_pool = _acquire_extractor_pool()
+    try:
+        for funcname, fn, func_timeout in to_schedule:
+            futures[funcname] = pool.schedule(fn, args=args, kwargs=kwargs, timeout=func_timeout)
 
         for funcname, future in futures.items():
             func_result = None
@@ -630,9 +637,9 @@ def generic_file_extractors(
                     # ToDo doesn't work
                     shutil.rmtree(tempdir, ignore_errors=True)
     finally:
-        # A shared pool (prefork) is kept warm for the next file and torn down
-        # once by the child via shutdown_shared_extractor_pool(); a per-call
-        # pool (pebble) is torn down here so no nested pool outlives the call.
+        # A shared pool is kept warm for the next file in the task and torn down
+        # once via shutdown_shared_extractor_pool(); a per-call pool is torn down
+        # here so no nested pool outlives the call.
         if not shared_pool:
             _teardown_extractor_pool(pool)
 

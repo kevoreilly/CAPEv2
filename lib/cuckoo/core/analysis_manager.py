@@ -481,6 +481,7 @@ class AnalysisManager(threading.Thread):
             finally:
                 with self.db.session.begin():
                     self.db.guest_stop(self.guest.id)
+                    self.db.delete_guac_sessions_for_task(self.task.id)
 
         return succeeded
 

@@ -1650,3 +1650,22 @@ class TestDatabaseEngine:
             assert db.get_parent_sample_from_task(str(t1)) is None
             assert db.get_parent_sample_from_task("not-an-int") is None
 
+    def test_guac_session_helpers(self, db: _Database):
+        guac = db.create_guac_session("tok-1", 42, "win10_1", "192.168.122.10")
+        assert guac.token == "tok-1"
+        assert not db.session().in_transaction()
+
+        row = db.get_guac_session("tok-1")
+        assert row == {"task_id": 42, "vm_label": "win10_1", "guest_ip": "192.168.122.10"}
+        assert not db.session().in_transaction()
+
+        db.create_guac_session("tok-2", 42, "win10_1", "192.168.122.10")
+        db.delete_guac_session("tok-1")
+        assert db.get_guac_session("tok-1") is None
+        assert db.get_guac_session("tok-2") is not None
+
+        db.delete_guac_sessions_for_task(42)
+        assert db.get_guac_session("tok-2") is None
+        assert not db.session().in_transaction()
+
+

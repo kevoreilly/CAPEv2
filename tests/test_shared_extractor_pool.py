@@ -196,3 +196,23 @@ def test_prefork_child_enables_and_tears_down_shared_pool(tmp_path):
 
     assert enabled_marker.read_text() == "yes"
     assert closed_marker.read_text() == "closed"
+
+
+def test_generic_file_extractors_skips_pool_when_nothing_enabled(monkeypatch, tmp_path):
+    """When no extractor modules/functions are enabled for a file,
+    generic_file_extractors must not fork or tear down an empty ProcessPool."""
+    acquired = []
+    monkeypatch.setattr(fx, "_acquire_extractor_pool", lambda: acquired.append(1) or (_FakePool(), False))
+    monkeypatch.setattr(fx, "extra_info_modules", [])
+    monkeypatch.setattr(fx, "file_info_funcs", [])
+
+    fx.generic_file_extractors(
+        file=str(tmp_path / "dummy.bin"),
+        destination_folder=str(tmp_path / "extracted"),
+        data_dictionary={},
+        options={},
+        results={},
+        duplicated={},
+    )
+    assert acquired == [], "generic_file_extractors must not create a ProcessPool when 0 extractors are enabled"
+

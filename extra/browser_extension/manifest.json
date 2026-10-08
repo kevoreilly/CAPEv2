@@ -12,7 +12,12 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "me@domain.com"
+      "id": "me@domain.com",
+      "data_collection_permissions": {
+        "required": [
+          "none"
+        ]
+      }
     }
   },
   "background": {

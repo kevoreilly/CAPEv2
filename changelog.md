@@ -1,3 +1,6 @@
+### [08.10.2026]
+* `extra/browser_extension`: capture `requestBody` (`formData` and decoded `raw` bytes up to 4 KB) via `webRequest.onBeforeRequest`, record HTTP `statusCode` in `onCompleted`, correlate lifecycle events by `requestId` with O(1) deduplication, debounce event flushing, and fix the `browser.downloads.onChanged` listener registration.
+
 ### [06.10.2026]
 * Browser extension (URL analysis with `firefox_ext`/`chromium_ext` and `extra/browser_extension`):
     * `browsermonitor`: find the requests log written by agent >= 0.20 (random `%TEMP%` folder without the `tmp` prefix) and upload the last complete version once, when the analysis ends.

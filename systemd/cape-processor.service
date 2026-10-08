@@ -17,6 +17,7 @@ Environment=CAPE_ID=auto
 # Environment=CAPE_FAILED_PROCESSING=false
 # Environment=CAPE_MEMORY_DEBUGGING=false
 # Environment=CAPE_DISABLE_MEMORY_LIMIT=false
+# Environment=CAPE_ENGINE=pebble
 
 # Allow user overrides via file
 EnvironmentFile=-/opt/CAPEv2/conf/cape-processor.env

@@ -38,7 +38,11 @@ def test_autoprocess_prewarms_yara_before_engine_runs(monkeypatch):
 def test_init_worker_appends_handlers_without_addHandler_lock(monkeypatch, tmp_path):
     """init_worker runs in forked children; it must append handlers directly
     to log.handlers instead of calling log.addHandler() (which acquires the
-    process-wide logging._lock that may have been held across fork)."""
+    process-wide logging._lock that may have been held across fork), and must
+    not crash if a prior test reset _DATABASE to None."""
+    from lib.cuckoo.core.database import reset_database_FOR_TESTING_ONLY
+
+    reset_database_FOR_TESTING_ONLY()
     (tmp_path / "log").mkdir(exist_ok=True)
     monkeypatch.setattr(process, "CUCKOO_ROOT", str(tmp_path))
     add_handler_called = []

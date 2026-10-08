@@ -36,6 +36,7 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.exceptions import CuckooDatabaseInitializationError
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import get_options, option_dict_enabled
 from lib.cuckoo.core.database import Database, init_database
@@ -229,7 +230,8 @@ def run_task(task, memory_debugging=False, debug=False):
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
-    db.engine.dispose(close=False)
+    with suppress(CuckooDatabaseInitializationError):
+        db.engine.dispose(close=False)
 
     # Avoid fork deadlock: use direct list ops instead of
     # handler.close()/removeHandler()/addHandler() which acquire locks.

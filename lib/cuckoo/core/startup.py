@@ -306,7 +306,7 @@ def check_working_directory():
 
 def check_webgui_mongo(exit_on_connection_failure=True):
     if repconf.mongodb.enabled:
-        from dev_utils.mongodb import connect_to_mongo, mongo_create_index
+        from dev_utils.mongodb import close_mongodb, connect_to_mongo, mongo_create_index
 
         client = connect_to_mongo()
         if not client:
@@ -319,48 +319,53 @@ def check_webgui_mongo(exit_on_connection_failure=True):
             log.warning(message)
             return
 
-        # Create required indexes to improve scalability with large amounts of data.
-        # Note: Silently ignores creation if an equivalent index already exists.
-        index_configs = [
-            ("analysis", [("info.id", -1)], {"name": "info_id_desc"}),
-            ("calls", [("task_id", 1)], {"name": "task_id_1"}),
-            ("files", [("_task_ids", 1)], {}),
-        ]
-        if repconf.mongodb.get("index_yara", False):
-            index_configs.extend([
-                ("files", "yara.name", {"name": "yara_name"}),
-                ("files", "cape_yara.name", {"name": "cape_yara_name"}),
-            ])
-        if repconf.mongodb.get("index_clamav", False):
-            index_configs.append(("files", "clamav", {"name": "clamav_index"}))
-        if repconf.mongodb.get("index_hashes", False):
-            index_configs.extend([
-                ("files", "md5", {"name": "file_md5"}),
-                ("files", "sha1", {"name": "file_sha1"}),
-                ("files", "ssdeep", {"name": "file_ssdeep"}),
-            ])
-        if repconf.mongodb.get("index_detections", False):
-            index_configs.append(("analysis", [("detections.family", 1), ("_id", -1)], {"name": "detections_family_id_desc"}))
-        if repconf.mongodb.get("index_filenames", False):
-            index_configs.append(("analysis", [("target.file.name", 1), ("_id", -1)], {"name": "target_file_name_id_desc"}))
+        try:
+            # Create required indexes to improve scalability with large amounts of data.
+            # Note: Silently ignores creation if an equivalent index already exists.
+            index_configs = [
+                ("analysis", [("info.id", -1)], {"name": "info_id_desc"}),
+                ("calls", [("task_id", 1)], {"name": "task_id_1"}),
+                ("files", [("_task_ids", 1)], {}),
+            ]
+            if repconf.mongodb.get("index_yara", False):
+                index_configs.extend([
+                    ("files", "yara.name", {"name": "yara_name"}),
+                    ("files", "cape_yara.name", {"name": "cape_yara_name"}),
+                ])
+            if repconf.mongodb.get("index_clamav", False):
+                index_configs.append(("files", "clamav", {"name": "clamav_index"}))
+            if repconf.mongodb.get("index_hashes", False):
+                index_configs.extend([
+                    ("files", "md5", {"name": "file_md5"}),
+                    ("files", "sha1", {"name": "file_sha1"}),
+                    ("files", "ssdeep", {"name": "file_ssdeep"}),
+                ])
+            if repconf.mongodb.get("index_detections", False):
+                index_configs.append(("analysis", [("detections.family", 1), ("_id", -1)], {"name": "detections_family_id_desc"}))
+            if repconf.mongodb.get("index_filenames", False):
+                index_configs.append(("analysis", [("target.file.name", 1), ("_id", -1)], {"name": "target_file_name_id_desc"}))
 
-        # Obsolete indexes to drop
-        obsolete_indexes = {
-            "analysis": ["info.id_1", "detections_family", "name_1", "detections_family_1", "target_file_name_1"],
-        }
+            # Obsolete indexes to drop
+            obsolete_indexes = {
+                "analysis": ["info.id_1", "detections_family", "name_1", "detections_family_1", "target_file_name_1"],
+            }
 
-        for coll, keys, kwargs in index_configs:
-            try:
-                mongo_create_index(coll, keys, **kwargs)
-            except Exception as e:
-                log.warning("Failed to create MongoDB index %s on %s: %s", kwargs.get("name", keys), coll, e)
+            for coll, keys, kwargs in index_configs:
+                try:
+                    mongo_create_index(coll, keys, **kwargs)
+                except Exception as e:
+                    log.warning("Failed to create MongoDB index %s on %s: %s", kwargs.get("name", keys), coll, e)
 
-        # Drop obsolete indexes
-        from dev_utils.mongodb import results_db
-        for coll, indexes in obsolete_indexes.items():
-            for index_name in indexes:
-                with suppress(Exception):
-                    getattr(results_db, coll).drop_index(index_name)
+            # Drop obsolete indexes
+            from dev_utils.mongodb import results_db
+            for coll, indexes in obsolete_indexes.items():
+                for index_name in indexes:
+                    with suppress(Exception):
+                        getattr(results_db, coll).drop_index(index_name)
+        finally:
+            with suppress(Exception):
+                client.close()
+            close_mongodb()
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check
         pass

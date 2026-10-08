@@ -665,9 +665,19 @@ class NetworkETW(Processing):
         _dns_intents = (
             (self.results.get("behavior") or {})
             .get("network_map", {})
-            .get("dns_intents", {})
-        ) or {}
-        for _host, _intents in _dns_intents.items():
+            .get("dns_intents")
+        ) or []
+        if isinstance(_dns_intents, dict):
+            _dns_intent_pairs = _dns_intents.items()
+        elif isinstance(_dns_intents, list):
+            _dns_intent_pairs = [
+                (item.get("domain", ""), item.get("intents") or [])
+                for item in _dns_intents
+                if isinstance(item, dict)
+            ]
+        else:
+            _dns_intent_pairs = ()
+        for _host, _intents in _dns_intent_pairs:
             for _intent in _intents or []:
                 _proc_info = _intent.get("process") or {}
                 _pid = str(_proc_info.get("process_id") or "")

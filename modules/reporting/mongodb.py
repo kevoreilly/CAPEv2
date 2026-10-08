@@ -14,7 +14,13 @@ from lib.cuckoo.common.config import Config
 try:
     from pymongo.errors import InvalidDocument, OperationFailure
 
-    from dev_utils.mongodb import mongo_delete_data, mongo_find_one, mongo_insert_one, mongo_update_one
+    from dev_utils.mongodb import (  # noqa: F401
+        mongo_collection_names,
+        mongo_delete_data,
+        mongo_find_one,
+        mongo_insert_one,
+        mongo_update_one,
+    )
 
     HAVE_MONGO = True
 except ImportError:

@@ -184,36 +184,98 @@ class PreforkEngine(ProcessingEngine):
                                 child.task_id, child.pid, e)
                 child.kill_deadline = None
 
+    def _shutdown_inflight(self):
+        """Terminate and reap all in-flight child process groups on supervisor exit."""
+        if not self._inflight:
+            return
+        log.info("prefork: shutting down %d in-flight worker(s)", len(self._inflight))
+        for child in list(self._inflight.values()):
+            try:
+                os.killpg(child.pgid, signal.SIGTERM)
+            except ProcessLookupError:
+                try:
+                    os.kill(child.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+            except OSError as e:
+                log.warning("prefork: shutdown killpg(SIGTERM) failed for task %d (pid %d): %s",
+                            child.task_id, child.pid, e)
+
+        deadline = time.monotonic() + self.term_grace
+        while self._inflight and time.monotonic() < deadline:
+            for pid in list(self._inflight.keys()):
+                try:
+                    reaped_pid, _ = os.waitpid(pid, os.WNOHANG)
+                except ChildProcessError:
+                    self._inflight.pop(pid, None)
+                    continue
+                if reaped_pid != 0:
+                    self._inflight.pop(pid, None)
+            if self._inflight:
+                time.sleep(min(self.poll_interval, 0.1))
+
+        for pid, child in list(self._inflight.items()):
+            log.warning("prefork: task %d (pid %d) still alive after shutdown grace, sending SIGKILL",
+                        child.task_id, pid)
+            try:
+                os.killpg(child.pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                try:
+                    os.kill(child.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+            except OSError as e:
+                log.warning("prefork: shutdown killpg(SIGKILL) failed for task %d (pid %d): %s",
+                            child.task_id, pid, e)
+            try:
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                pass
+            self._inflight.pop(pid, None)
+
     def run(self):
         cfg = Config()
         count = 0
         last_hb = 0.0
-        while True:
-            self._reap()
-            self._enforce_timeouts()
-            self._escalate_kills()
-            if cfg.cuckoo.freespace_processing:
-                from lib.cuckoo.common.cleaners_utils import free_space_monitor
-                dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                free_space_monitor(dir_path, processing=True)
-            if self.max_count and count >= self.max_count and not self._inflight:
-                return
-            free = self.parallel - len(self._inflight)
-            launchable = free if not self.max_count else min(free, self.max_count - count)
-            launched = 0
-            if launchable > 0:
-                try:
-                    tasks = self.source.fetch(limit=launchable, exclude_ids=self._inflight_task_ids())
-                except Exception as db_error:
-                    log.error("Database connection error during task fetch: %s. Retrying in 10s...", db_error)
-                    time.sleep(10)
-                    continue
-                for task in tasks[:launchable]:
-                    self._launch(task)
-                    count += 1
-                    launched += 1
-            now = time.monotonic()
-            if now - last_hb >= self.heartbeat_interval:
-                self._heartbeat()
-                last_hb = now
-            time.sleep(self._sleep_interval(launched))
+        prev_sigterm = None
+        if threading.current_thread() is threading.main_thread():
+            def _on_sigterm(signum, _frame):
+                raise SystemExit(128 + signum)
+
+            prev_sigterm = signal.signal(signal.SIGTERM, _on_sigterm)
+
+        try:
+            while True:
+                self._reap()
+                self._enforce_timeouts()
+                self._escalate_kills()
+                if cfg.cuckoo.freespace_processing:
+                    from lib.cuckoo.common.cleaners_utils import free_space_monitor
+                    dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+                    free_space_monitor(dir_path, processing=True)
+                if self.max_count and count >= self.max_count and not self._inflight:
+                    return
+                free = self.parallel - len(self._inflight)
+                launchable = free if not self.max_count else min(free, self.max_count - count)
+                launched = 0
+                if launchable > 0:
+                    try:
+                        tasks = self.source.fetch(limit=launchable, exclude_ids=self._inflight_task_ids())
+                    except Exception as db_error:
+                        log.error("Database connection error during task fetch: %s. Retrying in 10s...", db_error)
+                        time.sleep(10)
+                        continue
+                    for task in tasks[:launchable]:
+                        self._launch(task)
+                        count += 1
+                        launched += 1
+                now = time.monotonic()
+                if now - last_hb >= self.heartbeat_interval:
+                    self._heartbeat()
+                    last_hb = now
+                time.sleep(self._sleep_interval(launched))
+        finally:
+            if prev_sigterm is not None:
+                signal.signal(signal.SIGTERM, prev_sigterm)
+            self._shutdown_inflight()
+

@@ -820,10 +820,30 @@ class SingleVMResultServerWorker(GeventResultServerWorker):
         super().__init__(sock, **kwargs)
         self._shared_task_id = shared_task_id
         self._vm_ip = vm_ip
+        self._active_task_id = 0
+
+    def sync_active_task(self):
+        """Cancel and clean up previous task state when shared_task_id changes or resets."""
+        current = self._shared_task_id.value
+        prev = self._active_task_id
+        if prev and prev != current:
+            self._active_task_id = current
+            self.cancel_task(prev)
+        else:
+            self._active_task_id = current
+        return current
+
+    def watch_task_changes(self, interval=0.2):
+        """Background greenlet that runs cancel_task when parent calls clear_task()."""
+        import gevent
+
+        while True:
+            self.sync_active_task()
+            gevent.sleep(interval)
 
     def handle(self, sock, addr):
         """Override handle to use shared task_id instead of IP lookup."""
-        task_id = self._shared_task_id.value
+        task_id = self.sync_active_task()
         if not task_id:
             log.warning("Worker for %s has no active task, rejecting connection from %s", self._vm_ip, addr[0])
             return
@@ -935,6 +955,7 @@ class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
         sock.listen(32)
 
         server = SingleVMResultServerWorker(sock, self._task_id, self.ip, spawn="default")
+        gevent.spawn(server.watch_task_changes)
         self._ready.set()
         log.info("ResultServer worker for VM %s started on port %d (pid %d)", self.ip, self.port, os.getpid())
         server.serve_forever()
@@ -942,7 +963,17 @@ class ResultServerWorkerProcess(_rs_spawn_ctx.Process):
     def set_task(self, task_id):
         """Register a task with this worker (called from parent process)."""
         self._task_id.value = task_id
-        self._ready.wait(timeout=10)
+        ready = self._ready.wait(timeout=10)
+        if not ready or not self.is_alive():
+            log.error(
+                "ResultServer worker for %s on %s:%s failed to become ready for task #%s",
+                self.ip,
+                self.listen_ip,
+                self.port,
+                task_id,
+            )
+            return False
+        return True
 
     def clear_task(self):
         """Clear the current task (called from parent process)."""

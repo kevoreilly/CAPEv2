@@ -8,6 +8,7 @@ from pathlib import Path
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.hooks import apply_es_filter
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_read_file
 
@@ -320,12 +321,7 @@ def static_config_parsers(cape_name: str, file_path: str, file_data: bytes) -> d
     return cape_config
 
 
-# Shared, single-source-of-truth scope builders (avoid drift with web_utils).
-from lib.cuckoo.common.tenancy_optional import viewer_scope_match as _config_lookup_scope  # noqa: E402
-from lib.cuckoo.common.tenancy_optional import viewer_scope_es_filter as _config_lookup_es_filter  # noqa: E402
-
-
-def static_config_lookup(file_path: str, sha256: str = False, viewer=None) -> dict:
+def static_config_lookup(file_path: str, sha256: str = False) -> dict:
     """
     Look up static configuration information for a given file based on its SHA-256 hash.
 
@@ -335,10 +331,6 @@ def static_config_lookup(file_path: str, sha256: str = False, viewer=None) -> di
     Args:
         file_path (str): The path to the file for which to look up configuration information.
         sha256 (str, optional): The SHA-256 hash of the file. If not provided, it will be calculated.
-        viewer: optional tenancy Viewer — when set, the dedup lookup is restricted
-            to the submitter's entitled analyses so it can't return ANOTHER
-            tenant's task id / "config exists" inference for a known hash. No-op
-            for break-glass / MT-disabled.
 
     Returns:
         dict or None: A dictionary containing the configuration information if found, otherwise None.
@@ -347,33 +339,17 @@ def static_config_lookup(file_path: str, sha256: str = False, viewer=None) -> di
         with open(file_path, "rb") as f:
             sha256 = hashlib.sha256(f.read()).hexdigest()
 
-    _scope = _config_lookup_scope(viewer)
     if repconf.mongodb.enabled:
-        _q = {"target.file.sha256": sha256}
-        if _scope:
-            _q = {"$and": [_q, _scope]}
         document_dict = mongo_find_one(
-            "analysis", _q, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", -1)]
+            "analysis", {"target.file.sha256": sha256}, {"CAPE.configs": 1, "info.id": 1, "_id": 0}, sort=[("_id", -1)]
         )
     elif repconf.elasticsearchdb.enabled:
-        _esf = _config_lookup_es_filter(viewer)
-        if _esf:
-            # MT on: scope-restricted, exact-hash term query; None on no hits.
-            _esbody = {
-                "query": {"bool": {"must": [{"term": {"target.file.sha256": sha256}}], "filter": [_esf]}},
-                "_source": ["CAPE.configs", "info.id"],
-                "sort": {"_id": {"order": "desc"}},
-            }
-            _hits = es.search(index=get_analysis_index(), body=_esbody)["hits"]["hits"]
-            document_dict = _hits[0]["_source"] if _hits else None
-        else:
-            # MT off / break-glass: behave byte-for-byte like upstream base.
-            document_dict = es.search(
-                index=get_analysis_index(),
-                body={"query": {"match": {"target.file.sha256": sha256}}},
-                _source=["CAPE.configs", "info.id"],
-                sort={"_id": {"order": "desc"}},
-            )["hits"]["hits"][0]["_source"]
+        document_dict = es.search(
+            index=get_analysis_index(),
+            body=apply_es_filter({"query": {"match": {"target.file.sha256": sha256}}}),
+            _source=["CAPE.configs", "info.id"],
+            sort={"_id": {"order": "desc"}},
+        )["hits"]["hits"][0]["_source"]
     else:
         document_dict = None
 

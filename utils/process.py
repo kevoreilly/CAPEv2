@@ -711,7 +711,7 @@ def main():
         default=os.getenv("CAPE_ENGINE") or "pebble",
         help="Processing engine: pebble (default, A/B control) or prefork.",
     )
-    if cfg.get("multitenancy") and cfg.multitenancy.get("enabled", False):
+    if getattr(cfg, "multitenancy", {}).get("enabled", False):
         parser.add_argument(
             "--visibility",
             choices=["public", "tenant", "private"],

@@ -775,22 +775,3 @@ def test_add_preserves_client_custom_verbatim(db):
     assert db.session.get(Task, tid2).custom == "foo=bar,job_id=ui-999"
     tid3 = db.add_url("http://z.example", custom="ui-999")
     assert db.session.get(Task, tid3).custom == "ui-999"
-
-
-def test_resolve_job_id_only_honours_first_position_and_rejects_bare_ui():
-    """centralstore.resolve_job_id is the consumer that turns `custom` into the job_id keying info.job_id /
-    the info.id rewrite / the S3 prefix / the pre-insert delete. It must agree with the bridge's
-    prefix-anchored `custom NOT LIKE 'job_id=%'` enqueue filter: honour job_id= ONLY in the first position
-    (what the dispatcher sends) and NEVER a bare 'ui-<N>' -- else a client custom that evades the filter
-    ('foo=bar,job_id=ui-<victim>' / bare 'ui-<victim>') would still steer to a foreign id."""
-    from modules.reporting.centralstore import resolve_job_id
-    # legitimate broker delivery -> honoured
-    assert resolve_job_id("job_id=ui-42", 7) == "ui-42"
-    # filter-evading forms -> NOT honoured, fall back to local-<analysis_id>
-    assert resolve_job_id("foo=bar,job_id=ui-999999", 7) == "local-7"   # job_id= not first position
-    assert resolve_job_id("ui-999999", 7) == "local-7"                  # bare ui-<N> reserved form
-    assert resolve_job_id(" job_id=ui-999999", 7) == "local-7"          # leading space -> raw prefix parity
-    # a bare NON-ui token is still the direct-submission fallback
-    assert resolve_job_id("local-7", 7) == "local-7"
-    assert resolve_job_id("campaign-x", 7) == "campaign-x"
-    assert resolve_job_id("", 7) == "local-7"

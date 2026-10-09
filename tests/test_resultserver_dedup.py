@@ -367,3 +367,89 @@ def test_cape_processing_without_magika_config(monkeypatch):
         ]
 
 
+def test_resultserver_memory_dump_in_place_replacement():
+    task_id = 999993
+    with tempfile.TemporaryDirectory() as storagepath:
+        partial_dump = b"partial memory dump"
+        full_dump = b"full memory dump with more regions and complete content"
+        smaller_late_dump = b"short"
+
+        # 1. Initial partial memory dump upload
+        _upload_file(
+            task_id,
+            storagepath,
+            "memory/2224.dmp",
+            r"C:\tmp\memory\2224.dmp",
+            partial_dump,
+            pids="2224",
+            category="memory",
+        )
+        dmp_path = os.path.join(storagepath, "memory/2224.dmp")
+        assert os.path.exists(dmp_path)
+        with open(dmp_path, "rb") as f:
+            assert f.read() == partial_dump
+
+        # 2. Larger completed memory dump for same PID replaces in-place (never creates 2224_1.dmp)
+        _upload_file(
+            task_id,
+            storagepath,
+            "memory/2224.dmp",
+            r"C:\tmp\memory\2224.dmp",
+            full_dump,
+            pids="2224",
+            category="memory",
+        )
+        assert not os.path.exists(os.path.join(storagepath, "memory/2224_1.dmp"))
+        with open(dmp_path, "rb") as f:
+            assert f.read() == full_dump
+
+        # 3. Smaller late upload does not overwrite larger existing dump
+        _upload_file(
+            task_id,
+            storagepath,
+            "memory/2224.dmp",
+            r"C:\tmp\memory\2224.dmp",
+            smaller_late_dump,
+            pids="2224",
+            category="memory",
+        )
+        assert not os.path.exists(os.path.join(storagepath, "memory/2224_1.dmp"))
+        with open(dmp_path, "rb") as f:
+            assert f.read() == full_dump
+
+
+def test_procmemory_skips_underscore_versioned_dmp(monkeypatch):
+    import modules.processing.procmemory as pm_mod
+
+    class _DummyProcDump:
+        def __init__(self, path, pretty=False):
+            self.path = path
+
+        def pretty_print(self):
+            return []
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(pm_mod, "ProcDump", _DummyProcDump)
+    monkeypatch.setattr(pm_mod.File, "get_yara", lambda self, category=None: [])
+    monkeypatch.setattr(pm_mod.processing_conf.detections, "yara", False, raising=False)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        mem_dir = os.path.join(tmpdir, "memory")
+        os.makedirs(mem_dir)
+        with open(os.path.join(mem_dir, "2224.dmp"), "wb") as f:
+            f.write(b"valid dump")
+        with open(os.path.join(mem_dir, "2224_1.dmp"), "wb") as f:
+            f.write(b"bogus versioned dump that int() would parse as 22241")
+
+        pm = pm_mod.ProcessMemory()
+        pm.pmemory_path = mem_dir
+        pm.results = {"behavior": {"processes": [{"process_id": 2224, "process_name": "sample.exe", "module_path": "C:\\sample.exe"}]}}
+        pm.options = {"strings": False}
+
+        out = pm.run()
+        assert len(out) == 1
+        assert out[0]["pid"] == 2224
+
+

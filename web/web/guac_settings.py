@@ -67,10 +67,9 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
     # AuthenticationMiddleware populates request.user from the session. guac/views.py's index
-    # gates the live-VM tunnel on request.user — login_required (when WEB_AUTHENTICATION is on)
-    # AND, under multitenancy, can_manage_task(request.user, task). Without this middleware
-    # request.user does not exist and every /guac/ request 500s ('ASGIRequest' object has no
-    # attribute 'user'); it must sit AFTER SessionMiddleware (it reads the session).
+    # gates the live-VM tunnel on request.user (when WEB_AUTHENTICATION is on). Without this
+    # middleware request.user does not exist and every /guac/ request 500s ('ASGIRequest' object
+    # has no attribute 'user'); it must sit AFTER SessionMiddleware (it reads the session).
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",

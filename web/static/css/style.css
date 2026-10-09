@@ -14,20 +14,8 @@ body {
     margin: 1cm;
 }
 
-@media (max-width: 979px) {
-    body {
-        padding-top: 0;
-        padding-bottom: 0;
-    }
-}
-
 a {
     color: white;
-}
-
-/* Bootstrap 5: collapse uses .show (not .in) */
-.navbar-collapse.show {
-    display: block !important;
 }
 
 .alert-primary, .alert-info {
@@ -40,6 +28,45 @@ a {
 
 .nav-link {
     padding: .5rem 1rem;
+}
+
+@media (min-width: 1200px) {
+    .navbar-expand-xl .navbar-nav .nav-link {
+        padding-left: 0.6rem;
+        padding-right: 0.6rem;
+        white-space: nowrap;
+    }
+}
+
+@media (max-width: 1199.98px) {
+    .navbar .navbar-collapse {
+        max-height: calc(100vh - 60px);
+        max-height: calc(100dvh - 60px);
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 0.5rem 0 0.75rem;
+    }
+
+    .navbar .navbar-nav .nav-link {
+        padding: 0.6rem 0.75rem;
+        border-radius: 0.25rem;
+    }
+
+    .navbar .navbar-nav .nav-link:active,
+    .navbar .navbar-nav .nav-link:focus {
+        background-color: rgba(255, 255, 255, 0.08);
+    }
+
+    .navbar .dropdown-menu {
+        border-left: 2px solid #444 !important;
+        border-top: 0 !important;
+        border-right: 0 !important;
+        border-bottom: 0 !important;
+        border-radius: 0;
+        margin-left: 0.75rem;
+        padding-top: 0.25rem;
+        padding-bottom: 0.25rem;
+    }
 }
 
 .card-body {
@@ -610,8 +637,91 @@ footer a:hover,
 }
 
 .layout-centered {
-    min-width: 500px;
+    width: 100%;
     max-width: 1200px;
     margin-left: auto;
     margin-right: auto;
+}
+
+.pagination {
+    flex-wrap: wrap;
+    row-gap: 0.25rem;
+}
+
+/* Mobile and small-screen responsiveness */
+@media (max-width: 767.98px) {
+    /* Make in-page tab and pill bars horizontally swipeable instead of stacking into many rows */
+    .nav-tabs,
+    .nav-pills {
+        flex-wrap: nowrap !important;
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: thin;
+        gap: 0.25rem;
+        padding-bottom: 0.25rem !important;
+    }
+
+    .nav-tabs.flex-column,
+    .nav-pills.flex-column {
+        flex-direction: row !important;
+    }
+
+    .nav-tabs .nav-item,
+    .nav-pills .nav-item,
+    .nav-tabs > .nav-link,
+    .nav-pills > .nav-link {
+        flex: 0 0 auto !important;
+        white-space: nowrap;
+    }
+
+    .nav-tabs .nav-link,
+    .nav-pills .nav-link {
+        white-space: nowrap;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    /* Prevent multi-column fixed tables from crushing columns into 1-char vertical strips */
+    .table-responsive > .table:has(thead th:nth-child(4)),
+    .calltable > .table {
+        min-width: 700px;
+    }
+
+    /* Key-value 2-column tables: give labels enough width and allow full width on mobile */
+    .table th[style*="width: 15%"],
+    .table th[style*="width: 20%"] {
+        width: 32% !important;
+        word-break: normal;
+    }
+
+    table[style*="width: 50%"] {
+        width: 100% !important;
+    }
+
+    /* Category filter button group in behavioral analysis */
+    .btn-group.flex-wrap {
+        gap: 0.25rem;
+    }
+
+    .btn-group.flex-wrap > .btn {
+        border-radius: 0.25rem !important;
+        flex: 1 1 auto;
+        font-size: 0.8rem;
+        padding: 0.35rem 0.5rem;
+    }
+
+    /* Card headers with right-aligned action buttons */
+    .card-header.d-flex {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    .filter-box {
+        width: 100%;
+    }
+
+    .tcp-in {
+        padding-left: 20px;
+    }
 }

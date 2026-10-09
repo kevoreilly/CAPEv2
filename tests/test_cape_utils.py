@@ -2,6 +2,7 @@ import unittest
 from unittest.mock import MagicMock, patch
 
 from lib.cuckoo.common.cape_utils import cape_name_from_yara, static_config_lookup, static_config_parsers
+from lib.cuckoo.common.hooks import clear_all_hooks, register_es_filter
 
 
 class TestCapeUtils(unittest.TestCase):
@@ -71,22 +72,31 @@ class TestStaticConfigParsers(unittest.TestCase):
 
 
 class TestStaticConfigLookupES(unittest.TestCase):
-    """static_config_lookup ES branch: MT-off must be byte-for-byte upstream;
-    MT-on must scope + return None on no hits."""
+    """static_config_lookup ES branch: default match query when no ES hook is registered;
+    applies ES filter hook when registered and returns None on empty hits."""
 
-    def _run(self, es_hits, esf):
+    def tearDown(self):
+        clear_all_hooks()
+
+    def _run(self, es_hits, esf=None):
+        clear_all_hooks()
+        if esf is not None:
+            register_es_filter(
+                lambda body: {
+                    **body,
+                    "query": {"bool": {"must": [body["query"]], "filter": [esf]}},
+                }
+            )
         # Force the ES branch: mongo disabled, es enabled.
         with patch("lib.cuckoo.common.cape_utils.repconf") as mock_repconf, patch(
             "lib.cuckoo.common.cape_utils.es", create=True
         ) as mock_es, patch(
             "lib.cuckoo.common.cape_utils.get_analysis_index", return_value="cuckoo-*", create=True
-        ), patch(
-            "lib.cuckoo.common.cape_utils._config_lookup_es_filter", return_value=esf
         ):
             mock_repconf.mongodb.enabled = False
             mock_repconf.elasticsearchdb.enabled = True
             mock_es.search.return_value = {"hits": {"hits": es_hits}}
-            result = static_config_lookup("/path/to/file", sha256="a" * 64, viewer=object())
+            result = static_config_lookup("/path/to/file", sha256="a" * 64)
             return result, mock_es
 
     def test_es_mt_off_uses_upstream_match_query(self):
@@ -99,18 +109,17 @@ class TestStaticConfigLookupES(unittest.TestCase):
         self.assertEqual(body["query"], {"match": {"target.file.sha256": "a" * 64}})
         self.assertNotIn("bool", body["query"])
 
-    def test_es_mt_off_no_hits_raises_indexerror(self):
-        # Preserve upstream no-hits behavior (IndexError) when MT off.
-        with self.assertRaises(IndexError):
-            self._run(es_hits=[], esf=None)
+    def test_es_mt_off_no_hits_returns_none(self):
+        result, _ = self._run(es_hits=[], esf=None)
+        self.assertIsNone(result)
 
-    def test_es_mt_on_uses_scoped_term_query_and_returns_none_on_empty(self):
+    def test_es_mt_on_uses_scoped_query_and_returns_none_on_empty(self):
         esf = {"bool": {"should": [{"term": {"info.visibility": "public"}}], "minimum_should_match": 1}}
         result, mock_es = self._run(es_hits=[], esf=esf)
         self.assertIsNone(result)
         body = mock_es.search.call_args.kwargs["body"]
         self.assertIn("bool", body["query"])
-        self.assertEqual(body["query"]["bool"]["must"], [{"term": {"target.file.sha256": "a" * 64}}])
+        self.assertEqual(body["query"]["bool"]["must"], [{"match": {"target.file.sha256": "a" * 64}}])
         self.assertEqual(body["query"]["bool"]["filter"], [esf])
 
     def test_es_mt_on_returns_scoped_hit(self):

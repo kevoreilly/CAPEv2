@@ -211,6 +211,7 @@ class Process:
         self.system_info = SYSTEM_INFO()
         self.critical = False
         self.path = None
+        self.last_error = None
 
     def __del__(self):
         """Close open handles."""
@@ -672,6 +673,7 @@ class Process:
             self.h_process = process_info.hProcess
             self.thread_id = process_info.dwThreadId
             self.h_thread = process_info.hThread
+            self.last_error = None
             log.info('Successfully executed process from path "%s" with arguments "%s" with pid %d', path, args or "", self.pid)
             # self.log_process_tree(os.path.basename(path))
             if kernel_analysis:
@@ -679,11 +681,13 @@ class Process:
 
             return True
         else:
+            error_code = KERNEL32.GetLastError()
+            self.last_error = get_error_string(error_code)
             log.error(
                 'Failed to execute process from path "%s" with arguments "%s" (Error: %s)',
                 path,
                 args,
-                get_error_string(KERNEL32.GetLastError()),
+                self.last_error,
             )
             return False
 

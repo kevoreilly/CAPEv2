@@ -19,6 +19,10 @@ sysmon_windows = no
 sysmon_linux = no
 tlsdump = yes
 usage = no
+# Periodic Windows guest CPU/memory telemetry, independent of API calls.
+periodic_metrics = no
+# Sampling period in seconds (0.1-60); task option periodic_metrics_interval overrides this.
+periodic_metrics_interval = 1
 file_pickup = no
 permissions = no
 pre_script = no

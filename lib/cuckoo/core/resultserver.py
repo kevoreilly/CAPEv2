@@ -483,6 +483,34 @@ class FileUpload(ProtocolHandler):
                     with suppress(OSError):
                         os.unlink(tmp_path)
                     final_rel_path = rel_dump_path
+                elif rel_dump_path.startswith("memory/"):
+                    # Process memory dumps are keyed strictly by <pid>.dmp; never version to <pid>_1.dmp
+                    if new_size >= existing_size:
+                        old_sha = path_map.get(rel_dump_path)
+                        if old_sha and sha256_map.get(old_sha) == rel_dump_path:
+                            sha256_map.pop(old_sha, None)
+                        os.replace(tmp_path, file_path)
+                        path_map[rel_dump_path] = new_sha256
+                        sha256_map[new_sha256] = rel_dump_path
+                        log.info(
+                            "Task #%s: Replaced memory dump %s (%d -> %d bytes, SHA256 %s)",
+                            self.task_id,
+                            rel_dump_path,
+                            existing_size,
+                            new_size,
+                            new_sha256,
+                        )
+                    else:
+                        with suppress(OSError):
+                            os.unlink(tmp_path)
+                        log.debug(
+                            "Task #%s: Kept larger existing memory dump %s (%d bytes vs %d bytes)",
+                            self.task_id,
+                            rel_dump_path,
+                            existing_size,
+                            new_size,
+                        )
+                    final_rel_path = rel_dump_path
                 else:
                     # Different content for same filename -> create versioned file
                     dirname, basename = os.path.split(rel_dump_path)

@@ -90,10 +90,10 @@ class ProcessMemory(Processing):
                 dmp_file = File(dmp_path)
                 process_name = ""
                 process_path = ""
-                try:
-                    process_id = int(os.path.splitext(os.path.basename(dmp_path))[0])
-                except ValueError:
+                stem = os.path.splitext(os.path.basename(dmp_path))[0]
+                if not stem.isdigit():
                     continue
+                process_id = int(stem)
 
                 for process in self.results.get("behavior", {}).get("processes", []):
                     if process_id == process.get("process_id"):

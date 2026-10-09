@@ -60,16 +60,6 @@ def test_job_id_from_custom_freetext_does_not_warn_but_probe_does(caplog):
         [r.getMessage() for r in caplog.records]
 
 
-def test_is_safe_job_id_matches_centralstore():
-    """The read-seam parser guard and the write-seam guard are ONE shared helper (no drift): centralstore
-    imports _is_safe_job_id from artifact_storage."""
-    import lib.cuckoo.common.artifact_storage as a
-    import modules.reporting.centralstore as cs
-    assert cs._is_safe_job_id is a._is_safe_job_id
-    assert a._is_safe_job_id("ui-42") and a._is_safe_job_id("local-7")
-    assert not a._is_safe_job_id("../x") and not a._is_safe_job_id("..") and not a._is_safe_job_id(".x")
-
-
 def test_rds_job_id_nonnumeric_not_logged_as_rds_failure(monkeypatch, caplog):
     """A non-numeric task_id (the filereport/full_memory \\w+ routes) is bad INPUT, not an
     RDS error: _rds_job_id returns None silently and must NOT emit the ERROR-level

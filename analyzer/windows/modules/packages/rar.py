@@ -121,6 +121,9 @@ class Rar(Package):
         self.extract_rar(path, root, password)
 
         file_name = self.options.get(OPT_FILE)
+        if file_name:
+            file_name = file_name.replace("/", "\\\\")
+
         # If no file name is provided via option, take the first file.
         if not file_name:
             # If no file names to choose from, bail

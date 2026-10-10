@@ -286,6 +286,48 @@ class conditional_login_required:
         return self.decorator(func)
 
 
+_BATCH_TERMINAL_STATUSES = ("reported", "failed_analysis", "failed_processing", "failed_reporting", "recovered")
+
+
+def _build_batch_tasks_info(request, task_ids: list) -> tuple[list[dict], bool]:
+    task_rows = []
+    seen = set()
+    for raw_id in (task_ids or [])[:100]:
+        try:
+            tid = int(raw_id)
+        except (TypeError, ValueError):
+            continue
+        if tid in seen or tid <= 0:
+            continue
+        seen.add(tid)
+        with suppress(Exception):
+            task = db.view_task(tid)
+            if not task or not can_view_task(request.user, task):
+                continue
+            raw_status = getattr(task, "status", "pending") or "pending"
+            display_status = "processing" if raw_status == "completed" else raw_status
+            full_target = getattr(task, "target", "") or ""
+            category = getattr(task, "category", "file") or "file"
+            target_display = os.path.basename(full_target) if category != "url" and full_target else full_target
+            sample_obj = getattr(task, "sample", None)
+            sha256 = getattr(sample_obj, "sha256", "") if sample_obj else ""
+            task_rows.append(
+                {
+                    "id": tid,
+                    "target": target_display or f"Task #{tid}",
+                    "full_target": full_target,
+                    "category": category,
+                    "sha256": sha256,
+                    "status": display_status,
+                    "raw_status": raw_status,
+                    "is_reported": raw_status == "reported",
+                    "is_terminal": raw_status in _BATCH_TERMINAL_STATUSES,
+                }
+            )
+    all_terminal = bool(task_rows) and all(r["is_terminal"] for r in task_rows)
+    return task_rows, all_terminal
+
+
 def force_int(value):
     try:
         value = int(value)
@@ -705,6 +747,10 @@ def index(request, task_id=None, resubmit_hash=None):
                 "existent_tasks": existent_tasks,
                 "remote_console": remote_console,
             }
+            task_rows, all_terminal = _build_batch_tasks_info(request, details["task_ids"])
+            data["task_rows"] = task_rows
+            data["batch_tasks_csv"] = ",".join(str(r["id"]) for r in task_rows)
+            data["all_terminal"] = all_terminal
             return render(request, "submission/complete.html", data)
         else:
             err_data = {
@@ -714,6 +760,20 @@ def index(request, task_id=None, resubmit_hash=None):
             }
             return render(request, "error.html", err_data)
     else:
+        if "batch_tasks" in request.GET:
+            raw_ids = [x.strip() for x in request.GET.get("batch_tasks", "").split(",") if x.strip()]
+            task_rows, all_terminal = _build_batch_tasks_info(request, raw_ids)
+            return render(
+                request,
+                "submission/_batch_tasks_table.html",
+                {
+                    "tasks": [r["id"] for r in task_rows],
+                    "task_rows": task_rows,
+                    "batch_tasks_csv": ",".join(str(r["id"]) for r in task_rows),
+                    "all_terminal": all_terminal,
+                    "remote_console": request.GET.get("remote_console") == "1",
+                },
+            )
         enabledconf = {}
         enabledconf["kernel"] = settings.OPT_ZER0M0N
         enabledconf["memory"] = processing.memory.get("enabled")

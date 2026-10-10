@@ -7,8 +7,9 @@
                 <h4 class="mb-0 text-white"><i class="fas fa-upload me-2 text-primary"></i>Submit for Analysis</h4>
             </div>
             <div class="card-body">
-                <form role="form" action="" method="post" enctype="multipart/form-data">
+                <form id="submission-form" role="form" action="" method="post" enctype="multipart/form-data">
                     {% csrf_token %}
+                    <input type="hidden" name="active_tab" id="active_tab" value="{% if resubmit %}resubmit{% else %}file{% endif %}" />
 
                     <!-- Navigation Tabs -->
                     <ul class="nav nav-pills nav-fill mb-4" id="submissionTabs" role="tablist">
@@ -66,7 +67,7 @@
                     </ul>
 
                     <!-- Tab Content -->
-                    <div class="tab-content mb-4" id="submissionTabContent">
+                    <div class="tab-content mb-3" id="submissionTabContent">
                         {% if resubmit %}
                         <div class="tab-pane fade show active" id="resubmit" role="tabpanel">
                             <div class="mb-3">
@@ -78,8 +79,14 @@
                         {% else %}
                         <!-- File Upload -->
                         <div class="tab-pane fade show active" id="file" role="tabpanel">
-                            <input type="file" class="form-control border-secondary" id="sampleFile"
-                                name="sample" multiple />
+                            <div id="file-dropzone" class="border border-secondary rounded p-3 text-center bg-dark" style="border-style: dashed !important; cursor: pointer;">
+                                <div class="mb-2 text-white-50 small">
+                                    <i class="fas fa-cloud-upload-alt fa-lg me-2 text-info"></i>Drag &amp; drop sample(s) here, paste from clipboard (<kbd>Ctrl+V</kbd>), or browse below
+                                </div>
+                                <input type="file" class="form-control border-secondary" id="sampleFile"
+                                    name="sample" multiple />
+                            </div>
+                            <div id="selected-files-list" class="mt-2 d-none"></div>
                         </div>
 
                         <!-- Download Service -->
@@ -88,7 +95,7 @@
                             <div class="mb-3">
                                 <input type="text" class="form-control border-secondary"
                                     id="form_downloading_service" name="hashes"
-                                    placeholder="Enter comma separated hashes or just a hash" />
+                                    placeholder="Enter comma separated hashes or just a hash" disabled />
                             </div>
                         </div>
                         {% endif %}
@@ -97,7 +104,7 @@
                         <div class="tab-pane fade" id="url" role="tabpanel">
                             <div class="mb-3">
                                 <input type="text" class="form-control border-secondary"
-                                    id="form_url" name="url" placeholder="Enter URL to analyze" />
+                                    id="form_url" name="url" placeholder="Enter URL to analyze" disabled />
                             </div>
                         </div>
 
@@ -106,7 +113,7 @@
                         <div class="tab-pane fade" id="dlurl" role="tabpanel">
                             <div class="mb-3">
                                 <input type="text" class="form-control border-secondary"
-                                    id="form_dlnexec" name="dlnexec" placeholder="Enter URL to download sample from" />
+                                    id="form_dlnexec" name="dlnexec" placeholder="Enter URL to download sample from" disabled />
                             </div>
                         </div>
                         {% endif %}
@@ -114,16 +121,20 @@
                         <!-- PCAP -->
                         <div class="tab-pane fade" id="pcap" role="tabpanel">
                             <input type="file" class="form-control border-secondary" id="pcapFile"
-                                name="pcap" multiple />
+                                name="pcap" multiple disabled />
                         </div>
 
                         <!-- Static -->
                         <div class="tab-pane fade" id="static" role="tabpanel">
                             <input type="file" class="form-control border-secondary" id="staticFile"
-                                name="static" multiple />
+                                name="static" multiple disabled />
 
                         </div>
                         {% endif %}
+                    </div>
+
+                    <div id="precheck-existent-tasks">
+                        {% include "submission/_existent_tasks.html" %}
                     </div>
 
                     <!-- Advanced Options Sections -->
@@ -135,29 +146,6 @@
                         <div class="card-body">
                             <!-- Non-PCAP Options Block 1 -->
                             <div id="non-pcap-1">
-                                {% if existent_tasks %}
-                                <div class="mb-3">
-                                    <button class="btn btn-sm btn-outline-info" type="button" data-bs-toggle="collapse"
-                                        data-bs-target="#existent_tasks">
-                                        Show existent tasks
-                                    </button>
-                                    <div id="existent_tasks" class="collapse mt-2">
-                                        {% for sha256, details in existent_tasks.items %}
-                                        <div class="alert alert-info">
-                                            <strong>Hash: {{sha256}}</strong>
-                                            <ul class="mb-0 ps-3">
-                                                {% for block in details %}
-                                                <li>Task <a href="{% url "report" block.info.id %}"
-                                                        class="alert-link">{{block.info.id}}</a> {% if block.family %} -
-                                                    <span class="text-danger">{{block.malfamily}}</span>{% endif %}
-                                                </li>
-                                                {% endfor %}
-                                            </ul>
-                                        </div>
-                                        {% endfor %}
-                                    </div>
-                                </div>
-                                {% endif %}
 
                                 {% if resubmit %}
                                 <div class="mb-3">
@@ -1173,7 +1161,7 @@
                             </div>
 
                             <div class="text-center mt-4">
-                                <button type="submit" class="btn btn-outline-info btn-lg px-5 shadow"><i
+                                <button type="submit" id="submit-btn" class="btn btn-outline-info btn-lg px-5 shadow"><i
                                         class="fas fa-microscope me-2"></i>Analyze</button>
                             </div>
                         </div>
@@ -1212,16 +1200,189 @@
         }
     }
 
+    function formatBytes(bytes) {
+        if (!bytes || bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.min(Math.floor(Math.log(bytes) / Math.log(k)), sizes.length - 1);
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    async function computeFileSha256(file) {
+        if (!window.crypto || !window.crypto.subtle || file.size > 64 * 1024 * 1024) {
+            return null;
+        }
+        try {
+            const buffer = await file.arrayBuffer();
+            const digest = await window.crypto.subtle.digest('SHA-256', buffer);
+            return Array.from(new Uint8Array(digest)).map(b => b.toString(16).padStart(2, '0')).join('');
+        } catch (err) {
+            return null;
+        }
+    }
+
+    async function triggerPrecheckSha256(hashes) {
+        const container = document.getElementById('precheck-existent-tasks');
+        if (!container) return;
+        const valid = (hashes || []).filter(h => h && /^[0-9a-fA-F]{64}$/.test(h));
+        if (valid.length === 0) {
+            container.innerHTML = '';
+            return;
+        }
+        try {
+            const params = new URLSearchParams({ precheck_sha256: valid.slice(0, 10).join(',') });
+            const resp = await fetch(`${window.location.pathname}?${params.toString()}`, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            if (resp.ok) {
+                container.innerHTML = await resp.text();
+            }
+        } catch (err) {
+            // Ignore transient network errors during optional precheck
+        }
+    }
+
+    async function renderSelectedFiles(fileInput) {
+        const listEl = document.getElementById('selected-files-list');
+        if (!listEl || !fileInput) return;
+        const files = Array.from(fileInput.files || []);
+        if (files.length === 0) {
+            listEl.classList.add('d-none');
+            listEl.innerHTML = '';
+            await triggerPrecheckSha256([]);
+            return;
+        }
+
+        listEl.classList.remove('d-none');
+        const itemsHtml = [];
+        const hashes = [];
+
+        for (const f of files) {
+            const sha256 = await computeFileSha256(f);
+            if (sha256) hashes.push(sha256);
+            const escapedName = $('<div>').text(f.name).html();
+            const hashBadge = sha256
+                ? `<span class="badge bg-secondary text-monospace ms-2" title="Client-side SHA-256">${sha256.slice(0, 16)}&hellip;</span>`
+                : '';
+            itemsHtml.push(
+                `<div class="d-flex justify-content-between align-items-center py-1 px-2 border-bottom border-secondary small text-white">` +
+                `<div class="text-truncate"><i class="far fa-file-alt me-2 text-info"></i><span class="fw-bold">${escapedName}</span>${hashBadge}</div>` +
+                `<span class="text-white-50 ms-2 flex-shrink-0">${formatBytes(f.size)}</span>` +
+                `</div>`
+            );
+        }
+
+        listEl.innerHTML =
+            `<div class="card bg-dark border-secondary">` +
+            `<div class="card-header border-secondary py-1 px-2 d-flex justify-content-between align-items-center">` +
+            `<span class="small text-white-50">${files.length} file(s) selected</span>` +
+            `<button type="button" id="clear-selected-files" class="btn btn-sm btn-link text-danger p-0 text-decoration-none">Clear</button>` +
+            `</div>` +
+            `<div class="card-body p-0">${itemsHtml.join('')}</div>` +
+            `</div>`;
+
+        const clearBtn = document.getElementById('clear-selected-files');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', function () {
+                fileInput.value = '';
+                renderSelectedFiles(fileInput);
+            });
+        }
+
+        await triggerPrecheckSha256(hashes);
+    }
+
     $(document).ready(function () {
-        // Tab visibility logic
-        $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
-            var tabId = $(e.target).attr('href');
+        function syncActiveSubmissionTab(tabId) {
+            const cleanId = (tabId || '').replace(/^#/, '');
+            if (cleanId) {
+                $('#active_tab').val(cleanId);
+            }
+            $('#submissionTabContent .tab-pane').each(function () {
+                const isPaneActive = $(this).attr('id') === cleanId;
+                $(this).find('input, select, textarea').prop('disabled', !isPaneActive);
+            });
             if (tabId === "#pcap" || tabId === "#static") {
                 $('#non-pcap-1').hide();
                 $('#non-pcap-2').hide();
             } else {
                 $('#non-pcap-1').show();
                 $('#non-pcap-2').show();
+            }
+        }
+
+        // Tab visibility & active input gating
+        $('a[data-bs-toggle="pill"]').on('shown.bs.tab', function (e) {
+            var tabId = $(e.target).attr('href');
+            syncActiveSubmissionTab(tabId);
+        });
+
+        // Activate tab from URL hash if present (e.g., /submit/#url)
+        if (window.location.hash) {
+            const targetTab = $(`#submissionTabs a[href="${window.location.hash}"]`);
+            if (targetTab.length) {
+                targetTab.tab('show');
+                syncActiveSubmissionTab(window.location.hash);
+            }
+        }
+
+        // File dropzone drag-and-drop & paste support
+        const dropzone = document.getElementById('file-dropzone');
+        const sampleInput = document.getElementById('sampleFile');
+        if (dropzone && sampleInput) {
+            dropzone.addEventListener('click', function (e) {
+                if (e.target !== sampleInput) {
+                    sampleInput.click();
+                }
+            });
+            ['dragenter', 'dragover'].forEach(evtName => {
+                dropzone.addEventListener(evtName, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('border-secondary');
+                    dropzone.classList.add('border-info');
+                });
+            });
+            ['dragleave', 'drop'].forEach(evtName => {
+                dropzone.addEventListener(evtName, function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    dropzone.classList.remove('border-info');
+                    dropzone.classList.add('border-secondary');
+                });
+            });
+            dropzone.addEventListener('drop', function (e) {
+                if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    sampleInput.files = e.dataTransfer.files;
+                    renderSelectedFiles(sampleInput);
+                }
+            });
+            sampleInput.addEventListener('change', function () {
+                renderSelectedFiles(sampleInput);
+            });
+            document.addEventListener('paste', function (e) {
+                const activeTag = document.activeElement ? document.activeElement.tagName : '';
+                if (activeTag === 'INPUT' || activeTag === 'TEXTAREA') return;
+                if ($('#active_tab').val() !== 'file') return;
+                if (e.clipboardData && e.clipboardData.files && e.clipboardData.files.length > 0) {
+                    sampleInput.files = e.clipboardData.files;
+                    renderSelectedFiles(sampleInput);
+                }
+            });
+        }
+
+        // Duplicate pre-check when typing SHA-256 in Download Service tab
+        $('#form_downloading_service').on('change blur', function () {
+            const raw = ($(this).val() || '').split(',').map(s => s.trim()).filter(Boolean);
+            triggerPrecheckSha256(raw);
+        });
+
+        // Double-submit protection & loading spinner
+        $('#submission-form').on('submit', function () {
+            const btn = document.getElementById('submit-btn');
+            if (btn && !btn.disabled) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-circle-notch fa-spin me-2"></i>Submitting...';
             }
         });
 

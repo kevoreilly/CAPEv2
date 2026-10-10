@@ -23,12 +23,15 @@ try:
         Select,
         String,
     )
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.ext.mutable import MutableDict
     from sqlalchemy.orm import (
         Mapped,
         mapped_column,
         relationship,
         selectinload,
     )
+    from sqlalchemy.types import JSON
 
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
@@ -63,6 +66,13 @@ class Machine(Base):
     resultserver_port: Mapped[str] = mapped_column(String(255), nullable=False)
     reserved: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
 
+    # Generic key/value bag for per-machine semi-structured data
+    attributes: Mapped[Optional[dict]] = mapped_column(
+        MutableDict.as_mutable(JSON().with_variant(JSONB(), "postgresql")),
+        nullable=True,
+        default=dict,
+    )
+
     def __repr__(self):
         return f"<Machine({self.id},'{self.name}')>"
 
@@ -87,6 +97,27 @@ class Machine(Base):
         @return: JSON data
         """
         return json.dumps(self.to_dict())
+
+    # ---- attributes helpers ----
+
+    def get_attribute(self, key: str, default=None):
+        """Return an attribute value, or default if not set."""
+        if not self.attributes:
+            return default
+        return self.attributes.get(key, default)
+
+    def set_attribute(self, key: str, value) -> None:
+        """Set an attribute.  Passing None removes the key.  Lazy-inits the dict.
+
+        set_attribute is convenience wrapper - MutableDict tracks changes automatically so
+        direct in-place mutation (machine.attributes["k"] = v) is also fine.
+        """
+        if self.attributes is None:
+            self.attributes = {}
+        if value is None:
+            self.attributes.pop(key, None)
+        else:
+            self.attributes[key] = value
 
     def __init__(self, name, label, arch, ip, platform, interface, snapshot, resultserver_ip, resultserver_port, reserved):
         self.name = name

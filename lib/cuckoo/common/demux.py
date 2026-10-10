@@ -108,9 +108,9 @@ demux_extensions_list = {
     b".onetoc2",
 }
 
-whitelist_extensions = {"doc", "xls", "ppt", "pub", "jar"}
+whitelist_extensions = {"doc", "xls", "ppt", "pub", "jar", "apk"}
 
-blacklist_extensions = {"apk", "dmg"}
+blacklist_extensions = {"dmg"}
 
 # list of valid file types to extract - TODO: add more types
 VALID_TYPES = {"PE32", "Java Jar", "Outlook", "Message", "MS Windows shortcut", "PDF document", *File.LINUX_TYPES}

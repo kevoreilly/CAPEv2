@@ -89,8 +89,28 @@ def time_tracker(func):
     return wrapped
 
 
+def get_default_extractor_folder() -> str:
+    try:
+        from lib.cuckoo.common.config import Config
+
+        integration_conf = Config("integrations")
+        docker_conf = getattr(integration_conf, "docker_extra_info", None)
+        if docker_conf and docker_conf.get("enabled", False) and docker_conf.get("shared_volume_path"):
+            return docker_conf.get("shared_volume_path")
+        processing_conf = Config("processing")
+        proc_docker_conf = getattr(processing_conf, "docker_extra_info", None)
+        if proc_docker_conf and proc_docker_conf.get("enabled", False) and proc_docker_conf.get("shared_volume_path"):
+            return proc_docker_conf.get("shared_volume_path")
+        cfg = Config()
+        return os.path.join(cfg.cuckoo.get("tmppath", "/tmp"), "cape-external")
+    except Exception:
+        return "/tmp/cape-external"
+
+
 @contextlib.contextmanager
-def extractor_ctx(filepath, tool_name, prefix=None, folder="/tmp/cape-external"):
+def extractor_ctx(filepath, tool_name, prefix=None, folder=None):
+    if folder is None:
+        folder = get_default_extractor_folder()
     path_mkdir(folder, exist_ok=True)
 
     tempdir = tempfile.mkdtemp(prefix=prefix, dir=folder)

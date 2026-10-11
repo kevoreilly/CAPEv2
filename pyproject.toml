@@ -105,6 +105,7 @@ azure = [
     "azure-mgmt-storage",
     "azure-storage-blob",
 ]
+docker = ["docker"]
 
 [dependency-groups]
 dist = [

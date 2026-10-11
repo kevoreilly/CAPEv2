@@ -18,6 +18,8 @@ from io import BytesIO
 from zipfile import ZIP_STORED, ZipFile
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from lib.cuckoo.common.config import Config, parse_options
 from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, CUCKOO_ROOT
@@ -97,21 +99,37 @@ class GuestManager:
     def stop(self):
         self.do_run = False
 
+    @staticmethod
+    def _guest_http_session():
+        session = requests.Session()
+        session.trust_env = False
+        session.proxies = None
+        retry = Retry(
+            total=3,
+            connect=3,
+            read=2,
+            backoff_factor=0.5,
+            allowed_methods=None,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+        return session
+
     def get(self, method, *args, **kwargs):
         """Simple wrapper around requests.get()."""
         do_raise = kwargs.pop("do_raise", True)
+        kwargs.setdefault("timeout", 30)
         url = f"http://{self.ipaddr}:{self.port}{method}"
-        with requests.Session() as session:
-            session.trust_env = False
-            session.proxies = None
-
+        with self._guest_http_session() as session:
             try:
                 r = session.get(url, *args, **kwargs)
             except requests.ConnectionError as e:
                 raise CuckooGuestError(
                     "CAPE Agent failed without error status, please try "
                     "upgrading to the latest version of agent.py (>= 0.10) and "
-                    "notify us if the issue persists. Error: %s", str(e)
+                    f"notify us if the issue persists. Error: {e}"
                 )
 
         do_raise and r.raise_for_status()
@@ -135,19 +153,17 @@ class GuestManager:
 
     def post(self, method, *args, **kwargs):
         """Simple wrapper around requests.post()."""
+        kwargs.setdefault("timeout", 30)
         url = f"http://{self.ipaddr}:{self.port}{method}"
-        session = requests.Session()
-        session.trust_env = False
-        session.proxies = None
-
-        try:
-            r = session.post(url, *args, **kwargs)
-        except requests.ConnectionError as e:
-            raise CuckooGuestError(
-                "CAPE Agent failed without error status, please try "
-                "upgrading to the latest version of agent.py (>= 0.10) and "
-                "notify us if the issue persists. Error: %s", str(e)
-            )
+        with self._guest_http_session() as session:
+            try:
+                r = session.post(url, *args, **kwargs)
+            except requests.ConnectionError as e:
+                raise CuckooGuestError(
+                    "CAPE Agent failed without error status, please try "
+                    "upgrading to the latest version of agent.py (>= 0.10) and "
+                    f"notify us if the issue persists. Error: {e}"
+                )
 
         r.raise_for_status()
         return r

@@ -485,3 +485,13 @@ class TestAnalysisManager:
             assert db_task.status == TASK_FAILED_ANALYSIS
         assert mock_unlock.called
         assert mock_log_exception.called
+
+    def test_guest_http_session_retries(self):
+        from lib.cuckoo.core.guest import GuestManager
+
+        session = GuestManager._guest_http_session()
+        adapter = session.get_adapter("http://10.0.0.2:8000/status")
+        assert adapter.max_retries.total == 3
+        assert adapter.max_retries.connect == 3
+        assert adapter.max_retries.read == 2
+

@@ -515,6 +515,9 @@ azure = [
     { name = "msrest" },
     { name = "msrestazure" },
 ]
+docker = [
+    { name = "docker" },
+]
 gcp = [
     { name = "google-cloud-pubsub" },
     { name = "google-cloud-storage" },
@@ -586,6 +589,7 @@ requires-dist = [
     { name = "django-settings-export", specifier = "==1.2.1" },
     { name = "djangorestframework", specifier = ">=3.17.2" },
     { name = "dnspython", specifier = ">=2.7.0" },
+    { name = "docker", marker = "extra == 'docker'" },
     { name = "dpkt", specifier = "==1.9.6" },
     { name = "fastmcp", marker = "extra == 'mcp'" },
     { name = "flare-capa", specifier = "==10.0.0" },
@@ -640,7 +644,7 @@ requires-dist = [
     { name = "werkzeug", specifier = ">=3.1.9" },
     { name = "yara-python", specifier = ">=4.5.1" },
 ]
-provides-extras = ["maco", "gcp", "s3", "yara", "mcp", "azure"]
+provides-extras = ["maco", "gcp", "s3", "yara", "mcp", "azure", "docker"]
 
 [package.metadata.requires-dev]
 dev = [
@@ -1226,6 +1230,20 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/76/49/900383b471c645a3c397f47b3211d1fcecb3a540c98f683494cdf86b33de/dnspython-2.9.2.tar.gz", hash = "sha256:8d4d39a513e649d634004ce4d39ade2352efcea472a0247535a5c2d18a9d7ba9", size = 455484, upload-time = "2026-11-03T23:56:53.601Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1e/0c/5346358b3a20275d256978c35203ddc2c8617f78c1b23795b79ba22ced6d/dnspython-2.9.2-py3-none-any.whl", hash = "sha256:af15f7d385a6ae2fb35a796fde2138004c8c42c7389090e2addc83e3b3340fd8", size = 360455, upload-time = "2026-11-03T23:56:52.088Z" },
+]
+
+[[package]]
+name = "docker"
+version = "7.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pywin32", marker = "sys_platform == 'win32'" },
+    { name = "requests" },
+    { name = "urllib3" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/88/7f/731ff914b0255d3d065f45fd4e626d4b8c95dbcbaada049f337a6ac16410/docker-7.2.0.tar.gz", hash = "sha256:cebb93773d334f778e023a7ee352a8d6e13ab1bd3b863a4d4a59dec897df43ac", size = 118731, upload-time = "2026-07-09T14:53:46.39Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/75/23/529140fe1aab80fc6992f93a706deec709140a6397439139a054e1515c45/docker-7.2.0-py3-none-any.whl", hash = "sha256:a3f45fdeb9165e2d25d9a1d02ddf3bc70fb572cf5ebbf9b58558c22caf29b71f", size = 148775, upload-time = "2026-07-09T14:53:45.224Z" },
 ]
 
 [[package]]

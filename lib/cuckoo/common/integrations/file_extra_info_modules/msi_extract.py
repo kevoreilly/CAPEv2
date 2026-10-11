@@ -39,10 +39,11 @@ def extract_details(file: str, *, filetype: str, **kwargs) -> ExtractorReturnTyp
     with extractor_ctx(file, "MsiExtract", prefix="msidump_") as ctx:
         tempdir = ctx["tempdir"]
         output = False
+        msiextract_bin = integration_conf.msi_extract.binary or "msiextract"
         if not kwargs.get("tests"):
             # msiextract in different way that 7z, we need to add subfolder support
             output = run_tool(
-                [integration_conf.msi_extract.binary, file, "--directory", tempdir],
+                [msiextract_bin, file, "--directory", tempdir],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )

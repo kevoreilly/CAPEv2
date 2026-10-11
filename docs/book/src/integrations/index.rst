@@ -11,5 +11,6 @@ to fit the needs of all users.
 
     box-js
     curtain
+    docker-extra-info
     librenms
     suricata

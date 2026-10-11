@@ -1,0 +1,64 @@
+version: '3.8'
+
+# Internal isolated network with no gateway/internet route
+networks:
+  offline_net:
+    internal: true
+
+services:
+  # The central REST API Gateway (only required if deploying in 'api' mode)
+  api-gateway:
+    image: capesandbox/cape-api-gateway:latest
+    container_name: cape-api-gateway
+    restart: unless-stopped
+    ports:
+      - "8000:8000"  # Exposed to allow CAPE worker connections
+    networks:
+      - default      # Connected to host bridge to listen to incoming CAPE requests
+      - offline_net  # Connected to internal offline network to route to tool containers
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /tmp/cape-external:/tmp/cape-external
+    environment:
+      - MODE=api
+
+  # ----------------- Tool-Specific Containers -----------------
+
+  cape-innoextract:
+    image: capesandbox/cape-innoextract:latest
+    build:
+      context: ./innoextract
+      dockerfile: Dockerfile
+    container_name: cape-innoextract
+    restart: unless-stopped
+    # ENFORCE OFFLINE: Completely cut off from the host's bridge / internet routing
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]
+
+  cape-7z:
+    image: capesandbox/cape-7z:latest
+    build:
+      context: ./7z
+      dockerfile: Dockerfile
+    container_name: cape-7z
+    restart: unless-stopped
+    # ENFORCE OFFLINE: Completely cut off from the host's bridge / internet routing
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]
+
+  cape-upx:
+    image: capesandbox/cape-upx:latest
+    build:
+      context: ./upx
+      dockerfile: Dockerfile
+    container_name: cape-upx
+    restart: unless-stopped
+    # ENFORCE OFFLINE: Completely cut off from the host's bridge / internet routing
+    network_mode: "none"
+    volumes:
+      - /tmp/cape-external:/tmp/cape-external
+    entrypoint: ["sleep", "infinity"]

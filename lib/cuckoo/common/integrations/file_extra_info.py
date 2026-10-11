@@ -1,4 +1,5 @@
 import concurrent.futures
+import functools
 import hashlib
 import json
 import logging
@@ -7,10 +8,12 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
+import tempfile
 
 # from contextlib import suppress
-from typing import Any, DefaultDict, List, Optional, Set
+from typing import Any, DefaultDict, List, Optional, Set, Tuple, Union
 
 import pebble
 
@@ -701,29 +704,30 @@ def eziriz_deobfuscate(file: str, *, data_dictionary: dict, **_) -> ExtractorRet
     if all(".NET Reactor" not in string for string in data_dictionary.get("die", [])):
         return
 
-    binary = shlex.split(integration_conf.eziriz_deobfuscate.binary.strip())[0]
-    binary = os.path.join(CUCKOO_ROOT, binary)
-    if not binary:
-        log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
-        return
+    raw_binary = integration_conf.eziriz_deobfuscate.binary.strip()
+    binary = os.path.join(CUCKOO_ROOT, shlex.split(raw_binary)[0]) if raw_binary else "NETReactorSlayer.CLI"
+    if not _is_tool_routed_to_docker(binary):
+        if not raw_binary:
+            log.warning("eziriz_deobfuscate.binary is not defined in the configuration.")
+            return
 
-    if not path_exists(binary):
-        log.error(
-            "Missing dependency: Download from https://github.com/otavepto/NETReactorSlayer/releases and place under %s.",
-            binary,
-        )
-        return
+        if not path_exists(binary):
+            log.error(
+                "Missing dependency: Download from https://github.com/otavepto/NETReactorSlayer/releases and place under %s.",
+                binary,
+            )
+            return
 
-    if not os.access(binary, os.X_OK):
-        log.error("You need to add execution permissions: chmod a+x data/NETReactorSlayer.CLI")
-        return
+        if not os.access(binary, os.X_OK):
+            log.error("You need to add execution permissions: chmod a+x data/NETReactorSlayer.CLI")
+            return
 
     with extractor_ctx(file, "eziriz", prefix="eziriz_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         dest_path = os.path.join(tempdir, os.path.basename(file))
         _ = run_tool(
             [
-                os.path.join(CUCKOO_ROOT, binary),
+                binary,
                 *shlex.split(integration_conf.eziriz_deobfuscate.extra_args.strip()),
                 file,
             ],
@@ -743,13 +747,15 @@ def de4dot_deobfuscate(file: str, *, filetype: str, **_) -> ExtractorReturnType:
     if "Mono" not in filetype:
         return
 
-    binary = shlex.split(integration_conf.de4dot_deobfuscate.binary.strip())[0]
-    if not binary:
-        log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
-        return
-    if not path_exists(binary):
-        log.error("Missed dependency: sudo apt install de4dot")
-        return
+    raw_binary = integration_conf.de4dot_deobfuscate.binary.strip()
+    binary = shlex.split(raw_binary)[0] if raw_binary else "de4dot"
+    if not _is_tool_routed_to_docker(binary):
+        if not raw_binary:
+            log.warning("de4dot_deobfuscate.binary is not defined in the configuration.")
+            return
+        if not path_exists(binary):
+            log.error("Missed dependency: sudo apt install de4dot")
+            return
 
     with extractor_ctx(file, "de4dot", prefix="de4dot_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
@@ -780,7 +786,8 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
     if all("Inno Setup" not in string for string in data_dictionary.get("die", [])):
         return
 
-    if not path_exists(innoextact_binary):
+    binary = innoextact_binary or "innoextract"
+    if not _is_tool_routed_to_docker(binary) and not path_exists(innoextact_binary):
         log.error("Missed dependency: Get a release from https://github.com/gdesmar/innoextract")
         return
 
@@ -788,7 +795,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
     with extractor_ctx(file, "InnoExtract", prefix="innoextract_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         output = run_tool(
-            [innoextact_binary, file, "--output-dir", tempdir],
+            [binary, file, "--output-dir", tempdir],
             universal_newlines=True,
             stderr=subprocess.PIPE,
         )
@@ -797,7 +804,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
             or "- encrypted" in output
         ):
             output = run_tool(
-                [innoextact_binary, "--crack", file],
+                [binary, "--crack", file],
                 universal_newlines=True,
                 stderr=subprocess.PIPE,
             )
@@ -805,7 +812,7 @@ def Inno_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorReturnTyp
                 password = output.split("\n")[0].split(": ")[1]
             if password:
                 _ = run_tool(
-                    [innoextact_binary, file, "--output-dir", tempdir, "--password", password],
+                    [binary, file, "--output-dir", tempdir, "--password", password],
                     universal_newlines=True,
                     stderr=subprocess.PIPE,
                 )
@@ -849,16 +856,18 @@ def UnAutoIt_extract(file: str, *, data_dictionary: dict, **_) -> ExtractorRetur
     if all(not block.get("name", "").lower().startswith("autoit") for block in merged_lists):
         return
 
+    binary = unautoit_binary or "UnAutoIt"
     # this is useless to notify in each iteration
-    if not UN_AUTOIT_NOTIF and not path_exists(unautoit_binary):
-        # log.warning(f"Missing UnAutoIt binary: {unautoit_binary}. Download from - https://github.com/x0r19x91/UnAutoIt")
-        UN_AUTOIT_NOTIF = True
+    if not _is_tool_routed_to_docker(binary) and not path_exists(unautoit_binary):
+        if not UN_AUTOIT_NOTIF:
+            # log.warning(f"Missing UnAutoIt binary: {unautoit_binary}. Download from - https://github.com/x0r19x91/UnAutoIt")
+            UN_AUTOIT_NOTIF = True
         return
 
     with extractor_ctx(file, "UnAutoIt", prefix="unautoit_", folder=tools_folder) as ctx:
         tempdir = ctx["tempdir"]
         output = run_tool(
-            [unautoit_binary, "extract-all", "--output-dir", tempdir, file],
+            [binary, "extract-all", "--output-dir", tempdir, file],
             universal_newlines=True,
             stderr=subprocess.PIPE,
         )
@@ -901,7 +910,7 @@ def UPX_unpack(file: str, *, filetype: str, data_dictionary: dict, **_) -> Extra
 def SevenZip_unpack(file: str, *, filetype: str, data_dictionary: dict, options: dict, **_) -> ExtractorReturnType:
     tool = False
 
-    if not path_exists(sevenzip_binary):
+    if not _is_tool_routed_to_docker(sevenzip_binary) and not path_exists(sevenzip_binary):
         logging.error("Missed 7zip executable. Run: poetry run python utils/community.py -waf")
         return
 
@@ -984,7 +993,7 @@ def RarSFX_extract(file, *, data_dictionary, options: dict, **_) -> ExtractorRet
     ):
         return
 
-    if not path_exists("/usr/bin/unrar"):
+    if not _is_tool_routed_to_docker("/usr/bin/unrar") and not path_exists("/usr/bin/unrar"):
         log.warning("Missed UnRar binary: /usr/bin/unrar. sudo apt install unrar")
         return
 
@@ -1086,3 +1095,469 @@ file_info_funcs = [
     msix_extract,
     UnGPG_extract,
 ]
+
+
+# Mapping of binary executable names to their corresponding integrations.conf section and default container name.
+# NOTE: detect-it-easy and trid are invoked through subprocess directly (not through run_tool) and rely on
+# host-side definition files, so they are deliberately not routed into containers.
+BINARY_TO_TOOL_MAPPING = {
+    "innoextract": ("Inno_extract", "cape-innoextract"),
+    "7z": ("SevenZip_unpack", "cape-7z"),
+    "7zz": ("SevenZip_unpack", "cape-7z"),
+    "upx": ("UPX_unpack", "cape-upx"),
+    "de4dot": ("de4dot_deobfuscate", "cape-de4dot"),
+    "NETReactorSlayer.CLI": ("eziriz_deobfuscate", "cape-eziriz"),
+    "UnAutoIt": ("UnAutoIt_extract", "cape-unautoit"),
+    "unrar": ("RarSFX_extract", "cape-unrar"),
+    "unzip": ("msix_extract", "cape-msix"),
+}
+
+try:
+    import docker
+
+    HAVE_DOCKER_SDK = True
+except ImportError:
+    HAVE_DOCKER_SDK = False
+
+# Default timeout, in seconds, for a single in-container tool execution.
+DOCKER_EXEC_TIMEOUT = 120
+
+
+def _is_tool_routed_to_docker(binary_name: str) -> bool:
+    """Return True if docker_extra_info is enabled and the given binary is configured to run in Docker."""
+    try:
+        if not processing_conf.docker_extra_info.get("enabled", False):
+            return False
+        clean_name = os.path.basename(binary_name)
+        if clean_name not in BINARY_TO_TOOL_MAPPING:
+            return False
+        section_name, _ = BINARY_TO_TOOL_MAPPING[clean_name]
+        sec_conf = getattr(integration_conf, section_name, {})
+        return bool(sec_conf.get("enabled", False)) and bool(sec_conf.get("run_in_docker", True))
+    except Exception:
+        return False
+
+
+def _is_within_shared_volume(path: str, shared_volume_path: str) -> bool:
+    """Return True if path resides inside shared_volume_path on a directory boundary."""
+    if not isinstance(path, str) or not os.path.isabs(path):
+        return False
+    try:
+        abs_path = os.path.abspath(path)
+        abs_vol = os.path.abspath(shared_volume_path)
+        return os.path.commonpath([abs_path, abs_vol]) == abs_vol
+    except ValueError:
+        return False
+
+
+def _split_opt_path(arg: str) -> Tuple[str, str]:
+    """Split a combined option+path argument like '-o/tmp/...' into ('-o', '/tmp/...')."""
+    if isinstance(arg, str) and arg.startswith("-o") and len(arg) > 2 and os.path.isabs(arg[2:]):
+        return "-o", arg[2:]
+    return "", arg
+
+
+def _wants_text(kwargs: dict) -> bool:
+    """subprocess returns str instead of bytes when any of these are set."""
+    return bool(kwargs.get("universal_newlines") or kwargs.get("text") or kwargs.get("encoding") or kwargs.get("errors"))
+
+
+def _coerce_output(output: Union[bytes, str, None], kwargs: dict) -> Union[bytes, str]:
+    """Honour the bytes/str contract that the run_tool() caller asked for.
+
+    Callers pass universal_newlines=True and then do string operations on the result, so
+    returning raw bytes from the container would raise TypeError inside the extractors.
+    """
+    if output is None:
+        output = b""
+    if _wants_text(kwargs):
+        if isinstance(output, bytes):
+            return output.decode(kwargs.get("encoding") or "utf-8", errors=kwargs.get("errors") or "replace")
+        return output
+    if isinstance(output, str):
+        return output.encode()
+    return output
+
+
+class ToolDispatcher:
+    def __init__(self):
+        self.docker_client = None
+        self.enabled = False
+        self.mode = "mounted"
+        self.sudo_restriction = False
+        self.shared_volume_path = tools_folder
+        self.api_url = "http://127.0.0.1:8000"
+        self.exec_timeout = DOCKER_EXEC_TIMEOUT
+
+        # Load configuration gracefully
+        try:
+            self.enabled = processing_conf.docker_extra_info.get("enabled", False)
+            self.mode = processing_conf.docker_extra_info.get("mode", "mounted")
+            self.sudo_restriction = processing_conf.docker_extra_info.get("sudo_restriction", False)
+            self.shared_volume_path = processing_conf.docker_extra_info.get("shared_volume_path", tools_folder)
+            self.api_url = processing_conf.docker_extra_info.get("api_url", "http://127.0.0.1:8000")
+            self.exec_timeout = int(processing_conf.docker_extra_info.get("timeout", DOCKER_EXEC_TIMEOUT))
+        except Exception as e:
+            log.debug("Docker extra info config not fully loaded, using defaults: %s", str(e))
+
+        if self.enabled and self.shared_volume_path != tools_folder:
+            log.warning(
+                "docker_extra_info.shared_volume_path (%s) differs from the extractor working folder (%s); "
+                "tool output written by the containers will not be collected",
+                self.shared_volume_path,
+                tools_folder,
+            )
+
+        # Gracefully load docker-py SDK
+        if self.enabled and not self.sudo_restriction and HAVE_DOCKER_SDK:
+            try:
+                self.docker_client = docker.from_env(timeout=self.exec_timeout)
+            except Exception as e:
+                log.error("Failed to initialize Docker SDK: %s. Falling back to subprocess execution.", str(e))
+
+    def is_container_configured(self, binary_name: str) -> bool:
+        """Checks if Docker integration is enabled and the given binary is mapped to a container."""
+        if not self.enabled:
+            return False
+
+        # Strip trailing/leading parts to isolate the binary name
+        clean_name = os.path.basename(binary_name)
+        if clean_name not in BINARY_TO_TOOL_MAPPING:
+            return False
+
+        section_name, _ = BINARY_TO_TOOL_MAPPING[clean_name]
+
+        # Verify if the tool is enabled and configured to run in Docker
+        try:
+            sec_conf = getattr(integration_conf, section_name, {})
+            return bool(sec_conf.get("enabled", False)) and bool(sec_conf.get("run_in_docker", True))
+        except Exception:
+            return False
+
+    def _resolve_container_name(self, section_name: str, default_container: str) -> str:
+        """Per-tool container_name override from integrations.conf.
+
+        Config.get() only accepts a section name and raises on missing sections, so getattr()
+        with a default is used instead.
+        """
+        try:
+            sec_conf = getattr(integration_conf, section_name, {})
+            return sec_conf.get("container_name") or default_container
+        except Exception:
+            return default_container
+
+    def execute_in_container(self, binary_name: str, cmd_args: List[str], **kwargs) -> Union[bytes, str]:
+        """Dispatches execution of the tool inside its designated Docker container."""
+        clean_name = os.path.basename(binary_name)
+        section_name, default_container = BINARY_TO_TOOL_MAPPING[clean_name]
+        container_name = self._resolve_container_name(section_name, default_container)
+
+        # 1. Prepare paths in shared volume so both local containers and API gateway receive container-visible paths
+        new_args, copied_files, staging_dir = self._prepare_paths_for_container(cmd_args, self.shared_volume_path)
+        orig_by_staged = {}
+        for orig_arg, rewritten_arg in zip(cmd_args[1:], new_args[1:]):
+            _, orig_path = _split_opt_path(orig_arg)
+            _, staged_path = _split_opt_path(rewritten_arg)
+            if staged_path != orig_path and staged_path in copied_files:
+                orig_by_staged[staged_path] = orig_path
+
+        # 2. Replace local host binary path with the simple binary execution name inside the container
+        new_args[0] = clean_name
+
+        try:
+            # 3. Route to Remote API Gateway or local Docker Exec
+            if self.mode == "api":
+                stdout = self._execute_via_api(container_name, new_args, **kwargs)
+            elif self.sudo_restriction:
+                stdout = self._execute_via_restricted_sudo(container_name, new_args, **kwargs)
+            else:
+                stdout = self._execute_via_sdk_or_subprocess(container_name, new_args, **kwargs)
+
+            # Recover sidecar output files written next to staged inputs (e.g. NETReactorSlayer '<file>_Slayed')
+            for staged_path, orig_path in orig_by_staged.items():
+                slayed_staged = f"{staged_path}_Slayed"
+                if path_exists(slayed_staged):
+                    try:
+                        shutil.move(slayed_staged, f"{orig_path}_Slayed")
+                    except Exception as e:
+                        log.warning("Failed to move sidecar output %s: %s", slayed_staged, str(e))
+
+            return _coerce_output(stdout, kwargs)
+        finally:
+            # 4. Clean up any copied files on the host
+            for path in copied_files:
+                try:
+                    os.remove(path)
+                except Exception as e:
+                    log.warning("Failed to clean up copied input file %s: %s", path, str(e))
+            if staging_dir:
+                shutil.rmtree(staging_dir, ignore_errors=True)
+
+    def _prepare_paths_for_container(
+        self, cmd_args: List[str], shared_volume_path: str
+    ) -> Tuple[List[str], List[str], Optional[str]]:
+        """Ensures input files are located inside the shared volume before execution.
+
+        Returns the rewritten arguments, the list of copies made on the host and, when one had to
+        be created, the private staging directory that the caller must remove afterwards.
+        """
+        tempdir = None
+        staging_dir = None
+        output_file_targets: Set[str] = set()
+        for arg in cmd_args[1:]:
+            _, candidate = _split_opt_path(arg)
+            if isinstance(candidate, str) and _is_within_shared_volume(candidate, shared_volume_path):
+                if os.path.isdir(candidate):
+                    if not tempdir:
+                        tempdir = candidate
+                else:
+                    output_file_targets.add(os.path.abspath(candidate))
+
+        copied_files = []
+        new_args = []
+
+        for i, arg in enumerate(cmd_args):
+            # Skip the first argument (index 0) because it is always the binary executable path
+            if i == 0:
+                new_args.append(arg)
+                continue
+
+            opt_prefix, candidate = _split_opt_path(arg)
+            if (
+                isinstance(candidate, str)
+                and os.path.isabs(candidate)
+                and not _is_within_shared_volume(candidate, shared_volume_path)
+                and os.path.isfile(candidate)
+            ):
+                target_dir = tempdir
+                if target_dir:
+                    candidate_dest = os.path.abspath(os.path.join(target_dir, os.path.basename(candidate)))
+                    if candidate_dest in output_file_targets:
+                        target_dir = None
+
+                if not target_dir:
+                    # Never stage into the root of the shared volume or overwrite an output file target:
+                    # concurrent tasks analysing files with the same basename would clobber each other's
+                    # input, and staging onto an output path (e.g. de4dot -o <tempdir>/<basename>) would
+                    # delete the tool's output during finally cleanup.
+                    if not staging_dir:
+                        try:
+                            path_mkdir(shared_volume_path, exist_ok=True)
+                            staging_dir = tempfile.mkdtemp(prefix="dockerstage_", dir=shared_volume_path)
+                        except Exception as e:
+                            log.error("Failed to create staging directory under %s: %s", shared_volume_path, str(e))
+                            new_args.append(arg)
+                            continue
+                    target_dir = staging_dir
+
+                dest_path = os.path.join(target_dir, os.path.basename(candidate))
+                try:
+                    shutil.copy2(candidate, dest_path)
+                    copied_files.append(dest_path)
+                    new_args.append(f"{opt_prefix}{dest_path}" if opt_prefix else dest_path)
+                    log.debug("Copied file %s to shared volume at %s for Docker container", candidate, dest_path)
+                except Exception as e:
+                    log.error("Failed to copy file %s to %s: %s", candidate, dest_path, str(e))
+                    new_args.append(arg)
+            else:
+                new_args.append(arg)
+
+        return new_args, copied_files, staging_dir
+
+    def _log_stderr(self, container_name: str, stderr: Union[bytes, str, None]):
+        if not stderr:
+            return
+        if isinstance(stderr, bytes):
+            stderr = stderr.decode("utf-8", errors="replace")
+        log.debug("Container %s stderr: %s", container_name, stderr.strip())
+
+    def _kill_in_container(self, container_name: str, cmd_args: Optional[List[str]] = None):
+        """Terminates the running tool process inside the container on SIGTERM or timeout."""
+        if not cmd_args:
+            return
+        host_user = f"{os.getuid()}:{os.getgid()}"
+        pattern = shlex.join(cmd_args)
+        kill_args = ["pkill", "-TERM", "-f", pattern]
+        try:
+            if self.sudo_restriction:
+                subprocess.run(
+                    ["sudo", "-n", "docker", "exec", "-u", host_user, "-w", self.shared_volume_path, container_name]
+                    + kill_args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                    check=False,
+                )
+            elif self.docker_client:
+                container = self.docker_client.containers.get(container_name)
+                container.exec_run(cmd=kill_args, workdir=self.shared_volume_path, user=host_user, demux=True)
+            else:
+                subprocess.run(
+                    ["docker", "exec", "-u", host_user, "-w", self.shared_volume_path, container_name] + kill_args,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.PIPE,
+                    timeout=5,
+                    check=False,
+                )
+        except Exception as e:
+            log.debug("Failed to terminate process in container %s: %s", container_name, str(e))
+
+    def _run_docker_cli(
+        self, exec_cmd: List[str], container_name: str, cmd_args: Optional[List[str]] = None
+    ) -> bytes:
+        """Runs a docker CLI command keeping stdout and stderr separated and forwarding SIGTERM."""
+        old_handler = None
+
+        def _on_sigterm(proc, signum, frame):
+            try:
+                proc.send_signal(signum)
+            except Exception:
+                pass
+            self._kill_in_container(container_name, cmd_args)
+
+        try:
+            with subprocess.Popen(
+                exec_cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            ) as proc:
+                try:
+                    old_handler = signal.signal(signal.SIGTERM, functools.partial(_on_sigterm, proc))
+                except ValueError:
+                    old_handler = None
+                try:
+                    stdout, stderr = proc.communicate(timeout=self.exec_timeout)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    proc.communicate()
+                    self._kill_in_container(container_name, cmd_args)
+                    log.error("Container %s execution timed out after %ds", container_name, self.exec_timeout)
+                    return b""
+                returncode = proc.returncode
+        except Exception as e:
+            log.error("Failed to run docker exec on %s: %s", container_name, str(e))
+            return b""
+        finally:
+            if old_handler is not None:
+                signal.signal(signal.SIGTERM, old_handler)
+
+        self._log_stderr(container_name, stderr)
+        if returncode != 0:
+            log.warning("Container %s execution returned non-zero exit code: %d", container_name, returncode)
+        return stdout or b""
+
+    def _execute_via_sdk_or_subprocess(self, container_name: str, cmd_args: List[str], **kwargs) -> bytes:
+        """Executes a command inside the target container using docker-py, falling back to subprocess docker exec."""
+        host_user = f"{os.getuid()}:{os.getgid()}"
+        if self.docker_client:
+            old_handler = None
+
+            def _on_sdk_sigterm(signum, frame):
+                self._kill_in_container(container_name, cmd_args)
+
+            try:
+                container = self.docker_client.containers.get(container_name)
+                if container.status != "running":
+                    log.info("Starting container %s as it is currently stopped", container_name)
+                    container.start()
+
+                try:
+                    old_handler = signal.signal(signal.SIGTERM, _on_sdk_sigterm)
+                except ValueError:
+                    old_handler = None
+
+                # demux keeps stderr out of the returned buffer, matching stderr=subprocess.PIPE on the host
+                exit_code, (stdout, stderr) = container.exec_run(
+                    cmd=cmd_args, workdir=self.shared_volume_path, user=host_user, demux=True
+                )
+                self._log_stderr(container_name, stderr)
+                if exit_code != 0:
+                    log.warning("Container %s execution returned non-zero exit code: %d", container_name, exit_code)
+                return stdout or b""
+            except Exception as e:
+                if "timed out" in str(e).lower() or "timeout" in type(e).__name__.lower():
+                    self._kill_in_container(container_name, cmd_args)
+                    log.error("Container %s execution timed out via Docker SDK: %s", container_name, str(e))
+                    return b""
+                log.error("Docker SDK execution failed for %s: %s. Falling back to subprocess exec.", container_name, str(e))
+            finally:
+                if old_handler is not None:
+                    signal.signal(signal.SIGTERM, old_handler)
+
+        # Subprocess docker exec fallback
+        exec_cmd = ["docker", "exec", "-u", host_user, "-w", self.shared_volume_path, container_name] + cmd_args
+        return self._run_docker_cli(exec_cmd, container_name, cmd_args)
+
+    def _execute_via_restricted_sudo(self, container_name: str, cmd_args: List[str], **kwargs) -> bytes:
+        """Executes a command via restricted sudo command lines to satisfy /etc/sudoers hardening policy.
+
+        -n is mandatory: without it a missing NOPASSWD rule makes sudo block on the tty forever and
+        hangs the processing worker.
+        """
+        host_user = f"{os.getuid()}:{os.getgid()}"
+        exec_cmd = ["sudo", "-n", "docker", "exec", "-u", host_user, "-w", self.shared_volume_path, container_name] + cmd_args
+        return self._run_docker_cli(exec_cmd, container_name, cmd_args)
+
+    def _execute_via_api(self, container_name: str, cmd_args: List[str], **kwargs) -> bytes:
+        """Sends a request to the remote FastAPI Gateway to orchestrate the container execution."""
+        import requests
+
+        # Locate the input file to transmit (skip index 0, which is the binary executable path)
+        file_to_send = None
+        for arg in cmd_args[1:]:
+            _, candidate = _split_opt_path(arg)
+            if isinstance(candidate, str) and os.path.isabs(candidate) and os.path.isfile(candidate):
+                file_to_send = candidate
+                break
+
+        if not file_to_send:
+            log.error("API Mode: No input file was identified in command arguments")
+            return b""
+
+        api_cmd_args = [os.path.basename(cmd_args[0]), *cmd_args[1:]] if cmd_args else []
+
+        try:
+            with open(file_to_send, "rb") as f:
+                files = {"file": f}
+                data = {
+                    "container_name": container_name,
+                    "cmd_args": json.dumps(api_cmd_args),
+                }
+                url = f"{self.api_url}/extract"
+                response = requests.post(url, files=files, data=data, timeout=self.exec_timeout)
+
+                if response.status_code != 200:
+                    log.error("API Gateway returned error %d: %s", response.status_code, response.text)
+                    return b""
+
+                content_type = response.headers.get("content-type", "")
+                if "application/zip" not in content_type:
+                    return response.content
+
+                # Extract the ZIP to local destination directory
+                dest_dir = None
+                for arg in cmd_args[1:]:
+                    _, candidate = _split_opt_path(arg)
+                    if isinstance(candidate, str) and _is_within_shared_volume(candidate, self.shared_volume_path):
+                        if os.path.isdir(candidate):
+                            dest_dir = candidate
+                            break
+                        parent_dir = os.path.dirname(candidate)
+                        if os.path.isdir(parent_dir) and _is_within_shared_volume(parent_dir, self.shared_volume_path):
+                            dest_dir = parent_dir
+                            break
+                if not dest_dir:
+                    log.error("API Mode: no destination directory inside %s was found in the arguments", self.shared_volume_path)
+                    return b""
+
+                import zipfile
+                from io import BytesIO
+
+                with zipfile.ZipFile(BytesIO(response.content)) as z:
+                    z.extractall(dest_dir)
+                return b"Extraction completed via API Gateway"
+        except Exception as e:
+            log.error("API Gateway connection failed: %s", str(e))
+            return b""
+
+

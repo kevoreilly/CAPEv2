@@ -39,9 +39,17 @@ class Proxmox(Machinery):
         """Ensures that credentials have been entered into the config file.
         @raise CuckooCriticalError: if no credentials were provided
         """
-        if not self.options.proxmox.username or not self.options.proxmox.password:
+        opts = self.options.proxmox
+        if bool(opts.token_name) != bool(opts.token_value):
             raise CuckooCriticalError(
-                "Proxmox credentials are missing, please add them to the Proxmox machinery configuration file"
+                "Proxmox API token is incomplete, please set both token_name and token_value "
+                "in the Proxmox machinery configuration file"
+            )
+        has_token = opts.token_name and opts.token_value
+        if not opts.username or not (opts.password or has_token):
+            raise CuckooCriticalError(
+                "Proxmox credentials are missing, please set username and either password or "
+                "token_name and token_value in the Proxmox machinery configuration file"
             )
         if not self.options.proxmox.hostname:
             raise CuckooCriticalError("Proxmox hostname not set")
@@ -72,12 +80,15 @@ class Proxmox(Machinery):
         @param label: the label of the VM to be compared to the VM's name in
                       Proxmox.
         @raise CuckooMachineError: if the VM cannot be found."""
-        proxmox = ProxmoxAPI(
-            self.options.proxmox.hostname,
-            user=self.options.proxmox.username,
-            password=self.options.proxmox.password,
-            verify_ssl=False,
-        )
+        opts = self.options.proxmox
+        # ignore_ssl defaults to on when unset, matching the previous hardcoded behavior.
+        # The config loader reads "0" as an integer, so it counts as "no" too.
+        auth = {"user": opts.username, "verify_ssl": opts.ignore_ssl in (False, 0)}
+        if opts.token_name and opts.token_value:
+            auth.update(token_name=opts.token_name, token_value=opts.token_value)
+        else:
+            auth["password"] = opts.password
+        proxmox = ProxmoxAPI(opts.hostname, **auth)
 
         # /cluster/resources[type=vm] will give us all VMs no matter which node they reside on
         deadline = time.monotonic() + self.timeout

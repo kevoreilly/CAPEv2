@@ -1,11 +1,9 @@
 import json
-
 import pytest
 from pytest_mock import MockerFixture
 
 from lib.cuckoo.common import hypervisor_config
 from lib.cuckoo.common.dictionary import Dictionary
-
 
 def make_conf(**overrides):
     proxmox = Dictionary(
@@ -18,16 +16,13 @@ def make_conf(**overrides):
     proxmox.update(overrides)
     return Dictionary(proxmox=proxmox, Node_1=Dictionary(win10_1=126))
 
-
 @pytest.fixture
 def post(mocker: MockerFixture):
     ticket = mocker.Mock(text=json.dumps({"data": {"ticket": "TICKET", "CSRFPreventionToken": "CSRF"}}))
     action = mocker.Mock(status_code=200)
     return mocker.patch.object(hypervisor_config.requests, "post", side_effect=[ticket, action])
 
-
 RESET_URL = "https://proxmox.example:8006/api2/json/nodes/node-a/qemu/126/status/reset"
-
 
 def test_shutdown_with_password_uses_ticket(monkeypatch, post):
     monkeypatch.setattr(hypervisor_config, "proxmox_conf", make_conf())
@@ -44,7 +39,6 @@ def test_shutdown_with_password_uses_ticket(monkeypatch, post):
         "verify": False,
     }
 
-
 def test_shutdown_with_api_token_skips_ticket(monkeypatch, mocker: MockerFixture, post):
     conf = make_conf(password=None, token_name="cape", token_value="token-secret")
     monkeypatch.setattr(hypervisor_config, "proxmox_conf", conf)
@@ -58,7 +52,6 @@ def test_shutdown_with_api_token_skips_ticket(monkeypatch, mocker: MockerFixture
         verify=False,
     )
 
-
 @pytest.mark.parametrize(
     ("ignore_ssl", "verify"),
     [(None, False), (True, False), (False, True), (1, False), (0, True)],
@@ -69,7 +62,6 @@ def test_shutdown_ignore_ssl_option(monkeypatch, post, ignore_ssl, verify):
     hypervisor_config.proxmox_shutdown_vm("win10_1")
 
     assert [call.kwargs["verify"] for call in post.call_args_list] == [verify, verify]
-
 
 def test_shutdown_reports_rejected_action(monkeypatch, mocker: MockerFixture, post, capsys):
     conf = make_conf(password=None, token_name="cape", token_value="wrong")

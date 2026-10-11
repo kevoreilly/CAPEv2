@@ -25,7 +25,6 @@ logging.getLogger("proxmoxer").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
 cfg = Config()
 
-
 class Proxmox(Machinery):
     """Manage Proxmox sandboxes."""
 

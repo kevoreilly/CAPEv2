@@ -205,3 +205,20 @@ class TestFileExtraInfo:
             "_4.extracted",
             "_5.extracted",
         ]
+
+
+def test_run_tool_non_utf8_stdout():
+    """Verify run_tool with universal_newlines=True replaces invalid UTF-8 bytes instead of raising UnicodeDecodeError."""
+    import subprocess
+    import sys
+    from lib.cuckoo.common.integrations.utils import run_tool
+
+    output = run_tool(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'extracting \\xa8\\xff_file.bin\\n')"],
+        universal_newlines=True,
+        stderr=subprocess.PIPE,
+    )
+    assert isinstance(output, str)
+    assert "extracting " in output
+    assert "_file.bin" in output
+

@@ -569,8 +569,14 @@ class BsonStore(ProtocolHandler):
             data = buffer[:4]
             if not data:
                 return
+            if len(data) < 4:
+                log.debug("BsonParser lacking data")
+                return
 
             blen = struct.unpack("I", data)[0]
+            if blen < 4:
+                log.debug("BsonParser invalid message length %d", blen)
+                return
             data = buffer[:blen]
             buffer = buffer[blen:]
 

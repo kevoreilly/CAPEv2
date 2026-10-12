@@ -125,7 +125,10 @@ OFFICE_TYPES = [
 
 MS_EXCLUDE = [
     "MSI Installer",
-    "Microsoft Cabinet archive"
+    "Microsoft Cabinet archive",
+    "Microsoft Roslyn C# debugging symbols",
+    "MSVC program database",
+    "Microsoft C/C++",
 ]
 
 
@@ -290,9 +293,17 @@ JUNK_EXTENSIONS = {
     b".gitignore",
     b".gitattributes",
     b".gitmodules",
+    b".pdb",
 }
 
 JUNK_NAMES = {b"license", b"copying", b"makefile", b"authors", b"readme"}
+
+JUNK_MAGICS = (
+    "Microsoft Roslyn C# debugging symbols",
+    "MSVC program database",
+    "Microsoft C/C++ MSF",
+    "Microsoft C/C++ program database",
+)
 
 
 # ToDo fix return type
@@ -305,6 +316,8 @@ def _sf_children(child: Any, ignore_junk_filter: bool = False) -> Tuple[bytes, s
         if any(filename_lower.endswith(ext) for ext in JUNK_EXTENSIONS):
             return b"", child.platform, child.magic, child.filesize
         if any(name in filename_lower for name in JUNK_NAMES):
+            return b"", child.platform, child.magic, child.filesize
+        if child.magic and any(m in child.magic for m in JUNK_MAGICS):
             return b"", child.platform, child.magic, child.filesize
     if b".github/" in filename_lower or b".git/" in filename_lower:
         return b"", child.platform, child.magic, child.filesize
@@ -495,6 +508,10 @@ def demux_sample(
 
     # don't try to extract from office docs
     magic = File(filename).get_type() or ""
+
+    if not option_enabled(options, "ignore_junk_filter") and any(m in magic for m in JUNK_MAGICS):
+        filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
+        return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
 
     # --- 3. Handle Password-Protected Office Files ---
     is_office = ("Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)) and not any(x in magic for x in MS_EXCLUDE)

@@ -534,7 +534,10 @@ class LibVirtMachinery(Machinery):
             else:
                 vm.destroy()  # Machete's way!
         except libvirt.libvirtError as e:
-            raise CuckooMachineError(f"Error stopping virtual machine {label}: {e}") from e
+            if "domain is not running" in str(e).lower():
+                log.debug("Machine %s stopped before destroy completed, skipping", label)
+            else:
+                raise CuckooMachineError(f"Error stopping virtual machine {label}: {e}") from e
 
         # Check state.
         self._wait_status(label, self.POWEROFF)

@@ -2,7 +2,6 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
-import copy
 import getpass as gt
 import grp
 import logging
@@ -46,7 +45,6 @@ import modules.reporting
 import modules.signatures.all
 import modules.signatures.linux
 import modules.signatures.windows
-from lib.cuckoo.common.colors import cyan, red, yellow
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
 from lib.cuckoo.common.exceptions import CuckooOperationalError, CuckooStartupError
@@ -54,7 +52,7 @@ from lib.cuckoo.common.path_utils import path_exists
 from lib.cuckoo.common.utils import create_folders
 from lib.cuckoo.core.database import Database
 from lib.cuckoo.core.data.task import TASK_FAILED_ANALYSIS, TASK_RUNNING
-from lib.cuckoo.core.log import init_logger
+from lib.cuckoo.core.log import ConsoleHandler, init_json_file_handler, init_logger
 from lib.cuckoo.core.plugins import import_package, import_plugin, list_plugins
 from lib.cuckoo.core.rooter import gateways, rooter, socks5s, vpns
 
@@ -405,29 +403,6 @@ def create_structure():
         )
 
 
-class ConsoleHandler(logging.StreamHandler):
-    """Logging to console handler."""
-
-    def emit(self, record):
-        colored = copy.copy(record)
-
-        if record.levelname == "WARNING":
-            colored.msg = yellow(record.msg)
-        elif record.levelname in ("ERROR", "CRITICAL"):
-            colored.msg = red(record.msg)
-        else:
-            # Hack for pymongo.logger.LogMessage
-            if not isinstance(record.msg, str):
-                record.msg = str(record.msg)
-
-            if "analysis procedure completed" in record.msg:
-                colored.msg = cyan(record.msg)
-            else:
-                colored.msg = record.msg
-
-        logging.StreamHandler.emit(self, colored)
-
-
 def check_linux_dist():
     ubuntu_versions = ("20.04", "22.04", "24.04")
     with suppress(AttributeError):
@@ -470,6 +445,7 @@ def init_logging(level: int):
         fh = logging.handlers.WatchedFileHandler(path)
     fh.setFormatter(formatter)
     log.addHandler(fh)
+    init_json_file_handler(log, "cuckoo.log", service_name="cape", logconf=logconf)
 
     init_logger("task")
 

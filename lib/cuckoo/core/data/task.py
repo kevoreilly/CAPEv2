@@ -133,7 +133,7 @@ class Task(Base):
         back_populates="task", uselist=False, cascade="all, delete-orphan"  # This is crucial for a one-to-one relationship
     )
     errors: Mapped[List["Error"]] = relationship(
-        back_populates="task", cascade="all, delete-orphan"  # This MUST match the attribute name on the Error model
+        back_populates="task", cascade="all, delete-orphan", passive_deletes=True  # This MUST match the attribute name on the Error model
     )
 
     tlp: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)

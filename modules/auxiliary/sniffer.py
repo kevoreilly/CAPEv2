@@ -269,15 +269,38 @@ class Sniffer(Auxiliary):
                 log.error("Error stopping remote sniffer: %s", e)
             return
 
-        if self.proc and not self.proc.poll():
-            if self.proc.args[0] == self.sudo_path and "-Z" in self.proc.args:
+        if self.proc and self.proc.poll() is None:
+            if getattr(self.proc, "args", None) and self.proc.args[0] == self.sudo_path and "-Z" in self.proc.args:
                 # We must kill the child process that sudo spawned. We won't
                 # have permission to kill the parent process because it's owned by root.
                 try:
                     output = subprocess.check_output(["ps", "--ppid", str(self.proc.pid), "-o", "pid="]).decode().strip()
-                    pid = int(output.split()[0])
-                except (subprocess.CalledProcessError, TypeError, ValueError, IndexError):
-                    log.exception("Failed to get child pid of sudo process to stop the sniffer.")
+                    pids = [int(p) for p in output.split() if p.isdigit()]
+                    if not pids:
+                        log.debug("No child processes found for sudo sniffer (pid %d)", self.proc.pid)
+                        try:
+                            self.proc.communicate(timeout=2)
+                        except Exception:
+                            pass
+                        return
+                    pid = pids[0]
+                except subprocess.CalledProcessError as e:
+                    if e.returncode == 1:
+                        # ps exits with returncode 1 when no processes match the query (child already exited)
+                        log.debug("No child pid found for sudo sniffer (pid %d): ps exited with 1 (child already terminated)", self.proc.pid)
+                    else:
+                        log.error("Failed to get child pid of sudo process to stop the sniffer: ps returned %d", e.returncode)
+                    try:
+                        self.proc.communicate(timeout=2)
+                    except Exception:
+                        pass
+                    return
+                except Exception as e:
+                    log.error("Failed to get child pid of sudo process to stop the sniffer: %s", e)
+                    try:
+                        self.proc.communicate(timeout=2)
+                    except Exception:
+                        pass
                     return
                 term_func = functools.partial(os.kill, pid, signal.SIGTERM)
                 kill_func = functools.partial(os.kill, pid, signal.SIGKILL)
@@ -287,15 +310,21 @@ class Sniffer(Auxiliary):
                 pid = self.proc.pid
             try:
                 term_func()
-                _, _ = self.proc.communicate(timeout=5)
+                self.proc.communicate(timeout=5)
+            except ProcessLookupError as e:
+                log.debug("Sniffer process %d already terminated: %s", pid, e)
+                try:
+                    self.proc.communicate(timeout=2)
+                except Exception:
+                    pass
             except Exception as e:
                 log.error("Unable to stop the sniffer (first try) with pid %d: %s", pid, e)
                 try:
-                    if not self.proc.poll():
+                    if self.proc.poll() is None:
                         log.debug("Killing sniffer")
                         kill_func()
-                        _, _ = self.proc.communicate(timeout=5)
-                except OSError as e:
+                        self.proc.communicate(timeout=5)
+                except (OSError, ProcessLookupError) as e:
                     log.debug("Error killing sniffer: %s, continuing", e)
                 except Exception as e:
                     log.exception("Unable to stop the sniffer with pid %d: %s", pid, e)

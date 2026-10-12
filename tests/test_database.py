@@ -409,6 +409,7 @@ class TestDatabaseEngine:
                 "resultserver_port": "2043",
                 "arch": "x64",
                 "reserved": False,
+                "attributes": {},
             }
 
             assert m2.to_dict() == {
@@ -428,7 +429,86 @@ class TestDatabaseEngine:
                 "tags": ["tag1tag2"],
                 "arch": "x64",
                 "reserved": True,
+                "attributes": {},
             }
+
+    def test_machine_attributes(self, db: _Database):
+        with db.session.begin():
+            self.add_machine(db, name="attr1", label="attrlabel1")
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.attributes == {}
+            assert m.get_attribute("missing") is None
+            assert m.get_attribute("missing", "fallback") == "fallback"
+            m.set_attribute("provider", "proxmox")
+            m.set_attribute("nested", {"vmid": 100})
+            m.attributes["direct"] = True
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.get_attribute("provider") == "proxmox"
+            assert m.get_attribute("nested") == {"vmid": 100}
+            assert m.get_attribute("direct") is True
+            assert m.to_dict()["attributes"] == {
+                "provider": "proxmox",
+                "nested": {"vmid": 100},
+                "direct": True,
+            }
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            m.attributes = None
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.get_attribute("provider") is None
+            assert m.get_attribute("provider", "default") == "default"
+            m.set_attribute("reinitialized", 1)
+
+        with db.session.begin():
+            m = db.view_machine("attr1")
+            assert m.attributes == {"reinitialized": 1}
+
+    def test_task_attributes_and_main_task_id(self, db: _Database, temp_filename: str):
+        with db.session.begin():
+            tid1 = db.add_path(
+                temp_filename,
+                attributes={"main_task_id": 4242, "worker_node": "worker-1"},
+            )
+            tid2 = db.add_url(
+                "http://example.com",
+                attributes='{"main_task_id": 9999, "origin": "dist"}',
+            )
+
+        with db.session.begin():
+            t1 = db.view_task(tid1)
+            assert t1.get_attribute("main_task_id") == 4242
+            assert t1.get_attribute("worker_node") == "worker-1"
+            assert t1.to_dict()["attributes"] == {
+                "main_task_id": 4242,
+                "worker_node": "worker-1",
+            }
+            t1.attributes["in_place"] = True
+
+            t2 = db.view_task(tid2)
+            assert t2.get_attribute("main_task_id") == 9999
+            assert t2.get_attribute("origin") == "dist"
+
+        with db.session.begin():
+            t1 = db.view_task(tid1)
+            assert t1.get_attribute("in_place") is True
+            t1.attributes = None
+
+        with db.session.begin():
+            t1 = db.view_task(tid1)
+            assert t1.get_attribute("main_task_id") is None
+            assert t1.get_attribute("main_task_id", 0) == 0
+            t1.set_attribute("main_task_id", 5555)
+
+        with db.session.begin():
+            t1 = db.view_task(tid1)
+            assert t1.attributes == {"main_task_id": 5555}
 
     def test_find_machine_to_service_task_tags_reserved(self, db: _Database):
         with db.session.begin():

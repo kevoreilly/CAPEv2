@@ -49,7 +49,7 @@ except ImportError:  # pragma: no cover
 
 
 
-SCHEMA_VERSION = "errors_task_id_cascade"
+SCHEMA_VERSION = "4a6c2b_machine_attributes"
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")

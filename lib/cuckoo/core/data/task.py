@@ -9,6 +9,8 @@ if TYPE_CHECKING:
 
 from .db_common import Base, _utcnow_naive, tasks_tags
 try:
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.ext.mutable import MutableDict
     from sqlalchemy.orm import Mapped, mapped_column, relationship
     from sqlalchemy import (
         Boolean,
@@ -20,6 +22,7 @@ try:
         String,
         Text,
     )
+    from sqlalchemy.types import JSON
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
 
@@ -145,6 +148,11 @@ class Task(Base):
     # provisioning paths converge.
     tenant_id: Mapped[Optional[int]] = mapped_column(nullable=True, index=True)
     visibility: Mapped[str] = mapped_column(String(16), nullable=False, server_default="private")
+    attributes: Mapped[Optional[dict]] = mapped_column(
+        MutableDict.as_mutable(JSON().with_variant(JSONB(), "postgresql")),
+        nullable=True,
+        default=dict,
+    )
 
     # The Task is linked to one specific parent/child association event
     association: Mapped[Optional["SampleAssociation"]] = relationship(back_populates="task", cascade="all, delete-orphan")
@@ -178,8 +186,21 @@ class Task(Base):
         """
         return json.dumps(self.to_dict())
 
+    def get_attribute(self, key: str, default=None):
+        """Retrieve a value from the task's attributes dict."""
+        if not self.attributes:
+            return default
+        return self.attributes.get(key, default)
+
+    def set_attribute(self, key: str, value) -> None:
+        """Set a key in the task's attributes dict, initializing if None."""
+        if self.attributes is None:
+            self.attributes = {}
+        self.attributes[key] = value
+
     def __init__(self, target=None):
         self.target = target
+        self.attributes = {}
 
     def __repr__(self):
         return f"<Task({self.id},'{self.target}')>"

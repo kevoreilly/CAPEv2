@@ -367,3 +367,36 @@ def test_cape_processing_without_magika_config(monkeypatch):
         ]
 
 
+def test_bson_store_parse_message_truncated_header():
+    """Verify BsonStore.parse_message and handle() do not raise struct.error when buffer has <4 trailing bytes."""
+    import lib.cuckoo.core.resultserver as rs_mod
+    from lib.cuckoo.core.resultserver import BsonStore
+
+    with tempfile.TemporaryDirectory() as storagepath:
+        os.makedirs(os.path.join(storagepath, "logs"), exist_ok=True)
+        # 2-byte trailing fragment in initial pre-read buffer followed by remaining stream
+        ctx = DummyHandlerContext(100, storagepath, [], b"\x00\x00extra_stream_bytes")
+        ctx.buf = b"\x05\x00"
+        store = BsonStore(100, ctx, version=1234)
+        store.init()
+        try:
+            orig_have_bson = rs_mod.HAVE_BSON
+            rs_mod.HAVE_BSON = True
+            # Direct call with 1, 2, and 3 byte buffers must not raise struct.error
+            store.parse_message(b"\x01")
+            store.parse_message(b"\x01\x02")
+            store.parse_message(b"\x01\x02\x03")
+            # Invalid length < 4 must also return cleanly without infinite loop
+            store.parse_message(b"\x00\x00\x00\x00")
+            # Full handle() must proceed to copy_to_fd and write the BSON log file
+            store.handle()
+        finally:
+            rs_mod.HAVE_BSON = orig_have_bson
+            store.close()
+
+        bson_path = os.path.join(storagepath, "logs", "1234.bson")
+        assert os.path.exists(bson_path)
+        with open(bson_path, "rb") as f:
+            assert f.read() == b"\x00\x00extra_stream_bytes"
+
+

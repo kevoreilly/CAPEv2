@@ -204,6 +204,9 @@ def run_task(task, memory_debugging=False, debug=False):
             sample = db.view_sample(task.sample_id)
             if sample:
                 sample_hash = sample.sha256
+    from lib.cuckoo.common.integrations import file_extra_info
+
+    file_extra_info.enable_shared_extractor_pool()
     try:
         try:
             process(
@@ -222,6 +225,7 @@ def run_task(task, memory_debugging=False, debug=False):
             tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
             raise RuntimeError(f"{type(e).__module__}.{type(e).__name__}: {e}\n\n{tb}") from None
     finally:
+        file_extra_info.shutdown_shared_extractor_pool()
         set_formatter_fmt()
         setproctitle(original_proctitle)
 

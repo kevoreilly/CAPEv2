@@ -637,7 +637,7 @@ class PortableExecutable:
                 size = entry.directory.entries[0].data.struct.Size
                 peicon = PEGroupIconDir(pe.get_memory_mapped_image()[offset : offset + size])
             except Exception as e:
-                log.error(e)
+                log.debug("Failed to parse PEGroupIconDir: %s", e)
                 return None, None, None, None
             bigwidth = 0
             bigheight = 0
@@ -694,10 +694,10 @@ class PortableExecutable:
                                 simphash = m.hexdigest()
                                 icon = base64.b64encode(output.getvalue()).decode()
                         except ValueError:
-                            log.error("parse_pe.py -> get_incon_info -> buffer is not large enough")
+                            log.debug("parse_pe.py -> get_icon_info -> buffer is not large enough")
                             return None, None, None, None
                         except OSError as e:
-                            log.error(e)
+                            log.debug("Failed to decode PE icon image: %s", e)
                             return None, None, None, None
                     return icon, fullhash, simphash, dhash
         except Exception as e:

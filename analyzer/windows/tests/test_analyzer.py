@@ -1023,6 +1023,12 @@ class TestAnalyzerMonitoring(unittest.TestCase):
 
 
 class TestAnalyzerEnforceTimeoutPackageFailure(unittest.TestCase):
+    def setUp(self):
+        for var in ("MONITOR_DLL", "MONITOR_DLL_64", "LOADER32", "LOADER64"):
+            p = patch(f"analyzer.{var}", None)
+            p.start()
+            self.addCleanup(p.stop)
+
     def _make_analyzer(self, enforce_timeout: bool, start_exc: Exception):
         ana = analyzer.Analyzer()
         ana.config = MagicMock()

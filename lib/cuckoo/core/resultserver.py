@@ -426,8 +426,15 @@ class FileUpload(ProtocolHandler):
                     if ex_size > 0 or existing_sha not in sha256_map:
                         sha256_map.setdefault(existing_sha, rel_dump_path)
 
-            # Check if we already stored a file with this exact SHA256
-            existing_same_hash_rel = sha256_map.get(new_sha256)
+            # Check if we already stored a file with this exact SHA256.
+            # Process memory dumps (memory/<pid>.dmp) are scanned per-PID from disk
+            # by ProcessMemory, so only deduplicate against the same rel_dump_path.
+            if rel_dump_path.startswith("memory/"):
+                existing_same_hash_rel = rel_dump_path if path_map.get(rel_dump_path) == new_sha256 else None
+            else:
+                existing_same_hash_rel = sha256_map.get(new_sha256)
+                if existing_same_hash_rel and existing_same_hash_rel.startswith("memory/"):
+                    existing_same_hash_rel = None
             if existing_same_hash_rel:
                 existing_same_hash_full = os.path.join(self.storagepath, existing_same_hash_rel)
                 try:

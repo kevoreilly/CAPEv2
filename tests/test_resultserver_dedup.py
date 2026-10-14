@@ -417,6 +417,21 @@ def test_resultserver_memory_dump_in_place_replacement():
         with open(dmp_path, "rb") as f:
             assert f.read() == full_dump
 
+        # 4. Different PID with identical dump content still writes its own <pid>.dmp file
+        _upload_file(
+            task_id,
+            storagepath,
+            "memory/3336.dmp",
+            r"C:\tmp\memory\3336.dmp",
+            full_dump,
+            pids="3336",
+            category="memory",
+        )
+        dmp_3336_path = os.path.join(storagepath, "memory/3336.dmp")
+        assert os.path.exists(dmp_3336_path)
+        with open(dmp_3336_path, "rb") as f:
+            assert f.read() == full_dump
+
 
 def test_procmemory_skips_underscore_versioned_dmp(monkeypatch):
     import modules.processing.procmemory as pm_mod
@@ -451,6 +466,8 @@ def test_procmemory_skips_underscore_versioned_dmp(monkeypatch):
         out = pm.run()
         assert len(out) == 1
         assert out[0]["pid"] == 2224
+
+
 def test_bson_store_parse_message_truncated_header():
     """Verify BsonStore.parse_message and handle() do not raise struct.error when buffer has <4 trailing bytes."""
     import lib.cuckoo.core.resultserver as rs_mod

@@ -426,8 +426,15 @@ class FileUpload(ProtocolHandler):
                     if ex_size > 0 or existing_sha not in sha256_map:
                         sha256_map.setdefault(existing_sha, rel_dump_path)
 
-            # Check if we already stored a file with this exact SHA256
-            existing_same_hash_rel = sha256_map.get(new_sha256)
+            # Check if we already stored a file with this exact SHA256.
+            # Process memory dumps (memory/<pid>.dmp) are scanned per-PID from disk
+            # by ProcessMemory, so only deduplicate against the same rel_dump_path.
+            if rel_dump_path.startswith("memory/"):
+                existing_same_hash_rel = rel_dump_path if path_map.get(rel_dump_path) == new_sha256 else None
+            else:
+                existing_same_hash_rel = sha256_map.get(new_sha256)
+                if existing_same_hash_rel and existing_same_hash_rel.startswith("memory/"):
+                    existing_same_hash_rel = None
             if existing_same_hash_rel:
                 existing_same_hash_full = os.path.join(self.storagepath, existing_same_hash_rel)
                 try:
@@ -482,6 +489,34 @@ class FileUpload(ProtocolHandler):
                     # Ignore 0-byte upload when a non-empty file already exists
                     with suppress(OSError):
                         os.unlink(tmp_path)
+                    final_rel_path = rel_dump_path
+                elif rel_dump_path.startswith("memory/"):
+                    # Process memory dumps are keyed strictly by <pid>.dmp; never version to <pid>_1.dmp
+                    if new_size >= existing_size:
+                        old_sha = path_map.get(rel_dump_path)
+                        if old_sha and sha256_map.get(old_sha) == rel_dump_path:
+                            sha256_map.pop(old_sha, None)
+                        os.replace(tmp_path, file_path)
+                        path_map[rel_dump_path] = new_sha256
+                        sha256_map[new_sha256] = rel_dump_path
+                        log.info(
+                            "Task #%s: Replaced memory dump %s (%d -> %d bytes, SHA256 %s)",
+                            self.task_id,
+                            rel_dump_path,
+                            existing_size,
+                            new_size,
+                            new_sha256,
+                        )
+                    else:
+                        with suppress(OSError):
+                            os.unlink(tmp_path)
+                        log.debug(
+                            "Task #%s: Kept larger existing memory dump %s (%d bytes vs %d bytes)",
+                            self.task_id,
+                            rel_dump_path,
+                            existing_size,
+                            new_size,
+                        )
                     final_rel_path = rel_dump_path
                 else:
                     # Different content for same filename -> create versioned file

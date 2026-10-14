@@ -7,6 +7,7 @@
 import argparse
 import hashlib
 import ipaddress
+import json
 import logging
 import os
 import re
@@ -579,6 +580,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             enforce_timeout=task.enforce_timeout,
             route=task.route,
             tlp=task.tlp,
+            attributes=json.dumps({"main_task_id": task.main_task_id}),
         )
 
         r = None
@@ -633,7 +635,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             try:
                 r = requests.post(
                     url,
-                    data={"url": task.path, "options": task.options},
+                    data={"url": task.path, "options": task.options, "attributes": json.dumps({"main_task_id": task.main_task_id})},
                     headers={"Authorization": f"Token {apikey}"},
                     verify=False,
                     timeout=request_timeout,

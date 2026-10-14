@@ -158,3 +158,42 @@ def test_done_handles_base_exception_robustly():
         assert future not in engine._scheduled_at, "future not removed from scheduled_at"
     assert source.failed == [99], "task was not marked failed on BaseException"
 
+
+def test_done_and_reaper_survive_mark_failed_db_exception():
+    """If source.mark_failed raises a transient DB error inside _done() or
+    _reap_stalled(), the exception must be caught and logged rather than
+    escaping into pebble's callback thread or crashing the supervisor."""
+    class _FailingMarkSource:
+        def __init__(self):
+            self.attempts = []
+
+        def mark_failed(self, task_id):
+            self.attempts.append(task_id)
+            raise RuntimeError("transient DB disconnect")
+
+    source = _FailingMarkSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=1,
+        stall_grace=1,
+    )
+
+    # 1. _done with failing mark_failed must not raise
+    f1 = _BaseExceptionRaisingFuture()
+    with engine._lock:
+        engine._pending[f1] = 101
+        engine._scheduled_at[f1] = time.monotonic()
+    engine._done(f1)
+    assert source.attempts == [101]
+
+    # 2. _reap_stalled with failing mark_failed must not raise
+    f2 = _MockFuture()
+    with engine._lock:
+        engine._pending[f2] = 102
+        engine._scheduled_at[f2] = time.monotonic() - 3600
+    engine._reap_stalled()
+    assert source.attempts == [101, 102]
+

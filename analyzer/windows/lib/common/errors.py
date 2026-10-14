@@ -375,6 +375,14 @@ ERRORS = {
     402: {"description": "The process is already in background processing mode", "name": "ERROR_PROCESS_MODE_ALREADY_BACKGROUND"},
     403: {"description": "The process is not in background processing mode", "name": "ERROR_PROCESS_MODE_NOT_BACKGROUND"},
     487: {"description": "Attempt to access invalid address", "name": "ERROR_INVALID_ADDRESS"},
+    740: {
+        "description": "The requested operation requires elevation (UAC)",
+        "name": "ERROR_ELEVATION_REQUIRED",
+    },
+    1223: {
+        "description": "The operation was canceled by the user",
+        "name": "ERROR_CANCELLED",
+    },
 }
 
 
@@ -385,4 +393,12 @@ def get_error_string(error_code):
     """
     if error_code in ERRORS:
         return f"{ERRORS[error_code]['description']} ({ERRORS[error_code]['name']})"
+    try:
+        import ctypes
+
+        formatted = ctypes.FormatError(error_code).strip()
+        if formatted:
+            return f"{formatted} (Error {error_code})"
+    except Exception:
+        pass
     return str(error_code)

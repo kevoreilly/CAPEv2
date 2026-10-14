@@ -65,3 +65,44 @@ def test_mongodb_operation_failure_prunes_all_processtree_entries(monkeypatch):
     assert "children" not in report["behavior"]["processtree"][0]
     assert "children" not in report["behavior"]["processtree"][1]
 
+
+def test_jsondump_and_dump_iocs_handle_surrogate_strings(tmp_path, monkeypatch):
+    import json
+    from lib.cuckoo.common import iocs as iocs_mod
+    from modules.reporting.jsondump import JsonDump
+
+    surrogate_name = "\udc8f\udce0\udcae_sample.txt"
+    results = {
+        "info": {"id": 101},
+        "malscore": 0.0,
+        "detections": [],
+        "dropped": [
+            {
+                "sha256": "a" * 64,
+                "md5": "b" * 32,
+                "guest_paths": [surrogate_name],
+            }
+        ],
+    }
+
+    dumper = JsonDump()
+    dumper.reports_path = str(tmp_path)
+    dumper.options = {"indent": 2}
+    dumper.run(results)
+
+    report_file = tmp_path / "report.json"
+    assert report_file.is_file()
+    parsed_report = json.loads(report_file.read_text(encoding="utf-8"))
+    assert len(parsed_report["dropped"][0]["guest_paths"]) == 1
+
+    analysis_reports = tmp_path / "storage" / "analyses" / "101" / "reports"
+    analysis_reports.mkdir(parents=True)
+    monkeypatch.setattr(iocs_mod, "CUCKOO_ROOT", str(tmp_path))
+    iocs_mod.dump_iocs(results, task_id=101)
+
+    iocs_file = analysis_reports / "iocs.json"
+    assert iocs_file.is_file()
+    parsed_iocs = json.loads(iocs_file.read_text(encoding="utf-8"))
+    assert len(parsed_iocs["dropped"][0]["guest_paths"]) == 1
+
+

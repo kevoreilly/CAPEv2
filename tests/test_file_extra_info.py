@@ -205,3 +205,64 @@ class TestFileExtraInfo:
             "_4.extracted",
             "_5.extracted",
         ]
+
+
+def test_run_tool_non_utf8_stdout():
+    """Verify run_tool with universal_newlines=True replaces invalid UTF-8 bytes instead of raising UnicodeDecodeError."""
+    import subprocess
+    import sys
+    from lib.cuckoo.common.integrations.utils import run_tool
+
+    output = run_tool(
+        [sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'extracting \\xa8\\xff_file.bin\\n')"],
+        universal_newlines=True,
+        stderr=subprocess.PIPE,
+    )
+    assert isinstance(output, str)
+    assert "extracting " in output
+    assert "_file.bin" in output
+
+
+def test_collect_extracted_filenames_sanitizes_surrogate_names(tmp_path):
+    """Verify collect_extracted_filenames renames files with surrogate-escaped non-UTF-8 bytes so downstream tools and JSON serializers get valid UTF-8 paths."""
+    import os
+    from lib.cuckoo.common.integrations.file_extra_info_modules import collect_extracted_filenames
+
+    raw_dir = os.fsencode(str(tmp_path))
+    non_utf8_name = b"\x8f\xe0\xae\xe7\xa8_readme.txt"
+    with open(os.path.join(raw_dir, non_utf8_name), "wb") as f:
+        f.write(b"payload")
+
+    extracted = collect_extracted_filenames(str(tmp_path))
+    assert len(extracted) == 1
+    assert extracted[0].encode("utf-8")
+    assert (tmp_path / extracted[0]).is_file()
+
+
+def test_detect_it_easy_info_calledprocesserror_with_surrogate_path(monkeypatch):
+    """Verify detect_it_easy_info logs CalledProcessError safely even when file_path contains lone surrogates."""
+    import io
+    import logging
+    import subprocess
+
+    monkeypatch.setattr(file_extra_info, "path_exists", lambda _: True)
+
+    def raise_cpe(cmd, **kwargs):
+        raise subprocess.CalledProcessError(1, cmd, output="Cannot find file\n")
+
+    monkeypatch.setattr(subprocess, "check_output", raise_cpe)
+
+    stream = io.BytesIO()
+    text_stream = io.TextIOWrapper(stream, encoding="utf-8", errors="strict")
+    handler = logging.StreamHandler(text_stream)
+    file_extra_info.log.addHandler(handler)
+    try:
+        res = file_extra_info.detect_it_easy_info("/tmp/archive/\udc8f\udce0\udcae.txt")
+        text_stream.flush()
+    finally:
+        file_extra_info.log.removeHandler(handler)
+
+    assert res == []
+    assert b"Detect-It-Easy: Failed to execute" in stream.getvalue()
+
+

@@ -109,7 +109,11 @@ class AnalysisInfo(Processing):
             self.task["machine"] = machine
         parsed_options = get_options(self.task["options"])
         parent_sample_details = False
-        if "maint_task_id" not in parsed_options:
+        main_task_id = parsed_options.get("main_task_id") or parsed_options.get("maint_task_id")
+        if attributes := self.task.get("attributes"):
+            main_task_id = attributes.get("main_task_id", main_task_id)
+            parent_sample_details = attributes.get("parent_sample", False)
+        if not parent_sample_details and not main_task_id:
             parent_sample_details = db.get_parent_sample_from_task(task_id=self.task["id"])
             if parent_sample_details:
                 parent_sample_details = parent_sample_details.to_dict()

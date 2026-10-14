@@ -34,7 +34,6 @@ requests.packages.urllib3.disable_warnings()
 CUCKOO_ROOT = os.path.join(os.path.abspath(os.path.dirname(__file__)), "..")
 sys.path.append(CUCKOO_ROOT)
 
-from lib.cuckoo.common.iocs import dump_iocs, load_iocs
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.dist_db import ExitNodes, Machine, Node, Task, create_session
@@ -56,7 +55,6 @@ from lib.cuckoo.core.database import (
     init_database,
 )
 from lib.cuckoo.core.data.task import Task as MD_Task
-from dev_utils.mongodb import mongo_update_one
 
 cfg = Config()
 reporting_conf = Config("reporting")
@@ -566,6 +564,15 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             if task.tags[-1] == ",":
                 task.tags = task.tags[:-1]
         apikey = node.apikey
+        task_attributes = {"main_task_id": task.main_task_id}
+        if task.category in ("file", "pcap", "static"):
+            try:
+                with main_db.session.begin():
+                    if parent_sample := main_db.get_parent_sample_from_task(task.main_task_id):
+                        task_attributes["parent_sample"] = parent_sample.to_dict()
+            except Exception as e:
+                log.warning("Failed to fetch parent_sample for main_task_id %s: %s", task.main_task_id, e)
+        attributes_json = json.dumps(task_attributes)
         data = dict(
             package=task.package,
             timeout=task.timeout,
@@ -580,7 +587,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             enforce_timeout=task.enforce_timeout,
             route=task.route,
             tlp=task.tlp,
-            attributes=json.dumps({"main_task_id": task.main_task_id}),
+            attributes=attributes_json,
         )
 
         r = None
@@ -635,7 +642,7 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
             try:
                 r = requests.post(
                     url,
-                    data={"url": task.path, "options": task.options, "attributes": json.dumps({"main_task_id": task.main_task_id})},
+                    data={"url": task.path, "options": task.options, "attributes": attributes_json},
                     headers={"Authorization": f"Token {apikey}"},
                     verify=False,
                     timeout=request_timeout,
@@ -1142,8 +1149,6 @@ class Retriever(threading.Thread):
                     dbg_line = f"[PERF  ] Copied CAPE ID: {t.main_task_id} (Worker ID: {t.task_id}) in {timediff:.2f}s"
                     log.debug(dbg_line)
                     self.cleaner_queue.put((node_id, task.get("id")))
-                    # this doesn't exist for some reason
-                    sample_parent = None
                     hashes = {}
                     if path_exists(t.path):
                         sample_sha256 = None
@@ -1154,12 +1159,6 @@ class Retriever(threading.Thread):
                                 hashes["sha256"] = samples[0].sample.sha256
                                 hashes["md5"] = samples[0].sample.md5
                                 hashes["sha1"] = samples[0].sample.sha1
-
-                                if hasattr(samples[0].sample, "parent_links"):
-                                    for parent in samples[0].sample.parent_links:
-                                        if parent.task_id == t.main_task_id:
-                                            sample_parent = parent.parent.to_dict()
-                                            break
 
                         if sample_sha256 is None:
                             # keep fallback for now
@@ -1182,19 +1181,6 @@ class Retriever(threading.Thread):
                                 pass
 
                         self.delete_target_file(t.main_task_id, sample_sha256, t.path)
-
-                    if sample_parent:
-                        try:
-                            report = load_iocs(t.main_task_id, detail=True)
-                            if report:
-                                report["info"].update({"parent_sample": sample_parent})
-                                dump_iocs(report, t.main_task_id)
-                            # ToDo insert into mongo
-                            mongo_update_one(
-                                "analysis", {"info.id": int(t.main_task_id)}, {"$set": {"info.parent_sample": sample_parent}}
-                            )
-                        except Exception as e:
-                            log.exception("Failed to save iocs for parent sample: %s", str(e))
 
                     if GCS_ENABLED:
                         metadata = gcs_uploader.parse_custom_string(t.custom)
@@ -1444,9 +1430,6 @@ class StatusThread(threading.Thread):
                     if options.get("node"):
                         del options["node"]
                     t.options = ",".join([f"{k}={v}" for k, v in options.items()])
-                    if t.options:
-                        t.options += ","
-                    t.options += f"main_task_id={t.id}"
                     args = dict(
                         package=t.package,
                         category=t.category,

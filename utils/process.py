@@ -121,6 +121,8 @@ def process(
     task_dict["_options_parsed"] = task_options
     # cluster mode
     main_task_id = task_options.get("main_task_id", 0) if "main_task_id" in task_options else False
+    if attributes := task_dict.get("attributes"):
+        main_task_id = attributes.get("main_task_id", main_task_id)
 
     # ToDo new logger here
     per_analysis_handler = init_per_analysis_logging(tid=str(task_id), debug=debug)

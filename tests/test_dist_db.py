@@ -210,3 +210,62 @@ def test_node_submit_task_error_logging(caplog):
                 in record.message
                 for record in caplog.records
             )
+
+
+def test_node_submit_task_includes_parent_sample_in_attributes(tmp_path):
+    import json
+    from unittest.mock import MagicMock, patch
+    from utils.dist import node_submit_task
+
+    sample_file = tmp_path / "child.bin"
+    sample_file.write_bytes(b"MZ" + b"\x00" * 30)
+
+    mock_node = MagicMock()
+    mock_node.id = 7
+    mock_node.name = "worker1"
+    mock_node.url = "http://worker1.local/"
+    mock_node.apikey = "test_key"
+
+    mock_task = MagicMock()
+    mock_task.id = 100
+    mock_task.main_task_id = 500
+    mock_task.category = "file"
+    mock_task.path = str(sample_file)
+    mock_task.package = ""
+    mock_task.timeout = 120
+    mock_task.priority = 1
+    mock_task.options = ""
+    mock_task.machine = ""
+    mock_task.platform = "windows"
+    mock_task.tags = ""
+    mock_task.custom = ""
+    mock_task.clock = None
+    mock_task.memory = False
+    mock_task.enforce_timeout = False
+    mock_task.route = None
+    mock_task.tlp = None
+
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_node
+    mock_db.get.return_value = mock_task
+
+    mock_parent = MagicMock()
+    mock_parent.to_dict.return_value = {"id": 99, "sha256": "a" * 64}
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"data": {"task_ids": [777]}}
+
+    with (
+        patch("utils.dist.main_db") as mock_main_db,
+        patch("utils.dist.requests.post", return_value=mock_response) as mock_post,
+    ):
+        mock_main_db.get_parent_sample_from_task.return_value = mock_parent
+        result = node_submit_task(task_id=100, node_id=7, main_task_id=500, db=mock_db)
+
+    assert result is True
+    posted_data = mock_post.call_args.kwargs["data"]
+    assert json.loads(posted_data["attributes"]) == {
+        "main_task_id": 500,
+        "parent_sample": {"id": 99, "sha256": "a" * 64},
+    }

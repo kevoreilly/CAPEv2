@@ -510,12 +510,11 @@ class MongoDB(Report):
             return
 
         # trick for distributed api
-        main_task_id = results.get("info", {}).get("options", {}).get("main_task_id")
+        main_task_id = None
         if self.task and (attributes := self.task.get("attributes")):
-            main_task_id = attributes.get("main_task_id", main_task_id)
-        if main_task_id:
-            with suppress(ValueError, TypeError):
-                report["info"]["id"] = int(main_task_id)
+            if main_task_id := attributes.get("main_task_id"):
+                with suppress(ValueError, TypeError):
+                    report["info"]["id"] = int(main_task_id)
 
         if "network" not in report:
             report["network"] = {}

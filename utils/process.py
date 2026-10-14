@@ -269,13 +269,14 @@ def init_worker():
         path = os.path.join(CUCKOO_ROOT, "log", "process.log")
         fh = logging.handlers.WatchedFileHandler(path)
         fh.setFormatter(FORMATTER)
-        log.addHandler(fh)
+        log.handlers.append(fh)
         init_json_file_handler(
             log,
             "process.log",
             service_name="cape-processor",
             logconf=logconf,
             watch_only=True,
+            cuckoo_root=CUCKOO_ROOT,
         )
     except PermissionError as e:
         log.warning("Failed to restore File handler in worker due to permissions: %s", e)
@@ -379,6 +380,7 @@ def init_logging(debug=False):
             service_name="cape-processor",
             logconf=logconf,
             handler_cls=ForceClosingTimedRotatingFileHandler,
+            cuckoo_root=CUCKOO_ROOT,
         )
     except PermissionError:
         log.critical("PermissionError to create/access log. Probably executed with wrong user.")

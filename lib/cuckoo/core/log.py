@@ -521,12 +521,13 @@ def init_json_file_handler(
     handler_cls: type[logging.Handler] | None = None,
     backup_count: int | None = None,
     watch_only: bool = False,
+    cuckoo_root: str | None = None,
 ) -> logging.Handler | None:
     """Attach a rotated side-by-side <stem>.json.log handler when json_logs is enabled."""
     if not is_json_logging_enabled(logconf):
         return None
 
-    log_dir = os.path.join(CUCKOO_ROOT, "log")
+    log_dir = os.path.join(cuckoo_root or CUCKOO_ROOT, "log")
     if not path_exists(log_dir):
         path_mkdir(log_dir)
 

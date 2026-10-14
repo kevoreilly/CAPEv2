@@ -167,3 +167,80 @@ def test_init_json_file_handler_writes_json_lines(tmp_path, monkeypatch):
     assert parsed["task_id"] == 777
     assert parsed["main_task_id"] == 888
     assert parsed["service"] == "cape-processor"
+
+
+def test_should_colorize_and_is_json_enabled_respect_config_and_int_values(monkeypatch):
+    monkeypatch.delenv("CAPE_COLOR_LOGS", raising=False)
+    monkeypatch.delenv("NO_COLOR", raising=False)
+    monkeypatch.delenv("CAPE_JSON_LOGS", raising=False)
+
+    non_tty = _DummyStream(is_tty=False)
+    tty = _DummyStream(is_tty=True)
+
+    # Fallback to Config("logging") when logconf=None
+    monkeypatch.setattr(
+        cape_log,
+        "_resolve_logconf",
+        lambda lc=None: lc if lc is not None else SimpleNamespace(logger={"color_logs": "on", "json_logs": 1}),
+    )
+    assert cape_log.should_colorize(non_tty) is True
+    assert cape_log.is_json_logging_enabled() is True
+
+    monkeypatch.setattr(
+        cape_log,
+        "_resolve_logconf",
+        lambda lc=None: lc if lc is not None else SimpleNamespace(logger={"color_logs": 0, "json_logs": 0}),
+    )
+    assert cape_log.should_colorize(tty) is False
+    assert cape_log.is_json_logging_enabled() is False
+
+
+def test_structured_json_formatter_whole_second_and_surrogate_safety():
+    formatter = cape_log.StructuredJsonFormatter(service_name="cape-processor")
+    record = logging.LogRecord(
+        name="test.surrogate",
+        level=logging.WARNING,
+        pathname=__file__,
+        lineno=42,
+        msg="unpacked file bad\udce2name.exe",
+        args=(),
+        exc_info=None,
+    )
+    # Exact integer second (.microsecond == 0) must still include .000000Z for fluentd %N
+    record.created = 1700000000.0
+
+    line = formatter.format(record)
+    assert line.encode("utf-8")
+    payload = json.loads(line)
+    assert payload["time"] == "2023-11-14T22:13:20.000000Z"
+    assert "\udce2" not in payload["message"]
+    assert "bad?name.exe" in payload["message"]
+
+
+def test_task_context_filter_and_message_regex_and_zero_sentinel():
+    # Sentinel 0 / False values should not populate task_id / main_task_id
+    with cape_log.log_task_context(task_id=0, main_task_id=False):
+        ctx = cape_log.get_log_task_context()
+        assert ctx["task_id"] is None
+        assert ctx["main_task_id"] is None
+
+    # Pebble supervisor timeout/exception message patterns and TaskContextFilter
+    flt = cape_log.TaskContextFilter()
+    rec = logging.LogRecord(
+        name="lib.cuckoo.core.processing_engine.pebble",
+        level=logging.ERROR,
+        pathname=__file__,
+        lineno=62,
+        msg="[351234] Processing timeout: 300s",
+        args=(),
+        exc_info=None,
+    )
+    assert flt.filter(rec) is True
+    assert getattr(rec, "task_id", None) == 351234
+
+    # task_log_stop_force called from AnalysisManager thread must not wipe its log_task_context
+    with cape_log.log_task_context(task_id=5555, machine="win10_2"):
+        cape_log.task_log_stop_force(5555)
+        assert cape_log.get_log_task_context()["task_id"] == 5555
+        assert cape_log.get_log_task_context()["machine"] == "win10_2"
+

@@ -37,7 +37,11 @@ _ctx_machine: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_
 _ctx_node: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_node", default=None)
 _ctx_correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_correlation_id", default=None)
 
-_RE_MSG_TASK = re.compile(r"(?:\bTask\s+#?(\d+)|\[Task\s+(\d+)(?:\s+\((\d+)\))?\])", re.IGNORECASE)
+_RE_MSG_TASK = re.compile(
+    r"(?:\bTask(?:\s+id|_id)?[\s:=]+#?(\d+)|\[Task\s+(\d+)(?:\s+\((\d+)\))?\]"
+    r"|\[(\d+)\]\s+(?:Processing timeout|Exception when processing task|Task never ran))",
+    re.IGNORECASE,
+)
 _TRUTHY_VALUES = ("1", "true", "yes", "on", "always")
 _FALSY_VALUES = ("0", "false", "no", "off", "never")
 
@@ -56,6 +60,26 @@ else:
 task_key = gevent.thread.get_ident
 
 
+def _parse_positive_int(val: Any) -> int | None:
+    if val is None or isinstance(val, bool):
+        return None
+    try:
+        parsed = int(val)
+        return parsed if parsed > 0 else None
+    except (TypeError, ValueError):
+        return None
+
+
+def _resolve_logconf(logconf: Any = None) -> Any:
+    if logconf is not None:
+        return logconf
+    with contextlib.suppress(Exception):
+        from lib.cuckoo.common.config import Config
+
+        return Config("logging")
+    return None
+
+
 def set_log_task_context(
     task_id: int | str | None = None,
     main_task_id: int | str | None = None,
@@ -64,22 +88,8 @@ def set_log_task_context(
     correlation_id: str | None = None,
 ) -> None:
     """Bind task and machine context to the active thread/greenlet."""
-    if task_id is not None and task_id is not False:
-        try:
-            _ctx_task_id.set(int(task_id))
-        except (TypeError, ValueError):
-            _ctx_task_id.set(None)
-    else:
-        _ctx_task_id.set(None)
-
-    if main_task_id is not None and main_task_id is not False:
-        try:
-            _ctx_main_task_id.set(int(main_task_id))
-        except (TypeError, ValueError):
-            _ctx_main_task_id.set(None)
-    else:
-        _ctx_main_task_id.set(None)
-
+    _ctx_task_id.set(_parse_positive_int(task_id))
+    _ctx_main_task_id.set(_parse_positive_int(main_task_id))
     _ctx_machine.set(str(machine) if machine else None)
     _ctx_node.set(str(node) if node else None)
     _ctx_correlation_id.set(str(correlation_id) if correlation_id else None)
@@ -148,12 +158,10 @@ def resolve_record_context(record: logging.LogRecord, message: str | None = None
     ctx = get_log_task_context()
     rec_dict = record.__dict__
 
-    task_id = rec_dict.get("task_id") if rec_dict.get("task_id") is not None else ctx["task_id"]
-    main_task_id = (
-        rec_dict.get("main_task_id")
-        if rec_dict.get("main_task_id") not in (None, False)
-        else ctx["main_task_id"]
-    )
+    rec_tid = _parse_positive_int(rec_dict.get("task_id"))
+    task_id = rec_tid if rec_tid is not None else ctx["task_id"]
+    rec_mtid = _parse_positive_int(rec_dict.get("main_task_id"))
+    main_task_id = rec_mtid if rec_mtid is not None else ctx["main_task_id"]
     machine = rec_dict.get("machine") or ctx["machine"]
     node = rec_dict.get("node") or ctx["node"]
     correlation_id = rec_dict.get("correlation_id") or ctx["correlation_id"]
@@ -162,13 +170,11 @@ def resolve_record_context(record: logging.LogRecord, message: str | None = None
         msg_text = message if message is not None else record.getMessage()
         match = _RE_MSG_TASK.search(msg_text)
         if match:
-            raw_tid = match.group(1) or match.group(2)
+            raw_tid = match.group(1) or match.group(2) or match.group(4)
             if raw_tid:
-                with contextlib.suppress(ValueError):
-                    task_id = int(raw_tid)
+                task_id = _parse_positive_int(raw_tid)
             if main_task_id is None and match.group(3):
-                with contextlib.suppress(ValueError):
-                    main_task_id = int(match.group(3))
+                main_task_id = _parse_positive_int(match.group(3))
 
     return {
         "task_id": task_id,
@@ -202,10 +208,11 @@ def should_colorize(stream: Any = None, logconf: Any = None) -> bool:
         if env_color in _FALSY_VALUES:
             return False
 
-    if logconf is not None and hasattr(logconf, "logger"):
-        cfg_val = logconf.logger.get("color_logs", "auto")
-        if isinstance(cfg_val, bool):
-            return cfg_val
+    resolved_conf = _resolve_logconf(logconf)
+    if resolved_conf is not None and hasattr(resolved_conf, "logger"):
+        cfg_val = resolved_conf.logger.get("color_logs", "auto")
+        if isinstance(cfg_val, (bool, int)):
+            return bool(cfg_val)
         if isinstance(cfg_val, str):
             norm = cfg_val.strip().lower()
             if norm in _TRUTHY_VALUES:
@@ -226,10 +233,11 @@ def is_json_logging_enabled(logconf: Any = None) -> bool:
         if env_json in _FALSY_VALUES:
             return False
 
-    if logconf is not None and hasattr(logconf, "logger"):
-        val = logconf.logger.get("json_logs", False)
-        if isinstance(val, bool):
-            return val
+    resolved_conf = _resolve_logconf(logconf)
+    if resolved_conf is not None and hasattr(resolved_conf, "logger"):
+        val = resolved_conf.logger.get("json_logs", False)
+        if isinstance(val, (bool, int)):
+            return bool(val)
         if isinstance(val, str):
             return val.strip().lower() in _TRUTHY_VALUES
     return False
@@ -334,6 +342,11 @@ class ColoredFormatter(logging.Formatter):
                 logging.CRITICAL: f"%(asctime)s [{self.BOLD_RED}%(levelname)-7s{self.RESET}] %(name)s: %(message)s",
             }
 
+        self._plain_formatter = logging.Formatter(self._plain_fmt)
+        self._colored_formatters = {
+            lvl: logging.Formatter(fmt) for lvl, fmt in self._colored_formats.items()
+        }
+
     def format(self, record: logging.LogRecord) -> str:
         use_color = (
             self._colorize
@@ -341,10 +354,10 @@ class ColoredFormatter(logging.Formatter):
             else should_colorize(self._stream)
         )
         if not use_color:
-            return logging.Formatter(self._plain_fmt).format(record)
+            return self._plain_formatter.format(record)
 
-        log_fmt = self._colored_formats.get(record.levelno, self._plain_fmt)
-        formatted_message = logging.Formatter(log_fmt).format(record)
+        formatter = self._colored_formatters.get(record.levelno, self._plain_formatter)
+        formatted_message = formatter.format(record)
 
         bold_cyan = "\x1b[36;1m"
         bold_green = "\x1b[32;1m"
@@ -442,7 +455,7 @@ class StructuredJsonFormatter(logging.Formatter):
 
         iso_time = (
             datetime.fromtimestamp(record.created, tz=timezone.utc)
-            .isoformat()
+            .isoformat(timespec="microseconds")
             .replace("+00:00", "Z")
         )
 
@@ -492,7 +505,12 @@ class StructuredJsonFormatter(logging.Formatter):
         ):
             payload["@type"] = REPORTED_ERROR_EVENT_TYPE
 
-        return json.dumps(payload, default=str, ensure_ascii=False)
+        out = json.dumps(payload, default=str, ensure_ascii=False)
+        try:
+            out.encode("utf-8")
+        except UnicodeEncodeError:
+            out = out.encode("utf-8", errors="replace").decode("utf-8")
+        return out
 
 
 def init_json_file_handler(
@@ -550,7 +568,7 @@ def init_json_file_handler(
 
 def task_log_start(task_id):
     """Associate a thread with a task."""
-    _ctx_task_id.set(int(task_id) if task_id is not None else None)
+    _ctx_task_id.set(_parse_positive_int(task_id))
     _tasks_lock.acquire()
     try:
         if task_id not in _task_threads:
@@ -590,8 +608,6 @@ def task_log_stop(task_id):
 
 def task_log_stop_force(task_id):
     """Force disassociate all threads from a task and close the log file."""
-    if _ctx_task_id.get() == task_id:
-        _ctx_task_id.set(None)
     _tasks_lock.acquire()
     try:
         if task_id not in _task_threads:

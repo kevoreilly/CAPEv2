@@ -106,3 +106,95 @@ def test_jsondump_and_dump_iocs_handle_surrogate_strings(tmp_path, monkeypatch):
     assert len(parsed_iocs["dropped"][0]["guest_paths"]) == 1
 
 
+def test_insert_calls_mongodb_bulk_fast_path(monkeypatch):
+    from unittest.mock import MagicMock
+
+    import modules.reporting.report_doc as report_doc
+
+    inserted_batches = []
+
+    def fake_insert_many(collection, docs):
+        assert collection == "calls"
+        inserted_batches.append(docs)
+        res = MagicMock()
+        res.inserted_ids = [f"oid_{i}" for i in range(len(docs))]
+        return res
+
+    monkeypatch.setattr(report_doc, "mongo_insert_many", fake_insert_many)
+
+    calls = [{"api": "NtCreateFile", "arguments": [{"name": "FileName", "value": f"file_{i}"}]} for i in range(250)]
+    report = {
+        "info": {"id": 42},
+        "behavior": {
+            "processes": [
+                {
+                    "process_id": 1000,
+                    "calls": calls,
+                }
+            ]
+        },
+    }
+
+    new_procs = report_doc.insert_calls(report, mongodb=True)
+    assert len(inserted_batches) == 1
+    assert len(inserted_batches[0]) == 3
+    assert [len(chunk["calls"]) for chunk in inserted_batches[0]] == [100, 100, 50]
+    assert new_procs[0]["calls"] == ["oid_0", "oid_1", "oid_2"]
+    # Clean calls are not copied unnecessarily
+    assert inserted_batches[0][0]["calls"][0] is calls[0]
+
+
+def test_insert_calls_mongodb_sanitizes_oversized_and_surrogate_values(monkeypatch):
+    from unittest.mock import MagicMock
+
+    import modules.reporting.report_doc as report_doc
+
+    inserted_batches = []
+
+    def fake_insert_many(collection, docs):
+        assert collection == "calls"
+        inserted_batches.append(docs)
+        res = MagicMock()
+        res.inserted_ids = [f"oid_{i}" for i in range(len(docs))]
+        return res
+
+    monkeypatch.setattr(report_doc, "mongo_insert_many", fake_insert_many)
+
+    oversized_str = "A" * 50000
+    oversized_bytes = b"B" * 50000
+    surrogate_str = "C:\\Temp\\bad_\udc80_name.exe"
+
+    calls = [{"api": "NtWriteFile", "arguments": [{"name": "Buffer", "value": "normal"}]} for _ in range(250)]
+    calls[100] = {
+        "api": "NtWriteFile",
+        "arguments": [
+            {"name": "Buffer", "value": oversized_str},
+            {"name": "RawBuffer", "value": oversized_bytes},
+            {"name": "FileName", "value": surrogate_str},
+        ],
+    }
+
+    report = {
+        "info": {"id": 99},
+        "behavior": {"processes": [{"process_id": 500, "calls": calls}]},
+    }
+
+    new_procs = report_doc.insert_calls(report, mongodb=True)
+    assert new_procs[0]["calls"] == ["oid_0", "oid_1", "oid_2"]
+    assert len(inserted_batches) == 1
+
+    chunk_1_call_0 = inserted_batches[0][1]["calls"][0]
+    trunc_str = chunk_1_call_0["arguments"][0]["value"]
+    trunc_bytes = chunk_1_call_0["arguments"][1]["value"]
+    clean_surrogate = chunk_1_call_0["arguments"][2]["value"]
+
+    assert len(trunc_str) == report_doc.MAX_CALL_VALUE_LEN + len("...[truncated]")
+    assert trunc_str.endswith("...[truncated]")
+    assert len(trunc_bytes) == report_doc.MAX_CALL_VALUE_LEN
+    assert isinstance(clean_surrogate, str)
+    clean_surrogate.encode("utf-8")
+
+    # Original call in caller's list is not mutated in-place
+    assert len(calls[100]["arguments"][0]["value"]) == 50000
+    assert len(calls[100]["arguments"][1]["value"]) == 50000
+    assert calls[100]["arguments"][2]["value"] == surrogate_str

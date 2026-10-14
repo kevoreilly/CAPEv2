@@ -212,6 +212,11 @@ def mongo_insert_one(collection: str, doc):
 
 
 @graceful_auto_reconnect
+def mongo_insert_many(collection: str, docs):
+    return getattr(results_db, collection).insert_many(docs)
+
+
+@graceful_auto_reconnect
 def mongo_find(collection: str, query, projection=False, sort=None, limit=None, max_time_ms=None, no_hooks=False):
     if sort is None:
         sort = [("_id", -1)]
@@ -342,7 +347,7 @@ def mongo_delete_calls(task_ids: Sequence[int] | None) -> None:
     """
     if not task_ids:
         return
-    log.info("attempting to delete calls for %d tasks", len(task_ids))
+    log.debug("attempting to delete calls for %d tasks", len(task_ids))
     mongo_delete_many("calls", {"task_id": {"$in": task_ids}})
 
 

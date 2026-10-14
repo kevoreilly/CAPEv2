@@ -174,7 +174,11 @@ class _Database(TasksMixIn,
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )
-                    print(red("Please backup your data before migration!\ncd utils/db_migration/ && poetry run alembic upgrade head"))
+                    print(
+                        red(
+                            f"Please backup your data before migration!\ncd {os.path.join(CUCKOO_ROOT, 'utils', 'db_migration')} && poetry run alembic upgrade head"
+                        )
+                    )
                     sys.exit()
 
     def __del__(self):

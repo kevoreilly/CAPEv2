@@ -1,4 +1,5 @@
 from .db_common import _utcnow_naive
+import json
 import logging
 from contextlib import contextmanager
 from typing import List, Optional, Tuple, Dict
@@ -218,6 +219,7 @@ class TasksMixIn:
         user_id=0,
         tenant_id=None,
         visibility="private",
+        attributes=None,
     ):
         """Add a task to database.
         @param obj: object to add (File or URL).
@@ -336,6 +338,16 @@ class TasksMixIn:
         task.cape = cape
         task.tags_tasks = tags_tasks
 
+        if isinstance(attributes, str) and attributes:
+            try:
+                attributes = json.loads(attributes)
+            except Exception:
+                log.warning("Invalid JSON in task attributes: %s", attributes)
+                attributes = None
+        if isinstance(attributes, dict):
+            for k, v in attributes.items():
+                task.set_attribute(k, v)
+
         # Use a transaction so that we can return an ID.
         with self.session.begin():
             self.session.add(task)
@@ -398,6 +410,7 @@ class TasksMixIn:
         tenant_id=None,
         visibility="private",
         parent_sample = None,
+        attributes=None,
     ):
         """Add a task to database from file path.
         @param file_path: sample path.
@@ -454,6 +467,7 @@ class TasksMixIn:
             tags_tasks=tags_tasks,
             user_id=user_id, tenant_id=tenant_id, visibility=visibility,
             parent_sample=parent_sample,
+            attributes=attributes,
         )
 
     def identify_submission_package(
@@ -533,6 +547,7 @@ class TasksMixIn:
         tenant_id=None,
         visibility="private",
         category=None,
+        attributes=None,
     ):
         """
         Handles ZIP file submissions, submitting each extracted file to the database
@@ -596,6 +611,7 @@ class TasksMixIn:
                 user_id=user_id, tenant_id=tenant_id, visibility=visibility,
                 options=options,
                 package=package,
+                attributes=attributes,
             )
             return task_ids, details
 
@@ -636,6 +652,7 @@ class TasksMixIn:
                     options=options,
                     package=package,
                     parent_sample=parent_sample,
+                    attributes=attributes,
                 )
                 continue
             if static:
@@ -677,7 +694,7 @@ class TasksMixIn:
                         config = static_extraction(file)
                 if config or only_extraction:
                     task_ids += self.add_static(
-                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, tenant_id=tenant_id, visibility=visibility, options=options, parent_sample=parent_sample,
+                        file_path=file, priority=priority, tlp=tlp, user_id=user_id, tenant_id=tenant_id, visibility=visibility, options=options, parent_sample=parent_sample, attributes=attributes,
                     )
 
             if not config and not only_extraction:
@@ -739,6 +756,7 @@ class TasksMixIn:
                         tenant_id=tenant_id,
                         visibility=visibility,
                         parent_sample=parent_sample,
+                        attributes=attributes,
                     )
                     if task_id:
                         task_ids.append(task_id)
@@ -769,6 +787,7 @@ class TasksMixIn:
         user_id=0,
         tenant_id=None,
         visibility="private",
+        attributes=None,
     ):
         return self.add(
             PCAP(file_path.decode()),
@@ -785,6 +804,7 @@ class TasksMixIn:
             clock=clock,
             tlp=tlp,
             user_id=user_id, tenant_id=tenant_id, visibility=visibility,
+            attributes=attributes,
         )
 
     def add_static(
@@ -807,6 +827,7 @@ class TasksMixIn:
         tenant_id=None,
         visibility="private",
         parent_sample=None,
+        attributes=None,
     ):
         extracted_files, demux_error_msgs = demux_sample(file_path, package, options)
 
@@ -844,6 +865,7 @@ class TasksMixIn:
                 static=static,
                 parent_sample=parent_sample,
                 user_id=user_id, tenant_id=tenant_id, visibility=visibility,
+                attributes=attributes,
             )
             if task_id:
                 task_ids.append(task_id)
@@ -871,6 +893,7 @@ class TasksMixIn:
         user_id=0,
         tenant_id=None,
         visibility="private",
+        attributes=None,
     ):
         """Add a task to database from url.
         @param url: url.
@@ -918,6 +941,7 @@ class TasksMixIn:
             cape=cape,
             tags_tasks=tags_tasks,
             user_id=user_id, tenant_id=tenant_id, visibility=visibility,
+            attributes=attributes,
         )
 
     def set_vnc_port(self, task_id: int, port: int):

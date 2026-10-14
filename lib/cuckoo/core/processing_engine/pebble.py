@@ -1,7 +1,5 @@
 """Pebble-pool engine — preserved as the A/B control. Mirrors the historical
-autoprocess loop, parameterized behind the engine seam. max_tasks defaults to 0
-(no recycle): worker recycling deadlocks in multiprocessing _exit_function while
-joining the nested extractor pool — see the redesign spec."""
+autoprocess loop, parameterized behind the engine seam."""
 import logging
 import os
 import time
@@ -31,9 +29,9 @@ class PebbleEngine(ProcessingEngine):
     timeout : int
         Per-task timeout in seconds (passed to pebble).
     max_tasks : int
-        Max tasks per child process (pebble ``max_tasks``). Default 0 = no
-        recycling — prevents the multiprocessing ``_exit_function`` / pool-join
-        deadlock seen with worker recycling in production.
+        Max tasks per child process (pebble ``max_tasks``). Defaults to 0
+        (no recycling) at the constructor level; ``utils/process.py`` overrides
+        this with ``maxtasksperchild`` from ``processing.conf`` (default 7).
     max_count : int
         Exit after scheduling this many tasks. 0 (default) = run forever,
         matching ``cfg.cuckoo.max_analysis_count == 0`` production default.
@@ -49,6 +47,15 @@ class PebbleEngine(ProcessingEngine):
         self._pending = {}  # future -> task_id
         self._scheduled_at = {}  # future -> time.monotonic() when scheduled
 
+    def _safe_mark_failed(self, task_id):
+        """Record task failure without letting a transient DB error kill the caller."""
+        if task_id is None:
+            return
+        try:
+            self.source.mark_failed(task_id)
+        except Exception as db_error:
+            log.exception("[%s] Failed to mark task as FAILED_PROCESSING: %s", task_id, db_error)
+
     def _done(self, future):
         """Pebble done-callback: fires in the pool's internal thread."""
         with self._lock:
@@ -60,14 +67,12 @@ class PebbleEngine(ProcessingEngine):
             log.info("Reports generation completed for Task #%s", task_id)
         except TimeoutError as error:
             log.error("[%s] Processing timeout: %s. Function: %s", task_id, error, error.args[1] if len(error.args) > 1 else "")
-            if task_id is not None:
-                self.source.mark_failed(task_id)
+            self._safe_mark_failed(task_id)
         except BaseException as error:
             # BaseException, not Exception: anything escaping this callback
             # propagates into pebble's message-manager thread and kills it.
             log.exception("[%s] Exception when processing task: %s", task_id, error)
-            if task_id is not None:
-                self.source.mark_failed(task_id)
+            self._safe_mark_failed(task_id)
 
     def _reap_stalled(self):
         """Fail tasks that were scheduled but never ran.
@@ -108,8 +113,7 @@ class PebbleEngine(ProcessingEngine):
                 future.cancel()
             except Exception:
                 pass
-            if task_id is not None:
-                self.source.mark_failed(task_id)
+            self._safe_mark_failed(task_id)
 
     def run(self):
         """Drive the pebble pool loop, mirroring the historical autoprocess body."""
@@ -143,7 +147,12 @@ class PebbleEngine(ProcessingEngine):
 
                 with self._lock:
                     exclude = set(self._pending.values())
-                tasks = self.source.fetch(limit=self.parallel, exclude_ids=exclude)
+                try:
+                    tasks = self.source.fetch(limit=self.parallel, exclude_ids=exclude)
+                except Exception as db_error:
+                    log.error("Database connection error during task fetch: %s. Retrying in 10s...", db_error)
+                    time.sleep(10)
+                    continue
                 added = False
                 # Schedule at most one task per iteration to avoid overshooting
                 # max_count (same rationale as the original "For loop to add

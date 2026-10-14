@@ -1,3 +1,6 @@
+### [14.10.2026]
+* `analyzer/windows`: expand environment variables in `executiondir`/`curdir` in `Process.execute()`, fall back to `CreateProcessW` without `PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` when launching with `explorer.exe` as parent fails (e.g. `ERROR_ELEVATION_REQUIRED` on installers with `requireAdministrator` manifests), and keep the analysis running for the full timeout when `enforce_timeout` is enabled even if `package.start()` fails.
+
 ### [08.10.2026]
 * `extra/browser_extension`: capture `requestBody` (`formData` and decoded `raw` bytes up to 4 KB) via `webRequest.onBeforeRequest`, record HTTP `statusCode` in `onCompleted`, correlate lifecycle events by `requestId` with O(1) deduplication, debounce event flushing, and fix the `browser.downloads.onChanged` listener registration.
 

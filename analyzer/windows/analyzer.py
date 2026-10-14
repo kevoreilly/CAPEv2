@@ -687,16 +687,29 @@ class Analyzer:
         else:
             # Start analysis package. If for any reason, the execution of the
             # analysis package fails, we have to abort the analysis.
+            pids = None
             try:
                 pids = self.package.start(self.target)
             except NotImplementedError as e:
                 raise CuckooError(f'The package "{self.package_name}" doesn\'t contain a start function') from e
             except CuckooPackageError as e:
-                raise CuckooError(f'The package "{self.package_name}" start function raised an error: {e}') from e
+                if not self.config.enforce_timeout:
+                    raise CuckooError(f'The package "{self.package_name}" start function raised an error: {e}') from e
+                log.warning(
+                    'The package "%s" start function raised an error (continuing due to enforce_timeout): %s',
+                    self.package_name,
+                    e,
+                )
             except Exception as e:
-                raise CuckooError(
-                    f'The package "{self.package_name}" start function encountered an unhandled exception: {e}'
-                ) from e
+                if not self.config.enforce_timeout:
+                    raise CuckooError(
+                        f'The package "{self.package_name}" start function encountered an unhandled exception: {e}'
+                    ) from e
+                log.warning(
+                    'The package "%s" start function encountered an unhandled exception (continuing due to enforce_timeout): %s',
+                    self.package_name,
+                    e,
+                )
 
             # If the analysis package returned a list of process IDs, we add them
             # to the list of monitored processes and enable the process monitor.

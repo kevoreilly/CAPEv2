@@ -656,6 +656,8 @@ class Process:
         # Use the custom execution directory if provided, otherwise launch in the same location
         # where the sample resides (default %TEMP%)
         execution_directory = self.options.get(OPT_EXECUTIONDIR) or self.options.get(OPT_CURDIR) or os.getenv("TEMP")
+        if execution_directory:
+            execution_directory = os.path.expandvars(execution_directory)
 
         # Try to create the custom directories so that the execution path is deemed valid
         create_custom_folders(execution_directory)
@@ -663,9 +665,34 @@ class Process:
         created = KERNEL32.CreateProcessW(
             path, arguments, None, None, False, creation_flags, None, execution_directory, byref(startup_info), byref(process_info)
         )
+        last_error = KERNEL32.GetLastError()
 
         KERNEL32.CloseHandle(h_parent)
         KERNEL32.DeleteProcThreadAttributeList(attr_list)
+
+        if not created:
+            log.warning(
+                'Failed to execute process from path "%s" with explorer parent (Error: %s), retrying without parent attribute',
+                path,
+                get_error_string(last_error),
+            )
+            fallback_startup_info = STARTUPINFO()
+            fallback_startup_info.cb = sizeof(fallback_startup_info)
+            fallback_startup_info.dwFlags = 1
+            fallback_startup_info.wShowWindow = 1
+            fallback_flags = CREATE_NEW_CONSOLE | CREATE_SUSPENDED
+            created = KERNEL32.CreateProcessW(
+                path,
+                arguments,
+                None,
+                None,
+                False,
+                fallback_flags,
+                None,
+                execution_directory,
+                byref(fallback_startup_info),
+                byref(process_info),
+            )
 
         if created:
             self.pid = process_info.dwProcessId

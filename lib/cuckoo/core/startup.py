@@ -544,12 +544,14 @@ def init_modules():
     import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
     check_snapshot_state()
 
-    with suppress(Exception):
+    try:
         from lib.tenancy import is_enabled
         from lib.tenancy.hooks import register_core_hooks
 
         if is_enabled():
             register_core_hooks()
+    except Exception as e:
+        log.exception("Failed to initialize lib.tenancy hooks: %s", e)
 
     for category, entries in list_plugins().items():
         log.debug('Imported "%s" modules:', category)

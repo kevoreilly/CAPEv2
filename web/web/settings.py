@@ -515,15 +515,16 @@ except NameError:
     with suppress(ImportError):
         from .local_settings import *  # noqa: F403
 
-try:
-    import lib.tenancy
+_cuckoo_cfg = Config("cuckoo")
+if getattr(_cuckoo_cfg, "multitenancy", {}).get("enabled", False) or getattr(_cuckoo_cfg, "object_storage", {}).get("enabled", False):
+    try:
+        import lib.tenancy
 
-    if lib.tenancy.is_enabled():
         lib.tenancy.install(globals())
-except Exception as e:
-    import logging
+    except Exception as e:
+        import logging
 
-    logging.getLogger(__name__).exception("Failed to initialize lib.tenancy in settings: %s", e)
+        logging.getLogger(__name__).exception("Failed to initialize lib.tenancy in settings: %s", e)
 
 from lib.cuckoo.core.database import init_database
 

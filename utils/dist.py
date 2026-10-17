@@ -120,8 +120,8 @@ try:
 
     if is_enabled():
         register_core_hooks()
-except Exception:
-    pass
+except Exception as e:
+    logging.getLogger(__name__).exception("Failed to initialize lib.tenancy hooks: %s", e)
 
 dead_count = 5
 if dist_conf.distributed.dead_count:

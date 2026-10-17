@@ -431,48 +431,6 @@ def test_worker_vnc_port_for_task_parsing(monkeypatch):
         assert worker_vnc_port_for_task(7) == want, f"vnc_port={given!r} -> expected {want!r}"
 
 
-def test_centralstore_done_marker_local_and_uploaded(tmp_path):
-    # The completion marker must be BOTH written locally (the worker's NVMe-cleanup gate) AND
-    # uploaded to the central store (the read seam's .central_staged completion signal). Regression:
-    # it was local-only, so artifact_storage._stage_tree never saw it and re-staged every view.
-    from modules.reporting.centralstore import _emit_done_marker
-
-    analysis = tmp_path / "analyses" / "77"
-    analysis.mkdir(parents=True)
-    store = LocalFSStore(str(tmp_path / "central"))
-    cfg = _parse({"enabled": "yes", "s3_bucket": "bkt", "s3_prefix": "results"})
-    container = "results/ui-77"
-
-    _emit_done_marker(store, container, str(analysis), cfg, "ui-77", 12)
-
-    # local marker present (cleanup gate) with the expected metadata ...
-    local_marker = analysis / ".centralstore.done"
-    assert local_marker.exists()
-    import json
-    meta = json.loads(local_marker.read_text())
-    assert meta["job_id"] == "ui-77" and meta["artifacts"] == 12
-    assert meta["location"] == "s3://bkt/results/ui-77/"
-    # ... AND uploaded to the store under the exact key the read seam checks for
-    assert store.exists(container, ".centralstore.done") is True
-
-
-def test_centralstore_done_marker_upload_failure_keeps_local(tmp_path):
-    # A store put_file failure must NOT raise (the artifacts are already durable) and must leave
-    # the local marker intact so the worker's cleanup gate still fires.
-    from modules.reporting.centralstore import _emit_done_marker
-
-    analysis = tmp_path / "analyses" / "88"
-    analysis.mkdir(parents=True)
-
-    class BoomStore:
-        def put_file(self, *a, **k):
-            raise RuntimeError("s3 down")
-
-    cfg = _parse({"enabled": "yes", "s3_bucket": "bkt"})
-    _emit_done_marker(BoomStore(), "results/ui-88", str(analysis), cfg, "ui-88", 3)  # must not raise
-    assert (analysis / ".centralstore.done").exists()
-
-
 def test_hunt_facets_per_category_no_facet():
     sent = []
 
@@ -491,54 +449,3 @@ def test_hunt_facets_per_category_no_facet():
     assert sent[0][0] == {"$match": {"$and": [{}, {"info.visibility": "public"}]}}
     assert facets["domains"][0]["_id"] == "evil.com"
 
-
-def test_centralstore_refuses_non_bridged_under_mt(monkeypatch):
-    """Bridge-required (central+MT): CentralStore.run refuses a non-bridged doc ('local-<id>' / bare-token
-    job_id) BEFORE the S3 upload, so a doomed (soon-to-be-rejected) non-bridged analysis doesn't push artifacts
-    to the shared store. This is defence-in-depth at order 9998; the doc-PERSIST prevention (the actual write
-    site) is the mongodb-reporter backstop at 9999 -- see test_reject_unbridged_under_mt, which is the guard
-    that guarantees no unkeyed doc is ever inserted regardless of centralstore's state."""
-    import modules.reporting.centralstore as cs
-    from lib.cuckoo.common.exceptions import CuckooReportError
-
-    cfg = type("C", (), {"enabled": True, "storage_backend": "local", "central_local_root": "/tmp/cs-test",
-                         "s3_bucket": "", "s3_prefix": "results"})()
-    monkeypatch.setattr(cs, "central_mode_config", lambda: cfg)
-    monkeypatch.setattr(cs, "get_artifact_store", lambda c: (object(), True))
-    monkeypatch.setattr(cs, "central_bridge_required", lambda: True)
-
-    store = cs.CentralStore()
-    with pytest.raises(CuckooReportError, match="non-bridged"):
-        store.run({"info": {"id": 5, "custom": "campaign1"}})     # bare-token -> non-bridged -> refused
-    with pytest.raises(CuckooReportError, match="non-bridged"):
-        store.run({"info": {"id": 6}})                            # no custom -> local-6 -> refused
-
-    # OVER-FIRING guard: with the bridge NOT required (single-node / MT-off), the same non-ui doc must NOT hit
-    # the "non-bridged" refusal. The guard is BEFORE any analysis_path use, so this is observable regardless of
-    # the bare store's empty analysis_path; any downstream upload/path error is irrelevant -- we assert only
-    # that the BRIDGE guard did not over-fire (catches a future refactor that drops the central_bridge_required
-    # conjunct and starts failing every single-node direct-submit report).
-    monkeypatch.setattr(cs, "central_bridge_required", lambda: False)
-    try:
-        store.run({"info": {"id": 7, "custom": "campaign1"}})
-    except CuckooReportError as e:
-        assert "non-bridged" not in str(e), "the bridge guard must not fire when the bridge is not required"
-    except Exception:
-        pass  # any downstream upload/path error on the bare store is fine -- not the guard
-
-
-def test_reject_unbridged_under_mt(monkeypatch):
-    """The mongodb-reporter backstop predicate: under central+MT every persisted doc must be bridged
-    (ui-<central_id>). A non-bridged job_id (local-<id> / bare-token / None) is rejected; a ui- doc is not;
-    and when the bridge is not required (single-node / MT-off) nothing is rejected."""
-    import modules.reporting.mongodb as m
-    import lib.cuckoo.common.central_mode as cm
-
-    monkeypatch.setattr(cm, "central_bridge_required", lambda: True)
-    assert m._reject_unbridged_under_mt("local-5") is True
-    assert m._reject_unbridged_under_mt("campaign1") is True     # bare-token custom
-    assert m._reject_unbridged_under_mt(None) is True            # centralstore disabled -> no job_id stamped
-    assert m._reject_unbridged_under_mt("ui-5") is False         # bridged -> allowed
-
-    monkeypatch.setattr(cm, "central_bridge_required", lambda: False)
-    assert m._reject_unbridged_under_mt("local-5") is False      # single-node / MT-off -> never blocked

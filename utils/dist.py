@@ -113,6 +113,14 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
+if cfg.get("multitenancy") and cfg.multitenancy.get("enabled", False):
+    try:
+        from cape_tenancy.hooks import register_core_hooks
+
+        register_core_hooks()
+    except ImportError:
+        pass
+
 dead_count = 5
 if dist_conf.distributed.dead_count:
     dead_count = dist_conf.distributed.dead_count
@@ -565,6 +573,19 @@ def node_submit_task(task_id, node_id, main_task_id, db=None):
                 task.tags = task.tags[:-1]
         apikey = node.apikey
         task_attributes = {"main_task_id": task.main_task_id}
+        try:
+            from lib.cuckoo.common.hooks import run_report_hooks
+
+            acl_probe = {"info": {"id": task.main_task_id}}
+            run_report_hooks(acl_probe)
+            if len(acl_probe["info"]) > 1:
+                task_attributes["task_acl"] = {
+                    k: v
+                    for k, v in acl_probe["info"].items()
+                    if k in ("user_id", "tenant_id", "visibility", "visibility_seq")
+                }
+        except Exception as e:
+            log.debug("Failed to attach task_acl for main_task_id %s: %s", task.main_task_id, e)
         if task.category in ("file", "pcap", "static"):
             try:
                 with main_db.session.begin():

@@ -114,14 +114,13 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
-try:
-    from lib.tenancy import is_enabled
-    from lib.tenancy.hooks import register_core_hooks
+if getattr(cfg, "multitenancy", {}).get("enabled", False) or getattr(cfg, "object_storage", {}).get("enabled", False):
+    try:
+        from lib.tenancy.hooks import register_core_hooks
 
-    if is_enabled():
         register_core_hooks()
-except Exception as e:
-    logging.getLogger(__name__).exception("Failed to initialize lib.tenancy hooks: %s", e)
+    except Exception as e:
+        logging.getLogger(__name__).exception("Failed to initialize lib.tenancy hooks: %s", e)
 
 dead_count = 5
 if dist_conf.distributed.dead_count:

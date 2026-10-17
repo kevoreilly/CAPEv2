@@ -248,6 +248,7 @@ mongo = no
 unused_files_in_mongodb = no
 
 [multitenancy]
+# [BETA] Multi-tenancy and per-group sandbox resource policy support.
 # Enable or disable multi-tenant isolation, per-task visibility (private,
 # tenant, public), and GroupSandboxPolicy VM/route/tag resource controls.
 # Disabled by default so single-node deployments have zero tenancy overhead.
@@ -264,6 +265,7 @@ local_admins_manage_all_tenants = yes
 allow_superuser_all = yes
 
 [object_storage]
+# [BETA] Central / remote object storage integration (S3, MinIO, GCS, Azure, NFS).
 # Enable or disable remote object storage for analysis artifacts (worker upload
 # on completion + web lazy staging/streaming on view). Operates independently
 # of [multitenancy] or together with it.

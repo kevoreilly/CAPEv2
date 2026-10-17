@@ -15,6 +15,50 @@ Storage, ``azure`` for Azure Blob Storage, and ``local`` for shared NFS mounts).
 Both ``[multitenancy]`` and ``[object_storage]`` default to ``enabled = no`` and
 can be enabled independently or together.
 
+Configuration (``conf/cuckoo.conf``)
+------------------------------------
+
+Both features are configured in ``conf/cuckoo.conf`` and default to ``enabled = no``:
+
+.. code-block:: ini
+
+    [multitenancy]
+    # [BETA] Multi-tenancy and per-group sandbox resource policy support.
+    enabled = no
+    # "shared" (default visibility = public) or "locked" (default visibility = tenant)
+    mode = shared
+    default_visibility =
+    local_admins_manage_all_tenants = yes
+    allow_superuser_all = yes
+
+    [object_storage]
+    # [BETA] Central / remote object storage integration (s3, gcs, azure, local).
+    enabled = no
+    # Backend: s3 | gcs | azure | local
+    backend = s3
+    bucket =
+    prefix = results
+    region = us-east-1
+    endpoint_url =
+    access_key =
+    secret_key =
+    gcp_project =
+    gcp_credentials_path =
+    azure_connection_string =
+    azure_account_url =
+    azure_credential =
+    local_root =
+
+**Optional Dependencies:**
+
+* ``[multitenancy]`` requires **no extra packages** (uses core Django, SQLAlchemy, and PyMongo).
+* ``[object_storage]`` requires only the SDK for the backend you configure:
+
+  * ``backend = s3`` (AWS S3, MinIO, Ceph RGW): ``poetry install --extras s3``
+  * ``backend = gcs`` (Google Cloud Storage): ``poetry install --extras gcp``
+  * ``backend = azure`` (Azure Blob Storage): ``poetry install --extras azure``
+  * ``backend = local`` (shared NFS / filesystem): no extra packages required.
+
 Enabling on an existing (populated) install — run the backfill
 --------------------------------------------------------------
 
@@ -81,7 +125,7 @@ In ``lib.tenancy``, Django's built-in ``django.contrib.auth.models.Group``
 Task Visibility Levels: ``private`` vs. ``tenant`` (Group) vs. ``public``
 -------------------------------------------------------------------------
 
-Every task in ``CAPE-tenancy`` has one of three visibility states recorded in the
+Every task in ``lib.tenancy`` has one of three visibility states recorded in the
 ``task_acl`` side-table (``TaskAcl.visibility``) and stamped into the MongoDB
 report (``info.visibility``):
 

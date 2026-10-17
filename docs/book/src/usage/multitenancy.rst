@@ -1,14 +1,19 @@
-Multitenancy — Supported Configurations & Boundaries
-====================================================
+Multitenancy & Object Storage — Supported Configurations & Boundaries
+=====================================================================
 
 Multitenancy (the ``[multitenancy]`` section of ``cuckoo.conf``, powered by the
-``CAPE-tenancy`` plugin) scopes every read surface so a user of one tenant
+built-in ``lib.tenancy`` module) scopes every read surface so a user of one tenant
 cannot see or act on another tenant's tasks, samples, reports, artifacts,
 statistics, search results, or live-VM (Guacamole) sessions, and allows
 administrators to control which VMs (``machines``), network routes (``routing``),
-and machine ``tags`` different Django ``Group``s can see and use. This document
-states which deployment modes that guarantee covers and what is intentionally
-**fail-closed** (safe, denied by default).
+and machine ``tags`` different Django ``Group``s can see and use.
+
+Alongside ``[multitenancy]``, ``lib.tenancy`` provides pluggable cloud-agnostic
+artifact object storage (the ``[object_storage]`` section of ``cuckoo.conf``,
+supporting ``s3`` for AWS S3 / MinIO / Ceph RGW, ``gcs`` for Google Cloud
+Storage, ``azure`` for Azure Blob Storage, and ``local`` for shared NFS mounts).
+Both ``[multitenancy]`` and ``[object_storage]`` default to ``enabled = no`` and
+can be enabled independently or together.
 
 Enabling on an existing (populated) install — run the backfill
 --------------------------------------------------------------
@@ -17,14 +22,14 @@ Turning ``enabled = yes`` stamps tenant/visibility onto **new** analyses only.
 Reports already in MongoDB have no ``info.tenant_id`` / ``info.user_id`` /
 ``info.visibility`` stamp, so the scoped search / statistics / compare surfaces
 treat them as **fail-closed / invisible** to every tenant until they are
-stamped. Run the batched backfill helper from ``cape_tenancy.backfill``
+stamped. Run the batched backfill helper from ``lib.tenancy.backfill``
 (``backfill_from_task_acl_batched`` or ``backfill_legacy_uniform``) once after
 enabling the flag.
 
 Django Group-Native Tenancy & Sandbox Resource Policies
 -------------------------------------------------------
 
-In ``CAPE-tenancy``, Django's built-in ``django.contrib.auth.models.Group``
+In ``lib.tenancy``, Django's built-in ``django.contrib.auth.models.Group``
 (``/admin/auth/group/``) is the **single administrative surface** for both:
 
 1. **Tenant Isolation (Who sees which tasks & reports):**
@@ -248,10 +253,14 @@ Supported (isolation enforced end-to-end)
   while staff/superusers retain full local-admin visibility. Group sandbox
   resource policies (``GroupSandboxPolicy``) can be used with or without
   ``[multitenancy] enabled = yes``.
-* **Central control plane + broker workers** (``cape_tenancy.central``): the
-  central UI serves artifacts staged from workers in S3, keyed by the broker
-  ``job_id``, and dispatches ``central_*`` artifact routes via
-  ``TenancyMiddleware.process_view``.
+* **Cloud / Object Storage Artifact Serving** (``[object_storage]`` in ``cuckoo.conf``,
+  implemented in ``lib.tenancy.storage``): workers upload analysis artifacts and
+  Guacamole session recordings to S3/MinIO (``backend = s3``), Google Cloud Storage
+  (``backend = gcs``), Azure Blob Storage (``backend = azure``), or a shared NFS
+  mount (``backend = local``), and the web UI streams or lazily stages artifacts on
+  demand via ``TenancyMiddleware.process_view``. Optional SDKs can be installed via
+  ``poetry install -E s3``, ``poetry install -E gcp``, ``poetry install -E azure``,
+  or ``poetry install -E tenancy``.
 * **Guacamole interactive sessions** for task-backed analyses: gated by
   ``can_toggle`` / ``can_manage`` (owner / tenant-admin / break-glass), not mere
   read visibility.
@@ -259,27 +268,32 @@ Supported (isolation enforced end-to-end)
 Architecture Overview
 ---------------------
 
-1. **Core Logic Predicates (``cape_tenancy/policy.py``, ``cape_tenancy/resources.py``):**
+1. **Core Logic Predicates (``lib/tenancy/policy.py``, ``lib/tenancy/resources.py``):**
    Pure dataclasses (``ViewerContext``, ``ResourceScope``,
    ``ResourceEntitlements``) and predicates (``can_read``, ``can_toggle``,
    ``can_delete``, ``can_set_visibility``, ``scope_match``,
    ``viewer_scope_match``, ``viewer_scope_es_filter``,
    ``merge_group_policies``, ``validate_and_normalize_submission``).
-2. **Side-Table ACL & Monotonic CAS (``cape_tenancy/acl.py``):**
+2. **Side-Table ACL & Monotonic CAS (``lib/tenancy/acl.py``):**
    Stores per-task tenancy metadata in the dedicated ``task_acl`` table without
    altering CAPEv2's core ``tasks`` table, and synchronizes visibility changes
    to MongoDB using a lock-free monotonic ``visibility_seq`` compare-and-swap
    (CAS) predicate.
-3. **Middleware View & Route Gating (``cape_tenancy/middleware.py``, ``cape_tenancy/views.py``):**
+3. **Middleware View & Route Gating (``lib/tenancy/middleware.py``, ``lib/tenancy/views.py``):**
    ``TenancyMiddleware`` resolves ``request.viewer`` and
    ``request.entitlements``, binds per-request ``ContextVar``s, gates
    ``task_id`` / ``analysis_id`` / sample hash / ``machines_view`` / task
    submission routes in ``process_view``, serves
-   ``POST /apiv2/tasks/visibility/<task_id>/``, and dispatches central-mode S3
+   ``POST /apiv2/tasks/visibility/<task_id>/``, and dispatches object-storage
    artifact views.
-4. **Core Hook Integration (``cape_tenancy/hooks.py`` -> ``lib.cuckoo.common.hooks``):**
+4. **Cloud-Agnostic Object Storage (``lib/tenancy/storage/``):**
+   Pluggable ``ArtifactStore`` backends (``S3Store``, ``GCSStore``,
+   ``AzureBlobStore``, ``LocalFSStore``) configured via ``[object_storage]``
+   (with backward-compatible ``[central_mode]`` and ``lib.tenancy.central``
+   aliases).
+5. **Core Hook Integration (``lib/tenancy/hooks.py`` -> ``lib.cuckoo.common.hooks``):**
    Automatically registers ``default_mongo_analysis_filter``,
    ``default_sql_task_query_filter``, ``default_es_query_filter``,
    ``default_report_stamp_hook``, and wraps ``list_machines()``,
    ``load_vms_tags()``, ``load_vms_exits()``, and ``submission/index.html``
-   when ``cape_tenancy.install(globals())`` runs.
+   when ``[multitenancy] enabled = yes`` or ``[object_storage] enabled = yes``.

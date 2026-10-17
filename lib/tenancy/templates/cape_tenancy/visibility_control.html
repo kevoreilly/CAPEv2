@@ -1,0 +1,11 @@
+{% if tenancy_enabled %}
+<div class="d-inline-block ml-2" id="cape-tenancy-visibility-control" data-task-id="{{ analysis.info.id }}">
+  <select class="form-control form-control-sm" name="visibility" aria-label="Task Visibility">
+    {% for level in visibility_choices %}
+      <option value="{{ level }}" {% if analysis.info.visibility == level %}selected{% endif %}>
+        {{ level|title }}
+      </option>
+    {% endfor %}
+  </select>
+</div>
+{% endif %}

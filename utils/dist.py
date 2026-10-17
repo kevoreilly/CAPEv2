@@ -113,13 +113,14 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
-if cfg.get("multitenancy") and cfg.multitenancy.get("enabled", False):
-    try:
-        from cape_tenancy.hooks import register_core_hooks
+try:
+    from lib.tenancy import is_enabled
+    from lib.tenancy.hooks import register_core_hooks
 
+    if is_enabled():
         register_core_hooks()
-    except ImportError:
-        pass
+except Exception:
+    pass
 
 dead_count = 5
 if dist_conf.distributed.dead_count:

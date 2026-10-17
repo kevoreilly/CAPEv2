@@ -544,10 +544,11 @@ def init_modules():
     import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
     check_snapshot_state()
 
-    if cuckoo.get("multitenancy") and cuckoo.multitenancy.get("enabled", False):
-        with suppress(ImportError):
-            from cape_tenancy.hooks import register_core_hooks
+    with suppress(Exception):
+        from lib.tenancy import is_enabled
+        from lib.tenancy.hooks import register_core_hooks
 
+        if is_enabled():
             register_core_hooks()
 
     for category, entries in list_plugins().items():

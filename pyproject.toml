@@ -94,6 +94,8 @@ dependencies = [
 [project.optional-dependencies]
 maco = ["maco"]
 gcp = ["google-cloud-storage", "google-cloud-pubsub"]
+s3 = ["boto3"]
+tenancy = ["boto3", "google-cloud-storage", "azure-storage-blob"]
 yara = ["plyara"]
 mcp = ["fastmcp", "httpx"]
 azure = [
@@ -109,6 +111,14 @@ azure = [
 [dependency-groups]
 dist = [
     "fastapi",
+]
+s3 = [
+    "boto3",
+]
+tenancy = [
+    "boto3",
+    "google-cloud-storage",
+    "azure-storage-blob",
 ]
 dev = [
     "black>=24.3.0",

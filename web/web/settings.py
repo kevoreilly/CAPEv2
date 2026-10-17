@@ -516,10 +516,10 @@ except NameError:
         from .local_settings import *  # noqa: F403
 
 with suppress(Exception):
-    if getattr(Config("cuckoo"), "multitenancy", None) and Config("cuckoo").multitenancy.get("enabled", False):
-        import cape_tenancy
+    import lib.tenancy
 
-        cape_tenancy.install(globals())
+    if lib.tenancy.is_enabled():
+        lib.tenancy.install(globals())
 
 from lib.cuckoo.core.database import init_database
 

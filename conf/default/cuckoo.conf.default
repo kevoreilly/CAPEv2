@@ -246,3 +246,51 @@ analysis = 0
 mongo = no
 # Clean orphan files in mongodb
 unused_files_in_mongodb = no
+
+[multitenancy]
+# Enable or disable multi-tenant isolation, per-task visibility (private,
+# tenant, public), and GroupSandboxPolicy VM/route/tag resource controls.
+# Disabled by default so single-node deployments have zero tenancy overhead.
+enabled = no
+# Deployment mode when enabled: "shared" (default visibility = public) or
+# "locked" (default visibility = tenant).
+mode = shared
+# Explicit default visibility override ("private", "tenant", or "public").
+# Leave empty to derive from `mode`.
+default_visibility =
+# Whether local box administrators may manage tasks across all tenants.
+local_admins_manage_all_tenants = yes
+# Whether Django superusers bypass tenant scoping (break-glass see-all).
+allow_superuser_all = yes
+
+[object_storage]
+# Enable or disable remote object storage for analysis artifacts (worker upload
+# on completion + web lazy staging/streaming on view). Operates independently
+# of [multitenancy] or together with it.
+enabled = no
+# Storage backend:
+#   s3    = AWS S3, MinIO, Ceph RGW, or any S3-compatible endpoint (requires boto3)
+#   gcs   = Google Cloud Storage (requires google-cloud-storage)
+#   azure = Azure Blob Storage (requires azure-storage-blob)
+#   local = Shared local / NFS filesystem mount (`local_root`)
+backend = s3
+# Bucket / container name (for s3, gcs, or azure)
+bucket =
+# Key prefix inside the bucket/container (<prefix>/<job_id>/<relpath>)
+prefix = results
+# Cloud region (for s3)
+region = us-east-1
+# Custom endpoint URL (for MinIO, Ceph RGW, or custom GCS/Azure endpoints)
+endpoint_url =
+# Optional explicit S3-compatible credentials (leave empty for IAM role / env chain)
+access_key =
+secret_key =
+# Optional Google Cloud Storage settings (leave empty for ADC / Workload Identity)
+gcp_project =
+gcp_credentials_path =
+# Optional Azure Blob Storage settings
+azure_connection_string =
+azure_account_url =
+azure_credential =
+# Root path when `backend = local` (shared NFS / filesystem mount)
+local_root =

@@ -258,9 +258,10 @@ Supported (isolation enforced end-to-end)
   Guacamole session recordings to S3/MinIO (``backend = s3``), Google Cloud Storage
   (``backend = gcs``), Azure Blob Storage (``backend = azure``), or a shared NFS
   mount (``backend = local``), and the web UI streams or lazily stages artifacts on
-  demand via ``TenancyMiddleware.process_view``. Optional SDKs can be installed via
-  ``poetry install -E s3``, ``poetry install -E gcp``, ``poetry install -E azure``,
-  or ``poetry install -E tenancy``.
+  demand via ``TenancyMiddleware.process_view``. Multi-tenancy itself requires no
+  extra packages; for object storage, install only the SDK for your chosen backend:
+  ``poetry install --extras s3`` (or ``-E s3``), ``poetry install --extras gcp`` (or
+  ``-E gcp``), or ``poetry install --extras azure`` (or ``-E azure``).
 * **Guacamole interactive sessions** for task-backed analyses: gated by
   ``can_toggle`` / ``can_manage`` (owner / tenant-admin / break-glass), not mere
   read visibility.

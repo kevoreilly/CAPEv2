@@ -269,3 +269,17 @@ def test_node_submit_task_includes_parent_sample_in_attributes(tmp_path):
         "main_task_id": 500,
         "parent_sample": {"id": 99, "sha256": "a" * 64},
     }
+
+
+def test_create_session_registers_atexit_dispose(monkeypatch):
+    import atexit
+    from lib.cuckoo.common.dist_db import create_session
+
+    registered = []
+    monkeypatch.setattr(atexit, "register", lambda fn, *a, **k: registered.append(fn))
+
+    maker = create_session("sqlite:///:memory:", echo=False)
+    engine = maker.kw["bind"]
+    assert engine.dispose in registered
+    engine.dispose()
+

@@ -66,7 +66,8 @@ class PebbleEngine(ProcessingEngine):
             future.result()
             log.info("Reports generation completed for Task #%s", task_id)
         except TimeoutError as error:
-            log.error("[%s] Processing timeout: %s. Function: %s", task_id, error, error.args[1] if len(error.args) > 1 else "")
+            fn_name = getattr(getattr(self.task_fn, "func", self.task_fn), "__name__", self.task_fn)
+            log.error("[%s] Processing timeout: %s. Function: %s", task_id, error, fn_name)
             self._safe_mark_failed(task_id)
         except BaseException as error:
             # BaseException, not Exception: anything escaping this callback

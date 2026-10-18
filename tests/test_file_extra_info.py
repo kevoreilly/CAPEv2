@@ -266,3 +266,32 @@ def test_detect_it_easy_info_calledprocesserror_with_surrogate_path(monkeypatch)
     assert b"Detect-It-Easy: Failed to execute" in stream.getvalue()
 
 
+def test_detect_it_easy_info_calledprocesserror_logs_warning_and_stderr(monkeypatch, caplog):
+    """Verify detect_it_easy_info captures stderr via PIPE and logs CalledProcessError at WARNING with returncode."""
+    import logging
+    import subprocess
+
+    monkeypatch.setattr(file_extra_info, "path_exists", lambda _: True)
+    captured_kwargs = {}
+
+    def raise_cpe(cmd, **kwargs):
+        captured_kwargs.update(kwargs)
+        raise subprocess.CalledProcessError(-11, cmd, output="", stderr="segmentation fault")
+
+    monkeypatch.setattr(subprocess, "check_output", raise_cpe)
+
+    with caplog.at_level(logging.WARNING, logger=file_extra_info.__name__):
+        res = file_extra_info.detect_it_easy_info("/tmp/sample.bin")
+
+    assert res == []
+    assert captured_kwargs.get("stderr") == subprocess.PIPE
+    assert any(
+        r.levelno == logging.WARNING
+        and "returncode=-11" in r.message
+        and "stderr=`segmentation fault`" in r.message
+        for r in caplog.records
+    )
+    assert not any(r.levelno >= logging.ERROR for r in caplog.records)
+
+
+

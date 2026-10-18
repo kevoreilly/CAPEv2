@@ -83,6 +83,11 @@ class GuestManager:
         self.platform = platform
         self.task_id = task_id
         self.analysis_manager = analysis_manager
+        main_task_id = getattr(analysis_manager, "main_task_id", None)
+        if not main_task_id and hasattr(analysis_manager, "task") and hasattr(analysis_manager.task, "get_attribute"):
+            main_task_id = analysis_manager.task.get_attribute("main_task_id")
+        self.main_task_id = main_task_id
+        self.task_label = f"{task_id} ({main_task_id})" if main_task_id else str(task_id)
         self.timeout = None
 
         # We maintain the path of the Cuckoo Analyzer on the host.
@@ -177,9 +182,9 @@ class GuestManager:
                 socket.create_connection((self.ipaddr, self.port), 1).close()
                 break
             except socket.timeout:
-                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
+                log.debug("Task #%s: %s is not ready yet", self.task_label, self.vmid)
             except socket.error:
-                log.debug("Task #%s: %s is not ready yet", self.task_id, self.vmid)
+                log.debug("Task #%s: %s is not ready yet", self.task_label, self.vmid)
                 time.sleep(1)
 
             if timeit.default_timer() - start > self.timeout:
@@ -220,7 +225,7 @@ class GuestManager:
         zip_data = analyzer_zipfile(self.platform)
 
         log.debug(
-            "Task #%s: Uploading analyzer to guest (id=%s, ip=%s, size=%d)", self.task_id, self.vmid, self.ipaddr, len(zip_data)
+            "Task #%s: Uploading analyzer to guest (id=%s, ip=%s, size=%d)", self.task_label, self.vmid, self.ipaddr, len(zip_data)
         )
 
         self.determine_analyzer_path()
@@ -248,7 +253,7 @@ class GuestManager:
 
     def upload_scripts(self):
         """Upload various scripts such as pre_script and during_scripts."""
-        log.info("Task #%s: Uploading script files to guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
+        log.info("Task #%s: Uploading script files to guest (id=%s, ip=%s)", self.task_label, self.vmid, self.ipaddr)
         # Temp File location of pre_script and during_script
         base_dir = os.path.join("/tmp/cuckoo-tmp", str(self.task_id))
         # File path of Analyses path. Storage of script
@@ -268,7 +273,7 @@ class GuestManager:
         """Start the analysis by uploading all required files.
         @param options: the task options
         """
-        log.info("Task #%s: Starting analysis on guest (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
+        log.info("Task #%s: Starting analysis on guest (id=%s, ip=%s)", self.task_label, self.vmid, self.ipaddr)
 
         self.options = options
         self.timeout = options["timeout"] + cfg.timeouts.critical
@@ -311,7 +316,7 @@ class GuestManager:
             self.set_status_in_db("failed")
             return
 
-        log.info("Task #%s: Guest is running CAPE Agent %s (id=%s, ip=%s)", self.task_id, version, self.vmid, self.ipaddr)
+        log.info("Task #%s: Guest is running CAPE Agent %s (id=%s, ip=%s)", self.task_label, version, self.vmid, self.ipaddr)
 
         # Pin the Agent to our IP address so that it is not accessible by
         # other Virtual Machines etc.
@@ -415,7 +420,7 @@ class GuestManager:
             except Exception:
                 # If the task was deleted, this query might fail.
                 # If it fails, we should ABORT.
-                log.info("Task #%s: Task deleted or DB error. Aborting.", self.task_id)
+                log.info("Task #%s: Task deleted or DB error. Aborting.", self.task_label)
                 return
 
             if current_status != "running":
@@ -426,11 +431,11 @@ class GuestManager:
             if cfg.cuckoo.machinery_screenshots:
                 if count == 0:
                     # indicate screenshot captures have started
-                    log.info("Task #%s: Started capturing screenshots for %s", self.task_id, self.vmid)
+                    log.info("Task #%s: Started capturing screenshots for %s", self.task_label, self.vmid)
                 self.analysis_manager.screenshot_machine()
             count += 1
             if count % 5 == 0:
-                log.debug("Task #%s: Analysis is still running (id=%s, ip=%s)", self.task_id, self.vmid, self.ipaddr)
+                log.debug("Task #%s: Analysis is still running (id=%s, ip=%s)", self.task_label, self.vmid, self.ipaddr)
 
             # --- REWORKED: HARD STOP ENFORCEMENT ---
             # If we exceed the (Timeout + Critical) limit, we kill the loop.
@@ -440,7 +445,7 @@ class GuestManager:
                 log.error(
                     "Task #%s: Hard Timeout reached! (Running for %ds, Limit %ds). "
                     "Agent is likely unresponsive.",
-                    self.task_id,
+                    self.task_label,
                     timeit.default_timer() - start,
                     hard_limit
                 )
@@ -453,26 +458,26 @@ class GuestManager:
                 # Add a counter for consecutive failures
                 consecutive_failures += 1  # You need to init this to 0 outside loop
 
-                log.warning("Task #%s: Agent unreachable (%s/10). Error: %s", self.task_id, consecutive_failures, e)
+                log.warning("Task #%s: Agent unreachable (%s/10). Error: %s", self.task_label, consecutive_failures, e)
 
                 # If we fail 10 times in a row (approx 10-15 seconds), give up.
                 if consecutive_failures > 10:
-                    log.error("Task #%s: Agent is dead. Virtual Machine %s /status failed. This can indicate the guest losing network connectivity. Killing analysis.", self.task_id, self.vmid)
+                    log.error("Task #%s: Agent is dead. Virtual Machine %s /status failed. This can indicate the guest losing network connectivity. Killing analysis.", self.task_label, self.vmid)
                     return # Or raise exception
                 continue
             except Exception as e:
-                log.exception("Task #%s: Virtual machine %s /status failed. %s", self.task_id, self.vmid, e)
+                log.exception("Task #%s: Virtual machine %s /status failed. %s", self.task_label, self.vmid, e)
                 continue
 
             if status["status"] in ("complete", "failed"):
                 completed_as = "completed successfully" if status["status"] == "complete" else "failed"
-                log.info("Task #%s: Analysis %s (id=%s, ip=%s)", self.task_id, completed_as, self.vmid, self.ipaddr)
+                log.info("Task #%s: Analysis %s (id=%s, ip=%s)", self.task_label, completed_as, self.vmid, self.ipaddr)
                 self.set_status_in_db("complete")
                 return
             elif status["status"] == "exception":
                 log.warning(
                     "Task #%s: Analysis caught an exception (id=%s, ip=%s)\n%s",
-                    self.task_id,
+                    self.task_label,
                     self.vmid,
                     self.ipaddr,
                     status["description"],

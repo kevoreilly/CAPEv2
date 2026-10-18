@@ -38,7 +38,7 @@ _ctx_node: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_nod
 _ctx_correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_correlation_id", default=None)
 
 _RE_MSG_TASK = re.compile(
-    r"(?:\bTask(?:\s+id|_id)?[\s:=]+#?(\d+)|\[Task\s+(\d+)(?:\s+\((\d+)\))?\]"
+    r"(?:\bTask(?:\s+id|_id)?[\s:=]+#?(\d+)(?:\s+\((\d+)\))?|\[Task\s+(\d+)(?:\s+\((\d+)\))?\]"
     r"|\[(\d+)\]\s+(?:Processing timeout|Exception when processing task|Task never ran))",
     re.IGNORECASE,
 )
@@ -166,15 +166,18 @@ def resolve_record_context(record: logging.LogRecord, message: str | None = None
     node = rec_dict.get("node") or ctx["node"]
     correlation_id = rec_dict.get("correlation_id") or ctx["correlation_id"]
 
-    if task_id is None:
+    if task_id is None or main_task_id is None:
         msg_text = message if message is not None else record.getMessage()
         match = _RE_MSG_TASK.search(msg_text)
         if match:
-            raw_tid = match.group(1) or match.group(2) or match.group(4)
-            if raw_tid:
-                task_id = _parse_positive_int(raw_tid)
-            if main_task_id is None and match.group(3):
-                main_task_id = _parse_positive_int(match.group(3))
+            if task_id is None:
+                raw_tid = match.group(1) or match.group(3) or match.group(5)
+                if raw_tid:
+                    task_id = _parse_positive_int(raw_tid)
+            if main_task_id is None:
+                raw_mtid = match.group(2) or match.group(4)
+                if raw_mtid:
+                    main_task_id = _parse_positive_int(raw_mtid)
 
     return {
         "task_id": task_id,

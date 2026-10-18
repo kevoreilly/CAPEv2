@@ -244,3 +244,18 @@ def test_task_context_filter_and_message_regex_and_zero_sentinel():
         assert cape_log.get_log_task_context()["task_id"] == 5555
         assert cape_log.get_log_task_context()["machine"] == "win10_2"
 
+    # cuckoo.py Task #<id> (<main_task_id>) message format extracts both IDs
+    cuckoo_rec = logging.LogRecord(
+        name="lib.cuckoo.core.guest",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=271,
+        msg="Task #105 (9001): Starting analysis on guest (id=win10_1, ip=192.168.122.10)",
+        args=(),
+        exc_info=None,
+    )
+    assert flt.filter(cuckoo_rec) is True
+    assert getattr(cuckoo_rec, "task_id", None) == 105
+    assert getattr(cuckoo_rec, "main_task_id", None) == 9001
+
+

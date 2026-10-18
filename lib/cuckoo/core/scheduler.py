@@ -99,9 +99,13 @@ class Scheduler:
                 max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds + vm_state
                 duration = (_utcnow_naive() - analysis.task.started_on).total_seconds()
                 if duration > max_runtime:
+                    main_task_id = getattr(analysis, "main_task_id", None)
+                    if not main_task_id and hasattr(analysis.task, "get_attribute"):
+                        main_task_id = analysis.task.get_attribute("main_task_id")
+                    task_label = f"{analysis.task.id} ({main_task_id})" if main_task_id else str(analysis.task.id)
                     log.warning(
                         "Task #%s has been running for %s seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM.",
-                        analysis.task.id,
+                        task_label,
                         duration,
                     )
 
@@ -110,11 +114,11 @@ class Scheduler:
                         frame = sys._current_frames().get(analysis.ident)
                         if frame:
                             stack_trace = "".join(traceback.format_stack(frame))
-                            log.warning("Stack trace of stuck thread (Task #%s):\n%s", analysis.task.id, stack_trace)
+                            log.warning("Stack trace of stuck thread (Task #%s):\n%s", task_label, stack_trace)
                         else:
-                            log.warning("Could not retrieve stack trace for thread %s (Task #%s)", analysis.ident, analysis.task.id)
+                            log.warning("Could not retrieve stack trace for thread %s (Task #%s)", analysis.ident, task_label)
                     except Exception:
-                        log.exception("Failed to log stack trace for stuck thread (Task #%s)", analysis.task.id)
+                        log.exception("Failed to log stack trace for stuck thread (Task #%s)", task_label)
 
                     try:
                         if analysis.machinery_manager and analysis.machine:
@@ -123,9 +127,9 @@ class Scheduler:
                     except Exception as e:
                         err_msg = str(e).lower()
                         if "already stopped" in err_msg or "domain is not running" in err_msg:
-                            log.info("Stuck VM for task #%s is already stopped: %s", analysis.task.id, e)
+                            log.info("Stuck VM for task #%s is already stopped: %s", task_label, e)
                         else:
-                            log.error("Failed to kill stuck VM for task #%s: %s", analysis.task.id, e)
+                            log.error("Failed to kill stuck VM for task #%s: %s", task_label, e)
 
         if self.loop_state == LoopState.STOPPING:
             # This blocks the main loop until the analyses are finished.
@@ -169,7 +173,9 @@ class Scheduler:
                     # There are no pending tasks so try again in 1 second.
                     return SchedulerCycleDelay.NO_PENDING_TASKS
 
-                log.info("Task #%s: Processing task", task.id)
+                main_task_id = task.get_attribute("main_task_id") if hasattr(task, "get_attribute") else None
+                task_label = f"{task.id} ({main_task_id})" if main_task_id else str(task.id)
+                log.info("Task #%s: Processing task", task_label)
                 self.total_analysis_count += 1
                 analysis_manager = AnalysisManager(
                     task,

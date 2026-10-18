@@ -121,6 +121,16 @@ class TestAnalysisManager:
             mgr.log.info("Test")
         assert any((record.message == f"Task #{task.id}: Test") for record in caplog.records)
 
+    def test_logger_with_main_task_id(self, task: Task, caplog: pytest.LogCaptureFixture):
+        task.set_attribute("main_task_id", 9001)
+        mgr = AnalysisManager(task=task)
+        with caplog.at_level(logging.INFO):
+            mgr.log.info("Distributed test")
+        matching = [r for r in caplog.records if r.message == f"Task #{task.id} (9001): Distributed test"]
+        assert len(matching) == 1
+        assert getattr(matching[0], "task_id", None) == task.id
+        assert getattr(matching[0], "main_task_id", None) == 9001
+
     def test_prepare_task_and_machine_to_start_no_machinery(self, db: _Database, task: Task):
         mgr = AnalysisManager(task=task)
         assert task.status != TASK_RUNNING

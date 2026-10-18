@@ -94,10 +94,14 @@ class AnalysisLogger(logging.LoggerAdapter):
 
     def process(self, msg: str, kwargs: MutableMapping[str, Any]) -> Tuple[str, MutableMapping[str, Any]]:
         task_id: Optional[int] = self.extra.get("task_id") if self.extra is not None else None
+        main_task_id: Optional[int] = self.extra.get("main_task_id") if self.extra is not None else None
         if task_id is not None:
-            msg = f"Task #{task_id}: {msg}"
+            task_prefix = f"Task #{task_id} ({main_task_id})" if main_task_id else f"Task #{task_id}"
+            msg = f"{task_prefix}: {msg}"
             extra = dict(kwargs.get("extra") or {})
             extra.setdefault("task_id", task_id)
+            if main_task_id:
+                extra.setdefault("main_task_id", main_task_id)
             kwargs["extra"] = extra
         return msg, kwargs
 
@@ -124,7 +128,8 @@ class AnalysisManager(threading.Thread):
         super().__init__(name=f"task-{task.id}", daemon=True)
         self.db: _Database = Database()
         self.task = task
-        self.log = AnalysisLogger(log, {"task_id": self.task.id})
+        self.main_task_id = self.task.get_attribute("main_task_id") if hasattr(self.task, "get_attribute") else None
+        self.log = AnalysisLogger(log, {"task_id": self.task.id, "main_task_id": self.main_task_id})
         self.machine = machine
         self.machinery_manager = machinery_manager
         self.error_queue = error_queue
@@ -537,7 +542,7 @@ class AnalysisManager(threading.Thread):
     def run(self):
         """Run manager thread."""
         machine_label = self.machine.label if self.machine else None
-        with log_task_context(task_id=self.task.id, machine=machine_label):
+        with log_task_context(task_id=self.task.id, main_task_id=self.main_task_id, machine=machine_label):
             try:
                 self.launch_analysis()
             except Exception:

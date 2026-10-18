@@ -26,6 +26,7 @@ from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.data.guests import Guest
 from lib.cuckoo.core.guest import GuestManager
+from lib.cuckoo.core.log import log_task_context
 from lib.cuckoo.core.machinery_manager import MachineryManager
 from lib.cuckoo.core.plugins import RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
@@ -95,6 +96,9 @@ class AnalysisLogger(logging.LoggerAdapter):
         task_id: Optional[int] = self.extra.get("task_id") if self.extra is not None else None
         if task_id is not None:
             msg = f"Task #{task_id}: {msg}"
+            extra = dict(kwargs.get("extra") or {})
+            extra.setdefault("task_id", task_id)
+            kwargs["extra"] = extra
         return msg, kwargs
 
 
@@ -532,15 +536,17 @@ class AnalysisManager(threading.Thread):
 
     def run(self):
         """Run manager thread."""
-        try:
-            self.launch_analysis()
-        except Exception:
-            self.log.exception("failure in AnalysisManager.run")
-        else:
-            self.log.info("analysis procedure completed")
-        finally:
-            if self.done_callback:
-                self.done_callback(self)
+        machine_label = self.machine.label if self.machine else None
+        with log_task_context(task_id=self.task.id, machine=machine_label):
+            try:
+                self.launch_analysis()
+            except Exception:
+                self.log.exception("failure in AnalysisManager.run")
+            else:
+                self.log.info("analysis procedure completed")
+            finally:
+                if self.done_callback:
+                    self.done_callback(self)
 
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:

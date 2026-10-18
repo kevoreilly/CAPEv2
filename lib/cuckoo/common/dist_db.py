@@ -1,3 +1,4 @@
+import atexit
 import sys
 from datetime import datetime
 from typing import List, Optional
@@ -169,6 +170,7 @@ def create_session(db_connection: str, echo: bool = False) -> sessionmaker:
     """Initializes the database engine and creates tables."""
     try:
         engine = create_engine(db_connection, echo=echo)
+        atexit.register(engine.dispose)
         Base.metadata.create_all(engine)
         # Return the session factory for use in the application
         return sessionmaker(bind=engine, autoflush=False)

@@ -197,3 +197,38 @@ def test_done_and_reaper_survive_mark_failed_db_exception():
     engine._reap_stalled()
     assert source.attempts == [101, 102]
 
+
+def test_done_logs_task_fn_name_on_timeout(caplog):
+    """When pebble raises ProcessExpired/TimeoutError('Task timeout', 900),
+    _done() must log the task function name rather than error.args[1] (the timeout integer)."""
+    import logging
+    from concurrent.futures import TimeoutError
+
+    class _TimeoutFuture(_MockFuture):
+        def result(self):
+            raise TimeoutError("Task timeout", 900)
+
+    def sample_worker_fn(task, debug=False):
+        return None
+
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=functools.partial(sample_worker_fn, debug=False),
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=900,
+    )
+    future = _TimeoutFuture()
+    with engine._lock:
+        engine._pending[future] = 42
+        engine._scheduled_at[future] = time.monotonic()
+
+    with caplog.at_level(logging.ERROR, logger="lib.cuckoo.core.processing_engine.pebble"):
+        engine._done(future)
+
+    assert source.failed == [42]
+    assert "Function: sample_worker_fn" in caplog.text
+    assert "Function: 900" not in caplog.text
+
+

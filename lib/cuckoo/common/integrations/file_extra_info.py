@@ -301,7 +301,7 @@ def detect_it_easy_info(file_path: str):
     try:
         die_output = subprocess.check_output(
             [processing_conf.die.binary, "-j", file_path],
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.PIPE,
             universal_newlines=True,
             errors="replace",
         )
@@ -322,9 +322,10 @@ def detect_it_easy_info(file_path: str):
         return [] if "detects" not in die_output else get_matches()
     except subprocess.CalledProcessError as err:
         safe_cmd = shlex.join(err.cmd).encode("utf-8", errors="replace").decode("utf-8")
-        log.error(
-            "Detect-It-Easy: Failed to execute cmd=`%s`, stdout=`%s`, stderr=`%s`",
+        log.warning(
+            "Detect-It-Easy: Failed to execute cmd=`%s` (returncode=%s), stdout=`%s`, stderr=`%s`",
             safe_cmd,
+            err.returncode,
             err.stdout,
             err.stderr,
         )

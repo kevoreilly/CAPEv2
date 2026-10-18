@@ -501,3 +501,43 @@ def test_bson_store_parse_message_truncated_header():
             assert f.read() == b"\x00\x00extra_stream_bytes"
 
 
+def test_resultserver_main_task_id_formatting_and_worker_tracking(caplog):
+    import logging
+    from types import SimpleNamespace
+
+    import lib.cuckoo.core.resultserver as rs_mod
+
+    task_obj = SimpleNamespace(
+        id=105,
+        get_attribute=lambda name: 9001 if name == "main_task_id" else None,
+    )
+    assert rs_mod._get_task_main_id(task_obj) == 9001
+    assert rs_mod._format_task_label(105, 9001) == "105 (9001)"
+    assert rs_mod._format_task_label(105, None) == "105"
+
+    worker = rs_mod.GeventResultServerWorker.__new__(rs_mod.GeventResultServerWorker)
+    worker.tasks = {}
+    worker.main_task_ids = {}
+    worker.handlers = {}
+
+    with caplog.at_level(logging.DEBUG, logger="lib.cuckoo.core.resultserver"):
+        worker.add_task(105, "192.168.122.10", main_task_id=9001)
+        assert worker.tasks["192.168.122.10"] == 105
+        assert worker.main_task_ids[105] == 9001
+
+        with tempfile.TemporaryDirectory() as storagepath:
+            lines = ["files/test.bin", r"C:\test.bin", "100", "50", "", "files", "0"]
+            ctx = DummyHandlerContext(105, storagepath, lines, b"payload")
+            ctx.main_task_id = 9001
+            ctx.task_label = rs_mod._format_task_label(105, 9001)
+            handler = FileUpload(105, ctx, version=2)
+            handler.init()
+            handler.handle()
+
+        worker.del_task(105, "192.168.122.10")
+        assert 105 not in worker.main_task_ids
+
+    messages = [r.getMessage() for r in caplog.records]
+    assert any("Task #105 (9001): The associated machine IP is 192.168.122.10" in m for m in messages)
+    assert any("Task #105 (9001): Uploading file files/test.bin" in m for m in messages)
+    assert any("Task #105 (9001): Stopped tracking machine 192.168.122.10" in m for m in messages)

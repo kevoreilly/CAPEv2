@@ -570,9 +570,10 @@ def init_json_file_handler(
     return jh
 
 
-def task_log_start(task_id):
+def task_log_start(task_id, main_task_id=None):
     """Associate a thread with a task."""
     _ctx_task_id.set(_parse_positive_int(task_id))
+    _ctx_main_task_id.set(_parse_positive_int(main_task_id))
     _tasks_lock.acquire()
     try:
         if task_id not in _task_threads:
@@ -595,6 +596,7 @@ def task_log_start(task_id):
 def task_log_stop(task_id):
     """Disassociate a thread from a task."""
     _ctx_task_id.set(None)
+    _ctx_main_task_id.set(None)
     _tasks_lock.acquire()
     try:
         thread_key = task_key()

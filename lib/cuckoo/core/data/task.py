@@ -21,6 +21,7 @@ try:
         Integer,
         String,
         Text,
+        event,
     )
     from sqlalchemy.types import JSON
 except ImportError:  # pragma: no cover
@@ -186,17 +187,44 @@ class Task(Base):
         """
         return json.dumps(self.to_dict())
 
+    @property
+    def main_task_id(self) -> Optional[int]:
+        """Return positive integer main_task_id from task attributes, if set."""
+        val = self.get_attribute("main_task_id")
+        if val is None or isinstance(val, bool):
+            return None
+        try:
+            parsed = int(val)
+            return parsed if parsed > 0 else None
+        except (TypeError, ValueError):
+            return None
+
+    @property
+    def task_label(self) -> str:
+        """Return '<id> (<main_task_id>)' when main_task_id is set, else '<id>'."""
+        mtid = self.main_task_id
+        return f"{self.id} ({mtid})" if mtid else str(self.id)
+
     def get_attribute(self, key: str, default=None):
         """Retrieve a value from the task's attributes dict."""
         if not self.attributes:
             return default
-        return self.attributes.get(key, default)
+        val = self.attributes.get(key, default)
+        if key == "main_task_id" and getattr(self, "id", None):
+            from lib.cuckoo.core.log import register_task_main_id
+
+            register_task_main_id(self.id, val)
+        return val
 
     def set_attribute(self, key: str, value) -> None:
         """Set a key in the task's attributes dict, initializing if None."""
         if self.attributes is None:
             self.attributes = {}
         self.attributes[key] = value
+        if key == "main_task_id" and getattr(self, "id", None):
+            from lib.cuckoo.core.log import register_task_main_id
+
+            register_task_main_id(self.id, value)
 
     def __init__(self, target=None):
         self.target = target
@@ -204,3 +232,12 @@ class Task(Base):
 
     def __repr__(self):
         return f"<Task({self.id},'{self.target}')>"
+
+
+@event.listens_for(Task, "load")
+@event.listens_for(Task, "refresh")
+def _sync_task_main_id_on_load(target: Task, *args) -> None:
+    if getattr(target, "id", None):
+        from lib.cuckoo.core.log import register_task_main_id
+
+        register_task_main_id(target.id, target.main_task_id)

@@ -26,7 +26,7 @@ from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.data.guests import Guest
 from lib.cuckoo.core.guest import GuestManager
-from lib.cuckoo.core.log import log_task_context
+from lib.cuckoo.core.log import extract_main_task_id, log_task_context
 from lib.cuckoo.core.machinery_manager import MachineryManager
 from lib.cuckoo.core.plugins import RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
@@ -94,14 +94,10 @@ class AnalysisLogger(logging.LoggerAdapter):
 
     def process(self, msg: str, kwargs: MutableMapping[str, Any]) -> Tuple[str, MutableMapping[str, Any]]:
         task_id: Optional[int] = self.extra.get("task_id") if self.extra is not None else None
-        main_task_id: Optional[int] = self.extra.get("main_task_id") if self.extra is not None else None
         if task_id is not None:
-            task_prefix = f"Task #{task_id} ({main_task_id})" if main_task_id else f"Task #{task_id}"
-            msg = f"{task_prefix}: {msg}"
+            msg = f"Task #{task_id}: {msg}"
             extra = dict(kwargs.get("extra") or {})
             extra.setdefault("task_id", task_id)
-            if main_task_id:
-                extra.setdefault("main_task_id", main_task_id)
             kwargs["extra"] = extra
         return msg, kwargs
 
@@ -128,8 +124,8 @@ class AnalysisManager(threading.Thread):
         super().__init__(name=f"task-{task.id}", daemon=True)
         self.db: _Database = Database()
         self.task = task
-        self.main_task_id = self.task.get_attribute("main_task_id") if hasattr(self.task, "get_attribute") else None
-        self.log = AnalysisLogger(log, {"task_id": self.task.id, "main_task_id": self.main_task_id})
+        self.main_task_id = extract_main_task_id(self.task)
+        self.log = AnalysisLogger(log, {"task_id": self.task.id})
         self.machine = machine
         self.machinery_manager = machinery_manager
         self.error_queue = error_queue

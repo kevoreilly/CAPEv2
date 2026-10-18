@@ -1514,7 +1514,7 @@ def perform_search(
             print(term, value, e)
     elif term == "configs":
         # check if family name is string only maybe?
-        query_val = {f"{search_term_map[term]}.{value}": {"$exist": True}, "$options": "i"}
+        query_val = {"$exists": True}
     # ToDo proper implementation here
     # elif term == "extracted_tool":
     #    query_val = {"$exist": True}
@@ -1539,25 +1539,24 @@ def perform_search(
     if not search_limit:
         search_limit = web_cfg.general.get("search_limit", 50)
 
-    elif term == "configs":
-        # check if family name is string only maybe?
-        search_term_map[term] = f"CAPE.configs.{value}"
-        query_val = {"$exists": True}
-
     retval = []
     mongo_search_query = None
     if repconf.mongodb.enabled and query_val:
         if term in hash_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
-            split_by = "," if "," in query_val else " "
-            query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            if isinstance(query_val, str):
+                split_by = "," if "," in query_val else " "
+                query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+                match_query = {hash_searches[term]: query_filter_list}
+            else:
+                match_query = {hash_searches[term]: query_val}
             # The files collection is NOT tenant-stamped, so we $lookup back to
             # the analysis doc (which IS stamped) and filter THERE. The tenant
             # $match and the $limit are applied AFTER the join — limiting before
             # the scope filter would let other tenants' hits crowd out / truncate
             # the viewer's own visible results.
             pipeline = [
-                {"$match": {hash_searches[term]: query_filter_list}},
+                {"$match": match_query},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
@@ -1591,10 +1590,12 @@ def perform_search(
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
             if not retval:
                 return []
+        elif term == "configs":
+            mongo_search_query = {f"CAPE.configs.{value}": query_val}
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
-        elif isinstance(search_term_map[term], list):
-            mongo_search_query = {search_term:query_val for search_term in search_term_map[term]}
+        elif isinstance(search_term_map[term], (list, tuple)):
+            mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
         else:
             print(f"Unknown search {term}:{value}")
             return []
@@ -1606,8 +1607,6 @@ def perform_search(
             if "target.file.sha256" in projection:
                 projection = dict(**projection)
                 projection[f"target.file.{FILE_REF_KEY}"] = 1
-            if term in search_term_map_repetetive_blocks:
-                mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
 
             if not privs:
                 if force_bool(web_cfg.general.get("public_searches", True)):

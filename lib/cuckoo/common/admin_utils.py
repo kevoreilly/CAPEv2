@@ -403,13 +403,13 @@ def execute_command_on_all(remote_command, servers: list, ssh_proxy: SSHClient):
             if "Active: active (running)" in ssh_out and "systemctl status" not in remote_command:
                 log.info("[+] %s - Service %s", srv, green("restarted successfully and is UP"))
             elif ssh_out:
-                log.info(green("[+] %s - %s", srv, ssh_out ))
+                log.info(green("[+] %s - %s"), srv, ssh_out)
 
             if ssh_err:
-                log.error(red("[-] %s ERROR - %s", srv, ssh_err))
+                log.error(red("[-] %s ERROR - %s"), srv, ssh_err)
 
             if not ssh_out and not ssh_err:
-                log.info(green("[+] %s", srv))
+                log.info(green("[+] %s"), srv)
 
         except TimeoutError as e:
             log.error("Timeout connecting to %s: %s", server, str(e))
@@ -499,13 +499,13 @@ def deploy_file(queue, ssh_proxy: SSHClient):
                     if ssh_out:
                         log.info(ssh_out)
                     if ssh_err:
-                        log.error(red("ERROR: %s", ssh_err))
+                        log.error(red("ERROR: %s"), ssh_err)
 
                 _, ssh_stdout, ssh_stderr = ssh.exec_command(f"sha256sum {shlex.quote(remote_file)} | cut -d' ' -f1", get_pty=True)
                 remote_sha256 = ssh_stdout.read().strip().decode("utf-8")
                 remote_sha256_err = ssh_stderr.read().strip().decode("utf-8")
                 if remote_sha256_err:
-                    log.error(red("sha256sum error: %s", remote_sha256_err))
+                    log.error(red("sha256sum error: %s"), remote_sha256_err)
 
                 srv = server.split(".")[1] if "." in server else server
                 if local_sha256 == remote_sha256:
@@ -525,9 +525,9 @@ def deploy_file(queue, ssh_proxy: SSHClient):
                 log.error(e)
 
         if not error:
-            log.info(green("Completed! %s\n", remote_file))
+            log.info(green("Completed! %s\n"), remote_file)
         else:
-            log.info(red("Completed with errors. %s\n", remote_file))
+            log.info(red("Completed with errors. %s\n"), remote_file)
         queue.task_done()
 
     return error_list
@@ -551,15 +551,15 @@ def delete_file(queue, ssh_proxy: SSHClient):
                 if ssh_out:
                     log.info(ssh_out)
                 if ssh_err:
-                    log.error(red("ERROR: %s", ssh_err))
+                    log.error(red("ERROR: %s"), ssh_err)
             except TimeoutError as e:
                 log.error(e)
                 error = 1
 
         if not error:
-            log.info(green("Completed! %s\n", remote_file))
+            log.info(green("Completed! %s\n"), remote_file)
         else:
-            log.info(red("Completed with errors. %s\n", remote_file))
+            log.info(red("Completed with errors. %s\n"), remote_file)
         queue.task_done()
 
     return error_list

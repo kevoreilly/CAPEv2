@@ -265,3 +265,74 @@ def test_task_context_filter_and_message_regex_and_zero_sentinel():
     cape_log.task_log_stop(105)
     assert cape_log.get_log_task_context()["task_id"] is None
     assert cape_log.get_log_task_context()["main_task_id"] is None
+
+    # CapeLogRecord automatically injects (<main_task_id>) into 'Task #<id>' log messages
+    cape_log.register_task_main_id(202, 8888)
+    auto_rec = logging.getLogger("test.auto").makeRecord(
+        name="test.auto",
+        level=logging.INFO,
+        fn=__file__,
+        lno=275,
+        msg="Task #%d: acquired machine %s",
+        args=(202, "win10_1"),
+        exc_info=None,
+    )
+    assert auto_rec.getMessage() == "Task #202 (8888): acquired machine win10_1"
+    assert getattr(auto_rec, "task_id", None) == 202
+    assert getattr(auto_rec, "main_task_id", None) == 8888
+    cape_log.register_task_main_id(202, None)
+
+
+def test_task_model_main_task_id_and_scheduler_chunked_pagination():
+    from types import SimpleNamespace
+
+    from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
+    from lib.cuckoo.core.data.task import TASK_FAILED_ANALYSIS, Task
+    from lib.cuckoo.core.scheduler import Scheduler
+
+    t = Task()
+    t.id = 303
+    t.set_attribute("main_task_id", 7777)
+    assert t.main_task_id == 7777
+    assert t.task_label == "303 (7777)"
+    assert cape_log.get_task_main_id(303) == 7777
+    cape_log.register_task_main_id(303, None)
+
+    # Verify Scheduler.find_pending_task_to_service adjusts offset when fail_unserviceable removes pending tasks
+    pending = [
+        SimpleNamespace(id=i, category="file", machine=f"missing_{i}", platform="windows", tags=[], arch="")
+        for i in range(1, 55)
+    ]
+    pending.append(SimpleNamespace(id=55, category="file", machine="valid_vm", platform="windows", tags=[], arch=""))
+
+    failed_ids = []
+
+    def _list_tasks(status=None, limit=50, offset=0, order_by=None, **kwargs):
+        return pending[offset : offset + limit]
+
+    def _set_status(tid, status):
+        if status == TASK_FAILED_ANALYSIS:
+            failed_ids.append(tid)
+            pending[:] = [p for p in pending if p.id != tid]
+
+    def _find_machine(task, available_tags_stats=None):
+        if task.machine != "valid_vm":
+            raise CuckooUnserviceableTaskError("Unknown machine")
+        return SimpleNamespace(name=task.machine)
+
+    sched = Scheduler.__new__(Scheduler)
+    sched.cfg = SimpleNamespace(cuckoo=SimpleNamespace(fail_unserviceable=True))
+    sched.db = SimpleNamespace(
+        list_tasks=_list_tasks,
+        set_status=_set_status,
+        get_available_machines=lambda: [],
+    )
+    sched.machinery_manager = SimpleNamespace(
+        find_machine_to_service_task=_find_machine,
+    )
+
+    chosen_task, chosen_machine = sched.find_pending_task_to_service()
+    assert chosen_task is not None
+    assert chosen_task.id == 55
+    assert chosen_machine.name == "valid_vm"
+    assert len(failed_ids) == 54

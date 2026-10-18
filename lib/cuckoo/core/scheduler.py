@@ -99,13 +99,9 @@ class Scheduler:
                 max_runtime = timeout + self.cfg.timeouts.critical + stuck_seconds + vm_state
                 duration = (_utcnow_naive() - analysis.task.started_on).total_seconds()
                 if duration > max_runtime:
-                    main_task_id = getattr(analysis, "main_task_id", None)
-                    if not main_task_id and hasattr(analysis.task, "get_attribute"):
-                        main_task_id = analysis.task.get_attribute("main_task_id")
-                    task_label = f"{analysis.task.id} ({main_task_id})" if main_task_id else str(analysis.task.id)
                     log.warning(
                         "Task #%s has been running for %s seconds, which is longer than the configured timeout + critical timeout + 100s. Killing VM.",
-                        task_label,
+                        analysis.task.id,
                         duration,
                     )
 
@@ -114,11 +110,11 @@ class Scheduler:
                         frame = sys._current_frames().get(analysis.ident)
                         if frame:
                             stack_trace = "".join(traceback.format_stack(frame))
-                            log.warning("Stack trace of stuck thread (Task #%s):\n%s", task_label, stack_trace)
+                            log.warning("Stack trace of stuck thread (Task #%s):\n%s", analysis.task.id, stack_trace)
                         else:
-                            log.warning("Could not retrieve stack trace for thread %s (Task #%s)", analysis.ident, task_label)
+                            log.warning("Could not retrieve stack trace for thread %s (Task #%s)", analysis.ident, analysis.task.id)
                     except Exception:
-                        log.exception("Failed to log stack trace for stuck thread (Task #%s)", task_label)
+                        log.exception("Failed to log stack trace for stuck thread (Task #%s)", analysis.task.id)
 
                     try:
                         if analysis.machinery_manager and analysis.machine:
@@ -127,9 +123,9 @@ class Scheduler:
                     except Exception as e:
                         err_msg = str(e).lower()
                         if "already stopped" in err_msg or "domain is not running" in err_msg:
-                            log.info("Stuck VM for task #%s is already stopped: %s", task_label, e)
+                            log.info("Stuck VM for task #%s is already stopped: %s", analysis.task.id, e)
                         else:
-                            log.error("Failed to kill stuck VM for task #%s: %s", task_label, e)
+                            log.error("Failed to kill stuck VM for task #%s: %s", analysis.task.id, e)
 
         if self.loop_state == LoopState.STOPPING:
             # This blocks the main loop until the analyses are finished.
@@ -173,9 +169,7 @@ class Scheduler:
                     # There are no pending tasks so try again in 1 second.
                     return SchedulerCycleDelay.NO_PENDING_TASKS
 
-                main_task_id = task.get_attribute("main_task_id") if hasattr(task, "get_attribute") else None
-                task_label = f"{task.id} ({main_task_id})" if main_task_id else str(task.id)
-                log.info("Task #%s: Processing task", task_label)
+                log.info("Task #%i: Processing task", task.id)
                 self.total_analysis_count += 1
                 analysis_manager = AnalysisManager(
                     task,
@@ -230,55 +224,71 @@ class Scheduler:
         # Cache available machine stats to avoid repeated DB queries within the loop.
         available_tags_stats = self.get_available_machine_stats()
 
-        # Get the list of all pending tasks in the order that they should be processed.
-        for task_candidate in self.db.list_tasks(
-            status=TASK_PENDING,
-            order_by=(Task.priority.desc(), Task.added_on),
-            options_not_like="node=",
-            for_update=True,
-        ):
-            if task_candidate.category not in CATEGORIES_NEEDING_VM:
-                # This task can definitely be processed because it doesn't need a machine.
-                task = task_candidate
+        # Get the list of pending tasks in the order that they should be processed.
+        # Fetch in chunks to prevent locking the entire table and running out of memory.
+        chunk_size = 50
+        offset = 0
+
+        while True:
+            tasks_chunk = self.db.list_tasks(
+                status=TASK_PENDING,
+                order_by=(Task.priority.desc(), Task.added_on),
+                options_not_like="node=",
+                for_update=True,
+                limit=chunk_size,
+                offset=offset,
+            )
+
+            if not tasks_chunk:
                 break
 
-            try:
-                machine = self.machinery_manager.find_machine_to_service_task(task_candidate)
-            except CuckooUnserviceableTaskError:
-                requested_tags = ", ".join(tag.name for tag in task_candidate.tags)
-                main_task_id = task_candidate.get_attribute("main_task_id") if hasattr(task_candidate, "get_attribute") else None
-                task_label = f"{task_candidate.id} ({main_task_id})" if main_task_id else str(task_candidate.id)
-                log_message = (
-                    "Task #{task_id}: {status} unserviceable task because no matching machine could be found. "
-                    "Requested tags: '{tags}'. Available machine tags: {available}. "
-                    "Please check your machinery configuration."
-                )
+            failed_in_chunk = 0
+            for task_candidate in tasks_chunk:
+                if task_candidate.category not in CATEGORIES_NEEDING_VM:
+                    # This task can definitely be processed because it doesn't need a machine.
+                    task = task_candidate
+                    break
 
-
-                if self.cfg.cuckoo.fail_unserviceable:
-                    log.info(
-                        log_message.format(
-                            task_id=task_label,
-                            status="Failing",
-                            tags=requested_tags,
-                            available=available_tags_stats,
-                        )
+                try:
+                    machine = self.machinery_manager.find_machine_to_service_task(task_candidate)
+                except CuckooUnserviceableTaskError:
+                    requested_tags = ", ".join(tag.name for tag in task_candidate.tags)
+                    log_message = (
+                        "Task #{task_id}: {status} unserviceable task because no matching machine could be found. "
+                        "Requested tags: '{tags}'. Available machine tags: {available}. "
+                        "Please check your machinery configuration."
                     )
-                    self.db.set_status(task_candidate.id, TASK_FAILED_ANALYSIS)
-                else:
-                    log.info(
-                        log_message.format(
-                            task_id=task_label,
-                            status="Unserviceable",
-                            tags=requested_tags,
-                            available=available_tags_stats,
-                        )
-                    )
-                continue
 
-            if machine:
-                task = task_candidate
+                    if self.cfg.cuckoo.fail_unserviceable:
+                        log.info(
+                            log_message.format(
+                                task_id=task_candidate.id,
+                                status="Failing",
+                                tags=requested_tags,
+                                available=available_tags_stats,
+                            )
+                        )
+                        self.db.set_status(task_candidate.id, TASK_FAILED_ANALYSIS)
+                        failed_in_chunk += 1
+                    else:
+                        log.info(
+                            log_message.format(
+                                task_id=task_candidate.id,
+                                status="Unserviceable",
+                                tags=requested_tags,
+                                available=available_tags_stats,
+                            )
+                        )
+                    continue
+
+                if machine:
+                    task = task_candidate
+                    break
+
+            if task or len(tasks_chunk) < chunk_size:
                 break
+
+            offset += len(tasks_chunk) - failed_in_chunk
 
         return task, machine
 

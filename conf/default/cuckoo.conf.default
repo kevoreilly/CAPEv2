@@ -271,9 +271,9 @@ allow_superuser_all = yes
 # of [multitenancy] or together with it.
 enabled = no
 # Storage backend:
-#   s3    = AWS S3, MinIO, Ceph RGW, or any S3-compatible endpoint (requires boto3)
-#   gcs   = Google Cloud Storage (requires google-cloud-storage)
-#   azure = Azure Blob Storage (requires azure-storage-blob)
+#   s3    = AWS S3, MinIO, Ceph RGW, or any S3-compatible endpoint (poetry install --extras s3)
+#   gcs   = Google Cloud Storage (poetry install --extras gcp)
+#   azure = Azure Blob Storage (poetry install --extras azure)
 #   local = Shared local / NFS filesystem mount (`local_root`)
 backend = s3
 # Bucket / container name (for s3, gcs, or azure)

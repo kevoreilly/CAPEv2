@@ -258,4 +258,10 @@ def test_task_context_filter_and_message_regex_and_zero_sentinel():
     assert getattr(cuckoo_rec, "task_id", None) == 105
     assert getattr(cuckoo_rec, "main_task_id", None) == 9001
 
-
+    # task_log_start binds both task_id and main_task_id in contextvars and task_log_stop clears both
+    cape_log.task_log_start(105, main_task_id=9001)
+    assert cape_log.get_log_task_context()["task_id"] == 105
+    assert cape_log.get_log_task_context()["main_task_id"] == 9001
+    cape_log.task_log_stop(105)
+    assert cape_log.get_log_task_context()["task_id"] is None
+    assert cape_log.get_log_task_context()["main_task_id"] is None

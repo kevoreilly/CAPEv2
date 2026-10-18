@@ -1885,8 +1885,10 @@ class Feed:
 class ProtocolHandler:
     """Abstract class for protocol handlers coming out of the analysis."""
 
-    def __init__(self, task_id, ctx, version=None):
+    def __init__(self, task_id, ctx, version=None, main_task_id=None):
         self.task_id = task_id
+        self.main_task_id = main_task_id if main_task_id is not None else getattr(ctx, "main_task_id", None)
+        self.task_label = f"{task_id} ({self.main_task_id})" if self.main_task_id else str(task_id)
         self.handler = ctx
         self.fd = None
         self.version = version

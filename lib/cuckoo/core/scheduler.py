@@ -246,6 +246,8 @@ class Scheduler:
                 machine = self.machinery_manager.find_machine_to_service_task(task_candidate)
             except CuckooUnserviceableTaskError:
                 requested_tags = ", ".join(tag.name for tag in task_candidate.tags)
+                main_task_id = task_candidate.get_attribute("main_task_id") if hasattr(task_candidate, "get_attribute") else None
+                task_label = f"{task_candidate.id} ({main_task_id})" if main_task_id else str(task_candidate.id)
                 log_message = (
                     "Task #{task_id}: {status} unserviceable task because no matching machine could be found. "
                     "Requested tags: '{tags}'. Available machine tags: {available}. "
@@ -256,7 +258,7 @@ class Scheduler:
                 if self.cfg.cuckoo.fail_unserviceable:
                     log.info(
                         log_message.format(
-                            task_id=task_candidate.id,
+                            task_id=task_label,
                             status="Failing",
                             tags=requested_tags,
                             available=available_tags_stats,
@@ -266,7 +268,7 @@ class Scheduler:
                 else:
                     log.info(
                         log_message.format(
-                            task_id=task_candidate.id,
+                            task_id=task_label,
                             status="Unserviceable",
                             tags=requested_tags,
                             available=available_tags_stats,

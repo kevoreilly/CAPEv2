@@ -336,3 +336,39 @@ def test_task_model_main_task_id_and_scheduler_chunked_pagination():
     assert chosen_task.id == 55
     assert chosen_machine.name == "valid_vm"
     assert len(failed_ids) == 54
+
+
+def test_console_handler_colorized_warning_injects_main_task_id():
+    from lib.cuckoo.core.log import ConsoleHandler, register_task_main_id
+
+    stream = io.StringIO()
+    handler = ConsoleHandler(stream=stream, colorize=True)
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+
+    test_logger = logging.getLogger("test.cape.color_main_task")
+    test_logger.handlers = [handler]
+    test_logger.setLevel(logging.DEBUG)
+    test_logger.propagate = False
+
+    register_task_main_id(105, 500)
+    test_logger.warning("Task #105: colored warning message")
+
+    output = stream.getvalue()
+    assert "Task #105 (500): colored warning message" in output
+    assert "\x1b[33m" in output
+
+
+def test_task_load_listener_syncs_and_clears_main_task_id():
+    from lib.cuckoo.core.data.task import Task, _sync_task_main_id_on_load
+    from lib.cuckoo.core.log import get_task_main_id
+
+    task = Task()
+    task.id = 205
+    task.attributes = {"main_task_id": 900}
+    _sync_task_main_id_on_load(task)
+    assert get_task_main_id(205) == 900
+
+    task.attributes = {}
+    _sync_task_main_id_on_load(task)
+    assert get_task_main_id(205) is None
+

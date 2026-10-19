@@ -747,8 +747,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
     def add_task(self, task_id, ipaddr, main_task_id=None):
         with self.task_mgmt_lock:
             self.tasks[ipaddr] = task_id
-            if main_task_id is not None:
-                register_task_main_id(task_id, main_task_id)
+            register_task_main_id(task_id, main_task_id)
             log.debug("Task #%s: The associated machine IP is %s", task_id, ipaddr)
 
     def del_task(self, task_id, ipaddr, main_task_id=None):
@@ -891,6 +890,7 @@ class SingleVMResultServerWorker(GeventResultServerWorker):
         self.create_folders()
 
         ctx = HandlerContext(task_id, self.storagepath, sock)
+        register_task_main_id(task_id, main_task_id)
         task_log_start(task_id, main_task_id=main_task_id)
         try:
             try:

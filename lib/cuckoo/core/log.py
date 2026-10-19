@@ -42,12 +42,12 @@ _ctx_node: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_nod
 _ctx_correlation_id: contextvars.ContextVar[str | None] = contextvars.ContextVar("cape_correlation_id", default=None)
 
 _RE_MSG_TASK = re.compile(
-    r"(?:\bTask(?:\s+id|_id|\s+with\s+ID)?[\s:=]+#?(\d+)(?:\s+\((\d+)\))?|\[Task\s+(\d+)(?:\s+\((\d+)\))?\]"
+    r"(?:(?:(?:\x1b\[[0-9;]*m)+|\b)Task(?:\s+id|_id|\s+with\s+ID)?[\s:=]+#?(\d+)(?:\s+\((\d+)\))?|\[Task\s+(\d+)(?:\s+\((\d+)\))?\]"
     r"|\[(\d+)\]\s+(?:Processing timeout|Exception when processing task|Task never ran))",
     re.IGNORECASE,
 )
 _RE_INJECT_MAIN_TASK = re.compile(
-    r"(\bTask(?:\s+with\s+ID)?[\s:=]+#?)(\d+)\b(?!\s*\(\d+\))",
+    r"((?:(?:\x1b\[[0-9;]*m)+|\b)Task(?:\s+with\s+ID)?[\s:=]+#?)(\d+)\b(?!\s*\(\d+\))",
     re.IGNORECASE,
 )
 _TRUTHY_VALUES = ("1", "true", "yes", "on", "always")

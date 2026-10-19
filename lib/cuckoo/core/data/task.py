@@ -237,7 +237,9 @@ class Task(Base):
 @event.listens_for(Task, "load")
 @event.listens_for(Task, "refresh")
 def _sync_task_main_id_on_load(target: Task, *args) -> None:
-    if getattr(target, "id", None):
-        from lib.cuckoo.core.log import register_task_main_id
+    if "attributes" in target.__dict__ and getattr(target, "id", None):
+        from lib.cuckoo.core.log import get_task_main_id, register_task_main_id
 
-        register_task_main_id(target.id, target.main_task_id)
+        main_task_id = target.main_task_id
+        if main_task_id is not None or get_task_main_id(target.id) is not None:
+            register_task_main_id(target.id, main_task_id)

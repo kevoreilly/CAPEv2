@@ -628,3 +628,128 @@ def test_web_template_walk_is_populated():
 def test_web_template_has_no_underscore_leading_var(tpl):
     from django.template.loader import get_template
     get_template(tpl)  # raises TemplateSyntaxError if any var/attr begins with '_'
+
+
+def test_perform_search_configs_and_extracted_tool_do_not_mutate_search_term_map(monkeypatch):
+    import types
+    import lib.cuckoo.common.web_utils as wu
+
+    captured_mongo = []
+    monkeypatch.setattr(
+        wu,
+        "repconf",
+        types.SimpleNamespace(
+            mongodb=types.SimpleNamespace(enabled=True),
+            elasticsearchdb=types.SimpleNamespace(enabled=False),
+        ),
+    )
+    monkeypatch.setattr(wu, "es_as_db", False, raising=False)
+    monkeypatch.setattr(
+        wu,
+        "mongo_find",
+        lambda coll, q, proj, limit=0: captured_mongo.append((coll, q, proj)) or [{"info": {"id": 1}, "target": {"file": {"file_ref": "a" * 64}}}],
+        raising=False,
+    )
+
+    res = wu.perform_search("configs", "QakBot", privs=True)
+    assert wu.search_term_map["configs"] == "CAPE.configs"
+    assert captured_mongo[-1][1] == {"CAPE.configs.QakBot": {"$exists": True}}
+    assert res[0]["target"]["file"]["sha256"] == "a" * 64
+
+    wu.perform_search("extracted_tool", "UnAutoIt", privs=True)
+    assert captured_mongo[-1][1] == {
+        "$or": [{f"{p}.UnAutoIt": {"$exists": True}} for p in wu.search_term_map["extracted_tool"]]
+    }
+
+    captured_es = []
+    monkeypatch.setattr(
+        wu,
+        "repconf",
+        types.SimpleNamespace(
+            mongodb=types.SimpleNamespace(enabled=False),
+            elasticsearchdb=types.SimpleNamespace(enabled=True),
+        ),
+    )
+    monkeypatch.setattr(wu, "es_as_db", True, raising=False)
+    monkeypatch.setattr(wu, "get_analysis_index", lambda: "analysis", raising=False)
+    monkeypatch.setattr(
+        wu,
+        "es",
+        types.SimpleNamespace(
+            search=lambda index, body, _source=None: captured_es.append(body) or {"hits": {"hits": [{"_source": {"info": {"id": 2}}}]}}
+        ),
+        raising=False,
+    )
+
+    wu.perform_search("configs", "Emotet", privs=True)
+    assert captured_es[-1] == {"query": {"exists": {"field": "CAPE.configs.Emotet"}}}
+
+    wu.perform_search("extracted_tool", "UnAutoIt", privs=True)
+    assert captured_es[-1] == {
+        "query": {
+            "bool": {
+                "should": [{"exists": {"field": f"{p}.UnAutoIt"}} for p in wu.search_term_map["extracted_tool"]],
+                "minimum_should_match": 1,
+            }
+        }
+    }
+
+
+def test_perform_search_single_match_tags_options_and_files_searches(monkeypatch):
+    import types
+    import lib.cuckoo.common.web_utils as wu
+
+    class _T:
+        def __init__(self, i):
+            self.id = i
+
+    captured_queries = []
+    monkeypatch.setattr(
+        wu,
+        "repconf",
+        types.SimpleNamespace(
+            mongodb=types.SimpleNamespace(enabled=True),
+            elasticsearchdb=types.SimpleNamespace(enabled=False),
+        ),
+    )
+    monkeypatch.setattr(wu, "es_as_db", False, raising=False)
+    monkeypatch.setattr(wu.db, "list_tasks", lambda **kw: [_T(42)])
+    monkeypatch.setattr(
+        wu,
+        "mongo_find",
+        lambda coll, q, proj, limit=0: captured_queries.append(q) or [{"info": {"id": 42}}],
+        raising=False,
+    )
+
+    assert wu.perform_search("tags_tasks", "mytag", privs=True) == [{"info": {"id": 42}}]
+    assert captured_queries[-1] == {"info.id": 42}
+
+    assert wu.perform_search("options", "procdump=1", privs=True) == [{"info": {"id": 42}}]
+    assert captured_queries[-1] == {"info.id": 42}
+
+    monkeypatch.setattr(wu.db, "list_tasks", lambda **kw: [])
+    assert wu.perform_search("tags_tasks", "nomatch", privs=True) == []
+
+    # sport and port mappings
+    assert wu.search_term_map["sport"] == ("network.tcp.sport", "network.udp.sport", "network.smtp_ex.sport")
+    assert "network.tcp.sport" in wu.search_term_map["port"]
+    assert "network.tcp.dport" in wu.search_term_map["port"]
+
+    # files_searches (ssdeep with '+', yaraname, capeyara, imphash) query FILES_COLL and map file_ref -> sha256
+    captured_pipelines = []
+    monkeypatch.setattr(
+        wu,
+        "mongo_aggregate",
+        lambda coll, pipeline: captured_pipelines.append((coll, pipeline))
+        or [{"info": {"id": 7}, "target": {"file": {"file_ref": "b" * 64}}}],
+        raising=False,
+    )
+    ssdeep_val = "384:az+bC:az+b"
+    out = wu.perform_search("ssdeep", ssdeep_val, privs=True)
+    assert captured_pipelines[-1][0] == wu.FILES_COLL
+    assert captured_pipelines[-1][1][0] == {"$match": {"ssdeep": {"$in": [ssdeep_val]}}}
+    assert out[0]["target"]["file"]["sha256"] == "b" * 64
+
+    wu.perform_search("capeyara", "QakBot", privs=True)
+    assert captured_pipelines[-1][1][0] == {"$match": {"cape_yara.name": "QakBot"}}
+

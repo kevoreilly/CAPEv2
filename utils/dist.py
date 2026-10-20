@@ -5,6 +5,7 @@
 # See the file 'docs/LICENSE' for copying permission.
 
 import argparse
+import contextlib
 import hashlib
 import ipaddress
 import json
@@ -164,6 +165,20 @@ def restart_db_connection():
         logger.exception("Error while trying to restart database connection pool: %s", e)
 
 
+_DB_DISCONNECT_TERMS = (
+    "QueuePool",
+    "TimeoutError",
+    "connection timed out",
+    "Timeout 30.00",
+    "SSL connection has been closed unexpectedly",
+    "server closed the connection unexpectedly",
+    "SSL SYSCALL error",
+    "connection already closed",
+    "terminating connection",
+    "Can't reconnect until invalid transaction is rolled back",
+)
+
+
 class SessionWrapper:
     def __init__(self, session_obj):
         self._session = session_obj
@@ -176,7 +191,9 @@ class SessionWrapper:
                 try:
                     return attr(*args, **kwargs)
                 except Exception as e:
-                    if any(term in str(e) for term in ("QueuePool", "TimeoutError", "connection timed out", "Timeout 30.00")):
+                    if any(term in str(e) for term in _DB_DISCONNECT_TERMS):
+                        with contextlib.suppress(Exception):
+                            self._session.rollback()
                         restart_db_connection()
                     raise e
 
@@ -189,7 +206,9 @@ class SessionWrapper:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_val is not None:
-            if any(term in str(exc_val) for term in ("QueuePool", "TimeoutError", "connection timed out", "Timeout 30.00")):
+            if any(term in str(exc_val) for term in _DB_DISCONNECT_TERMS):
+                with contextlib.suppress(Exception):
+                    self._session.rollback()
                 restart_db_connection()
         return self._session.__exit__(exc_type, exc_val, exc_tb)
 
@@ -249,7 +268,7 @@ def node_fetch_tasks(status, url, apikey, action="fetch", since=0):
         params = dict(status=status, ids=True)
         if action == "fetch":
             params["completed_after"] = since
-        r = requests.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False)
+        r = requests.get(url, params=params, headers={"Authorization": f"Token {apikey}"}, verify=False, timeout=30)
         if not r.ok:
             log.error("Error fetching task list. Status code: %d - %s. Saving error to /tmp/dist_error.html", r.status_code, r.url)
             _ = path_write_file("/tmp/dist_error.html", r.content)
@@ -953,68 +972,68 @@ class Retriever(threading.Thread):
         # self.thread_local.requests_session = requests.Session()
 
         while True:
-            if self.stop_dist.is_set():
+            if getattr(self, "stop_dist", None) and self.stop_dist.is_set():
                 time.sleep(60)
                 continue
             with session() as db:
                 try:
-                    nodes = db.scalars(select(Node).where(Node.enabled.is_(True)))
+                    nodes = db.scalars(select(Node).where(Node.enabled.is_(True))).all()
+                    for node in nodes:
+                        self.status_count.setdefault(node.name, 0)
+                        last_checks.setdefault(node.name, 0)
+                        last_checks[node.name] += 1
+
+                        if hasattr(node, "last_check") and node.last_check:
+                            last_check = int(node.last_check.timestamp())
+                        else:
+                            last_check = 0
+
+                        # reset it every 10 calls
+                        if last_checks[node.name] == 3:
+                            last_check = 0
+                            last_checks[node.name] = 0
+
+                        tasks_data = node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check)
+                        if tasks_data is None:
+                            self.status_count[node.name] += 1
+                            if self.status_count[node.name] >= dead_count:
+                                log.warning(
+                                    "[-] Node %s is unreachable/dead (attempt %d/%d)",
+                                    node.name,
+                                    self.status_count[node.name],
+                                    dead_count,
+                                )
+                            continue
+                        else:
+                            self.status_count[node.name] = 0
+
+                        task_ids = [task["id"] for task in tasks_data]
+
+                        if task_ids:
+                            stmt = select(Task.task_id).where(
+                                Task.finished.is_(False),
+                                Task.retrieved.is_(False),
+                                Task.node_id == node.id,
+                                Task.deleted.is_(False),
+                                Task.task_id.in_(task_ids),
+                            )
+                            tasks_to_fetch = db.scalars(stmt).all()
+
+                            processed_task_ids = set(self.current_queue.get(node.id, []))
+                            try:
+                                queue_task_ids = {t[0]["id"] for t in list(self.fetcher_queue.queue) if t[1] == node.id}
+                            except TypeError:
+                                print("queue_task_ids", self.fetcher_queue.queue)
+                                queue_task_ids = set()
+
+                            for task_id in tasks_to_fetch:
+                                if task_id not in processed_task_ids and task_id not in queue_task_ids:
+                                    self.fetcher_queue.put(({"id": task_id}, node.id))
+                    db.commit()
                 except SQLAlchemyError as e:
                     log.error("Database error in fetcher: %s", e)
-                    continue
-                for node in nodes:
-                    self.status_count.setdefault(node.name, 0)
-                    last_checks.setdefault(node.name, 0)
-                    last_checks[node.name] += 1
-
-                    if hasattr(node, "last_check") and node.last_check:
-                        last_check = int(node.last_check.timestamp())
-                    else:
-                        last_check = 0
-
-                    # reset it every 10 calls
-                    if last_checks[node.name] == 3:
-                        last_check = 0
-                        last_checks[node.name] = 0
-
-                    tasks_data = node_fetch_tasks("reported", node.url, node.apikey, "fetch", last_check)
-                    if tasks_data is None:
-                        self.status_count[node.name] += 1
-                        if self.status_count[node.name] >= dead_count:
-                            log.warning(
-                                "[-] Node %s is unreachable/dead (attempt %d/%d)",
-                                node.name,
-                                self.status_count[node.name],
-                                dead_count,
-                            )
-                        continue
-                    else:
-                        self.status_count[node.name] = 0
-
-                    task_ids = [task["id"] for task in tasks_data]
-
-                    if task_ids:
-                        stmt = select(Task.task_id).where(
-                            Task.finished.is_(False),
-                            Task.retrieved.is_(False),
-                            Task.node_id == node.id,
-                            Task.deleted.is_(False),
-                            Task.task_id.in_(task_ids),
-                        )
-                        tasks_to_fetch = db.scalars(stmt).all()
-
-                        processed_task_ids = set(self.current_queue.get(node.id, []))
-                        try:
-                            queue_task_ids = {t[0]["id"] for t in list(self.fetcher_queue.queue) if t[1] == node.id}
-                        except TypeError:
-                            print("queue_task_ids", self.fetcher_queue.queue)
-                            queue_task_ids = set()
-
-                        for task_id in tasks_to_fetch:
-                            if task_id not in processed_task_ids and task_id not in queue_task_ids:
-                                self.fetcher_queue.put(({"id": task_id}, node.id))
-                db.commit()
-                time.sleep(5)
+                    db.rollback()
+            time.sleep(5)
 
     def delete_target_file(self, task_id: int, sample_sha256: str, target: str):
         """
@@ -2345,7 +2364,7 @@ def main():
 
 if __name__ == "__main__":
     main()
-else:
+elif "pytest" not in sys.modules:
     init_database(exists_ok=True)
     app = create_app(database_connection=dist_conf.distributed.db)
 

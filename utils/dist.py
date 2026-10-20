@@ -1118,7 +1118,7 @@ class Retriever(threading.Thread):
                     t = db.scalar(stmt)
                     if t is None:
                         # print(type(self.t_is_none.get(node_id)))
-                        self.t_is_none.setdefault(node_id, []).append(task["id"])
+                        self.t_is_none.setdefault(node_id, set()).add(task["id"])
 
                         # sometime it not deletes tasks in workers of some fails or something
                         # this will do the trick

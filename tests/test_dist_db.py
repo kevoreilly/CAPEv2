@@ -283,3 +283,138 @@ def test_create_session_registers_atexit_dispose(monkeypatch):
     assert engine.dispose in registered
     engine.dispose()
 
+
+def test_create_session_postgresql_configuration(monkeypatch):
+    import atexit
+    from unittest.mock import MagicMock, patch
+    from lib.cuckoo.common.dist_db import create_session
+
+    monkeypatch.setattr(atexit, "register", lambda fn, *a, **k: None)
+
+    mock_engine = MagicMock()
+    with (
+        patch("lib.cuckoo.common.dist_db.create_engine", return_value=mock_engine) as mock_create_engine,
+        patch("lib.cuckoo.common.dist_db.Base.metadata.create_all"),
+    ):
+        maker = create_session("postgresql://user:pass@localhost:5432/cuckoo_dist", echo=False)
+        mock_create_engine.assert_called_once_with(
+            "postgresql://user:pass@localhost:5432/cuckoo_dist",
+            echo=False,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+            connect_args={
+                "keepalives": 1,
+                "keepalives_idle": 60,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            },
+        )
+        assert maker.kw["bind"] == mock_engine
+
+    # Also verify SQLite works without connect_args or pool_recycle
+    sqlite_maker = create_session("sqlite:///:memory:", echo=False)
+    sqlite_engine = sqlite_maker.kw["bind"]
+    assert sqlite_engine.url.drivername == "sqlite"
+    sqlite_engine.dispose()
+
+
+def test_session_wrapper_ssl_disconnect_triggers_restart():
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from sqlalchemy.exc import OperationalError
+    from utils.dist import SessionWrapper
+
+    mock_session = MagicMock()
+    mock_session.execute.side_effect = OperationalError("SELECT 1", {}, Exception("SSL connection has been closed unexpectedly"))
+
+    wrapper = SessionWrapper(mock_session)
+
+    # Test method call triggers rollback and restart_db_connection
+    with patch("utils.dist.restart_db_connection") as mock_restart:
+        try:
+            wrapper.execute("SELECT 1")
+        except OperationalError:
+            pass
+        mock_session.rollback.assert_called_once()
+        mock_restart.assert_called_once()
+
+    # Test __exit__ with SSL disconnect OperationalError triggers rollback and restart
+    mock_session.reset_mock()
+    with patch("utils.dist.restart_db_connection") as mock_restart:
+        try:
+            with wrapper:
+                raise OperationalError("SELECT 1", {}, Exception("SSL connection has been closed unexpectedly"))
+        except OperationalError:
+            pass
+        mock_session.rollback.assert_called_once()
+        mock_restart.assert_called_once()
+
+
+def test_fetcher_recovers_from_sqlalchemy_error():
+    import sys
+    import threading
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from sqlalchemy.exc import OperationalError
+    from utils.dist import Retriever
+
+    retriever = Retriever()
+    retriever.stop_dist = threading.Event()
+    mock_db = MagicMock()
+    mock_db.scalars.side_effect = OperationalError("SELECT 1", {}, Exception("server closed the connection unexpectedly"))
+
+    class TestStop(Exception):
+        pass
+
+    sleep_calls = []
+
+    def mock_sleep(seconds):
+        sleep_calls.append(seconds)
+        raise TestStop()
+
+    with (
+        patch("utils.dist.session") as mock_session,
+        patch("time.sleep", side_effect=mock_sleep),
+    ):
+        mock_session.return_value.__enter__.return_value = mock_db
+        try:
+            retriever.fetcher()
+        except TestStop:
+            pass
+
+    mock_db.rollback.assert_called_once()
+    assert sleep_calls == [5]
+
+
+def test_node_fetch_tasks_timeout():
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from utils.dist import node_fetch_tasks
+
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"data": [{"id": 1}]}
+
+    with patch("utils.dist.requests.get", return_value=mock_resp) as mock_get:
+        tasks = node_fetch_tasks("completed", "http://worker:8000", "testkey", action="fetch", since=100)
+        assert tasks == [{"id": 1}]
+        mock_get.assert_called_once()
+        assert mock_get.call_args.kwargs.get("timeout") == 30
+

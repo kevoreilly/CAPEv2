@@ -73,6 +73,7 @@ class PreforkEngine(ProcessingEngine):
 
     def _child_main(self, task):
         os.setsid()  # own session/process group; supervisor killpg sweeps the subtree
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
         # This child runs exactly one task then os._exit()s, so a single extractor
         # pool can be shared across every file in the task and torn down once —
         # reclaiming the per-file fork cost a per-call pool would pay N times. Safe
@@ -275,7 +276,11 @@ class PreforkEngine(ProcessingEngine):
                     last_hb = now
                 time.sleep(self._sleep_interval(launched))
         finally:
-            if prev_sigterm is not None:
-                signal.signal(signal.SIGTERM, prev_sigterm)
-            self._shutdown_inflight()
+            try:
+                if prev_sigterm is not None:
+                    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+                self._shutdown_inflight()
+            finally:
+                if prev_sigterm is not None:
+                    signal.signal(signal.SIGTERM, prev_sigterm)
 

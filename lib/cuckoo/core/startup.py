@@ -305,7 +305,7 @@ def check_working_directory():
 def check_webgui_mongo(exit_on_connection_failure=True):
     if repconf.mongodb.enabled:
         import dev_utils.mongodb as mdb_mod
-        from dev_utils.mongodb import close_mongodb, connect_to_mongo, mongo_create_index
+        from dev_utils.mongodb import _close_and_join_client, close_mongodb, connect_to_mongo, mongo_create_index
 
         client = connect_to_mongo()
         if not client:
@@ -366,8 +366,8 @@ def check_webgui_mongo(exit_on_connection_failure=True):
                     with suppress(Exception):
                         getattr(results_db, coll).drop_index(index_name)
         finally:
-            with suppress(Exception):
-                client.close()
+            if mdb_mod._client is not client:
+                _close_and_join_client(client)
             close_mongodb()
     elif repconf.elasticsearchdb.enabled:
         # ToDo add check

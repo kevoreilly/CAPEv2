@@ -259,3 +259,104 @@ def test_check_webgui_mongo_reuses_single_client_and_closes_on_exit(monkeypatch)
     assert mdb_mod._client is None
     assert mdb_mod._results_db is None
     assert mdb_mod._client_pid is None
+
+
+def test_close_mongodb_joins_background_executors(monkeypatch):
+    """close_mongodb must join PyMongo PeriodicExecutor threads so
+    PreforkEngine._assert_single_threaded() does not race with PyMongo's 0.5s
+    executor sleep loop."""
+    import dev_utils.mongodb as mdb_mod
+
+    joined = []
+
+    class _FakeExecutor:
+        def __init__(self, name):
+            self.name = name
+
+        def join(self, timeout=None):
+            joined.append((self.name, timeout))
+
+    class _FakeMonitor:
+        def __init__(self):
+            self._executor = _FakeExecutor("server_monitor")
+            self._rtt_monitor = _FakeExecutor("rtt_monitor")
+
+    class _FakeServer:
+        def __init__(self):
+            self._monitor = _FakeMonitor()
+
+    class _FakeSrvMonitor:
+        def __init__(self):
+            self._executor = _FakeExecutor("srv_monitor")
+
+    class _FakeTopology:
+        def __init__(self):
+            self._servers = {("127.0.0.1", 27017): _FakeServer()}
+            self._srv_monitor = _FakeSrvMonitor()
+
+    class _FakeClient:
+        def __init__(self):
+            self._topology = _FakeTopology()
+            self._kill_cursors_executor = _FakeExecutor("kill_cursors")
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    client = _FakeClient()
+    monkeypatch.setattr(mdb_mod, "_client", client)
+    monkeypatch.setattr(mdb_mod, "_results_db", "db")
+    monkeypatch.setattr(mdb_mod, "_client_pid", 1234)
+
+    mdb_mod.close_mongodb()
+
+    assert client.closed is True
+    assert mdb_mod._client is None
+    assert [name for name, _ in joined] == [
+        "kill_cursors",
+        "server_monitor",
+        "rtt_monitor",
+        "srv_monitor",
+    ]
+
+
+def test_child_main_resets_sigterm_and_run_ignores_sigterm_during_shutdown(monkeypatch):
+    """_child_main must reset SIGTERM to SIG_DFL so supervisor killpg(SIGTERM)
+    does not trigger the supervisor's _on_sigterm handler inside the child, and
+    run() must ignore SIGTERM during _shutdown_inflight() before restoring the
+    previous handler."""
+    from lib.cuckoo.common.integrations import file_extra_info
+
+    sigterm_calls = []
+    monkeypatch.setattr(os, "setsid", lambda: None)
+    monkeypatch.setattr(file_extra_info, "enable_shared_extractor_pool", lambda: None)
+    monkeypatch.setattr(file_extra_info, "shutdown_shared_extractor_pool", lambda: None)
+    monkeypatch.setattr(signal, "signal", lambda sig, handler: sigterm_calls.append((sig, handler)) or signal.SIG_DFL)
+
+    eng = _engine()
+    rc = eng._child_main(type("_T", (), {"id": 99})())
+    assert rc == 0
+    assert (signal.SIGTERM, signal.SIG_DFL) in sigterm_calls
+
+    sigterm_calls.clear()
+    shutdown_sigterm_state = []
+    monkeypatch.setattr(
+        eng,
+        "_shutdown_inflight",
+        lambda: shutdown_sigterm_state.append(sigterm_calls[-1]),
+    )
+    eng.max_count = 1
+    eng.source.fetch = lambda limit, exclude_ids: []
+    monkeypatch.setattr(
+        eng,
+        "_reap",
+        lambda: (_ for _ in ()).throw(SystemExit(143)),
+    )
+
+    try:
+        eng.run()
+    except SystemExit:
+        pass
+
+    assert shutdown_sigterm_state == [(signal.SIGTERM, signal.SIG_IGN)]
+    assert sigterm_calls[-1] == (signal.SIGTERM, signal.SIG_DFL)

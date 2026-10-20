@@ -61,16 +61,45 @@ if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=_reset_mongodb_after_fork)
 
 
+def _close_and_join_client(client):
+    """Close a MongoClient and synchronously join its background PeriodicExecutor
+    threads so PreforkEngine._assert_single_threaded() never races with PyMongo's
+    0.5s executor sleep loop."""
+    if client is None:
+        return
+    topology = getattr(client, "_topology", None)
+    servers = list(getattr(topology, "_servers", {}).values()) if topology is not None else []
+    srv_monitor = getattr(topology, "_srv_monitor", None) if topology is not None else None
+    kill_executor = getattr(client, "_kill_cursors_executor", None)
+    with suppress(Exception):
+        client.close()
+    if kill_executor is not None and hasattr(kill_executor, "join"):
+        with suppress(Exception):
+            kill_executor.join(timeout=1)
+    for server in servers:
+        monitor = getattr(server, "_monitor", None)
+        if monitor is not None:
+            for attr in ("_executor", "_rtt_monitor"):
+                target = getattr(monitor, attr, None)
+                executor = getattr(target, "_executor", target)
+                if executor is not None and hasattr(executor, "join"):
+                    with suppress(Exception):
+                        executor.join(timeout=1)
+    if srv_monitor is not None:
+        executor = getattr(srv_monitor, "_executor", None)
+        if executor is not None and hasattr(executor, "join"):
+            with suppress(Exception):
+                executor.join(timeout=1)
+
+
 def close_mongodb():
     """Close the module-level MongoClient so no background monitor threads
     or open sockets leak across fork()."""
     global _client, _results_db, _client_pid
     if _client is not None:
-        try:
-            _client.close()
-        except Exception:
-            pass
+        client = _client
         _client = None
+        _close_and_join_client(client)
     _results_db = None
     _client_pid = None
 

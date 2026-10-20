@@ -141,3 +141,10 @@ def test_mongodb_ensure_schema_caches_per_pid_and_raises_on_mismatch(monkeypatch
     )
     with pytest.raises(CuckooReportError, match="Mongo schema version not expected"):
         mongodb_mod.MongoDB._ensure_schema()
+
+    # Transient insert failure (None from graceful_auto_reconnect) must not cache _schema_checked_pid
+    monkeypatch.setattr(mongodb_mod.MongoDB, "_schema_checked_pid", None)
+    monkeypatch.setattr(mongodb_mod, "mongo_find_one", lambda coll, query, proj: None)
+    monkeypatch.setattr(mongodb_mod, "mongo_insert_one", lambda coll, doc: None)
+    mongodb_mod.MongoDB._ensure_schema()
+    assert mongodb_mod.MongoDB._schema_checked_pid is None

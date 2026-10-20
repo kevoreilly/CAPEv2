@@ -416,7 +416,8 @@ class MongoDB(Report):
             if schema_doc.get("version") != cls.SCHEMA_VERSION:
                 raise CuckooReportError("Mongo schema version not expected, check data migration tool")
         else:
-            mongo_insert_one("cuckoo_schema", {"version": cls.SCHEMA_VERSION})
+            if mongo_insert_one("cuckoo_schema", {"version": cls.SCHEMA_VERSION}) is None:
+                return
             # Best-effort compound index for tenant-scoped aggregations — only
             # when multitenancy is enabled (a disabled install stays exactly
             # upstream; the index backs the scope_match queries that only run

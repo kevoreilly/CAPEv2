@@ -2364,19 +2364,20 @@ def main():
 
 if __name__ == "__main__":
     main()
-elif "pytest" not in sys.modules:
+else:
     init_database(exists_ok=True)
     app = create_app(database_connection=dist_conf.distributed.db)
 
     # this allows run it with gunicorn/uwsgi
     log = init_logging(True)
-    if not dist_conf.distributed.get("submit_only"):
-        retrieve = Retriever(name="supervisor")
-        retrieve.daemon = True
-        retrieve.start()
-    else:
-        log.info("Submit-only mode (config): Retriever thread disabled.")
+    if "pytest" not in sys.modules:
+        if not dist_conf.distributed.get("submit_only"):
+            retrieve = Retriever(name="supervisor")
+            retrieve.daemon = True
+            retrieve.start()
+        else:
+            log.info("Submit-only mode (config): Retriever thread disabled.")
 
-    t = StatusThread(name="status")
-    t.daemon = True
-    t.start()
+        t = StatusThread(name="status")
+        t.daemon = True
+        t.start()

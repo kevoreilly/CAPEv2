@@ -318,6 +318,8 @@ _DATABASE: Optional[_Database] = None
 
 class Database:
     def __getattr__(self, attr: str) -> Any:
+        if attr.startswith("__") and attr.endswith("__"):
+            raise AttributeError(attr)
         if _DATABASE is None:
             raise CuckooDatabaseInitializationError
         return getattr(_DATABASE, attr)

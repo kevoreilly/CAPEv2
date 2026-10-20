@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import suppress
 import json
 import logging
 from typing import List, Optional, Union
@@ -24,6 +25,7 @@ try:
         String,
     )
     from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.exc import OperationalError, SQLAlchemyError
     from sqlalchemy.ext.mutable import MutableDict
     from sqlalchemy.orm import (
         Mapped,
@@ -400,15 +402,21 @@ class MachinesMixIn:
 
     def set_machine_status(self, machine_or_label: Union[str, Machine], status):
         """Set status for a virtual machine."""
-        if isinstance(machine_or_label, str):
-            stmt = select(Machine).where(Machine.label == machine_or_label)
-            machine = self.session.scalar(stmt)
-        else:
-            machine = machine_or_label
+        try:
+            if isinstance(machine_or_label, str):
+                stmt = select(Machine).where(Machine.label == machine_or_label)
+                with self.session.no_autoflush:
+                    machine = self.session.scalar(stmt)
+            else:
+                machine = machine_or_label
 
-        if machine:
-            machine.status = status
-            machine.status_changed_on = _utcnow_naive()
+            if machine:
+                machine.status = status
+                machine.status_changed_on = _utcnow_naive()
+        except (OperationalError, SQLAlchemyError):
+            with suppress(Exception):
+                self.session.rollback()
+            return
             # No need for session.add() here; the ORM tracks changes to loaded objects.
 
     def view_machine(self, name: str) -> Optional[Machine]:

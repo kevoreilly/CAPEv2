@@ -505,3 +505,21 @@ class TestAnalysisManager:
         assert adapter.max_retries.connect == 3
         assert adapter.max_retries.read == 2
 
+    def test_run_suppresses_dead_machine_traceback(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ):
+        from lib.cuckoo.common.exceptions import CuckooMachineError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(
+            analysis_man,
+            "launch_analysis",
+            side_effect=CuckooMachineError("Unable to restore snapshot on virtual machine label0"),
+        )
+        with caplog.at_level(logging.ERROR):
+            analysis_man.run()
+
+        records = [r for r in caplog.records if "failure in AnalysisManager.run" in r.message]
+        assert len(records) == 1
+        assert records[0].exc_info is None
+

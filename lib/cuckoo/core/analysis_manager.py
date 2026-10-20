@@ -343,7 +343,7 @@ class AnalysisManager(threading.Thread):
             # This machine has turned dead, so we'll throw an exception
             # which informs the AnalysisManager that it should analyze
             # this task again with another available machine.
-            self.log.exception(str(e))
+            self.log.error("%s", e)
 
             # Remove the guest from the database, so that we can assign a
             # new guest when the task is being analyzed with another machine.
@@ -545,6 +545,8 @@ class AnalysisManager(threading.Thread):
         with log_task_context(task_id=self.task.id, main_task_id=self.main_task_id, machine=machine_label):
             try:
                 self.launch_analysis()
+            except (CuckooDeadMachine, CuckooMachineError) as e:
+                self.log.error("failure in AnalysisManager.run: %s", e)
             except Exception:
                 self.log.exception("failure in AnalysisManager.run")
             else:

@@ -896,6 +896,18 @@ class TestDatabaseEngine:
             machine = db.session.scalar(select(Machine).where(Machine.label == "l1"))
             assert machine.status != "running"
 
+    def test_set_machine_status_handles_operational_error(self, db: _Database, mocker):
+        from sqlalchemy.exc import OperationalError
+
+        mocker.patch.object(
+            db.session,
+            "scalar",
+            side_effect=OperationalError("SELECT 1", {}, Exception("server closed the connection unexpectedly")),
+        )
+        mock_rollback = mocker.patch.object(db.session, "rollback")
+        db.set_machine_status("l1", "poweroff")
+        assert mock_rollback.called
+
     @pytest.mark.parametrize(
         "kwargs,expected_count",
         (

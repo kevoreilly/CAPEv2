@@ -106,3 +106,45 @@ def test_jsondump_and_dump_iocs_handle_surrogate_strings(tmp_path, monkeypatch):
     assert len(parsed_iocs["dropped"][0]["guest_paths"]) == 1
 
 
+def test_mongodb_ensure_schema_caches_per_pid_and_raises_on_mismatch(monkeypatch):
+    import pytest
+    from lib.cuckoo.common.exceptions import CuckooReportError
+    import modules.reporting.mongodb as mongodb_mod
+
+    find_calls = []
+    insert_calls = []
+
+    monkeypatch.setattr(mongodb_mod.MongoDB, "_schema_checked_pid", None)
+    monkeypatch.setattr(
+        mongodb_mod,
+        "mongo_find_one",
+        lambda coll, query, proj: (find_calls.append(coll) or {"version": "1"}),
+    )
+    monkeypatch.setattr(
+        mongodb_mod,
+        "mongo_insert_one",
+        lambda coll, doc: insert_calls.append((coll, doc)),
+    )
+
+    # First call in PID checks schema once; second call in same PID is a cached no-op
+    mongodb_mod.MongoDB._ensure_schema()
+    mongodb_mod.MongoDB._ensure_schema()
+    assert len(find_calls) == 1
+    assert insert_calls == []
+
+    # Mismatched version raises CuckooReportError
+    monkeypatch.setattr(mongodb_mod.MongoDB, "_schema_checked_pid", None)
+    monkeypatch.setattr(
+        mongodb_mod,
+        "mongo_find_one",
+        lambda coll, query, proj: {"version": "999"},
+    )
+    with pytest.raises(CuckooReportError, match="Mongo schema version not expected"):
+        mongodb_mod.MongoDB._ensure_schema()
+
+    # Transient insert failure (None from graceful_auto_reconnect) must not cache _schema_checked_pid
+    monkeypatch.setattr(mongodb_mod.MongoDB, "_schema_checked_pid", None)
+    monkeypatch.setattr(mongodb_mod, "mongo_find_one", lambda coll, query, proj: None)
+    monkeypatch.setattr(mongodb_mod, "mongo_insert_one", lambda coll, doc: None)
+    mongodb_mod.MongoDB._ensure_schema()
+    assert mongodb_mod.MongoDB._schema_checked_pid is None

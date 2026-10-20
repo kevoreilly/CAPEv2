@@ -4,6 +4,7 @@
 
 import gc
 import logging
+import os
 from contextlib import suppress
 from lib.cuckoo.common.iocs import dump_iocs
 from lib.cuckoo.common.abstracts import Report
@@ -14,7 +15,7 @@ from lib.cuckoo.common.config import Config
 try:
     from pymongo.errors import InvalidDocument, OperationFailure
 
-    from dev_utils.mongodb import mongo_collection_names, mongo_create_index, mongo_delete_data, mongo_delete_many, mongo_find_one, mongo_insert_one, mongo_update_one
+    from dev_utils.mongodb import mongo_create_index, mongo_delete_data, mongo_delete_many, mongo_find_one, mongo_insert_one, mongo_update_one
 
     HAVE_MONGO = True
 except ImportError:
@@ -403,6 +404,37 @@ class MongoDB(Report):
 
     # Mongo schema version, used for data migration.
     SCHEMA_VERSION = "1"
+    _schema_checked_pid = None
+
+    @classmethod
+    def _ensure_schema(cls):
+        current_pid = os.getpid()
+        if cls._schema_checked_pid == current_pid:
+            return
+        schema_doc = mongo_find_one("cuckoo_schema", {}, {"version": 1})
+        if schema_doc is not None:
+            if schema_doc.get("version") != cls.SCHEMA_VERSION:
+                raise CuckooReportError("Mongo schema version not expected, check data migration tool")
+        else:
+            if mongo_insert_one("cuckoo_schema", {"version": cls.SCHEMA_VERSION}) is None:
+                return
+            # Best-effort compound index for tenant-scoped aggregations — only
+            # when multitenancy is enabled (a disabled install stays exactly
+            # upstream; the index backs the scope_match queries that only run
+            # in locked mode).
+            from lib.cuckoo.common.tenancy import multitenancy_config
+
+            if multitenancy_config().enabled:
+                try:
+                    mongo_create_index(
+                        "analysis",
+                        [("info.tenant_id", 1), ("info.visibility", 1), ("info.user_id", 1)],
+                        background=True,
+                        name="tenant_scope_idx",
+                    )
+                except Exception as idx_err:
+                    log.warning("Could not create tenant_scope_idx on analysis collection: %s", idx_err)
+        cls._schema_checked_pid = current_pid
 
     def debug_dict_size(self, dct):
         if isinstance(dct, list):
@@ -471,30 +503,7 @@ class MongoDB(Report):
         if not HAVE_MONGO:
             raise CuckooDependencyError("Unable to import pymongo (install with `pip3 install pymongo`)")
 
-        # move to startup
-        # Set mongo schema version.
-        # TODO: This is not optimal because it run each analysis. Need to run only one time at startup.
-        if "cuckoo_schema" in mongo_collection_names():
-            if mongo_find_one("cuckoo_schema", {}, {"version": 1})["version"] != self.SCHEMA_VERSION:
-                CuckooReportError("Mongo schema version not expected, check data migration tool")
-        else:
-            mongo_insert_one("cuckoo_schema", {"version": self.SCHEMA_VERSION})
-            # Best-effort compound index for tenant-scoped aggregations — only
-            # when multitenancy is enabled (a disabled install stays exactly
-            # upstream; the index backs the scope_match queries that only run
-            # in locked mode).
-            from lib.cuckoo.common.tenancy import multitenancy_config
-
-            if multitenancy_config().enabled:
-                try:
-                    mongo_create_index(
-                        "analysis",
-                        [("info.tenant_id", 1), ("info.visibility", 1), ("info.user_id", 1)],
-                        background=True,
-                        name="tenant_scope_idx",
-                    )
-                except Exception as idx_err:
-                    log.warning("Could not create tenant_scope_idx on analysis collection: %s", idx_err)
+        self._ensure_schema()
 
         # Create a copy of the dictionary. This is done in order to not modify
         # the original dictionary and possibly compromise the following

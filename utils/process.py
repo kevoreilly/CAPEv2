@@ -236,6 +236,9 @@ def init_worker():
     with suppress(CuckooDatabaseInitializationError):
         db.engine.dispose(close=False)
 
+    from dev_utils.mongodb import _reset_mongodb_after_fork
+    _reset_mongodb_after_fork()
+
     # Avoid fork deadlock: use direct list ops instead of
     # handler.close()/removeHandler()/addHandler() which acquire locks.
     # Inherited FDs are intentionally leaked after fork.
@@ -687,7 +690,8 @@ def main():
 
     init_database()
     handlers = init_logging(debug=args.debug)
-    check_webgui_mongo(exit_on_connection_failure=False)
+    if args.id == "auto":
+        check_webgui_mongo(exit_on_connection_failure=False)
     init_modules()
     if args.id == "auto":
         autoprocess(

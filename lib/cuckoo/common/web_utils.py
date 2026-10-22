@@ -1279,10 +1279,23 @@ hash_searches = {
     "sha512": "sha512",
 }
 
+files_searches = {
+    **hash_searches,
+    "clamav": "clamav",
+    "yaraname": "yara.name",
+    "capeyara": "cape_yara.name",
+    "imphash": "pe.imphash",
+    "iconhash": "pe.icon_hash",
+    "iconfuzzy": "pe.icon_fuzzy",
+    "dhash": "pe.icon_dhash",
+}
+
 search_term_map = {
     "id": "info.id",
     "ids": "info.id",
+    "options": "info.options",
     "tags_tasks": "info.id",
+    "user_tasks": "info.user_id",
     "package": "info.package",
     "ttp": "ttps.ttp",
     "malscore": "malscore",
@@ -1302,8 +1315,6 @@ search_term_map = {
     "signame": "signatures.name",
     "detections": "detections.family",
     "url": "target.url",
-    "iconhash": "static.pe.icon_hash",
-    "iconfuzzy": "static.pe.icon_fuzzy",
     "surihttp": "suricata.http",
     "suritls": "suricata.tls",
     "surisid": "suricata.alerts.sid",
@@ -1328,16 +1339,15 @@ search_term_map = {
     "tlp": "info.tlp",
     "ja3_hash": "suricata.tls.ja3.hash",
     "ja3_string": "suricata.tls.ja3.string",
-    "dhash": "static.pe.icon_dhash",
     "dport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
-    "sport": ("network.tcp.dport", "network.udp.dport", "network.smtp_ex.dport"),
+    "sport": ("network.tcp.sport", "network.udp.sport", "network.smtp_ex.sport"),
     "port": (
         "network.tcp.dport",
         "network.udp.dport",
         "network.smtp_ex.dport",
-        "network.tcp.dport",
-        "network.udp.dport",
-        "network.smtp_ex.dport",
+        "network.tcp.sport",
+        "network.udp.sport",
+        "network.smtp_ex.sport",
     ),
     # ToDo update schema
     # File_extra_info
@@ -1355,7 +1365,7 @@ search_term_map_repetetive_blocks = {
     "clamav": "clamav",
     "yaraname": "yara.name",
     "capeyara": "cape_yara.name",
-    "capetype": "cape_type.name",
+    "capetype": "cape_type",
     "md5": "md5",
     "sha1": "sha1",
     "sha256": "sha256",
@@ -1365,7 +1375,10 @@ search_term_map_repetetive_blocks = {
     "die": "die",
     "trid": "trid",
     "magika": "magika.label",
-    "imphash": "imphash",
+    "imphash": "pe.imphash",
+    "iconhash": "pe.icon_hash",
+    "iconfuzzy": "pe.icon_fuzzy",
+    "dhash": "pe.icon_dhash",
 }
 
 # ToDo review extracted_files key still the same
@@ -1485,7 +1498,10 @@ def perform_search(
         try:
             ids = []
             if term == "ids":
-                ids = value
+                if isinstance(value, str):
+                    ids = [int(v.strip()) for v in value.split(",") if v.strip().isdigit()]
+                elif isinstance(value, list):
+                    ids = [int(v) for v in value]
             elif term == "tags_tasks":
                 # Scope the SQL prequery to the viewer's VISIBLE tasks BEFORE the
                 # limit — otherwise other tenants' matches fill search_limit and the
@@ -1494,9 +1510,7 @@ def perform_search(
                 # (multitenancy disabled / break-glass), preserving legacy behavior.
                 ids = [int(v.id) for v in db.list_tasks(tags_tasks_like=value, limit=search_limit, visible_to=viewer)]
             elif term == "user_tasks":
-                if not user_id:
-                    ids = 0
-                else:
+                if user_id:
                     # ToDo allow to admin search by user tasks
                     ids = [int(v.id) for v in db.list_tasks(user_id=user_id, limit=search_limit, visible_to=viewer)]
             else:
@@ -1507,17 +1521,17 @@ def perform_search(
                     query_val = {"$in": ids}
                 else:
                     term = "id"
-                    if isinstance(value, list):
-                        value = value[0]
-                    query_val = int(value)
+                    query_val = int(ids[0])
+            else:
+                return []
         except Exception as e:
             print(term, value, e)
+            return []
     elif term == "configs":
         # check if family name is string only maybe?
-        query_val = {f"{search_term_map[term]}.{value}": {"$exist": True}, "$options": "i"}
-    # ToDo proper implementation here
-    # elif term == "extracted_tool":
-    #    query_val = {"$exist": True}
+        query_val = {"$exists": True}
+    elif term == "extracted_tool":
+        query_val = {"$exists": True}
     elif term == "ttp":
         if validate_ttp(value):
             query_val = value.upper()
@@ -1526,7 +1540,8 @@ def perform_search(
     elif term == "malscore":
         query_val = {"$gte": float(value)}
     else:
-        if re.search(r"[\^\$\|\?\*\+\(\)\[\]\{\}]", value):
+        regex_chars = r"[\^\$\|\?\*\(\)\[\]\{\}]" if term == "ssdeep" else r"[\^\$\|\?\*\+\(\)\[\]\{\}]"
+        if re.search(regex_chars, value):
             if len(value) > 256:
                 raise ValueError("Regex too long")
             query_val = {"$regex": value, "$options": "i"}
@@ -1539,25 +1554,30 @@ def perform_search(
     if not search_limit:
         search_limit = web_cfg.general.get("search_limit", 50)
 
-    elif term == "configs":
-        # check if family name is string only maybe?
-        search_term_map[term] = f"CAPE.configs.{value}"
-        query_val = {"$exists": True}
-
     retval = []
     mongo_search_query = None
     if repconf.mongodb.enabled and query_val:
-        if term in hash_searches:
+        if not projection:
+            projection = perform_search_filters
+        if "target.file.sha256" in projection:
+            projection = dict(**projection)
+            projection[f"target.file.{FILE_REF_KEY}"] = 1
+
+        if term in files_searches:
             # The file details are uniq, and we store 1 to many. So where hash type is uniq, IDs are list
-            split_by = "," if "," in query_val else " "
-            query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by)]}
+            if term in hash_searches and isinstance(query_val, str):
+                split_by = "," if "," in query_val else " "
+                query_filter_list = {"$in": [val.strip() for val in query_val.split(split_by) if val.strip()]}
+                match_query = {files_searches[term]: query_filter_list}
+            else:
+                match_query = {files_searches[term]: query_val}
             # The files collection is NOT tenant-stamped, so we $lookup back to
             # the analysis doc (which IS stamped) and filter THERE. The tenant
             # $match and the $limit are applied AFTER the join — limiting before
             # the scope filter would let other tenants' hits crowd out / truncate
             # the viewer's own visible results.
             pipeline = [
-                {"$match": {hash_searches[term]: query_filter_list}},
+                {"$match": match_query},
                 {"$unwind": "$_task_ids"},
                 {"$group": {"_id": "$_task_ids"}},
                 {"$sort": {"_id": -1}},
@@ -1586,29 +1606,24 @@ def perform_search(
 
             # Limit AFTER scoping, then project.
             pipeline.append({"$limit": search_limit})
-            pipeline.append({"$project": projection or perform_search_filters})
+            pipeline.append({"$project": projection})
 
             retval = list(mongo_aggregate(FILES_COLL, pipeline))
             if not retval:
                 return []
+        elif term == "configs":
+            mongo_search_query = {f"CAPE.configs.{value}": query_val}
+        elif term == "extracted_tool":
+            mongo_search_query = {"$or": [{f"{search_term}.{value}": query_val} for search_term in search_term_map[term]]}
         elif isinstance(search_term_map[term], str):
             mongo_search_query = {search_term_map[term]: query_val}
-        elif isinstance(search_term_map[term], list):
-            mongo_search_query = {search_term:query_val for search_term in search_term_map[term]}
+        elif isinstance(search_term_map[term], (list, tuple)):
+            mongo_search_query = {"$or": [{search_term: query_val} for search_term in search_term_map[term]]}
         else:
             print(f"Unknown search {term}:{value}")
             return []
 
         if not retval and mongo_search_query:
-            # Allow to overwrite perform_search_filters for custom results
-            if not projection:
-                projection = perform_search_filters
-            if "target.file.sha256" in projection:
-                projection = dict(**projection)
-                projection[f"target.file.{FILE_REF_KEY}"] = 1
-            if term in search_term_map_repetetive_blocks:
-                mongo_search_query = {"$or": [{path: condition} for path, condition in mongo_search_query.items()]}
-
             if not privs:
                 if force_bool(web_cfg.general.get("public_searches", True)):
                     if not force_bool(web_cfg.tlp.get("public_red", False)):
@@ -1649,7 +1664,18 @@ def perform_search(
         if scope_filter:
             es_filters.append(scope_filter)
 
-        if isinstance(search_term_map[term], str):
+        if term == "configs":
+            q = {"query": {"exists": {"field": f"CAPE.configs.{value}"}}}
+            if es_filters:
+                q = {"query": {"bool": {"must": [q["query"]], "filter": es_filters}}}
+            return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
+        elif term == "extracted_tool":
+            queries = [{"exists": {"field": f"{search_term}.{value}"}} for search_term in search_term_map[term]]
+            q = {"query": {"bool": {"should": queries, "minimum_should_match": 1}}}
+            if es_filters:
+                q["query"]["bool"]["filter"] = es_filters
+            return [d["_source"] for d in es.search(index=get_analysis_index(), body=q, _source=_source_fields)["hits"]["hits"]]
+        elif isinstance(search_term_map[term], str):
             q = {"query": {"match": {search_term_map[term]: value}}}
             if es_filters:
                 q = {"query": {"bool": {"must": [q["query"]], "filter": es_filters}}}

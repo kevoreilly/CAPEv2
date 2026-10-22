@@ -42,7 +42,13 @@ from lib.cuckoo.common.path_utils import path_exists, path_get_filename
 
 # from lib.cuckoo.common.netlog import BsonParser
 from lib.cuckoo.common.utils import Singleton, create_folder, default_converter, load_categories
-from lib.cuckoo.core.log import task_log_start, task_log_stop, task_log_stop_force
+from lib.cuckoo.core.log import (
+    extract_main_task_id,
+    register_task_main_id,
+    task_log_start,
+    task_log_stop,
+    task_log_stop_force,
+)
 
 log = logging.getLogger(__name__)
 cfg = Config()
@@ -115,51 +121,14 @@ class Disconnect(Exception):
     pass
 
 
-def _format_task_label(task_id, main_task_id=None):
-    return f"{task_id} ({main_task_id})" if main_task_id else str(task_id)
-
-
-def _get_task_main_id(task):
-    main_task_id = getattr(task, "main_task_id", None)
-    if not main_task_id and hasattr(task, "get_attribute"):
-        main_task_id = task.get_attribute("main_task_id")
-    if main_task_id is None or isinstance(main_task_id, bool):
-        return None
-    try:
-        parsed = int(main_task_id)
-        return parsed if parsed > 0 else None
-    except (TypeError, ValueError):
-        return None
-
-
-def _resolve_handler_task_label(obj):
-    task_id = getattr(obj, "task_id", None)
-    main_task_id = getattr(obj, "main_task_id", None)
-    ctx = getattr(obj, "handler", None)
-    if not main_task_id and ctx is not None:
-        main_task_id = getattr(ctx, "main_task_id", None)
-    if main_task_id:
-        return _format_task_label(task_id, main_task_id)
-    label = getattr(obj, "task_label", None)
-    if label:
-        return label
-    if ctx is not None:
-        label = getattr(ctx, "task_label", None)
-        if label:
-            return label
-    return _format_task_label(task_id, None)
-
-
 class HandlerContext:
     """Holds context for protocol handlers.
     Can safely be cancelled from another thread, though in practice this will
     not occur often -- usually the connection between VM and the ResultServer
     will be reset during shutdown."""
 
-    def __init__(self, task_id, storagepath, sock, main_task_id=None):
+    def __init__(self, task_id, storagepath, sock):
         self.task_id = task_id
-        self.main_task_id = main_task_id
-        self.task_label = _format_task_label(task_id, main_task_id)
         self.command = None
 
         # The path where artifacts will be stored
@@ -192,7 +161,7 @@ class HandlerContext:
 
             if e.errno != errno.ECONNRESET:
                 raise
-            log.debug("Task #%s had %s for %s", _resolve_handler_task_label(self), e.strerror.lower(), self)
+            log.debug("Task #%s had %s for %s", self.task_id, e.strerror.lower(), self)
             return b""
         except Exception as e:
             print(e)
@@ -373,11 +342,10 @@ class FileUpload(ProtocolHandler):
     def handle(self):
         # Read until newline for file path, e.g.,
         # shots/0001.jpg or files/9498687557/libcurl-4.dll.bin
-        task_label = _resolve_handler_task_label(self)
         self.handler.sock.settimeout(30)
         dump_path = netlog_sanitize_fname(self.handler.read_newline())
         if cfg.cuckoo.machinery_screenshots and dump_path.startswith(b"shots/"):
-            log.debug("Task #%s: discarding screenshot; machinery screenshots enabled", task_label)
+            log.debug("Task #%s: discarding screenshot; machinery screenshots enabled", self.task_id)
             self.handler.discard()
             return
 
@@ -393,7 +361,7 @@ class FileUpload(ProtocolHandler):
             filepath, pids, ppids, metadata, category, duplicated = None, [], [], b"", b"", False
 
         rel_dump_path = dump_path.decode("utf-8", "replace")
-        log.debug("Task #%s: Uploading file %s", task_label, rel_dump_path)
+        log.debug("Task #%s: Uploading file %s", self.task_id, rel_dump_path)
 
         task_lock, sha256_map, path_map, seen_set = _get_task_file_state(self.task_id)
 
@@ -413,7 +381,7 @@ class FileUpload(ProtocolHandler):
             try:
                 return self.handler.copy_to_fd(self.fd, self.upload_max_size)
             except Exception as e:
-                log.debug("Task #%s: Failed to upload replaceable log %s due to '%s'", task_label, rel_dump_path, e)
+                log.debug("Task #%s: Failed to upload replaceable log %s due to '%s'", self.task_id, rel_dump_path, e)
             return
 
         # Stream to a temporary file in the target folder while computing SHA256
@@ -431,7 +399,7 @@ class FileUpload(ProtocolHandler):
         except Exception as e:
             log.debug(
                 "Task #%s: Failed to upload file %s due to '%s'",
-                task_label,
+                self.task_id,
                 rel_dump_path,
                 e,
             )
@@ -489,7 +457,7 @@ class FileUpload(ProtocolHandler):
                 final_rel_path = existing_same_hash_rel
                 log.debug(
                     "Task #%s: Deduplicated uploaded file %s (SHA256 %s matches %s)",
-                    task_label,
+                    self.task_id,
                     rel_dump_path,
                     new_sha256,
                     final_rel_path,
@@ -518,7 +486,7 @@ class FileUpload(ProtocolHandler):
                     final_rel_path = rel_dump_path
                     log.debug(
                         "Task #%s: Replaced 0-byte file %s with %d bytes (SHA256 %s)",
-                        task_label,
+                        self.task_id,
                         rel_dump_path,
                         new_size,
                         new_sha256,
@@ -539,7 +507,7 @@ class FileUpload(ProtocolHandler):
                         sha256_map[new_sha256] = rel_dump_path
                         log.info(
                             "Task #%s: Replaced memory dump %s (%d -> %d bytes, SHA256 %s)",
-                            task_label,
+                            self.task_id,
                             rel_dump_path,
                             existing_size,
                             new_size,
@@ -550,7 +518,7 @@ class FileUpload(ProtocolHandler):
                             os.unlink(tmp_path)
                         log.debug(
                             "Task #%s: Kept larger existing memory dump %s (%d bytes vs %d bytes)",
-                            task_label,
+                            self.task_id,
                             rel_dump_path,
                             existing_size,
                             new_size,
@@ -573,7 +541,7 @@ class FileUpload(ProtocolHandler):
                     final_rel_path = candidate_rel
                     log.info(
                         "Task #%s: Versioned colliding file %s -> %s (SHA256 %s)",
-                        task_label,
+                        self.task_id,
                         rel_dump_path,
                         final_rel_path,
                         new_sha256,
@@ -586,15 +554,14 @@ class LogHandler(ProtocolHandler):
     """The live analysis log. Can only be opened once in a single session."""
 
     def init(self):
-        task_label = _resolve_handler_task_label(self)
         self.logpath = os.path.join(self.handler.storagepath, "analysis.log")
         try:
             self.fd = open_exclusive(self.logpath)
         except OSError:
-            log.error("Task #%s: attempted to reopen live log analysis.log", task_label)
+            log.error("Task #%s: attempted to reopen live log analysis.log", self.task_id)
             return
 
-        log.debug("Task #%s: live log analysis.log initialized", task_label)
+        log.debug("Task #%s: live log analysis.log initialized", self.task_id)
 
     def handle(self):
         if self.fd:
@@ -635,9 +602,8 @@ class BsonStore(ProtocolHandler):
         self.fd = open(os.path.join(self.handler.storagepath, "logs", f"{self.version}.bson"), "wb")
 
     def parse_message(self, buffer):
-        task_label = _resolve_handler_task_label(self)
         if not HAVE_BSON:
-            log.debug("Task #%s is sending a BSON stream for pid %d", task_label, self.version)
+            log.debug("Task #%s is sending a BSON stream for pid %d", self.task_id, self.version)
             return
 
         while True:
@@ -700,8 +666,8 @@ class BsonStore(ProtocolHandler):
                     procname = path_get_filename(modulepath)
 
                     log.info(
-                        "Task #%s: Process %d (parent %d): %s, path %s",
-                        task_label,
+                        "Task #%d: Process %d (parent %d): %s, path %s",
+                        self.task_id,
                         self.version,
                         ppid,
                         procname,
@@ -768,30 +734,21 @@ class GeventResultServerWorker(gevent.server.StreamServer):
 
         # Store IP address to task_id mapping
         self.tasks = {}
-        self.main_task_ids = {}
 
         # Store running handlers for task_id
         self.handlers = {}
         self.log_start_count = 0
         self.log_stop_count = 0
         self.task_id = None
-        self.main_task_id = None
 
     def do_run(self):
         self.serve_forever()
 
     def add_task(self, task_id, ipaddr, main_task_id=None):
         with self.task_mgmt_lock:
-            old_task_id = self.tasks.get(ipaddr)
-            if old_task_id and old_task_id != task_id:
-                self.main_task_ids.pop(old_task_id, None)
             self.tasks[ipaddr] = task_id
-            if main_task_id:
-                self.main_task_ids[task_id] = main_task_id
-            else:
-                self.main_task_ids.pop(task_id, None)
-            task_label = _format_task_label(task_id, main_task_id)
-            log.debug("Task #%s: The associated machine IP is %s", task_label, ipaddr)
+            register_task_main_id(task_id, main_task_id)
+            log.debug("Task #%s: The associated machine IP is %s", task_id, ipaddr)
 
     def del_task(self, task_id, ipaddr, main_task_id=None):
         """Delete ResultServer state and abort pending RequestHandlers. Since
@@ -799,15 +756,15 @@ class GeventResultServerWorker(gevent.server.StreamServer):
         be considered a bug from the VM side, since all connections should
         have been closed after the analyzer signalled completion."""
         with self.task_mgmt_lock:
-            stored_main_task_id = self.main_task_ids.pop(task_id, None)
-            task_label = _format_task_label(task_id, main_task_id or stored_main_task_id)
+            if main_task_id is not None:
+                register_task_main_id(task_id, main_task_id)
             if self.tasks.pop(ipaddr, None) is None:
-                log.warning("ResultServer did not have a task with ID %s and IP %s", task_label, ipaddr)
+                log.warning("ResultServer did not have a task with ID %s and IP %s", task_id, ipaddr)
             else:
-                log.debug("Task #%s: Stopped tracking machine %s", task_label, ipaddr)
+                log.debug("Task #%s: Stopped tracking machine %s", task_id, ipaddr)
             ctxs = self.handlers.pop(task_id, set())
             for ctx in ctxs:
-                log.debug("Task #%s: Cancel %s", task_label, ctx)
+                log.debug("Task #%s: Cancel %s", task_id, ctx)
                 ctx.cancel()
             task_log_stop_force(task_id)
         _cleanup_task_file_state(task_id)
@@ -833,25 +790,22 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             if not task_id:
                 log.warning("ResultServer did not have a task for IP %s", ipaddr)
                 return
-            main_task_id = self.main_task_ids.get(task_id)
 
-        task_label = _format_task_label(task_id, main_task_id)
         self.task_id = task_id
-        self.main_task_id = main_task_id
         self.storagepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
 
         # Create all missing folders for this analysis.
         self.create_folders()
 
-        ctx = HandlerContext(task_id, self.storagepath, sock, main_task_id=main_task_id)
-        task_log_start(task_id, main_task_id=main_task_id)
+        ctx = HandlerContext(task_id, self.storagepath, sock)
+        task_log_start(task_id)
         self.log_start_count += 1
         try:
             try:
-                log.debug("Task #%s: Negotiation started", task_label)
+                log.debug("Task #%s: Negotiation started", task_id)
                 protocol = self.negotiate_protocol(task_id, ctx)
             except EOFError:
-                log.debug("Task #%s: Negotiation failed on start", task_label)
+                log.debug("Task #%s: Negotiation failed on start", task_id)
                 return
 
             # Registering the context allows us to abort the handler by
@@ -862,8 +816,8 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 # protocol and a different task for that IP address may have
                 # been registered
                 if self.tasks.get(ipaddr) != task_id:
-                    log.warning("Task #%s for IP %s was cancelled during negotiation", task_label, ipaddr)
-                    log.debug("Task #%s: Negotiation failed inside task_mgmt_lock manager", task_label)
+                    log.warning("Task #%s for IP %s was cancelled during negotiation", task_id, ipaddr)
+                    log.debug("Task #%s: Negotiation failed inside task_mgmt_lock manager", task_id)
                     return
                 s = self.handlers.setdefault(task_id, set())
                 s.add(ctx)
@@ -871,9 +825,9 @@ class GeventResultServerWorker(gevent.server.StreamServer):
             try:
                 if protocol:
                     with protocol:
-                        log.debug("Task #%s: Negotiation succeeded", task_label)
+                        log.debug("Task #%s: Negotiation succeeded", task_id)
                         protocol.handle()
-                        log.debug("Task #%s: Negotiation succeeded handled", task_label)
+                        log.debug("Task #%s: Negotiation succeeded handled", task_id)
             except CuckooOperationalError as e:
                 log.exception(e)
             finally:
@@ -882,13 +836,13 @@ class GeventResultServerWorker(gevent.server.StreamServer):
                 ctx.cancel()
                 if ctx.buf:
                     # This is usually not a good sign
-                    log.warning("Task #%s with protocol %s has unprocessed data before getting disconnected", task_label, protocol)
+                    log.warning("Task #%s with protocol %s has unprocessed data before getting disconnected", task_id, protocol)
         finally:
-            log.debug("Task #%s: Negotiation finished", task_label)
+            log.debug("Task #%s: Negotiation finished", task_id)
             task_log_stop(task_id)
             self.log_stop_count += 1
 
-        log.debug("Task #%s: Connection closed. Start count %d, stop count %d", task_label, self.log_start_count, self.log_stop_count)
+        log.debug("Task #%s: Connection closed. Start count %d, stop count %d", task_id, self.log_start_count, self.log_stop_count)
 
     def negotiate_protocol(self, task_id, ctx):
         header = ctx.read_newline()
@@ -901,7 +855,7 @@ class GeventResultServerWorker(gevent.server.StreamServer):
         if not klass:
             log.warning(
                 "Task #%s: unknown netlog protocol requested (%s), terminating connection",
-                _resolve_handler_task_label(ctx),
+                task_id,
                 command,
             )
             return
@@ -930,14 +884,13 @@ class SingleVMResultServerWorker(GeventResultServerWorker):
             log.warning("Worker for %s has no active task, rejecting connection from %s", self._vm_ip, addr[0])
             return
         main_task_id = (self._shared_main_task_id.value if self._shared_main_task_id is not None else 0) or None
-        task_label = _format_task_label(task_id, main_task_id)
 
         self.task_id = task_id
-        self.main_task_id = main_task_id
         self.storagepath = os.path.join(CUCKOO_ROOT, "storage", "analyses", str(task_id))
         self.create_folders()
 
-        ctx = HandlerContext(task_id, self.storagepath, sock, main_task_id=main_task_id)
+        ctx = HandlerContext(task_id, self.storagepath, sock)
+        register_task_main_id(task_id, main_task_id)
         task_log_start(task_id, main_task_id=main_task_id)
         try:
             try:
@@ -950,7 +903,7 @@ class SingleVMResultServerWorker(GeventResultServerWorker):
             if self._shared_task_id.value != task_id:
                 log.warning(
                     "Task #%s for VM %s was cancelled during negotiation, new task is %s",
-                    task_label, self._vm_ip, self._shared_task_id.value or "none",
+                    task_id, self._vm_ip, self._shared_task_id.value or "none",
                 )
                 return
 
@@ -972,7 +925,7 @@ class SingleVMResultServerWorker(GeventResultServerWorker):
                     s.discard(ctx)
                 ctx.cancel()
                 if ctx.buf:
-                    log.warning("Task #%s with protocol %s has unprocessed data", task_label, protocol)
+                    log.warning("Task #%s with protocol %s has unprocessed data", task_id, protocol)
         finally:
             task_log_stop(task_id)
 
@@ -1135,7 +1088,7 @@ class ResultServer(metaclass=Singleton):
 
     def add_task(self, task, machine):
         """Register a task/machine with the ResultServer."""
-        main_task_id = _get_task_main_id(task)
+        main_task_id = extract_main_task_id(task)
         if self.multiworker:
             self._add_task_multiworker(task, machine, main_task_id=main_task_id)
         else:
@@ -1143,17 +1096,16 @@ class ResultServer(metaclass=Singleton):
 
     def del_task(self, task, machine):
         """Delete running task and cancel existing handlers."""
-        main_task_id = _get_task_main_id(task)
+        extract_main_task_id(task)
         if self.multiworker:
-            self._del_task_multiworker(task, machine, main_task_id=main_task_id)
+            self._del_task_multiworker(task, machine)
         else:
-            self.instance.del_task(task.id, machine.ip, main_task_id=main_task_id)
+            self.instance.del_task(task.id, machine.ip)
 
     def _add_task_multiworker(self, task, machine, main_task_id=None):
         """Start or reuse a worker process for this VM and register the task."""
         if main_task_id is None:
-            main_task_id = _get_task_main_id(task)
-        task_label = _format_task_label(task.id, main_task_id)
+            main_task_id = extract_main_task_id(task)
         worker = self.workers.get(machine.ip)
 
         # Spawn a new worker if none exists or the previous one died
@@ -1168,22 +1120,19 @@ class ResultServer(metaclass=Singleton):
             )
             worker.start()
             self.workers[machine.ip] = worker
-            log.debug("Task #%s: Started worker for %s on port %d", task_label, machine.ip, machine.resultserver_port)
+            log.debug("Task #%d: Started worker for %s on port %d", task.id, machine.ip, machine.resultserver_port)
 
         worker.set_task(task.id, main_task_id=main_task_id)
-        log.debug("Task #%s: Registered with worker for %s", task_label, machine.ip)
+        log.debug("Task #%d: Registered with worker for %s", task.id, machine.ip)
 
-    def _del_task_multiworker(self, task, machine, main_task_id=None):
+    def _del_task_multiworker(self, task, machine):
         """Clear task from worker. Worker stays alive for reuse."""
-        if main_task_id is None:
-            main_task_id = _get_task_main_id(task)
-        task_label = _format_task_label(task.id, main_task_id)
         worker = self.workers.get(machine.ip)
         if worker and worker.is_alive():
             worker.clear_task()
-            log.debug("Task #%s: Cleared from worker for %s", task_label, machine.ip)
+            log.debug("Task #%d: Cleared from worker for %s", task.id, machine.ip)
         else:
-            log.warning("Task #%s: No alive worker found for %s", task_label, machine.ip)
+            log.warning("Task #%d: No alive worker found for %s", task.id, machine.ip)
 
     def shutdown_workers(self):
         """Terminate all multiworker processes."""

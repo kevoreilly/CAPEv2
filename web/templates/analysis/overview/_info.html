@@ -1,5 +1,19 @@
 <section id="information" class="mb-4">
 
+    <!-- API Spam Warning -->
+    {% if analysis.behavior.summary.apispam %}
+        <div class="alert alert-warning text-center" role="alert">
+            <h5 class="alert-heading font-weight-bold"><i class="fas fa-exclamation-triangle"></i> API Spam Detected</h5>
+            <p class="mb-2">This analysis generated an excessive number of identical API calls for the following APIs: 
+                <strong>{{ analysis.behavior.summary.apispam|join:", " }}</strong>.
+            </p>
+            <p class="mb-0">
+                To improve analysis performance and avoid log truncation, consider resubmitting the file with the following exclusion options:<br>
+                <code class="d-inline-block p-2 mt-2 bg-dark text-white rounded user-select-all">exclude-apis={{ analysis.behavior.summary.apispam_exclude_apis }}</code>
+            </p>
+        </div>
+    {% endif %}
+
     <!-- Detections Badge Container -->
     {% if analysis.detections %}
         <div class="text-center mb-3">

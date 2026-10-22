@@ -340,14 +340,19 @@ def _path_safe(path: str) -> bool:
 
 
 @lru_cache(maxsize=256)
+def _lookup_username_by_id(user_id):
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    u = User.objects.filter(pk=user_id).only("username").first()
+    return u.username if u else ""
+
+
 def _get_username_by_id(user_id):
     if not user_id:
         return ""
     try:
-        from django.contrib.auth import get_user_model
-        User = get_user_model()
-        u = User.objects.filter(pk=user_id).only("username").first()
-        return u.username if u else ""
+        return _lookup_username_by_id(user_id)
     except Exception:
         return ""
 
@@ -381,7 +386,8 @@ def get_analysis_info(db, id=-1, task=None, rtmp=None, scope=None):
     # Submitter-supplied free-form tags. Stored in postgres as one
     # comma-separated string; split (and trim) here so the list view can
     # render one badge per tag, matching the per-job report.
-    raw_user_tags = get_tags_tasks([new["id"]]) or ""
+    raw_user_tags = new.get("tags_tasks") if "tags_tasks" in new else get_tags_tasks([new["id"]])
+    raw_user_tags = raw_user_tags or ""
     new.update({"user_task_tags": [t.strip() for t in raw_user_tags.split(",") if t.strip()]})
     new["submitter_username"] = _get_username_by_id(new.get("user_id") or 0)
 
@@ -595,6 +601,9 @@ def index(request, page=1):
                     "mlist_cnt": 1,
                     "f_mlist_cnt": 1,
                     "target.file.clamav": 1,
+                    "target.file.cape_yara": 1,
+                    "target.file.yara": 1,
+                    "target.file.file_ref": 1,
                     "suri_tls_cnt": 1,
                     "suri_alert_cnt": 1,
                     "suri_http_cnt": 1,

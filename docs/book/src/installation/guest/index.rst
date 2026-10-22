@@ -21,3 +21,4 @@ Now it's time to create such machines and configure them properly.
     saving
     cloning
     linux
+    android

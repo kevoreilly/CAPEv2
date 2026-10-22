@@ -286,15 +286,6 @@ class conditional_login_required:
         return self.decorator(func)
 
 
-def force_int(value):
-    try:
-        value = int(value)
-    except Exception:
-        value = 0
-    finally:
-        return value
-
-
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id=None, resubmit_hash=None):
     remote_console = False

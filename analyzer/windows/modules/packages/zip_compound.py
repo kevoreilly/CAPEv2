@@ -74,6 +74,9 @@ class ZipCompound(Package):
 
         # Enforce the requirement of having a specified file. No guessing.
         target_file = target_file or self.options.get(OPT_FILE)
+        if target_file:
+            target_file = target_file.replace("/", "\\\\")
+        
         if not target_file:
             raise CuckooPackageError("File must be specified in the JSON or the web submission UI!")
 

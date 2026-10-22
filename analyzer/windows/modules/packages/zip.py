@@ -93,6 +93,9 @@ class Zip(Package):
                 extract_archive(seven_zip_path, nested_7z, root, password, try_multiple_passwords)
 
         file_name = self.options.get(OPT_FILE)
+        if file_name:
+            file_name = file_name.replace("/", "\\\\")
+
         # If no file name is provided via option, discover files to execute.
         if not file_name:
             # If no file names to choose from, bail

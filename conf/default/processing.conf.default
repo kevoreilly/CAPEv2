@@ -259,6 +259,8 @@ targetinfo = yes
 dropped = yes
 # Ex procdump standalone module
 procdump = yes
+# Automatically rebuild and reconstruct .NET PE headers for dumped assemblies to allow clean dnSpy parsing
+dotnet_rebuild = yes
 # Amount of text to carve from plaintext files (bytes)
 buffer = 8192
 # Process files not bigger than value below in Mb. We saw that after 90Mb it has biggest delay

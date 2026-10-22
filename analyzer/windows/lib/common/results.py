@@ -126,6 +126,22 @@ class NetlogConnection:
             # So we just fail silently.
             self.close()
 
+    def send_fileobj(self, fileobj, retry=True):
+        """Send the remaining contents of a file-like object.
+
+        Iterating a file object (including a BytesIO) yields *lines*, so binary
+        payloads get split on every 0x0A byte: a 155 KB screenshot came out as
+        762 socket writes, the smallest of them a single byte. Reading fixed
+        size chunks instead keeps it to one write per BUFSIZE, and routing them
+        through send() means they go out with sendall() and the reconnect
+        retry, rather than a bare send() whose return value was discarded.
+        """
+        while True:
+            chunk = fileobj.read(BUFSIZE)
+            if not chunk:
+                break
+            self.send(chunk, retry=retry)
+
     def close(self):
         if not self.sock:
             return

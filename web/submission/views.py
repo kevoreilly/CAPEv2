@@ -295,8 +295,94 @@ def force_int(value):
         return value
 
 
+def _resolve_submission_target(request):
+    """Resolve (task_category, samples) from POST/FILES, honoring active_tab when provided
+    so stale inputs in inactive tabs do not override the user's selected tab."""
+    active_tab = (request.POST.get("active_tab") or "").strip().lstrip("#").lower()
+
+    def _get_resubmit():
+        val = (request.POST.get("hash") or "").strip()
+        return ("resubmit", val.split(",")) if val else (False, [])
+
+    def _get_sample():
+        return ("sample", request.FILES.getlist("sample")) if "sample" in request.FILES else (False, [])
+
+    def _get_static():
+        return ("static", request.FILES.getlist("static")) if "static" in request.FILES else (False, [])
+
+    def _get_pcap():
+        return ("pcap", request.FILES.getlist("pcap")) if "pcap" in request.FILES else (False, [])
+
+    def _get_url():
+        val = (request.POST.get("url") or "").strip()
+        return ("url", val) if val else (False, [])
+
+    def _get_dlnexec():
+        val = (request.POST.get("dlnexec") or "").strip()
+        return ("dlnexec", val) if val else (False, [])
+
+    def _get_downloading_service():
+        val = (request.POST.get("hashes") or "").strip()
+        return ("downloading_service", val) if val else (False, [])
+
+    tab_resolvers = {
+        "resubmit": _get_resubmit,
+        "file": _get_sample,
+        "sample": _get_sample,
+        "static": _get_static,
+        "pcap": _get_pcap,
+        "url": _get_url,
+        "dlurl": _get_dlnexec,
+        "dlnexec": _get_dlnexec,
+        "downloading_service": _get_downloading_service,
+        "hashes": _get_downloading_service,
+    }
+
+    if active_tab in tab_resolvers:
+        return tab_resolvers[active_tab]()
+
+    for resolver in (
+        _get_resubmit,
+        _get_sample,
+        _get_static,
+        _get_pcap,
+        _get_url,
+        _get_dlnexec,
+        _get_downloading_service,
+    ):
+        task_category, samples = resolver()
+        if task_category:
+            return task_category, samples
+    return False, []
+
+
+def _lookup_precheck_existent_tasks(request, raw_hashes: str) -> dict:
+    existent_tasks = {}
+    if not raw_hashes or not web_conf.general.get("existent_tasks", False):
+        return existent_tasks
+    candidates = [h.strip().lower() for h in raw_hashes.split(",") if h.strip()]
+    seen = set()
+    for sha256 in candidates[:10]:
+        if sha256 in seen or len(sha256) != 64 or not all(c in "0123456789abcdef" for c in sha256):
+            continue
+        seen.add(sha256)
+        with suppress(Exception):
+            records = _scope_existent(
+                request,
+                perform_search("target_sha256", sha256, search_limit=5, viewer=viewer_for(request.user)),
+            )
+            for record in records or []:
+                rec_sha = record.get("target", {}).get("file", {}).get("sha256") or sha256
+                existent_tasks.setdefault(rec_sha, []).append(record)
+    return existent_tasks
+
+
 @conditional_login_required(login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id=None, resubmit_hash=None):
+    if request.method != "POST" and "precheck_sha256" in request.GET:
+        existent_tasks = _lookup_precheck_existent_tasks(request, request.GET.get("precheck_sha256", ""))
+        return render(request, "submission/_existent_tasks.html", {"existent_tasks": existent_tasks})
+
     remote_console = False
     if request.method == "POST":
         try:
@@ -443,29 +529,7 @@ def index(request, task_id=None, resubmit_hash=None):
             details["during_script_content"] = during_script.read()
             during_script.close()
 
-        task_category = False
-        samples = []
-        if "hash" in request.POST and request.POST.get("hash", False) and request.POST.get("hash")[0] != "":
-            task_category = "resubmit"
-            samples = request.POST.get("hash").strip().split(",")
-        elif "sample" in request.FILES:
-            task_category = "sample"
-            samples = request.FILES.getlist("sample")
-        elif "static" in request.FILES:
-            task_category = "static"
-            samples = request.FILES.getlist("static")
-        elif "pcap" in request.FILES:
-            task_category = "pcap"
-            samples = request.FILES.getlist("pcap")
-        elif "url" in request.POST and request.POST.get("url").strip():
-            task_category = "url"
-            samples = request.POST.get("url").strip()
-        elif "dlnexec" in request.POST and request.POST.get("dlnexec").strip():
-            task_category = "dlnexec"
-            samples = request.POST.get("dlnexec").strip()
-        elif "hashes" in request.POST and request.POST.get("hashes", False) and request.POST.get("hashes")[0] != "":
-            task_category = "downloading_service"
-            samples = request.POST.get("hashes").strip()
+        task_category, samples = _resolve_submission_target(request)
         list_of_tasks = []
         if task_category in ("url", "dlnexec"):
             if not samples:

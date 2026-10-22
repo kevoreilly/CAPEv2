@@ -70,6 +70,7 @@ code_mapping = {
     0x1000: "Unpacked PE Image",
     0x6A: "AMSI Buffer",
     0x6B: "AMSI Stream",
+    0x6D: ".NET Assembly",
 }
 
 inject_map = {

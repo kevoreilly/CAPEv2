@@ -1,0 +1,89 @@
+<div id="batch-tasks-container"
+    {% if batch_tasks_csv and not all_terminal %}
+    hx-get="{% url "submission" %}?batch_tasks={{ batch_tasks_csv }}{% if remote_console %}&remote_console=1{% endif %}"
+    hx-trigger="every 5s"
+    hx-swap="outerHTML"
+    {% endif %}>
+    {% if task_rows %}
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <span class="text-white-50 small">
+            The following tasks were added successfully. Status updates automatically every 5 seconds.
+        </span>
+        {% if not all_terminal %}
+        <span class="badge bg-dark border border-secondary text-white-50 small" id="batch-poll-indicator">
+            <i class="fas fa-sync fa-spin me-1 text-info"></i>Live Polling
+        </span>
+        {% else %}
+        <span class="badge bg-success small" id="batch-complete-indicator">
+            <i class="fas fa-check me-1"></i>All Tasks Finished
+        </span>
+        {% endif %}
+    </div>
+    <div class="table-responsive">
+        <table class="table table-dark table-striped table-hover align-middle border-secondary mb-0" id="batch-tasks-table">
+            <thead>
+                <tr class="text-white-50 small text-uppercase">
+                    <th style="width: 12%;">Task</th>
+                    <th>Target</th>
+                    <th style="width: 22%;">SHA-256</th>
+                    <th style="width: 16%;">Status</th>
+                    <th style="width: 22%;" class="text-end">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in task_rows %}
+                <tr>
+                    <td class="fw-bold text-info">#{{ row.id }}</td>
+                    <td class="text-break small" title="{{ row.full_target }}">{{ row.target }}</td>
+                    <td class="text-monospace small">
+                        {% if row.sha256 %}
+                            <span title="{{ row.sha256 }}">{{ row.sha256|slice:":16" }}&hellip;</span>
+                        {% else %}
+                            <span class="text-white-50">&mdash;</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if row.is_reported %}
+                            <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>REPORTED</span>
+                        {% elif row.status == "running" %}
+                            <span class="badge bg-primary"><i class="fas fa-spinner fa-spin me-1"></i>RUNNING</span>
+                        {% elif row.status == "processing" %}
+                            <span class="badge bg-info text-dark"><i class="fas fa-cog fa-spin me-1"></i>PROCESSING</span>
+                        {% elif row.status == "pending" %}
+                            <span class="badge bg-secondary"><i class="far fa-clock me-1"></i>PENDING</span>
+                        {% else %}
+                            <span class="badge bg-danger">{{ row.status|upper }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if row.is_reported %}
+                            <a href="{% url "report" row.id %}" class="btn btn-sm btn-success">
+                                <i class="fas fa-file-alt me-1"></i>View Report
+                            </a>
+                        {% else %}
+                            <a href="{% url "submission_status" row.id %}" class="btn btn-sm btn-outline-info">
+                                <i class="fas fa-microscope me-1"></i>Task #{{ row.id }}
+                            </a>
+                        {% endif %}
+                        {% if remote_console and not row.is_terminal %}
+                            <a href="{% url "remote_session" row.id %}" class="btn btn-sm btn-info ms-1" title="Interactive Remote Session">
+                                <i class="fas fa-desktop"></i>
+                            </a>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <p class="text-white-50">The following tasks were added successfully. Click on a task ID to monitor its progress.</p>
+    <div class="d-flex flex-wrap gap-2">
+        {% for task in tasks %}
+            <a href="{% url "submission_status" task %}" class="btn btn-outline-info btn-lg">
+                <i class="fas fa-microscope me-2"></i>Task #{{task}}
+            </a>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>

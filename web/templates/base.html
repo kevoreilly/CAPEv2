@@ -49,6 +49,27 @@
     $(function () {
         $('[data-bs-toggle="tooltip"]').tooltip();
         $('[data-bs-toggle="popover"]').popover();
+
+        // Mobile navbar: close collapsed menu when tapping outside or selecting a non-dropdown item
+        $(document).on('click', function (e) {
+            var $navbarCollapse = $('#navbarColor02');
+            if ($navbarCollapse.hasClass('show') && !$(e.target).closest('.navbar').length) {
+                bootstrap.Collapse.getOrCreateInstance($navbarCollapse[0]).hide();
+            }
+        });
+        $('#navbarColor02').on('click', '.nav-link:not(.dropdown-toggle), .dropdown-item', function () {
+            var $navbarCollapse = $('#navbarColor02');
+            if ($navbarCollapse.hasClass('show') && window.innerWidth < 1200) {
+                bootstrap.Collapse.getOrCreateInstance($navbarCollapse[0]).hide();
+            }
+        });
+
+        // Mobile tabs: keep active pill/tab centered inside horizontally scrollable nav bars
+        $(document).on('shown.bs.tab', '.nav-tabs .nav-link, .nav-pills .nav-link', function (e) {
+            if (window.innerWidth < 768 && e.target && typeof e.target.scrollIntoView === 'function') {
+                e.target.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+            }
+        });
     })
 </script>
 <!-- Shortcuts Help Modal -->

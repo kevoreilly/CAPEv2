@@ -209,7 +209,8 @@ logging.config.dictConfig(
 _db = init_database(exists_ok=True)
 
 # Create guac_sessions table if guacamole is enabled
-if _CapeConfig("web").guacamole.get("vnc_console_enabled", False):
+_guac_cfg = _CapeConfig("web").guacamole
+if _guac_cfg.get("enabled", False) or _guac_cfg.get("vnc_console_enabled", False):
     from lib.cuckoo.core.data.guac_session import GuacSession  # noqa: F401
     from lib.cuckoo.core.data.db_common import Base
     Base.metadata.create_all(_db.engine)

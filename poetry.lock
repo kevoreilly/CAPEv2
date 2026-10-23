@@ -213,14 +213,14 @@ tz = ["python-dateutil"]
 name = "annotated-doc"
 version = "0.0.4"
 description = "Document parameters, class attributes, return types, and variables inline, with Annotated."
-optional = true
+optional = false
 python-versions = ">=3.8"
-groups = ["main"]
-markers = "extra == \"mcp\" or extra == \"dist\""
+groups = ["main", "dist"]
 files = [
     {file = "annotated_doc-0.0.4-py3-none-any.whl", hash = "sha256:571ac1dc6991c450b25a9c2d84a3705e2ae7a53467b5d111c24fa8baabbed320"},
     {file = "annotated_doc-0.0.4.tar.gz", hash = "sha256:fbcda96e87e9c92ad167c2e53839e57503ecfda18804ea28102353485033faa4"},
 ]
+markers = {main = "extra == \"mcp\""}
 
 [[package]]
 name = "annotated-types"
@@ -228,7 +228,7 @@ version = "0.7.0"
 description = "Reusable constraint types to use with typing.Annotated"
 optional = false
 python-versions = ">=3.8"
-groups = ["main"]
+groups = ["main", "dist"]
 files = [
     {file = "annotated_types-0.7.0-py3-none-any.whl", hash = "sha256:1f02e8b43a8fbbc3f3e0d4f0f4bfc8131bcb4eebe8849b8e5c773f3a1c582a53"},
     {file = "annotated_types-0.7.0.tar.gz", hash = "sha256:aff07c09a53a08bc8cfccb9c85b05f1aa9a2a6f23728d790723543408344ce89"},
@@ -240,7 +240,7 @@ version = "4.8.0"
 description = "High level compatibility layer for multiple asynchronous event loop implementations"
 optional = false
 python-versions = ">=3.9"
-groups = ["main"]
+groups = ["main", "dist"]
 files = [
     {file = "anyio-4.8.0-py3-none-any.whl", hash = "sha256:b5011f270ab5eb0abf13385f851315585cc37ef330dd88e27ec3d34d651fd47a"},
     {file = "anyio-4.8.0.tar.gz", hash = "sha256:1d9fe889df5212298c0c0723fa20479d1b94883a2df44bd3897aa91083316f7a"},
@@ -1569,7 +1569,7 @@ version = "1.2.2"
 description = "Backport of PEP 654 (exception groups)"
 optional = false
 python-versions = ">=3.7"
-groups = ["main", "dev"]
+groups = ["main", "dev", "dist"]
 markers = "python_version == \"3.10\""
 files = [
     {file = "exceptiongroup-1.2.2-py3-none-any.whl", hash = "sha256:3111b9d131c238bec2f8f516e123e14ba243563fb135d3fe885990585aa7795b"},
@@ -1598,10 +1598,9 @@ testing = ["hatch", "pre-commit", "pytest", "tox"]
 name = "fastapi"
 version = "0.141.1"
 description = "FastAPI framework, high performance, easy to learn, fast to code, ready for production"
-optional = true
+optional = false
 python-versions = ">=3.10"
-groups = ["main"]
-markers = "extra == \"dist\""
+groups = ["dist"]
 files = [
     {file = "fastapi-0.141.1-py3-none-any.whl", hash = "sha256:bfb91aa2d334c61cb35ba9a116fc123b3d3df31640b801cf57a7a78ec3f603b3"},
     {file = "fastapi-0.141.1.tar.gz", hash = "sha256:e8822fc40db1e1858054d7a949a888695bc9bdce70139178e33bd2871a453ca1"},
@@ -1658,14 +1657,14 @@ files = [
 
 [[package]]
 name = "flare-capa"
-version = "9.3.1"
+version = "10.0.0"
 description = "The FLARE team's open-source tool to identify capabilities in executable files."
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "flare_capa-9.3.1-py3-none-any.whl", hash = "sha256:caf59bfeb5e2b5d4ab9111e79cce153b585d0839419f36b9e63141bad9f92424"},
-    {file = "flare_capa-9.3.1.tar.gz", hash = "sha256:5d3ad6445e500f9baf2eaea87498bfaf6746397b649b025dbec6dc4af8b5ead9"},
+    {file = "flare_capa-10.0.0-py3-none-any.whl", hash = "sha256:01a27efcd8556035274d27b1a30456057724e133598db057b5a4248aa7e4e8fb"},
+    {file = "flare_capa-10.0.0.tar.gz", hash = "sha256:4d449c5c1d79475f1d4ff5312c9f30555f5c124a6ea6c5da5c7eefb577b37da3"},
 ]
 
 [package.dependencies]
@@ -1689,9 +1688,10 @@ vivisect = ">=1.1.1"
 xmltodict = ">=0.13.0"
 
 [package.extras]
-build = ["build (==1.3.0)", "pyinstaller (==6.16.0)", "setuptools (==80.9.0)"]
-dev = ["PyGithub (==2.6.0)", "black (==25.1.0)", "bump-my-version (==1.2.4)", "deptry (==0.23.0)", "flake8 (==7.3.0)", "flake8-bugbear (==24.12.12)", "flake8-comprehensions (==3.16.0)", "flake8-copyright (==0.2.4)", "flake8-encodings (==0.5.1)", "flake8-logging-format (==0.9.0)", "flake8-no-implicit-concat (==0.3.5)", "flake8-print (==5.0.0)", "flake8-simplify (==0.22.0)", "flake8-todos (==0.3.1)", "flake8-use-pathlib (==0.3.0)", "isort (==6.0.0)", "mypy (==1.17.1)", "mypy-protobuf (==3.6.0)", "pre-commit (==4.2.0)", "pytest (==8.0.0)", "pytest-instafail (==0.5.0)", "pytest-sugar (==1.1.1)", "ruff (==0.12.0)", "types-PyYAML (==6.0.8)", "types-backports (==0.1.3)", "types-colorama (==0.4.15.11)", "types-protobuf (==6.32.1.20250918)", "types-psutil (==7.0.0.20250218)", "types_requests (==2.32.0.20240712)"]
-scripts = ["jschema_to_python (==1.2.3)", "psutil (==7.1.2)", "requests (>=2.32.4)", "sarif_om (==1.0.4)", "stix2 (==3.0.1)"]
+build = ["build (==1.6.1)", "pyinstaller (==6.22.0)", "setuptools (==84.0.0)"]
+dev = ["PyGithub (==2.10.0)", "bump-my-version (==1.5.0)", "deptry (==0.25.1)", "mypy (==2.4.0)", "mypy-protobuf (==5.1.0)", "pre-commit (==4.6.0)", "pytest (==9.1.0)", "pytest-instafail (==0.5.0)", "pytest-sugar (==1.1.1)", "ruff (==0.16.0)", "types-PyYAML (==6.0.8)", "types-colorama (==0.4.15.11)", "types-protobuf (==7.35.1.20260821)", "types-psutil (==7.2.0.20251228)", "types_requests (==2.33.0.20260327)"]
+ghidra = ["pyghidra (>=3.0.0)"]
+scripts = ["jschema_to_python (==1.2.3)", "psutil (==7.2.1)", "pyzipper (>=0.3.6)", "requests (>=2.32.4)", "sarif_om (==1.0.4)", "stix2 (==3.0.1)"]
 
 [[package]]
 name = "freezegun"
@@ -2715,7 +2715,7 @@ version = "3.10"
 description = "Internationalized Domain Names in Applications (IDNA)"
 optional = false
 python-versions = ">=3.6"
-groups = ["main"]
+groups = ["main", "dist"]
 files = [
     {file = "idna-3.10-py3-none-any.whl", hash = "sha256:946d195a0d259cbba61165e88e65941f16e9b36ea6ddb97f00452bae8b1287d3"},
     {file = "idna-3.10.tar.gz", hash = "sha256:12f65c9b470abda6dc35cf8e63cc574b1c52b11df2c86030af0ac09b01b13ea9"},
@@ -4741,7 +4741,7 @@ version = "2.11.10"
 description = "Data validation using Python type hints"
 optional = false
 python-versions = ">=3.9"
-groups = ["main"]
+groups = ["main", "dist"]
 files = [
     {file = "pydantic-2.11.10-py3-none-any.whl", hash = "sha256:802a655709d49bd004c31e865ef37da30b540786a46bfce02333e0e24b5fe29a"},
     {file = "pydantic-2.11.10.tar.gz", hash = "sha256:dc280f0982fbda6c38fada4e476dc0a4f3aeaf9c6ad4c28df68a666ec3c61423"},
@@ -4763,7 +4763,7 @@ version = "2.33.2"
 description = "Core functionality for Pydantic validation and serialization"
 optional = false
 python-versions = ">=3.9"
-groups = ["main"]
+groups = ["main", "dist"]
 files = [
     {file = "pydantic_core-2.33.2-cp310-cp310-macosx_10_12_x86_64.whl", hash = "sha256:2b3d326aaef0c0399d9afffeb6367d5e26ddc24d351dbc9c636840ac355dc5d8"},
     {file = "pydantic_core-2.33.2-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:0e5b2671f05ba48b94cb90ce55d8bdcaaedb8ba00cc5359f6810fc918713983d"},
@@ -6138,7 +6138,7 @@ version = "1.3.1"
 description = "Sniff out which async library your code is running under"
 optional = false
 python-versions = ">=3.7"
-groups = ["main"]
+groups = ["main", "dist"]
 files = [
     {file = "sniffio-1.3.1-py3-none-any.whl", hash = "sha256:2f6da418d1f1e0fddd844478f41680e794e6051915791a034ff65e5f100525a2"},
     {file = "sniffio-1.3.1.tar.gz", hash = "sha256:f4324edc670a0f49750a81b895f35c3adb843cca46f0530f79fc1babb23789dc"},
@@ -6336,14 +6336,14 @@ uvicorn = ["uvicorn (>=0.34.0)"]
 name = "starlette"
 version = "0.52.1"
 description = "The little ASGI library that shines."
-optional = true
+optional = false
 python-versions = ">=3.10"
-groups = ["main"]
-markers = "extra == \"mcp\" or extra == \"dist\""
+groups = ["main", "dist"]
 files = [
     {file = "starlette-0.52.1-py3-none-any.whl", hash = "sha256:0029d43eb3d273bc4f83a08720b4912ea4b071087a3b48db01b7c839f7954d74"},
     {file = "starlette-0.52.1.tar.gz", hash = "sha256:834edd1b0a23167694292e94f597773bc3f89f362be6effee198165a35d62933"},
 ]
+markers = {main = "extra == \"mcp\""}
 
 [package.dependencies]
 anyio = ">=3.6.2,<5"
@@ -6631,7 +6631,7 @@ version = "4.15.0"
 description = "Backported and Experimental Type Hints for Python 3.9+"
 optional = false
 python-versions = ">=3.9"
-groups = ["main", "dev"]
+groups = ["main", "dev", "dist"]
 files = [
     {file = "typing_extensions-4.15.0-py3-none-any.whl", hash = "sha256:f0fa19c6845758ab08074a0cfa8b7aecb71c999ca73d62883bc25cc018c4e548"},
     {file = "typing_extensions-4.15.0.tar.gz", hash = "sha256:0cea48d173cc12fa28ecabc3b837ea3cf6f38c6d1136f85cbaaf598984861466"},
@@ -6643,7 +6643,7 @@ version = "0.4.2"
 description = "Runtime typing introspection tools"
 optional = false
 python-versions = ">=3.9"
-groups = ["main"]
+groups = ["main", "dist"]
 files = [
     {file = "typing_inspection-0.4.2-py3-none-any.whl", hash = "sha256:4ed1cacbdc298c220f1bd249ed5287caa16f34d44ef4e9c3d0cbad5b521545e7"},
     {file = "typing_inspection-0.4.2.tar.gz", hash = "sha256:ba561c48a67c5958007083d386c3295464928b01faa735ab8547c5692e87f464"},
@@ -7402,7 +7402,6 @@ testing = ["coverage[toml]", "zope.event", "zope.testing"]
 
 [extras]
 azure = ["azure-identity", "azure-mgmt-compute", "azure-mgmt-network", "azure-mgmt-storage", "azure-storage-blob", "msrest", "msrestazure"]
-dist = ["fastapi"]
 gcp = ["google-cloud-pubsub", "google-cloud-storage"]
 maco = ["maco"]
 mcp = ["fastmcp", "httpx"]
@@ -7411,4 +7410,4 @@ yara = ["plyara"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "d29867c0688f7a69c36be70021845644e7a171ff1139dabee069127bb8a2e396"
+content-hash = "0098e8241df580191aa6f271df8450f0287478ff89d2d50f1d33ec26ac9eff6e"

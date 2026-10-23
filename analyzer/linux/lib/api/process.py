@@ -2,6 +2,7 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import shlex
 import logging
 import os
 import subprocess
@@ -18,6 +19,7 @@ class Process:
     def __init__(self, pid=0):
         """@param pid: PID."""
         self.pid = pid
+        self.proc= None
 
     def is_alive(self):
         if not os.path.exists(f"/proc/{self.pid}"):
@@ -50,6 +52,8 @@ class Process:
         return {}
 
     def execute(self, cmd):
+        if isinstance(cmd, str):
+            cmd = shlex.split(cmd)
         self.proc = proc = subprocess.Popen(cmd, env={"XAUTHORITY": "/root/.Xauthority", "DISPLAY": ":0"})
         self.pid = proc.pid
         return True

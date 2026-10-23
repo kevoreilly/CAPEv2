@@ -8,6 +8,8 @@ import base64
 import os
 import shutil
 import struct
+import subprocess
+import sys
 
 import pytest
 
@@ -194,3 +196,18 @@ class TestPcap2Tshark:
 
     def test_missing_pcap_returns_empty(self, tmp_path):
         assert Pcap2(str(tmp_path / "nope.pcap"), {}, str(tmp_path / "network")).run() == {}
+
+    def test_tshark_timeout_kills_stalled_process(self, http_pcap, tmp_path, monkeypatch, caplog):
+        """A hung tshark must be killed by self.timeout while streaming stdout."""
+        real_popen = subprocess.Popen
+
+        def slow_popen(_cmd, **kwargs):
+            return real_popen([sys.executable, "-c", "import time; time.sleep(10)"], **kwargs)
+
+        monkeypatch.setattr(subprocess, "Popen", slow_popen)
+        pcap2 = Pcap2(http_pcap, {}, str(tmp_path / "network"))
+        pcap2.timeout = 0.2
+        packets = list(pcap2._iter_packets("http", Pcap2.METADATA_FIELDS, None))
+        assert packets == []
+        assert any("tshark timed out after" in record.message for record in caplog.records)
+

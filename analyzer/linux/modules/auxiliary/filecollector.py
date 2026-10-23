@@ -22,7 +22,7 @@ DELAY = 1
 BUFSIZE = 1024 * 1024
 
 
-class FileCollector(Auxiliary, Thread):
+class FileCollector(Auxiliary):
     """Gets files."""
 
     def start(self):

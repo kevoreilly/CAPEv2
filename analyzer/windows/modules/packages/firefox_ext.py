@@ -30,11 +30,12 @@ class Firefox_Ext(Package):
     def start(self, url):
         user_agent = self.options.get("user_agent")
         log.debug("User agent option value: %s", user_agent)
-        try:
-            base64.b64decode(user_agent)
-        except Exception:
-            log.error("Invalid base64 encoded user agent provided.")
-            user_agent = None
+        if user_agent:
+            try:
+                base64.b64decode(user_agent)
+            except Exception:
+                log.error("Invalid base64 encoded user agent provided.")
+                user_agent = None
         if user_agent and self.profile_path:
             config = os.path.join(self.profile_path, 'prefs.js')
             ua_decoded = base64.b64decode(user_agent).decode('utf-8')
@@ -51,4 +52,8 @@ class Firefox_Ext(Package):
         firefox = webbrowser.get("firefox")
         firefox.open("about:blank")
         time.sleep(7)  # Rough estimate, change based on your setup times.
-        return firefox.open(url)
+        firefox.open(url)
+        # Firefox is not injected, the extension monitors it. Return no PIDs so the analysis runs until
+        # the timeout: webbrowser.open() returns a bool, which the analyzer would track as PID 1, a
+        # process that does not exist, and end the analysis a few seconds after opening the URL.
+        return None

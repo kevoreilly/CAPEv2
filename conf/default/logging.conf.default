@@ -4,6 +4,14 @@ syslog_cape = off
 syslog_process = off
 syslog_dev = /dev/log
 
+# Emit side-by-side structured JSON logs (<name>.json.log) for log shippers
+# such as google-fluentd / Fluent Bit / Vector. Can also be enabled via CAPE_JSON_LOGS=1.
+json_logs = off
+
+# Control ANSI terminal color output on console streams: auto (TTY only), on, or off.
+# Can also be controlled via CAPE_COLOR_LOGS=auto|on|off or NO_COLOR=1.
+color_logs = auto
+
 process_per_task_log = off
 # Store log inside of the analysis folder instead of log. Useful for distributed setup to fetch to main server to show on webgui.
 process_analysis_folder = off

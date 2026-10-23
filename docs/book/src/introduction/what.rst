@@ -36,6 +36,9 @@ Cuckoo Sandbox started as a `Google Summer of Code`_ project in 2010 within
 Guarnieri, the first beta release was published in 2011. In January 2014,
 Cuckoo v1.0 was released.
 
+.. _`Google Summer of Code`: https://summerofcode.withgoogle.com/
+.. _`The Honeynet Project`: https://www.honeynet.org/
+
 2015 was a pivotal year, with a significant fork in Cuckoo's history.
 Development of the original monitor and API hooking method was halted in the
 main Cuckoo project. It was replaced by alternative monitor using a

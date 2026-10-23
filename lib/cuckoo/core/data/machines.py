@@ -1,4 +1,5 @@
 from __future__ import annotations
+from contextlib import suppress
 import json
 import logging
 from typing import List, Optional, Union
@@ -23,12 +24,16 @@ try:
         Select,
         String,
     )
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.exc import OperationalError, SQLAlchemyError
+    from sqlalchemy.ext.mutable import MutableDict
     from sqlalchemy.orm import (
         Mapped,
         mapped_column,
         relationship,
         selectinload,
     )
+    from sqlalchemy.types import JSON
 
 except ImportError:  # pragma: no cover
     raise CuckooDependencyError("Unable to import sqlalchemy (install with `poetry install`)")
@@ -62,6 +67,11 @@ class Machine(Base):
     resultserver_ip: Mapped[str] = mapped_column(String(255), nullable=False)
     resultserver_port: Mapped[str] = mapped_column(String(255), nullable=False)
     reserved: Mapped[bool] = mapped_column(Boolean(), nullable=False, default=False)
+    attributes: Mapped[Optional[dict]] = mapped_column(
+        MutableDict.as_mutable(JSON().with_variant(JSONB(), "postgresql")),
+        nullable=True,
+        default=dict,
+    )
 
     def __repr__(self):
         return f"<Machine({self.id},'{self.name}')>"
@@ -88,6 +98,18 @@ class Machine(Base):
         """
         return json.dumps(self.to_dict())
 
+    def get_attribute(self, key: str, default=None):
+        """Retrieve a value from the machine's attributes dict."""
+        if not self.attributes:
+            return default
+        return self.attributes.get(key, default)
+
+    def set_attribute(self, key: str, value) -> None:
+        """Set a key in the machine's attributes dict, initializing if None."""
+        if self.attributes is None:
+            self.attributes = {}
+        self.attributes[key] = value
+
     def __init__(self, name, label, arch, ip, platform, interface, snapshot, resultserver_ip, resultserver_port, reserved):
         self.name = name
         self.label = label
@@ -99,6 +121,7 @@ class Machine(Base):
         self.resultserver_ip = resultserver_ip
         self.resultserver_port = resultserver_port
         self.reserved = reserved
+        self.attributes = {}
 
 class MachinesMixIn:
     def clean_machines(self):
@@ -379,15 +402,21 @@ class MachinesMixIn:
 
     def set_machine_status(self, machine_or_label: Union[str, Machine], status):
         """Set status for a virtual machine."""
-        if isinstance(machine_or_label, str):
-            stmt = select(Machine).where(Machine.label == machine_or_label)
-            machine = self.session.scalar(stmt)
-        else:
-            machine = machine_or_label
+        try:
+            if isinstance(machine_or_label, str):
+                stmt = select(Machine).where(Machine.label == machine_or_label)
+                with self.session.no_autoflush:
+                    machine = self.session.scalar(stmt)
+            else:
+                machine = machine_or_label
 
-        if machine:
-            machine.status = status
-            machine.status_changed_on = _utcnow_naive()
+            if machine:
+                machine.status = status
+                machine.status_changed_on = _utcnow_naive()
+        except (OperationalError, SQLAlchemyError):
+            with suppress(Exception):
+                self.session.rollback()
+            return
             # No need for session.add() here; the ORM tracks changes to loaded objects.
 
     def view_machine(self, name: str) -> Optional[Machine]:

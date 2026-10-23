@@ -11,4 +11,4 @@ class Python_whl(Package):
 
     def prepare(self):
         self.args = [self.target] + self.args
-        self.target = "/usr/bin/python -m pip install"
+        self.target = "/usr/bin/python3 -m pip install"

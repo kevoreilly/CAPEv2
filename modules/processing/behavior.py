@@ -779,9 +779,8 @@ class Summary:
                     and (access & 0x80000000 or access & 0x10000000 or access & 0x02000000 or access & 0x1)
                     and filename not in self.read_files
                 ):
-                    # self.read_files.append(filename)
-                    self._filtering_helper(self.read_files, srcfilename)
-                    self._add_file_activity(process, "read_files", srcfilename)
+                    self._filtering_helper(self.read_files, srcfilename or filename)
+                    self._add_file_activity(process, "read_files", srcfilename or filename)
                 if (
                     access
                     and (access & 0x40000000 or access & 0x10000000 or access & 0x02000000 or access & 0x6)
@@ -947,7 +946,13 @@ class Enhanced:
             {
                 "event": "write",
                 "object": "registry",
-                "apis": ["RegSetValueExA", "RegSetValueExW"],
+                "apis": [
+                    "RegSetValueExA",
+                    "RegSetValueExW",
+                    "NtSetValueKey",
+                    "RegSetValueA",
+                    "RegSetValueW",
+                ],
                 "args": [("regkey", "FullName"), ("content", "Buffer")],
             },
             {
@@ -1042,6 +1047,10 @@ class Enhanced:
         item = self.api_map.get(call["api"])
         if item:
             args = _load_args(call)
+            if call["api"] in ("RegCreateKeyExA", "RegCreateKeyExW"):
+                disposition = args.get("Disposition")
+                if disposition is not None and int(disposition) != 1:
+                    return None
             self.eid += 1
 
             event = {

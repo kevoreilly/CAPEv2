@@ -49,7 +49,7 @@ except ImportError:  # pragma: no cover
 
 
 
-SCHEMA_VERSION = "3a1b_tenant_visibility"
+SCHEMA_VERSION = "4a6c2b_machine_attributes"
 
 log = logging.getLogger(__name__)
 conf = Config("cuckoo")
@@ -174,7 +174,11 @@ class _Database(TasksMixIn,
                     print(
                         f"DB schema version mismatch: found {last.version_num}, expected {SCHEMA_VERSION}. Try to apply all migrations"
                     )
-                    print(red("Please backup your data before migration!\ncd utils/db_migration/ && poetry run alembic upgrade head"))
+                    print(
+                        red(
+                            f"Please backup your data before migration!\ncd {os.path.join(CUCKOO_ROOT, 'utils', 'db_migration')} && poetry run alembic upgrade head"
+                        )
+                    )
                     sys.exit()
 
     def __del__(self):
@@ -265,19 +269,22 @@ class _Database(TasksMixIn,
 
     def create_guac_session(self, token, task_id, vm_label, guest_ip):
         """Create a new guac session for a task."""
+        session = self.session()
         try:
-            with self.session.begin():
-                guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
-                self.session.add(guac)
+            guac = GuacSession(token=str(token), task_id=task_id, vm_label=vm_label, guest_ip=guest_ip)
+            session.add(guac)
+            session.commit()
             return guac
         except Exception:
+            session.rollback()
             raise
 
     def get_guac_session(self, token):
         """Look up a guac session by token. Returns dict or None."""
         from lib.cuckoo.core.data.guac_session import GuacSession
+        session = self.session()
         try:
-            row = self.session.query(GuacSession).filter_by(token=str(token)).first()
+            row = session.query(GuacSession).filter_by(token=str(token)).first()
             if row:
                 return {"task_id": row.task_id, "vm_label": row.vm_label, "guest_ip": getattr(row, "guest_ip", None)}
             return None
@@ -287,19 +294,23 @@ class _Database(TasksMixIn,
     def delete_guac_session(self, token):
         """Delete a guac session token."""
         from lib.cuckoo.core.data.guac_session import GuacSession
+        session = self.session()
         try:
-            with self.session.begin():
-                self.session.query(GuacSession).filter_by(token=str(token)).delete()
+            session.query(GuacSession).filter_by(token=str(token)).delete()
+            session.commit()
         except Exception:
+            session.rollback()
             raise
 
     def delete_guac_sessions_for_task(self, task_id):
         """Delete all guac sessions for a task."""
         from lib.cuckoo.core.data.guac_session import GuacSession
+        session = self.session()
         try:
-            with self.session.begin():
-                self.session.query(GuacSession).filter_by(task_id=task_id).delete()
+            session.query(GuacSession).filter_by(task_id=task_id).delete()
+            session.commit()
         except Exception:
+            session.rollback()
             raise
 
 _DATABASE: Optional[_Database] = None
@@ -307,6 +318,8 @@ _DATABASE: Optional[_Database] = None
 
 class Database:
     def __getattr__(self, attr: str) -> Any:
+        if attr.startswith("__") and attr.endswith("__"):
+            raise AttributeError(attr)
         if _DATABASE is None:
             raise CuckooDatabaseInitializationError
         return getattr(_DATABASE, attr)

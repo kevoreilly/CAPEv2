@@ -36,6 +36,7 @@ sys.path.append(os.path.join(os.path.abspath(os.path.dirname(__file__)), ".."))
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.constants import CUCKOO_ROOT
+from lib.cuckoo.common.exceptions import CuckooDatabaseInitializationError
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import get_options, option_dict_enabled
 from lib.cuckoo.core.database import Database, init_database
@@ -44,6 +45,7 @@ from lib.cuckoo.core.data.task import (
     TASK_FAILED_REPORTING,
     TASK_REPORTED
 )
+from lib.cuckoo.core.log import init_json_file_handler, set_log_task_context
 from lib.cuckoo.core.plugins import RunProcessing, RunReporting, RunSignatures
 from lib.cuckoo.core.startup import ConsoleHandler, check_linux_dist, check_webgui_mongo, init_modules
 
@@ -119,7 +121,9 @@ def process(
     task_options = get_options(task_dict.get("options"))
     task_dict["_options_parsed"] = task_options
     # cluster mode
-    main_task_id = task_options.get("main_task_id", 0) if "main_task_id" in task_options else False
+    main_task_id = False
+    if attributes := task_dict.get("attributes"):
+        main_task_id = attributes.get("main_task_id", False)
 
     # ToDo new logger here
     per_analysis_handler = init_per_analysis_logging(tid=str(task_id), debug=debug)
@@ -229,7 +233,8 @@ def run_task(task, memory_debugging=False, debug=False):
 def init_worker():
     signal.signal(signal.SIGINT, signal.SIG_IGN)
     # See https://docs.sqlalchemy.org/en/14/core/pooling.html#using-connection-pools-with-multiprocessing-or-os-fork
-    db.engine.dispose(close=False)
+    with suppress(CuckooDatabaseInitializationError):
+        db.engine.dispose(close=False)
 
     # Avoid fork deadlock: use direct list ops instead of
     # handler.close()/removeHandler()/addHandler() which acquire locks.
@@ -252,21 +257,29 @@ def init_worker():
     except Exception:
         log.debug("worker init: yara pre-compile skipped", exc_info=True)
 
-    # Restore Syslog Handler if enabled
+    # Restore Syslog Handler if enabled (no lock-acquiring addHandler)
     if logconf.logger.syslog_process:
         try:
             slh = logging.handlers.SysLogHandler(address=logconf.logger.syslog_dev)
             slh.setFormatter(FORMATTER)
-            log.addHandler(slh)
+            log.handlers.append(slh)
         except Exception as e:
             log.warning("Failed to restore Syslog handler in worker: %s", e)
 
-    # Restore File Handler using WatchedFileHandler to support rotation
+    # Restore File Handler using WatchedFileHandler to support rotation (no lock-acquiring addHandler)
     try:
         path = os.path.join(CUCKOO_ROOT, "log", "process.log")
         fh = logging.handlers.WatchedFileHandler(path)
         fh.setFormatter(FORMATTER)
-        log.addHandler(fh)
+        log.handlers.append(fh)
+        init_json_file_handler(
+            log,
+            "process.log",
+            service_name="cape-processor",
+            logconf=logconf,
+            watch_only=True,
+            cuckoo_root=CUCKOO_ROOT,
+        )
     except PermissionError as e:
         log.warning("Failed to restore File handler in worker due to permissions: %s", e)
 
@@ -295,6 +308,7 @@ FORMATTER = logging.Formatter(get_formatter_fmt())
 
 def set_formatter_fmt(task_id=None, main_task_id=None):
     FORMATTER._style._fmt = get_formatter_fmt(task_id, main_task_id)
+    set_log_task_context(task_id=task_id, main_task_id=main_task_id)
 
 
 class ForceClosingTimedRotatingFileHandler(logging.handlers.TimedRotatingFileHandler):
@@ -362,6 +376,14 @@ def init_logging(debug=False):
 
         fh.setFormatter(FORMATTER)
         log.addHandler(fh)
+        init_json_file_handler(
+            log,
+            "process.log",
+            service_name="cape-processor",
+            logconf=logconf,
+            handler_cls=ForceClosingTimedRotatingFileHandler,
+            cuckoo_root=CUCKOO_ROOT,
+        )
     except PermissionError:
         log.critical("PermissionError to create/access log. Probably executed with wrong user.")
         sys.exit(1)
@@ -443,34 +465,45 @@ def autoprocess(
     from lib.cuckoo.core.processing_engine import get_engine
     from lib.cuckoo.core.processing_engine.source import TaskSource
 
-    if not disable_memory_limit:
-        memory_limit()
-    log.info("Processing analysis data (engine=%s)", engine)
+    try:
+        if not disable_memory_limit:
+            memory_limit()
+        log.info("Processing analysis data (engine=%s)", engine)
 
-    # Compile the YARA ruleset ONCE in the supervisor, before the engine forks any
-    # workers. Every forked child then inherits the compiled rules via copy-on-write
-    # fork (0s + shared read-only pages), and its init_worker() File.init_yara() call
-    # short-circuits on the idempotency guard. Without this, prefork — which forks a
-    # fresh child per task — would pay the ~3s compile on every single task. Safe to
-    # call here: compilation is single-threaded, so it does not break the prefork
-    # single-threaded-before-fork invariant.
-    from lib.cuckoo.common.objects import File
+        # Compile the YARA ruleset ONCE in the supervisor, before the engine forks any
+        # workers. Every forked child then inherits the compiled rules via copy-on-write
+        # fork (0s + shared read-only pages), and its init_worker() File.init_yara() call
+        # short-circuits on the idempotency guard. Without this, prefork — which forks a
+        # fresh child per task — would pay the ~3s compile on every single task. Safe to
+        # call here: compilation is single-threaded, so it does not break the prefork
+        # single-threaded-before-fork invariant.
+        from lib.cuckoo.common.objects import File
 
-    File.init_yara()
+        File.init_yara()
 
-    source = TaskSource(db, failed_processing=failed_processing)
-    eng = get_engine(
-        engine,
-        task_fn=functools.partial(run_task, memory_debugging=memory_debugging, debug=debug),
-        worker_init=init_worker,
-        source=source,
-        parallel=parallel,
-        timeout=processing_timeout,
-    )
-    eng.max_count = cfg.cuckoo.max_analysis_count
-    if engine == "pebble":
-        eng.max_tasks = maxtasksperchild
-    eng.run()
+        source = TaskSource(db, failed_processing=failed_processing)
+        eng = get_engine(
+            engine,
+            task_fn=functools.partial(run_task, memory_debugging=memory_debugging, debug=debug),
+            worker_init=init_worker,
+            source=source,
+            parallel=parallel,
+            timeout=processing_timeout,
+        )
+        eng.max_count = cfg.cuckoo.max_analysis_count
+        if engine == "pebble":
+            eng.max_tasks = maxtasksperchild
+        eng.run()
+    except KeyboardInterrupt:
+        raise
+    except (MemoryError, OSError) as e:
+        mem = get_memory() / 1024 / 1024
+        log.critical(
+            "Memory Exception: Remain: %.2f GB. Your system doesn't have enough FREE RAM to run processing! Error: %s",
+            mem,
+            e,
+        )
+        sys.exit(1)
 
 
 def _load_report(task_id: int):
@@ -647,7 +680,7 @@ def main():
     parser.add_argument(
         "--engine",
         choices=["pebble", "prefork"],
-        default="pebble",
+        default=os.getenv("CAPE_ENGINE") or "pebble",
         help="Processing engine: pebble (default, A/B control) or prefork.",
     )
     args = parser.parse_args()

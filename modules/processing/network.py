@@ -947,6 +947,13 @@ class Pcap2:
     the various protocols, decrypts and decodes them, and then provides us
     with the high level representation of it."""
 
+    @staticmethod
+    def _smtp_handler(tlsmaster):
+        try:
+            return httpreplay.cut.smtp_handler(tlsmaster)
+        except TypeError:
+            return httpreplay.cut.smtp_handler()
+
     def __init__(self, pcap_path, tlsmaster, network_path):
         self.pcap_path = pcap_path
         self.network_path = network_path
@@ -956,7 +963,7 @@ class Pcap2:
             80: httpreplay.cut.http_handler,
             443: lambda: httpreplay.cut.https_handler(tlsmaster),
             465: httpreplay.cut.smtp_handler,
-            587: lambda: httpreplay.cut.smtp_handler(tlsmaster),
+            587: lambda: self._smtp_handler(tlsmaster),
             4443: lambda: httpreplay.cut.https_handler(tlsmaster),
             8000: httpreplay.cut.http_handler,
             8080: httpreplay.cut.http_handler,

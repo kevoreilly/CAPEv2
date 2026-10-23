@@ -510,10 +510,11 @@ class MongoDB(Report):
             return
 
         # trick for distributed api
-        main_task_id = results.get("info", {}).get("options", {}).get("main_task_id")
-        if main_task_id:
-            with suppress(ValueError, TypeError):
-                report["info"]["id"] = int(main_task_id)
+        main_task_id = None
+        if self.task and (attributes := self.task.get("attributes")):
+            if main_task_id := attributes.get("main_task_id"):
+                with suppress(ValueError, TypeError):
+                    report["info"]["id"] = int(main_task_id)
 
         if "network" not in report:
             report["network"] = {}
@@ -611,15 +612,17 @@ class MongoDB(Report):
             # (10334 BSONObjectTooLarge) or the maximum nested object depth was
             # exceeded (15 Overflow).
             if e.code in (10334, 15):
-                log.error("Got MongoDB OperationFailure, code %d", e.code)
-                # ToDo rewrite how children are stored
-                log.warning("Deleting behavior process tree children from results.")
-                del report["behavior"]["processtree"][0]["children"]
+                log.warning("Got MongoDB OperationFailure (code %d); pruning behavior.processtree children", e.code)
+                processtree = report.get("behavior", {}).get("processtree") or []
+                for proc_entry in processtree:
+                    if isinstance(proc_entry, dict):
+                        proc_entry.pop("children", None)
                 try:
                     mongo_insert_one("analysis", report)
-                except Exception as e:
-                    log.error("Deleting behavior process tree parent from results: %s", str(e))
-                    del report["behavior"]["processtree"][0]
+                except Exception as retry_err:
+                    log.warning("Clearing behavior.processtree after retry failure: %s", retry_err)
+                    if "behavior" in report and isinstance(report["behavior"], dict):
+                        report["behavior"]["processtree"] = []
                     mongo_insert_one("analysis", report)
         except InvalidDocument as e:
             if str(e).startswith("cannot encode object") or "must not contain" in str(e):

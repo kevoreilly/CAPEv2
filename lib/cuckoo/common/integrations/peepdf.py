@@ -37,8 +37,8 @@ log = logging.getLogger(__name__)
 
 def _get_obj_val(pdf, version: int, obj):
     with contextlib.suppress(Exception):
-        if obj.type == "reference":
-            return pdf.body[version].getObject(obj.id)
+        if obj.getType() == "reference":
+            return pdf.body[version].getObject(obj.getId())
     return obj
 
 

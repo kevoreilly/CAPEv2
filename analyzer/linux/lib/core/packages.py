@@ -58,11 +58,21 @@ def _found_target_class(module, name):
 
 def _guess_package_name(file_type, file_name):
     try:
-        if "Bourne-Again" in file_type or "bash" in file_type:
+        if "Bourne-Again" in file_type or "bash" in file_type or file_name.endswith(".sh"):
             return "bash"
-        elif "Zip archive" in file_type:
+        elif "POSIX tar archive" in file_type or file_name.endswith("tar"):
+            return "archive"
+        elif "Zip archive" in file_type or file_name.endswith(".zip"):
             return "zip"
-        elif "gzip compressed data" in file_type:
+        elif "7-zip archive data" in file_type or file_name.endswith(".7z"):
+            return "archive"
+        elif "RAR archive data" in file_type or file_name.endswith(".rar"):
+            return "archive"
+        elif "ISO 9660 CD-ROM filesystem data" in file_type or file_name.endswith(".iso"):
+            return "archive"
+        elif "gzip compressed data" in file_type or file_name.endswith((".tgz", ".gz")):
+            return "zip"
+        elif "bzip2 compressed data" in file_type or file_name.endswith((".tbz", ".tbz2")):
             return "zip"
         elif "PDF document" in file_type or file_name.endswith(".pdf"):
             return "pdf"
@@ -72,6 +82,16 @@ def _guess_package_name(file_type, file_name):
             return "doc"
         elif "ELF" in file_type:
             return "generic"
+        elif "Debian binary package" in file_type or file_name.endswith(".deb"):
+            return "deb"
+        elif "Perl script text executable" in file_type or file_name.endswith(".pl"):
+            return "perl"
+        elif "Python script" in file_type or file_name.endswith(".py"):
+            return "python"
+        elif "a pwsh script" in file_type or file_name.endswith(".ps1"):
+            return "ps1"
+        elif file_name.endswith(".whl"):
+            return "python_whl"
         elif "Unicode text" in file_type or file_name.endswith(".js"):
             return "js"
     except (TypeError, AttributeError):
@@ -123,7 +143,7 @@ class Package:
         self.free = self.options.get("free")
         self.proc = None
         self.pids = []
-        self.strace_output = kwargs.get("strace_ouput", "/tmp")
+        self.strace_output = kwargs.get("strace_output", "/tmp")
         self.nc = NetlogFile()
         self.thread = None
         self._read_ready_ev = Event()

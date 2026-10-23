@@ -2,8 +2,10 @@
 # This file is part of Cuckoo Sandbox - http://www.cuckoosandbox.org
 # See the file 'docs/LICENSE' for copying permission.
 
+import os
 import pathlib
 import tempfile
+from types import SimpleNamespace
 
 import pytest
 from tcr_misc import get_sample
@@ -92,3 +94,106 @@ class TestDemux:
     def test_options2passwd(self):
         options = "password=foobar"
         demux.options2passwd(options)
+
+    def test_demux_junk_filter_default_rejects(self, tmp_path):
+        junk_file = tmp_path / "polyshell.txt"
+        junk_file.write_text("echo polyshell")
+
+        # String filename
+        demuxed, errors = demux.demux_sample(filename=str(junk_file), package=None, options="", use_sflock=False)
+        assert demuxed == []
+        assert any("junk_filter" in err for err in errors)
+
+        # Bytes filename
+        demuxed, errors = demux.demux_sample(filename=str(junk_file).encode(), package=None, options="", use_sflock=False)
+        assert demuxed == []
+        assert any("junk_filter" in err for err in errors)
+
+    def test_demux_junk_filter_explicitly_disabled(self, tmp_path):
+        junk_file = tmp_path / "readme.txt"
+        junk_file.write_text("readme instructions")
+
+        demuxed, errors = demux.demux_sample(filename=str(junk_file), package=None, options="ignore_junk_filter=0", use_sflock=False)
+        assert demuxed == []
+        assert any("junk_filter" in err for err in errors)
+
+    def test_demux_junk_filter_ignored_with_option(self, tmp_path):
+        junk_file = tmp_path / "polyshell.txt"
+        junk_file.write_text("echo polyshell")
+
+        for opt in ("ignore_junk_filter=1", "ignore_junk_filter=true", "ignore_junk_filter=yes"):
+            demuxed, errors = demux.demux_sample(filename=str(junk_file), package=None, options=opt, use_sflock=False)
+            assert len(demuxed) == 1
+            assert demuxed[0][0] == str(junk_file).encode()
+            assert errors == []
+
+    def test_sf_children_junk_filter(self):
+        child = SimpleNamespace(
+            filename=b"polyshell.txt",
+            contents=b"echo polyshell",
+            platform="windows",
+            magic="ASCII text",
+            filesize=14,
+            package=None,
+        )
+
+        # By default (ignore_junk_filter=False), junk file is skipped
+        path, platform, magic, filesize = demux._sf_children(child, ignore_junk_filter=False)
+        assert path == b""
+        assert filesize == 14
+
+        # When ignore_junk_filter=True, junk file is extracted
+        path, platform, magic, filesize = demux._sf_children(child, ignore_junk_filter=True)
+        assert path != b""
+        assert os.path.exists(path)
+        assert open(path, "rb").read() == b"echo polyshell"
+        assert filesize == 14
+        if os.path.exists(path):
+            os.remove(path)
+
+    @pytest.mark.parametrize(
+        "magic_str",
+        [
+            "Microsoft Roslyn C# debugging symbols version 1.0",
+            "MSVC program database ver 7.00",
+            "Microsoft C/C++ MSF 7.00",
+        ],
+    )
+    def test_demux_pdb_magic_junk_filter_and_ms_exclude(self, tmp_path, monkeypatch, magic_str):
+        sample_file = tmp_path / "sample_without_ext"
+        sample_file.write_bytes(b"BSJB\x01\x00\x01\x00" + b"\x00" * 32)
+
+        monkeypatch.setattr(demux.File, "get_type", lambda self: magic_str)
+        monkeypatch.setattr(demux, "demux_sflock", lambda *args, **kwargs: ([], "", []))
+
+        # Default: skipped by junk_filter before hitting Office check
+        demuxed, errors = demux.demux_sample(filename=str(sample_file).encode(), package=None, options="", use_sflock=True)
+        assert demuxed == []
+        assert any("junk_filter" in err for err in errors)
+
+        # With ignore_junk_filter=1: bypasses junk_filter and is excluded from Office check via MS_EXCLUDE
+        demuxed, errors = demux.demux_sample(
+            filename=str(sample_file).encode(), package=None, options="ignore_junk_filter=1", use_sflock=True
+        )
+        assert len(demuxed) == 1
+        assert demuxed[0][0] == str(sample_file).encode()
+        assert errors == []
+
+    def test_sf_children_pdb_magic_filter(self):
+        child = SimpleNamespace(
+            filename=b"symbols_blob",
+            contents=b"BSJB\x01\x00\x01\x00",
+            platform="windows",
+            magic="Microsoft Roslyn C# debugging symbols version 1.0",
+            filesize=8,
+            package=None,
+        )
+
+        path, _, _, _ = demux._sf_children(child, ignore_junk_filter=False)
+        assert path == b""
+
+        path, _, _, _ = demux._sf_children(child, ignore_junk_filter=True)
+        assert path != b""
+        if os.path.exists(path):
+            os.remove(path)
+

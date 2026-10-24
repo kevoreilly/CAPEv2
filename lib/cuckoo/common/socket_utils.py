@@ -35,41 +35,38 @@ def send_socket_command(socket_path: str, command: str, *args, **kwargs):
 
     ret = None
     with lock:
-        unixpath = tempfile.NamedTemporaryFile(mode="w+", delete=True)  # tempfile.mktemp()
+        with tempfile.NamedTemporaryFile(mode="w+", delete=True) as unixpath:
+            unix_path = Path(unixpath.name)
+
         s = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
-
-        unix_path = Path(unixpath.name)
-        if unix_path.exists():
-            unix_path.unlink()
-
-        s.bind(unixpath.name)
-
         try:
-            s.connect(socket_path.encode())
-        except socket.error as e:
-            log.critical("Unable to passthrough root command as we're unable to connect to the unix socket: %s", e)
-            return
+            s.bind(str(unix_path))
 
-        s.send(
-            json.dumps(
-                {
-                    "command": command,
-                    "args": args,
-                    "kwargs": kwargs,
-                }
-            ).encode()
-        )
+            try:
+                s.connect(socket_path.encode())
+            except socket.error as e:
+                log.critical("Unable to passthrough root command as we're unable to connect to the unix socket: %s", e)
+                return
 
-        try:
-            ret = json.loads(s.recv(0x10000))
-        except socket.timeout:
-            ret = {"exception": f"{socket_path} response timeout", "output": ""}
+            s.send(
+                json.dumps(
+                    {
+                        "command": command,
+                        "args": args,
+                        "kwargs": kwargs,
+                    }
+                ).encode()
+            )
 
-        # Should we close the socket?
-        # if hasattr(s, "close"):
-        #    s.close()
+            try:
+                ret = json.loads(s.recv(0x10000))
+            except socket.timeout:
+                ret = {"exception": f"{socket_path} response timeout", "output": ""}
 
-        return ret
+            return ret
+        finally:
+            s.close()
+            unix_path.unlink(missing_ok=True)
 
 
 if "__main__" == __name__:

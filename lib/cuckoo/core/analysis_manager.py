@@ -419,7 +419,10 @@ class AnalysisManager(threading.Thread):
             yield
         finally:
             # Drop the network routing rules if any.
-            self.unroute_network()
+            try:
+                self.unroute_network()
+            except CuckooCriticalError as e:
+                self.log.error("Failed to unroute network: %s", e)
 
     @contextlib.contextmanager
     def run_auxiliary(self) -> Generator[None, None, None]:
@@ -502,6 +505,13 @@ class AnalysisManager(threading.Thread):
                 # Put the task back in pending so that the schedule can attempt to choose a new machine.
                 self.db.set_status(self.task.id, TASK_PENDING)
             raise
+        except CuckooCriticalError as e:
+            self.log.error("Critical error during analysis: %s", e)
+            with self.db.session.begin():
+                self.db.set_status(self.task.id, TASK_FAILED_ANALYSIS)
+                if hasattr(self, "machine") and self.machine:
+                    self.db.unlock_machine(self.machine)
+            raise
         except Exception as e:
             self.log.exception("Unexpected exception during analysis: %s", e)
             with self.db.session.begin():
@@ -545,7 +555,7 @@ class AnalysisManager(threading.Thread):
         with log_task_context(task_id=self.task.id, main_task_id=self.main_task_id, machine=machine_label):
             try:
                 self.launch_analysis()
-            except (CuckooDeadMachine, CuckooMachineError) as e:
+            except (CuckooDeadMachine, CuckooMachineError, CuckooCriticalError) as e:
                 self.log.error("failure in AnalysisManager.run: %s", e)
             except Exception:
                 self.log.exception("failure in AnalysisManager.run")

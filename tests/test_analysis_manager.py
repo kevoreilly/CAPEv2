@@ -523,3 +523,130 @@ class TestAnalysisManager:
         assert len(records) == 1
         assert records[0].exc_info is None
 
+    def test_network_routing_catches_unroute_network_critical_error(
+        self,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """Verify that network_routing catches CuckooCriticalError on unroute_network teardown without propagating."""
+        from lib.cuckoo.common.exceptions import CuckooCriticalError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(analysis_man, "route_network")
+        mocker.patch.object(
+            analysis_man,
+            "unroute_network",
+            side_effect=CuckooCriticalError("Error execution rooter command: /tmp/cuckoo-rooter response timeout"),
+        )
+
+        with caplog.at_level(logging.ERROR):
+            with analysis_man.network_routing():
+                pass
+
+        records = [r for r in caplog.records if "Failed to unroute network" in r.message]
+        assert len(records) == 1
+        assert "response timeout" in records[0].message
+        assert records[0].exc_info is None
+
+    def test_launch_analysis_handles_cuckoo_critical_error(
+        self,
+        db: _Database,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """Verify that launch_analysis catches CuckooCriticalError, marks task failed, unlocks machine, and logs error without exception traceback."""
+        from lib.cuckoo.common.exceptions import CuckooCriticalError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(
+            analysis_man,
+            "perform_analysis",
+            side_effect=CuckooCriticalError("Error execution rooter command: /tmp/cuckoo-rooter response timeout"),
+        )
+        mock_unlock = mocker.patch("lib.cuckoo.core.database._Database.unlock_machine")
+        mock_log_exception = mocker.patch.object(analysis_man.log, "exception")
+
+        with caplog.at_level(logging.ERROR):
+            with pytest.raises(CuckooCriticalError):
+                analysis_man.launch_analysis()
+
+        with db.session.begin():
+            db_task = db.view_task(task.id)
+            assert db_task.status == TASK_FAILED_ANALYSIS
+        assert mock_unlock.called
+        assert not mock_log_exception.called
+        records = [r for r in caplog.records if "Critical error during analysis" in r.message]
+        assert len(records) == 1
+        assert records[0].exc_info is None
+
+    def test_run_suppresses_cuckoo_critical_error_traceback(
+        self,
+        task: Task,
+        machine: Machine,
+        machinery_manager: MachineryManager,
+        mocker: MockerFixture,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        """Verify that AnalysisManager.run logs CuckooCriticalError via self.log.error without multi-line traceback."""
+        from lib.cuckoo.common.exceptions import CuckooCriticalError
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(
+            analysis_man,
+            "launch_analysis",
+            side_effect=CuckooCriticalError("Error execution rooter command: /tmp/cuckoo-rooter response timeout"),
+        )
+        with caplog.at_level(logging.ERROR):
+            analysis_man.run()
+
+        records = [r for r in caplog.records if "failure in AnalysisManager.run" in r.message]
+        assert len(records) == 1
+        assert "response timeout" in records[0].message
+        assert records[0].exc_info is None
+
+    @pytest.mark.filterwarnings("error::pytest.PytestUnraisableExceptionWarning")
+    def test_send_socket_command_cleans_up_on_timeout(self, mocker: MockerFixture, tmp_path: pathlib.Path):
+        """Verify send_socket_command closes socket and cleans up temp unix socket path on timeout."""
+        import gc
+        import socket
+
+        from lib.cuckoo.common.socket_utils import send_socket_command
+
+        fake_rooter = tmp_path / "cuckoo-rooter"
+        fake_rooter.touch()
+
+        mock_socket = mocker.MagicMock()
+        mock_socket.bind.side_effect = lambda path: pathlib.Path(path).touch()
+        mock_socket.recv.side_effect = socket.timeout("timed out")
+        mocker.patch("socket.socket", return_value=mock_socket)
+
+        resp = send_socket_command(str(fake_rooter), "nic_available", "eth0")
+        gc.collect()
+        assert resp == {"exception": f"{fake_rooter} response timeout", "output": ""}
+        assert mock_socket.close.called
+        bound_path = pathlib.Path(mock_socket.bind.call_args[0][0])
+        assert not bound_path.exists()
+
+    def test_rooter_send_response_handles_unlinked_client_socket(
+        self, mocker: MockerFixture, caplog: pytest.LogCaptureFixture
+    ):
+        """Verify rooter send_response catches FileNotFoundError when client reply socket was unlinked on timeout."""
+        import errno
+
+        from utils.rooter import send_response
+
+        mock_server = mocker.MagicMock()
+        mock_server.sendto.side_effect = FileNotFoundError(errno.ENOENT, "No such file or directory")
+
+        with caplog.at_level(logging.WARNING):
+            send_response(mock_server, ("", ""), None, "/tmp/tmp_unlinked_socket")
+
+        records = [r for r in caplog.records if "Failed to send response to /tmp/tmp_unlinked_socket" in r.message]
+        assert len(records) == 1
+        assert records[0].exc_info is None

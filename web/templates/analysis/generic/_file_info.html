@@ -235,6 +235,30 @@
             </tr>
             {% endif %}
 
+            {# similarity-inline-rows-v4 BEGIN #}
+            {% if file.code_similarity_matches %}
+            <tr>
+                <th class="text-end text-info" style="width: 15%;">Code Similarity</th>
+                <td>
+                    <ul class="list-unstyled mb-0">
+                    {% for m in file.code_similarity_matches %}
+                        <li>
+                            {% if m.family %}
+                                <a href="/analysis/search/detection:{{m.family}}" class="badge bg-danger text-decoration-none me-1">{{m.family}}</a>
+                            {% else %}
+                                <span class="badge bg-secondary me-1">unlabelled</span>
+                            {% endif %}
+                            <span class="{% if m.similarity >= 80 %}text-danger{% elif m.similarity >= 50 %}text-warning{% else %}text-muted{% endif %} fw-bold me-2">{{ m.similarity }}%</span>
+                            {% if m.low_confidence %}<span class="badge bg-warning text-dark me-2" title="Below minimum_similarity; best available match">low</span>{% endif %}
+                            {% if m.sample_sha256 %}<span class="text-muted font-monospace small me-2">{{ m.sample_sha256 }}</span>{% endif %}
+                            <span class="badge bg-dark border border-secondary">{{ m.engine }}</span>
+                        </li>
+                    {% endfor %}
+                    </ul>
+                </td>
+            </tr>
+            {% endif %}
+            {# similarity-inline-rows-v4 END #}
             {% if file.trid %}
             <tr>
                 <th class="text-end text-info" style="width: 15%;">TriD</th>
@@ -273,6 +297,7 @@
             {% if file.java %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#java_{{file.sha256}}">Java</a>{% endif %}
             {% if file.office %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#office_{{file.sha256}}">Office</a>{% endif %}
             {% if file.msi %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#msi_{{file.sha256}}"> MSI</a>{% endif %}
+            {% if file.malcat %}<a class="btn btn-sm btn-outline-info me-2 mb-2" data-bs-toggle="collapse" href="#malcat_{{file.sha256}}">Malcat</a>{% endif %}
 
             {% if config.flare_capa %}
                 {% if not file.flare_capa and on_demand.flare_capa %}
@@ -285,6 +310,9 @@
                 {% elif file.flare_capa %}
                     <a class="btn btn-sm btn-outline-warning me-2 mb-2" data-bs-toggle="collapse" href="#flare_capa_{{file.sha256}}">View CAPA</a>
                 {% endif %}
+            {% endif %}
+            {% if on_demand.kesakode %}
+                <a class="btn btn-sm btn-secondary me-2 mb-2" href="{% url "on_demand" "kesakode" id tab_name file.sha256 %}">Kesakode lookup</a>
             {% endif %}
 
             {% if config.strings %}
@@ -382,6 +410,39 @@
 
     <!-- Collapsible Sections -->
     <div class="mb-4">
+        {% if file.malcat %}
+            <div class="collapse mb-3" id="malcat_{{file.sha256}}">
+                <div class="card bg-dark border-secondary">
+                    <div class="card-header border-secondary"><h6 class="mb-0 text-white">Malcat</h6></div>
+                    <div class="card-body">
+                        {% if file.malcat.anomalies %}
+                            <h6 class="text-white-50">Anomalies ({{ file.malcat.anomalies|length }})</h6>
+                            <table class="table table-sm table-dark table-striped mb-0">
+                                <thead><tr><th>Anomaly</th><th>Category</th><th>Locations</th></tr></thead>
+                                <tbody>
+                                {% for anom in file.malcat.anomalies %}
+                                    <tr>
+                                        <td>{{ anom.label }}</td>
+                                        <td>{{ anom.category }}</td>
+                                        <td>
+                                            {% for loc in anom.locations %}
+                                                <div>
+                                                    <code>{{ loc.address }}</code>{% if loc.function %} <span class="text-info">{{ loc.function }}{% if loc.function_offset %}+{{ loc.function_offset }}{% endif %}</span>{% endif %}{% if loc.size %} <span class="text-white-50">({{ loc.size }} bytes)</span>{% endif %}
+                                                </div>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+                                {% endfor %}
+                                </tbody>
+                            </table>
+                        {% else %}
+                            No significant results.
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
         {% if file.flare_capa %}
             <div class="collapse mb-3" id="flare_capa_{{file.sha256}}">
                 <div class="card bg-dark border-secondary">
@@ -517,4 +578,3 @@
         {% endif %}
     </div>
 </div>
-

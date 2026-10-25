@@ -376,11 +376,15 @@ enabled = no
 # plain-text TLS streams into the task PCAP.
 enabled = no
 
-# Code-similarity engine(s). See conf/integrations.conf [similarity].
+# Code-similarity engine(s). See conf/integrations.conf [similarity] support for Malcat Kesakode and MCRIT.
 [similarity]
 enabled = no
 
 # Threat-intelligence enrichment. Engine and API settings live in
 # conf/threat_intel.conf.
 [threatintelligence]
+enabled = no
+
+# Malcat static intel (anomalies) via the Malcat bridge. See conf/integrations.conf [malcat].
+[malcat]
 enabled = no

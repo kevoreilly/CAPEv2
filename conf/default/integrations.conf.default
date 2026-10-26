@@ -126,11 +126,7 @@ cape = no
 procdump = no
 # behavior analysis summary
 behavior = no
-# Use Malcat's CAPA instead of FLARE capa (requires the Malcat bridge and
-# [malcat] enabled in processing.conf). Malcat's CAPA is significantly faster
-# and is rendered in the SAME 'View CAPA' panel (same output shape); it may
-# populate fewer rows in some sections. When yes, it overrides FLARE capa
-# wherever FLARE capa would run (static / cape payloads / procdump).
+# Use Malcat's CAPA instead of FLARE capa (requires the Malcat bridge and malcat to be enabled - see below).
 malcat_capa = no
 
 # external download services
@@ -161,11 +157,7 @@ sigs_path = data/flare-signatures
 # Also for accurate matching populate with libraries (i.e. import from https://github.com/danielplohmann/mcrit-data dragging and dropping all the files for each into import, 
 # or importing binaries and then editing them and marking them as libraries once imported).
 [similarity]
-
-# ============================================================
-# Global options - apply to EVERY code-similarity engine (MCRIT + Kesakode)
-# ============================================================
-
+# Global options - apply to all similarity engines
 # Hard per-job deadline (seconds) so a stuck engine can't stall processing.
 timeout = 120
 
@@ -212,15 +204,11 @@ malfamily_mode = top
 
 # --- Concurrent submission ---
 # Submit multiple artifacts at once; max_workers bounds simultaneous jobs.
-# NOTE: the Malcat bridge serialises analyses on its side, so Kesakode is
-# effectively one-at-a-time regardless; this mainly affects MCRIT.
 concurrent_submissions = no
 max_workers = 4
 
-# ============================================================
 # MCRIT (https://github.com/danielplohmann/mcrit)
-# ============================================================
-mcrit = yes
+mcrit = no
 # Formats sent to MCRIT (SMDA supports pe, elf, macho; CAPE omits macho).
 mcrit_formats = pe,elf
 # REST API endpoint - the API (8000), NOT the web UI (5000).
@@ -232,17 +220,9 @@ mcrit_poll_interval = 3
 # yes - store via /samples/binary for corpus building (sha256 pre-check reuses).
 persist_samples = no
 
-# ============================================================
-# Malcat Kesakode (via the Malcat bridge)
-# ============================================================
-# Kesakode identifies a sample's malware FAMILY by hashing its functions/
-# strings/constants. It returns family LABELS (family -> score), not
-# sample-to-sample links, so its matches carry a family + score but no
-# matched-sample sha256. Reporting/placement is identical to MCRIT.
-#
-# Kesakode runs in Malcat's own venv, reached over the network via the Malcat
-# bridge (like MCRIT's server). The bridge holds the Malcat license; CAPE only
-# needs the bridge API key.
+# Malcat Kesakode (https://doc.malcat.fr/analysis/kesakode.html).
+# Requires the Malcat bridge running alongside Malcat (the bridge tool and instructions for using it are in utils/malcat_bridge).
+
 kesakode = no
 kesakode_formats = pe,elf
 # online  - query the live Kesakode service (spends monthly quota; returns
@@ -259,42 +239,31 @@ kesakode_on_demand = no
 # busy pipeline can't drain the month. Enforced by the bridge on live quota.
 kesakode_quota_reserve = 10
 # --- Bridge connection ---
-kesakode_host = http://127.0.0.1:8090
+kesakode_host = https://127.0.0.1:8090
 kesakode_apikey =
 # Verify the bridge TLS cert. no for a self-signed bridge on a trusted network.
 kesakode_ssl_verify = no
 
-
-# ============================================================
-# Malcat static intel (anomalies, and the CAPA override) via the Malcat bridge
-# ============================================================
-# Non-similarity Malcat features. (Kesakode code similarity is configured in
-# the [similarity] section, with the other similarity engines.) Enable the
-# module too in processing.conf [malcat].
-#
-# Requires the Malcat bridge running alongside Malcat (see the bridge tool).
-# The bridge holds the Malcat license; CAPE only needs the bridge API key.
 [malcat]
+# Non-similarity Malcat features. (Kesakode code similarity is configured in
+# the [similarity] section above, with the other similarity engines.) Enable the
+# module too in processing.conf [malcat].
+# Requires the Malcat bridge running alongside Malcat (the bridge tool and instructions for using it are in utils/malcat_bridge).
 
 # Per-artifact deadline talking to the bridge (seconds).
 timeout = 120
-
-# ---- Features ------------------------------------------------
-# Pull Malcat's anomaly scanner results and show them in the expandable
-# "Malcat" panel on each file's info card.
+# Features to pull from malcat.
+# NOTE: FOR CAPA see CAPE section to use malcat. This is recommended as it is significantly faster running CAPE this way.
 anomalies = yes
 
-# ---- What to submit ------------------------------------------
-# Which artifact types to send to Malcat for static intel. Unlike the
-# similarity engine (which focuses on unpacked payloads), anomalies are useful
-# across all submitted files. Only supported executable formats are sent;
+# Which artifact types to send to Malcat. Only supported executable formats are sent;
 # shellcode blobs and non-executables are skipped automatically.
 malcat_payloads = yes
 malcat_procdump = yes
 malcat_dropped = no
 malcat_submittedfile = no
 
-# ---- Bridge connection ---------------------------------------
+# Malcat Bridge
 # Defaults to the same bridge as Kesakode; override here if the anomalies/CAPA
 # bridge is a different instance. If blank, the [similarity] kesakode_host /
 # kesakode_apikey / kesakode_ssl_verify values are reused.

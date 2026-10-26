@@ -3824,12 +3824,8 @@ def yara_uploader(request):
                 {"status": "error", "message": f"Invalid or missing category. Allowed categories: {ALLOWED_YARA_CATEGORIES}"},
                 status=400,
             )
-        """
-        if request.user.is_authenticated and request.user.username not in ALLOWED_UPLOADERS:
-            return Response(
-                {"status": "error", "message": f"User '{request.user.username}' is not authorized to upload YARA rules."}, status=403
-            )
-        """
+        if apiconf.yara_uploader.get("auth_only", False) and not request.user.is_authenticated:
+            return Response({"status": "error", "message": "Authentication required"}, status=401)
         if "file" not in request.FILES:
             return Response({"status": "error", "message": "No file provided"}, status=400)
 
@@ -3879,6 +3875,9 @@ def yara_uploader(request):
             if not family:
                 return Response({"status": "error", "message": "Missing 'family' in metadata"}, status=400)
 
+            if "/" in family or "\\" in family or family in (".", ".."):
+                return Response({"status": "error", "message": "Invalid family name"}, status=400)
+
             # Now iterate all rules to inject cape_type / author if needed
             for rule in rules:
                 rule_metadata = rule.get("metadata", [])
@@ -3914,6 +3913,11 @@ def yara_uploader(request):
                 # Fallback to standard naming
                 filename = f"{family}.yar"
                 dest_path = os.path.join(dest_dir, filename)
+
+            dest_path_real = os.path.realpath(dest_path)
+            dest_dir_real = os.path.realpath(dest_dir)
+            if dest_path_real != dest_dir_real and not dest_path_real.startswith(dest_dir_real + os.sep):
+                return Response({"status": "error", "message": "Invalid destination path"}, status=400)
 
             # Check if file exists to append
             if os.path.exists(dest_path):

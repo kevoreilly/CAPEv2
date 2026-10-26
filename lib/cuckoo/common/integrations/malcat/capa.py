@@ -73,7 +73,6 @@ def malcat_capa_details(file_path, category=False, on_demand=False, results=None
         return {}
 
     try:
-        from lib.cuckoo.common.integrations.malcat.client import MalcatBridgeError
         from lib.cuckoo.common.integrations.malcat.convert import capa_to_flare_shape
 
         payload = client.analyze(data=data, features=["capa"])

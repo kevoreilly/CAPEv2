@@ -86,7 +86,7 @@ def _term(t):
 def _print_report(res):
     print(f"\nsha256      : {res.get('sha256')}")
     print(f"malcat      : {res.get('malcat_version')}   analyse: {res.get('analyse_seconds')}s"
-          + (f"   (cached)" if res.get("cached") else ""))
+          + ("   (cached)" if res.get("cached") else ""))
     f = res.get("file", {})
     print(f"file        : type={f.get('type')!r} arch={f.get('architecture')} size={f.get('size')}")
     if res.get("counts"):

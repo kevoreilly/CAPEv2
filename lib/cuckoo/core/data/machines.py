@@ -6,6 +6,7 @@ from typing import List, Optional, Union
 from datetime import datetime
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.common.exceptions import CuckooDependencyError, CuckooUnserviceableTaskError
+from lib.cuckoo.common.hooks import apply_machine_filter
 from .db_common import Base, machines_tags
 from .db_common import Tag
 from .db_common import _utcnow_naive
@@ -333,7 +334,8 @@ class MachinesMixIn:
                 os_version=os_version,
                 include_reserved=include_reserved,
             )
-            return self.session.execute(stmt).unique().scalars().all()
+            machines = list(self.session.execute(stmt).unique().scalars().all())
+            return apply_machine_filter(machines)
 
     def assign_machine_to_task(self, task: Task, machine: Optional[Machine]) -> Task:
         if machine:

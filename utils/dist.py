@@ -114,7 +114,7 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
-if cfg.get("multitenancy") and cfg.multitenancy.get("enabled", False):
+if getattr(cfg, "multitenancy", {}).get("enabled", False):
     try:
         from cape_tenancy.hooks import register_core_hooks
 

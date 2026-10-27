@@ -1,0 +1,10 @@
+{% if multitenancy_enabled %}
+<div class="form-group">
+    <label for="form_visibility">Visibility</label>
+    <select class="form-control" id="form_visibility" name="visibility">
+        {% for vis in multitenancy_visibilities %}
+        <option value="{{ vis }}" {% if vis == multitenancy_default_visibility %}selected{% endif %}>{{ vis|capfirst }}</option>
+        {% endfor %}
+    </select>
+</div>
+{% endif %}

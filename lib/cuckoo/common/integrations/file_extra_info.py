@@ -301,8 +301,9 @@ def detect_it_easy_info(file_path: str):
     try:
         die_output = subprocess.check_output(
             [processing_conf.die.binary, "-j", file_path],
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.PIPE,
             universal_newlines=True,
+            errors="replace",
         )
 
         def get_json() -> dict[str, Any]:
@@ -320,9 +321,11 @@ def detect_it_easy_info(file_path: str):
 
         return [] if "detects" not in die_output else get_matches()
     except subprocess.CalledProcessError as err:
-        log.error(
-            "Detect-It-Easy: Failed to execute cmd=`%s`, stdout=`%s`, stderr=`%s`",
-            shlex.join(err.cmd),
+        safe_cmd = shlex.join(err.cmd).encode("utf-8", errors="replace").decode("utf-8")
+        log.warning(
+            "Detect-It-Easy: Failed to execute cmd=`%s` (returncode=%s), stdout=`%s`, stderr=`%s`",
+            safe_cmd,
+            err.returncode,
             err.stdout,
             err.stderr,
         )
@@ -339,6 +342,7 @@ def trid_info(file_path: dict):
             [trid_binary, f"-d:{definitions}", file_path],
             stderr=subprocess.STDOUT,
             universal_newlines=True,
+            errors="replace",
         )
         return output.split("\n")[6:-1]
     except subprocess.CalledProcessError:

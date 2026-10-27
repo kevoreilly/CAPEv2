@@ -25,7 +25,6 @@ from json import loads
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
-import cachetools.func
 import dns.resolver
 from dns.reversename import from_address
 
@@ -160,7 +159,15 @@ if HAVE_GEOIP and proc_cfg.network.maxmind_database:
     _MAXMINDDB_MTIME = None
     _MAXMINDDB_CLIENT = None
 
-    @cachetools.func.ttl_cache(maxsize=None, ttl=5 * 60)
+    try:
+        import cachetools.func
+
+        _ttl_cache_decorator = cachetools.func.ttl_cache(maxsize=None, ttl=5 * 60)
+    except ImportError:
+        def _ttl_cache_decorator(fn):
+            return fn
+
+    @_ttl_cache_decorator
     def get_maxminddb_client():
         global _MAXMINDDB_CLIENT
         global _MAXMINDDB_MTIME
@@ -940,6 +947,13 @@ class Pcap2:
     the various protocols, decrypts and decodes them, and then provides us
     with the high level representation of it."""
 
+    @staticmethod
+    def _smtp_handler(tlsmaster):
+        try:
+            return httpreplay.cut.smtp_handler(tlsmaster)
+        except TypeError:
+            return httpreplay.cut.smtp_handler()
+
     def __init__(self, pcap_path, tlsmaster, network_path):
         self.pcap_path = pcap_path
         self.network_path = network_path
@@ -949,7 +963,7 @@ class Pcap2:
             80: httpreplay.cut.http_handler,
             443: lambda: httpreplay.cut.https_handler(tlsmaster),
             465: httpreplay.cut.smtp_handler,
-            587: lambda: httpreplay.cut.smtp_handler(tlsmaster),
+            587: lambda: self._smtp_handler(tlsmaster),
             4443: lambda: httpreplay.cut.https_handler(tlsmaster),
             8000: httpreplay.cut.http_handler,
             8080: httpreplay.cut.http_handler,

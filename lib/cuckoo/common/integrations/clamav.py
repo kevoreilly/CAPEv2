@@ -7,16 +7,17 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import suppress
 
-from cachetools import TTLCache
-
 from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
 
 HAVE_CLAMAV = False
+TTLCache = None
 CLAMAV_ENABLED = Config("processing").detections.clamav
 
 if CLAMAV_ENABLED:
+    with suppress(ImportError):
+        from cachetools import TTLCache
     with suppress(ImportError):
         import pyclamd
 
@@ -33,7 +34,7 @@ if CLAMAV_ENABLED:
 # long-lived workers, though `clear_clamav_cache` remains the primary
 # mechanism for lifecycle management.
 _CACHE_LOCK = threading.Lock()
-_CLAMAV_CACHE = TTLCache(maxsize=1024, ttl=3600)
+_CLAMAV_CACHE = TTLCache(maxsize=1024, ttl=3600) if TTLCache is not None else {}
 
 
 

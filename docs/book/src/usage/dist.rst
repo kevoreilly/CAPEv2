@@ -12,7 +12,7 @@ Dependencies
 The distributed script uses a few Python libraries which can be installed
 through the following command (on Debian/Ubuntu)::
 
-    $ poetry run pip install flask flask-restful flask-sqlalchemy requests
+    $ poetry install --with dist
 
 Starting the Distributed REST API
 =================================
@@ -20,6 +20,21 @@ Starting the Distributed REST API
 The Distributed REST API requires a few command line options in order to run::
 
     $ cd /opt/CAPEv2/web && poetry run python manage.py runserver_plus 0.0.0.0:8000 --traceback --keep-meta-shutdown
+
+Authentication
+==============
+
+To protect the Distributed CAPE daemon (SSRF and DoS prevention), you should configure an authentication token.
+Configure the ``auth_token`` value in ``conf/distributed.conf`` under the ``[distributed]`` section::
+
+    [distributed]
+    ...
+    # Authentication token for Distributed CAPE Daemon API
+    auth_token = SEUPER_SECRET_TOKEN
+
+Once configured, the FastAPI endpoints running on port 9003 will require this token to be provided as an ``X-API-Token`` header::
+
+    $ curl -H "X-API-Token: SEUPER_SECRET_TOKEN" http://localhost:9003/node
 
 
 RESTful resources

@@ -26,6 +26,7 @@ from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.data.guests import Guest
 from lib.cuckoo.core.guest import GuestManager
+from lib.cuckoo.core.log import log_task_context
 from lib.cuckoo.core.machinery_manager import MachineryManager
 from lib.cuckoo.core.plugins import RunAuxiliary
 from lib.cuckoo.core.resultserver import ResultServer
@@ -93,8 +94,15 @@ class AnalysisLogger(logging.LoggerAdapter):
 
     def process(self, msg: str, kwargs: MutableMapping[str, Any]) -> Tuple[str, MutableMapping[str, Any]]:
         task_id: Optional[int] = self.extra.get("task_id") if self.extra is not None else None
+        main_task_id: Optional[int] = self.extra.get("main_task_id") if self.extra is not None else None
         if task_id is not None:
-            msg = f"Task #{task_id}: {msg}"
+            task_prefix = f"Task #{task_id} ({main_task_id})" if main_task_id else f"Task #{task_id}"
+            msg = f"{task_prefix}: {msg}"
+            extra = dict(kwargs.get("extra") or {})
+            extra.setdefault("task_id", task_id)
+            if main_task_id:
+                extra.setdefault("main_task_id", main_task_id)
+            kwargs["extra"] = extra
         return msg, kwargs
 
 
@@ -120,7 +128,8 @@ class AnalysisManager(threading.Thread):
         super().__init__(name=f"task-{task.id}", daemon=True)
         self.db: _Database = Database()
         self.task = task
-        self.log = AnalysisLogger(log, {"task_id": self.task.id})
+        self.main_task_id = self.task.get_attribute("main_task_id") if hasattr(self.task, "get_attribute") else None
+        self.log = AnalysisLogger(log, {"task_id": self.task.id, "main_task_id": self.main_task_id})
         self.machine = machine
         self.machinery_manager = machinery_manager
         self.error_queue = error_queue
@@ -334,7 +343,7 @@ class AnalysisManager(threading.Thread):
             # This machine has turned dead, so we'll throw an exception
             # which informs the AnalysisManager that it should analyze
             # this task again with another available machine.
-            self.log.exception(str(e))
+            self.log.error("%s", e)
 
             # Remove the guest from the database, so that we can assign a
             # new guest when the task is being analyzed with another machine.
@@ -532,15 +541,19 @@ class AnalysisManager(threading.Thread):
 
     def run(self):
         """Run manager thread."""
-        try:
-            self.launch_analysis()
-        except Exception:
-            self.log.exception("failure in AnalysisManager.run")
-        else:
-            self.log.info("analysis procedure completed")
-        finally:
-            if self.done_callback:
-                self.done_callback(self)
+        machine_label = self.machine.label if self.machine else None
+        with log_task_context(task_id=self.task.id, main_task_id=self.main_task_id, machine=machine_label):
+            try:
+                self.launch_analysis()
+            except (CuckooDeadMachine, CuckooMachineError) as e:
+                self.log.error("failure in AnalysisManager.run: %s", e)
+            except Exception:
+                self.log.exception("failure in AnalysisManager.run")
+            else:
+                self.log.info("analysis procedure completed")
+            finally:
+                if self.done_callback:
+                    self.done_callback(self)
 
     def _rooter_response_check(self):
         if self.rooter_response and self.rooter_response["exception"] is not None:

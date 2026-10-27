@@ -109,6 +109,8 @@ def process(
     capeproc=False,
     memory_debugging=False,
     debug: bool = False,
+    visibility: str = None,
+    tenant_id: int = None,
 ):
     # This is the results container. It's what will be used by all the
     # reporting modules to make it consumable by humans and machines.
@@ -116,7 +118,7 @@ def process(
     # module available. Its structure can be observed through the JSON
     # dump in the analysis' reports folder. (If jsondump is enabled.)
 
-    task_dict = task.to_dict() or {}
+    task_dict = task.to_dict() if hasattr(task, "to_dict") else (dict(task) if isinstance(task, dict) else {})
     task_id = task_dict.get("id") or 0
     task_options = get_options(task_dict.get("options"))
     task_dict["_options_parsed"] = task_options
@@ -140,6 +142,32 @@ def process(
             log.info("(2) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
         with db.session.begin():
             RunProcessing(task=task_dict, results=results).run()
+        if isinstance(results.get("info"), dict):
+            if (visibility is not None or tenant_id is not None) and task_id:
+                with suppress(Exception):
+                    from cape_tenancy.acl import ensure_acl_schema, set_task_acl
+
+                    ensure_acl_schema(db.engine)
+                    with db.session.begin():
+                        set_task_acl(
+                            db.session,
+                            int(main_task_id or task_id),
+                            user_id=results["info"].get("user_id") or task_dict.get("user_id"),
+                            tenant_id=int(tenant_id) if tenant_id is not None else results["info"].get("tenant_id"),
+                            visibility=visibility if visibility in ("public", "tenant", "private") else (results["info"].get("visibility") or "private"),
+                        )
+            if attributes := task_dict.get("attributes"):
+                if isinstance(task_acl := attributes.get("task_acl"), dict):
+                    for k in ("user_id", "tenant_id", "visibility", "visibility_seq"):
+                        if k in task_acl:
+                            results["info"][k] = task_acl[k]
+            from lib.cuckoo.common.hooks import run_report_hooks
+
+            run_report_hooks(results)
+            if visibility in ("public", "tenant", "private"):
+                results["info"]["visibility"] = visibility
+            if tenant_id is not None:
+                results["info"]["tenant_id"] = int(tenant_id)
         if memory_debugging:
             gc.collect()
             log.info("(3) GC object counts: %d, %d", len(gc.get_objects()), len(gc.garbage))
@@ -158,7 +186,7 @@ def process(
             else:
                 reprocess = report
 
-            error_count = RunReporting(task=task.to_dict(), results=results, reprocess=reprocess).run()
+            error_count = RunReporting(task=task_dict, results=results, reprocess=reprocess).run()
             status = TASK_REPORTED if error_count == 0 else TASK_FAILED_REPORTING
             with db.session.begin():
                 db.set_status(task_id, status)
@@ -683,6 +711,19 @@ def main():
         default=os.getenv("CAPE_ENGINE") or "pebble",
         help="Processing engine: pebble (default, A/B control) or prefork.",
     )
+    if cfg.get("multitenancy") and cfg.multitenancy.get("enabled", False):
+        parser.add_argument(
+            "--visibility",
+            choices=["public", "tenant", "private"],
+            default=os.getenv("CAPE_VISIBILITY") or None,
+            help="Override task visibility (public, tenant, private) when processing/reporting.",
+        )
+        parser.add_argument(
+            "--tenant-id",
+            type=int,
+            default=int(os.getenv("CAPE_TENANT_ID")) if os.getenv("CAPE_TENANT_ID") else None,
+            help="Override task tenant/group ID when processing/reporting.",
+        )
     args = parser.parse_args()
 
     init_database()
@@ -756,6 +797,8 @@ def main():
                         capeproc=args.caperesubmit,
                         memory_debugging=args.memory_debugging,
                         debug=args.debug,
+                        visibility=getattr(args, "visibility", None),
+                        tenant_id=getattr(args, "tenant_id", None),
                     )
                 log.debug("Finished processing task")
                 set_formatter_fmt()

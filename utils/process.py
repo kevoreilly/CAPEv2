@@ -728,7 +728,8 @@ def main():
 
     init_database()
     handlers = init_logging(debug=args.debug)
-    check_webgui_mongo(exit_on_connection_failure=False)
+    if args.id == "auto":
+        check_webgui_mongo(exit_on_connection_failure=False)
     init_modules()
     if args.id == "auto":
         autoprocess(

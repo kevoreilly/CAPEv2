@@ -73,6 +73,7 @@ class PreforkEngine(ProcessingEngine):
 
     def _child_main(self, task):
         os.setsid()  # own session/process group; supervisor killpg sweeps the subtree
+        signal.signal(signal.SIGTERM, signal.SIG_DFL)
         # This child runs exactly one task then os._exit()s, so a single extractor
         # pool can be shared across every file in the task and torn down once —
         # reclaiming the per-file fork cost a per-call pool would pay N times. Safe
@@ -139,6 +140,22 @@ class PreforkEngine(ProcessingEngine):
                             child.task_id, pid, detail)
                 self.source.mark_failed(child.task_id)
 
+    def _signal_child(self, child, sig):
+        try:
+            os.killpg(child.pgid, sig)
+        except ProcessLookupError:
+            # Group may not exist yet (child hasn't reached os.setsid()) or is
+            # already gone. Fall back to signaling the pid directly.
+            try:
+                os.kill(child.pid, sig)
+            except ProcessLookupError:
+                return False
+        except OSError as e:
+            log.warning("prefork: signal %s failed for task %d (pid %d): %s",
+                        sig, child.task_id, child.pid, e)
+            return False
+        return True
+
     def _enforce_timeouts(self):
         now = time.monotonic()
         for child in list(self._inflight.values()):
@@ -148,21 +165,8 @@ class PreforkEngine(ProcessingEngine):
                       child.task_id, child.pid, self.timeout)
             child.timed_out = True
             self.source.mark_failed(child.task_id)
-            try:
-                os.killpg(child.pgid, signal.SIGTERM)
-            except ProcessLookupError:
-                # Group may not exist yet (child hasn't reached os.setsid()) or is
-                # already gone. Fall back to signaling the pid directly so the child
-                # is still killed and escalation still runs.
-                try:
-                    os.kill(child.pid, signal.SIGTERM)
-                except ProcessLookupError:
-                    continue  # truly gone; _reap will collect it
-            except OSError as e:
-                log.warning("prefork: killpg(SIGTERM) failed for task %d (pid %d): %s",
-                            child.task_id, child.pid, e)
-                continue
-            child.kill_deadline = now + self.term_grace
+            if self._signal_child(child, signal.SIGTERM):
+                child.kill_deadline = now + self.term_grace
 
     def _escalate_kills(self):
         now = time.monotonic()
@@ -170,50 +174,86 @@ class PreforkEngine(ProcessingEngine):
             if child.timed_out and child.kill_deadline and now > child.kill_deadline:
                 log.warning("prefork: task %d (pid %d) did not exit after SIGTERM, escalating to SIGKILL",
                             child.task_id, child.pid)
-                try:
-                    os.killpg(child.pgid, signal.SIGKILL)
-                except ProcessLookupError:
-                    # Group may not exist (child hung before os.setsid()); signal the
-                    # pid directly so a hung child can't leak. Mirrors _enforce_timeouts.
-                    try:
-                        os.kill(child.pid, signal.SIGKILL)
-                    except ProcessLookupError:
-                        pass
-                except OSError as e:
-                    log.warning("prefork: killpg(SIGKILL) failed for task %d (pid %d): %s",
-                                child.task_id, child.pid, e)
+                self._signal_child(child, signal.SIGKILL)
                 child.kill_deadline = None
+
+    def _shutdown_inflight(self):
+        """Terminate and reap all in-flight child process groups on supervisor exit."""
+        if not self._inflight:
+            return
+        log.info("prefork: shutting down %d in-flight worker(s)", len(self._inflight))
+        for child in list(self._inflight.values()):
+            self._signal_child(child, signal.SIGTERM)
+
+        deadline = time.monotonic() + self.term_grace
+        while self._inflight and time.monotonic() < deadline:
+            for pid in list(self._inflight.keys()):
+                try:
+                    reaped_pid, _ = os.waitpid(pid, os.WNOHANG)
+                except ChildProcessError:
+                    self._inflight.pop(pid, None)
+                    continue
+                if reaped_pid != 0:
+                    self._inflight.pop(pid, None)
+            if self._inflight:
+                time.sleep(min(self.poll_interval, 0.1))
+
+        for pid, child in list(self._inflight.items()):
+            log.warning("prefork: task %d (pid %d) still alive after shutdown grace, sending SIGKILL",
+                        child.task_id, pid)
+            self._signal_child(child, signal.SIGKILL)
+            try:
+                os.waitpid(pid, 0)
+            except ChildProcessError:
+                pass
+            self._inflight.pop(pid, None)
 
     def run(self):
         cfg = Config()
         count = 0
         last_hb = 0.0
-        while True:
-            self._reap()
-            self._enforce_timeouts()
-            self._escalate_kills()
-            if cfg.cuckoo.freespace_processing:
-                from lib.cuckoo.common.cleaners_utils import free_space_monitor
-                dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
-                free_space_monitor(dir_path, processing=True)
-            if self.max_count and count >= self.max_count and not self._inflight:
-                return
-            free = self.parallel - len(self._inflight)
-            launchable = free if not self.max_count else min(free, self.max_count - count)
-            launched = 0
-            if launchable > 0:
-                try:
-                    tasks = self.source.fetch(limit=launchable, exclude_ids=self._inflight_task_ids())
-                except Exception as db_error:
-                    log.error("Database connection error during task fetch: %s. Retrying in 10s...", db_error)
-                    time.sleep(10)
-                    continue
-                for task in tasks[:launchable]:
-                    self._launch(task)
-                    count += 1
-                    launched += 1
-            now = time.monotonic()
-            if now - last_hb >= self.heartbeat_interval:
-                self._heartbeat()
-                last_hb = now
-            time.sleep(self._sleep_interval(launched))
+        prev_sigterm = None
+        if threading.current_thread() is threading.main_thread():
+            def _on_sigterm(signum, _frame):
+                raise SystemExit(128 + signum)
+
+            prev_sigterm = signal.signal(signal.SIGTERM, _on_sigterm)
+
+        try:
+            while True:
+                self._reap()
+                self._enforce_timeouts()
+                self._escalate_kills()
+                if cfg.cuckoo.freespace_processing:
+                    from lib.cuckoo.common.cleaners_utils import free_space_monitor
+                    dir_path = os.path.join(CUCKOO_ROOT, "storage", "analyses")
+                    free_space_monitor(dir_path, processing=True)
+                if self.max_count and count >= self.max_count and not self._inflight:
+                    return
+                free = self.parallel - len(self._inflight)
+                launchable = free if not self.max_count else min(free, self.max_count - count)
+                launched = 0
+                if launchable > 0:
+                    try:
+                        tasks = self.source.fetch(limit=launchable, exclude_ids=self._inflight_task_ids())
+                    except Exception as db_error:
+                        log.error("Database connection error during task fetch: %s. Retrying in 10s...", db_error)
+                        time.sleep(10)
+                        continue
+                    for task in tasks[:launchable]:
+                        self._launch(task)
+                        count += 1
+                        launched += 1
+                now = time.monotonic()
+                if now - last_hb >= self.heartbeat_interval:
+                    self._heartbeat()
+                    last_hb = now
+                time.sleep(self._sleep_interval(launched))
+        finally:
+            try:
+                if prev_sigterm is not None:
+                    signal.signal(signal.SIGTERM, signal.SIG_IGN)
+                self._shutdown_inflight()
+            finally:
+                if prev_sigterm is not None:
+                    signal.signal(signal.SIGTERM, prev_sigterm)

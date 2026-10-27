@@ -33,6 +33,17 @@ class JsonDump(Report):
             return result
         raise TypeError
 
+    def _sanitize_surrogates(self, obj):
+        if isinstance(obj, str):
+            return obj.encode("utf-8", errors="replace").decode("utf-8")
+        if isinstance(obj, dict):
+            return {self._sanitize_surrogates(k): self._sanitize_surrogates(v) for k, v in obj.items()}
+        if isinstance(obj, list):
+            return [self._sanitize_surrogates(item) for item in obj]
+        if isinstance(obj, tuple):
+            return [self._sanitize_surrogates(item) for item in obj]
+        return obj
+
     def run(self, results):
         """Writes report.
         @param results: Cuckoo results dict.
@@ -42,11 +53,17 @@ class JsonDump(Report):
         try:
             path = os.path.join(self.reports_path, "report.json")
             if HAVE_ORJSON:
-                _ = path_write_file(
-                    path, orjson.dumps(results, option=orjson.OPT_INDENT_2, default=self.default)
-                )  # orjson.OPT_SORT_KEYS |
+                try:
+                    payload = orjson.dumps(results, option=orjson.OPT_INDENT_2, default=self.default)
+                except TypeError:
+                    payload = orjson.dumps(
+                        self._sanitize_surrogates(results),
+                        option=orjson.OPT_INDENT_2,
+                        default=self.default,
+                    )
+                _ = path_write_file(path, payload)  # orjson.OPT_SORT_KEYS |
             else:
-                with open(path, "w") as report:
+                with open(path, "w", encoding="utf-8", errors="replace") as report:
                     json.dump(results, report, sort_keys=False, indent=int(indent), ensure_ascii=False)
 
             # useful if you frequently fetch zipped reports to not compress in memory all the time

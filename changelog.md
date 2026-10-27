@@ -1,3 +1,15 @@
+### [14.10.2026]
+* `analyzer/windows`: expand environment variables in `executiondir`/`curdir` in `Process.execute()`, fall back to `CreateProcessW` without `PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` when launching with `explorer.exe` as parent fails (e.g. `ERROR_ELEVATION_REQUIRED` on installers with `requireAdministrator` manifests), and keep the analysis running for the full timeout when `enforce_timeout` is enabled even if `package.start()` fails.
+
+### [08.10.2026]
+* `extra/browser_extension`: capture `requestBody` (`formData` and decoded `raw` bytes up to 4 KB) via `webRequest.onBeforeRequest`, record HTTP `statusCode` in `onCompleted`, correlate lifecycle events by `requestId` with O(1) deduplication, debounce event flushing, and fix the `browser.downloads.onChanged` listener registration.
+
+### [06.10.2026]
+* Browser extension (URL analysis with `firefox_ext`/`chromium_ext` and `extra/browser_extension`):
+    * `browsermonitor`: find the requests log written by agent >= 0.20 (random `%TEMP%` folder without the `tmp` prefix) and upload the last complete version once, when the analysis ends.
+    * `firefox_ext`/`chromium_ext`: stop returning the `webbrowser.open()` bool as a PID, which ended the analysis a few seconds after opening the URL.
+    * Agent 0.23: `/browser_extension` releases its lock on errors and writes the log atomically as UTF-8.
+
 ### [16.09.2026]
 * Monitor updates:
     * Misc enhancements & fixes (see capemon repo for details)

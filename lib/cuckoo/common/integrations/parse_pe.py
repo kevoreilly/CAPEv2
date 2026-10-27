@@ -11,6 +11,7 @@ import json
 import logging
 import math
 import struct
+import warnings
 from contextlib import suppress
 from datetime import datetime
 from io import BytesIO
@@ -142,6 +143,35 @@ def IsPEImage(buf: bytes, size: int = False) -> bool:
     # After passing the above tests it should be safe to assume it's a PE image
 
     return True
+
+
+def _extract_pkcs7_der_bytes(pe_data: bytes, address: int, size: int) -> bytes:
+    """Extract PKCS#7 bCertificate payload from PE IMAGE_DIRECTORY_ENTRY_SECURITY.
+
+    Removes WIN_CERTIFICATE 8-byte alignment padding and trailing overlay bytes.
+    """
+    end = min(len(pe_data), address + size) if size and size > 8 else len(pe_data)
+    if end - address <= 8:
+        return b""
+
+    dw_length = struct.unpack_from("<I", pe_data, address)[0]
+    if 8 < dw_length <= end - address:
+        end = address + dw_length
+
+    signatures = bytes(pe_data[address + 8 : end])
+    if len(signatures) >= 2 and signatures[0] == 0x30:
+        len_byte = signatures[1]
+        asn1_total = 0
+        if len_byte < 0x80:
+            asn1_total = 2 + len_byte
+        elif 0x80 < len_byte < 0xFF:
+            num_len_bytes = len_byte & 0x7F
+            if 2 + num_len_bytes <= len(signatures):
+                asn1_total = 2 + num_len_bytes + int.from_bytes(signatures[2 : 2 + num_len_bytes], "big")
+        if 0 < asn1_total <= len(signatures):
+            signatures = signatures[:asn1_total]
+
+    return signatures
 
 
 class PortableExecutable:
@@ -802,12 +832,14 @@ class PortableExecutable:
 
         certs = []
         try:
-            signatures = pe.write()[address + 8 :]
+            signatures = _extract_pkcs7_der_bytes(pe.write(), address, dir_entry.Size)
 
-            if isinstance(signatures, bytearray):
-                signatures = bytes(signatures)
-
-            with suppress(Exception):
+            with suppress(Exception), warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message="PKCS#7 certificates could not be parsed as DER.*",
+                    category=UserWarning,
+                )
                 certs = _pkcs7_mod.load_der_pkcs7_certificates(signatures)
 
         except AttributeError:
@@ -822,8 +854,8 @@ class PortableExecutable:
                 "sha1_fingerprint": sha1,
                 "sha256_fingerprint": sha256,
                 "serial_number": str(cert.serial_number),
-                "not_before": cert.not_valid_before.isoformat(),
-                "not_after": cert.not_valid_after.isoformat(),
+                "not_before": cert.not_valid_before_utc.isoformat(),
+                "not_after": cert.not_valid_after_utc.isoformat(),
             }
             try:
                 for attribute in cert.subject:
@@ -1015,3 +1047,4 @@ class PortableExecutable:
 
         self.pe.close()
         return peresults
+

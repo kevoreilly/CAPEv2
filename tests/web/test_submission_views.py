@@ -244,3 +244,55 @@ class TestSubmissionViews(SimpleTestCase):
         names = [item["name"] for item in actual]
         self.assertIn("firefox", names)
         self.assertIn("bash (linux only)", names)
+
+    def test_batch_tasks_live_table_and_htmx_polling(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+
+        fake_tasks = {
+            101: SimpleNamespace(
+                id=101,
+                target="/tmp/alpha.exe",
+                category="file",
+                status="running",
+                sample=SimpleNamespace(sha256="a" * 64),
+            ),
+            102: SimpleNamespace(
+                id=102,
+                target="/tmp/beta.dll",
+                category="file",
+                status="completed",
+                sample=SimpleNamespace(sha256="b" * 64),
+            ),
+        }
+
+        with (
+            patch("submission.views.db.view_task", side_effect=lambda tid: fake_tasks.get(int(tid))),
+            patch("submission.views.can_view_task", return_value=True),
+        ):
+            # 1. While tasks are non-terminal, polling attributes and live indicator are rendered
+            resp = self.client.get("/submit/?batch_tasks=101,102&remote_console=1")
+            self.assertEqual(resp.status_code, 200)
+            body = resp.content.decode()
+            self.assertIn('id="batch-tasks-table"', body)
+            self.assertIn('hx-trigger="every 5s"', body)
+            self.assertIn('id="batch-poll-indicator"', body)
+            self.assertIn("alpha.exe", body)
+            self.assertIn("beta.dll", body)
+            self.assertIn("RUNNING", body)
+            self.assertIn("PROCESSING", body)
+            self.assertIn("/submit/status/101/", body)
+            self.assertIn("/submit/remote_session/101/", body)
+
+            # 2. Once all tasks reach terminal status (reported), polling stops and View Report links appear
+            fake_tasks[101].status = "reported"
+            fake_tasks[102].status = "reported"
+            resp_done = self.client.get("/submit/?batch_tasks=101,102")
+            self.assertEqual(resp_done.status_code, 200)
+            body_done = resp_done.content.decode()
+            self.assertNotIn('hx-trigger="every 5s"', body_done)
+            self.assertIn('id="batch-complete-indicator"', body_done)
+            self.assertIn("View Report", body_done)
+            self.assertIn("/analysis/101/", body_done)
+            self.assertIn("/analysis/102/", body_done)
+

@@ -1,5 +1,7 @@
 This browser extension intercepts requests done within a browser and sends them
-back to agent.py.
+back to agent.py (`url`, `method`, `timeStamp`, `requestBody` (`formData`/`raw`),
+`requestHeaders`, `statusCode`, `responseHeaders`, `type`, `ip`, `originUrl`, and
+`filePath`).
 
 Extension setup differs on a browser basis:
 

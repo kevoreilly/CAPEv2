@@ -5,6 +5,7 @@ import time
 from typing import Callable, Sequence
 
 from lib.cuckoo.common.config import Config
+from lib.cuckoo.common.hooks import apply_mongo_filter
 
 log = logging.getLogger(__name__)
 logging.getLogger("pymongo").setLevel(logging.ERROR)
@@ -55,7 +56,7 @@ if repconf.mongodb.enabled:
                 username=repconf.mongodb.get("username"),
                 password=repconf.mongodb.get("password"),
                 authSource=repconf.mongodb.get("authsource", "cuckoo"),
-                # DocumentDB (central mode) needs TLS explicitly on (a CA file alone
+                # DocumentDB (and managed MongoDB) needs TLS explicitly on (a CA file alone
                 # does NOT enable TLS in pymongo) and retryWrites OFF (DocumentDB
                 # rejects retryable writes). Both default to today's single-node
                 # behavior: tls off, retryWrites on (pymongo's own default).
@@ -213,6 +214,9 @@ def mongo_insert_one(collection: str, doc):
 
 @graceful_auto_reconnect
 def mongo_find(collection: str, query, projection=False, sort=None, limit=None, max_time_ms=None, no_hooks=False):
+    if not no_hooks and isinstance(query, dict):
+        query = apply_mongo_filter(collection, query)
+
     if sort is None:
         sort = [("_id", -1)]
 
@@ -234,6 +238,9 @@ def mongo_find(collection: str, query, projection=False, sort=None, limit=None, 
 
 @graceful_auto_reconnect
 def mongo_find_one(collection: str, query, projection=False, sort=None, max_time_ms=None, no_hooks=False):
+    if not no_hooks and isinstance(query, dict):
+        query = apply_mongo_filter(collection, query)
+
     if sort is None:
         sort = [("_id", -1)]
 

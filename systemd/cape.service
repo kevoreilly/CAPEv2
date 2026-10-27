@@ -11,7 +11,9 @@ User=cape
 Group=cape
 Restart=always
 RestartSec=5m
-# send SIGKILL if analysis is still ongoing 4m after SIGTERM
+# send SIGTERM only to main cuckoo.py process so in-flight tcpdump/auxiliary
+# child processes can finish cleanly; send SIGKILL to remaining cgroup after 4m
+KillMode=mixed
 TimeoutStopSec=4m
 LimitNOFILE=100000
 

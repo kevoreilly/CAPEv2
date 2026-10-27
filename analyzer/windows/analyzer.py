@@ -687,16 +687,29 @@ class Analyzer:
         else:
             # Start analysis package. If for any reason, the execution of the
             # analysis package fails, we have to abort the analysis.
+            pids = None
             try:
                 pids = self.package.start(self.target)
             except NotImplementedError as e:
                 raise CuckooError(f'The package "{self.package_name}" doesn\'t contain a start function') from e
             except CuckooPackageError as e:
-                raise CuckooError(f'The package "{self.package_name}" start function raised an error: {e}') from e
+                if not self.config.enforce_timeout:
+                    raise CuckooError(f'The package "{self.package_name}" start function raised an error: {e}') from e
+                log.warning(
+                    'The package "%s" start function raised an error (continuing due to enforce_timeout): %s',
+                    self.package_name,
+                    e,
+                )
             except Exception as e:
-                raise CuckooError(
-                    f'The package "{self.package_name}" start function encountered an unhandled exception: {e}'
-                ) from e
+                if not self.config.enforce_timeout:
+                    raise CuckooError(
+                        f'The package "{self.package_name}" start function encountered an unhandled exception: {e}'
+                    ) from e
+                log.warning(
+                    'The package "%s" start function encountered an unhandled exception (continuing due to enforce_timeout): %s',
+                    self.package_name,
+                    e,
+                )
 
             # If the analysis package returned a list of process IDs, we add them
             # to the list of monitored processes and enable the process monitor.
@@ -766,7 +779,11 @@ class Analyzer:
                             if not Process(pid=pid).is_alive():
                                 if self.options.get("procmemdump", False):
                                     try:
-                                        Process(pid=pid).upload_memdump()
+                                        self.files.dump_file(
+                                            os.path.join(PATHS["memory"], f"{pid}.dmp"),
+                                            pids=[str(pid)],
+                                            category="memory",
+                                        )
                                     except Exception as e:
                                         log.exception(e)
                                 log.info("Process with pid %s appears to have terminated", pid)
@@ -925,6 +942,7 @@ class Files:
         self.files = {}
         self.files_orig = {}
         self.dumped = []
+        self.lock = Lock()
 
     @classmethod
     def is_protected_filename(cls, file_name):
@@ -959,42 +977,45 @@ class Files:
             log.warning("File at path %s does not exist, skipping", filepath)
             return False
 
-        duplicated = False
-        # Check whether we've already dumped this file - in that case skip it.
-        try:
-            sha256 = hash_file(hashlib.sha256, filepath)
-            if sha256 in self.dumped:
-                duplicated = True
-        except IOError as e:
-            log.info('Error dumping file from path "%s": %s', filepath, e)
-            return
+        with self.lock:
+            duplicated = False
+            # Check whether we've already dumped this file - in that case skip it.
+            try:
+                sha256 = hash_file(hashlib.sha256, filepath)
+                if sha256 in self.dumped:
+                    duplicated = True
+            except IOError as e:
+                log.info('Error dumping file from path "%s": %s', filepath, e)
+                return
 
-        # load metadata
-        if self.files_orig.get(filepath.lower()):
-            file_details = self.files_orig.get(filepath.lower())
-            category = file_details["category"]
-            metadata = file_details["metadata"]
-            pids = self.files.get(filepath.lower(), [])
-            filepath = file_details.get("path", filepath)
+            # load metadata
+            if self.files_orig.get(filepath.lower()):
+                file_details = self.files_orig.get(filepath.lower())
+                category = file_details["category"]
+                metadata = file_details["metadata"]
+                pids = self.files.get(filepath.lower(), [])
+                filepath = file_details.get("path", filepath)
 
-        if category == "memory":
-            if pids:
-                upload_path = os.path.join(category, f"{pids[0]}.dmp")
+            if category == "memory":
+                if duplicated:
+                    return
+                if pids:
+                    upload_path = os.path.join(category, f"{pids[0]}.dmp")
+                else:
+                    pids = [os.path.basename(filepath).split(".", 1)[0]]
+                    upload_path = os.path.join(category, os.path.basename(filepath))
+
             else:
-                pids = [os.path.basename(filepath).split(".", 1)[0]]
-                upload_path = os.path.join(category, os.path.basename(filepath))
+                upload_path = os.path.join(category, sha256)
 
-        else:
-            upload_path = os.path.join(category, sha256)
-
-        try:
-            # If available use the original filepath, the one that is not lowercased.
-            upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category, duplicated=duplicated)
-            self.dumped.append(sha256)
-        except (IOError, socket.error) as e:
-            log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
-        except Exception as e:
-            log.exception(e)
+            try:
+                # If available use the original filepath, the one that is not lowercased.
+                upload_to_host(filepath, upload_path, pids, ppids, metadata=metadata, category=category, duplicated=duplicated)
+                self.dumped.append(sha256)
+            except (IOError, socket.error) as e:
+                log.error('Unable to upload dropped file at path "%s": %s', filepath, e)
+            except Exception as e:
+                log.exception(e)
 
     def delete_file(self, filepath, pid=None):
         """A file is about to be removed and thus should be dumped right away."""

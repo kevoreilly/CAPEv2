@@ -143,18 +143,33 @@ class Sniffer(Auxiliary):
                 return
 
             try:
-                subprocess.check_call([self.sudo_path, "--list", "--non-interactive", tcpdump])
-            except (FileNotFoundError, subprocess.CalledProcessError):
+                subprocess.check_call(
+                    [self.sudo_path, "--list", "--non-interactive", tcpdump],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.PIPE,
+                )
+            except (FileNotFoundError, subprocess.CalledProcessError) as e:
                 # https://github.com/cuckoosandbox/cuckoo/pull/2842/files
+                sudo_err = (
+                    e.stderr.decode(errors="replace").strip()
+                    if isinstance(e, subprocess.CalledProcessError) and e.stderr
+                    else str(e)
+                )
                 mode = os.stat(tcpdump).st_mode
                 if mode & S_ISUID:
                     log.error(
-                        "Tcpdump is not accessible for this user. Network capture aborted. "
+                        "Tcpdump is not accessible for this user (%s). Network capture aborted. "
                         "You probably need to grant sudo access to %s or add CAPE user to "
                         "pcap group",
+                        sudo_err,
                         tcpdump,
                     )
                     return
+                log.warning(
+                    "Sudo check for %s failed (%s); attempting to run tcpdump without sudo",
+                    tcpdump,
+                    sudo_err,
+                )
             else:
                 sudo = True
 
@@ -255,6 +270,17 @@ class Sniffer(Auxiliary):
                 file_path,
             )
 
+    def _reap_proc(self, timeout=2):
+        if not self.proc:
+            return "", ""
+        try:
+            out, err = self.proc.communicate(timeout=timeout)
+            out_str = (out or b"").decode(errors="replace").strip() if isinstance(out, bytes) else str(out or "").strip()
+            err_str = (err or b"").decode(errors="replace").strip() if isinstance(err, bytes) else str(err or "").strip()
+            return out_str, err_str
+        except Exception as e:
+            return "", f"<communicate failed: {e}>"
+
     def stop(self):
         """Stop sniffing.
         @return: operation status.
@@ -288,27 +314,91 @@ class Sniffer(Auxiliary):
         if not self.proc:
             return
 
-        # poll() is None while running and the exit code once it has exited, so
-        # `not poll()` was True for a clean exit and False for a failed one.
-        if self.proc.poll() is not None:
-            # tcpdump is already gone - a bad filter expression, for instance,
-            # makes it exit immediately. Report why instead of trying to kill it.
-            _, stderr = self.proc.communicate()
-            log.error(
-                "Sniffer already exited with code %d before it was stopped: %s",
-                self.proc.returncode,
-                stderr.decode(errors="replace").strip() if stderr else "no output",
-            )
+        poll_rc = self.proc.poll()
+        if poll_rc is not None:
+            out, err = self._reap_proc(timeout=2)
+            if poll_rc != 0:
+                log.error(
+                    "Sniffer process (pid %d) exited prematurely with code %d before stop() (args=%s, stdout=%r, stderr=%r)",
+                    self.proc.pid,
+                    poll_rc,
+                    getattr(self.proc, "args", None),
+                    out,
+                    err,
+                )
+            else:
+                log.warning(
+                    "Sniffer process (pid %d) already exited with code 0 before stop() (args=%s, stdout=%r, stderr=%r)",
+                    self.proc.pid,
+                    getattr(self.proc, "args", None),
+                    out,
+                    err,
+                )
             return
 
-        if self.proc.args[0] == self.sudo_path and "-Z" in self.proc.args:
+        if getattr(self.proc, "args", None) and self.proc.args[0] == self.sudo_path and "-Z" in self.proc.args:
             # We must kill the child process that sudo spawned. We won't
             # have permission to kill the parent process because it's owned by root.
             try:
-                output = subprocess.check_output(["ps", "--ppid", str(self.proc.pid), "-o", "pid="], timeout=30).decode().strip()
-                pid = int(output.split()[0])
-            except (subprocess.CalledProcessError, subprocess.TimeoutExpired, TypeError, ValueError, IndexError):
-                log.exception("Failed to get child pid of sudo process to stop the sniffer.")
+                output = (
+                    subprocess.check_output(
+                        ["ps", "--ppid", str(self.proc.pid), "-o", "pid="],
+                        stderr=subprocess.PIPE,
+                        timeout=30,
+                    )
+                    .decode(errors="replace")
+                    .strip()
+                )
+                pids = [int(p) for p in output.split() if p.isdigit()]
+                if not pids:
+                    poll_after = self.proc.poll()
+                    out, err = self._reap_proc(timeout=2)
+                    log.error(
+                        "Failed to get child pid of sudo sniffer (pid %d, poll=%s, returncode=%s): "
+                        "ps returned no pids (ps_output=%r, stdout=%r, stderr=%r, args=%s)",
+                        self.proc.pid,
+                        poll_after,
+                        self.proc.returncode,
+                        output,
+                        out,
+                        err,
+                        self.proc.args,
+                    )
+                    return
+                pid = pids[0]
+            except subprocess.CalledProcessError as e:
+                poll_after = self.proc.poll()
+                out, err = self._reap_proc(timeout=2)
+                ps_out = (e.output or b"").decode(errors="replace").strip()
+                ps_err = (e.stderr or b"").decode(errors="replace").strip()
+                log.error(
+                    "Failed to get child pid of sudo sniffer (pid %d, poll=%s, returncode=%s): "
+                    "ps exited with %d (ps_stdout=%r, ps_stderr=%r, stdout=%r, stderr=%r, args=%s)",
+                    self.proc.pid,
+                    poll_after,
+                    self.proc.returncode,
+                    e.returncode,
+                    ps_out,
+                    ps_err,
+                    out,
+                    err,
+                    self.proc.args,
+                )
+                return
+            except Exception as e:
+                poll_after = self.proc.poll()
+                out, err = self._reap_proc(timeout=2)
+                log.error(
+                    "Failed to get child pid of sudo sniffer (pid %d, poll=%s, returncode=%s): %s "
+                    "(stdout=%r, stderr=%r, args=%s)",
+                    self.proc.pid,
+                    poll_after,
+                    self.proc.returncode,
+                    e,
+                    out,
+                    err,
+                    self.proc.args,
+                )
                 return
             term_func = functools.partial(os.kill, pid, signal.SIGTERM)
             kill_func = functools.partial(os.kill, pid, signal.SIGKILL)
@@ -316,17 +406,28 @@ class Sniffer(Auxiliary):
             term_func = self.proc.terminate
             kill_func = self.proc.kill
             pid = self.proc.pid
+
         try:
             term_func()
-            _, _ = self.proc.communicate(timeout=5)
+            self.proc.communicate(timeout=5)
+        except ProcessLookupError as e:
+            out, err = self._reap_proc(timeout=2)
+            log.warning(
+                "Sniffer process %d already terminated before signal: %s (returncode=%s, stdout=%r, stderr=%r)",
+                pid,
+                e,
+                self.proc.returncode,
+                out,
+                err,
+            )
         except Exception as e:
             log.error("Unable to stop the sniffer (first try) with pid %d: %s", pid, e)
             try:
                 if self.proc.poll() is None:
                     log.debug("Killing sniffer")
                     kill_func()
-                    _, _ = self.proc.communicate(timeout=5)
-            except OSError as e:
+                    self.proc.communicate(timeout=5)
+            except (OSError, ProcessLookupError) as e:
                 log.debug("Error killing sniffer: %s, continuing", e)
             except Exception as e:
                 log.exception("Unable to stop the sniffer with pid %d: %s", pid, e)

@@ -39,8 +39,6 @@ import threading
 from importlib import import_module
 from pathlib import Path
 
-from cachetools import TTLCache
-
 from lib.cuckoo.common.config import Config
 
 log = logging.getLogger(__name__)
@@ -79,9 +77,12 @@ except (TypeError, ValueError):
     MAGIKA_MAX_FILE_SIZE = 100
 
 HAVE_MAGIKA = False
+TTLCache = None
 _magika_module = None
 
 if MAGIKA_ENABLED:
+    with contextlib.suppress(ImportError):
+        from cachetools import TTLCache
     try:
         # Absolute import: this file is `lib.cuckoo.common.integrations.magika`,
         # the dependency is top-level `magika`. Python 3 has no implicit
@@ -105,7 +106,7 @@ _MAGIKA_INSTANCE = None
 # absolute path, TTL-bounded so a long-lived worker cannot grow without limit,
 # explicitly cleared at task boundaries via `clear_magika_cache`.
 _CACHE_LOCK = threading.Lock()
-_MAGIKA_CACHE = TTLCache(maxsize=4096, ttl=3600)
+_MAGIKA_CACHE = TTLCache(maxsize=4096, ttl=3600) if TTLCache is not None else {}
 
 
 def _get_magika():

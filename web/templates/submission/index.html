@@ -354,6 +354,10 @@
                                                                     <td class="text-end"><code>package</code></td>
                                                                     <td>Analysis package to use</td>
                                                                 </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>recursion_depth</code></td>
+                                                                    <td>Depth of archive extraction (nested archives)</td>
+                                                                </tr>
                                                             </tbody>
                                                         </table>
                                                     </div>
@@ -547,6 +551,10 @@
                                                                 <tr>
                                                                     <td class="text-end"><code>check_shellcode</code></td>
                                                                     <td>Disable shellcode check during package ID (check_shellcode=0)</td>
+                                                                </tr>
+                                                                <tr>
+                                                                    <td class="text-end"><code>ignore_junk_filter</code></td>
+                                                                    <td>Force analysis of files otherwise skipped by the junk filter (e.g. .txt)</td>
                                                                 </tr>
                                                                 <tr>
                                                                     <td class="text-end"><code>function</code></td>
@@ -988,16 +996,6 @@
                                         <option value="green" data-color="#198754" style="color: #198754;">Green</option>
                                         <option value="amber" data-color="#ffc107" style="color: #ffc107;">Amber</option>
                                         <option value="red" data-color="#dc3545" style="color: #dc3545;">Red</option>
-                                    </select>
-                                </div>
-                                {% endif %}
-                                {% if visibility_levels %}
-                                <div class="col-md-6">
-                                    <label for="form_visibility" class="text-white-50">Visibility</label>
-                                    <select class="form-select border-secondary" id="form_visibility" name="visibility">
-                                        {% for level in visibility_levels %}
-                                        <option value="{{ level }}" {% if level == default_visibility %}selected{% endif %}>{{ level }}</option>
-                                        {% endfor %}
                                     </select>
                                 </div>
                                 {% endif %}

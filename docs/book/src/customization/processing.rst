@@ -10,6 +10,27 @@ signatures and the reporting modules.
 You can create as many modules as you want, as long as they follow a
 predefined structure that we will present in this chapter.
 
+Configuration parsers
+=====================
+
+CAPE's core and community configuration parsers are maintained in the separate
+`CAPE-parsers`_ repository. CAPEv2 depends on the ``CAPE-parsers`` Python package
+and loads its parsers when ``[CAPE_extractors]`` is enabled in ``processing.conf``.
+
+For local configuration parsers, place Python modules in ``custom/parsers/`` under
+the CAPE root directory. CAPEv2 loads them alongside the installed parsers; a
+custom parser takes precedence when its parser name matches an installed one.
+
+A configuration parser extracts configuration from file data. A processing
+module is a ``Processing`` subclass that adds results to the global container
+described below.
+
+Submit parser additions and fixes to CAPE-parsers. Changes to CAPEv2's integration
+with those parsers belong in the CAPEv2 repository. The parser repository's README
+describes the expected configuration fields.
+
+.. _CAPE-parsers: https://github.com/CAPESandbox/CAPE-parsers
+
 Global Container
 ================
 

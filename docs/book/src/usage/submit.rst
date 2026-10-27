@@ -130,6 +130,7 @@ Submission & General
 - ``dllloader``: Specify a process name to fake the DLL launcher (default is ``rundll32.exe``).
 - ``pwsh``: For PS1 package, prefer PowerShell Core (``pwsh.exe``) if available.
 - ``ignore_size_check``: Allow ignoring file size limits (must be enabled in ``conf/web.conf``).
+- ``ignore_junk_filter``: Set to ``1`` to force analysis of files that would otherwise be skipped by the junk filter (e.g. ``.txt`` / ``.md`` / ``.yml`` extensions, or names like ``readme`` / ``license``).
 - ``check_shellcode``: Set to ``0`` to disable shellcode detection during package identification.
 - ``pre_script_args`` / ``during_script_args``: Command line arguments for pre/during-execution scripts.
 - ``pre_script_timeout``: Timeout for pre-execution script (default 60s).

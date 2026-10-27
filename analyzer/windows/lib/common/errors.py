@@ -396,9 +396,10 @@ def get_error_string(error_code):
     try:
         import ctypes
 
-        formatted = ctypes.FormatError(error_code).strip()
-        if formatted:
-            return f"{formatted} (Error {error_code})"
+        if hasattr(ctypes, "FormatError"):
+            formatted = ctypes.FormatError(error_code).strip()
+            if formatted:
+                return f"{formatted} (Error {error_code})"
     except Exception:
         pass
     return str(error_code)

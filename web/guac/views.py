@@ -15,7 +15,6 @@ from guac.channels_auth import resolve_session_user
 
 from lib.cuckoo.common.config import Config
 from lib.cuckoo.core.database import Database
-from web.tenancy_optional import can_manage_task, multitenancy_config, viewer_for
 
 logger = logging.getLogger("guac-session")
 
@@ -85,71 +84,24 @@ def _error(request, task_id, msg):
 
 @conditional_login_required(guac_login_required, settings.WEB_AUTHENTICATION)
 def index(request, task_id, session_data):
-    # tenant isolation: minting a live-VM session grants keyboard/mouse/framebuffer
-    # control of the running analysis VM — a task ACTION, not passive report viewing.
-    # Gate it on can_manage_task (owner / tenant-admin / break-glass), NOT mere read
-    # visibility, so a read-only viewer of a public/tenant task can't tunnel into the
-    # live VM. hidden == "not found" (no cross-tenant enumeration).
-    #
-    # MT-OFF INVARIANT: this gate is ADDITIVE. When multitenancy is disabled we skip it
-    # entirely and fall through to upstream's original ordering (libvirt/machinery checks
-    # first, then the existence check + exact "The specified task doesn't seem to exist"
-    # message below) so MT-off behavior is byte-for-byte identical to upstream.
-    if multitenancy_config().enabled:
-        _task = db.view_task(int(task_id))
-        if _task is None or not can_manage_task(request.user, _task):
-            return _error(request, task_id, "No analysis found with specified ID")
-
     if not LIBVIRT_AVAILABLE:
         return _error(request, task_id, "Libvirt not available")
 
     if machinery not in machinery_available:
         return _error(request, task_id, f"Machinery type '{machinery}' is not supported")
 
-    # The VM label + guest IP are derived authoritatively from the task below (never from the
-    # attacker-controlled session_data path segment), so the task must exist.
-    _task = db.view_task(int(task_id))
-    if not _task:
-        return _error(request, task_id, "The specified task doesn't seem to exist")
-
-    # Central mode: a broker-dispatched job's VM is on a worker — check that
-    # worker's libvirt. None => local (single-node), DSN unchanged.
-    from lib.cuckoo.common.central_guac import libvirt_dsn_for_task
-
-    dsn, _worker_ip = libvirt_dsn_for_task(int(task_id), machinery_dsn)
-
     conn = None
     try:
-        conn = libvirt.open(dsn)
+        conn = libvirt.open(machinery_dsn)
         if not conn:
             return _error(request, task_id, "Could not connect to hypervisor")
 
         try:
-            session_id, _claimed_label, _claimed_ip = (
+            session_id, label, guest_ip = (
                 urlsafe_b64decode(session_data).decode("utf8").split("|")
             )
         except Exception as e:
             return _error(request, task_id, str(e))
-
-        # SECURITY: BOTH the VM label AND the guest IP MUST come from the authorized task,
-        # never from the attacker-controlled session_data path segment. Trusting the label
-        # lets a caller who can reach ONE running task tunnel into another VM by name;
-        # trusting guest_ip lets them point the guacd RDP tunnel at an arbitrary host:3389
-        # (SSRF — guest_host is built from this value in consumers.py). Derive both from the
-        # task: _task.machine + its machine record (single-node) or the worker's VM (central
-        # mode). Ignore _claimed_label / _claimed_ip entirely.
-        label = _task.machine
-        guest_ip = ""
-        if label:
-            _m = db.view_machine_by_label(label)
-            guest_ip = getattr(_m, "ip", "") or ""
-        else:
-            from lib.cuckoo.common.central_guac import worker_vm_for_task
-
-            label, guest_ip = worker_vm_for_task(int(task_id))
-            guest_ip = guest_ip or ""
-        if not label:
-            return _error(request, task_id, "No VM is associated with this task")
 
         try:
             dom = conn.lookupByName(label)
@@ -203,13 +155,6 @@ def index(request, task_id, session_data):
 def direct_vnc_host_port(request, host, port):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
-    # Direct VNC opens a raw tunnel to a caller-chosen host:port with no task/tenant
-    # scoping (task_id=0). Restrict to break-glass admins (viewer_for().is_local_admin
-    # — config-aware: a plain tenant user or non-break-glass superuser is denied) —
-    # it is an operator console, never a tenant-user surface; without this a logged-in
-    # tenant user could reach any reachable host:port. Config-gated + admin-gated.
-    if not viewer_for(request.user).is_local_admin:
-        return _error(request, 0, "VNC Console is restricted to administrators")
 
     token = uuid.uuid4()
     try:
@@ -249,8 +194,6 @@ def direct_vnc_host_port(request, host, port):
 def direct_vnc_vm(request, vm_name):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
-    if not viewer_for(request.user).is_local_admin:
-        return _error(request, 0, "VNC Console is restricted to administrators")
 
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
@@ -641,8 +584,6 @@ sys.exit(res.returncode)
 def direct_vnc_vm_start(request, vm_name):
     if not is_vnc_console_enabled():
         return _error(request, 0, "VNC Console is disabled in configuration")
-    if not viewer_for(request.user).is_local_admin:
-        return _error(request, 0, "VNC Console is restricted to administrators")
 
     if not LIBVIRT_AVAILABLE:
         return _error(request, 0, "Libvirt not available")
@@ -754,8 +695,6 @@ def direct_vnc_vm_start(request, vm_name):
 def direct_vnc_vm_shutdown(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
-    if not viewer_for(request.user).is_local_admin:
-        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
@@ -858,8 +797,6 @@ def get_route_params(route_name, routing, configured_vpns):
 def direct_vnc_vm_route(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
-    if not viewer_for(request.user).is_local_admin:
-        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if request.method != "POST":
         return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
@@ -946,8 +883,6 @@ def direct_vnc_vm_route(request, vm_name):
 def direct_vnc_vm_snapshots_list(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
-    if not viewer_for(request.user).is_local_admin:
-        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
@@ -1008,8 +943,6 @@ def direct_vnc_vm_snapshots_list(request, vm_name):
 def direct_vnc_vm_snapshot_create(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
-    if not viewer_for(request.user).is_local_admin:
-        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)
@@ -1099,8 +1032,6 @@ def direct_vnc_vm_snapshot_create(request, vm_name):
 def direct_vnc_vm_snapshot_delete(request, vm_name):
     if not is_vnc_console_enabled():
         return JsonResponse({"status": "error", "message": "VNC Console is disabled in configuration"}, status=403)
-    if not viewer_for(request.user).is_local_admin:
-        return JsonResponse({"status": "error", "message": "VNC Console is restricted to administrators"}, status=403)
 
     if not LIBVIRT_AVAILABLE:
         return JsonResponse({"status": "error", "message": "Libvirt not available"}, status=500)

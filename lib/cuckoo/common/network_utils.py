@@ -68,6 +68,8 @@ TLS_HINT_APIS = {
 
 _HEX_HANDLE_RE = re.compile(r"^(?:0x)?([0-9a-fA-F]+)$")
 
+WINHTTP_FLAG_SECURE = 0x00800000
+
 
 def _norm_domain(d):
     if not d or not isinstance(d, str):
@@ -302,7 +304,7 @@ def _parse_handle(v):
     if isinstance(v, int):
         if v <= 0:
             return None
-        return "0x%x" % v
+        return f"0x{v:x}"
     with suppress(Exception):
         s = str(v).strip()
         if not s:
@@ -313,7 +315,7 @@ def _parse_handle(v):
         n = int(m.group(1), 16)
         if n <= 0:
             return None
-        return "0x%x" % n
+        return f"0x{n:x}"
     return None
 
 
@@ -454,7 +456,7 @@ def winhttp_update_from_call(pstate, api_lc, args_map, ret_handle):
 
                 if conn.get("server") and req.get("object"):
                     scheme = "https" if conn.get("port") == 443 else "http"
-                    req["url"] = "%s://%s%s" % (scheme, conn["server"], req["object"])
+                    req["url"] = f"{scheme}://{conn['server']}{req['object']}"
         return
 
     # WinHttpSetOption -> applies to session/connect/request by handle
@@ -484,68 +486,71 @@ def winhttp_finalize_sessions(state):
     procs = (state or {}).get("processes") or {}
 
     for _, p in procs.items():
-        sessions = (p.get("sessions") or {})
-        if not sessions:
+        sessions = p.get("sessions") or {}
+        connects = p.get("connects") or {}
+        if not connects:
             continue
 
         sessions_by_domain = {}
         sessions_by_domain_keys = defaultdict(set)
 
-        for s in sessions.values():
+        # Walk connects directly: WinHttpOpen may be missing (hooked late / failed),
+        # which previously orphaned the connect and dropped all its requests.
+        for c in connects.values():
+            if not isinstance(c, dict):
+                continue
+
+            s = sessions.get(c.get("session_handle")) or {}
             ua = s.get("user_agent") or ""
             access_type = s.get("access_type") or ""
             proxy_name = s.get("proxy_name") or ""
             proxy_bypass = s.get("proxy_bypass") or ""
 
-            for c in s.get("connections") or []:
-                if not isinstance(c, dict):
+            dom = _norm_domain(c.get("server") or "")
+            if not dom:
+                continue
+
+            port = c.get("port")
+
+            for r in c.get("requests") or []:
+                if not isinstance(r, dict):
                     continue
 
-                server = c.get("server") or ""
-                dom = _norm_domain(server)
-                if not dom:
+                obj = str(r.get("object") or "").strip()
+                if not obj:
                     continue
+                if not obj.startswith("/"):
+                    obj = "/" + obj
 
-                port = c.get("port")
-                scheme = "https" if port == 443 else "http"
+                verb = str(r.get("verb") or "").strip().upper() or "GET"
 
-                for r in c.get("requests") or []:
-                    if not isinstance(r, dict):
-                        continue
+                flags = _safe_int(r.get("flags")) or 0
+                secure = bool(flags & WINHTTP_FLAG_SECURE) or port == 443
+                scheme = "https" if secure else "http"
+                default_port = 443 if secure else 80
+                # port 0 == INTERNET_DEFAULT_PORT
+                dport = default_port if port in (None, 0) else port
+                netloc = dom if dport == default_port else f"{dom}:{dport}"
+                url = f"{scheme}://{netloc}{obj}"
 
-                    obj = r.get("object") or ""
-                    if not isinstance(obj, str):
-                        obj = str(obj)
+                request = f"{verb} {obj} \r\nUser-Agent: {ua}\r\nHost: {netloc}\r\n"
+                entry = {
+                    "url": url,
+                    "uri": obj,
+                    "dport": dport,
+                    "method": verb,
+                    "protocol": scheme,
+                    "user_agent": ua,
+                    "request": request,
+                    "access_type": access_type,
+                    "proxy_name": proxy_name,
+                    "proxy_bypass": proxy_bypass,
+                }
 
-                    obj = obj.strip()
-                    if not obj:
-                        continue
-
-                    if not obj.startswith("/"):
-                        obj = "/" + obj
-
-                    verb = r.get("verb") or ""
-                    if not isinstance(verb, str):
-                        verb = str(verb)
-
-                    verb = verb.strip().upper() or "GET"
-                    request = f"{verb} {obj} \r\nUser-Agent: {ua}\r\nHost: {dom}\r\n"
-                    entry = {
-                        "uri": obj,
-                        "dport": port,
-                        "method": verb,
-                        "protocol": scheme,
-                        "user_agent": ua,
-                        "request": request,
-                        "access_type": access_type,
-                        "proxy_name": proxy_name,
-                        "proxy_bypass": proxy_bypass,
-                    }
-
-                    key = (obj, verb, ua, access_type, proxy_name, proxy_bypass)
-                    if key not in sessions_by_domain_keys[dom]:
-                        sessions_by_domain.setdefault(dom, []).append(entry)
-                        sessions_by_domain_keys[dom].add(key)
+                key = (url, verb, ua, access_type, proxy_name, proxy_bypass)
+                if key not in sessions_by_domain_keys[dom]:
+                    sessions_by_domain.setdefault(dom, []).append(entry)
+                    sessions_by_domain_keys[dom].add(key)
 
         if sessions_by_domain:
             sessions_list = [{"host": dom, "events": evts} for dom, evts in sessions_by_domain.items()]

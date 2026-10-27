@@ -253,7 +253,8 @@ def static_file_info(
         # Below the libmagic "type" already present in data_dictionary. Cached
         # in the magika integration, so this is a no-op lookup for anything
         # that already went through File.get_all().
-        if processing_conf.magika.enabled and "magika" not in data_dictionary:
+        magika_cfg = getattr(processing_conf, "magika", None)
+        if magika_cfg and getattr(magika_cfg, "enabled", False) and "magika" not in data_dictionary:
             magika_result = magika_info(file_path)
             if magika_result:
                 data_dictionary["magika"] = magika_result
@@ -300,8 +301,9 @@ def detect_it_easy_info(file_path: str):
     try:
         die_output = subprocess.check_output(
             [processing_conf.die.binary, "-j", file_path],
-            stderr=subprocess.STDOUT,
+            stderr=subprocess.PIPE,
             universal_newlines=True,
+            errors="replace",
         )
 
         def get_json() -> dict[str, Any]:
@@ -319,9 +321,11 @@ def detect_it_easy_info(file_path: str):
 
         return [] if "detects" not in die_output else get_matches()
     except subprocess.CalledProcessError as err:
-        log.error(
-            "Detect-It-Easy: Failed to execute cmd=`%s`, stdout=`%s`, stderr=`%s`",
-            shlex.join(err.cmd),
+        safe_cmd = shlex.join(err.cmd).encode("utf-8", errors="replace").decode("utf-8")
+        log.warning(
+            "Detect-It-Easy: Failed to execute cmd=`%s` (returncode=%s), stdout=`%s`, stderr=`%s`",
+            safe_cmd,
+            err.returncode,
             err.stdout,
             err.stderr,
         )
@@ -338,6 +342,7 @@ def trid_info(file_path: dict):
             [trid_binary, f"-d:{definitions}", file_path],
             stderr=subprocess.STDOUT,
             universal_newlines=True,
+            errors="replace",
         )
         return output.split("\n")[6:-1]
     except subprocess.CalledProcessError:

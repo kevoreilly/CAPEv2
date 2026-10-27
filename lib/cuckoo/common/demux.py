@@ -14,7 +14,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
 from lib.cuckoo.common.quarantine import unquarantine
 from lib.cuckoo.common.trim_utils import trim_file, trimmed_path
-from lib.cuckoo.common.utils import get_options, sanitize_filename
+from lib.cuckoo.common.utils import get_options, option_enabled, sanitize_filename
 
 sfFile = False
 try:
@@ -125,7 +125,10 @@ OFFICE_TYPES = [
 
 MS_EXCLUDE = [
     "MSI Installer",
-    "Microsoft Cabinet archive"
+    "Microsoft Cabinet archive",
+    "Microsoft Roslyn C# debugging symbols",
+    "MSVC program database",
+    "Microsoft C/C++",
 ]
 
 
@@ -290,28 +293,40 @@ JUNK_EXTENSIONS = {
     b".gitignore",
     b".gitattributes",
     b".gitmodules",
+    b".pdb",
 }
 
 JUNK_NAMES = {b"license", b"copying", b"makefile", b"authors", b"readme"}
 
+JUNK_MAGICS = (
+    "Microsoft Roslyn C# debugging symbols",
+    "MSVC program database",
+    "Microsoft C/C++ MSF",
+    "Microsoft C/C++ program database",
+)
+
 
 # ToDo fix return type
-def _sf_children(child: Any) -> Tuple[bytes, str, str, int]:
+def _sf_children(child: Any, ignore_junk_filter: bool = False) -> Tuple[bytes, str, str, int]:
     path_to_extract = b""
     filename_lower = child.filename.lower()
 
-    # Skip junk files
-    if any(filename_lower.endswith(ext) for ext in JUNK_EXTENSIONS):
-        return b"", child.platform, child.magic, child.filesize
-    if any(name in filename_lower for name in JUNK_NAMES):
-        return b"", child.platform, child.magic, child.filesize
+    # Skip junk files (unless analysis is forced via ignore_junk_filter option)
+    if not ignore_junk_filter:
+        if any(filename_lower.endswith(ext) for ext in JUNK_EXTENSIONS):
+            return b"", child.platform, child.magic, child.filesize
+        if any(name in filename_lower for name in JUNK_NAMES):
+            return b"", child.platform, child.magic, child.filesize
+        if child.magic and any(m in child.magic for m in JUNK_MAGICS):
+            return b"", child.platform, child.magic, child.filesize
     if b".github/" in filename_lower or b".git/" in filename_lower:
         return b"", child.platform, child.magic, child.filesize
 
     _, ext = os.path.splitext(child.filename)
     ext = ext.lower()
     if (
-        ext in demux_extensions_list
+        ignore_junk_filter
+        or ext in demux_extensions_list
         or is_valid_package(child.package)
         or is_valid_type(child.magic)
         or (not ext and is_valid_type(child.magic))
@@ -340,6 +355,8 @@ def demux_sflock(
     # do not extract from .bin (downloaded from us)
     if os.path.splitext(filename)[1] == b".bin":
         return retlist, "", submit_opts
+
+    ignore_junk = option_enabled(options, "ignore_junk_filter")
 
     # ToDo need to introduce error msgs here
     try:
@@ -390,7 +407,7 @@ def demux_sflock(
                     # If 'unpacked.children' already contained the deep files, this loop might need adjusting based on your specific API.
                     execs = find_payload_to_run(getattr(current_child, "filepaths", []))
                     if execs:
-                        extracted = _sf_children(current_child)
+                        extracted = _sf_children(current_child, ignore_junk_filter=ignore_junk)
                         path = extracted[0]
                         if path:
                             submit_opts += [f"file={runable}" for runable in execs]
@@ -398,7 +415,7 @@ def demux_sflock(
                 else:
                     # It's just a single regular file (e.g., malware.exe inside a zip).
                     # Extract and add to task.
-                    extracted = _sf_children(current_child)
+                    extracted = _sf_children(current_child, ignore_junk_filter=ignore_junk)
                     path = extracted[0]
                     if path:
                         retlist.append(extracted)
@@ -407,19 +424,19 @@ def demux_sflock(
         for sf_child in unpacked.children:
             if sf_child.to_dict().get("children"):
                 for ch in sf_child.children:
-                    tmp_child = _sf_children(ch)
+                    tmp_child = _sf_children(ch, ignore_junk_filter=ignore_junk)
                     # check if path is not empty
                     if tmp_child and tmp_child[0]:
                         retlist.append(tmp_child)
 
                 # child is not available, the original file should be put into the list
                 if not retlist:
-                    tmp_child = _sf_children(sf_child)
+                    tmp_child = _sf_children(sf_child, ignore_junk_filter=ignore_junk)
                     # check if path is not empty
                     if tmp_child and tmp_child[0]:
                         retlist.append(tmp_child)
             else:
-                tmp_child = _sf_children(sf_child)
+                tmp_child = _sf_children(sf_child, ignore_junk_filter=ignore_junk)
                 # check if path is not empty
                 if tmp_child and tmp_child[0]:
                     retlist.append(tmp_child)
@@ -457,14 +474,15 @@ def demux_sample(
     If file is a ZIP, extract its included files and return their file paths
     If file is an email, extracts its attachments and return their file paths (later we'll also extract URLs)
     """
-    # Skip junk files
-    filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
-    filename_lower_bytes = filename_bytes.lower()
-    if any(filename_lower_bytes.endswith(ext) for ext in JUNK_EXTENSIONS) or any(
-        name in filename_lower_bytes for name in JUNK_NAMES
-    ):
-        filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
-        return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
+    # Skip junk files (unless analysis is forced via ignore_junk_filter option)
+    if not option_enabled(options, "ignore_junk_filter"):
+        filename_bytes = filename if isinstance(filename, bytes) else filename.encode()
+        filename_lower_bytes = filename_bytes.lower()
+        if any(filename_lower_bytes.endswith(ext) for ext in JUNK_EXTENSIONS) or any(
+            name in filename_lower_bytes for name in JUNK_NAMES
+        ):
+            filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
+            return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
 
     # sflock requires filename to be bytes object for Py3
     # TODO: Remove after checking all uses of demux_sample use bytes ~TheMythologist
@@ -490,6 +508,10 @@ def demux_sample(
 
     # don't try to extract from office docs
     magic = File(filename).get_type() or ""
+
+    if not option_enabled(options, "ignore_junk_filter") and any(m in magic for m in JUNK_MAGICS):
+        filename_str = filename.decode(errors="ignore") if isinstance(filename, bytes) else filename
+        return [], [{"junk_filter": f"File {filename_str} skipped by junk filter"}]
 
     # --- 3. Handle Password-Protected Office Files ---
     is_office = ("Microsoft" in magic or any(x in magic for x in OFFICE_TYPES)) and not any(x in magic for x in MS_EXCLUDE)

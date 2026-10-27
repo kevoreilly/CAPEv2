@@ -1,3 +1,4 @@
+import atexit
 import sys
 from datetime import datetime
 from typing import List, Optional
@@ -13,6 +14,7 @@ from sqlalchemy import (
     Table,
     Text,
 )
+from sqlalchemy.engine import make_url
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship, sessionmaker
 from sqlalchemy.types import TypeDecorator
@@ -168,7 +170,22 @@ class Task(Base):
 def create_session(db_connection: str, echo: bool = False) -> sessionmaker:
     """Initializes the database engine and creates tables."""
     try:
-        engine = create_engine(db_connection, echo=echo)
+        url = make_url(db_connection)
+        engine_args = {"echo": echo}
+        if url.drivername.startswith("postgresql"):
+            engine_args["pool_pre_ping"] = True
+            engine_args["pool_recycle"] = 1800
+            engine_args["connect_args"] = {
+                "keepalives": 1,
+                "keepalives_idle": 60,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            }
+        elif not url.drivername.startswith("sqlite"):
+            engine_args["pool_pre_ping"] = True
+
+        engine = create_engine(db_connection, **engine_args)
+        atexit.register(engine.dispose)
         Base.metadata.create_all(engine)
         # Return the session factory for use in the application
         return sessionmaker(bind=engine, autoflush=False)

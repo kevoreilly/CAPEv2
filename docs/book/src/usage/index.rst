@@ -25,3 +25,4 @@ This chapter explains how to use CAPE.
     interactive_desktop
     patterns_replacement
     mcp
+    multitenancy

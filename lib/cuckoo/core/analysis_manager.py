@@ -5,6 +5,7 @@ import os
 import queue
 import shutil
 import threading
+import time
 from typing import Any, Callable, Generator, MutableMapping, Optional, Tuple
 
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
@@ -22,6 +23,7 @@ from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, get_memdump_path
 from lib.cuckoo.core.database import Database, _Database
+from sqlalchemy.exc import OperationalError
 from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING, TASK_FAILED_ANALYSIS, Task
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.data.guests import Guest
@@ -452,8 +454,9 @@ class AnalysisManager(threading.Thread):
                 guest_manager.wait_for_completion()
             guest_manager.set_status_in_db("stopping")
         except Exception as e:
-            guest_manager.set_status_in_db("failed")
             self.log.exception("Unknown exception waiting for guest completion: %s", str(e))
+            with contextlib.suppress(Exception):
+                guest_manager.set_status_in_db("failed")
 
         return
 
@@ -488,8 +491,25 @@ class AnalysisManager(threading.Thread):
             else:
                 succeeded = True
             finally:
-                with self.db.session.begin():
-                    self.db.guest_stop(self.guest.id)
+                for attempt in (1, 2):
+                    try:
+                        with self.db.session.begin():
+                            self.db.guest_stop(self.guest.id)
+                        break
+                    except Exception as e:
+                        if (isinstance(e, OperationalError) or type(e).__name__ == "OperationalError") and attempt == 1:
+                            self.log.warning(
+                                "Database OperationalError during guest_stop for guest %s, retrying: %s",
+                                self.guest.id,
+                                e,
+                            )
+                            self.db.session.remove()
+                            with contextlib.suppress(Exception):
+                                self.db.engine.dispose(close=False)
+                            time.sleep(1)
+                            continue
+                        self.log.error("Failed to stop guest %s in database: %s", self.guest.id, e)
+                        break
 
         return succeeded
 

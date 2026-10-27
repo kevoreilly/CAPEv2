@@ -336,10 +336,7 @@ def _lookup_precheck_existent_tasks(request, raw_hashes: str) -> dict:
             continue
         seen.add(sha256)
         with suppress(Exception):
-            records = _scope_existent(
-                request,
-                perform_search("target_sha256", sha256, search_limit=5, viewer=viewer_for(request.user)),
-            )
+            records = perform_search("target_sha256", sha256, search_limit=5)
             for record in records or []:
                 rec_sha = record.get("target", {}).get("file", {}).get("sha256") or sha256
                 existent_tasks.setdefault(rec_sha, []).append(record)

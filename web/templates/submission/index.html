@@ -1299,6 +1299,24 @@
                 $('#non-pcap-1').show();
                 $('#non-pcap-2').show();
             }
+
+            if (cleanId === 'file') {
+                const fileInput = document.getElementById('sampleFile');
+                if (fileInput && fileInput.files && fileInput.files.length > 0) {
+                    renderSelectedFiles(fileInput);
+                } else if ($('#active_tab').val() !== 'resubmit') {
+                    $('#precheck-existent-tasks').empty();
+                }
+            } else if (cleanId === 'downloading_service') {
+                const raw = ($('#form_downloading_service').val() || '').split(',').map(s => s.trim()).filter(Boolean);
+                if (raw.length > 0) {
+                    triggerPrecheckSha256(raw);
+                } else if ($('#active_tab').val() !== 'resubmit') {
+                    $('#precheck-existent-tasks').empty();
+                }
+            } else if (cleanId !== 'resubmit') {
+                $('#precheck-existent-tasks').empty();
+            }
         }
 
         // Tab visibility & active input gating

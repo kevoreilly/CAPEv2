@@ -492,4 +492,65 @@ def test_teardown_pool_escalates_to_stop_on_join_timeout():
     assert pool.join_timeouts == [12, 3]
 
 
+def test_is_pool_healthy_handles_stopped_and_raising_active():
+    """_is_pool_healthy returns False when PoolStatus is STOPPED/ERROR or when
+    accessing pool.active raises an exception."""
+    try:
+        from pebble.pool.base_pool import PoolStatus
+    except ImportError:
+        PoolStatus = None
+
+    class _MockThread:
+        def is_alive(self):
+            return True
+
+    class _Context:
+        def __init__(self, status):
+            self.status = status
+
+    class _BaseMockPool:
+        def __init__(self, status):
+            self._task_scheduler_loop = _MockThread()
+            self._pool_manager_loop = _MockThread()
+            self._message_manager_loop = _MockThread()
+            self._context = _Context(status)
+
+    # 1. PoolStatus.STOPPED (or status=3) -> False
+    stopped_status = PoolStatus.STOPPED if PoolStatus is not None else 3
+    stopped_pool = _BaseMockPool(stopped_status)
+    stopped_pool.active = True
+    assert PebbleEngine._is_pool_healthy(stopped_pool) is False
+
+    # 2. PoolStatus.ERROR (or status=4) -> False
+    error_status = PoolStatus.ERROR if PoolStatus is not None else 4
+    error_pool = _BaseMockPool(error_status)
+    error_pool.active = True
+    assert PebbleEngine._is_pool_healthy(error_pool) is False
+
+    # 3. Accessing pool.active raises an exception -> False
+    running_status = PoolStatus.RUNNING if PoolStatus is not None else 1
+
+    class _RaisingActivePool(_BaseMockPool):
+        @property
+        def active(self):
+            raise RuntimeError("broken pool state")
+
+    raising_pool = _RaisingActivePool(running_status)
+    assert PebbleEngine._is_pool_healthy(raising_pool) is False
+
+    # 4. Healthy pool with active=True -> True
+    class _HealthyActivePool(_BaseMockPool):
+        active = True
+
+    healthy_pool = _HealthyActivePool(running_status)
+    assert PebbleEngine._is_pool_healthy(healthy_pool) is True
+
+    # 5. PoolStatus.CREATED (status=0) -> True even if active is False
+    created_status = PoolStatus.CREATED if PoolStatus is not None else 0
+    created_pool = _BaseMockPool(created_status)
+    created_pool.active = False
+    assert PebbleEngine._is_pool_healthy(created_pool) is True
+
+
+
 

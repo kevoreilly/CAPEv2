@@ -255,15 +255,37 @@ def test_per_call_mode_right_sizes_max_workers(monkeypatch):
 
 
 def test_stop_active_extractor_pools_stops_live_pools(monkeypatch):
-    """_stop_active_extractor_pools() must force-stop any registered live pool
-    (used by the multiprocessing Finalize hook on worker SIGTERM/exit)."""
+    """_stop_active_extractor_pools() must force-stop any registered live pool,
+    close worker channels and terminate worker processes (used by the multiprocessing
+    Finalize hook on worker SIGTERM/exit)."""
     _reset(monkeypatch)
     fx._ACTIVE_EXTRACTOR_POOLS.clear()
+
+    class _MockProc:
+        def __init__(self):
+            self.terminated = False
+
+        def terminate(self):
+            self.terminated = True
+
+    class _MockWorkerManager:
+        def __init__(self):
+            self.channels_closed = False
+            self.proc = _MockProc()
+            self.workers = {1: self.proc}
+
+        def close_channels(self):
+            self.channels_closed = True
+
+    class _MockPoolManager:
+        def __init__(self):
+            self.worker_manager = _MockWorkerManager()
 
     class _StoppablePool(_FakePool):
         def __init__(self):
             super().__init__()
             self.stopped = False
+            self._pool_manager = _MockPoolManager()
 
         def stop(self):
             self.stopped = True
@@ -274,5 +296,86 @@ def test_stop_active_extractor_pools_stops_live_pools(monkeypatch):
 
     fx._stop_active_extractor_pools()
     assert pool.stopped is True
+    assert pool._pool_manager.worker_manager.channels_closed is True
+    assert pool._pool_manager.worker_manager.proc.terminated is True
     assert len(fx._ACTIVE_EXTRACTOR_POOLS) == 0
+
+    # Also verify with a real pebble.ProcessPool that no worker child survives.
+    import multiprocessing
+    import pebble
+
+    real_pool = pebble.ProcessPool(max_workers=1, context=multiprocessing.get_context("fork"))
+    fx._register_extractor_pool(real_pool)
+    future = real_pool.schedule(os.getpid)
+    future.result()
+    assert len(multiprocessing.active_children()) > 0
+    fx._stop_active_extractor_pools()
+    real_pool.join(timeout=2)
+    assert len(multiprocessing.active_children()) == 0
+
+
+def test_generic_file_extractors_recreates_shared_pool_on_schedule_error(monkeypatch, tmp_path):
+    """If pool.schedule() raises RuntimeError or BrokenProcessPool in shared mode,
+    generic_file_extractors must tear down the broken shared pool, acquire a fresh
+    shared pool, and retry pool.schedule() successfully."""
+    _reset(monkeypatch)
+    fx.enable_shared_extractor_pool()
+
+    class _MockResultFuture:
+        def result(self):
+            return {"result": {"extracted_files": []}, "took_seconds": 0.1}
+
+    class _BrokenSchedulePool(_FakePool):
+        def __init__(self):
+            super().__init__()
+            self.schedule_calls = 0
+
+        def schedule(self, fn, args=(), kwargs=None, timeout=None):
+            self.schedule_calls += 1
+            raise RuntimeError("Unexpected error within the Pool")
+
+    class _WorkingPool(_FakePool):
+        def __init__(self):
+            super().__init__()
+            self.schedule_calls = 0
+
+        def schedule(self, fn, args=(), kwargs=None, timeout=None):
+            self.schedule_calls += 1
+            return _MockResultFuture()
+
+    pool_1 = _BrokenSchedulePool()
+    pool_2 = _WorkingPool()
+    pools = [pool_1, pool_2]
+
+    monkeypatch.setattr(fx, "_new_extractor_pool", lambda max_workers=None: pools.pop(0))
+
+    def _dummy_extractor(file, **kwargs):
+        return {"result": {"extracted_files": []}}
+
+    _dummy_extractor.enabled = True
+    _dummy_extractor.__name__ = "dummy_extractor"
+
+    monkeypatch.setattr(fx, "extra_info_modules", [])
+    monkeypatch.setattr(fx, "file_info_funcs", [_dummy_extractor])
+
+    dummy_file = tmp_path / "sample.bin"
+    dummy_file.write_bytes(b"MZ\x90\x00")
+
+    fx.generic_file_extractors(
+        file=str(dummy_file),
+        destination_folder=str(tmp_path / "extracted"),
+        data_dictionary={},
+        options={},
+        results={},
+        duplicated={},
+    )
+
+    assert pool_1.schedule_calls == 1
+    assert pool_1.closed is True and pool_1.joined is True, "broken shared pool must be torn down"
+    assert pool_2.schedule_calls == 1
+    assert pool_2.closed is False, "recreated shared pool must remain warm for subsequent files"
+    assert fx._SHARED_EXTRACTOR_POOL is pool_2
+    fx.shutdown_shared_extractor_pool()
+    assert pool_2.closed is True and pool_2.joined is True
+
 

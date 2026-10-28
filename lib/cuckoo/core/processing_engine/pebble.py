@@ -177,16 +177,13 @@ class PebbleEngine(ProcessingEngine):
                 return False
 
         status = getattr(getattr(pool, "_context", None), "status", None)
-        if PoolStatus is not None:
-            if status == PoolStatus.ERROR:
-                return False
-            if hasattr(pool, "active") and status != PoolStatus.CREATED and not pool.active:
-                return False
-        elif status == 4:
+        created_status = PoolStatus.CREATED if PoolStatus is not None else 0
+        unhealthy_statuses = (PoolStatus.STOPPED, PoolStatus.ERROR) if PoolStatus is not None else (3, 4)
+        if status in unhealthy_statuses:
             return False
-        elif hasattr(pool, "active") and status is None:
+        if status != created_status:
             try:
-                if not pool.active:
+                if hasattr(pool, "active") and not pool.active:
                     return False
             except Exception:
                 return False

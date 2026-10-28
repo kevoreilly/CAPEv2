@@ -20,7 +20,7 @@ from django.http import HttpResponse
 
 from dev_utils.mongo_hooks import FILE_REF_KEY, FILES_COLL, NORMALIZED_FILE_FIELDS
 from lib.cuckoo.common.config import Config
-from lib.cuckoo.common.hooks import apply_es_filter
+from lib.cuckoo.common.hooks import apply_es_filter, apply_mongo_filter
 from lib.cuckoo.common.integrations.parse_pe import HAVE_PEFILE, IsPEImage, pefile
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir, path_write_file
@@ -1484,6 +1484,10 @@ def perform_search(
                 # Stage 8: Make the task doc the new root
                 {"$replaceRoot": {"newRoot": "$task_doc"}},
             ]
+            # The joined docs are analysis documents: scope them like any analysis query.
+            analysis_scope = apply_mongo_filter("analysis", {})
+            if analysis_scope:
+                pipeline.append({"$match": analysis_scope})
 
             if not privs:
                 if force_bool(web_cfg.general.get("public_searches", True)):

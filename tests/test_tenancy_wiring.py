@@ -156,3 +156,25 @@ def test_bootstrap_activates_for_legacy_central_mode(monkeypatch):
     assert bootstrap_tenancy(_cfg(central_mode=True)) is True
     assert calls == [1]
     assert bootstrap_tenancy(_cfg(multitenancy=False, object_storage=False)) is False
+
+
+def test_hash_search_pipeline_applies_the_registered_analysis_filter(monkeypatch):
+    # Hash searches aggregate over `files` and join into `analysis`; the joined analysis
+    # documents must be scoped like any other analysis query.
+    import lib.cuckoo.common.web_utils as web_utils
+    from lib.cuckoo.common import hooks as core_hooks
+
+    scope = {"info.tenant_id": 20}
+    seen = []
+    monkeypatch.setattr(web_utils.repconf.mongodb, "enabled", True, raising=False)
+    monkeypatch.setattr(web_utils, "mongo_aggregate", lambda coll, pipeline, *a, **k: seen.append((coll, pipeline)) or [], raising=False)
+    core_hooks.register_mongo_filter(lambda collection, query: {**query, **scope} if collection == "analysis" else query)
+    try:
+        web_utils.perform_search("sha256", "a" * 64, privs=True)
+    finally:
+        core_hooks.clear_all_hooks()
+
+    coll, pipeline = seen[0]
+    assert coll == "files"
+    root = next(i for i, stage in enumerate(pipeline) if "$replaceRoot" in stage)
+    assert {"$match": scope} in pipeline[root + 1 :]

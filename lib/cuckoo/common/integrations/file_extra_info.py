@@ -596,9 +596,10 @@ def _acquire_extractor_pool(max_workers=None):
 
 
 def shutdown_shared_extractor_pool():
-    """Close+join the shared extractor pool once, if one was created. Idempotent
-    and exception-safe; called when the task finishes."""
-    global _SHARED_EXTRACTOR_POOL
+    """Close+join the shared extractor pool once, if one was created, and reset
+    shared-pool mode. Idempotent and exception-safe; called when the task finishes."""
+    global _SHARED_EXTRACTOR_POOL, _USE_SHARED_POOL
+    _USE_SHARED_POOL = False
     pool = _SHARED_EXTRACTOR_POOL
     _SHARED_EXTRACTOR_POOL = None
     _teardown_extractor_pool(pool)
@@ -681,6 +682,7 @@ def generic_file_extractors(
                 if shared_pool:
                     log.warning("shared extractor pool schedule failed (%s); recreating pool and retrying", err)
                     shutdown_shared_extractor_pool()
+                    enable_shared_extractor_pool()
                     pool, shared_pool = _acquire_extractor_pool(max_workers=len(to_schedule))
                     try:
                         futures[funcname] = pool.schedule(fn, args=args, kwargs=kwargs, timeout=func_timeout)

@@ -28,6 +28,8 @@ class _FakePool:
 
 def _reset(monkeypatch):
     """Point the pool factory at _FakePool and reset shared state."""
+    if fx._SHARED_EXTRACTOR_POOL is not None:
+        fx.shutdown_shared_extractor_pool()
     monkeypatch.setattr(fx, "_new_extractor_pool", lambda: _FakePool())
     monkeypatch.setattr(fx, "_SHARED_EXTRACTOR_POOL", None, raising=False)
     monkeypatch.setattr(fx, "_USE_SHARED_POOL", False, raising=False)
@@ -57,8 +59,11 @@ def test_shutdown_closes_and_clears_shared_pool(monkeypatch):
     fx.shutdown_shared_extractor_pool()
     assert pool.closed is True
     assert pool.joined is True
-    # A subsequent acquire must build a brand-new pool, not reuse the dead one.
-    pool_next, _ = fx._acquire_extractor_pool()
+    assert fx._USE_SHARED_POOL is False
+    # Re-enabling and acquiring must build a brand-new pool, not reuse the dead one.
+    fx.enable_shared_extractor_pool()
+    pool_next, shared_next = fx._acquire_extractor_pool()
+    assert shared_next is True
     assert pool_next is not pool
 
 

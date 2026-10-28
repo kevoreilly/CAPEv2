@@ -1,5 +1,5 @@
 <header>
-  <nav class="navbar navbar-expand-lg navbar-dark bg-dark fixed-top shadow-sm">
+  <nav class="navbar navbar-expand-xl navbar-dark bg-dark fixed-top shadow-sm">
     <div class="container-fluid">
         <a class="navbar-brand py-0 me-3" href="{% url "analysis" %}">
             <img src="{{ STATIC_URL }}graphic/cape.png" height="36" alt="CAPE Sandbox">
@@ -9,7 +9,7 @@
         </button>
 
         <div class="collapse navbar-collapse" id="navbarColor02">
-          <ul class="navbar-nav">
+          <ul class="navbar-nav me-auto mb-2 mb-xl-0">
             <li class="nav-item"><a class="nav-link" href="{% url "dashboard" %}"><i class="fas fa-tachometer-alt me-1"></i> Dashboard</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "analysis" %}"><i class="fas fa-list me-1"></i> Recent</a></li>
             <li class="nav-item"><a class="nav-link" href="{% url "submission" %}"><i class="fas fa-upload me-1"></i> Submit</a></li>
@@ -58,17 +58,15 @@
             {% endif %}
             <li class="nav-item"><a class="nav-link" href="https://capev2.readthedocs.io/en/latest/" target="_blank"><i class="fas fa-info-circle me-1"></i> Docs</a></li>
             <li class="nav-item"><a class="nav-link" href="https://github.com/kevoreilly/CAPEv2/blob/master/changelog.md" target="_blank"><i class="far fa-newspaper me-1"></i> Changelog</a></li>
-           <li class="nav-item">
+            <li class="nav-item">
                 <a class="nav-link" href="#" data-bs-toggle="modal" data-bs-target="#shortcutsHelpModal" title="Keyboard Shortcuts (?)">
-                    <i class="fas fa-keyboard"></i>
+                    <i class="fas fa-keyboard"></i><span class="d-xl-none ms-1">Keyboard Shortcuts</span>
                 </a>
             </li>
-	  </ul>
-
-        </div>
-        <form class="d-flex me-auto" action="{% url "search" %}" method="get">
+          </ul>
+          <form class="d-flex ms-xl-auto mt-2 mt-xl-0 mb-1 mb-xl-0" role="search" action="{% url "search" %}" method="get">
             <input class="form-control bg-dark text-white border-secondary me-2" type="text" id="form_search" name="search" placeholder="Search (Regex)">
-            <button class="btn btn-outline-secondary text-white" type="submit"><i class="fas fa-search"></i></button>
+            <button class="btn btn-outline-secondary text-white" type="submit" aria-label="Search"><i class="fas fa-search"></i></button>
           </form>
         </div>
     </div>

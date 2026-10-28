@@ -117,3 +117,42 @@ def test_registered_route_filter_accepts_the_core_hook_call():
         assert core_hooks.apply_route_filter(["inetsim", "tor"], "exit") == ["inetsim", "tor"]
     finally:
         core_hooks.clear_all_hooks()
+
+
+def _cfg(**sections):
+    return types.SimpleNamespace(**{name: {"enabled": on} for name, on in sections.items()})
+
+
+def _broken_hooks(monkeypatch):
+    import lib.tenancy.hooks as tenancy_hooks
+
+    def boom():
+        raise ImportError("optional dependency missing")
+
+    monkeypatch.setattr(tenancy_hooks, "register_core_hooks", boom)
+
+
+def test_bootstrap_fails_closed_when_multitenancy_is_enabled(monkeypatch):
+    from lib.tenancy.bootstrap import bootstrap_tenancy
+
+    _broken_hooks(monkeypatch)
+    with pytest.raises(RuntimeError, match="multitenancy"):
+        bootstrap_tenancy(_cfg(multitenancy=True))
+
+
+def test_bootstrap_storage_only_failure_is_logged_not_raised(monkeypatch):
+    from lib.tenancy.bootstrap import bootstrap_tenancy
+
+    _broken_hooks(monkeypatch)
+    assert bootstrap_tenancy(_cfg(object_storage=True)) is False
+
+
+def test_bootstrap_activates_for_legacy_central_mode(monkeypatch):
+    import lib.tenancy.hooks as tenancy_hooks
+    from lib.tenancy.bootstrap import bootstrap_tenancy
+
+    calls = []
+    monkeypatch.setattr(tenancy_hooks, "register_core_hooks", lambda: calls.append(1))
+    assert bootstrap_tenancy(_cfg(central_mode=True)) is True
+    assert calls == [1]
+    assert bootstrap_tenancy(_cfg(multitenancy=False, object_storage=False)) is False

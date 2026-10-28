@@ -425,10 +425,10 @@ class AuditsMixIn:
 
     def set_audit_run_status(self, session_id: int, testrun_id: int, new_status: String) -> None:
         with self.session.session_factory() as db_sess, db_sess.begin():
-            run = self.get_audit_session_test(session_id, testrun_id)
+            stmt = select(TestRun).where(TestRun.id == testrun_id, TestRun.session_id == session_id)
+            run = db_sess.scalar(stmt)
             if run:
                 run.status = new_status
-                db_sess.commit()
 
     def assign_cape_task_to_testrun(self, run_id: int, cape_task_id: int) -> bool:
         """
@@ -441,7 +441,6 @@ class AuditsMixIn:
             if run:
                 run.cape_task_id = cape_task_id
                 run.status = TEST_QUEUED
-                db_sess.commit()
                 log.info("TestRun %d successfully linked to CAPE Task %d",run_id,cape_task_id)
                 return True
             else:

@@ -71,6 +71,10 @@ main_server_name = dist_conf.distributed.get("main_server_name", "master")
 CLEANER_MAX_RETRIES = 10
 
 HAVE_GCP = False
+# Defaults when GCP support is disabled; the real objects are imported below when it is enabled.
+GCS_ENABLED = False
+gcs_uploader = None
+gcs_refetch_banned = gcs_replay = gcs_sync = gcs_upload_report = None
 if gcp_conf.samples_pubsub.enabled:
     from lib.cuckoo.common.gcp import (
         GCP,
@@ -755,6 +759,10 @@ class Retriever(threading.Thread):
 
     free_space_mon():
         Monitors free disk space and logs an error if space is insufficient.
+
+    notification_loop():
+        Sends callbacks for retrieved tasks to the configured callback URLs.
+
     failed_cleaner():
         Cleans up failed tasks from nodes and updates their status in the database.
 
@@ -787,12 +795,15 @@ class Retriever(threading.Thread):
         if dist_conf.GCP.enabled and HAVE_GCP:
             thread_targets.append((cloud.autodiscovery, "gcp_discovery", ()))
 
-        # Data fetchers
-        for i in range(int(dist_conf.distributed.dist_threads)):
-            if NFS_FETCH:
+        # Data fetchers. Only NFS retrieval is implemented; the REST API report fetcher was removed.
+        if NFS_FETCH:
+            for i in range(int(dist_conf.distributed.dist_threads)):
                 thread_targets.append((self.fetch_latest_reports_nfs, f"nfs_{i}", ()))
-            elif RESTAPI_FETCH:
-                thread_targets.append((self.fetch_latest_reports, f"api_{i}", ()))
+        elif RESTAPI_FETCH:
+            log.critical(
+                "distributed.conf: restapi report retrieval is no longer supported; set nfs = yes "
+                "(reports will not be retrieved from workers)"
+            )
 
         thread_targets.append((self.fetcher, "fetcher", ()))
 
@@ -855,6 +866,51 @@ class Retriever(threading.Thread):
             while True:
                 free_space_monitor(dir_path, analysis=True)
                 time.sleep(600)
+
+    def notification_loop(self):
+        """
+        Sends a callback for every dist task that is finished and retrieved but not yet notified.
+
+        Each pass: read the pending tasks in a short dist transaction, mark the CAPE task reported in its own
+        main_db.transaction(), POST {"task_id": main_task_id} to every configured callback URL with no
+        transaction open, and set notificated=True in a final short transaction when at least one URL accepted
+        it. Runs every 20 seconds; DB errors are handled at loop level.
+        """
+        urls = [url.strip() for url in str(reporting_conf.callback.url).split(",") if url.strip()]
+        headers = {"x-api-key": reporting_conf.callback.key}
+        while True:
+            try:
+                self._notification_pass(urls, headers)
+            except Exception as e:
+                handle_loop_error("notification_loop", e)
+            time.sleep(20)
+
+    def _notification_pass(self, urls, headers):
+        with dist_transaction() as db:
+            stmt = (
+                select(Task.id, Task.main_task_id)
+                .where(Task.finished.is_(True), Task.retrieved.is_(True), Task.notificated.is_(False))
+                .order_by(Task.id.desc())
+            )
+            pending = db.execute(stmt).all()
+
+        for dist_id, main_task_id in pending:
+            with main_db.transaction():
+                main_db.set_status(main_task_id, TASK_REPORTED)
+            log.debug("reporting main_task_id: %d", main_task_id)
+            notified = False
+            for url in urls:
+                try:
+                    res = requests.post(url, headers=headers, data=json.dumps({"task_id": int(main_task_id)}), timeout=30)
+                    if res is not None and res.ok:
+                        notified = True
+                    else:
+                        log.info("failed to report: %d - %s", main_task_id, getattr(res, "status_code", "no-response"))
+                except requests.RequestException as e:
+                    log.info("Can't report task %d to callback %s: %s", main_task_id, url, e)
+            if notified:
+                with dist_transaction() as db:
+                    db.execute(update(Task).where(Task.id == dist_id).values(notificated=True))
 
     def failed_cleaner(self):
         """
@@ -1530,8 +1586,9 @@ class StatusThread(threading.Thread):
         # Get available tag combinations
         ta = set()
         for m in machines:
-            for i in range(1, len(m.tags) + 1):
-                for tag in combinations(m.tags, i):
+            machine_tags = m.tags or []
+            for i in range(1, len(machine_tags) + 1):
+                for tag in combinations(machine_tags, i):
                     ta.add(",".join(tag))
         SERVER_TAGS[node_name] = list(ta)
 
@@ -1680,22 +1737,18 @@ def update_machine_table(node_name):
 
 
 def delete_vm_on_node(node_name, vm_name):
+    """Remove a VM from a node's machine list in the dist DB (the worker's own machinery is not touched)."""
     with dist_transaction() as db:
         node = db.scalar(select(Node).where(Node.name == node_name))
-        vm = None
-        if node is not None:
-            vm = db.scalar(select(Machine).where(Machine.name == vm_name, Machine.node_id == node.id).limit(1))
-
-    if not vm:
+        if node is None:
+            log.error("Node %s does not exist", node_name)
+            return
+        deleted = db.execute(delete(Machine).where(Machine.name == vm_name, Machine.node_id == node.id)).rowcount
+    if not deleted:
         log.error("The selected VM does not exist")
         return
-
-    status = node.delete_machine(vm_name)
-
-    if status:
-        # delete vm in dist db
-        with dist_transaction() as db:
-            db.execute(delete(Machine).where(Machine.name == vm_name, Machine.node_id == node.id))
+    SERVER_TAGS.pop(node_name, None)
+    log.info("Deleted VM %s from node %s in the dist DB", vm_name, node_name)
 
 
 def node_enabled(node_name, status):
@@ -2229,14 +2282,20 @@ def main():
         sys.exit()
 
     if args.gcs_replay:
+        if gcs_replay is None:
+            sys.exit("--gcs-replay requires GCP support: enable [samples_pubsub] in gcp.conf")
         gcs_replay(args.gcs_replay)
         sys.exit()
 
     if args.gcs_sync:
+        if gcs_sync is None:
+            sys.exit("--gcs-sync requires GCP support: enable [samples_pubsub] in gcp.conf")
         gcs_sync(args.gcs_sync)
         sys.exit()
 
     if args.gcs_refetch_banned:
+        if gcs_refetch_banned is None:
+            sys.exit("--gcs-refetch-banned requires GCP support: enable [samples_pubsub] in gcp.conf")
         gcs_refetch_banned(args.gcs_refetch_banned, samples_bucket=args.samples_bucket)
         sys.exit()
 

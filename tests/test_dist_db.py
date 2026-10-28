@@ -620,3 +620,148 @@ def test_cron_cleaner_marks_deleted_per_node(dist_sqlite, monkeypatch, tmp_path)
     with dist_sqlite() as s:
         rows = {t.node_id: t.deleted for t in s.scalars(dist.select(Task))}
     assert rows == {good_id: True, bad_id: False}
+
+
+# ---- Fixes for previously broken paths in utils/dist.py ----
+
+
+def test_gcs_defaults_defined_when_gcp_disabled():
+    import utils.dist as dist
+
+    if dist.gcp_conf.samples_pubsub.enabled:
+        pytest.skip("GCP samples_pubsub enabled in this config")
+    assert dist.GCS_ENABLED is False
+    assert dist.gcs_uploader is None
+    assert dist.gcs_upload_report is None and dist.gcs_replay is None
+
+
+def test_load_vm_tags_handles_null_tags(dist_sqlite):
+    import utils.dist as dist
+
+    with dist_sqlite() as s, s.begin():
+        node = Node(name="tagnode", url="u", apikey="k", enabled=True)
+        s.add(node)
+        s.flush()
+        m1 = Machine(name="vm1", platform="windows", tags=None)
+        m1.node_id = node.id
+        m2 = Machine(name="vm2", platform="windows", tags=["x64", "win10"])
+        m2.node_id = node.id
+        s.add_all([m1, m2])
+        node_id = node.id
+
+    with patch_dict_server_tags() as tags:
+        with dist.dist_transaction() as db:
+            dist.StatusThread().load_vm_tags(db, node_id, "tagnode")
+        assert sorted(tags["tagnode"]) == ["win10", "x64", "x64,win10"]
+
+
+def patch_dict_server_tags():
+    from unittest.mock import patch
+
+    import utils.dist as dist
+
+    return patch.dict(dist.SERVER_TAGS, {}, clear=True)
+
+
+def test_delete_vm_on_node_removes_machine_row(dist_sqlite, caplog):
+    import logging
+
+    import utils.dist as dist
+
+    with dist_sqlite() as s, s.begin():
+        node = Node(name="vmnode", url="u", apikey="k", enabled=True)
+        s.add(node)
+        s.flush()
+        for name in ("keep", "drop"):
+            m = Machine(name=name, platform="windows", tags=[])
+            m.node_id = node.id
+            s.add(m)
+
+    dist.delete_vm_on_node("vmnode", "drop")
+    with dist_sqlite() as s:
+        assert s.scalars(dist.select(Machine.name)).all() == ["keep"]
+
+    with caplog.at_level(logging.ERROR):
+        dist.delete_vm_on_node("vmnode", "missing")
+        dist.delete_vm_on_node("nonode", "keep")
+    assert "The selected VM does not exist" in caplog.text
+    assert "Node nonode does not exist" in caplog.text
+
+
+def test_notification_pass_marks_only_accepted_tasks(dist_sqlite):
+    from unittest.mock import MagicMock, patch
+
+    import requests
+
+    import utils.dist as dist
+
+    with dist_sqlite() as s, s.begin():
+        for main_id in (11, 12):
+            t = Task(path="p", category="url", package="", timeout=1, priority=1, options="", machine="", platform="",
+                     tags="", custom="", memory=False, clock=None, enforce_timeout=False, main_task_id=main_id)
+            t.finished = True
+            t.retrieved = True
+            s.add(t)
+
+    engine = dist_sqlite.kw["bind"]
+    seen = []
+
+    def fake_post(url, headers=None, data=None, timeout=None):
+        seen.append(engine.pool.checkedout())
+        assert timeout
+        if '"task_id": 12' in data:
+            raise requests.ConnectionError("down")
+        resp = MagicMock()
+        resp.ok = True
+        return resp
+
+    mock_main_db = MagicMock()
+    with (
+        patch("utils.dist.main_db", mock_main_db),
+        patch("utils.dist.requests.post", side_effect=fake_post),
+    ):
+        dist.Retriever()._notification_pass(["http://cb"], {"x-api-key": "k"})
+
+    assert seen == [0, 0]
+    mock_main_db.set_status.assert_any_call(11, dist.TASK_REPORTED)
+    mock_main_db.set_status.assert_any_call(12, dist.TASK_REPORTED)
+    with dist_sqlite() as s:
+        flags = {t.main_task_id: t.notificated for t in s.scalars(dist.select(Task))}
+    assert flags == {11: True, 12: False}
+
+
+def test_retriever_run_restapi_mode_logs_critical_instead_of_attributeerror(caplog):
+    import logging
+    from unittest.mock import patch
+
+    import utils.dist as dist
+
+    class StopSupervisor(Exception):
+        pass
+
+    started = []
+
+    class FakeThread:
+        def __init__(self, target=None, name=None, args=()):
+            started.append(name)
+            self.daemon = False
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return True
+
+    with (
+        patch("utils.dist.NFS_FETCH", False),
+        patch("utils.dist.RESTAPI_FETCH", True),
+        patch("utils.dist.threading.Thread", FakeThread),
+        patch("utils.dist.time.sleep", side_effect=StopSupervisor),
+        caplog.at_level(logging.CRITICAL),
+    ):
+        with pytest.raises(StopSupervisor):
+            dist.Retriever.run(dist.Retriever())
+
+    assert "restapi report retrieval is no longer supported" in caplog.text
+    assert not any(name.startswith("api_") for name in started)
+    assert "fetcher" in started

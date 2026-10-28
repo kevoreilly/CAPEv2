@@ -36,7 +36,8 @@ from lib.tenancy.resources import (
 )
 
 _DELETE_KEYWORDS = ("delete", "remove", "purge")
-_MANAGE_KEYWORDS = ("reprocess", "reboot", "visibility", "toggle", "reschedule")
+# A live guac console grants keyboard/framebuffer control of the analysis VM: a task action, not a read.
+_MANAGE_KEYWORDS = ("reprocess", "reboot", "visibility", "toggle", "reschedule", "/guac/", "remote_session")
 _TASK_ID_KWARGS = ("task_id", "analysis_id", "analysis_number", "left_id", "right_id")
 _SAMPLE_HASH_KWARGS = ("sha256", "sha1", "md5", "sample_id")
 # Route kwargs that carry a bare hash of unspecified type (compare/<id>/<hash>, resubmit/<id>/<hash>).
@@ -225,6 +226,10 @@ def _is_submission_post(request: Any, view_func: Callable[..., Any]) -> bool:
     return False
 
 
+def _is_direct_vnc_view(view_func: Callable[..., Any]) -> bool:
+    return getattr(view_func, "__name__", "").startswith("direct_vnc_")
+
+
 def _is_machine_view(request: Any, view_func: Callable[..., Any], view_kwargs: Dict[str, Any]) -> bool:
     if "name" not in view_kwargs or view_kwargs.get("name") is None:
         return False
@@ -371,6 +376,10 @@ class TenancyMiddleware:
         if entitlements is None:
             entitlements = self.entitlements_resolver(user)
             request.entitlements = entitlements
+
+        if _is_direct_vnc_view(view_func) and not viewer.see_all:
+            # Direct VNC addresses VMs and host:port pairs outside any task scope.
+            return self.forbidden_response_factory(request, "VNC Console is restricted to administrators")
 
         if _is_machine_view(request, view_func, view_kwargs):
             if entitlements is not None and not entitlements.unrestricted:

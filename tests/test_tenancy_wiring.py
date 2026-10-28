@@ -178,3 +178,40 @@ def test_hash_search_pipeline_applies_the_registered_analysis_filter(monkeypatch
     assert coll == "files"
     root = next(i for i, stage in enumerate(pipeline) if "$replaceRoot" in stage)
     assert {"$match": scope} in pipeline[root + 1 :]
+
+
+def test_guac_console_requires_manage_rights(private_task, monkeypatch):
+    # A tenant member who may read a tenant-visible task must not get its live VM console.
+    from lib.tenancy.policy import TENANT
+
+    task_id, _ = private_task
+    import lib.tenancy.middleware as mw_mod
+    from lib.tenancy.policy import ResourceScope
+
+    monkeypatch.setattr(mw_mod, "default_task_scope_resolver", lambda tid: ResourceScope(owner_id=7, tenant_id=1, visibility=TENANT))
+    member = _mw(_viewer(user_id=9, tenant_id=1))
+
+    def index():
+        pass
+
+    assert member.process_view(_req(f"/analysis/{task_id}/"), _view, (), {"task_id": task_id}) is None
+    assert _status(member.process_view(_req(f"/guac/{task_id}/xyz/"), index, (), {"task_id": task_id, "session_data": "xyz"})) == 404
+
+
+def test_direct_vnc_views_are_admin_only():
+    def direct_vnc_host_port():
+        pass
+
+    tenant_user = _mw(_viewer(user_id=9, tenant_id=1))
+    assert _status(tenant_user.process_view(_req("/guac/vnc/10.0.0.1/5900/"), direct_vnc_host_port, (), {"host": "10.0.0.1", "port": "5900"})) == 403
+
+
+def test_guac_vm_target_comes_from_the_task_not_the_url(db, temp_pe32, monkeypatch):
+    import guac.views as guac_views
+
+    task_id = db.add_path(str(temp_pe32))
+    monkeypatch.setattr(guac_views, "db", db)
+    with db.session.begin():
+        db.view_task(task_id).machine = "win10-1"
+    monkeypatch.setattr(db, "view_machine_by_label", lambda label: types.SimpleNamespace(ip="192.168.122.10") if label == "win10-1" else None)
+    assert guac_views._vm_target_for_task(task_id) == ("win10-1", "192.168.122.10")

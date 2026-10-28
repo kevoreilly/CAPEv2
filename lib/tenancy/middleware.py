@@ -43,6 +43,10 @@ _SAMPLE_HASH_KWARGS = ("sha256", "sha1", "md5", "sample_id")
 # Route kwargs that carry a bare hash of unspecified type (compare/<id>/<hash>, resubmit/<id>/<hash>).
 _UNTYPED_HASH_KWARGS = ("right_hash", "resubmit_hash")
 _HASH_FIELD_BY_LEN = {32: "md5", 40: "sha1", 64: "sha256"}
+# Views that take their task ids from the POST body instead of the route.
+_BODY_TASK_ID_FIELDS = {"tasks_delete_many": "ids"}
+# Upper bound on ids expanded from a "start-end" range kwarg (tasks/delete/1-5/).
+_MAX_TASK_ID_RANGE = 1000
 _SUBMISSION_VIEW_NAMES = (
     "tasks_create_file",
     "tasks_create_url",
@@ -401,7 +405,7 @@ class TenancyMiddleware:
                 _apply_normalized_submission_params(request, normalized)
 
         if not viewer.see_all:
-            raw_task_ids = _task_ids_from_kwargs(view_kwargs)
+            raw_task_ids = _task_ids_from_kwargs(view_kwargs) + _task_ids_from_body(request, view_func)
             if raw_task_ids:
                 action = classify_view_action(getattr(request, "path", ""), view_func)
             for raw in raw_task_ids:
@@ -416,7 +420,9 @@ class TenancyMiddleware:
                 if scope is None or not self._check_action(viewer, scope, action):
                     return self.deny_response_factory(request, "Task not found")
 
-            sample_filter = _sample_filter_from_kwargs(view_kwargs)
+            # Routes that address a task are covered by the task check above; their hash kwargs
+            # (e.g. on_demand/<task>/<category>/<sha256>) name files of that task, not samples.
+            sample_filter = {} if raw_task_ids else _sample_filter_from_kwargs(view_kwargs)
             if sample_filter:
                 try:
                     visible = bool(self.sample_access_checker(viewer, sample_filter))
@@ -472,10 +478,38 @@ class TenancyMiddleware:
 
 def _task_ids_from_kwargs(view_kwargs: Dict[str, Any]) -> list:
     """Every task id a route addresses; compare views carry two, files/get/task/<id> uses stype/value."""
-    ids = [view_kwargs[k] for k in _TASK_ID_KWARGS if view_kwargs.get(k) is not None]
+    ids = []
+    for key in _TASK_ID_KWARGS:
+        if view_kwargs.get(key) is not None:
+            ids.extend(_expand_task_ids(view_kwargs[key]))
     if view_kwargs.get("stype") == "task" and view_kwargs.get("value") is not None:
         ids.append(view_kwargs["value"])
     return ids
+
+
+def _expand_task_ids(raw: Any) -> list:
+    """Expand "1,2" and "1-5" id lists; anything unparseable is returned as-is and denied later."""
+    text = str(raw)
+    if "," in text:
+        return [part.strip() for part in text.split(",") if part.strip()]
+    if "-" in text:
+        try:
+            start, end = (int(part) for part in text.split("-"))
+        except ValueError:
+            return [raw]
+        if start > end or end - start >= _MAX_TASK_ID_RANGE:
+            return [raw]
+        return list(range(start, end + 1))
+    return [raw]
+
+
+def _task_ids_from_body(request: Any, view_func: Callable[..., Any]) -> list:
+    field = _BODY_TASK_ID_FIELDS.get(getattr(view_func, "__name__", ""))
+    if not field:
+        return []
+    post = getattr(request, "POST", None)
+    raw = post.get(field, "") if post is not None and hasattr(post, "get") else ""
+    return [part.strip() for part in str(raw).split(",") if part.strip()]
 
 
 def _sample_filter_from_kwargs(view_kwargs: Dict[str, Any]) -> Dict[str, Any]:
@@ -520,7 +554,8 @@ def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str
     if not conds:
         return False
     session = Database().session
-    rows = session.execute(select(Task.id, Task.user_id).join(Sample, Task.sample_id == Sample.id).where(and_(*conds))).all()
+    rows = session.execute(select(Task.id, Task.user_id).join(Sample, Task.sample_id == Sample.id).where(and_(*conds)))
+    # Stops at the first readable task; most lookups are by the sample's own submitter.
     return any(can_read(viewer, resolve_task_scope(session, tid, fallback_user_id=uid)) for tid, uid in rows)
 
 

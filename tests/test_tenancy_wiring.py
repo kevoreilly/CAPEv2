@@ -215,3 +215,62 @@ def test_guac_vm_target_comes_from_the_task_not_the_url(db, temp_pe32, monkeypat
         db.view_task(task_id).machine = "win10-1"
     monkeypatch.setattr(db, "view_machine_by_label", lambda label: types.SimpleNamespace(ip="192.168.122.10") if label == "win10-1" else None)
     assert guac_views._vm_target_for_task(task_id) == ("win10-1", "192.168.122.10")
+
+
+def _post_req(path, **post):
+    req = _req(path)
+    req.method = "POST"
+    req.POST = post
+    return req
+
+
+def test_body_task_ids_are_gated(private_task):
+    task_id, _ = private_task
+
+    def tasks_delete_many():
+        pass
+
+    req = lambda: _post_req("/apiv2/tasks/delete_many/", ids=f"{task_id}")  # noqa: E731
+    assert _status(_mw(_viewer(8, 2)).process_view(req(), tasks_delete_many, (), {})) == 404
+    assert _mw(_viewer(7, 1)).process_view(req(), tasks_delete_many, (), {}) is None
+
+
+def test_task_id_lists_and_ranges_are_checked_per_task(private_task):
+    task_id, _ = private_task
+
+    def tasks_delete():
+        pass
+
+    for raw in (f"{task_id}-{task_id}", f"{task_id},{task_id}"):
+        assert _status(_mw(_viewer(8, 2)).process_view(_req("/apiv2/tasks/delete/x/"), tasks_delete, (), {"task_id": raw})) == 404
+        assert _mw(_viewer(7, 1)).process_view(_req("/apiv2/tasks/delete/x/"), tasks_delete, (), {"task_id": raw}) is None
+    huge = f"1-{10**9}"
+    assert _status(_mw(_viewer(7, 1)).process_view(_req("/apiv2/tasks/delete/x/"), tasks_delete, (), {"task_id": huge})) == 404
+
+
+def test_task_scoped_file_hash_is_not_checked_as_a_sample(private_task):
+    # on_demand/<service>/<task_id>/<category>/<sha256>: the hash names a dropped file of the task.
+    task_id, _ = private_task
+
+    def on_demand():
+        pass
+
+    kwargs = {"service": "bingraph", "task_id": task_id, "category": "dropped", "sha256": "b" * 64}
+    assert _mw(_viewer(7, 1)).process_view(_req(f"/analysis/on_demand/x/{task_id}/"), on_demand, (), dict(kwargs)) is None
+
+
+def test_hash_search_limits_after_scoping(monkeypatch):
+    import lib.cuckoo.common.web_utils as web_utils
+    from lib.cuckoo.common import hooks as core_hooks
+
+    seen = []
+    monkeypatch.setattr(web_utils.repconf.mongodb, "enabled", True, raising=False)
+    monkeypatch.setattr(web_utils, "mongo_aggregate", lambda coll, pipeline, *a, **k: seen.append(pipeline) or [], raising=False)
+    core_hooks.register_mongo_filter(lambda collection, query: {**query, "info.tenant_id": 20} if collection == "analysis" else query)
+    try:
+        web_utils.perform_search("sha256", "a" * 64, search_limit=5, privs=True)
+    finally:
+        core_hooks.clear_all_hooks()
+    stages = [next(iter(stage)) for stage in seen[0]]
+    assert stages.count("$limit") == 1
+    assert stages.index("$limit") > stages.index("$replaceRoot")

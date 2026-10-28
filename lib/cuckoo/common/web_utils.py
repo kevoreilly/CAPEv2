@@ -1487,7 +1487,9 @@ def perform_search(
             # The joined docs are analysis documents: scope them like any analysis query.
             analysis_scope = apply_mongo_filter("analysis", {})
             if analysis_scope:
-                pipeline.append({"$match": analysis_scope})
+                # Limit after scoping, or a viewer's own older analyses fall outside the window.
+                pipeline.remove({"$limit": search_limit})
+                pipeline.extend([{"$match": analysis_scope}, {"$limit": search_limit}])
 
             if not privs:
                 if force_bool(web_cfg.general.get("public_searches", True)):

@@ -1,3 +1,6 @@
+### [14.10.2026]
+* `analyzer/windows`: expand environment variables in `executiondir`/`curdir` in `Process.execute()`, fall back to `CreateProcessW` without `PROC_THREAD_ATTRIBUTE_PARENT_PROCESS` when launching with `explorer.exe` as parent fails (e.g. `ERROR_ELEVATION_REQUIRED` on installers with `requireAdministrator` manifests), and keep the analysis running for the full timeout when `enforce_timeout` is enabled even if `package.start()` fails.
+
 ### [08.10.2026]
 * `extra/browser_extension`: capture `requestBody` (`formData` and decoded `raw` bytes up to 4 KB) via `webRequest.onBeforeRequest`, record HTTP `statusCode` in `onCompleted`, correlate lifecycle events by `requestId` with O(1) deduplication, debounce event flushing, and fix the `browser.downloads.onChanged` listener registration.
 
@@ -17,6 +20,19 @@
     * **psycopg3 Support**: Upgraded the PostgreSQL database connection driver to `psycopg` (v3) for modern async capability and massive performance gains.
     * **In-Memory Connection Upgrader**: Added a seamless backward-compatibility layer in `lib/cuckoo/core/database.py`. If `postgresql://` is used with psycopg v3 installed, CAPEv2 automatically and transparently upgrades it in-memory to use the `postgresql+psycopg://` driver, preventing any startup `ImportError` or configuration crashes!
 
+* Sniffer fixes (`modules/auxiliary/sniffer.py`):
+    * No longer emits bare `'` tokens into the tcpdump argv. The quoting was unbalanced in 4 of the 6 `remote`/`custom`/`bpf` combinations, which made tcpdump reject the filter (local) or bash reject the generated script (remote); both failures were silent and produced an empty pcap.
+    * The remote command is now built with `shlex.join`, so parentheses and other shell metacharacters from `custom`/`bpf` reach tcpdump intact.
+    * `stop()` no longer treats a clean tcpdump exit as "still running" (`poll()` returns `0`, and `not 0` is True); it reports the captured stderr instead of trying to kill a dead process.
+    * `self.pid` is initialised in `__init__`, so `stop()` after a failed remote `start()` no longer raises `AttributeError`.
+    * Added `timeout=` to the `ps --ppid` call, dropped a duplicate stat of the tcpdump path, and replaced a `log.exception` used outside an `except` block.
+
+* Sniffer latency (`modules/auxiliary/sniffer.py`):
+    * `sudo --list <tcpdump>` is cached for the lifetime of the process. It ran on every task start and was measured at 333-348 ms on a host with a directory-backed sudoers policy. Restart the scheduler after changing sudoers.
+    * That probe also gained `timeout=30` and no longer leaks its output to the scheduler's stdout.
+    * ssh/scp use connection multiplexing (`ControlMaster`/`ControlPath`/`ControlPersist`) plus `BatchMode=yes`, so the remaining calls for a task share one TCP connection and one authentication instead of re-handshaking, and a missing key fails instead of blocking on a password prompt.
+    * The remote sniffer is started with a single ssh invocation that feeds the script on stdin and reads the pid from stdout, replacing scp + ssh + `ssh cat` + `ssh rm` (4 round trips down to 1) and leaving no script or pid file behind.
+    * Remote tcpdump output goes to `/tmp/cape-sniffer-<task id>.{log,err}` instead of the shared `/tmp/log` and `/tmp/err`, which concurrent tasks were overwriting, and both files are removed in `stop()`.
 ### [31.07.2026]
 * Remus detection & dynamic config extraction
 

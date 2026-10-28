@@ -210,3 +210,211 @@ def test_node_submit_task_error_logging(caplog):
                 in record.message
                 for record in caplog.records
             )
+
+
+def test_node_submit_task_includes_parent_sample_in_attributes(tmp_path):
+    import json
+    from unittest.mock import MagicMock, patch
+    from utils.dist import node_submit_task
+
+    sample_file = tmp_path / "child.bin"
+    sample_file.write_bytes(b"MZ" + b"\x00" * 30)
+
+    mock_node = MagicMock()
+    mock_node.id = 7
+    mock_node.name = "worker1"
+    mock_node.url = "http://worker1.local/"
+    mock_node.apikey = "test_key"
+
+    mock_task = MagicMock()
+    mock_task.id = 100
+    mock_task.main_task_id = 500
+    mock_task.category = "file"
+    mock_task.path = str(sample_file)
+    mock_task.package = ""
+    mock_task.timeout = 120
+    mock_task.priority = 1
+    mock_task.options = ""
+    mock_task.machine = ""
+    mock_task.platform = "windows"
+    mock_task.tags = ""
+    mock_task.custom = ""
+    mock_task.clock = None
+    mock_task.memory = False
+    mock_task.enforce_timeout = False
+    mock_task.route = None
+    mock_task.tlp = None
+
+    mock_db = MagicMock()
+    mock_db.scalar.return_value = mock_node
+    mock_db.get.return_value = mock_task
+
+    mock_parent = MagicMock()
+    mock_parent.to_dict.return_value = {"id": 99, "sha256": "a" * 64}
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"data": {"task_ids": [777]}}
+
+    with (
+        patch("utils.dist.main_db") as mock_main_db,
+        patch("utils.dist.requests.post", return_value=mock_response) as mock_post,
+    ):
+        mock_main_db.get_parent_sample_from_task.return_value = mock_parent
+        result = node_submit_task(task_id=100, node_id=7, main_task_id=500, db=mock_db)
+
+    assert result is True
+    posted_data = mock_post.call_args.kwargs["data"]
+    assert json.loads(posted_data["attributes"]) == {
+        "main_task_id": 500,
+        "parent_sample": {"id": 99, "sha256": "a" * 64},
+    }
+
+
+def test_create_session_registers_atexit_dispose(monkeypatch):
+    import atexit
+    from lib.cuckoo.common.dist_db import create_session
+
+    registered = []
+    monkeypatch.setattr(atexit, "register", lambda fn, *a, **k: registered.append(fn))
+
+    maker = create_session("sqlite:///:memory:", echo=False)
+    engine = maker.kw["bind"]
+    assert engine.dispose in registered
+    engine.dispose()
+
+
+def test_create_session_postgresql_configuration(monkeypatch):
+    import atexit
+    from unittest.mock import MagicMock, patch
+    from lib.cuckoo.common.dist_db import create_session
+
+    monkeypatch.setattr(atexit, "register", lambda fn, *a, **k: None)
+
+    mock_engine = MagicMock()
+    with (
+        patch("lib.cuckoo.common.dist_db.create_engine", return_value=mock_engine) as mock_create_engine,
+        patch("lib.cuckoo.common.dist_db.Base.metadata.create_all"),
+    ):
+        maker = create_session("postgresql://user:pass@localhost:5432/cuckoo_dist", echo=False)
+        mock_create_engine.assert_called_once_with(
+            "postgresql://user:pass@localhost:5432/cuckoo_dist",
+            echo=False,
+            pool_pre_ping=True,
+            pool_recycle=1800,
+            connect_args={
+                "keepalives": 1,
+                "keepalives_idle": 60,
+                "keepalives_interval": 10,
+                "keepalives_count": 5,
+            },
+        )
+        assert maker.kw["bind"] == mock_engine
+
+    # Also verify SQLite works without connect_args or pool_recycle
+    sqlite_maker = create_session("sqlite:///:memory:", echo=False)
+    sqlite_engine = sqlite_maker.kw["bind"]
+    assert sqlite_engine.url.drivername == "sqlite"
+    sqlite_engine.dispose()
+
+
+def test_session_wrapper_ssl_disconnect_triggers_restart():
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from sqlalchemy.exc import OperationalError
+    from utils.dist import SessionWrapper
+
+    mock_session = MagicMock()
+    mock_session.execute.side_effect = OperationalError("SELECT 1", {}, Exception("SSL connection has been closed unexpectedly"))
+
+    wrapper = SessionWrapper(mock_session)
+
+    # Test method call triggers rollback and restart_db_connection
+    with patch("utils.dist.restart_db_connection") as mock_restart:
+        try:
+            wrapper.execute("SELECT 1")
+        except OperationalError:
+            pass
+        mock_session.rollback.assert_called_once()
+        mock_restart.assert_called_once()
+
+    # Test __exit__ with SSL disconnect OperationalError triggers rollback and restart
+    mock_session.reset_mock()
+    with patch("utils.dist.restart_db_connection") as mock_restart:
+        try:
+            with wrapper:
+                raise OperationalError("SELECT 1", {}, Exception("SSL connection has been closed unexpectedly"))
+        except OperationalError:
+            pass
+        mock_session.rollback.assert_called_once()
+        mock_restart.assert_called_once()
+
+
+def test_fetcher_recovers_from_sqlalchemy_error():
+    import sys
+    import threading
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from sqlalchemy.exc import OperationalError
+    from utils.dist import Retriever
+
+    retriever = Retriever()
+    retriever.stop_dist = threading.Event()
+    mock_db = MagicMock()
+    mock_db.scalars.side_effect = OperationalError("SELECT 1", {}, Exception("server closed the connection unexpectedly"))
+
+    class TestStop(Exception):
+        pass
+
+    sleep_calls = []
+
+    def mock_sleep(seconds):
+        sleep_calls.append(seconds)
+        raise TestStop()
+
+    with (
+        patch("utils.dist.session") as mock_session,
+        patch("time.sleep", side_effect=mock_sleep),
+    ):
+        mock_session.return_value.__enter__.return_value = mock_db
+        try:
+            retriever.fetcher()
+        except TestStop:
+            pass
+
+    mock_db.rollback.assert_called_once()
+    assert sleep_calls == [5]
+
+
+def test_node_fetch_tasks_timeout():
+    import sys
+    from unittest.mock import MagicMock, patch
+
+    mock_fastapi = MagicMock()
+    if "fastapi" not in sys.modules:
+        sys.modules["fastapi"] = mock_fastapi
+        sys.modules["fastapi.security"] = mock_fastapi.security
+
+    from utils.dist import node_fetch_tasks
+
+    mock_resp = MagicMock()
+    mock_resp.ok = True
+    mock_resp.json.return_value = {"data": [{"id": 1}]}
+
+    with patch("utils.dist.requests.get", return_value=mock_resp) as mock_get:
+        tasks = node_fetch_tasks("completed", "http://worker:8000", "testkey", action="fetch", since=100)
+        assert tasks == [{"id": 1}]
+        mock_get.assert_called_once()
+        assert mock_get.call_args.kwargs.get("timeout") == 30
+

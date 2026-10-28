@@ -361,10 +361,6 @@ class TenancyMiddleware:
                 return tasks_set_visibility(request, vis_task_id, viewer_resolver=self.viewer_resolver)
             return self.get_response(request)
         finally:
-            late = getattr(request, "_tenancy_late_tokens", None)
-            if late is not None:
-                reset_current_entitlements(late[1])
-                reset_current_viewer(late[0])
             reset_current_submission_visibility(s_token)
             reset_current_entitlements(e_token)
             reset_current_viewer(v_token)
@@ -388,8 +384,10 @@ class TenancyMiddleware:
             user = late_user
             request.viewer = self.viewer_resolver(user)
             request.entitlements = self.entitlements_resolver(user)
-            # Reset by __call__ when the request ends, before its own tokens.
-            request._tenancy_late_tokens = (set_current_viewer(request.viewer), set_current_entitlements(request.entitlements))
+            # No token kept: __call__'s reset restores the pre-request value (WSGI), and under ASGI
+            # process_view runs in a copied context that is discarded with it.
+            set_current_viewer(request.viewer)
+            set_current_entitlements(request.entitlements)
 
         viewer: Optional[ViewerContext] = getattr(request, "viewer", None)
         if viewer is None:

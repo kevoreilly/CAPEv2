@@ -520,7 +520,7 @@ def init_modules():
     import_plugin(f"modules.machinery.{cuckoo.cuckoo.machinery}")
     check_snapshot_state()
 
-    from lib.tenancy.bootstrap import bootstrap_tenancy
+    from lib.cuckoo.common.hooks import bootstrap_tenancy
 
     bootstrap_tenancy(cuckoo)
 

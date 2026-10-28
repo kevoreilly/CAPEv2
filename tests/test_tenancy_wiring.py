@@ -143,7 +143,7 @@ def _broken_hooks(monkeypatch):
 
 
 def test_bootstrap_fails_closed_when_multitenancy_is_enabled(monkeypatch):
-    from lib.tenancy.bootstrap import bootstrap_tenancy
+    from lib.cuckoo.common.hooks import bootstrap_tenancy
 
     _broken_hooks(monkeypatch)
     with pytest.raises(RuntimeError, match="multitenancy"):
@@ -151,7 +151,7 @@ def test_bootstrap_fails_closed_when_multitenancy_is_enabled(monkeypatch):
 
 
 def test_bootstrap_storage_only_failure_is_logged_not_raised(monkeypatch):
-    from lib.tenancy.bootstrap import bootstrap_tenancy
+    from lib.cuckoo.common.hooks import bootstrap_tenancy
 
     _broken_hooks(monkeypatch)
     assert bootstrap_tenancy(_cfg(object_storage=True)) is False
@@ -159,7 +159,7 @@ def test_bootstrap_storage_only_failure_is_logged_not_raised(monkeypatch):
 
 def test_bootstrap_activates_for_legacy_central_mode(monkeypatch):
     import lib.tenancy.hooks as tenancy_hooks
-    from lib.tenancy.bootstrap import bootstrap_tenancy
+    from lib.cuckoo.common.hooks import bootstrap_tenancy
 
     calls = []
     monkeypatch.setattr(tenancy_hooks, "register_core_hooks", lambda: calls.append(1))
@@ -394,3 +394,17 @@ def test_late_identity_does_not_outlive_the_request(private_task):
     mw.get_response = lambda request: mw.process_view(request, tasks_view, (), {"task_id": task_id})
     mw(req)
     assert get_current_viewer() is None
+
+
+def test_bootstrap_imports_nothing_when_disabled():
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, types; from lib.cuckoo.common.hooks import bootstrap_tenancy; "
+        "cfg = types.SimpleNamespace(multitenancy={'enabled': False}, object_storage={'enabled': False}); "
+        "assert bootstrap_tenancy(cfg) is False; "
+        "print(any(m == 'lib.tenancy' or m.startswith('lib.tenancy.') for m in sys.modules))"
+    )
+    out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
+    assert out.stdout.strip().splitlines()[-1] == "False"

@@ -5,7 +5,8 @@ All hooks are zero-overhead no-ops when no external plugin is installed.
 
 from __future__ import annotations
 
-from typing import Any, Callable, MutableMapping
+import logging
+from typing import Any, Callable, MutableMapping, Optional
 
 MongoFilterHook = Callable[[str, dict[str, Any]], dict[str, Any]]
 SqlTaskFilterHook = Callable[[Any], Any]
@@ -140,3 +141,44 @@ def clear_all_hooks() -> None:
     _tag_filters.clear()
     _route_filters.clear()
     _submission_context_filters.clear()
+
+
+# --- Plugin activation -------------------------------------------------------------------------
+# One entry point for CAPE processes (web settings, guac-web settings, scheduler, dist), so the
+# enablement check and error policy live in one place. lib.tenancy is imported only when enabled.
+
+
+def _section_enabled(cfg: Any, name: str) -> bool:
+    section = getattr(cfg, name, None) or {}
+    try:
+        return bool(section.get("enabled", False))
+    except AttributeError:
+        return bool(getattr(section, "enabled", False))
+
+
+def bootstrap_tenancy(cfg: Any, settings_globals: Optional[MutableMapping[str, Any]] = None) -> bool:
+    """Activate tenancy hooks (and, given Django settings globals, the web integration).
+
+    Returns True when activated. When `[multitenancy]` is enabled a failure raises: serving
+    with isolation silently off is worse than not starting. Object storage alone (including the
+    legacy `[central_mode]` section) keeps the log-and-continue behaviour.
+    """
+    multitenancy = _section_enabled(cfg, "multitenancy")
+    storage = _section_enabled(cfg, "object_storage") or _section_enabled(cfg, "central_mode")
+    if not (multitenancy or storage):
+        return False
+    try:
+        if settings_globals is not None:
+            import lib.tenancy
+
+            lib.tenancy.install(settings_globals)
+        else:
+            from lib.tenancy.hooks import register_core_hooks
+
+            register_core_hooks()
+    except Exception as e:
+        if multitenancy:
+            raise RuntimeError(f"[multitenancy] is enabled but lib.tenancy failed to initialize: {e}") from e
+        logging.getLogger(__name__).exception("Failed to initialize lib.tenancy: %s", e)
+        return False
+    return True

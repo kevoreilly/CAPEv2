@@ -515,7 +515,7 @@ except NameError:
     with suppress(ImportError):
         from .local_settings import *  # noqa: F403
 
-from lib.tenancy.bootstrap import bootstrap_tenancy  # noqa: E402
+from lib.cuckoo.common.hooks import bootstrap_tenancy  # noqa: E402
 
 bootstrap_tenancy(Config("cuckoo"), settings_globals=globals())
 

@@ -114,7 +114,7 @@ ID2NAME = {}
 SERVER_TAGS = {}
 main_db: _Database = Database()
 
-from lib.tenancy.bootstrap import bootstrap_tenancy  # noqa: E402
+from lib.cuckoo.common.hooks import bootstrap_tenancy  # noqa: E402
 
 bootstrap_tenancy(cfg)
 

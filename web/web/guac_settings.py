@@ -215,7 +215,7 @@ if _CapeConfig("web").guacamole.get("vnc_console_enabled", False):
 
 # guac-web is a separate ASGI process with its own settings: apply the same tenancy layer
 # (task-scoped console access, admin-only direct VNC) as the main web app.
-from lib.tenancy.bootstrap import bootstrap_tenancy  # noqa: E402
+from lib.cuckoo.common.hooks import bootstrap_tenancy  # noqa: E402
 
 # guac-web does not load the main web's auth backends (OIDC sessions resolve to AnonymousUser
 # in AuthenticationMiddleware); let the tenancy middleware resolve users the way the guac views do.

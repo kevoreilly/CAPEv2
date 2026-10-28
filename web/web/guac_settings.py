@@ -217,4 +217,8 @@ if _CapeConfig("web").guacamole.get("vnc_console_enabled", False):
 # (task-scoped console access, admin-only direct VNC) as the main web app.
 from lib.tenancy.bootstrap import bootstrap_tenancy  # noqa: E402
 
+# guac-web does not load the main web's auth backends (OIDC sessions resolve to AnonymousUser
+# in AuthenticationMiddleware); let the tenancy middleware resolve users the way the guac views do.
+TENANCY_REQUEST_USER_RESOLVER = "guac.channels_auth.resolve_request_user"
+
 bootstrap_tenancy(_CapeConfig("cuckoo"), settings_globals=globals())

@@ -31,6 +31,16 @@ def _viewer(user_id, tenant_id):
     )
 
 
+@pytest.fixture(autouse=True)
+def _clear_tenancy_context():
+    # Tests call process_view directly, without __call__'s per-request reset.
+    from lib.tenancy.context import set_current_entitlements, set_current_viewer
+
+    yield
+    set_current_viewer(None)
+    set_current_entitlements(None)
+
+
 @pytest.fixture
 def mt_enabled(monkeypatch):
     real = policy.multitenancy_config
@@ -280,3 +290,107 @@ def test_hash_search_limits_after_scoping(monkeypatch):
     stages = [next(iter(stage)) for stage in seen[0]]
     assert stages.count("$limit") == 1
     assert stages.index("$limit") > stages.index("$replaceRoot")
+
+
+class _User:
+    def __init__(self, uid):
+        self.id = uid
+        self.is_authenticated = uid is not None
+
+
+def _viewer_for_user(user):
+    if getattr(user, "is_authenticated", False):
+        return _viewer(user.id, {7: 1, 8: 2}.get(user.id))
+    return ViewerContext.anonymous()
+
+
+def _identity_mw():
+    return TenancyMiddleware(lambda request: None, viewer_resolver=_viewer_for_user)
+
+
+def _anon_req(path):
+    # A real HttpRequest: DRF's Request() refuses anything else.
+    from django.test import RequestFactory
+
+    req = RequestFactory().get(path)
+    req.user = _User(None)
+    return req
+
+
+def test_api_key_callers_are_scoped_as_themselves(private_task):
+    # DRF authenticates inside the view, after middleware: the owner's API key must not be
+    # treated as anonymous (denied) and must not be skipped either.
+    from rest_framework.authentication import BaseAuthentication
+    from rest_framework.decorators import api_view, authentication_classes
+
+    task_id, _ = private_task
+
+    def key_auth_as(uid):
+        class KeyAuth(BaseAuthentication):
+            def authenticate(self, request):
+                return (_User(uid), None)
+
+        return KeyAuth
+
+    for uid, expected in ((7, None), (8, 404)):
+
+        @api_view(["GET"])
+        @authentication_classes([key_auth_as(uid)])
+        def tasks_view(request, task_id):
+            pass
+
+        got = _identity_mw().process_view(_anon_req(f"/apiv2/tasks/view/{task_id}/"), tasks_view, (), {"task_id": task_id})
+        assert _status(got) == expected
+
+
+def test_settings_user_resolver_is_used_for_late_identity(private_task, settings, monkeypatch):
+    # guac-web resolves session users itself (OIDC backends are not loaded there).
+    import sys
+
+    task_id, _ = private_task
+    mod = types.ModuleType("_tenancy_test_resolver")
+    mod.resolve = lambda request: _User(7)
+    monkeypatch.setitem(sys.modules, "_tenancy_test_resolver", mod)
+    settings.TENANCY_REQUEST_USER_RESOLVER = "_tenancy_test_resolver.resolve"
+
+    def index(request, task_id, session_data):
+        pass
+
+    req = _anon_req(f"/guac/{task_id}/xyz/")
+    assert _identity_mw().process_view(req, index, (), {"task_id": task_id, "session_data": "xyz"}) is None
+
+
+def test_untyped_hash_is_checked_even_on_task_routes(private_task, db, temp_pe64):
+    # compare/<own task>/<other tenant's sample hash>: the left task is readable, the hash is not.
+    _, victim_sha256 = private_task
+    own_task = db.add_path(str(temp_pe64), user_id=8)
+
+    def hash(request, left_id, right_hash):  # noqa: A001 - mirrors compare.views.hash
+        pass
+
+    kwargs = {"left_id": own_task, "right_hash": victim_sha256}
+    assert _status(_mw(_viewer(8, 2)).process_view(_req(f"/compare/{own_task}/{victim_sha256}/"), hash, (), kwargs)) == 404
+
+
+def test_late_identity_does_not_outlive_the_request(private_task):
+    from rest_framework.authentication import BaseAuthentication
+    from rest_framework.decorators import api_view, authentication_classes
+
+    from lib.tenancy.context import get_current_viewer
+
+    task_id, _ = private_task
+
+    class KeyAuth(BaseAuthentication):
+        def authenticate(self, request):
+            return (_User(7), None)
+
+    @api_view(["GET"])
+    @authentication_classes([KeyAuth])
+    def tasks_view(request, task_id):
+        pass
+
+    mw = _identity_mw()
+    req = _anon_req(f"/apiv2/tasks/view/{task_id}/")
+    mw.get_response = lambda request: mw.process_view(request, tasks_view, (), {"task_id": task_id})
+    mw(req)
+    assert get_current_viewer() is None

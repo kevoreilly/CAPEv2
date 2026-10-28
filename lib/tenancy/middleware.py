@@ -361,6 +361,10 @@ class TenancyMiddleware:
                 return tasks_set_visibility(request, vis_task_id, viewer_resolver=self.viewer_resolver)
             return self.get_response(request)
         finally:
+            late = getattr(request, "_tenancy_late_tokens", None)
+            if late is not None:
+                reset_current_entitlements(late[1])
+                reset_current_viewer(late[0])
             reset_current_submission_visibility(s_token)
             reset_current_entitlements(e_token)
             reset_current_viewer(v_token)
@@ -377,6 +381,16 @@ class TenancyMiddleware:
             return None
 
         user = getattr(request, "user", None)
+        late_user = _late_authenticated_user(request, view_func, user)
+        if late_user is not None:
+            # The view authenticates after middleware (DRF API keys, guac-web sessions): scope the
+            # request as that user, for both these checks and the query filters the view runs.
+            user = late_user
+            request.viewer = self.viewer_resolver(user)
+            request.entitlements = self.entitlements_resolver(user)
+            # Reset by __call__ when the request ends, before its own tokens.
+            request._tenancy_late_tokens = (set_current_viewer(request.viewer), set_current_entitlements(request.entitlements))
+
         viewer: Optional[ViewerContext] = getattr(request, "viewer", None)
         if viewer is None:
             viewer = self.viewer_resolver(user)
@@ -428,7 +442,7 @@ class TenancyMiddleware:
 
             # Routes that address a task are covered by the task check above; their hash kwargs
             # (e.g. on_demand/<task>/<category>/<sha256>) name files of that task, not samples.
-            sample_filter = {} if raw_task_ids else _sample_filter_from_kwargs(view_kwargs)
+            sample_filter = _sample_filter_from_kwargs(view_kwargs, include_typed=not raw_task_ids)
             if sample_filter:
                 try:
                     visible = bool(self.sample_access_checker(viewer, sample_filter))
@@ -509,6 +523,36 @@ def _expand_task_ids(raw: Any) -> list:
     return [raw]
 
 
+def _late_authenticated_user(request: Any, view_func: Callable[..., Any], user: Any) -> Any:
+    """The user the view will authenticate, when middleware only sees an anonymous one.
+
+    DRF views authenticate inside the view (API keys, tokens), so replay their authenticators.
+    Other processes can name a `TENANCY_REQUEST_USER_RESOLVER` setting (dotted path to a
+    `callable(request) -> user`), e.g. guac-web, which resolves sessions without the auth backends.
+    """
+    if getattr(user, "is_authenticated", False):
+        return None
+    cls = getattr(view_func, "cls", None)
+    if cls is not None and getattr(cls, "authentication_classes", None):
+        try:
+            from rest_framework.request import Request
+
+            drf_user = Request(request, authenticators=[auth() for auth in cls.authentication_classes]).user
+            if getattr(drf_user, "is_authenticated", False):
+                return drf_user
+        except Exception:
+            pass  # stays anonymous; the view's own authentication will reject the request
+    try:
+        from django.conf import settings
+        from django.utils.module_loading import import_string
+
+        path = getattr(settings, "TENANCY_REQUEST_USER_RESOLVER", None) if settings.configured else None
+        resolved = import_string(path)(request) if path else None
+    except Exception:
+        resolved = None
+    return resolved if getattr(resolved, "is_authenticated", False) else None
+
+
 def _task_ids_from_body(request: Any, view_func: Callable[..., Any]) -> list:
     field = _BODY_TASK_ID_FIELDS.get(_view_name(view_func))
     if not field:
@@ -518,11 +562,15 @@ def _task_ids_from_body(request: Any, view_func: Callable[..., Any]) -> list:
     return [part.strip() for part in str(raw).split(",") if part.strip()]
 
 
-def _sample_filter_from_kwargs(view_kwargs: Dict[str, Any]) -> Dict[str, Any]:
-    """Sample-identifying kwargs, including files/get/<hashtype>/<value> and untyped hash kwargs."""
-    flt = {k: view_kwargs[k] for k in _SAMPLE_HASH_KWARGS if view_kwargs.get(k) is not None}
+def _sample_filter_from_kwargs(view_kwargs: Dict[str, Any], include_typed: bool = True) -> Dict[str, Any]:
+    """Sample-identifying kwargs, including files/get/<hashtype>/<value> and untyped hash kwargs.
+
+    `include_typed=False` drops sha256/md5/... kwargs, which on task-scoped routes name files of
+    that task; right_hash / resubmit_hash always name a sample and are always included.
+    """
+    flt = {k: view_kwargs[k] for k in _SAMPLE_HASH_KWARGS if include_typed and view_kwargs.get(k) is not None}
     stype, value = view_kwargs.get("stype"), view_kwargs.get("value")
-    if stype in ("md5", "sha1", "sha256") and value:
+    if include_typed and stype in ("md5", "sha1", "sha256") and value:
         flt[stype] = str(value).lower()
     for key in _UNTYPED_HASH_KWARGS:
         value = view_kwargs.get(key)

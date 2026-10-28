@@ -12,13 +12,15 @@ request's `ViewerContext` and `ResourceEntitlements` filters into:
 
 from __future__ import annotations
 
+import contextvars
 import functools
+import logging
 import os
 from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from sqlalchemy import or_
 
-from lib.tenancy.acl import TaskAcl, ensure_acl_schema, ensure_acl_schema_once, set_task_acl
+from lib.tenancy.acl import TaskAcl, ensure_acl_schema, ensure_acl_schema_once, resolve_task_scope, set_task_acl
 from lib.tenancy.context import (
     get_current_entitlements,
     get_current_submission_visibility,
@@ -29,6 +31,7 @@ from lib.tenancy.policy import (
     PUBLIC,
     TENANT,
     VISIBILITIES,
+    ResourceScope,
     ViewerContext,
     default_visibility as resolve_default_visibility,
     multitenancy_config,
@@ -38,6 +41,13 @@ from lib.tenancy.policy import (
 from lib.tenancy.resources import (
     ResourceEntitlements,
     filter_submission_form_context,
+)
+
+log = logging.getLogger(__name__)
+
+# Scope of the task being rescheduled, read by the wrapped `add` that creates its copy.
+_rescheduled_from: contextvars.ContextVar[Optional[ResourceScope]] = contextvars.ContextVar(
+    "cape_tenancy_rescheduled_from", default=None
 )
 
 MongoFilterFn = Callable[[str, Dict[str, Any], Optional[ViewerContext]], Dict[str, Any]]
@@ -283,6 +293,9 @@ def wrap_submission_and_web_utils(
                             vis = resolve_default_visibility(cfg) if cfg.enabled else (PRIVATE if owner_id else PUBLIC)
                         if vis == TENANT and tenant_id is None:
                             vis = PRIVATE
+                        inherited = _rescheduled_from.get()
+                        if inherited is not None:
+                            owner_id, tenant_id, vis = inherited.owner_id, inherited.tenant_id, inherited.visibility
                         sess = getattr(self, "session", None)
                         if sess is not None and (
                             multitenancy_config().enabled or owner_id is not None or sub_vis is not None
@@ -306,6 +319,30 @@ def wrap_submission_and_web_utils(
 
             _wrapped_task_add._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
             setattr(tasking_cls, "add", _wrapped_task_add)
+
+        orig_reschedule = getattr(tasking_cls, "reschedule", None)
+        if orig_reschedule is not None and not getattr(orig_reschedule, "_cape_tenancy_wrapped", False):
+
+            @functools.wraps(orig_reschedule)
+            def _wrapped_reschedule(self: Any, task_id: Any, *args: Any, _orig=orig_reschedule, **kwargs: Any):
+                # The copy is added outside any submission, so `add` would stamp the deployment
+                # default; hand it the source task's scope instead (owner-only without an ACL row).
+                src_scope = None
+                sess = getattr(self, "session", None)
+                if sess is not None:
+                    try:
+                        src = self.view_task(task_id)
+                        src_scope = resolve_task_scope(sess, int(task_id), fallback_user_id=getattr(src, "user_id", None))
+                    except Exception:
+                        log.exception("tenancy: cannot resolve the scope of task %s before rescheduling", task_id)
+                token = _rescheduled_from.set(src_scope)
+                try:
+                    return _orig(self, task_id, *args, **kwargs)
+                finally:
+                    _rescheduled_from.reset(token)
+
+            _wrapped_reschedule._cape_tenancy_wrapped = True  # type: ignore[attr-defined]
+            setattr(tasking_cls, "reschedule", _wrapped_reschedule)
 
     if machines_cls is None:
         try:

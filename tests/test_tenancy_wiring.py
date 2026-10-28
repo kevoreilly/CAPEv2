@@ -615,3 +615,62 @@ print(json.dumps(out))
     import json
 
     assert json.loads(res.stdout.strip().splitlines()[-1]) == {"api_key": 200, "bad_key": 403, "session_no_csrf": 403}
+
+
+@pytest.mark.parametrize("source_acl", [True, False])
+def test_reschedule_copy_inherits_the_source_task_scope(monkeypatch, source_acl):
+    # Reschedule (API, and init_tasks at scheduler start) re-adds the task outside any submission,
+    # so the new row took the deployment default -- public in "shared" mode -- and a private
+    # analysis came back public.
+    import contextlib
+
+    import sqlalchemy as sa
+    from sqlalchemy.orm import scoped_session, sessionmaker
+
+    from lib.tenancy.acl import resolve_task_scope
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+
+    cfg = lambda: policy.MTConfig(enabled=True, mode="shared", default_visibility="", local_admins_manage_all_tenants=True)  # noqa: E731
+    monkeypatch.setattr("lib.tenancy.hooks.multitenancy_config", cfg)
+    monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", cfg)
+    engine = sa.create_engine("sqlite://")
+    ensure_acl_schema(engine)
+    session = scoped_session(sessionmaker(bind=engine, expire_on_commit=False, future=True))
+    plain_begin = session.begin
+
+    @contextlib.contextmanager
+    def safe_begin(*args, **kwargs):  # as lib.cuckoo.core.database._Database installs it
+        if session().in_transaction():
+            yield
+            session().flush()
+        else:
+            with plain_begin(*args, **kwargs) as tx:
+                yield tx
+
+    session.begin = safe_begin
+    if source_acl:
+        with session.begin():
+            set_task_acl(session, 10, user_id=7, tenant_id=3, visibility=PRIVATE)
+
+    class DummyTasking:
+        def __init__(self, sess):
+            self.session = sess
+
+        def view_task(self, task_id):
+            return types.SimpleNamespace(id=task_id, user_id=7)
+
+        def add(self, obj, user_id=0, **kwargs):
+            with self.session.begin():  # as TasksMixIn.add does
+                pass
+            return 11
+
+        def reschedule(self, task_id):
+            self.view_task(task_id)
+            self.session.execute(sa.text("SELECT 1"))  # the real one reads the task first
+            return self.add("target")
+
+    wrap_submission_and_web_utils(tasking_cls=DummyTasking)
+    assert DummyTasking(session).reschedule(10) == 11
+    scope = resolve_task_scope(session, 11)
+    assert (scope.owner_id, scope.visibility) == (7, PRIVATE)
+    assert scope.tenant_id == (3 if source_acl else None)

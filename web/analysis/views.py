@@ -2783,6 +2783,11 @@ def report(request, task_id):
         except Exception:
             pass
     if not report:
+        task = None
+        with suppress(Exception):
+            task = db.view_task(task_id)
+        if task is not None and getattr(task, "status", "reported") != "reported":
+            return redirect("submission_status", task_id=task_id)
         if DISABLED_WEB:
             msg = "You need to enable Mongodb/ES to be able to use WEBGUI to see the analysis"
         else:
@@ -3985,6 +3990,8 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
             extractedfile = False
             if category in ("static", "target.file"):
                 path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "binary")
+                if not path_exists(path):
+                    path = os.path.join(CUCKOO_ROOT, "storage", "binaries", sha256)
                 category = "target.file"
             elif category == "dropped":
                 path = os.path.join(ANALYSIS_BASE_PATH, "analyses", task_id, "files", sha256)
@@ -4072,6 +4079,15 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
         # Use no_hooks=True to avoid running heavy hooks just to get the _id for update
         buf = mongo_find_one("analysis", {"info.id": int(task_id)}, {"_id": 1, category: 1}, no_hooks=True)
         if not buf:
+            task = db.view_task(task_id)
+            if task and category == "target.file":
+                from submission.static_preview import get_static_preview, update_static_preview_service
+
+                update_static_preview_service(sha256, service, details)
+                if request.headers.get("HX-Request"):
+                    preview = get_static_preview(task, run_full=False) or {}
+                    return render(request, "analysis/generic/_file_info.html", preview)
+                return redirect("submission_status", task_id=task_id)
             return render(request, "error.html", {"error": f"Task {task_id} not found in results database"})
 
         servicedata = {}
@@ -4122,6 +4138,12 @@ def on_demand(request, service: str, task_id: str, category: str, sha256):
     if request.headers.get("HX-Request"):
         report = mongo_find_one("analysis", {"info.id": int(task_id)})
         if not report:
+            task = db.view_task(task_id)
+            if task:
+                from submission.static_preview import get_static_preview
+
+                preview = get_static_preview(task, run_full=False) or {}
+                return render(request, "analysis/generic/_file_info.html", preview)
             return HttpResponse("Analysis not found", status=404)
 
         def _get_file_by_sha256(node, target_sha256):

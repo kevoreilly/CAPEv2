@@ -10,11 +10,7 @@ from concurrent.futures.process import BrokenProcessPool
 
 import pebble
 
-try:
-    from pebble.pool.base_pool import PoolStatus
-except ImportError:
-    PoolStatus = None
-
+from lib.cuckoo.common.pebble_utils import is_pool_healthy, teardown_pool
 from lib.cuckoo.core.processing_engine.base import ProcessingEngine
 
 log = logging.getLogger(__name__)
@@ -43,30 +39,36 @@ class PebbleEngine(ProcessingEngine):
         Exit after scheduling this many tasks. 0 (default) = run forever,
         matching ``cfg.cuckoo.max_analysis_count == 0`` production default.
     stall_grace : int
-        Grace period in seconds after timeout (for running tasks) or since
-        scheduling (for tasks not yet picked up by a worker) before the task
-        is reaped.
+        Grace period in seconds after ``timeout`` before a running task is
+        reaped. Also the default for ``pickup_grace``.
+    pickup_grace : int or None
+        Seconds a scheduled task may wait for worker pickup before it is
+        reaped. Measured from the later of scheduling and the last pool
+        (re)creation, so a freshly created pool whose workers are still
+        running ``worker_init`` is not penalised. Defaults to ``stall_grace``.
     join_timeout : int
         Seconds to wait for graceful pool drain on normal teardown before
         escalating to force-stop (defaults to 60).
     stop_join_timeout : int
         Seconds to wait after ``pool.stop()`` for the OS to reap workers
-        (defaults to 5).
+        (defaults to 5). Hard wall-clock bound: see ``teardown_pool``.
     """
 
     def __init__(self, task_fn, worker_init, source, parallel, timeout,
                  max_tasks=0, max_count=0, stall_grace=300,
-                 join_timeout=60, stop_join_timeout=5):
+                 join_timeout=60, stop_join_timeout=5, pickup_grace=None):
         super().__init__(task_fn, worker_init, source, parallel, timeout)
         self.max_tasks = max_tasks
         self.max_count = max_count
         self.stall_grace = stall_grace
+        self.pickup_grace = pickup_grace
         self.join_timeout = join_timeout
         self.stop_join_timeout = stop_join_timeout
         self._lock = threading.Lock()
         self._wake = threading.Event()
         self._pending = {}  # future -> task_id
         self._scheduled_at = {}  # future -> time.monotonic() when scheduled
+        self._pool_created_at = 0.0  # set by _new_pool(); start of the pickup clock
 
     def _safe_mark_failed(self, task_id):
         """Record task failure without letting a transient DB error kill the caller."""
@@ -107,10 +109,13 @@ class PebbleEngine(ProcessingEngine):
 
         Two-tier stall deadline:
         - If the task is still waiting for worker pickup (``not future.running()``),
-          reap after ``stall_grace`` seconds without waiting for ``timeout``.
+          reap after ``pickup_grace`` seconds without waiting for ``timeout``.
+          The clock starts at the later of scheduling and the last pool
+          (re)creation, so workers still in ``worker_init`` are not penalised.
         - If the task is running (``future.running()``), reap after
-          ``timeout + stall_grace`` seconds as a safety net if pebble's own
-          timeout thread or worker-expiration tracking misses an orphaned task.
+          ``timeout + stall_grace`` seconds (from scheduling) as a safety net if
+          pebble's own timeout thread or worker-expiration tracking misses an
+          orphaned task.
         """
         if not self.stall_grace:
             return
@@ -120,6 +125,7 @@ class PebbleEngine(ProcessingEngine):
                 return
             pending_keys = list(self._pending.keys())
 
+        pickup_grace = self.stall_grace if self.pickup_grace is None else self.pickup_grace
         now = time.monotonic()
         for future in pending_keys:
             try:
@@ -127,12 +133,15 @@ class PebbleEngine(ProcessingEngine):
             except Exception:
                 is_running = False
 
-            deadline = (self.timeout + self.stall_grace) if is_running else self.stall_grace
+            deadline = (self.timeout + self.stall_grace) if is_running else pickup_grace
 
             with self._lock:
                 if future not in self._pending:
                     continue
-                if now - self._scheduled_at.get(future, now) < deadline:
+                started = self._scheduled_at.get(future, now)
+                if not is_running:
+                    started = max(started, self._pool_created_at)
+                if now - started < deadline:
                     continue
                 task_id = self._pending.pop(future, None)
                 self._scheduled_at.pop(future, None)
@@ -159,6 +168,7 @@ class PebbleEngine(ProcessingEngine):
     def _new_pool(self):
         """Create a fresh fork-context pebble process pool."""
         ctx = multiprocessing.get_context("fork")
+        self._pool_created_at = time.monotonic()
         return pebble.ProcessPool(
             max_workers=self.parallel,
             max_tasks=self.max_tasks,
@@ -169,61 +179,17 @@ class PebbleEngine(ProcessingEngine):
     @staticmethod
     def _is_pool_healthy(pool):
         """Check whether the pool's management threads and status are healthy."""
-        if pool is None:
-            return False
-        for attr in ("_task_scheduler_loop", "_pool_manager_loop", "_message_manager_loop"):
-            loop = getattr(pool, attr, None)
-            if loop is not None and not loop.is_alive():
-                return False
-
-        status = getattr(getattr(pool, "_context", None), "status", None)
-        created_status = PoolStatus.CREATED if PoolStatus is not None else 0
-        unhealthy_statuses = (PoolStatus.STOPPED, PoolStatus.ERROR) if PoolStatus is not None else (3, 4)
-        if status in unhealthy_statuses:
-            return False
-        if status != created_status:
-            try:
-                if hasattr(pool, "active") and not pool.active:
-                    return False
-            except Exception:
-                return False
-
-        return True
+        return is_pool_healthy(pool)
 
     def _teardown_pool(self, pool, force=False):
-        """Close+join a pool with bounded waits, escalating to stop() on failure."""
-        if pool is None:
-            return
-        try:
-            if force or not self._is_pool_healthy(pool):
-                try:
-                    pool.stop()
-                except Exception as stop_err:
-                    log.debug("PebbleEngine: pool.stop() raised: %s", stop_err)
-                try:
-                    pool.join(timeout=self.stop_join_timeout)
-                except Exception as join_err:
-                    log.debug("PebbleEngine: pool.join() after stop raised: %s", join_err)
-            else:
-                try:
-                    pool.close()
-                    pool.join(timeout=self.join_timeout)
-                except Exception as join_err:
-                    log.warning(
-                        "PebbleEngine: pool did not drain within %ss (%s); force-stopping",
-                        self.join_timeout,
-                        join_err,
-                    )
-                    try:
-                        pool.stop()
-                    except Exception as stop_err:
-                        log.debug("PebbleEngine: pool.stop() raised: %s", stop_err)
-                    try:
-                        pool.join(timeout=self.stop_join_timeout)
-                    except Exception as post_stop_err:
-                        log.debug("PebbleEngine: pool.join() after stop raised: %s", post_stop_err)
-        except Exception:
-            log.debug("PebbleEngine: _teardown_pool raised", exc_info=True)
+        """Close+join a pool within a hard bound, escalating to stop() on failure."""
+        return teardown_pool(
+            pool,
+            join_timeout=self.join_timeout,
+            stop_join_timeout=self.stop_join_timeout,
+            force=force,
+            name="PebbleEngine pool",
+        )
 
     def _fail_all_pending(self, reason):
         """Fail and cancel all currently pending tasks when a pool breaks."""

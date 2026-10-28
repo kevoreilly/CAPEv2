@@ -462,3 +462,25 @@ def test_sso_adapter_no_longer_uses_the_removed_tenant_model():
     src = (pathlib.Path(__file__).resolve().parents[1] / "web/web/allauth_adapters.py").read_text()
     assert "users.models import Tenant" not in src
     assert "run_login_groups_hooks(user, _extract_groups(extra))" in src
+
+
+def test_ensure_acl_schema_once_survives_engine_churn_and_races(monkeypatch):
+    import sqlalchemy as sa
+
+    import lib.tenancy.acl as acl
+
+    for _ in range(20):
+        engine = sa.create_engine("sqlite://")
+        acl.ensure_acl_schema_once(engine)
+        assert "task_acl" in sa.inspect(engine).get_table_names()
+        del engine
+
+    engine = sa.create_engine("sqlite://")
+    acl.ensure_acl_schema(engine)  # a concurrent worker created it first
+
+    def lost_race(_engine):
+        raise sa.exc.ProgrammingError("CREATE TABLE task_acl", {}, Exception("relation task_acl already exists"))
+
+    monkeypatch.setattr(acl, "ensure_acl_schema", lost_race)
+    acl.ensure_acl_schema_once(engine)
+    assert engine in acl._acl_schema_ready

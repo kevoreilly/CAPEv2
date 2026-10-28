@@ -10,10 +10,11 @@ Replaces two invasive constructs from the inline implementation:
 
 from __future__ import annotations
 
+import weakref
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional
 
-from sqlalchemy import Column, Index, Integer, String
+from sqlalchemy import Column, Index, Integer, String, inspect
 from sqlalchemy.orm import DeclarativeBase, Session
 
 from lib.tenancy.policy import PRIVATE, VISIBILITIES, ResourceScope
@@ -74,7 +75,8 @@ def ensure_acl_schema(engine) -> None:
     AclBase.metadata.create_all(engine, tables=[TaskAcl.__table__], checkfirst=True)
 
 
-_acl_schema_ready: set = set()
+# Weakly keyed: an id() would be reused by a later engine once this one is collected.
+_acl_schema_ready: "weakref.WeakSet[Any]" = weakref.WeakSet()
 
 
 def ensure_acl_schema_once(engine) -> None:
@@ -83,10 +85,15 @@ def ensure_acl_schema_once(engine) -> None:
     The table is otherwise created only on the first submission, but task listing and per-task
     authorization read it from the first request after an install or upgrade.
     """
-    if id(engine) in _acl_schema_ready:
+    if engine in _acl_schema_ready:
         return
-    ensure_acl_schema(engine)
-    _acl_schema_ready.add(id(engine))
+    try:
+        ensure_acl_schema(engine)
+    except Exception:
+        # create_all(checkfirst=True) is check-then-create: another worker may have won the race.
+        if "task_acl" not in inspect(engine).get_table_names():
+            raise
+    _acl_schema_ready.add(engine)
 
 
 def get_task_acl(session: Session, task_id: int) -> Optional[TaskAcl]:

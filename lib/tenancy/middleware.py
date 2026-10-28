@@ -204,9 +204,15 @@ def default_viewer_resolver(user: Any) -> ViewerContext:
     )
 
 
+def _view_name(view_func: Callable[..., Any]) -> str:
+    """The view's own name. DRF's @api_view returns a wrapper named "view"; the name is on `.cls`."""
+    cls = getattr(view_func, "cls", None) or getattr(view_func, "view_class", None)
+    return getattr(cls, "__name__", None) or getattr(view_func, "__name__", "")
+
+
 def classify_view_action(request_path: str, view_func: Callable[..., Any]) -> str:
     """Classify a view invocation as `'read'`, `'manage'`, or `'delete'`."""
-    view_name = getattr(view_func, "__name__", "").lower()
+    view_name = _view_name(view_func).lower()
     path_lower = (request_path or "").lower()
     combined = f"{view_name} {path_lower}"
 
@@ -222,7 +228,7 @@ def _is_submission_post(request: Any, view_func: Callable[..., Any]) -> bool:
     if method != "POST":
         return False
     path = str(getattr(request, "path", "") or "").lower()
-    view_name = getattr(view_func, "__name__", "").lower()
+    view_name = _view_name(view_func).lower()
     if view_name in _SUBMISSION_VIEW_NAMES:
         return True
     if path.startswith("/submit") or path.startswith("/apiv2/tasks/create/"):
@@ -231,13 +237,13 @@ def _is_submission_post(request: Any, view_func: Callable[..., Any]) -> bool:
 
 
 def _is_direct_vnc_view(view_func: Callable[..., Any]) -> bool:
-    return getattr(view_func, "__name__", "").startswith("direct_vnc_")
+    return _view_name(view_func).startswith("direct_vnc_")
 
 
 def _is_machine_view(request: Any, view_func: Callable[..., Any], view_kwargs: Dict[str, Any]) -> bool:
     if "name" not in view_kwargs or view_kwargs.get("name") is None:
         return False
-    view_name = getattr(view_func, "__name__", "").lower()
+    view_name = _view_name(view_func).lower()
     path = str(getattr(request, "path", "") or "").lower()
     return view_name == "machines_view" or "/machines/view/" in path
 
@@ -504,7 +510,7 @@ def _expand_task_ids(raw: Any) -> list:
 
 
 def _task_ids_from_body(request: Any, view_func: Callable[..., Any]) -> list:
-    field = _BODY_TASK_ID_FIELDS.get(getattr(view_func, "__name__", ""))
+    field = _BODY_TASK_ID_FIELDS.get(_view_name(view_func))
     if not field:
         return []
     post = getattr(request, "POST", None)

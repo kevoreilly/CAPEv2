@@ -225,10 +225,16 @@ def _post_req(path, **post):
 
 
 def test_body_task_ids_are_gated(private_task):
+    # The real view is DRF-decorated: @api_view renames the callable to "view".
+    from rest_framework.decorators import api_view
+
     task_id, _ = private_task
 
-    def tasks_delete_many():
+    @api_view(["POST"])
+    def tasks_delete_many(request):
         pass
+
+    assert tasks_delete_many.__name__ == "view"
 
     req = lambda: _post_req("/apiv2/tasks/delete_many/", ids=f"{task_id}")  # noqa: E731
     assert _status(_mw(_viewer(8, 2)).process_view(req(), tasks_delete_many, (), {})) == 404

@@ -18,7 +18,7 @@ from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from sqlalchemy import or_
 
-from lib.tenancy.acl import TaskAcl, ensure_acl_schema, set_task_acl
+from lib.tenancy.acl import TaskAcl, ensure_acl_schema, ensure_acl_schema_once, set_task_acl
 from lib.tenancy.context import (
     get_current_entitlements,
     get_current_submission_visibility,
@@ -394,6 +394,12 @@ def wrap_submission_and_web_utils(
             setattr(submission_views_mod, "render", _wrapped_render)
 
 
+def _reconcile_login_groups(user: Any, idp_groups: set) -> None:
+    from lib.tenancy.resources import reconcile_idp_groups_to_django_groups
+
+    reconcile_idp_groups_to_django_groups(user, idp_groups)
+
+
 def default_sql_task_query_filter(query: Any, viewer: Optional[ViewerContext] = None) -> Any:
     """Apply `TaskAcl` outer-join and visibility clause to a SQLAlchemy `Task` query."""
     active_viewer = viewer if viewer is not None else get_current_viewer()
@@ -406,7 +412,17 @@ def default_sql_task_query_filter(query: Any, viewer: Optional[ViewerContext] = 
     clause = default_sql_task_acl_clause(Task.id, Task.user_id, active_viewer)
     if clause is None:
         return query
+    _ensure_acl_table()
     return query.outerjoin(TaskAcl, TaskAcl.task_id == Task.id).filter(clause)
+
+
+def _ensure_acl_table() -> None:
+    try:
+        from lib.cuckoo.core.database import Database
+
+        ensure_acl_schema_once(Database().engine)
+    except Exception:
+        pass  # the query will surface a real database problem
 
 
 def _stamp_from_dist_env(info: Dict[str, Any]) -> bool:
@@ -495,4 +511,6 @@ def register_core_hooks() -> bool:
         core_hooks.register_route_filter(default_route_list_filter)
     if hasattr(core_hooks, "register_submission_context_filter"):
         core_hooks.register_submission_context_filter(default_submission_context_filter)
+    if hasattr(core_hooks, "register_login_groups_hook"):
+        core_hooks.register_login_groups_hook(_reconcile_login_groups)
     return True

@@ -16,6 +16,7 @@ MachineFilterHook = Callable[[list[Any]], list[Any]]
 TagFilterHook = Callable[[list[Any]], list[Any]]
 RouteFilterHook = Callable[[list[Any], str | None], list[Any]]
 SubmissionContextFilterHook = Callable[[MutableMapping[str, Any]], MutableMapping[str, Any]]
+LoginGroupsHook = Callable[[Any, set], None]
 
 _mongo_filters: list[MongoFilterHook] = []
 _sql_task_filters: list[SqlTaskFilterHook] = []
@@ -25,6 +26,7 @@ _machine_filters: list[MachineFilterHook] = []
 _tag_filters: list[TagFilterHook] = []
 _route_filters: list[RouteFilterHook] = []
 _submission_context_filters: list[SubmissionContextFilterHook] = []
+_login_groups_hooks: list[LoginGroupsHook] = []
 
 
 def register_mongo_filter(fn: MongoFilterHook) -> None:
@@ -91,6 +93,17 @@ def apply_es_filter(body: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
+def register_login_groups_hook(fn: LoginGroupsHook) -> None:
+    if fn not in _login_groups_hooks:
+        _login_groups_hooks.append(fn)
+
+
+def run_login_groups_hooks(user: Any, idp_groups: set) -> None:
+    """Called on SSO login with the user's IdP group claim (only when the claim is present)."""
+    for fn in _login_groups_hooks:
+        fn(user, idp_groups)
+
+
 def run_report_hooks(results: dict[str, Any]) -> None:
     for fn in _report_hooks:
         fn(results)
@@ -141,6 +154,7 @@ def clear_all_hooks() -> None:
     _tag_filters.clear()
     _route_filters.clear()
     _submission_context_filters.clear()
+    _login_groups_hooks.clear()
 
 
 # --- Plugin activation -------------------------------------------------------------------------

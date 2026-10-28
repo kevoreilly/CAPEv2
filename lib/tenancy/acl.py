@@ -74,6 +74,21 @@ def ensure_acl_schema(engine) -> None:
     AclBase.metadata.create_all(engine, tables=[TaskAcl.__table__], checkfirst=True)
 
 
+_acl_schema_ready: set = set()
+
+
+def ensure_acl_schema_once(engine) -> None:
+    """`ensure_acl_schema` at most once per engine per process.
+
+    The table is otherwise created only on the first submission, but task listing and per-task
+    authorization read it from the first request after an install or upgrade.
+    """
+    if id(engine) in _acl_schema_ready:
+        return
+    ensure_acl_schema(engine)
+    _acl_schema_ready.add(id(engine))
+
+
 def get_task_acl(session: Session, task_id: int) -> Optional[TaskAcl]:
     """Fetch the `TaskAcl` row for `task_id`, or None if absent."""
     return session.get(TaskAcl, int(task_id))

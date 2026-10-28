@@ -408,3 +408,57 @@ def test_bootstrap_imports_nothing_when_disabled():
     )
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip().splitlines()[-1] == "False"
+
+
+def test_fresh_install_without_acl_table_lists_and_authorizes(db, temp_pe32, mt_enabled):
+    # task_acl used to appear only on the first submission through the tenancy wrapper.
+    import sqlalchemy as sa
+
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.acl import _acl_schema_ready
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import register_core_hooks
+
+    def acl_table_exists():
+        # Through the session: an Inspector on the in-memory engine would roll the session back.
+        return db.session.execute(sa.text("SELECT 1 FROM sqlite_master WHERE name = 'task_acl'")).first() is not None
+
+    task_id = db.add_path(str(temp_pe32), user_id=7)
+    _acl_schema_ready.clear()
+    assert not acl_table_exists()
+
+    owner = _mw(_viewer(user_id=7, tenant_id=1))
+    assert owner.process_view(_req(f"/analysis/{task_id}/"), _view, (), {"task_id": task_id}) is None
+
+    _acl_schema_ready.clear()
+    with db.session.begin():
+        db.session.execute(sa.text("DROP TABLE task_acl"))
+    register_core_hooks()
+    set_current_viewer(_viewer(user_id=7, tenant_id=1))
+    try:
+        assert [t.id for t in db.list_tasks()] == [task_id]
+    finally:
+        core_hooks.clear_all_hooks()
+
+
+def test_sso_login_groups_reach_tenancy_group_reconciliation(monkeypatch):
+    import lib.tenancy.resources as resources
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.hooks import register_core_hooks
+
+    calls = []
+    monkeypatch.setattr(resources, "reconcile_idp_groups_to_django_groups", lambda user, groups: calls.append((user, groups)))
+    register_core_hooks()
+    try:
+        core_hooks.run_login_groups_hooks("alice", {"cape-acme"})
+    finally:
+        core_hooks.clear_all_hooks()
+    assert calls == [("alice", {"cape-acme"})]
+
+
+def test_sso_adapter_no_longer_uses_the_removed_tenant_model():
+    import pathlib
+
+    src = (pathlib.Path(__file__).resolve().parents[1] / "web/web/allauth_adapters.py").read_text()
+    assert "users.models import Tenant" not in src
+    assert "run_login_groups_hooks(user, _extract_groups(extra))" in src

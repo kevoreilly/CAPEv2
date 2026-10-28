@@ -15,6 +15,7 @@ import os
 from typing import Any, Callable, Dict, Optional, Sequence
 
 from lib.tenancy.acl import (
+    ensure_acl_schema_once,
     VisibilityConflictError,
     resolve_task_scope,
     toggle_task_visibility_cas,
@@ -72,6 +73,7 @@ def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[Resourc
     task = db.view_task(task_id)
     if task is None:
         return None, None
+    ensure_acl_schema_once(db.engine)
     session = db.session
     scope = resolve_task_scope(session, task_id, fallback_user_id=getattr(task, "user_id", None))
     return session, scope

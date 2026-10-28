@@ -592,7 +592,7 @@ def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str
     from lib.cuckoo.core.data.samples import Sample
     from lib.cuckoo.core.data.task import Task
     from lib.cuckoo.core.database import Database
-    from lib.tenancy.acl import resolve_task_scope
+    from lib.tenancy.acl import ensure_acl_schema_once, resolve_task_scope
 
     conds = []
     for key, value in sample_filter.items():
@@ -605,7 +605,9 @@ def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str
             conds.append(getattr(Sample, key) == str(value).lower())
     if not conds:
         return False
-    session = Database().session
+    db = Database()
+    ensure_acl_schema_once(db.engine)
+    session = db.session
     rows = session.execute(select(Task.id, Task.user_id).join(Sample, Task.sample_id == Sample.id).where(and_(*conds)))
     # Stops at the first readable task; most lookups are by the sample's own submitter.
     return any(can_read(viewer, resolve_task_scope(session, tid, fallback_user_id=uid)) for tid, uid in rows)

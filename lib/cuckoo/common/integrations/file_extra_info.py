@@ -1,4 +1,5 @@
 import concurrent.futures
+import concurrent.futures.process
 import hashlib
 import json
 import logging
@@ -428,22 +429,21 @@ from lib.cuckoo.common.integrations.utils import run_tool
 # `generic_file_extractors` runs once per extracted file, so a task with N
 # payloads calls it N times. Two strategies:
 #
-#   * Per-call (pebble default): create a fork-context pool, use it, then
-#     close+join in a finally. Safe under the pebble A/B control because the
-#     long-lived worker never has to join a persistent nested pool (which is
-#     what deadlocks in multiprocessing `_exit_function` on worker recycle).
+#   * Shared-per-task: `run_task` (under both `pebble` and `prefork` engines)
+#     and `PreforkEngine._child_main` opt into the shared-per-task pool via
+#     `enable_shared_extractor_pool()` and tear it down cleanly via
+#     `shutdown_shared_extractor_pool()`. A single pool is created on first use
+#     and reused across all N files, reclaiming the per-file fork+interpreter
+#     startup cost (~1.2s/file on heavy tasks).
 #
-#   * Shared-per-child (prefork): the prefork supervisor forks one child per
-#     task; the child sets its own process group, runs every file, then
-#     `os._exit()`. There it is safe — and much faster — to build ONE pool and
-#     reuse it across all N files, tearing it down a single time when the task
-#     finishes. This reclaims the per-file fork+interpreter-startup cost that a
-#     per-call pool pays N times (~1.2s/file on heavy tasks). The prefork child
-#     opts in via `enable_shared_extractor_pool()` and cleans up via
-#     `shutdown_shared_extractor_pool()`; any stragglers are swept by the
-#     supervisor's process-group kill.
+#   * Per-call: fallback when called outside `run_task` (e.g. ad-hoc extraction,
+#     direct module execution, or standalone tests without shared pool enabled).
+#     Creates a fork-context pool right-sized to scheduled extractors, uses it,
+#     and tears it down immediately in a finally block.
 _SHARED_EXTRACTOR_POOL = None
 _USE_SHARED_POOL = False
+_ACTIVE_EXTRACTOR_POOLS = set()
+_EXTRACTOR_FINALIZER_PID = None
 
 # Bound extractor-pool teardown. A wedged grandchild (D-state IO, a hung Java
 # decompiler — see the stray hs_err_pid dumps) would otherwise make pool.join()
@@ -457,13 +457,90 @@ EXTRACTOR_POOL_JOIN_TIMEOUT = 60
 EXTRACTOR_POOL_STOP_JOIN_TIMEOUT = 5
 
 
-def _new_extractor_pool():
+def _stop_active_extractor_pools():
+    """Force-stop any active nested extractor pools before multiprocessing's
+    _exit_function() attempts to join non-daemon child processes (e.g. when a
+    Pebble 5.2+ worker receives SIGTERM and invokes process_exit)."""
+    global _EXTRACTOR_FINALIZER_PID
+    _EXTRACTOR_FINALIZER_PID = None
+    for pool in list(_ACTIVE_EXTRACTOR_POOLS):
+        try:
+            if hasattr(pool, "stop"):
+                pool.stop()
+        except Exception:
+            pass
+        pool_mgr = getattr(pool, "_pool_manager", None)
+        worker_mgr = getattr(pool_mgr, "worker_manager", None)
+        if worker_mgr is not None:
+            try:
+                worker_mgr.close_channels()
+            except Exception:
+                pass
+            for proc in list(getattr(worker_mgr, "workers", {}).values()):
+                try:
+                    proc.terminate()
+                except Exception:
+                    pass
+    _ACTIVE_EXTRACTOR_POOLS.clear()
+
+
+def _register_extractor_pool(pool):
+    global _EXTRACTOR_FINALIZER_PID
+    if pool is None:
+        return pool
+    _ACTIVE_EXTRACTOR_POOLS.add(pool)
+    current_pid = os.getpid()
+    if _EXTRACTOR_FINALIZER_PID != current_pid:
+        try:
+            from multiprocessing.util import Finalize
+
+            Finalize(None, _stop_active_extractor_pools, exitpriority=100)
+            _EXTRACTOR_FINALIZER_PID = current_pid
+        except Exception:
+            pass
+    return pool
+
+
+def _is_extractor_pool_healthy(pool):
+    """Return True if a shared extractor pool's management threads and status are healthy."""
+    if pool is None:
+        return False
+    for attr in ("_task_scheduler_loop", "_pool_manager_loop", "_message_manager_loop"):
+        loop = getattr(pool, attr, None)
+        if loop is not None and not loop.is_alive():
+            return False
+    status = getattr(getattr(pool, "_context", None), "status", None)
+    if status in (3, 4):  # PoolStatus.STOPPED (3), PoolStatus.ERROR (4)
+        return False
+    if status != 0:  # 0 == PoolStatus.CREATED
+        try:
+            if hasattr(pool, "active") and not pool.active:
+                return False
+        except Exception:
+            return False
+    return True
+
+
+def _new_extractor_pool(max_workers=None):
     """Create a fresh fork-context pebble pool. Fork (not forkserver/spawn) is
     deliberate: the task child is single-threaded when the pool is created, so
     fork is deadlock-safe here, ~10ms/pool faster than forkserver, and leaves no
     orphans (workers are swept by the supervisor's process-group kill)."""
     ctx = multiprocessing.get_context("fork")
-    return pebble.ProcessPool(max_workers=int(integration_conf.general.max_workers), context=ctx)
+    configured = int(integration_conf.general.max_workers)
+    workers = max(1, min(configured, int(max_workers))) if max_workers else configured
+    return pebble.ProcessPool(max_workers=workers, context=ctx)
+
+
+def _create_extractor_pool(max_workers=None):
+    if max_workers is not None:
+        try:
+            pool = _new_extractor_pool(max_workers=max_workers)
+        except TypeError:
+            pool = _new_extractor_pool()
+    else:
+        pool = _new_extractor_pool()
+    return _register_extractor_pool(pool)
 
 
 def _teardown_extractor_pool(pool):
@@ -490,30 +567,39 @@ def _teardown_extractor_pool(pool):
                 log.error("extractor pool did not reap after force-stop; abandoning (swept by process-group kill)")
     except Exception:
         log.debug("_teardown_extractor_pool: teardown raised", exc_info=True)
+    finally:
+        _ACTIVE_EXTRACTOR_POOLS.discard(pool)
 
 
 def enable_shared_extractor_pool():
     """Opt this process into a shared extractor pool reused across every call to
-    `generic_file_extractors`. Called by the prefork child after fork."""
+    `generic_file_extractors`. Called by the task worker before processing."""
     global _USE_SHARED_POOL
     _USE_SHARED_POOL = True
 
 
-def _acquire_extractor_pool():
+def _acquire_extractor_pool(max_workers=None):
     """Return ``(pool, is_shared)``. In shared mode a single process-wide pool is
-    created on first use and reused; otherwise a fresh per-call pool is returned."""
+    created on first use and reused (or recreated if unhealthy); otherwise a
+    fresh per-call pool right-sized to ``max_workers`` is returned."""
     global _SHARED_EXTRACTOR_POOL
     if _USE_SHARED_POOL:
+        if _SHARED_EXTRACTOR_POOL is not None and not _is_extractor_pool_healthy(_SHARED_EXTRACTOR_POOL):
+            log.warning("shared extractor pool became unhealthy; recreating")
+            dead_pool = _SHARED_EXTRACTOR_POOL
+            _SHARED_EXTRACTOR_POOL = None
+            _teardown_extractor_pool(dead_pool)
         if _SHARED_EXTRACTOR_POOL is None:
-            _SHARED_EXTRACTOR_POOL = _new_extractor_pool()
+            _SHARED_EXTRACTOR_POOL = _create_extractor_pool()
         return _SHARED_EXTRACTOR_POOL, True
-    return _new_extractor_pool(), False
+    return _create_extractor_pool(max_workers=max_workers), False
 
 
 def shutdown_shared_extractor_pool():
-    """Close+join the shared extractor pool once, if one was created. Idempotent
-    and exception-safe; called by the prefork child before it exits."""
-    global _SHARED_EXTRACTOR_POOL
+    """Close+join the shared extractor pool once, if one was created, and reset
+    shared-pool mode. Idempotent and exception-safe; called when the task finishes."""
+    global _SHARED_EXTRACTOR_POOL, _USE_SHARED_POOL
+    _USE_SHARED_POOL = False
     pool = _SHARED_EXTRACTOR_POOL
     _SHARED_EXTRACTOR_POOL = None
     _teardown_extractor_pool(pool)
@@ -554,36 +640,56 @@ def generic_file_extractors(
 
     futures = {}
     executed_tools = data_dictionary.setdefault("executed_tools", [])
-    # Per-call pool (pebble) or shared-per-child pool (prefork) — see the
-    # module-level lifecycle notes. A shared pool is reused across files and torn
-    # down once by the prefork child; a per-call pool is closed+joined here.
-    pool, shared_pool = _acquire_extractor_pool()
-    try:
-        # Prefer custom modules over the built-in ones, since only 1 is allowed
-        # to be the extracted_files_tool.
-        if extra_info_modules:
-            for module in extra_info_modules:
-                func_timeout = int(getattr(module, "timeout", 60))
-                funcname = module.__name__.split(".")[-1]
-                if funcname in executed_tools:
-                    continue
-                executed_tools.append(funcname)
-                futures[funcname] = pool.schedule(module.extract_details, args=args, kwargs=kwargs, timeout=func_timeout)
+    to_schedule = []
 
-        for extraction_func in file_info_funcs:
-            funcname = extraction_func.__name__.split(".")[-1]
-            if (
-                not getattr(integration_conf, funcname, {}).get("enabled", False)
-                and getattr(extraction_func, "enabled", False) is False
-            ):
-                continue
-
+    # Prefer custom modules over the built-in ones, since only 1 is allowed
+    # to be the extracted_files_tool.
+    if extra_info_modules:
+        for module in extra_info_modules:
+            func_timeout = int(getattr(module, "timeout", 60))
+            funcname = module.__name__.split(".")[-1]
             if funcname in executed_tools:
                 continue
             executed_tools.append(funcname)
+            to_schedule.append((funcname, module.extract_details, func_timeout))
 
-            func_timeout = int(getattr(integration_conf, funcname, {}).get("timeout", 60))
-            futures[funcname] = pool.schedule(extraction_func, args=args, kwargs=kwargs, timeout=func_timeout)
+    for extraction_func in file_info_funcs:
+        funcname = extraction_func.__name__.split(".")[-1]
+        if (
+            not getattr(integration_conf, funcname, {}).get("enabled", False)
+            and getattr(extraction_func, "enabled", False) is False
+        ):
+            continue
+
+        if funcname in executed_tools:
+            continue
+        executed_tools.append(funcname)
+
+        func_timeout = int(getattr(integration_conf, funcname, {}).get("timeout", 60))
+        to_schedule.append((funcname, extraction_func, func_timeout))
+
+    if not to_schedule:
+        return
+
+    # Lazily acquire the per-call pool or shared-per-task pool only when at
+    # least one extractor is actually scheduled.
+    pool, shared_pool = _acquire_extractor_pool(max_workers=len(to_schedule))
+    try:
+        for funcname, fn, func_timeout in to_schedule:
+            try:
+                futures[funcname] = pool.schedule(fn, args=args, kwargs=kwargs, timeout=func_timeout)
+            except (RuntimeError, concurrent.futures.process.BrokenProcessPool) as err:
+                if shared_pool:
+                    log.warning("shared extractor pool schedule failed (%s); recreating pool and retrying", err)
+                    shutdown_shared_extractor_pool()
+                    enable_shared_extractor_pool()
+                    pool, shared_pool = _acquire_extractor_pool(max_workers=len(to_schedule))
+                    try:
+                        futures[funcname] = pool.schedule(fn, args=args, kwargs=kwargs, timeout=func_timeout)
+                    except Exception as retry_err:
+                        log.exception("failed to schedule extractor %s after pool recreation: %s", funcname, retry_err)
+                else:
+                    log.exception("failed to schedule extractor %s: %s", funcname, err)
 
         for funcname, future in futures.items():
             func_result = None
@@ -634,9 +740,9 @@ def generic_file_extractors(
                     # ToDo doesn't work
                     shutil.rmtree(tempdir, ignore_errors=True)
     finally:
-        # A shared pool (prefork) is kept warm for the next file and torn down
-        # once by the child via shutdown_shared_extractor_pool(); a per-call
-        # pool (pebble) is torn down here so no nested pool outlives the call.
+        # A shared pool (run_task / prefork) is kept warm for the next file and
+        # torn down once via shutdown_shared_extractor_pool(); a per-call pool
+        # is torn down here so no nested pool outlives the call.
         if not shared_pool:
             _teardown_extractor_pool(pool)
 

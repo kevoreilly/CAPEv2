@@ -68,12 +68,19 @@ class _CountingSource:
 
 
 class _MockFuture:
-    def __init__(self):
+    def __init__(self, running=False):
         self._cancelled = False
+        self._running = running
 
     def cancel(self):
         self._cancelled = True
         return True
+
+    def cancelled(self):
+        return self._cancelled
+
+    def running(self):
+        return self._running
 
     def result(self):
         return None
@@ -230,5 +237,320 @@ def test_done_logs_task_fn_name_on_timeout(caplog):
     assert source.failed == [42]
     assert "Function: sample_worker_fn" in caplog.text
     assert "Function: 900" not in caplog.text
+
+
+def test_reaper_two_tier_deadline_unstarted_vs_running():
+    """Tasks that never started (running() is False) must be reaped after
+    stall_grace without waiting for timeout + stall_grace, whereas running
+    tasks must wait for the full timeout + stall_grace."""
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=2,
+        timeout=900,
+        stall_grace=10,
+    )
+    unstarted_future = _MockFuture(running=False)
+    running_future = _MockFuture(running=True)
+
+    now = time.monotonic()
+    with engine._lock:
+        # Both scheduled 15s ago: past stall_grace (10s), well before timeout + stall_grace (910s).
+        engine._pending[unstarted_future] = 201
+        engine._scheduled_at[unstarted_future] = now - 15
+        engine._pending[running_future] = 202
+        engine._scheduled_at[running_future] = now - 15
+
+    engine._reap_stalled()
+
+    with engine._lock:
+        assert unstarted_future not in engine._pending, "unstarted task past stall_grace must be reaped"
+        assert running_future in engine._pending, "running task within timeout+stall_grace must not be reaped"
+    assert source.failed == [201]
+    assert unstarted_future.cancelled()
+    assert not running_future.cancelled()
+
+    # Now age running_future past timeout + stall_grace (910s).
+    with engine._lock:
+        engine._scheduled_at[running_future] = time.monotonic() - 915
+
+    engine._reap_stalled()
+
+    with engine._lock:
+        assert running_future not in engine._pending
+    assert source.failed == [201, 202]
+    assert running_future.cancelled()
+
+
+def test_reaper_cancel_with_real_process_future_does_not_log_cancelled_error(caplog):
+    """When _reap_stalled cancels a real pebble.ProcessFuture that has
+    engine._done registered via add_done_callback, _done runs synchronously
+    inside cancel() and must not log a spurious CancelledError traceback."""
+    import logging
+    from pebble import ProcessFuture
+
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=60,
+        stall_grace=5,
+    )
+    future = ProcessFuture()
+    with engine._lock:
+        engine._pending[future] = 303
+        engine._scheduled_at[future] = time.monotonic() - 30
+    future.add_done_callback(engine._done)
+
+    with caplog.at_level(logging.ERROR, logger="lib.cuckoo.core.processing_engine.pebble"):
+        engine._reap_stalled()
+
+    assert source.failed == [303]
+    assert "Exception when processing task" not in caplog.text
+
+
+def test_pebble_engine_batches_multiple_tasks_per_fetch(monkeypatch):
+    """PebbleEngine.run() must fetch and schedule up to `launchable` tasks in a
+    single pass rather than breaking after the first task on every iteration."""
+    from pebble import ProcessFuture
+
+    monkeypatch.setattr("lib.cuckoo.common.cleaners_utils.free_space_monitor", lambda *a, **k: None)
+
+    class _TaskObj:
+        def __init__(self, tid):
+            self.id = tid
+
+    class _BatchSource:
+        def __init__(self):
+            self.fetch_limits = []
+            self.failed = []
+            self._tasks = [_TaskObj(1), _TaskObj(2), _TaskObj(3)]
+
+        def fetch(self, limit, exclude_ids):
+            self.fetch_limits.append(limit)
+            return [t for t in self._tasks if t.id not in exclude_ids][:limit]
+
+        def mark_failed(self, task_id):
+            self.failed.append(task_id)
+
+    scheduled_ids = []
+
+    class _FakePool:
+        active = True
+
+        def schedule(self, fn, args=(), timeout=None):
+            scheduled_ids.append(args[0].id)
+            fut = ProcessFuture()
+            fut.set_result(None)
+            return fut
+
+        def close(self):
+            pass
+
+        def join(self, timeout=None):
+            pass
+
+        def stop(self):
+            pass
+
+    source = _BatchSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=3,
+        timeout=30,
+        max_count=3,
+    )
+    monkeypatch.setattr(engine, "_new_pool", lambda: _FakePool())
+    engine.run()
+
+    assert scheduled_ids == [1, 2, 3]
+    assert source.fetch_limits == [3], "all 3 available slots should be filled in a single fetch"
+
+
+def test_pebble_engine_recovers_from_broken_pool_on_schedule(monkeypatch):
+    """If pool.schedule raises RuntimeError('Unexpected error within the Pool')
+    when the pool enters PoolStatus.ERROR, PebbleEngine must tear down the dead
+    pool, recreate a fresh pool, and schedule the task without crashing."""
+    from pebble import ProcessFuture
+
+    monkeypatch.setattr("lib.cuckoo.common.cleaners_utils.free_space_monitor", lambda *a, **k: None)
+
+    class _TaskObj:
+        def __init__(self, tid):
+            self.id = tid
+
+    class _SingleTaskSource:
+        def __init__(self):
+            self.failed = []
+            self.done_ids = []
+
+        def fetch(self, limit, exclude_ids):
+            if 10 in exclude_ids or 10 in self.done_ids:
+                return []
+            return [_TaskObj(10)]
+
+        def mark_failed(self, task_id):
+            self.failed.append(task_id)
+
+    source = _SingleTaskSource()
+
+    class _BrokenPool:
+        active = False
+        stopped = False
+
+        def schedule(self, fn, args=(), timeout=None):
+            raise RuntimeError("Unexpected error within the Pool")
+
+        def stop(self):
+            self.stopped = True
+
+        def join(self, timeout=None):
+            pass
+
+    class _HealthyPool:
+        active = True
+        closed = False
+
+        def schedule(self, fn, args=(), timeout=None):
+            source.done_ids.append(args[0].id)
+            fut = ProcessFuture()
+            fut.set_result(None)
+            return fut
+
+        def close(self):
+            self.closed = True
+
+        def join(self, timeout=None):
+            pass
+
+        def stop(self):
+            pass
+
+    broken = _BrokenPool()
+    healthy = _HealthyPool()
+    pools = [broken, healthy]
+
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=30,
+        max_count=1,
+    )
+    monkeypatch.setattr(engine, "_new_pool", lambda: pools.pop(0))
+    engine.run()
+
+    assert broken.stopped is True, "broken pool must be force-stopped"
+    assert healthy.closed is True, "replacement healthy pool must be cleanly closed on exit"
+    assert source.done_ids == [10], "task must be scheduled on replacement pool"
+    assert source.failed == []
+
+
+def test_teardown_pool_escalates_to_stop_on_join_timeout():
+    """Bounded pool teardown must escalate to pool.stop() if graceful pool.join()
+    exceeds join_timeout."""
+    class _HangingPool:
+        active = True
+
+        def __init__(self):
+            self.closed = False
+            self.stopped = False
+            self.join_timeouts = []
+
+        def close(self):
+            self.closed = True
+
+        def join(self, timeout=None):
+            self.join_timeouts.append(timeout)
+            if len(self.join_timeouts) == 1:
+                raise TimeoutError("tasks still unfinished")
+
+        def stop(self):
+            self.stopped = True
+
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=_CountingSource(),
+        parallel=1,
+        timeout=30,
+        join_timeout=12,
+        stop_join_timeout=3,
+    )
+    pool = _HangingPool()
+    engine._teardown_pool(pool)
+
+    assert pool.closed is True
+    assert pool.stopped is True
+    assert pool.join_timeouts == [12, 3]
+
+
+def test_is_pool_healthy_handles_stopped_and_raising_active():
+    """_is_pool_healthy returns False when PoolStatus is STOPPED/ERROR or when
+    accessing pool.active raises an exception."""
+    try:
+        from pebble.pool.base_pool import PoolStatus
+    except ImportError:
+        PoolStatus = None
+
+    class _MockThread:
+        def is_alive(self):
+            return True
+
+    class _Context:
+        def __init__(self, status):
+            self.status = status
+
+    class _BaseMockPool:
+        def __init__(self, status):
+            self._task_scheduler_loop = _MockThread()
+            self._pool_manager_loop = _MockThread()
+            self._message_manager_loop = _MockThread()
+            self._context = _Context(status)
+
+    # 1. PoolStatus.STOPPED (or status=3) -> False
+    stopped_status = PoolStatus.STOPPED if PoolStatus is not None else 3
+    stopped_pool = _BaseMockPool(stopped_status)
+    stopped_pool.active = True
+    assert PebbleEngine._is_pool_healthy(stopped_pool) is False
+
+    # 2. PoolStatus.ERROR (or status=4) -> False
+    error_status = PoolStatus.ERROR if PoolStatus is not None else 4
+    error_pool = _BaseMockPool(error_status)
+    error_pool.active = True
+    assert PebbleEngine._is_pool_healthy(error_pool) is False
+
+    # 3. Accessing pool.active raises an exception -> False
+    running_status = PoolStatus.RUNNING if PoolStatus is not None else 1
+
+    class _RaisingActivePool(_BaseMockPool):
+        @property
+        def active(self):
+            raise RuntimeError("broken pool state")
+
+    raising_pool = _RaisingActivePool(running_status)
+    assert PebbleEngine._is_pool_healthy(raising_pool) is False
+
+    # 4. Healthy pool with active=True -> True
+    class _HealthyActivePool(_BaseMockPool):
+        active = True
+
+    healthy_pool = _HealthyActivePool(running_status)
+    assert PebbleEngine._is_pool_healthy(healthy_pool) is True
+
+    # 5. PoolStatus.CREATED (status=0) -> True even if active is False
+    created_status = PoolStatus.CREATED if PoolStatus is not None else 0
+    created_pool = _BaseMockPool(created_status)
+    created_pool.active = False
+    assert PebbleEngine._is_pool_healthy(created_pool) is True
+
+
 
 

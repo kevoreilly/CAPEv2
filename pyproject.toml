@@ -12,7 +12,7 @@ dependencies = [
     "alembic==1.9.4",
     "gevent==24.2.1",
     "greenlet==3.0.3",
-    "Pebble==5.1.0",
+    "Pebble==5.2.3",
     # "pymisp==2.4.144",
     "cryptography>=44.0.1",
     "requests[security,socks]==2.32.4",

@@ -202,7 +202,7 @@ def test_generic_file_extractors_skips_pool_when_nothing_enabled(monkeypatch, tm
     """When no extractor modules/functions are enabled for a file,
     generic_file_extractors must not fork or tear down an empty ProcessPool."""
     acquired = []
-    monkeypatch.setattr(fx, "_acquire_extractor_pool", lambda: acquired.append(1) or (_FakePool(), False))
+    monkeypatch.setattr(fx, "_acquire_extractor_pool", lambda **kw: acquired.append(kw) or (_FakePool(), False))
     monkeypatch.setattr(fx, "extra_info_modules", [])
     monkeypatch.setattr(fx, "file_info_funcs", [])
 
@@ -215,4 +215,64 @@ def test_generic_file_extractors_skips_pool_when_nothing_enabled(monkeypatch, tm
         duplicated={},
     )
     assert acquired == [], "generic_file_extractors must not create a ProcessPool when 0 extractors are enabled"
+
+
+def test_shared_mode_recreates_unhealthy_pool(monkeypatch):
+    """If the shared extractor pool enters an unhealthy/broken state
+    (active=False), _acquire_extractor_pool must tear it down and create a new pool."""
+    _reset(monkeypatch)
+    fx.enable_shared_extractor_pool()
+    pool_a, shared_a = fx._acquire_extractor_pool()
+    assert shared_a is True
+
+    # Simulate pool entering PoolStatus.ERROR (active = False)
+    pool_a.active = False
+
+    pool_b, shared_b = fx._acquire_extractor_pool()
+    assert shared_b is True
+    assert pool_b is not pool_a, "broken shared pool must be replaced"
+    assert pool_a.closed is True and pool_a.joined is True, "broken shared pool must be torn down"
+
+
+def test_per_call_mode_right_sizes_max_workers(monkeypatch):
+    """In per-call mode, _acquire_extractor_pool(max_workers=N) forwards
+    max_workers to _new_extractor_pool so a file with 2 enabled extractors
+    does not fork more workers than needed."""
+    requested_workers = []
+
+    def _recording_new_pool(max_workers=None):
+        requested_workers.append(max_workers)
+        return _FakePool()
+
+    monkeypatch.setattr(fx, "_new_extractor_pool", _recording_new_pool)
+    monkeypatch.setattr(fx, "_SHARED_EXTRACTOR_POOL", None, raising=False)
+    monkeypatch.setattr(fx, "_USE_SHARED_POOL", False, raising=False)
+
+    pool, shared = fx._acquire_extractor_pool(max_workers=2)
+    assert shared is False
+    assert requested_workers == [2]
+    fx._teardown_extractor_pool(pool)
+
+
+def test_stop_active_extractor_pools_stops_live_pools(monkeypatch):
+    """_stop_active_extractor_pools() must force-stop any registered live pool
+    (used by the multiprocessing Finalize hook on worker SIGTERM/exit)."""
+    _reset(monkeypatch)
+    fx._ACTIVE_EXTRACTOR_POOLS.clear()
+
+    class _StoppablePool(_FakePool):
+        def __init__(self):
+            super().__init__()
+            self.stopped = False
+
+        def stop(self):
+            self.stopped = True
+
+    monkeypatch.setattr(fx, "_new_extractor_pool", lambda max_workers=None: _StoppablePool())
+    pool, _ = fx._acquire_extractor_pool(max_workers=1)
+    assert pool in fx._ACTIVE_EXTRACTOR_POOLS
+
+    fx._stop_active_extractor_pools()
+    assert pool.stopped is True
+    assert len(fx._ACTIVE_EXTRACTOR_POOLS) == 0
 

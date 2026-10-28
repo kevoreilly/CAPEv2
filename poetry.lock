@@ -4109,14 +4109,14 @@ win-unicode-console = {version = "*", markers = "platform_system == \"Windows\" 
 
 [[package]]
 name = "pebble"
-version = "5.1.0"
+version = "5.2.3"
 description = "Threading and multiprocessing eye-candy."
 optional = false
-python-versions = ">=3.8"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "Pebble-5.1.0-py3-none-any.whl", hash = "sha256:530a398299ecd3a4ed1baf2e4b8045d8280b1e665560b0b409f8d8e58db60111"},
-    {file = "Pebble-5.1.0.tar.gz", hash = "sha256:5c30376f1827b21ecec4126ff90e7f22ad5501cac1ff2b32c86ff2601681f932"},
+    {file = "pebble-5.2.3-py3-none-any.whl", hash = "sha256:9f25c2b8bf4716b51f78b74fea4d58b26c4dfd03160e8223b99f1e3424b3914a"},
+    {file = "pebble-5.2.3.tar.gz", hash = "sha256:6fce8cc8cbf367588406f66e4b62ec36e22594a6c720bff1d08cc2e565a66af3"},
 ]
 
 [[package]]

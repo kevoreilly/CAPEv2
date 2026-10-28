@@ -284,7 +284,80 @@ def test_reaper_two_tier_deadline_unstarted_vs_running():
     assert running_future.cancelled()
 
 
+def test_reaper_pickup_clock_starts_at_pool_creation():
+    """An unstarted task scheduled before the current pool was (re)created must
+    not be reaped until pickup_grace has elapsed since pool creation, so workers
+    still running worker_init are not penalised."""
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=900,
+        stall_grace=10,
+    )
+    future = _MockFuture(running=False)
+    now = time.monotonic()
+    engine._pool_created_at = now - 5  # pool recreated 5s ago
+    with engine._lock:
+        engine._pending[future] = 301
+        engine._scheduled_at[future] = now - 15  # scheduled 15s ago
+
+    engine._reap_stalled()
+    assert future in engine._pending, "pickup clock must start at pool creation"
+    assert source.failed == []
+
+    engine._pool_created_at = now - 11
+    engine._reap_stalled()
+    assert future not in engine._pending
+    assert source.failed == [301]
+
+
+def test_reaper_pickup_grace_overrides_stall_grace():
+    source = _CountingSource()
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=lambda: None,
+        source=source,
+        parallel=1,
+        timeout=900,
+        stall_grace=10,
+        pickup_grace=60,
+    )
+    future = _MockFuture(running=False)
+    with engine._lock:
+        engine._pending[future] = 302
+        engine._scheduled_at[future] = time.monotonic() - 15
+
+    engine._reap_stalled()
+    assert future in engine._pending, "pickup_grace (60s) must override stall_grace (10s)"
+
+    with engine._lock:
+        engine._scheduled_at[future] = time.monotonic() - 61
+    engine._reap_stalled()
+    assert source.failed == [302]
+
+
+def test_new_pool_records_creation_time():
+    engine = PebbleEngine(
+        task_fn=lambda t: None,
+        worker_init=None,
+        source=_CountingSource(),
+        parallel=1,
+        timeout=30,
+    )
+    assert engine._pool_created_at == 0.0
+    before = time.monotonic()
+    pool = engine._new_pool()
+    try:
+        assert engine._pool_created_at >= before
+    finally:
+        engine._teardown_pool(pool, force=True)
+
+
 def test_reaper_cancel_with_real_process_future_does_not_log_cancelled_error(caplog):
+
     """When _reap_stalled cancels a real pebble.ProcessFuture that has
     engine._done registered via add_done_callback, _done runs synchronously
     inside cancel() and must not log a spurious CancelledError traceback."""

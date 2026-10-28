@@ -17,10 +17,14 @@ class _FakePool:
         _FakePool._counter += 1
         self.id = _FakePool._counter
         self.closed = False
+        self.stopped = False
         self.joined = False
 
     def close(self):
         self.closed = True
+
+    def stop(self):
+        self.stopped = True
 
     def join(self, timeout=None):
         self.joined = True
@@ -30,7 +34,7 @@ def _reset(monkeypatch):
     """Point the pool factory at _FakePool and reset shared state."""
     if fx._SHARED_EXTRACTOR_POOL is not None:
         fx.shutdown_shared_extractor_pool()
-    monkeypatch.setattr(fx, "_new_extractor_pool", lambda: _FakePool())
+    monkeypatch.setattr(fx, "_new_extractor_pool", lambda max_workers=None: _FakePool())
     monkeypatch.setattr(fx, "_SHARED_EXTRACTOR_POOL", None, raising=False)
     monkeypatch.setattr(fx, "_USE_SHARED_POOL", False, raising=False)
 
@@ -185,7 +189,7 @@ def test_prefork_child_enables_and_tears_down_shared_pool(tmp_path):
             def join(self, timeout=None):
                 pass
 
-        fx._new_extractor_pool = lambda: _FakeChildPool()
+        fx._new_extractor_pool = lambda max_workers=None: _FakeChildPool()
         fx._acquire_extractor_pool()  # store the shared fake pool
 
     eng = PreforkEngine(task_fn=task_fn, worker_init=lambda: None,
@@ -236,7 +240,8 @@ def test_shared_mode_recreates_unhealthy_pool(monkeypatch):
     pool_b, shared_b = fx._acquire_extractor_pool()
     assert shared_b is True
     assert pool_b is not pool_a, "broken shared pool must be replaced"
-    assert pool_a.closed is True and pool_a.joined is True, "broken shared pool must be torn down"
+    # An unhealthy pool is force-stopped (close+drain is pointless on a broken pool).
+    assert pool_a.stopped is True and pool_a.joined is True, "broken shared pool must be torn down"
 
 
 def test_per_call_mode_right_sizes_max_workers(monkeypatch):
@@ -384,3 +389,42 @@ def test_generic_file_extractors_recreates_shared_pool_on_schedule_error(monkeyp
     assert pool_2.closed is True and pool_2.joined is True
 
 
+
+
+def test_unreaped_pool_stays_registered_for_exit_finalizer(monkeypatch):
+    """A pool whose workers could not be reaped must stay in
+    _ACTIVE_EXTRACTOR_POOLS so the exit finalizer still terminates them;
+    a cleanly reaped pool must be unregistered."""
+    import threading
+
+    class _WedgedPool:
+        active = True
+
+        def __init__(self):
+            self.stopped = False
+            self._never = threading.Event()
+
+        def close(self):
+            pass
+
+        def stop(self):
+            self.stopped = True
+
+        def join(self, timeout=None):
+            self._never.wait()
+
+    monkeypatch.setattr(fx, "EXTRACTOR_POOL_JOIN_TIMEOUT", 0.1)
+    monkeypatch.setattr(fx, "EXTRACTOR_POOL_STOP_JOIN_TIMEOUT", 0.1)
+    fx._ACTIVE_EXTRACTOR_POOLS.clear()
+
+    wedged = _WedgedPool()
+    fx._ACTIVE_EXTRACTOR_POOLS.add(wedged)
+    fx._teardown_extractor_pool(wedged)  # must return, not hang
+    assert wedged.stopped is True
+    assert wedged in fx._ACTIVE_EXTRACTOR_POOLS
+
+    clean = _CleanPool()
+    fx._ACTIVE_EXTRACTOR_POOLS.add(clean)
+    fx._teardown_extractor_pool(clean)
+    assert clean not in fx._ACTIVE_EXTRACTOR_POOLS
+    fx._ACTIVE_EXTRACTOR_POOLS.clear()

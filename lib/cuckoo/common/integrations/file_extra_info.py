@@ -423,6 +423,7 @@ def _extracted_files_metadata(
 
 
 from lib.cuckoo.common.integrations.utils import run_tool
+from lib.cuckoo.common.pebble_utils import is_pool_healthy, teardown_pool
 
 # Extractor sub-pool lifecycle.
 #
@@ -503,22 +504,7 @@ def _register_extractor_pool(pool):
 
 def _is_extractor_pool_healthy(pool):
     """Return True if a shared extractor pool's management threads and status are healthy."""
-    if pool is None:
-        return False
-    for attr in ("_task_scheduler_loop", "_pool_manager_loop", "_message_manager_loop"):
-        loop = getattr(pool, attr, None)
-        if loop is not None and not loop.is_alive():
-            return False
-    status = getattr(getattr(pool, "_context", None), "status", None)
-    if status in (3, 4):  # PoolStatus.STOPPED (3), PoolStatus.ERROR (4)
-        return False
-    if status != 0:  # 0 == PoolStatus.CREATED
-        try:
-            if hasattr(pool, "active") and not pool.active:
-                return False
-        except Exception:
-            return False
-    return True
+    return is_pool_healthy(pool)
 
 
 def _new_extractor_pool(max_workers=None):
@@ -533,41 +519,26 @@ def _new_extractor_pool(max_workers=None):
 
 
 def _create_extractor_pool(max_workers=None):
-    if max_workers is not None:
-        try:
-            pool = _new_extractor_pool(max_workers=max_workers)
-        except TypeError:
-            pool = _new_extractor_pool()
-    else:
-        pool = _new_extractor_pool()
-    return _register_extractor_pool(pool)
+    return _register_extractor_pool(_new_extractor_pool(max_workers=max_workers))
 
 
 def _teardown_extractor_pool(pool):
-    """Close+join a pool with a bounded wait, force-stopping any straggler so a
-    hung extractor can never wedge the worker indefinitely. Exception-safe."""
+    """Close+join a pool within a hard wall-clock bound, force-stopping any
+    straggler so a hung extractor can never wedge the worker. Exception-safe.
+
+    The pool stays registered in ``_ACTIVE_EXTRACTOR_POOLS`` if its workers
+    could not be reaped (e.g. a grandchild wedged in D-state IO), so the exit
+    finalizer still terminates them before multiprocessing's ``_exit_function``
+    joins non-daemon children."""
     if pool is None:
         return
-    try:
-        pool.close()
-        try:
-            pool.join(timeout=EXTRACTOR_POOL_JOIN_TIMEOUT)
-        except Exception:
-            log.warning(
-                "extractor pool did not drain within %ss; force-stopping stragglers",
-                EXTRACTOR_POOL_JOIN_TIMEOUT,
-            )
-            pool.stop()
-            # Bound the post-stop reap too: a grandchild wedged in uninterruptible
-            # (D-state) IO survives SIGKILL, so an unbounded join would still hang.
-            # Abandon after the bound — the process-group kill sweeps the rest.
-            try:
-                pool.join(timeout=EXTRACTOR_POOL_STOP_JOIN_TIMEOUT)
-            except Exception:
-                log.error("extractor pool did not reap after force-stop; abandoning (swept by process-group kill)")
-    except Exception:
-        log.debug("_teardown_extractor_pool: teardown raised", exc_info=True)
-    finally:
+    reaped = teardown_pool(
+        pool,
+        join_timeout=EXTRACTOR_POOL_JOIN_TIMEOUT,
+        stop_join_timeout=EXTRACTOR_POOL_STOP_JOIN_TIMEOUT,
+        name="extractor pool",
+    )
+    if reaped:
         _ACTIVE_EXTRACTOR_POOLS.discard(pool)
 
 

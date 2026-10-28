@@ -135,12 +135,35 @@ class _Database(TasksMixIn,
 
         @contextmanager
         def safe_begin(*args, **kwargs):
-            if self.session().in_transaction():
-                yield
-                self.session().flush()
+            sess = self.session()
+            depth = sess.info.get("_safe_begin_depth", 0)
+            if depth > 0:
+                sess.info["_safe_begin_depth"] = depth + 1
+                try:
+                    yield
+                    if sess.in_transaction():
+                        sess.flush()
+                finally:
+                    sess.info["_safe_begin_depth"] = depth
+            elif sess.in_transaction():
+                # An earlier unwrapped query autobegan a dangling transaction on this session
+                sess.info["_safe_begin_depth"] = 1
+                try:
+                    yield sess.get_transaction()
+                    sess.commit()
+                except Exception:
+                    if sess.in_transaction():
+                        sess.rollback()
+                    raise
+                finally:
+                    sess.info["_safe_begin_depth"] = 0
             else:
-                with original_begin(*args, **kwargs) as tx:
-                    yield tx
+                sess.info["_safe_begin_depth"] = 1
+                try:
+                    with original_begin(*args, **kwargs) as tx:
+                        yield tx
+                finally:
+                    sess.info["_safe_begin_depth"] = 0
 
         self.session.begin = safe_begin
 

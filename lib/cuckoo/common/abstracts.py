@@ -139,10 +139,11 @@ class Machinery:
         """Read, load, and verify machines configuration."""
         # Machine table is cleaned to be filled from configuration file
         # at each start.
-        self.db.clean_machines()
+        with self.db.session.begin():
+            self.db.clean_machines()
 
-        # Load.
-        self._initialize()
+            # Load.
+            self._initialize()
 
         # Run initialization checks.
         self._initialize_check()

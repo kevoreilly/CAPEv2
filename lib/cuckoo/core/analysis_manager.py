@@ -330,8 +330,7 @@ class AnalysisManager(threading.Thread):
 
         is_dead = False
         try:
-            with self.db.session.begin():
-                self.machinery_manager.start_machine(self.machine)
+            self.machinery_manager.start_machine(self.machine)
 
             yield
 
@@ -361,8 +360,7 @@ class AnalysisManager(threading.Thread):
         finally:
             if not is_dead:
                 try:
-                    with self.db.session.begin():
-                        self.machinery_manager.stop_machine(self.machine)
+                    self.machinery_manager.stop_machine(self.machine)
                 except CuckooMachineError as e:
                     self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
 
@@ -425,14 +423,12 @@ class AnalysisManager(threading.Thread):
     def run_auxiliary(self) -> Generator[None, None, None]:
         aux = RunAuxiliary(task=self.task, machine=self.machine)
 
-        with self.db.session.begin():
-            aux.start()
+        aux.start()
 
         try:
             yield
         finally:
-            with self.db.session.begin():
-                aux.stop()
+            aux.stop()
 
     def run_analysis_on_guest(self) -> None:
         # Generate the analysis configuration file.
@@ -475,8 +471,7 @@ class AnalysisManager(threading.Thread):
         # At this point, we're sure that this analysis requires a machine.
         assert self.machinery_manager and self.machine and self.guest
 
-        with self.db.session.begin():
-            self.machinery_manager.scale_pool(self.machine)
+        self.machinery_manager.scale_pool(self.machine)
 
         self.log.info("Starting analysis of %s '%s'", self.task.category.upper(), convert_to_printable(self.task.target))
 

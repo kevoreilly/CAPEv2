@@ -1772,3 +1772,86 @@ class TestDatabaseEngine:
             assert db.get_parent_sample_from_task(str(t1)) is None
             assert db.get_parent_sample_from_task("not-an-int") is None
 
+    def test_safe_begin_handles_dangling_autobegun_transaction(self, db: _Database, temp_filename: str):
+        # Unwrapped select autobegins a transaction in future=True mode
+        db.session.scalar(select(func.count(Task.id)))
+        assert db.session().in_transaction()
+
+        # Top-level safe_begin should detect top-level depth (0), yield, and commit
+        with db.session.begin():
+            t = db.add_path(temp_filename)
+            assert t is not None
+
+        # After exit, transaction must be committed and closed
+        assert not db.session().in_transaction()
+
+    def test_safe_begin_nested_depth_tracking(self, db: _Database, temp_filename: str):
+        # Outer transaction
+        with db.session.begin():
+            assert db.session().info.get("_safe_begin_depth") == 1
+            t1 = db.add_path(temp_filename)
+            # Inner transaction (nested safe_begin)
+            with db.session.begin():
+                assert db.session().info.get("_safe_begin_depth") == 2
+                t2 = db.add_url("http://nested.example.com")
+            # Exiting inner transaction should decrement depth to 1 and keep transaction open
+            assert db.session().info.get("_safe_begin_depth") == 1
+            assert db.session().in_transaction()
+
+        # Exiting outer transaction commits and resets depth
+        assert db.session().info.get("_safe_begin_depth", 0) == 0
+        assert not db.session().in_transaction()
+        with db.session.begin():
+            assert db.view_task(t1) is not None
+            assert db.view_task(t2) is not None
+
+    def test_set_machine_status_standalone_commits(self, db: _Database):
+        with db.session.begin():
+            m = self.add_machine(db, name="test_mach_standalone", label="mach_standalone", ip="1.2.3.99")
+            label = m.label
+
+        # Calling set_machine_status standalone must commit and leave no open transaction
+        db.set_machine_status(label, "running")
+        assert not db.session().in_transaction()
+
+        with db.session.begin():
+            mach = db.view_machine_by_label(label)
+            assert mach is not None
+            assert mach.status == "running"
+
+    def test_set_machine_status_error_inside_outer_begin(self, db: _Database, monkeypatch: pytest.MonkeyPatch):
+        from sqlalchemy.exc import OperationalError
+
+        with db.session.begin():
+            m = self.add_machine(db, name="test_mach_err", label="mach_err", ip="1.2.3.98")
+            label = m.label
+
+        with db.session.begin():
+            # Mock session.execute inside set_machine_status to raise OperationalError
+            def failing_execute(*args, **kwargs):
+                raise OperationalError("mock_stmt", {}, Exception("mock DB failure"))
+
+            monkeypatch.setattr(db.session, "execute", failing_execute)
+            # Should catch OperationalError and NOT call rollback because _safe_begin_depth > 0
+            db.set_machine_status(label, "stopped")
+            monkeypatch.undo()
+
+            # Outer transaction remains active and can execute statements cleanly
+            assert db.session().in_transaction()
+            mach = db.view_machine_by_label(label)
+            assert mach is not None
+
+    def test_delete_task_inside_outer_begin(self, db: _Database, temp_filename: str):
+        with db.session.begin():
+            tid = db.add_path(temp_filename)
+
+        with db.session.begin():
+            # delete_task inside outer begin must not fail or break transaction
+            db.delete_task(tid)
+            assert db.session().in_transaction()
+
+        assert not db.session().in_transaction()
+        with db.session.begin():
+            assert db.view_task(tid) is None
+
+

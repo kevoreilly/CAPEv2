@@ -13,6 +13,7 @@ from .audit_data import (TestSession, AvailableTest, TestRun,
                         TestObjectiveTemplate, TestObjectiveInstance,
                         test_template_association,
                         TEST_COMPLETE, TEST_RUNNING, TEST_QUEUED)
+from .task import Task
 
 log = logging.getLogger(__name__)
 
@@ -199,8 +200,6 @@ class AuditsMixIn:
                         stats['added'] += 1
                     if load_result.get('updated', False):
                         stats['updated'] += 1
-            if stats['added'] > 0:
-                db_session.commit()
 
         test_count_after_add = self.count_available_tests()
         self.purge_unreferenced_tests(current_test_names)
@@ -248,7 +247,6 @@ class AuditsMixIn:
 
             # Pass 2: Delete Root nodes that meet the criteria
             db_session.execute(orphaned_tpl_stmt.where(TestObjectiveTemplate.parent_id.is_(None)))
-            db_session.commit()
 
     def store_objective_results(self, run_id: int, results: dict):
         with self.session.session_factory() as db_sess, db_sess.begin():
@@ -289,7 +287,6 @@ class AuditsMixIn:
             # Store the whole thing for posterity
             run.raw_results = results
             log.info("Updated objective states for Run %d",run_id)
-            db_sess.commit()
 
     def evaluate_objective_results(self, test_run: TestRun):
         log.info("Starting evaluation of test run #%d",test_run.id)
@@ -299,19 +296,15 @@ class AuditsMixIn:
         self.store_objective_results(test_run.id, results_dict)
 
     def update_audit_tasks_status(self, db_session: Session, audit_session: TestSession):
-        changed = False
         for run in audit_session.runs:
             if run.cape_task_id:
-                cape_task = self.view_task(run.cape_task_id)
+                cape_task = db_session.get(Task, run.cape_task_id)
                 if cape_task:
                     new_status = task_status_to_run_status(cape_task.status)
                     if run.status != new_status:
                         if run.status != TEST_COMPLETE and new_status == TEST_COMPLETE:
                             self.evaluate_objective_results(run)
                         run.status = new_status
-                        changed = True
-        if changed:
-            db_session.commit()
 
     def get_test_session(self, session_id: int) -> Optional[TestSession]:
         with self.session.session_factory() as db_session, db_session.begin():
@@ -380,46 +373,37 @@ class AuditsMixIn:
                             shutil.rmtree(task_storage_dir)
 
             db_session.delete(session_obj)
-            db_session.commit()
             log.info("Deleted TestSession %d and all its objective results.",session_id)
         return True
 
     def create_session_from_tests(self, test_ids: list) -> int:
         with self.session.session_factory() as db_session, db_session.begin():
-            try:
-                # 1. Initialize the new Session
-                new_test_session = TestSession()
-                db_session.add(new_test_session)
+            # 1. Initialize the new Session
+            new_test_session = TestSession()
+            db_session.add(new_test_session)
 
-                # Flush so the DB generates an ID for new_session
-                # without committing the whole transaction yet
-                db_session.flush()
+            # Flush so the DB generates an ID for new_session
+            # without committing the whole transaction yet
+            db_session.flush()
 
-                # 2. Create a Run entry for every test ID provided
-                for t_id in test_ids:
-                    test_def = db_session.get(AvailableTest, int(t_id))
-                    run = TestRun(session_id=new_test_session.id, test_id=test_def.id)
+            # 2. Create a Run entry for every test ID provided
+            for t_id in test_ids:
+                test_def = db_session.get(AvailableTest, int(t_id))
+                run = TestRun(session_id=new_test_session.id, test_id=test_def.id)
 
-                    db_session.add(run)
-                    for template in test_def.objective_templates:
-                        def init_objective(obj_template):
-                            children = [init_objective(obj_child) for obj_child in obj_template.children]
-                            result = TestObjectiveInstance(run_id=run.id, template_id=obj_template.id,children=children, state="untested")
-                            return result
+                db_session.add(run)
+                for template in test_def.objective_templates:
+                    def init_objective(obj_template):
+                        children = [init_objective(obj_child) for obj_child in obj_template.children]
+                        result = TestObjectiveInstance(run_id=run.id, template_id=obj_template.id,children=children, state="untested")
+                        return result
 
-                        run.objectives.append(init_objective(template))
+                    run.objectives.append(init_objective(template))
 
-                db_session.commit()
-                # The session ID to return for the redirect
-                test_session_id = new_test_session.id
+            # The session ID to return for the redirect
+            test_session_id = new_test_session.id
 
-                return test_session_id
-            except Exception as e:
-                db_session.rollback()
-                log.error("Failed to create test session: %s",str(e))
-                raise
-            finally:
-                db_session.close()
+            return test_session_id
 
     def get_audit_session_test(self, session_id: int, testrun_id: int) -> Optional[TestRun]:
         stmt = (

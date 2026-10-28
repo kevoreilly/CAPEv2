@@ -7485,4 +7485,4 @@ yara = ["plyara"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.10, <4.0"
-content-hash = "2fb09caeb372b51cb8e21a97d8e5e95f03a3040d3936737f0f43db97b4173a61"
+content-hash = "17109ee9e0e126fa1a81a3ce9ca8bb0a8fd4acf27c1ed48e0544d67eee4f5ecf"

@@ -72,7 +72,7 @@ def _default_session_and_task_scope(task_id: int) -> tuple[Any, Optional[Resourc
     task = db.view_task(task_id)
     if task is None:
         return None, None
-    session = db.Session()
+    session = db.session
     scope = resolve_task_scope(session, task_id, fallback_user_id=getattr(task, "user_id", None))
     return session, scope
 

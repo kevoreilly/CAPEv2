@@ -37,8 +37,11 @@ from lib.tenancy.resources import (
 
 _DELETE_KEYWORDS = ("delete", "remove", "purge")
 _MANAGE_KEYWORDS = ("reprocess", "reboot", "visibility", "toggle", "reschedule")
-_TASK_ID_KWARGS = ("task_id", "analysis_id")
+_TASK_ID_KWARGS = ("task_id", "analysis_id", "analysis_number", "left_id", "right_id")
 _SAMPLE_HASH_KWARGS = ("sha256", "sha1", "md5", "sample_id")
+# Route kwargs that carry a bare hash of unspecified type (compare/<id>/<hash>, resubmit/<id>/<hash>).
+_UNTYPED_HASH_KWARGS = ("right_hash", "resubmit_hash")
+_HASH_FIELD_BY_LEN = {32: "md5", 40: "sha1", 64: "sha256"}
 _SUBMISSION_VIEW_NAMES = (
     "tasks_create_file",
     "tasks_create_url",
@@ -317,8 +320,10 @@ class TenancyMiddleware:
         self.get_response = get_response
         self.viewer_resolver = viewer_resolver
         self.entitlements_resolver = entitlements_resolver
-        self.task_scope_resolver = task_scope_resolver
-        self.sample_access_checker = sample_access_checker
+        # Django instantiates MIDDLEWARE entries with get_response only, so the production
+        # defaults must live here; leaving them None would skip every per-task check.
+        self.task_scope_resolver = task_scope_resolver or default_task_scope_resolver
+        self.sample_access_checker = sample_access_checker or default_sample_access_checker
         self.deny_response_factory = deny_response_factory or self._default_deny_response
         self.forbidden_response_factory = forbidden_response_factory or self._default_forbidden_response
 
@@ -387,26 +392,28 @@ class TenancyMiddleware:
                 _apply_normalized_submission_params(request, normalized)
 
         if not viewer.see_all:
-            for key in _TASK_ID_KWARGS:
-                if key in view_kwargs and view_kwargs[key] is not None:
-                    try:
-                        task_id = int(view_kwargs[key])
-                    except (TypeError, ValueError):
-                        return self.deny_response_factory(request, "Task not found")
+            raw_task_ids = _task_ids_from_kwargs(view_kwargs)
+            if raw_task_ids:
+                action = classify_view_action(getattr(request, "path", ""), view_func)
+            for raw in raw_task_ids:
+                try:
+                    task_id = int(raw)
+                except (TypeError, ValueError):
+                    return self.deny_response_factory(request, "Task not found")
+                try:
+                    scope = self.task_scope_resolver(task_id)
+                except Exception:
+                    scope = None  # fail closed: an unresolvable scope is indistinguishable from a hidden task
+                if scope is None or not self._check_action(viewer, scope, action):
+                    return self.deny_response_factory(request, "Task not found")
 
-                    if self.task_scope_resolver is not None:
-                        scope = self.task_scope_resolver(task_id)
-                        if scope is None:
-                            return self.deny_response_factory(request, "Task not found")
-                        action = classify_view_action(getattr(request, "path", ""), view_func)
-                        allowed = self._check_action(viewer, scope, action)
-                        if not allowed:
-                            return self.deny_response_factory(request, "Task not found")
-                    break
-
-            sample_filter = {k: view_kwargs[k] for k in _SAMPLE_HASH_KWARGS if view_kwargs.get(k) is not None}
-            if sample_filter and self.sample_access_checker is not None:
-                if not self.sample_access_checker(viewer, sample_filter):
+            sample_filter = _sample_filter_from_kwargs(view_kwargs)
+            if sample_filter:
+                try:
+                    visible = bool(self.sample_access_checker(viewer, sample_filter))
+                except Exception:
+                    visible = False
+                if not visible:
                     return self.deny_response_factory(request, "Sample not found in database")
 
         from lib.tenancy.views import dispatch_object_storage_view
@@ -452,6 +459,60 @@ class TenancyMiddleware:
         except Exception:
             pass
         return {"status_code": 403, "error": True, "error_value": message}
+
+
+def _task_ids_from_kwargs(view_kwargs: Dict[str, Any]) -> list:
+    """Every task id a route addresses; compare views carry two, files/get/task/<id> uses stype/value."""
+    ids = [view_kwargs[k] for k in _TASK_ID_KWARGS if view_kwargs.get(k) is not None]
+    if view_kwargs.get("stype") == "task" and view_kwargs.get("value") is not None:
+        ids.append(view_kwargs["value"])
+    return ids
+
+
+def _sample_filter_from_kwargs(view_kwargs: Dict[str, Any]) -> Dict[str, Any]:
+    """Sample-identifying kwargs, including files/get/<hashtype>/<value> and untyped hash kwargs."""
+    flt = {k: view_kwargs[k] for k in _SAMPLE_HASH_KWARGS if view_kwargs.get(k) is not None}
+    stype, value = view_kwargs.get("stype"), view_kwargs.get("value")
+    if stype in ("md5", "sha1", "sha256") and value:
+        flt[stype] = str(value).lower()
+    for key in _UNTYPED_HASH_KWARGS:
+        value = view_kwargs.get(key)
+        field = _HASH_FIELD_BY_LEN.get(len(str(value))) if value else None
+        if field:
+            flt[field] = str(value).lower()
+    return flt
+
+
+def default_task_scope_resolver(task_id: int) -> Optional[ResourceScope]:
+    """Production task resolver: the task's `TaskAcl` scope, or None when the task does not exist."""
+    from lib.tenancy.views import _default_session_and_task_scope
+
+    return _default_session_and_task_scope(task_id)[1]
+
+
+def default_sample_access_checker(viewer: ViewerContext, sample_filter: Dict[str, Any]) -> bool:
+    """A sample is visible when the viewer can read at least one task that analysed it."""
+    from sqlalchemy import and_, select
+
+    from lib.cuckoo.core.data.samples import Sample
+    from lib.cuckoo.core.data.task import Task
+    from lib.cuckoo.core.database import Database
+    from lib.tenancy.acl import resolve_task_scope
+
+    conds = []
+    for key, value in sample_filter.items():
+        if key == "sample_id":
+            try:
+                conds.append(Sample.id == int(value))
+            except (TypeError, ValueError):
+                return False
+        elif key in ("md5", "sha1", "sha256"):
+            conds.append(getattr(Sample, key) == str(value).lower())
+    if not conds:
+        return False
+    session = Database().session
+    rows = session.execute(select(Task.id, Task.user_id).join(Sample, Task.sample_id == Sample.id).where(and_(*conds))).all()
+    return any(can_read(viewer, resolve_task_scope(session, tid, fallback_user_id=uid)) for tid, uid in rows)
 
 
 def tenancy_exempt(view_func: Callable[..., Any]) -> Callable[..., Any]:

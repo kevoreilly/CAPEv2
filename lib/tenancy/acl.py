@@ -164,8 +164,14 @@ def toggle_task_visibility_cas(
     *,
     expected_prior: Optional[str] = None,
     mongo_update_one: Optional[Callable[[str, dict, dict], Any]] = None,
+    owner_id: Optional[int] = None,
+    tenant_id: Optional[int] = None,
 ) -> VisibilityStamp:
-    """Atomically advance `visibility_seq` in SQL and apply a monotonic CAS update to MongoDB."""
+    """Atomically advance `visibility_seq` in SQL and apply a monotonic CAS update to MongoDB.
+
+    `owner_id`/`tenant_id` seed the row when the task has none yet (upgraded or unstamped tasks,
+    whose scope fell back to tasks.user_id), so the toggle does not orphan the task.
+    """
     if new_visibility not in VISIBILITIES:
         raise ValueError(f"Invalid visibility: {new_visibility!r}")
 
@@ -177,6 +183,8 @@ def toggle_task_visibility_cas(
             )
         row = TaskAcl(
             task_id=int(task_id),
+            user_id=owner_id,
+            tenant_id=tenant_id,
             visibility=new_visibility,
             visibility_seq=1,
         )

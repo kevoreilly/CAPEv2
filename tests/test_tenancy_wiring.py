@@ -516,3 +516,102 @@ assert not errors, errors
     env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
     res = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env)
     assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
+
+
+def test_visibility_toggle_on_task_without_acl_row_keeps_its_owner(monkeypatch):
+    # Upgraded and unstamped tasks have no task_acl row; their scope falls back to tasks.user_id.
+    # Toggling one must not create an ownerless row (and stamp info.user_id=None into Mongo).
+    import sqlalchemy as sa
+    from sqlalchemy.orm import Session
+
+    from lib.tenancy.acl import resolve_task_scope
+    from lib.tenancy.views import tasks_set_visibility
+
+    monkeypatch.setattr(
+        "lib.tenancy.views.multitenancy_config",
+        lambda: policy.MTConfig(enabled=True, mode="shared", default_visibility="", local_admins_manage_all_tenants=True),
+    )
+    engine = sa.create_engine("sqlite://")
+    ensure_acl_schema(engine)
+    stamps = []
+
+    def scope_loader(tid):
+        sess = Session(engine)
+        return sess, resolve_task_scope(sess, tid, fallback_user_id=10)
+
+    owner = ViewerContext(user_id=10, tenant_id=None)
+    req = types.SimpleNamespace(viewer=owner, data={"visibility": "public"}, method="POST")
+    res = tasks_set_visibility(req, 42, scope_loader=scope_loader, mongo_update_one=lambda c, f, u: stamps.append(u))
+    assert res.status_code == 200
+    with Session(engine) as s:
+        assert resolve_task_scope(s, 42).owner_id == 10
+    assert stamps[0]["$set"]["info.user_id"] == 10
+
+    req = types.SimpleNamespace(viewer=owner, data={"visibility": "private"}, method="POST")
+    res = tasks_set_visibility(req, 42, scope_loader=scope_loader, mongo_update_one=lambda c, f, u: stamps.append(u))
+    assert res.status_code == 200  # the owner can still take it back
+
+
+def test_visibility_endpoint_authenticates_like_the_api():
+    # The middleware serves /apiv2/tasks/visibility/ before URL routing, so neither DRF auth (API
+    # keys) nor CsrfViewMiddleware ever ran: key holders got 404, session callers skipped CSRF.
+    pytest.importorskip("django")
+    pytest.importorskip("rest_framework")
+    import os
+    import subprocess
+    import sys
+
+    script = """
+import json
+import django
+from django.conf import settings
+settings.configure(
+    INSTALLED_APPS=["django.contrib.auth", "django.contrib.contenttypes", "rest_framework"],
+    DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+    DEFAULT_AUTO_FIELD="django.db.models.BigAutoField",
+    REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES": ["__main__.HeaderKeyAuth"]},
+)
+django.setup()
+import types
+from django.contrib.auth.models import AnonymousUser
+from django.test import RequestFactory
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.exceptions import AuthenticationFailed
+import lib.tenancy.views as views
+from lib.tenancy.policy import MTConfig, ResourceScope, ViewerContext
+
+class HeaderKeyAuth(BaseAuthentication):
+    def authenticate(self, request):
+        key = request.META.get("HTTP_AUTHORIZATION")
+        if not key:
+            return None
+        if key != "Token good":
+            raise AuthenticationFailed("bad key")
+        return (types.SimpleNamespace(id=10, is_authenticated=True, is_superuser=False), None)
+
+views.multitenancy_config = lambda: MTConfig(enabled=True, mode="shared", default_visibility="", local_admins_manage_all_tenants=True)
+resolve = lambda u: ViewerContext(user_id=getattr(u, "id", None) if getattr(u, "is_authenticated", False) else None, tenant_id=None)
+loader = lambda tid: (None, ResourceScope(owner_id=10, tenant_id=None, visibility="private"))
+mongo = lambda c, f, u: None
+views.toggle_task_visibility_cas = lambda *a, **k: None
+
+def call(req, user):
+    req.user = user
+    req.viewer = resolve(AnonymousUser())  # what the middleware resolved before the view
+    return views.tasks_set_visibility(req, 42, viewer_resolver=resolve, scope_loader=loader, mongo_update_one=mongo).status_code
+
+rf = RequestFactory()
+out = {
+    "api_key": call(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}, HTTP_AUTHORIZATION="Token good"), AnonymousUser()),
+    "bad_key": call(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}, HTTP_AUTHORIZATION="Token nope"), AnonymousUser()),
+    "session_no_csrf": call(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}),
+                            types.SimpleNamespace(id=10, is_authenticated=True, is_superuser=False)),
+}
+print(json.dumps(out))
+"""
+    env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+    res = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env)
+    assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
+    import json
+
+    assert json.loads(res.stdout.strip().splitlines()[-1]) == {"api_key": 200, "bad_key": 403, "session_no_csrf": 403}

@@ -85,6 +85,29 @@ def _default_mongo_update_one(collection: str, filter_q: dict, update_doc: dict)
     return mongo_update_one(collection, filter_q, update_doc)
 
 
+def _authenticate_api_caller(request: Any, user: Any) -> tuple[Any, Optional[str]]:
+    """Return `(user, denial)`: session users must pass CSRF; others replay the API authenticators."""
+    if getattr(user, "is_authenticated", False):
+        from django.middleware.csrf import CsrfViewMiddleware
+
+        check = CsrfViewMiddleware(lambda _request: None)
+        check.process_request(request)
+        if check.process_view(request, None, (), {}) is not None:
+            return None, "CSRF verification failed"
+        return user, None
+    try:
+        from rest_framework.exceptions import APIException
+        from rest_framework.request import Request
+        from rest_framework.settings import api_settings
+    except ImportError:
+        return user, None
+    try:
+        api_user = Request(request, authenticators=[a() for a in api_settings.DEFAULT_AUTHENTICATION_CLASSES]).user
+    except APIException as e:
+        return None, str(getattr(e, "detail", e))
+    return (api_user if getattr(api_user, "is_authenticated", False) else user), None
+
+
 def tasks_set_visibility(
     request: Any,
     task_id: Any,
@@ -106,9 +129,16 @@ def tasks_set_visibility(
     except (TypeError, ValueError):
         return _json_response({"error": True, "error_value": "Task not found"}, status=404)
 
-    viewer: Optional[ViewerContext] = getattr(request, "viewer", None)
-    if viewer is None:
-        viewer = viewer_resolver(getattr(request, "user", None))
+    user = getattr(request, "user", None)
+    if user is not None:
+        # Served from TenancyMiddleware.__call__, ahead of URL routing: neither DRF authentication
+        # nor CsrfViewMiddleware has run, so authenticate here as the other /apiv2/ views do.
+        user, denied = _authenticate_api_caller(request, user)
+        if denied:
+            return _json_response({"error": True, "error_value": denied}, status=403)
+        viewer = viewer_resolver(user)
+    else:
+        viewer = getattr(request, "viewer", None) or viewer_resolver(None)
 
     loader = scope_loader or _default_session_and_task_scope
     session, scope = loader(tid)
@@ -137,6 +167,8 @@ def tasks_set_visibility(
                 vis,
                 expected_prior=scope.visibility,
                 mongo_update_one=updater,
+                owner_id=scope.owner_id,
+                tenant_id=scope.tenant_id,
             )
         except VisibilityConflictError:
             return _json_response(

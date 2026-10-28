@@ -13,7 +13,7 @@ from tempfile import NamedTemporaryFile
 
 import pytest
 from sqlalchemy import select, func
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
 from lib.cuckoo.common.exceptions import CuckooUnserviceableTaskError
 from lib.cuckoo.common.path_utils import path_mkdir
@@ -1853,5 +1853,58 @@ class TestDatabaseEngine:
         assert not db.session().in_transaction()
         with db.session.begin():
             assert db.view_task(tid) is None
+
+    def test_safe_begin_removes_session_on_operational_error(self, db: _Database, mocker):
+        mock_remove = mocker.spy(db.session, "remove")
+        with pytest.raises(OperationalError):
+            with db.session.begin():
+                raise OperationalError("SELECT 1", {}, Exception("connection closed"))
+        assert mock_remove.call_count == 1
+
+    def test_is_operational_error_helper(self):
+        from lib.cuckoo.core.database import is_operational_error
+
+        class FakeBase(Exception):
+            pass
+
+        FakeBase.__name__ = "OperationalError"
+
+        class SubError(FakeBase):
+            pass
+
+        assert is_operational_error(OperationalError("stmt", {}, Exception("down")))
+        assert is_operational_error(SubError("db down"))
+        assert not is_operational_error(RuntimeError("other"))
+
+    def test_do_connect_retry_postgresql(self, monkeypatch):
+        import time
+        from sqlalchemy import create_engine
+
+        delays = []
+        monkeypatch.setattr(time, "sleep", lambda s: delays.append(s))
+
+        calls = []
+
+        class FakeDBAPIOperationalError(Exception):
+            pass
+
+        FakeDBAPIOperationalError.__name__ = "OperationalError"
+
+        class CannotConnectNow(FakeDBAPIOperationalError):
+            pass
+
+        class FakeDialect:
+            def connect(self, *args, **kwargs):
+                calls.append(1)
+                if len(calls) < 3:
+                    raise CannotConnectNow("server starting up")
+                return "fake_connection"
+
+        engine = create_engine("sqlite:///:memory:")
+        listener = _Database._register_postgresql_connect_retry(engine)
+        conn = listener(FakeDialect(), None, (), {})
+        assert conn == "fake_connection"
+        assert len(calls) == 3
+        assert delays == [1, 2]
 
 

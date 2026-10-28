@@ -8,6 +8,7 @@ import pytest
 from pytest_mock import MockerFixture
 
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 
 from lib.cuckoo.common.abstracts import Machinery
 from lib.cuckoo.common.config import Config, ConfigMeta
@@ -522,4 +523,183 @@ class TestAnalysisManager:
         records = [r for r in caplog.records if "failure in AnalysisManager.run" in r.message]
         assert len(records) == 1
         assert records[0].exc_info is None
+
+    def test_guest_manager_db_retry_on_operational_error(self, monkeypatch, mocker):
+        from lib.cuckoo.core.guest import GuestManager, db
+
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        gm = GuestManager(vm_id="label0", ip="1.2.3.4", platform="windows", task_id=1, analysis_manager=None)
+
+        # Test get_status_from_db retries on OperationalError
+        mock_remove = mocker.patch.object(db.session, "remove")
+        mock_dispose = mocker.patch.object(db.engine, "dispose")
+        attempts = 0
+
+        def fake_guest_get_status(task_id):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise OperationalError("SELECT 1", {}, Exception("server closed connection"))
+            return "running"
+
+        mocker.patch.object(db, "guest_get_status", side_effect=fake_guest_get_status)
+        status = gm.get_status_from_db()
+        assert status == "running"
+        assert attempts == 2
+        assert mock_remove.call_count >= 1
+        assert mock_dispose.call_count == 0
+
+        # Test set_status_in_db retries on OperationalError
+        attempts = 0
+
+        def fake_guest_set_status(task_id, new_status):
+            nonlocal attempts
+            attempts += 1
+            if attempts == 1:
+                raise OperationalError("UPDATE 1", {}, Exception("server closed connection"))
+
+        mocker.patch.object(db, "guest_set_status", side_effect=fake_guest_set_status)
+        gm.set_status_in_db("completed")
+        assert attempts == 2
+        assert mock_remove.call_count >= 2
+        assert mock_dispose.call_count == 0
+
+    def test_guest_manager_wait_for_completion_resilient_to_db_error(self, monkeypatch, mocker):
+        from lib.cuckoo.core.guest import GuestManager
+
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        gm = GuestManager(vm_id="label0", ip="1.2.3.4", platform="windows", task_id=1, analysis_manager=None)
+        gm.timeout = 10
+
+        # Simulate get_status_from_db raising OperationalError on first call, then returning "stopping"
+        call_count = 0
+
+        def fake_get_status():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise OperationalError("SELECT 1", {}, Exception("transient failure"))
+            return "stopping"
+
+        mocker.patch.object(gm, "get_status_from_db", side_effect=fake_get_status)
+        gm.wait_for_completion()
+        assert call_count == 2
+
+    def test_run_analysis_on_guest_logs_exception_first_and_suppresses_failed_status_error(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture
+    ):
+        from lib.cuckoo.core.guest import GuestManager
+
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        mocker.patch.object(analysis_man, "build_options", return_value={"id": task.id})
+        mocker.patch.object(GuestManager, "start_analysis")
+        mocker.patch.object(GuestManager, "get_status_from_db", return_value="starting")
+        mocker.patch.object(GuestManager, "wait_for_completion", side_effect=RuntimeError("Guest crashed"))
+        mocker.patch.object(
+            GuestManager,
+            "set_status_in_db",
+            side_effect=[None, OperationalError("UPDATE", {}, Exception("DB down"))],
+        )
+        mock_log_exception = mocker.patch.object(analysis_man.log, "exception")
+
+        # Must not raise despite set_status_in_db("failed") raising OperationalError
+        analysis_man.run_analysis_on_guest()
+
+        # Verify log.exception was called with the guest error
+        assert mock_log_exception.called
+        log_msg = mock_log_exception.call_args[0][0]
+        assert "Unknown exception waiting for guest completion" in log_msg
+
+    def test_perform_analysis_finally_resilient_to_operational_error_on_guest_stop(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture, monkeypatch
+    ):
+        import contextlib
+
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.guest = mocker.MagicMock(id=1)
+
+        mocker.patch.object(analysis_man, "init_storage", return_value=True)
+        mocker.patch.object(analysis_man, "category_checks", return_value=None)
+        mocker.patch.object(machinery_manager, "scale_pool")
+        mocker.patch.object(analysis_man, "machine_running", return_value=contextlib.nullcontext())
+        mocker.patch.object(analysis_man, "result_server", return_value=contextlib.nullcontext())
+        mocker.patch.object(analysis_man, "network_routing", return_value=contextlib.nullcontext())
+        mocker.patch.object(analysis_man, "run_auxiliary", return_value=contextlib.nullcontext())
+        mocker.patch.object(analysis_man, "run_analysis_on_guest")
+
+        # Mock guest_stop raising OperationalError on attempt 1, succeeding on attempt 2
+        stop_attempts = 0
+
+        def fake_guest_stop(guest_id):
+            nonlocal stop_attempts
+            stop_attempts += 1
+            if stop_attempts == 1:
+                raise OperationalError("UPDATE guest", {}, Exception("DB reconnecting"))
+
+        mocker.patch.object(analysis_man.db, "guest_stop", side_effect=fake_guest_stop)
+        mocker.patch.object(analysis_man.db.session, "remove")
+        mock_dispose = mocker.patch.object(analysis_man.db.engine, "dispose")
+
+        succeeded = analysis_man.perform_analysis()
+        assert succeeded is True
+        assert stop_attempts == 2
+        assert mock_dispose.call_count == 0
+
+    def test_machine_running_calls_release_when_stop_machine_raises_operational_error(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture, monkeypatch
+    ):
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+        analysis_man.guest = mocker.MagicMock(id=1)
+
+        mocker.patch.object(machinery_manager, "start_machine")
+        mocker.patch.object(
+            machinery_manager,
+            "stop_machine",
+            side_effect=OperationalError("STOP", {}, Exception("DB down during stop_machine")),
+        )
+
+        release_attempts = 0
+
+        def fake_release(m):
+            nonlocal release_attempts
+            release_attempts += 1
+            if release_attempts == 1:
+                raise OperationalError("RELEASE", {}, Exception("DB down during release"))
+
+        mock_release = mocker.patch.object(machinery_manager.machinery, "release", side_effect=fake_release)
+        mock_remove = mocker.patch.object(analysis_man.db.session, "remove")
+
+        with analysis_man.machine_running():
+            pass
+
+        assert release_attempts == 2
+        assert mock_release.call_count == 2
+        assert mock_remove.call_count >= 1
+
+    def test_launch_analysis_retries_on_operational_error(
+        self, task: Task, machine: Machine, machinery_manager: MachineryManager, mocker: MockerFixture, monkeypatch
+    ):
+        monkeypatch.setattr("time.sleep", lambda s: None)
+        analysis_man = AnalysisManager(task=task, machine=machine, machinery_manager=machinery_manager)
+
+        mocker.patch.object(analysis_man, "perform_analysis", return_value=True)
+        mocker.patch.object(analysis_man, "update_latest_symlink")
+
+        set_status_attempts = 0
+
+        def fake_set_status(task_id, status):
+            nonlocal set_status_attempts
+            set_status_attempts += 1
+            if set_status_attempts == 1:
+                raise OperationalError("UPDATE", {}, Exception("DB reconnecting"))
+
+        mocker.patch.object(analysis_man.db, "set_status", side_effect=fake_set_status)
+        mock_remove = mocker.patch.object(analysis_man.db.session, "remove")
+
+        analysis_man.launch_analysis()
+
+        assert set_status_attempts == 2
+        assert mock_remove.call_count >= 1
 

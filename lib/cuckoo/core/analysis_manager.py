@@ -5,6 +5,7 @@ import os
 import queue
 import shutil
 import threading
+import time
 from typing import Any, Callable, Generator, MutableMapping, Optional, Tuple
 
 from lib.cuckoo.common.cleaners_utils import free_space_monitor
@@ -21,7 +22,7 @@ from lib.cuckoo.common.integrations.parse_pe import PortableExecutable
 from lib.cuckoo.common.objects import File
 from lib.cuckoo.common.path_utils import path_delete, path_exists, path_mkdir
 from lib.cuckoo.common.utils import convert_to_printable, create_folder, get_memdump_path
-from lib.cuckoo.core.database import Database, _Database
+from lib.cuckoo.core.database import Database, _Database, is_operational_error
 from lib.cuckoo.core.data.task import TASK_COMPLETED, TASK_PENDING, TASK_RUNNING, TASK_FAILED_ANALYSIS, Task
 from lib.cuckoo.core.data.machines import Machine
 from lib.cuckoo.core.data.guests import Guest
@@ -153,6 +154,24 @@ class AnalysisManager(threading.Thread):
         self.nexthop_interface = None
         self.nexthop_rt_table = None
         self.nexthop_priority = None
+
+    def _run_db_with_retry(self, fn: Callable[[], Any], op_name: str) -> None:
+        for attempt in (1, 2):
+            try:
+                with self.db.session.begin():
+                    fn()
+                return
+            except Exception as e:
+                if is_operational_error(e) and attempt == 1:
+                    self.log.warning(
+                        "Database OperationalError during %s, retrying: %s",
+                        op_name,
+                        e,
+                    )
+                    self.db.session.remove()
+                    time.sleep(1)
+                    continue
+                raise
 
     @main_thread_only
     def prepare_task_and_machine_to_start(self) -> None:
@@ -363,17 +382,23 @@ class AnalysisManager(threading.Thread):
                     self.machinery_manager.stop_machine(self.machine)
                 except CuckooMachineError as e:
                     self.log.warning("Unable to stop machine %s: %s", self.machine.label, e)
+                except Exception as e:
+                    self.log.error("Unexpected error stopping machine %s: %s", self.machine.label, e)
 
                 try:
                     # Release the analysis machine, but only if the machine is not dead.
-                    with self.db.session.begin():
-                        self.machinery_manager.machinery.release(self.machine)
+                    self._run_db_with_retry(
+                        lambda: self.machinery_manager.machinery.release(self.machine),
+                        f"release for machine {self.machine.label}",
+                    )
                 except CuckooMachineError as e:
                     self.log.error(
                         "Unable to release machine %s, reason %s. You might need to restore it manually",
                         self.machine.label,
                         e,
                     )
+                except Exception as e:
+                    self.log.error("Failed to release machine %s in database: %s", self.machine.label, e)
 
     def dump_machine_memory(self) -> None:
         if not self.cfg.cuckoo.memory_dump and not self.task.memory:
@@ -448,8 +473,9 @@ class AnalysisManager(threading.Thread):
                 guest_manager.wait_for_completion()
             guest_manager.set_status_in_db("stopping")
         except Exception as e:
-            guest_manager.set_status_in_db("failed")
             self.log.exception("Unknown exception waiting for guest completion: %s", str(e))
+            with contextlib.suppress(Exception):
+                guest_manager.set_status_in_db("failed")
 
         return
 
@@ -483,8 +509,13 @@ class AnalysisManager(threading.Thread):
             else:
                 succeeded = True
             finally:
-                with self.db.session.begin():
-                    self.db.guest_stop(self.guest.id)
+                try:
+                    self._run_db_with_retry(
+                        lambda: self.db.guest_stop(self.guest.id),
+                        f"guest_stop for guest {self.guest.id}",
+                    )
+                except Exception as e:
+                    self.log.error("Failed to stop guest %s in database: %s", self.guest.id, e)
 
         return succeeded
 
@@ -493,24 +524,45 @@ class AnalysisManager(threading.Thread):
         try:
             success = self.perform_analysis()
         except CuckooDeadMachine:
-            with self.db.session.begin():
+            try:
                 # Put the task back in pending so that the schedule can attempt to choose a new machine.
-                self.db.set_status(self.task.id, TASK_PENDING)
+                self._run_db_with_retry(
+                    lambda: self.db.set_status(self.task.id, TASK_PENDING),
+                    f"set TASK_PENDING for task {self.task.id}",
+                )
+            except Exception as e:
+                self.log.error("Failed to set task %s to pending: %s", self.task.id, e)
             raise
         except Exception as e:
             self.log.exception("Unexpected exception during analysis: %s", e)
-            with self.db.session.begin():
-                self.db.set_status(self.task.id, TASK_FAILED_ANALYSIS)
-                if hasattr(self, "machine") and self.machine:
-                    self.db.unlock_machine(self.machine)
+            try:
+                def _mark_failed():
+                    self.db.set_status(self.task.id, TASK_FAILED_ANALYSIS)
+                    if hasattr(self, "machine") and self.machine:
+                        self.db.unlock_machine(self.machine)
+
+                self._run_db_with_retry(
+                    _mark_failed,
+                    f"set TASK_FAILED_ANALYSIS for task {self.task.id}",
+                )
+            except Exception as set_status_err:
+                self.log.error("Failed to set task %s to failed: %s", self.task.id, set_status_err)
             raise
         else:
-            with self.db.session.begin():
-                self.db.set_status(self.task.id, TASK_COMPLETED)
-                self.log.info("Completed analysis %ssuccessfully.", "" if success else "un")
-                # Need to be release on unsucess
-                if not success and hasattr(self, "machine") and self.machine:
-                    self.db.unlock_machine(self.machine)
+            try:
+                def _mark_completed():
+                    self.db.set_status(self.task.id, TASK_COMPLETED)
+                    self.log.info("Completed analysis %ssuccessfully.", "" if success else "un")
+                    # Need to be release on unsucess
+                    if not success and hasattr(self, "machine") and self.machine:
+                        self.db.unlock_machine(self.machine)
+
+                self._run_db_with_retry(
+                    _mark_completed,
+                    f"set TASK_COMPLETED for task {self.task.id}",
+                )
+            except Exception as e:
+                self.log.error("Failed to set task %s to completed in database: %s", self.task.id, e)
 
             self.update_latest_symlink()
 

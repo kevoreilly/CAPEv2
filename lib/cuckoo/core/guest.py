@@ -14,13 +14,11 @@ import socket
 import sys
 import time
 import timeit
-from contextlib import suppress
 from io import BytesIO
 from zipfile import ZIP_STORED, ZipFile
 
 import requests
 from requests.adapters import HTTPAdapter
-from sqlalchemy.exc import OperationalError
 from urllib3.util.retry import Retry
 
 from lib.cuckoo.common.config import Config, parse_options
@@ -28,7 +26,7 @@ from lib.cuckoo.common.constants import ANALYSIS_BASE_PATH, CUCKOO_GUEST_PORT, C
 from lib.cuckoo.common.exceptions import CuckooGuestCriticalTimeout, CuckooGuestError
 from lib.cuckoo.common.path_utils import path_exists, path_mkdir
 from lib.cuckoo.common.utils import sanitize_filename
-from lib.cuckoo.core.database import Database
+from lib.cuckoo.core.database import Database, is_operational_error
 
 log = logging.getLogger(__name__)
 db = Database()
@@ -151,15 +149,13 @@ class GuestManager:
                     status = db.guest_get_status(self.task_id)
                 break
             except Exception as e:
-                if (isinstance(e, OperationalError) or type(e).__name__ == "OperationalError") and attempt == 1:
+                if is_operational_error(e) and attempt == 1:
                     log.warning(
                         "Task #%s: DB OperationalError in get_status_from_db, clearing session and retrying: %s",
                         self.task_label,
                         e,
                     )
                     db.session.remove()
-                    with suppress(Exception):
-                        db.engine.dispose(close=False)
                     time.sleep(1)
                     continue
                 raise
@@ -177,15 +173,13 @@ class GuestManager:
                     db.guest_set_status(self.task_id, status)
                 break
             except Exception as e:
-                if (isinstance(e, OperationalError) or type(e).__name__ == "OperationalError") and attempt == 1:
+                if is_operational_error(e) and attempt == 1:
                     log.warning(
                         "Task #%s: DB OperationalError in set_status_in_db, clearing session and retrying: %s",
                         self.task_label,
                         e,
                     )
                     db.session.remove()
-                    with suppress(Exception):
-                        db.engine.dispose(close=False)
                     time.sleep(1)
                     continue
                 raise

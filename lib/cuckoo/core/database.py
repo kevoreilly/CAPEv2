@@ -71,6 +71,13 @@ def get_count(q, property):
     return count
 
 
+def is_operational_error(exc: BaseException) -> bool:
+    """Return True if exc is a SQLAlchemy or DBAPI OperationalError (including SQLSTATE subclasses)."""
+    return isinstance(exc, OperationalError) or any(
+        cls.__name__ == "OperationalError" for cls in type(exc).__mro__
+    )
+
+
 
 class AlembicVersion(Base):
     """Table used to pinpoint actual database schema release."""
@@ -143,7 +150,7 @@ class _Database(TasksMixIn,
                     with original_begin(*args, **kwargs) as tx:
                         yield tx
             except Exception as e:
-                if isinstance(e, OperationalError) or type(e).__name__ == "OperationalError":
+                if is_operational_error(e):
                     self.session.remove()
                 raise
 
@@ -233,7 +240,7 @@ class _Database(TasksMixIn,
                 try:
                     return dialect.connect(*cargs, **cparams)
                 except Exception as e:
-                    if not isinstance(e, OperationalError) and type(e).__name__ != "OperationalError":
+                    if not is_operational_error(e):
                         raise
                     log.warning(
                         "Database connection failed (attempt %d/%d): %s. Retrying in %ds...",

@@ -157,8 +157,8 @@ def default_tag_list_filter(
 
 def default_route_list_filter(
     routes: Iterable[Any],
-    *,
     route_type: Optional[str] = None,
+    *,
     entitlements: Optional[ResourceEntitlements] = None,
 ) -> List[Any]:
     """Filter a list of route/VPN/exit-node entries according to the active `ResourceEntitlements`."""

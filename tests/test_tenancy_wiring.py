@@ -105,3 +105,15 @@ def test_unresolvable_scope_fails_closed(private_task):
     task_id, _ = private_task
     mw = TenancyMiddleware(lambda request: None, viewer_resolver=lambda user: _viewer(7, 1), task_scope_resolver=boom)
     assert _status(mw.process_view(_req(f"/analysis/{task_id}/"), _view, (), {"task_id": task_id})) == 404
+
+
+def test_registered_route_filter_accepts_the_core_hook_call():
+    # lib.cuckoo.common.hooks.apply_route_filter calls each filter as fn(routes, route_type).
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.hooks import register_core_hooks
+
+    register_core_hooks()
+    try:
+        assert core_hooks.apply_route_filter(["inetsim", "tor"], "exit") == ["inetsim", "tor"]
+    finally:
+        core_hooks.clear_all_hooks()

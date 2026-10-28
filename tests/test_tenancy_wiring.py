@@ -484,3 +484,35 @@ def test_ensure_acl_schema_once_survives_engine_churn_and_races(monkeypatch):
     monkeypatch.setattr(acl, "ensure_acl_schema", lost_race)
     acl.ensure_acl_schema_once(engine)
     assert engine in acl._acl_schema_ready
+
+
+def test_tenancy_admin_passes_django_system_checks():
+    # GroupSandboxPolicy has two FKs to auth.Group (group, parent_group); without fk_name the
+    # inline fails admin.E202, and with [multitenancy] on that blocks manage.py migrate/runserver.
+    pytest.importorskip("django")
+    import os
+    import subprocess
+    import sys
+
+    script = """
+import django
+from django.conf import settings
+settings.configure(
+    INSTALLED_APPS=[
+        "django.contrib.admin",
+        "django.contrib.auth",
+        "django.contrib.contenttypes",
+        "lib.tenancy.apps.CapeTenancyConfig",
+    ],
+    DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
+    DEFAULT_AUTO_FIELD="django.db.models.BigAutoField",
+)
+django.setup()
+import lib.tenancy.admin  # noqa: F401
+from django.contrib import admin
+errors = [e for e in admin.site.check(None) if e.is_serious()]
+assert not errors, errors
+"""
+    env = {k: v for k, v in os.environ.items() if k != "DJANGO_SETTINGS_MODULE"}
+    res = subprocess.run([sys.executable, "-c", script], capture_output=True, text=True, env=env)
+    assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"

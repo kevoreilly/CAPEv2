@@ -104,10 +104,13 @@ In ``lib.tenancy``, Django's built-in ``django.contrib.auth.models.Group``
      ``["win10", "x64", "office*"]`` or ``["*"]``).
    * ``allowed_routes``: list of allowed routing options (e.g.
      ``["none", "inetsim", "tor", "internet", "vpn:vpn_uk", "socks5:*", "exit:*"]``
-     or ``["*"]``).
+     or ``["*"]``). A typed pattern such as ``vpn:*`` covers VPN names only,
+     never the built-in ``none``/``drop``/``internet``/``inetsim``/``tor`` routes.
    * ``default_route``: default route pre-selected in the submission UI and
      injected when ``route`` is omitted on ``POST /submit/`` or
-     ``POST /apiv2/tasks/create/*``.
+     ``POST /apiv2/tasks/create/*``. Without one, an omitted route must be
+     allowed as ``routing.conf``'s default route, else it becomes ``none``
+     (or the submission is refused if ``none`` is not allowed).
    * ``default_visibility``: optional per-group default task visibility
      (``"private"``, ``"tenant"``, or ``"public"``). When blank, falls back to
      ``cuckoo.conf`` ``[multitenancy] default_visibility``.
@@ -117,10 +120,17 @@ In ``lib.tenancy``, Django's built-in ``django.contrib.auth.models.Group``
      one-way shared task read access.
    * ``forced_machine_tags``: machine tags automatically appended when a user
      submits with ``machine=""`` ("First available") so ``Scheduler`` only picks
-     VMs in that group's pool.
+     VMs in that group's pool. A user whose ``allowed_machines`` is not ``["*"]``
+     and who has no forced tag must name a machine. With several groups, the
+     highest-priority policy that has forced tags supplies them.
    * ``allow_all_vms``, ``allow_interactive``, ``max_timeout``: per-group
-     controls for ``machine="all"``, interactive Guacamole desktop sessions, and
-     maximum analysis timeout.
+     controls for ``machine="all"``, interactive Guacamole desktop sessions
+     (submission and the console itself), and maximum analysis timeout.
+
+Entitlements are checked twice: by the middleware on the submitted form or JSON
+body (an early ``403``), and on the final ``Database.add`` arguments, which is
+authoritative. In ``locked`` mode a user no active policy covers gets no
+resources unless ``CAPE_TENANCY_UNASSIGNED_GROUP_POLICY = "allow"``.
 
 Task Visibility Levels: ``private`` vs. ``tenant`` (Group) vs. ``public``
 -------------------------------------------------------------------------

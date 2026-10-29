@@ -14,7 +14,10 @@ from typing import Any, Dict, FrozenSet, Iterable, List, Mapping, MutableMapping
 from lib.tenancy.policy import multitenancy_config
 
 _ROUTE_PREFIXES = ("vpn", "socks5", "socks", "gw", "exit")
-_TRUE_STRINGS = ("1", "true", "yes", "on")
+# The submit view and the guest enable interactive on any non-empty value except these.
+_FALSE_STRINGS = ("", "0", "false", "no", "off", "none")
+# Routes analysis_manager handles by name; a typed pattern such as "vpn:*" must not match them.
+_BUILTIN_ROUTES = ("none", "drop", "false", "internet", "inetsim", "tor")
 
 
 def _norm_token(value: Any) -> str:
@@ -133,6 +136,8 @@ class ResourceEntitlements:
             prefix, bare = norm.split(":", 1)
             if bare:
                 candidates.add(bare)
+        elif norm in _BUILTIN_ROUTES:
+            candidates = {norm}
         else:
             if rtype:
                 candidates.add(f"{rtype}:{norm}")
@@ -277,12 +282,10 @@ def merge_group_policies(
     if not has_unrestricted_vm_pool:
         for pol in ordered:
             pol_forced = _norm_set(getattr(pol, "forced_machine_tags", None))
-            pol_machines = _norm_set(getattr(pol, "allowed_machines", None))
+            # A policy that lists machines but no pool tag doesn't lift another policy's pool:
+            # "first available" is confined by forced tags alone.
             if pol_forced:
                 forced_tags = pol_forced
-                break
-            if pol_machines:
-                forced_tags = frozenset()
                 break
 
     for ft in forced_tags:
@@ -305,7 +308,7 @@ def merge_group_policies(
     )
 
 
-def _get_unassigned_policy_setting() -> str:
+def _get_unassigned_policy_setting(default: str = "allow") -> str:
     try:
         from django.conf import settings
 
@@ -315,7 +318,7 @@ def _get_unassigned_policy_setting() -> str:
                 return _norm_token(val)
     except Exception:
         pass
-    return "allow"
+    return default
 
 
 def resolve_user_entitlements(
@@ -364,8 +367,10 @@ def resolve_user_entitlements(
             return ResourceEntitlements.deny_all()
         return ResourceEntitlements.allow_all()
 
-    if not policies:
-        return merge_group_policies([], unassigned_policy=effective_unassigned)
+    if not policies and cfg.enabled and cfg.mode == "locked" and not unassigned_policy:
+        # Locked mode isolates tenants: a user no policy covers (or whose policies are all inactive)
+        # gets nothing unless CAPE_TENANCY_UNASSIGNED_GROUP_POLICY says "allow" explicitly.
+        effective_unassigned = _get_unassigned_policy_setting(default="deny")
 
     return merge_group_policies(policies, unassigned_policy=effective_unassigned)
 
@@ -451,21 +456,46 @@ def filter_submission_form_context(
     return context
 
 
-def _has_interactive_option(options_str: str) -> bool:
+def _has_option(options_str: str, key: str) -> bool:
+    """True if `key=<value>` is set in a CAPE options string to anything but a false-ish value."""
     for item in (options_str or "").split(","):
         part = item.strip()
         if "=" in part:
             k, v = part.split("=", 1)
-            if k.strip().lower() == "interactive" and v.strip().lower() in _TRUE_STRINGS:
+            if k.strip().lower() == key and v.strip().lower() not in _FALSE_STRINGS:
                 return True
     return False
+
+
+def _has_interactive_option(options_str: str) -> bool:
+    return _has_option(options_str, "interactive")
+
+
+def _routing_conf_default_route() -> Optional[str]:
+    """routing.conf [routing] route: what analysis_manager uses for a task without a route."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        return _norm_token(Config("routing").routing.route) or None
+    except Exception:
+        return None
+
+
+_UNSET: Any = object()
 
 
 def validate_and_normalize_submission(
     params: Mapping[str, Any],
     entitlements: Optional[ResourceEntitlements],
+    *,
+    global_route: Any = _UNSET,
 ) -> Tuple[bool, Optional[str], Dict[str, Any]]:
-    """Validate and normalize submission parameters (`POST /submit/` or `POST /apiv2/tasks/create/*`)."""
+    """Validate and normalize submission parameters (`POST /submit/` or `POST /apiv2/tasks/create/*`).
+
+    Also applied to the final `Database.add` kwargs, where `machine` is one VM name or empty
+    ("first available") and `options` already carries `interactive=1`.
+    `global_route` is routing.conf's default route (read from the config when not given).
+    """
     normalized: Dict[str, Any] = dict(params) if params else {}
     if entitlements is None or entitlements.unrestricted:
         return True, None, normalized
@@ -474,7 +504,7 @@ def validate_and_normalize_submission(
     options_str = str(normalized.get("options") or "")
     lin_options_str = str(normalized.get("lin_options") or "")
     if (
-        interactive_val in _TRUE_STRINGS
+        interactive_val not in _FALSE_STRINGS
         or _has_interactive_option(options_str)
         or _has_interactive_option(lin_options_str)
     ) and not entitlements.allow_interactive:
@@ -492,15 +522,30 @@ def validate_and_normalize_submission(
     else:
         if not entitlements.can_use_machine(""):
             return False, "No analysis VMs are permitted for your group.", {}
+        if "*" not in entitlements.allowed_machines and not entitlements.forced_machine_tags:
+            # The scheduler would pick any VM: only a pool tag confines "first available".
+            return False, "Choose an analysis VM: your group has no default machine pool.", {}
 
     route_raw = str(normalized.get("route") or "").strip()
-    tor_flag = _norm_token(normalized.get("tor")) in _TRUE_STRINGS
+    tor_flag = (
+        _norm_token(normalized.get("tor")) not in _FALSE_STRINGS
+        or _has_option(options_str, "tor")
+        or _has_option(lin_options_str, "tor")
+    )
     if tor_flag and not entitlements.can_use_route("tor"):
         return False, "Route 'tor' is not permitted for your group.", {}
 
     if not route_raw and entitlements.default_route:
         route_raw = entitlements.default_route
         normalized["route"] = route_raw
+    elif not route_raw:
+        # No route means routing.conf's default, which this group may not be allowed.
+        fallback = _routing_conf_default_route() if global_route is _UNSET else _norm_token(global_route)
+        if not (fallback and entitlements.can_use_route(fallback)):
+            if not entitlements.can_use_route("none"):
+                return False, "Choose a network route: the default route is not permitted for your group.", {}
+            route_raw = "none"
+            normalized["route"] = route_raw
 
     if route_raw and not entitlements.can_use_route(route_raw):
         return False, f"Route '{route_raw}' is not permitted for your group.", {}

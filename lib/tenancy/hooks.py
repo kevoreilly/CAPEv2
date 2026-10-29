@@ -43,6 +43,7 @@ from lib.tenancy.policy import (
 from lib.tenancy.resources import (
     ResourceEntitlements,
     filter_submission_form_context,
+    validate_and_normalize_submission,
 )
 
 log = logging.getLogger(__name__)
@@ -90,6 +91,37 @@ def _trusted_submitter() -> bool:
     """Internal callers (no request viewer) and superusers, e.g. a dist node's or broker's account."""
     viewer = get_current_viewer()
     return viewer is None or bool(getattr(viewer, "is_superuser", False) or getattr(viewer, "is_local_admin", False))
+
+
+def _enforce_task_entitlements(kwargs: Dict[str, Any]) -> Optional[str]:
+    """Check the final `add` kwargs against the request's entitlements; normalize them in place.
+
+    The middleware checks the submitted form early, but API bodies (JSON, re-parsed urlencoded)
+    and the views' own rewriting reach `add` unchecked. Returns the denial message, or None.
+    """
+    ent = get_current_entitlements()
+    if ent is None or ent.unrestricted:
+        return None
+    tags = kwargs.get("tags")
+    if isinstance(tags, (list, tuple, set)):
+        tags = ",".join(str(t) for t in tags)
+    params = {
+        "machine": kwargs.get("machine") or "",
+        "route": kwargs.get("route") or "",
+        "tags": tags or "",
+        "timeout": kwargs.get("timeout") or 0,
+        "options": kwargs.get("options") or "",
+    }
+    allowed, err, normalized = validate_and_normalize_submission(params, ent)
+    if not allowed:
+        return err or "Submission denied by group policy"
+    if normalized.get("route") and not kwargs.get("route"):
+        kwargs["route"] = normalized["route"]
+    if normalized.get("tags") != params["tags"]:
+        kwargs["tags"] = normalized["tags"]
+    if str(normalized.get("timeout")) != str(params["timeout"]):
+        kwargs["timeout"] = int(normalized["timeout"])
+    return None
 
 
 def _strip_untrusted_task_acl(attributes: Any) -> Any:
@@ -344,6 +376,10 @@ def wrap_submission_and_web_utils(
             def _wrapped_task_add(self: Any, *args: Any, _orig=orig_add, **kwargs: Any):
                 inherited = _rescheduled_from.get()
                 if inherited is None:  # a copy keeps its source's fields
+                    denied = _enforce_task_entitlements(kwargs)
+                    if denied:
+                        log.warning("tenancy: task not added: %s", denied)
+                        return None
                     if kwargs.get("attributes"):
                         kwargs["attributes"] = _strip_untrusted_task_acl(kwargs["attributes"])
                     if kwargs.get("custom"):

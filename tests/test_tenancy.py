@@ -1374,7 +1374,8 @@ def test_private_task_submission_and_strict_owner_isolation(monkeypatch):
     )
 
     def tasks_create_file(req):
-        tid = tasking.add("sample.exe", user_id=req.user.id)
+        data = req.data
+        tid = tasking.add("sample.exe", user_id=req.user.id, machine=data.get("machine", ""), route=data.get("route"))
         return {"status_code": 200, "task_id": tid}
 
     mw = TenancyMiddleware(

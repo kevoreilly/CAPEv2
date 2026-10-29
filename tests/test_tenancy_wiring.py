@@ -1243,3 +1243,185 @@ def test_es_restamp_retries_version_conflicts_then_fails_the_toggle(monkeypatch)
     fake_es.elastic_handler = types.SimpleNamespace(update_by_query=lambda **kw: {"version_conflicts": 1})
     with pytest.raises(RuntimeError):
         tviews._default_es_update_by_query()({}, {})
+
+
+def _ent(**kw):
+    from lib.tenancy.resources import ResourceEntitlements
+
+    base = dict(allowed_machines=frozenset({"*"}), allowed_routes=frozenset({"none"}), allow_interactive=False)
+    base.update(kw)
+    return ResourceEntitlements(**base)
+
+
+def _policy(pid, priority=0, **kw):
+    base = dict(
+        id=pid,
+        priority=priority,
+        active=True,
+        parent_group=None,
+        inherit_parent_resources=True,
+        allowed_machines=[],
+        allowed_tags=[],
+        allowed_routes=[],
+        forced_machine_tags=[],
+        default_route=None,
+        default_visibility=None,
+        allow_all_vms=False,
+        allow_interactive=False,
+        max_timeout=0,
+    )
+    base.update(kw)
+    return types.SimpleNamespace(**base)
+
+
+@pytest.mark.parametrize("route", ["internet", "tor", "inetsim", "drop"])
+def test_typed_route_wildcard_does_not_cover_builtin_routes(route):
+    # "vpn:*" means any VPN exit; it must not let a bare route=internet through.
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ent = _ent(allowed_routes=frozenset({"none", "vpn:*"}))
+    assert ent.can_use_route("vpn_uk") is True
+    assert ent.can_use_route(route) is False
+    assert validate_and_normalize_submission({"route": route}, ent, global_route="none")[0] is False
+
+
+def test_an_add_on_group_with_machines_keeps_the_tenant_pool_tag():
+    from lib.tenancy.resources import merge_group_policies, validate_and_normalize_submission
+
+    ent = merge_group_policies(
+        [
+            _policy(1, allowed_machines=["win10_alpha_*"], forced_machine_tags=["pool_alpha"], allowed_routes=["none"]),
+            _policy(2, priority=5, allowed_machines=["win11_special"]),
+        ]
+    )
+    assert ent.forced_machine_tags == frozenset({"pool_alpha"})
+    ok, _, norm = validate_and_normalize_submission({}, ent, global_route="none")
+    assert ok and norm["tags"] == "pool_alpha"
+
+
+def test_first_available_needs_a_pool_tag_when_machines_are_restricted():
+    # Without a forced tag the scheduler would pick any VM, another tenant's included.
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ent = _ent(allowed_machines=frozenset({"win10_alpha_*"}))
+    assert validate_and_normalize_submission({"machine": ""}, ent, global_route="none")[0] is False
+    assert validate_and_normalize_submission({"machine": "win10_alpha_1"}, ent, global_route="none")[0] is True
+    assert validate_and_normalize_submission({"machine": ""}, _ent(), global_route="none")[0] is True
+
+
+@pytest.mark.parametrize(
+    "params",
+    [{"interactive": "2"}, {"interactive": "y"}, {"options": "interactive=y"}, {"lin_options": "interactive=2"}],
+)
+def test_any_truthy_interactive_value_is_checked(params):
+    # The submit view enables the console for any non-empty value.
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    assert validate_and_normalize_submission(params, _ent(), global_route="none")[0] is False
+
+
+@pytest.mark.parametrize("params", [{"interactive": "0"}, {"interactive": ""}, {"options": "interactive=0"}])
+def test_false_interactive_values_pass(params):
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    assert validate_and_normalize_submission(params, _ent(), global_route="none")[0] is True
+
+
+@pytest.mark.parametrize("params", [{"tor": "y"}, {"tor": "on"}, {"options": "tor=yes"}])
+def test_any_truthy_tor_value_is_checked(params):
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    assert validate_and_normalize_submission(params, _ent(), global_route="none")[0] is False
+
+
+def test_an_omitted_route_is_checked_against_the_global_default():
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ent = _ent(allowed_routes=frozenset({"none", "inetsim"}))
+    ok, _, norm = validate_and_normalize_submission({}, ent, global_route="internet")
+    assert ok and norm["route"] == "none"
+    ok, _, norm = validate_and_normalize_submission({}, ent, global_route="inetsim")
+    assert ok and "route" not in norm
+    assert validate_and_normalize_submission({}, _ent(allowed_routes=frozenset({"inetsim"})), global_route="internet")[0] is False
+    assert validate_and_normalize_submission({}, _ent(allowed_routes=frozenset({"inetsim"})), global_route=None)[0] is False
+
+
+@pytest.mark.parametrize("groups", [[], [types.SimpleNamespace(sandbox_policy=types.SimpleNamespace(id=1, active=False))]])
+def test_locked_mode_denies_users_no_active_policy_covers(monkeypatch, groups):
+    import lib.tenancy.resources as res
+
+    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="locked", allow_superuser_all=True))
+    user = types.SimpleNamespace(is_authenticated=True, is_superuser=False, groups=groups)
+    assert res.resolve_user_entitlements(user).unrestricted is False
+    assert res.resolve_user_entitlements(user, unassigned_policy="allow").unrestricted is True
+    monkeypatch.setattr(res, "multitenancy_config", lambda: types.SimpleNamespace(enabled=True, mode="shared", allow_superuser_all=True))
+    assert res.resolve_user_entitlements(user).unrestricted is True
+
+
+def test_task_add_enforces_entitlements_on_the_final_kwargs(monkeypatch):
+    # API bodies (JSON, re-parsed urlencoded) reach add() without the middleware's normalization.
+    from lib.tenancy.context import set_current_entitlements, set_current_viewer
+    from lib.tenancy.hooks import inherit_task_scope, wrap_submission_and_web_utils
+
+    monkeypatch.setattr("lib.tenancy.resources._routing_conf_default_route", lambda: "internet")
+    session, tasking = _reschedule_rig(monkeypatch)
+    calls = []
+    orig = tasking.add
+
+    def add(self, obj, **kw):
+        calls.append(kw)
+        return orig(self, obj, user_id=kw.get("user_id", 0))
+
+    monkeypatch.setattr(tasking, "add", add)
+    wrap_submission_and_web_utils(tasking_cls=tasking)
+    set_current_viewer(_viewer(8, 2))
+    set_current_entitlements(
+        _ent(
+            allowed_machines=frozenset({"win10_alpha_*"}),
+            allowed_routes=frozenset({"none", "inetsim"}),
+            forced_machine_tags=frozenset({"pool_alpha"}),
+            max_timeout=120,
+        )
+    )
+    t = tasking(session)
+    assert t.add("x", machine="win10_beta_1", user_id=8) is None
+    assert t.add("x", machine="win10_alpha_1", route="internet", user_id=8) is None
+    assert t.add("x", machine="win10_alpha_1", options="interactive=1,", user_id=8) is None
+    assert calls == []
+    assert t.add("x", timeout=99999, user_id=8)
+    assert calls[-1]["timeout"] == 120 and calls[-1]["tags"] == "pool_alpha" and calls[-1]["route"] == "none"
+    with inherit_task_scope(t, 10):  # a reschedule copy keeps its source's fields
+        t.add("x", machine="win10_beta_1", user_id=8)
+    assert calls[-1]["machine"] == "win10_beta_1"
+
+
+def test_json_submission_bodies_are_checked_by_the_middleware():
+    import json
+
+    from django.test import RequestFactory
+
+    viewer = _viewer(8, 2)
+    ent = _ent(allowed_machines=frozenset({"win10_alpha_*"}), forced_machine_tags=frozenset({"pool_alpha"}))
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: ent)
+
+    def tasks_create_url(request):
+        pass
+
+    req = RequestFactory().post(
+        "/apiv2/tasks/create/url/", json.dumps({"url": "http://a", "machine": "win10_beta_1"}), content_type="application/json"
+    )
+    req.user, req.viewer, req.entitlements = object(), viewer, ent
+    assert _status(mw.process_view(req, tasks_create_url, (), {})) == 403
+
+
+@pytest.mark.parametrize("path", ["/guac/5/abc/", "/submit/remote_session/5/"])
+def test_console_views_need_allow_interactive(path):
+    def index(request, task_id=None):
+        pass
+
+    req = _req(path)
+    req.entitlements = _ent(allow_interactive=False)
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: _viewer(8, 2))
+    assert _status(mw.process_view(req, index, (), {})) == 403
+    req.entitlements = _ent(allow_interactive=True)
+    assert _status(mw.process_view(req, index, (), {})) != 403

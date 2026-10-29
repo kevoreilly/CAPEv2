@@ -242,6 +242,12 @@ def _is_submission_post(request: Any, view_func: Callable[..., Any]) -> bool:
     return False
 
 
+def _is_console_view(request: Any, view_func: Callable[..., Any]) -> bool:
+    """Views that open (or hand out the session for) a live guac console on a task's VM."""
+    path = str(getattr(request, "path", "") or "").lower()
+    return "/guac/" in path or "remote_session" in path or "remote_session" in _view_name(view_func).lower()
+
+
 def _is_direct_vnc_view(view_func: Callable[..., Any]) -> bool:
     return _view_name(view_func).startswith("direct_vnc_")
 
@@ -264,6 +270,15 @@ def _extract_submission_params(request: Any) -> Dict[str, Any]:
                     params[str(k)] = store.get(k)
             except Exception:
                 pass
+    content_type = str(getattr(request, "content_type", "") or (getattr(request, "META", None) or {}).get("CONTENT_TYPE", ""))
+    if not params and "json" in content_type.lower():
+        # request.POST is empty for JSON; the API view reads the same body through DRF's request.data.
+        try:
+            body = json.loads(getattr(request, "body", b"") or b"{}")
+        except Exception:
+            body = None
+        if isinstance(body, dict):
+            params = {str(k): v for k, v in body.items()}
     return params
 
 
@@ -408,6 +423,14 @@ class TenancyMiddleware:
         if _is_direct_vnc_view(view_func) and not viewer.see_all:
             # Direct VNC addresses VMs and host:port pairs outside any task scope.
             return self.forbidden_response_factory(request, "VNC Console is restricted to administrators")
+
+        if (
+            entitlements is not None
+            and not entitlements.unrestricted
+            and not entitlements.allow_interactive
+            and _is_console_view(request, view_func)
+        ):
+            return self.forbidden_response_factory(request, "Interactive sessions are not permitted for your group")
 
         if _is_machine_view(request, view_func, view_kwargs):
             if entitlements is not None and not entitlements.unrestricted:

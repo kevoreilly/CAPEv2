@@ -6,6 +6,7 @@ artifact download/streaming views without requiring inline checks across `web/`.
 
 from __future__ import annotations
 
+import json
 from typing import Any, Callable, Dict, MutableMapping, Optional, Sequence
 
 from lib.tenancy.context import (
@@ -37,14 +38,17 @@ from lib.tenancy.resources import (
 
 _DELETE_KEYWORDS = ("delete", "remove", "purge")
 # A live guac console grants keyboard/framebuffer control of the analysis VM: a task action, not a read.
-_MANAGE_KEYWORDS = ("reprocess", "reboot", "visibility", "toggle", "reschedule", "/guac/", "remote_session")
+_MANAGE_KEYWORDS = ("reprocess", "reboot", "visibility", "toggle", "reschedule", "/guac/", "remote_session", "tag_tasks")
 _TASK_ID_KWARGS = ("task_id", "analysis_id", "analysis_number", "left_id", "right_id")
 _SAMPLE_HASH_KWARGS = ("sha256", "sha1", "md5", "sample_id")
 # Route kwargs that carry a bare hash of unspecified type (compare/<id>/<hash>, resubmit/<id>/<hash>).
 _UNTYPED_HASH_KWARGS = ("right_hash", "resubmit_hash")
 _HASH_FIELD_BY_LEN = {32: "md5", 40: "sha1", 64: "sha256"}
+# file/<category>/<task_id>/<dlfile>/ and vtupload/... serve storage/binaries/<dlfile> for these
+# categories whatever the task id, so the file needs sample access of its own.
+_STORED_BINARY_CATEGORIES = ("sample", "static", "staticzip")
 # Views that take their task ids from the POST body instead of the route.
-_BODY_TASK_ID_FIELDS = {"tasks_delete_many": "ids"}
+_BODY_TASK_ID_FIELDS = {"tasks_delete_many": "ids", "tag_tasks": "task_ids"}
 # Upper bound on ids expanded from a "start-end" range kwarg (tasks/delete/1-5/).
 _MAX_TASK_ID_RANGE = 1000
 _SUBMISSION_VIEW_NAMES = (
@@ -557,6 +561,13 @@ def _task_ids_from_body(request: Any, view_func: Callable[..., Any]) -> list:
         return []
     post = getattr(request, "POST", None)
     raw = post.get(field, "") if post is not None and hasattr(post, "get") else ""
+    if not raw:
+        try:  # hunt/tag/ posts JSON: {"task_ids": [...], "tag": ...}
+            raw = json.loads(getattr(request, "body", b"") or b"{}").get(field, "")
+        except (ValueError, AttributeError, TypeError):
+            raw = ""  # malformed: the view itself rejects it
+    if isinstance(raw, (list, tuple)):
+        return [str(part).strip() for part in raw if str(part).strip()]
     return [part.strip() for part in str(raw).split(",") if part.strip()]
 
 
@@ -575,6 +586,10 @@ def _sample_filter_from_kwargs(view_kwargs: Dict[str, Any], include_typed: bool 
         field = _HASH_FIELD_BY_LEN.get(len(str(value))) if value else None
         if field:
             flt[field] = str(value).lower()
+    dlfile = view_kwargs.get("dlfile")
+    if dlfile and view_kwargs.get("category") in _STORED_BINARY_CATEGORIES:
+        # A name that is not a hash matches no sample, so it is denied.
+        flt[_HASH_FIELD_BY_LEN.get(len(str(dlfile)), "sha256")] = str(dlfile).lower()
     return flt
 
 

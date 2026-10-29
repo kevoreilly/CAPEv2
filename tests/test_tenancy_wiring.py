@@ -251,6 +251,50 @@ def test_body_task_ids_are_gated(private_task):
     assert _mw(_viewer(7, 1)).process_view(req(), tasks_delete_many, (), {}) is None
 
 
+@pytest.mark.parametrize("view_name, extra", [("file", {}), ("vtupload", {"filename": "x.exe"})])
+@pytest.mark.parametrize("category", ["sample", "static", "staticzip"])
+def test_stored_binary_routes_check_the_sample_not_just_the_route_task(db, private_task, view_name, extra, category):
+    # file/<category>/<task_id>/<dlfile>/ and vtupload/... serve storage/binaries/<dlfile> whatever
+    # the task id: gating only the caller's own task handed out (or uploaded to VT) any sample.
+    task_id, sha256 = private_task
+    other_task = db.add_url("http://example.com/", user_id=8)
+    with db.session.begin():
+        set_task_acl(db.session, other_task, user_id=8, tenant_id=2, visibility=PRIVATE)
+    view = types.FunctionType(_view.__code__, {}, view_name)
+
+    def kwargs(tid, dlfile):
+        return {"category": category, "task_id": str(tid), "dlfile": dlfile, **extra}
+
+    outsider, owner = _mw(_viewer(8, 2)), _mw(_viewer(7, 1))
+    assert _status(outsider.process_view(_req("/file/x/"), view, (), kwargs(other_task, sha256))) == 404
+    assert _status(outsider.process_view(_req("/file/x/"), view, (), kwargs(other_task, "notahash"))) == 404
+    assert owner.process_view(_req("/file/x/"), view, (), kwargs(task_id, sha256)) is None
+    # Other categories name files inside the route task's own directory.
+    dropped = {**kwargs(other_task, sha256), "category": "dropped"}
+    assert outsider.process_view(_req("/file/x/"), view, (), dropped) is None
+
+
+def test_hunt_tag_body_task_ids_are_gated_as_a_task_change(private_task):
+    import json
+
+    task_id, _ = private_task
+
+    def tag_tasks(request):
+        pass
+
+    def req():
+        r = _req("/analysis/hunt/tag/")
+        r.method, r.POST = "POST", {}
+        r.body = json.dumps({"task_ids": [task_id], "tag": "x"}).encode()
+        return r
+
+    assert _status(_mw(_viewer(8, 2)).process_view(req(), tag_tasks, (), {})) == 404
+    assert _mw(_viewer(7, 1)).process_view(req(), tag_tasks, (), {}) is None
+    malformed = req()
+    malformed.body = b"{nope"
+    assert _mw(_viewer(8, 2)).process_view(malformed, tag_tasks, (), {}) is None  # the view answers 400
+
+
 def test_task_id_lists_and_ranges_are_checked_per_task(private_task):
     task_id, _ = private_task
 

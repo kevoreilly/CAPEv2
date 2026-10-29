@@ -93,6 +93,10 @@ def _trusted_submitter() -> bool:
     return viewer is None or bool(getattr(viewer, "is_superuser", False) or getattr(viewer, "is_local_admin", False))
 
 
+# Task objects no VM runs: analysis_manager never schedules a machine or route for them.
+_VMLESS_TASK_OBJECTS = ("PCAP", "Static")
+
+
 def _enforce_task_entitlements(kwargs: Dict[str, Any]) -> Optional[str]:
     """Check the final `add` kwargs against the request's entitlements; normalize them in place.
 
@@ -376,7 +380,9 @@ def wrap_submission_and_web_utils(
             def _wrapped_task_add(self: Any, *args: Any, _orig=orig_add, **kwargs: Any):
                 inherited = _rescheduled_from.get()
                 if inherited is None:  # a copy keeps its source's fields
-                    denied = _enforce_task_entitlements(kwargs)
+                    obj = args[0] if args else kwargs.get("obj")
+                    vmless = type(obj).__name__ in _VMLESS_TASK_OBJECTS
+                    denied = None if vmless else _enforce_task_entitlements(kwargs)
                     if denied:
                         log.warning("tenancy: task not added: %s", denied)
                         return None

@@ -1425,3 +1425,30 @@ def test_console_views_need_allow_interactive(path):
     assert _status(mw.process_view(req, index, (), {})) == 403
     req.entitlements = _ent(allow_interactive=True)
     assert _status(mw.process_view(req, index, (), {})) != 403
+
+
+def test_vmless_tasks_skip_machine_and_route_entitlements(monkeypatch):
+    # PCAP and static tasks never run on a VM: a group without a pool tag can still submit them.
+    from lib.tenancy.context import set_current_entitlements
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+
+    session, tasking = _reschedule_rig(monkeypatch)
+    wrap_submission_and_web_utils(tasking_cls=tasking)
+    set_current_entitlements(_ent(allowed_machines=frozenset({"win10_alpha_*"}), allowed_routes=frozenset()))
+
+    class PCAP:
+        pass
+
+    t = tasking(session)
+    assert t.add(PCAP(), user_id=8)
+    assert t.add("x", user_id=8) is None
+
+    viewer = _viewer(8, 2)
+    ent = _ent(allowed_machines=frozenset({"win10_alpha_*"}))
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: ent)
+
+    def tasks_create_static(request):
+        pass
+
+    req = types.SimpleNamespace(path="/apiv2/tasks/create/static/", method="POST", user=object(), viewer=viewer, entitlements=ent, POST={})
+    assert _status(mw.process_view(req, tasks_create_static, (), {})) != 403

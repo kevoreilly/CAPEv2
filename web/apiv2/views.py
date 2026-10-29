@@ -2455,9 +2455,9 @@ def exit_nodes_list(request):
     resp["error"] = []
     resp["data"] += ["socks:" + sock5 for sock5 in apply_route_filter(list(_load_socks5_operational() or []), "socks5")]
     resp["data"] += ["vpn:" + vpn for vpn in apply_route_filter(list(vpns.keys()), "vpn")]
-    if routing_conf.tor.enabled:
+    if routing_conf.tor.enabled and apply_route_filter(["tor"]):
         resp["data"].append("tor")
-    if routing_conf.inetsim.enabled:
+    if routing_conf.inetsim.enabled and apply_route_filter(["inetsim"]):
         resp["data"].append("inetsim")
 
     return Response(resp)

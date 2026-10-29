@@ -496,12 +496,33 @@ def _label_name_allowed(entitlements: "ResourceEntitlements", machine_name_of: A
     return bool(name) and entitlements.can_use_machine(name)  # "" would mean "first available"
 
 
-def _option_value(options_str: str, key: str) -> str:
+def _option_keys(options_str: str) -> set:
+    return {k.strip().lower() for k, sep, _ in (i.partition("=") for i in (options_str or "").split(",")) if sep}
+
+
+def _sslproxy_requested(options_str: str) -> bool:
+    """On for any sslproxy key whose value SSLProxy (case-sensitive) does not read as off."""
     for item in (options_str or "").split(","):
         k, sep, v = item.partition("=")
-        if sep and k.strip().lower() == key:
-            return v.strip().lower()
-    return ""
+        if sep and k.strip().lower() == "sslproxy" and v.strip() not in ("0", "no", "false", ""):
+            return True
+    return False
+
+
+def _sslproxy_rt_table(route: str) -> str:
+    """The routing table SSLProxy sends upstream through for `route` (its own lookup); '' = host's."""
+    try:
+        from lib.cuckoo.common.config import Config
+
+        conf = Config("routing")
+        route = route or str(conf.routing.route or "")
+        if not route or route in ("none", "None", "drop", "false", "inetsim", "tor", "internet"):
+            return ""
+        if hasattr(conf, route):
+            return str(getattr(conf.get(route), "rt_table", "") or "")
+        return route if route.startswith("tun") else ""
+    except Exception:
+        return ""
 
 
 def _has_interactive_option(options_str: str) -> bool:
@@ -565,7 +586,7 @@ def validate_and_normalize_submission(
     timeout (both read from the config when not given). `vmless` (static, PCAP) skips the
     "first available" pool and route checks: no VM runs those tasks. The middleware passes
     `resolve_omitted_route=False`: routing.conf's random_vpn/random_socks5 pick a route for an
-    omitted one after it, so the final `add` check resolves (and pins) it instead.
+    omitted one after it, so the final `add` check resolves it instead.
     """
     normalized: Dict[str, Any] = dict(params) if params else {}
     if entitlements is None or entitlements.unrestricted:
@@ -635,17 +656,17 @@ def validate_and_normalize_submission(
     all_options = f"{options_str},{lin_options_str}"
     if _has_option(all_options, "netns"):
         return False, "The netns option is not permitted for your group.", {}
-    # These auxiliaries proxy the VM's traffic out through the host. SSLProxy uses the route's
-    # table for a VPN, and the host's own for every other route; the others always the host's.
+    # These auxiliaries proxy the VM's traffic out through the host. SSLProxy uses the routing
+    # table of the route's routing.conf section (a VPN's), else the host's own; the others always
+    # the host's. Matched as loosely as the modules (and dist's option re-serialization) read them.
     if not vmless and not entitlements.can_use_route("internet"):
         lowered = all_options.lower()
         requested = [
             name
             for name, on in (
-                ("sslproxy", _option_value(all_options, "sslproxy") not in ("", "0", "no", "false")
-                 and "vpn" not in _known_route_types(_norm_token(route_raw))),
+                ("sslproxy", _sslproxy_requested(all_options) and not _sslproxy_rt_table(route_raw)),
                 ("mitmdump", "mitmdump" in lowered),  # Mitmdump enables on the bare substring
-                ("polarproxy", "polarproxy=" in lowered),
+                ("polarproxy", "polarproxy" in _option_keys(all_options) or "polarproxy=" in lowered),
             )
             if on
         ]

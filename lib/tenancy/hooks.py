@@ -20,6 +20,7 @@ import logging
 import os
 import re
 import sys
+import threading
 from typing import Any, Callable, Dict, Iterable, List, MutableMapping, Optional
 
 from sqlalchemy import or_
@@ -181,10 +182,11 @@ def _strip_untrusted_broker_job_id(custom: Any) -> Any:
     """
     if not custom or not isinstance(custom, str) or _trusted_submitter():
         return custom
+    custom = ",".join(f for f in custom.split(",") if not f.strip().startswith("job_id="))
     if re.match(r"^\s*Recovery_\d+\s*$", custom):
         # A recovered task's custom "Recovery_<id>" sends apiv2's artifact views to task <id>.
         return ""
-    return ",".join(f for f in custom.split(",") if not f.strip().startswith("job_id="))
+    return custom
 
 
 MongoFilterFn = Callable[[str, Dict[str, Any], Optional[ViewerContext]], Dict[str, Any]]
@@ -402,6 +404,17 @@ def wrap_mongodb_module(mongodb_mod: Any) -> None:
     # `from dev_utils.mongodb import mongo_aggregate` and still hold the unscoped originals.
     for name in ("mongo_find", "mongo_find_one", "mongo_aggregate"):
         _rebind_from_imports(name, replaced)
+    # The originals look their result hooks up as hooks[mongo_find], a module global that now
+    # names the wrapper: share the registrations (files-collection denormalization) with it.
+    registry = getattr(mongodb_mod, "hooks", None)
+    if registry is not None:
+        for name in ("mongo_find", "mongo_find_one", "mongo_aggregate"):
+            wrapper = getattr(mongodb_mod, name, None)
+            for orig_id, new in replaced.items():
+                if new is wrapper:
+                    for key in list(registry):
+                        if id(key) == orig_id:
+                            registry[wrapper] = registry[key]
 
     _patched_modules.add(mod_id)
 
@@ -581,18 +594,24 @@ def wrap_submission_and_web_utils(
                 continue
 
             @functools.wraps(orig_cached)
-            def _uncached_for_restricted(*args: Any, _orig=orig_cached, _name=cached_name, **kwargs: Any):
+            def _uncached_for_restricted(
+                *args: Any, _orig=orig_cached, _name=cached_name, _lock=threading.Lock(), **kwargs: Any
+            ):
                 viewer = get_current_viewer()
-                if viewer is None or getattr(viewer, "see_all", False):
-                    return _orig(*args, **kwargs)
+                restricted = viewer is not None and not getattr(viewer, "see_all", False)
                 holders = (getattr(web_utils_mod, _name, None), _orig)
-                for holder in holders:
-                    getattr(holder, "__dict__", {}).pop("cache", None)
-                try:
-                    return _orig(*args, **kwargs)
-                finally:
+                # One call at a time: the cache is process-wide, and a restricted call must not read
+                # what another thread's unscoped call stores mid-way.
+                with _lock:
+                    if not restricted:
+                        return _orig(*args, **kwargs)
                     for holder in holders:
                         getattr(holder, "__dict__", {}).pop("cache", None)
+                    try:
+                        return _orig(*args, **kwargs)
+                    finally:
+                        for holder in holders:
+                            getattr(holder, "__dict__", {}).pop("cache", None)
 
             _uncached_for_restricted.__dict__.pop("cache", None)
             _uncached_for_restricted._cape_tenancy_wrapped = True  # type: ignore[attr-defined]

@@ -1762,8 +1762,12 @@ def test_untrusted_submitters_cannot_set_a_recovery_custom(monkeypatch):
 
 
 @pytest.mark.parametrize("view_name", ["statistics_data", "yara_uploader"])
-def test_deployment_wide_views_are_admin_only(view_name):
+def test_deployment_wide_views_are_admin_only(view_name, monkeypatch):
     view = types.FunctionType((lambda request: None).__code__, {}, view_name)
+    # Object storage alone installs the middleware too: no tenants, nothing to hide.
+    monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: types.SimpleNamespace(enabled=False))
+    assert _status(_mw(_viewer(8, 2)).process_view(_req("/x/"), view, (), {})) is None
+    monkeypatch.setattr("lib.tenancy.middleware.multitenancy_config", lambda: types.SimpleNamespace(enabled=True))
     assert _status(_mw(_viewer(8, 2)).process_view(_req("/x/"), view, (), {})) == 403
     admin = ViewerContext(user_id=1, tenant_id=None, is_superuser=True, is_local_admin=True, is_authenticated=True)
     assert _status(_mw(admin).process_view(_req("/x/"), view, (), {})) is None
@@ -1819,20 +1823,45 @@ def test_unreadable_submission_bodies_are_refused():
     def tasks_create_url(request):
         pass
 
-    req = RequestFactory().post("/apiv2/tasks/create/url/", "url=http://a&machine=all", content_type="*/x-www-form-urlencoded")
+    req = RequestFactory().post("/apiv2/tasks/create/url/", "--B\r\n", content_type="multipart/mixed; boundary=B")
     req.user, req.viewer, req.entitlements = object(), viewer, ent
     assert _status(mw.process_view(req, tasks_create_url, (), {})) == 403
 
 
+@pytest.mark.parametrize("content_type", ["*/x-www-form-urlencoded", "application/*"])
+def test_bodies_are_read_with_the_parser_drf_picks(content_type):
+    # DRF's FormParser takes */x-www-form-urlencoded (a JSON reading of it would see other keys);
+    # its JSONParser takes application/*.
+    import json
+
+    from django.test import RequestFactory
+
+    from lib.tenancy.middleware import _extract_submission_params
+
+    body = "url=http://a&machine=win10_beta_1" if "form" in content_type else json.dumps({"machine": "win10_beta_1"})
+    req = RequestFactory().post("/apiv2/tasks/create/url/", body, content_type=content_type)
+    assert _extract_submission_params(req)["machine"] == "win10_beta_1"
+
+
 @pytest.mark.parametrize(
     "options,route,allowed",
-    [("sslproxy=1", "vpn_uk", True), ("sslproxy=0", "", True), ("filename=polarproxy_setup.exe", "", True), ("sslproxy=1", "", False)],
+    [
+        ("sslproxy=1", "vpn_uk", True),
+        ("sslproxy=0", "", True),
+        ("filename=polarproxy_setup.exe", "", True),
+        ("sslproxy=1", "", False),
+        ("sslproxy=No", "", False),  # SSLProxy compares case-sensitively: "No" is on
+        ("SSLPROXY=0,sslproxy=1", "", False),
+        ("polarproxy =1", "", False),  # dist re-serializes it as polarproxy=1
+    ],
 )
 def test_sslproxy_follows_a_vpn_route(monkeypatch, options, route, allowed):
     import lib.tenancy.resources as res
     from lib.tenancy.resources import validate_and_normalize_submission
 
     monkeypatch.setattr(res, "_known_route_types", lambda name: frozenset({"vpn"}) if name == "vpn_uk" else frozenset())
+    # SSLProxy looks the table up by routing.conf section: [vpn_uk] rt_table = tun0
+    monkeypatch.setattr(res, "_sslproxy_rt_table", lambda route: "tun0" if route == "vpn_uk" else "")
     ent = _ent(allowed_routes=frozenset({"none", "vpn:*"}))
     assert validate_and_normalize_submission({"options": options, "route": route}, ent, global_route="none")[0] is allowed
 
@@ -1905,3 +1934,146 @@ def test_task_file_stream_stays_inside_the_tasks_own_directory(db, temp_pe32, te
     assert next(iter(stream("logs/a.log").streaming_content)) == b"OWN"  # it tails while the VM runs
     resp = stream(f"../{victim}/reports/report.json")
     assert not hasattr(resp, "streaming_content") and resp.data["error"] is True
+
+
+def test_wrapped_mongo_reads_keep_the_modules_result_hooks(monkeypatch):
+    # dev_utils.mongodb's originals run hooks[mongo_find][collection], looked up by the module
+    # global, which then names the wrapper: files-collection denormalization silently stopped.
+    import collections
+    import sys
+
+    from lib.tenancy import hooks
+
+    fake = types.ModuleType("fake_mongodb_hooks")
+    fake.hooks = collections.defaultdict(lambda: collections.defaultdict(list))
+
+    def mongo_find(collection, query, *a, **k):
+        result = [{"file_ref": "abc"}]
+        for hook in fake.hooks[fake.mongo_find][collection]:
+            result = hook(result)
+        return result
+
+    fake.mongo_find = mongo_find
+    fake.mongo_find_one = lambda *a, **k: None
+    fake.mongo_aggregate = lambda *a, **k: []
+    fake.hooks[mongo_find]["analysis"].append(lambda docs: [{"sha256": d["file_ref"]} for d in docs])
+    monkeypatch.setitem(sys.modules, "fake_mongodb_hooks", fake)
+    monkeypatch.setattr(hooks, "_patched_modules", set())
+    hooks.wrap_mongodb_module(fake)
+    assert fake.mongo_find("analysis", {}) == [{"sha256": "abc"}]
+
+
+def test_early_importers_of_top_detections_get_the_wrapper(monkeypatch):
+    import sys
+
+    from lib.tenancy.hooks import wrap_submission_and_web_utils
+
+    wu = types.ModuleType("fake_web_utils")
+    wu.top_detections = lambda: []
+    wu.top_asn = lambda: []
+    dashboard = types.ModuleType("fake_dashboard_views")
+    dashboard.top_detections = wu.top_detections
+    monkeypatch.setitem(sys.modules, "fake_dashboard_views", dashboard)
+    stub = types.SimpleNamespace()
+    wrap_submission_and_web_utils(tasking_cls=stub, machines_cls=stub, web_utils_mod=wu, submission_views_mod=stub)
+    assert dashboard.top_detections is wu.top_detections and getattr(wu.top_detections, "_cape_tenancy_wrapped", False)
+
+
+def test_recovery_redirects_are_checked_on_apiv2_and_only_to_existing_copies(db, temp_pe32, mt_enabled):
+    from lib.tenancy.middleware import default_recovery_target_resolver
+    from lib.tenancy.policy import ResourceScope
+
+    src = db.add_path(str(temp_pe32), user_id=8)
+    copy = db.add_path(str(temp_pe32), user_id=7)
+    with db.session.begin():
+        task = db.view_task(src)
+        task.status, task.custom = "recovered", f"Recovery_{copy}"
+    assert default_recovery_target_resolver(src) == copy
+    with db.session.begin():
+        db.view_task(src).custom = "Recovery_999999"  # the copy was deleted
+    assert default_recovery_target_resolver(src) is None
+
+    scopes = {1: ResourceScope(owner_id=8, tenant_id=2, visibility=PRIVATE), 2: ResourceScope(owner_id=7, tenant_id=1, visibility=PRIVATE)}
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: _viewer(8, 2), task_scope_resolver=scopes.get, recovery_target_resolver=lambda t: 2)
+
+    def report(request, task_id):
+        pass
+
+    assert _status(mw.process_view(_req("/analysis/1/"), report, (), {"task_id": 1})) is None  # serves task 1 itself
+    assert _status(mw.process_view(_req("/apiv2/tasks/get/report/1/"), report, (), {"task_id": 1})) == 404
+
+
+def test_the_middleware_resolves_machine_labels(monkeypatch):
+    viewer = _viewer(8, 2)
+    ent = _ent(allowed_machines=frozenset({"win10_alpha_*"}), forced_machine_tags=frozenset({"pool"}))
+    monkeypatch.setattr("lib.tenancy.middleware.machine_name_by_label", lambda db=None: {"i-0abc": "win10_alpha_1"}.get)
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: ent)
+
+    def tasks_create_url(request):
+        pass
+
+    for machine, status in (("i-0abc", None), ("i-0def", 403)):
+        req = types.SimpleNamespace(path="/apiv2/tasks/create/url/", method="POST", user=object(), viewer=viewer, entitlements=ent, POST={"url": "http://a", "machine": machine})
+        assert _status(mw.process_view(req, tasks_create_url, (), {})) == status
+
+
+def test_random_vpn_still_runs_when_the_default_route_is_not_allowed():
+    # The middleware must not resolve the omitted route to "none": download_file only runs
+    # random_vpn for an empty route, and the final add() check resolves what is left.
+    from lib.tenancy.resources import validate_and_normalize_submission
+
+    ent = _ent(allowed_routes=frozenset({"none", "vpn:vpn_uk"}))
+    ok, _, norm = validate_and_normalize_submission({}, ent, global_route="internet", resolve_omitted_route=False)
+    assert ok and "route" not in norm
+    ok, _, norm = validate_and_normalize_submission({}, ent, global_route="internet")
+    assert ok and norm["route"] == "none"
+
+
+def test_a_job_id_field_does_not_smuggle_a_recovery_custom():
+    from lib.tenancy.context import set_current_viewer
+    from lib.tenancy.hooks import _strip_untrusted_broker_job_id
+
+    set_current_viewer(_viewer(8, 2))
+    assert _strip_untrusted_broker_job_id("Recovery_5,job_id=x") == ""
+
+
+def test_dlnexec_through_a_permitted_tor_route_is_allowed():
+    viewer = _viewer(8, 2)
+    ent = _ent(allowed_routes=frozenset({"tor"}))
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: viewer, entitlements_resolver=lambda u: ent)
+
+    def tasks_create_dlnexec(request):
+        pass
+
+    req = types.SimpleNamespace(path="/apiv2/tasks/create/dlnexec/", method="POST", user=object(), viewer=viewer, entitlements=ent, POST={"dlnexec": "http://a/x.exe", "route": "tor"})
+    assert _status(mw.process_view(req, tasks_create_dlnexec, (), {})) is None
+
+
+def test_dotted_file_names_are_not_path_traversal():
+    def vtupload(request, **kw):
+        pass
+
+    mw = TenancyMiddleware(lambda r: None, viewer_resolver=lambda u: _viewer(8, 2), task_scope_resolver=lambda t: types.SimpleNamespace(owner_id=8, tenant_id=2, visibility=PRIVATE), recovery_target_resolver=lambda t: None)
+    kwargs = {"category": "dropped", "task_id": 1, "filename": "Rechnung_2024..pdf.exe", "dlfile": "y"}
+    assert _status(mw.process_view(_req("/vtupload/dropped/1/x/y/"), vtupload, (), kwargs)) is None
+    kwargs["filename"] = ".."
+    assert _status(mw.process_view(_req("/vtupload/dropped/1/x/y/"), vtupload, (), kwargs)) == 404
+
+
+def test_exitnodes_lists_only_permitted_routes(monkeypatch):
+    import apiv2.views as v
+    from rest_framework.test import APIRequestFactory, force_authenticate
+
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.context import set_current_entitlements
+    from lib.tenancy.hooks import default_route_list_filter
+
+    monkeypatch.setattr(core_hooks, "_route_filters", [default_route_list_filter])
+    monkeypatch.setattr(v, "apiconf", types.SimpleNamespace(list_exitnodes={"enabled": True}))
+    monkeypatch.setattr(v, "routing_conf", types.SimpleNamespace(tor=types.SimpleNamespace(enabled=True), inetsim=types.SimpleNamespace(enabled=True)))
+    monkeypatch.setattr(v, "vpns", {"vpn_uk": object()})
+    monkeypatch.setattr(v, "_load_socks5_operational", lambda: {"socks_nl": {}})
+    set_current_entitlements(_ent(allowed_routes=frozenset({"none", "inetsim"})))
+    req = APIRequestFactory().get("/apiv2/exitnodes/")
+    force_authenticate(req, user=types.SimpleNamespace(id=8, is_authenticated=True))
+    assert v.exit_nodes_list(req).data["data"] == ["inetsim"]

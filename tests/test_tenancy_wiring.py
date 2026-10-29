@@ -552,16 +552,19 @@ def test_visibility_toggle_on_task_without_acl_row_keeps_its_owner(monkeypatch):
     assert res.status_code == 200  # the owner can still take it back
 
 
-def test_visibility_endpoint_authenticates_like_the_api():
+@pytest.mark.parametrize("sso", [False, True])
+def test_visibility_endpoint_authenticates_like_the_api(sso):
     # The middleware serves /apiv2/tasks/visibility/ before URL routing, so neither DRF auth (API
     # keys) nor CsrfViewMiddleware ever ran: key holders got 404, session callers skipped CSRF.
+    # It must follow the /apiv2/ chain: key first, and no session at all under SSO.
     pytest.importorskip("django")
     pytest.importorskip("rest_framework")
     import os
     import subprocess
     import sys
 
-    script = """
+    script = f"SSO = {sso!r}\n"
+    script += """
 import json
 import django
 from django.conf import settings
@@ -569,7 +572,8 @@ settings.configure(
     INSTALLED_APPS=["django.contrib.auth", "django.contrib.contenttypes", "rest_framework"],
     DATABASES={"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}},
     DEFAULT_AUTO_FIELD="django.db.models.BigAutoField",
-    REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES": ["__main__.HeaderKeyAuth"]},
+    REST_FRAMEWORK={"DEFAULT_AUTHENTICATION_CLASSES": ["__main__.HeaderKeyAuth"] + (
+        [] if SSO else ["rest_framework.authentication.SessionAuthentication"])},
 )
 django.setup()
 import types
@@ -600,12 +604,22 @@ def call(req, user):
     req.viewer = resolve(AnonymousUser())  # what the middleware resolved before the view
     return views.tasks_set_visibility(req, 42, viewer_resolver=resolve, scope_loader=loader, mongo_update_one=mongo).status_code
 
+def session_user():
+    return types.SimpleNamespace(id=10, is_authenticated=True, is_active=True, is_superuser=False)
+
+def with_csrf(req):
+    req.COOKIES["csrftoken"] = "a" * 32
+    req.META["HTTP_X_CSRFTOKEN"] = "a" * 32
+    return req
+
 rf = RequestFactory()
 out = {
     "api_key": call(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}, HTTP_AUTHORIZATION="Token good"), AnonymousUser()),
     "bad_key": call(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}, HTTP_AUTHORIZATION="Token nope"), AnonymousUser()),
-    "session_no_csrf": call(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}),
-                            types.SimpleNamespace(id=10, is_authenticated=True, is_superuser=False)),
+    "session_no_csrf": call(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}), session_user()),
+    "session_csrf": call(with_csrf(rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"})), session_user()),
+    "key_and_session_no_csrf": call(
+        rf.post("/apiv2/tasks/visibility/42/", {"visibility": "public"}, HTTP_AUTHORIZATION="Token good"), session_user()),
 }
 print(json.dumps(out))
 """
@@ -614,27 +628,31 @@ print(json.dumps(out))
     assert res.returncode == 0, f"STDOUT: {res.stdout}\nSTDERR: {res.stderr}"
     import json
 
-    assert json.loads(res.stdout.strip().splitlines()[-1]) == {"api_key": 200, "bad_key": 403, "session_no_csrf": 403}
+    assert json.loads(res.stdout.strip().splitlines()[-1]) == {
+        "api_key": 200,
+        "bad_key": 403,
+        # Under SSO the cookie authenticates nobody: the caller is anonymous and the private task hidden.
+        "session_no_csrf": 404 if sso else 403,
+        "session_csrf": 404 if sso else 200,
+        "key_and_session_no_csrf": 200,
+    }
 
 
-@pytest.mark.parametrize("source_acl", [True, False])
-def test_reschedule_copy_inherits_the_source_task_scope(monkeypatch, source_acl):
-    # Reschedule (API, and init_tasks at scheduler start) re-adds the task outside any submission,
-    # so the new row took the deployment default -- public in "shared" mode -- and a private
-    # analysis came back public.
+def _reschedule_rig(monkeypatch, *, acl_table=True, source_acl=False):
+    """A shared-mode tasking class wrapped by the hooks, on CAPE's scoped session + `safe_begin`."""
     import contextlib
 
     import sqlalchemy as sa
     from sqlalchemy.orm import scoped_session, sessionmaker
 
-    from lib.tenancy.acl import resolve_task_scope
     from lib.tenancy.hooks import wrap_submission_and_web_utils
 
     cfg = lambda: policy.MTConfig(enabled=True, mode="shared", default_visibility="", local_admins_manage_all_tenants=True)  # noqa: E731
     monkeypatch.setattr("lib.tenancy.hooks.multitenancy_config", cfg)
     monkeypatch.setattr("lib.tenancy.policy.multitenancy_config", cfg)
     engine = sa.create_engine("sqlite://")
-    ensure_acl_schema(engine)
+    if acl_table:
+        ensure_acl_schema(engine)
     session = scoped_session(sessionmaker(bind=engine, expire_on_commit=False, future=True))
     plain_begin = session.begin
 
@@ -653,6 +671,8 @@ def test_reschedule_copy_inherits_the_source_task_scope(monkeypatch, source_acl)
             set_task_acl(session, 10, user_id=7, tenant_id=3, visibility=PRIVATE)
 
     class DummyTasking:
+        added_user_ids = []
+
         def __init__(self, sess):
             self.session = sess
 
@@ -660,6 +680,7 @@ def test_reschedule_copy_inherits_the_source_task_scope(monkeypatch, source_acl)
             return types.SimpleNamespace(id=task_id, user_id=7)
 
         def add(self, obj, user_id=0, **kwargs):
+            DummyTasking.added_user_ids.append(user_id)
             with self.session.begin():  # as TasksMixIn.add does
                 pass
             return 11
@@ -667,10 +688,78 @@ def test_reschedule_copy_inherits_the_source_task_scope(monkeypatch, source_acl)
         def reschedule(self, task_id):
             self.view_task(task_id)
             self.session.execute(sa.text("SELECT 1"))  # the real one reads the task first
-            return self.add("target")
+            return self.add("target")  # and passes no user_id
 
     wrap_submission_and_web_utils(tasking_cls=DummyTasking)
-    assert DummyTasking(session).reschedule(10) == 11
+    return session, DummyTasking
+
+
+@pytest.mark.parametrize("source_acl", [True, False])
+def test_reschedule_copy_inherits_the_source_task_scope(monkeypatch, source_acl):
+    # Reschedule (API, and init_tasks at scheduler start) re-adds the task outside any submission,
+    # so the new row took the deployment default -- public in "shared" mode -- and a private
+    # analysis came back public.
+    from lib.tenancy.acl import resolve_task_scope
+
+    session, tasking = _reschedule_rig(monkeypatch, source_acl=source_acl)
+    assert tasking(session).reschedule(10) == 11
     scope = resolve_task_scope(session, 11)
     assert (scope.owner_id, scope.visibility) == (7, PRIVATE)
     assert scope.tenant_id == (3 if source_acl else None)
+    # tasks.user_id too: user bans and per-user listings still key on it.
+    assert tasking.added_user_ids == [7]
+
+
+def test_reschedule_before_the_acl_table_exists_keeps_the_copy_owner_only(monkeypatch):
+    # init_tasks reschedules at scheduler start, possibly before anything created task_acl.
+    from lib.tenancy.acl import resolve_task_scope
+
+    session, tasking = _reschedule_rig(monkeypatch, acl_table=False)
+    assert tasking(session).reschedule(10) == 11
+    scope = resolve_task_scope(session, 11)
+    assert (scope.owner_id, scope.visibility) == (7, PRIVATE)
+
+
+def test_reschedule_fails_closed_when_the_source_scope_is_unreadable(monkeypatch):
+    from lib.tenancy.acl import resolve_task_scope
+
+    session, tasking = _reschedule_rig(monkeypatch)
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("transient")
+
+    monkeypatch.setattr("lib.tenancy.hooks.resolve_task_scope", _boom)
+    assert tasking(session).reschedule(10) == 11
+    scope = resolve_task_scope(session, 11)
+    assert (scope.owner_id, scope.visibility) == (7, PRIVATE)
+
+
+def test_task_copy_scope_hook_makes_refetched_copies_inherit(monkeypatch):
+    # gcs_refetch_banned re-adds banned tasks through submit_file, outside any submission.
+    from lib.cuckoo.common import hooks as core_hooks
+    from lib.tenancy.acl import resolve_task_scope
+    from lib.tenancy.hooks import inherit_task_scope, register_core_hooks
+
+    session, tasking = _reschedule_rig(monkeypatch, source_acl=True)
+    db = tasking(session)
+    core_hooks.clear_all_hooks()
+    with core_hooks.task_copy_scope(db, 10):
+        assert db.add("target") == 11  # no-op context without the tenancy hook
+    assert "register_task_copy_scope_hook(inherit_task_scope)" in __import__("inspect").getsource(register_core_hooks)
+    try:
+        core_hooks.register_task_copy_scope_hook(inherit_task_scope)
+        with core_hooks.task_copy_scope(db, 10):
+            assert db.add("target") == 11
+    finally:
+        core_hooks.clear_all_hooks()
+    scope = resolve_task_scope(session, 11)
+    assert (scope.owner_id, scope.tenant_id, scope.visibility) == (7, 3, PRIVATE)
+
+
+def test_gcs_refetch_banned_adds_copies_inside_the_task_copy_scope():
+    import inspect as _inspect
+
+    from lib.cuckoo.common import gcp
+
+    src = _inspect.getsource(gcp.gcs_refetch_banned)
+    assert 'task_copy_scope(db, task["id"])' in src

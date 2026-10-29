@@ -5,8 +5,9 @@ All hooks are zero-overhead no-ops when no external plugin is installed.
 
 from __future__ import annotations
 
+import contextlib
 import logging
-from typing import Any, Callable, MutableMapping, Optional
+from typing import Any, Callable, ContextManager, MutableMapping, Optional
 
 MongoFilterHook = Callable[[str, dict[str, Any]], dict[str, Any]]
 SqlTaskFilterHook = Callable[[Any], Any]
@@ -17,6 +18,7 @@ TagFilterHook = Callable[[list[Any]], list[Any]]
 RouteFilterHook = Callable[[list[Any], str | None], list[Any]]
 SubmissionContextFilterHook = Callable[[MutableMapping[str, Any]], MutableMapping[str, Any]]
 LoginGroupsHook = Callable[[Any, set], None]
+TaskCopyScopeHook = Callable[[Any, int], ContextManager[Any]]
 
 _mongo_filters: list[MongoFilterHook] = []
 _sql_task_filters: list[SqlTaskFilterHook] = []
@@ -27,6 +29,7 @@ _tag_filters: list[TagFilterHook] = []
 _route_filters: list[RouteFilterHook] = []
 _submission_context_filters: list[SubmissionContextFilterHook] = []
 _login_groups_hooks: list[LoginGroupsHook] = []
+_task_copy_scope_hooks: list[TaskCopyScopeHook] = []
 
 
 def register_mongo_filter(fn: MongoFilterHook) -> None:
@@ -104,6 +107,20 @@ def run_login_groups_hooks(user: Any, idp_groups: set) -> None:
         fn(user, idp_groups)
 
 
+def register_task_copy_scope_hook(fn: TaskCopyScopeHook) -> None:
+    if fn not in _task_copy_scope_hooks:
+        _task_copy_scope_hooks.append(fn)
+
+
+@contextlib.contextmanager
+def task_copy_scope(db: Any, source_task_id: int):
+    """Wrap re-adding an existing task (reschedule, refetch) so plugins can carry its ownership over."""
+    with contextlib.ExitStack() as stack:
+        for fn in _task_copy_scope_hooks:
+            stack.enter_context(fn(db, source_task_id))
+        yield
+
+
 def run_report_hooks(results: dict[str, Any]) -> None:
     for fn in _report_hooks:
         fn(results)
@@ -155,6 +172,7 @@ def clear_all_hooks() -> None:
     _route_filters.clear()
     _submission_context_filters.clear()
     _login_groups_hooks.clear()
+    _task_copy_scope_hooks.clear()
 
 
 # --- Plugin activation -------------------------------------------------------------------------
